@@ -31,7 +31,6 @@ import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.Utils
 
-
 class FiberSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
   private var file: File = null
   val conf: Configuration = new Configuration()

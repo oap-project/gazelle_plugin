@@ -29,7 +29,6 @@ import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 import org.apache.spark.util.Utils
 
-
 class DataSourceMetaSuite extends SharedSQLContext with BeforeAndAfter {
   import testImplicits._
   private var tmpDir: File = null

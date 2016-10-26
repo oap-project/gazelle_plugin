@@ -19,15 +19,13 @@ package org.apache.spark.sql.execution.datasources.spinach
 
 import java.net.URI
 
+import scala.annotation.meta.param
+
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.FileSystem
-import org.apache.hadoop.fs.FSDataOutputStream
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.mapreduce.Job
-import org.apache.hadoop.mapreduce.TaskAttemptContext
+import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
+import org.apache.hadoop.mapreduce.{Job, TaskAttemptContext}
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
-import org.apache.parquet.hadoop.util.ContextUtil
-import org.apache.parquet.hadoop.util.SerializationUtil
+import org.apache.parquet.hadoop.util.{ContextUtil, SerializationUtil}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
@@ -35,6 +33,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.JoinedRow
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateUnsafeProjection
 import org.apache.spark.sql.execution.datasources._
+import org.apache.spark.sql.execution.datasources.spinach.utils.SpinachUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
@@ -55,24 +54,18 @@ private[sql] class SpinachFileFormat extends FileFormat
     // TODO
     // 1. Make the scanning etc. as lazy loading, as inferSchema probably not be called
     // 2. We need to pass down the spinach meta file and its associated partition path
-    val partition2Meta = catalog.allFiles().map(_.getPath.getParent).map { parent =>
-      (parent, new Path(parent, SpinachFileFormat.SPINACH_META_FILE))
-    }
-      .filter(pair => pair._2.getFileSystem(hadoopConf).exists(pair._2))
-      .toMap
 
-    // TODO we dont support partition for now
-    val meta = partition2Meta.values.headOption.map {
-      DataSourceMeta.initialize(_, hadoopConf)
-    }
-    SpinachFileFormat.serializeDataSourceMeta(hadoopConf, meta)
+    val meta = SpinachUtils.getMeta(hadoopConf, catalog)
+    // SpinachFileFormat.serializeDataSourceMeta(hadoopConf, meta)
     inferSchema = meta.map(_.schema)
+    fc = fileCatalog
 
     this
   }
 
   // TODO inferSchema could be lazy computed
   var inferSchema: Option[StructType] = _
+  var fc: FileCatalog = _
 
   override def prepareWrite(
     sparkSession: SparkSession,
@@ -89,6 +82,9 @@ private[sql] class SpinachFileFormat extends FileFormat
 
   override def shortName(): String = "spn"
 
+  /**
+   * Returns whether the reader will return the rows as batch or not.
+   */
   override def supportBatch(sparkSession: SparkSession, schema: StructType): Boolean = {
     // TODO we should naturelly support batch
     false
@@ -122,7 +118,8 @@ private[sql] class SpinachFileFormat extends FileFormat
       options: Map[String, String],
       hadoopConf: Configuration): PartitionedFile => Iterator[InternalRow] = {
     // TODO we need to pass the extra data source meta information via the func parameter
-    SpinachFileFormat.deserializeDataSourceMeta(hadoopConf) match {
+    // SpinachFileFormat.deserializeDataSourceMeta(hadoopConf) match {
+    SpinachUtils.getMeta(hadoopConf, fc) match {
       case Some(meta) =>
         val ic = new IndexContext(meta)
         BPlusTreeSearch.build(filters.toArray, ic)

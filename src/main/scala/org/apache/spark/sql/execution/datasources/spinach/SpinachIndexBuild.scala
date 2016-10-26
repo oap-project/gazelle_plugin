@@ -26,20 +26,20 @@ import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.execution.datasources.spinach.utils.IndexUtils
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.util.SerializableConfiguration
 
 private[spinach] case class SpinachIndexBuild(
-    sqlContext: SQLContext,
+    sparkSession: SparkSession,
     indexName: String,
     indexColumns: Array[IndexColumn],
     schema: StructType,
-    paths: Array[String]) extends Logging {
+    @transient paths: Array[Path]) extends Logging {
   @transient private lazy val ids =
     indexColumns.map(c => schema.map(_.name).toIndexedSeq.indexOf(c.columnName))
   @transient private lazy val keySchema = StructType(ids.map(schema.toIndexedSeq(_)))
@@ -48,9 +48,8 @@ private[spinach] case class SpinachIndexBuild(
       // the input path probably be pruned, do nothing
     } else {
       // TODO use internal scan
-      val path = paths(0)
-      @transient val p = new Path(path)
-      @transient val fs = p.getFileSystem(sqlContext.sparkContext.hadoopConfiguration)
+      @transient val p = paths(0)
+      @transient val fs = p.getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
       @transient val fileIter = fs.listFiles(p, true)
       @transient val dataPaths = new Iterator[Path] {
         override def hasNext: Boolean = fileIter.hasNext
@@ -61,10 +60,10 @@ private[spinach] case class SpinachIndexBuild(
       assert(!ids.exists(id => id < 0), "Index column not exists in schema.")
       @transient lazy val ordering = buildOrdering(ids, keySchema)
       val serializableConfiguration =
-        new SerializableConfiguration(sqlContext.sparkContext.hadoopConfiguration)
-      val confBroadcast = sqlContext.sparkContext.broadcast(serializableConfiguration)
+        new SerializableConfiguration(sparkSession.sparkContext.hadoopConfiguration)
+      val confBroadcast = sparkSession.sparkContext.broadcast(serializableConfiguration)
       val num = dataPaths.length
-      sqlContext.sparkContext.parallelize(data, num).map(dataString => {
+      sparkSession.sparkContext.parallelize(data, num).map(dataString => {
       // data.foreach(dataString => {
         val d = new Path(dataString)
         // scan every data file
@@ -142,7 +141,7 @@ private[spinach] case class SpinachIndexBuild(
         indexFile.toString
       }).collect()
     }
-    sqlContext.sparkContext.emptyRDD[InternalRow]
+    sparkSession.sparkContext.emptyRDD[InternalRow]
   }
 
   private def buildOrdering(

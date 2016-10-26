@@ -26,7 +26,6 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.collection.BitSet
 
-
 class FiberCacheManagerSuite extends SparkFunSuite with Logging {
 
   test("test getting right status") {
