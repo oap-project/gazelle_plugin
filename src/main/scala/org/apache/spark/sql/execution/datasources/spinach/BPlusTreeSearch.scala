@@ -115,7 +115,7 @@ private[spinach] case class UnsafeIndexNode(
     val len = Platform.getInt(baseObj, baseOffset + keyOffset)
     // TODO use one unsafeRow
     val row = new UnsafeRow(schema.length)
-    row.pointTo(baseObj, baseOffset + keyOffset + 4 + schema.length, len)
+    row.pointTo(baseObj, baseOffset + keyOffset + 4, len)
     row
   }
 
