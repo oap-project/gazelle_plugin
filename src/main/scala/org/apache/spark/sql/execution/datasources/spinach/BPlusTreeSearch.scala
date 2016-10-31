@@ -113,8 +113,9 @@ private[spinach] case class UnsafeIndexNode(
   override def keyAt(idx: Int): Key = {
     val keyOffset = Platform.getInt(baseObj, baseOffset + offset + 8 + idx * 8)
     val len = Platform.getInt(baseObj, baseOffset + keyOffset)
-    // TODO use one unsafeRow
-    val row = new UnsafeRow(schema.length)
+    // val row = new UnsafeRow(schema.length) // this is for debug use
+    val row = UnsafeIndexNode.row
+    row.setNumFields(schema.length)
     row.pointTo(baseObj, baseOffset + keyOffset + 4, len)
     row
   }
@@ -150,7 +151,6 @@ private[spinach] case class UnsafeIndexNode(
 }
 
 private[spinach] object UnsafeIndexNode {
-  // TODO use this to replace UnsafeIndexNode's UnsafeRow creation
   val row = new UnsafeRow
 }
 
