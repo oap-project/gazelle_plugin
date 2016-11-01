@@ -108,7 +108,8 @@ private[spinach] case class SpinachIndexBuild(
         val indexFile = new Path(
           IndexUtils.indexFileNameFromDataFileName(dataFilePathString, indexName))
         val fs = indexFile.getFileSystem(hadoopConf)
-        val fileOut = fs.create(indexFile, false)
+        // we are overwriting index files
+        val fileOut = fs.create(indexFile, true)
         var i = 0
         var fileOffset = 0
         val offsetMap = new java.util.HashMap[InternalRow, Int]()

@@ -145,13 +145,13 @@ class DataSourceMetaSuite extends SharedSQLContext with BeforeAndAfter {
 
     assert(spinachMeta.schema === df.schema)
 
-    sql("create index index1 on spnt1 (a) using btree")
-    sql("create index index2 on spnt1 (a asc)") // dup as index1, still creating
-    sql("create index index3 on spnt1 (a desc)")
-    sql("create index if not exists index3 on spnt1 (a desc)") // not creating
-    sql("drop index index2") // dropping
-    sql("drop index if exists index5") // not dropping
-    sql("drop index if exists index2") // not dropping
+    sql("create sindex index1 on spnt1 (a)")
+    sql("create sindex index2 on spnt1 (a asc)") // dup as index1, still creating
+    sql("create sindex index3 on spnt1 (a desc)")
+    sql("create sindex if not exists index3 on spnt1 (a desc)") // not creating
+    sql("drop sindex index2 on spnt1") // dropping
+    sql("drop sindex if exists index5 on spnt1") // not dropping
+    sql("drop sindex if exists index2 on spnt1") // not dropping
 
     val spinachMeta2 = DataSourceMeta.initialize(path, new Configuration())
     val fileHeader2 = spinachMeta2.fileHeader
