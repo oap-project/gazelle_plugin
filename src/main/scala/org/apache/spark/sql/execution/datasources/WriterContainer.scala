@@ -84,7 +84,7 @@ private[sql] abstract class BaseWriterContainer(
 
   private var outputFormatClass: Class[_ <: OutputFormat[_, _]] = _
 
-  def writeRows(taskContext: TaskContext, iterator: Iterator[InternalRow]): WriteResult
+  def writeRows(taskContext: TaskContext, iterator: Iterator[InternalRow]): Seq[WriteResult]
 
   def driverSideSetup(): Unit = {
     setupIDs(0, 0, 0)
@@ -241,22 +241,22 @@ private[sql] class DefaultWriterContainer(
     isAppend: Boolean)
   extends BaseWriterContainer(relation, job, isAppend) {
 
-  def writeRows(taskContext: TaskContext, iterator: Iterator[InternalRow]): WriteResult = {
+  def writeRows(taskContext: TaskContext, iterator: Iterator[InternalRow]): Seq[WriteResult] = {
     executorSideSetup(taskContext)
     val configuration = taskAttemptContext.getConfiguration
     configuration.set(DATASOURCE_OUTPUTPATH, outputPath)
     var writer = newOutputWriter(getWorkPath)
     writer.initConverter(dataSchema)
 
-    def commitTask(): WriteResult = {
+    def commitTask(): Seq[WriteResult] = {
       try {
-        var writeResult: WriteResult = null
+        var writeResults: Seq[WriteResult] = Nil
         if (writer != null) {
-          writeResult = writer.close()
+          writeResults = writeResults :+ writer.close()
           writer = null
         }
         super.commitTask()
-        writeResult
+        writeResults
       } catch {
         case cause: Throwable =>
           // This exception will be handled in `InsertIntoHadoopFsRelation.insert$writeRows`, and
@@ -352,8 +352,10 @@ private[sql] class DynamicPartitionWriterContainer(
       key: InternalRow,
       getPartitionString: UnsafeProjection): OutputWriter = {
     val configuration = taskAttemptContext.getConfiguration
+    var ps: String = ""
     val path = if (partitionColumns.nonEmpty) {
       val partitionPath = getPartitionString(key).getString(0)
+      ps = partitionPath
       configuration.set(DATASOURCE_OUTPUTPATH, new Path(outputPath, partitionPath).toString)
       new Path(getWorkPath, partitionPath).toString
     } else {
@@ -363,10 +365,11 @@ private[sql] class DynamicPartitionWriterContainer(
     val bucketId = getBucketIdFromKey(key)
     val newWriter = super.newOutputWriter(path, bucketId)
     newWriter.initConverter(dataSchema)
+    newWriter.setPartitionString(ps)
     newWriter
   }
 
-  def writeRows(taskContext: TaskContext, iterator: Iterator[InternalRow]): WriteResult = {
+  def writeRows(taskContext: TaskContext, iterator: Iterator[InternalRow]): Seq[WriteResult] = {
     executorSideSetup(taskContext)
 
     // We should first sort by partition columns, then bucket id, and finally sorting columns.
@@ -416,13 +419,14 @@ private[sql] class DynamicPartitionWriterContainer(
     // If anything below fails, we should abort the task.
     var currentWriter: OutputWriter = null
     try {
+      var writeResults: Seq[WriteResult] = Nil
       Utils.tryWithSafeFinallyAndFailureCallbacks {
         var currentKey: UnsafeRow = null
         while (sortedIterator.next()) {
           val nextKey = getBucketingKey(sortedIterator.getKey).asInstanceOf[UnsafeRow]
           if (currentKey != nextKey) {
             if (currentWriter != null) {
-              currentWriter.close()
+              writeResults = writeResults :+ currentWriter.close()
               currentWriter = null
             }
             currentKey = nextKey.copy()
@@ -432,14 +436,13 @@ private[sql] class DynamicPartitionWriterContainer(
           }
           currentWriter.writeInternal(sortedIterator.getValue)
         }
-        var writeResult: WriteResult = null
         if (currentWriter != null) {
-          writeResult = currentWriter.close()
+          writeResults = writeResults :+ currentWriter.close()
           currentWriter = null
         }
 
         commitTask()
-        writeResult
+        writeResults
       }(catchBlock = {
         if (currentWriter != null) {
           currentWriter.close()

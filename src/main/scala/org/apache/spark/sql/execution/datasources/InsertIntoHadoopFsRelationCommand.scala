@@ -141,7 +141,7 @@ private[sql] case class InsertIntoHadoopFsRelationCommand(
         try {
           val results =
             sparkSession.sparkContext.runJob(queryExecution.toRdd, writerContainer.writeRows _)
-          writerContainer.commitJob(results)
+          writerContainer.commitJob(results.flatten)
           refreshFunction()
         } catch { case cause: Throwable =>
           logError("Aborting job.", cause)

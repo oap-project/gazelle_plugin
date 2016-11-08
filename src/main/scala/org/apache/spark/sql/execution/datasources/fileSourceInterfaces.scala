@@ -125,6 +125,10 @@ abstract class OutputWriter {
   protected[sql] def writeInternal(row: InternalRow): Unit = {
     write(converter(row))
   }
+
+  protected[sql] def setPartitionString(ps: String): Unit = {
+    // do nothing
+  }
 }
 
 /**

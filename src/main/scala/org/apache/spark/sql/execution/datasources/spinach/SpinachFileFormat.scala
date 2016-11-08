@@ -19,8 +19,6 @@ package org.apache.spark.sql.execution.datasources.spinach
 
 import java.net.URI
 
-import scala.annotation.meta.param
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
 import org.apache.hadoop.mapreduce.{Job, TaskAttemptContext}
@@ -185,21 +183,34 @@ private[spinach] class SpinachOutputWriterFactory(
 
     val builder = DataSourceMeta.newBuilder()
       .withNewDataReaderClassName(SpinachFileFormat.SPINACH_DATA_FILE_CLASSNAME)
-    taskResults.foreach {
+    val conf = job.getConfiguration
+    val partitionMeta = taskResults.map {
       // The file fingerprint is not used at the moment.
-      case s: SpinachWriteResult => builder.addFileMeta(FileMeta("", s.rowsWritten, s.fileName))
+      case s: SpinachWriteResult =>
+        builder.addFileMeta(FileMeta("", s.rowsWritten, s.fileName))
+        (s.partitionString, (s.fileName, s.rowsWritten))
       case _ => throw new SpinachException("Unexpected Spinach write result.")
+    }.groupBy(_._1)
+    if (partitionMeta.nonEmpty && partitionMeta.head._1 != "") {
+      partitionMeta.foreach(p => {
+        val partBuilder = DataSourceMeta.newBuilder().withNewSchema(dataSchema)
+        p._2.foreach(m => partBuilder.addFileMeta(FileMeta("", m._2._2, m._2._1)))
+        val partMetaPath = new Path(
+          new Path(outputRoot, p._1), SpinachFileFormat.SPINACH_META_FILE)
+        DataSourceMeta.write(partMetaPath, conf, partBuilder.build())
+      })
     }
 
     val spinachMeta = builder.withNewSchema(dataSchema).build()
-    DataSourceMeta.write(path, job.getConfiguration, spinachMeta)
+    DataSourceMeta.write(path, conf, spinachMeta)
 
     super.commitJob(taskResults)
   }
 }
 
 
-private[spinach] case class SpinachWriteResult(fileName: String, rowsWritten: Int)
+private[spinach] case class SpinachWriteResult(
+    fileName: String, rowsWritten: Int, partitionString: String)
 
 private[spinach] class SpinachOutputWriter(
                                             path: String,
@@ -207,6 +218,10 @@ private[spinach] class SpinachOutputWriter(
                                             context: TaskAttemptContext,
                                             sc: SerializableConfiguration) extends OutputWriter {
   private var rowCount = 0
+  private var partitionString: String = ""
+  override def setPartitionString(ps: String): Unit = {
+    partitionString = ps
+  }
   private val writer: SpinachDataWriter = {
     val isCompressed: Boolean = FileOutputFormat.getCompressOutput(context)
     val file: Path = new Path(path, getFileName(SpinachFileFormat.SPINACH_DATA_EXTENSION))
@@ -224,7 +239,7 @@ private[spinach] class SpinachOutputWriter(
 
   override def close(): WriteResult = {
     writer.close()
-    SpinachWriteResult(dataFileName, rowCount)
+    SpinachWriteResult(dataFileName, rowCount, partitionString)
   }
 
   private def getFileName(extension: String): String = {
