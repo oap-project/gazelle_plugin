@@ -36,6 +36,20 @@ class IndexUtilsSuite extends SparkFunSuite with Logging {
     assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + 4) == 4321)
   }
 
+  test("write long to unsafe") {
+    val buf = new ByteArrayOutputStream(8)
+    val out = new DataOutputStream(buf)
+    IndexUtils.writeLong(out, -19)
+    IndexUtils.writeLong(out, 4321)
+    IndexUtils.writeLong(out, 43210912381723L)
+    IndexUtils.writeLong(out, -99128917321912L)
+    val bytes = buf.toByteArray
+    assert(Platform.getLong(bytes, Platform.BYTE_ARRAY_OFFSET) == -19)
+    assert(Platform.getLong(bytes, Platform.BYTE_ARRAY_OFFSET + 8) == 4321)
+    assert(Platform.getLong(bytes, Platform.BYTE_ARRAY_OFFSET + 16) == 43210912381723L)
+    assert(Platform.getLong(bytes, Platform.BYTE_ARRAY_OFFSET + 24) == -99128917321912L)
+  }
+
   test("index path generating") {
     assertEquals("/path/to/.t1.index1.index",
       IndexUtils.indexFileNameFromDataFileName("/path/to/t1.data", "index1"))

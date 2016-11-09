@@ -81,7 +81,7 @@ private[spinach] case class SpinachDataFile(path: String, schema: StructType) ex
   }
 
   // scan by given row ids, and we assume the rowIds are sorted
-  def iterator(conf: Configuration, requiredIds: Array[Int], rowIds: Array[Int])
+  def iterator(conf: Configuration, requiredIds: Array[Int], rowIds: Array[Long])
   : Iterator[InternalRow] = {
     val meta: DataFileMeta = DataFileHandleCacheManager(this, conf)
     val row = new BatchColumn()
@@ -89,8 +89,8 @@ private[spinach] case class SpinachDataFile(path: String, schema: StructType) ex
     var lastGroupId = -1
     (0 until rowIds.length).iterator.map { idx =>
       val rowId = rowIds(idx)
-      val groupId = (rowId + 1) / meta.rowCountInEachGroup
-      val rowIdxInGroup = rowId % meta.rowCountInEachGroup
+      val groupId = ((rowId + 1) / meta.rowCountInEachGroup).toInt
+      val rowIdxInGroup = (rowId % meta.rowCountInEachGroup).toInt
 
       if (lastGroupId != groupId) {
         // if we move to another row group, or the first row group

@@ -76,13 +76,13 @@ private[spinach] case class SpinachIndexBuild(
         val reader = new SpinachDataReader(d, meta, None, ids)
         val hadoopConf = confBroadcast.value.value
         val it = reader.initialize(confBroadcast.value.value)
-        // TODO maybe use Long as RowId?
-        val hashMap = new java.util.HashMap[InternalRow, java.util.ArrayList[Int]]()
-        var cnt = 0
+        // key -> RowIDs list
+        val hashMap = new java.util.HashMap[InternalRow, java.util.ArrayList[Long]]()
+        var cnt = 0L
         while (it.hasNext) {
           val v = it.next().copy()
           if (!hashMap.containsKey(v)) {
-            val list = new java.util.ArrayList[Int]()
+            val list = new java.util.ArrayList[Long]()
             list.add(cnt)
             hashMap.put(v, list)
           } else {
@@ -117,19 +117,21 @@ private[spinach] case class SpinachIndexBuild(
         // we are overwriting index files
         val fileOut = fs.create(indexFile, true)
         var i = 0
-        var fileOffset = 0
-        val offsetMap = new java.util.HashMap[InternalRow, Int]()
+        var fileOffset = 0L
+        val offsetMap = new java.util.HashMap[InternalRow, Long]()
         // write data segment.
         while (i < partitionUniqueSize) {
           offsetMap.put(uniqueKeys(i), fileOffset)
           val rowIds = hashMap.get(uniqueKeys(i))
           // row count for same key
           IndexUtils.writeInt(fileOut, rowIds.size())
+          // 4 -> value1, stores rowIds count.
           fileOffset = fileOffset + 4
           var idIter = 0
           while (idIter < rowIds.size()) {
-            IndexUtils.writeInt(fileOut, rowIds.get(idIter))
-            fileOffset = fileOffset + 4
+            IndexUtils.writeLong(fileOut, rowIds.get(idIter))
+            // 8 -> value2, stores a row id
+            fileOffset = fileOffset + 8
             idIter = idIter + 1
           }
           i = i + 1
@@ -142,8 +144,8 @@ private[spinach] case class SpinachIndexBuild(
         uniqueKeysList.addAll(uniqueKeys.toSeq.asJava)
         writeTreeToOut(treeShape, fileOut, offsetMap, fileOffset, uniqueKeysList, keySchema, 0, -1)
         assert(uniqueKeysList.size == 1)
-        IndexUtils.writeInt(fileOut, dataEnd)
-        IndexUtils.writeInt(fileOut, offsetMap.get(uniqueKeysList.getFirst))
+        IndexUtils.writeLong(fileOut, dataEnd)
+        IndexUtils.writeLong(fileOut, offsetMap.get(uniqueKeysList.getFirst))
         fileOut.close()
         indexFile.toString
       }).collect()
@@ -162,13 +164,13 @@ private[spinach] case class SpinachIndexBuild(
   private def writeTreeToOut(
       tree: BTreeNode,
       out: FSDataOutputStream,
-      map: java.util.HashMap[InternalRow, Int],
-      fileOffset: Int,
+      map: java.util.HashMap[InternalRow, Long],
+      fileOffset: Long,
       keysList: java.util.LinkedList[InternalRow],
       keySchema: StructType,
       listOffsetFromEnd: Int,
-      nextOffset: Int): (Int, Int) = {
-    var subOffset = 0
+      nextOffset: Long): (Long, Long) = {
+    var subOffset = 0L
     if (tree.children.nonEmpty) {
       // this is a non-leaf node
       // Need to write down all subtrees
@@ -188,29 +190,31 @@ private[spinach] case class SpinachIndexBuild(
         subOffset += writeOffset
       }
     }
-    (subOffset + writeIndexNode2(
+    (subOffset + writeIndexNode(
       tree, out, map, keysList, listOffsetFromEnd, nextOffset, subOffset + fileOffset), subOffset)
   }
 
   @transient private lazy val converter = UnsafeProjection.create(keySchema)
 
   /**
-   * write file correspond to UnsafeIndexNode22
+   * write file correspond to [[UnsafeIndexNode]]
    */
-  private def writeIndexNode2(
+  private def writeIndexNode(
       tree: BTreeNode,
       out: FSDataOutputStream,
-      map: java.util.HashMap[InternalRow, Int],
+      map: java.util.HashMap[InternalRow, Long],
       keysList: java.util.LinkedList[InternalRow],
       listOffsetFromEnd: Int,
-      nextOffset: Int,
-      updateOffset: Int): Int = {
+      nextOffset: Long,
+      updateOffset: Long): Long = {
     var subOffset = 0
     // write road sign count on every node first
     IndexUtils.writeInt(out, tree.root)
+    // 4 -> value3, stores tree branch count
     subOffset = subOffset + 4
-    IndexUtils.writeInt(out, nextOffset)
-    subOffset = subOffset + 4
+    IndexUtils.writeLong(out, nextOffset)
+    // 8 -> value4, stores next offset
+    subOffset = subOffset + 8
     // For all IndexNode, write down all road sign, each pointing to specific data segment
     val start = keysList.size - listOffsetFromEnd - tree.root
     val end = keysList.size - listOffsetFromEnd
@@ -218,14 +222,16 @@ private[spinach] case class SpinachIndexBuild(
     val keyBuf = new ByteArrayOutputStream()
     // offset0 pointer0, offset1 pointer1, ..., offset(n-1) pointer(n-1),
     // len0 key0, len1 key1, ..., len(n-1) key(n-1)
-    val baseOffset = updateOffset + subOffset + tree.root * 8
+    // 16 <- value5
+    val baseOffset = updateOffset + subOffset + tree.root * 16
     var i = 0
     while (i < tree.root) {
       val writeKey = writeList(i)
-      IndexUtils.writeInt(out, baseOffset + keyBuf.size)
+      IndexUtils.writeLong(out, baseOffset + keyBuf.size)
       // assert(map.containsKey(writeList(i)))
-      IndexUtils.writeInt(out, map.get(writeKey))
-      subOffset += 8
+      IndexUtils.writeLong(out, map.get(writeKey))
+      // 16 -> value5, stores 2 long values, key offset and child offset
+      subOffset += 16
       val writeRow = converter.apply(writeKey)
       IndexUtils.writeInt(keyBuf, writeRow.getSizeInBytes)
       writeRow.writeToStream(keyBuf, null)

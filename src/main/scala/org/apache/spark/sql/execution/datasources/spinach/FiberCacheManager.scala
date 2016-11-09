@@ -161,7 +161,7 @@ abstract class DataFile {
 
   def getFiberData(groupId: Int, fiberId: Int, conf: Configuration): FiberCacheData
   def iterator(conf: Configuration, requiredIds: Array[Int]): Iterator[InternalRow]
-  def iterator(conf: Configuration, requiredIds: Array[Int], rowIds: Array[Int])
+  def iterator(conf: Configuration, requiredIds: Array[Int], rowIds: Array[Long])
   : Iterator[InternalRow]
 }
 

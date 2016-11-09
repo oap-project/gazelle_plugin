@@ -26,9 +26,9 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 
-private[spinach] class IntValues(values: Array[Int]) extends IndexNodeValue {
+private[spinach] class IntValues(values: Array[Long]) extends IndexNodeValue {
   override def length: Int = values.length
-  override def apply(idx: Int): Int = values(idx)
+  override def apply(idx: Int): Long = values(idx)
 }
 
 private[spinach] class NonLeafNode(

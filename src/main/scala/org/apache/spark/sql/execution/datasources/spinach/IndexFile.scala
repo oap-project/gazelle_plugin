@@ -49,8 +49,8 @@ private[spinach] case class IndexFile(path: String) {
 
     val baseObj = offHeapMem.fiberData.getBaseObject
     val baseOff = offHeapMem.fiberData.getBaseOffset
-    val dataEnd = Platform.getInt(baseObj, baseOff + fileLength - 8)
-    val rootOffset = Platform.getInt(baseObj, baseOff + fileLength - 4)
+    val dataEnd = Platform.getLong(baseObj, baseOff + fileLength - 16)
+    val rootOffset = Platform.getLong(baseObj, baseOff + fileLength - 8)
 
     // TODO partial cached index fiber
     IndexFiberCacheData(offHeapMem.fiberData, dataEnd, rootOffset)

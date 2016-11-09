@@ -47,7 +47,7 @@ private[spinach] object CurrentKey {
 // B+ tree leaf node
 private[spinach] trait IndexNodeValue {
   def length: Int
-  def apply(idx: Int): Int
+  def apply(idx: Int): Long
 }
 
 // B+ Tree Node
@@ -60,35 +60,9 @@ private[spinach] trait IndexNode {
   def isLeaf: Boolean
 }
 
-private[spinach] case class InMemoryIndexNodeValue(values: Seq[Int]) extends IndexNodeValue {
-  override def length: Int = values.length
-  override def apply(idx: Int): Int = values(idx)
-  override def toString: String = "ValuesNode(" + values.mkString(",") + ")"
-}
-
-private[spinach] case class InMemoryIndexNode(
-    keys: Seq[InternalRow],
-    children: Seq[IndexNode],
-    values: Seq[IndexNodeValue],
-    next: IndexNode,
-    isLeaf: Boolean) extends IndexNode {
-  override def length: Int = keys.length
-  override def keyAt(idx: Int): Key = keys(idx)
-  override def childAt(idx: Int): IndexNode =
-    if (isLeaf) sys.error("No child for index leaf!") else children(idx)
-  override def valueAt(idx: Int): IndexNodeValue =
-    if (isLeaf) values(idx) else sys.error("No value for index non-leaf!")
-  override def toString: String =
-    if (isLeaf) {
-      s"[Signs(${keys.map(_.getInt(0)).mkString(",")}) " + values.mkString(" ") + "]"
-    } else {
-      s"[Signs(${keys.map(_.getInt(0)).mkString(",")}) " + children.mkString(" ") + "]"
-    }
-}
-
 trait UnsafeIndexTree {
   def buffer: FiberCacheData
-  def offset: Int
+  def offset: Long
   def baseObj: Object = buffer.fiberData.getBaseObject
   def baseOffset: Long = buffer.fiberData.getBaseOffset
   def length: Int = Platform.getInt(baseObj, baseOffset + offset)
@@ -96,22 +70,24 @@ trait UnsafeIndexTree {
 
 private[spinach] case class UnsafeIndexNodeValue(
     buffer: FiberCacheData,
-    offset: Int,
-    dataEnd: Int) extends IndexNodeValue with UnsafeIndexTree {
-  override def apply(idx: Int): Int = Platform.getInt(baseObj, baseOffset + offset + 4 + idx * 4)
+    offset: Long,
+    dataEnd: Long) extends IndexNodeValue with UnsafeIndexTree {
+  // 4 <- value1, 8 <- value2
+  override def apply(idx: Int): Long = Platform.getLong(baseObj, baseOffset + offset + 4 + idx * 8)
 
   // for debug
-  private def values: Seq[Int] = (0 until length).map(apply)
+  private def values: Seq[Long] = (0 until length).map(apply)
   override def toString: String = "ValuesNode(" + values.mkString(",") + ")"
 }
 
 private[spinach] case class UnsafeIndexNode(
     buffer: FiberCacheData,
-    offset: Int,
-    dataEnd: Int,
+    offset: Long,
+    dataEnd: Long,
     schema: StructType) extends IndexNode with UnsafeIndexTree {
   override def keyAt(idx: Int): Key = {
-    val keyOffset = Platform.getInt(baseObj, baseOffset + offset + 8 + idx * 8)
+    // 16 <- value5, 12(4 + 8) <- value3 + value4
+    val keyOffset = Platform.getLong(baseObj, baseOffset + offset + 12 + idx * 16)
     val len = Platform.getInt(baseObj, baseOffset + keyOffset)
     // val row = new UnsafeRow(schema.length) // this is for debug use
     val row = UnsafeIndexNode.row
@@ -121,7 +97,8 @@ private[spinach] case class UnsafeIndexNode(
   }
 
   private def treeChildAt(idx: Int): UnsafeIndexTree = {
-    val childOffset = Platform.getInt(baseObj, baseOffset + offset + 8 * idx + 12)
+    // 16 <- value5, 20(4 + 8 + 8) <- value3 + value4 + value5/2
+    val childOffset = Platform.getLong(baseObj, baseOffset + offset + 16 * idx + 20)
     if (isLeaf) {
       UnsafeIndexNodeValue(buffer, childOffset, dataEnd)
     } else {
@@ -133,10 +110,12 @@ private[spinach] case class UnsafeIndexNode(
     treeChildAt(idx).asInstanceOf[UnsafeIndexNode]
   override def valueAt(idx: Int): UnsafeIndexNodeValue =
     treeChildAt(idx).asInstanceOf[UnsafeIndexNodeValue]
-  override def isLeaf: Boolean = Platform.getInt(baseObj, baseOffset + offset + 12) < dataEnd
+  // if the first child offset is in data segment (treeChildAt(0)), 20 <- 16 * 0 + 20
+  override def isLeaf: Boolean = Platform.getLong(baseObj, baseOffset + offset + 20) < dataEnd
   override def next: UnsafeIndexNode = {
-    val nextOffset = Platform.getInt(baseObj, baseOffset + offset + 4)
-    if (nextOffset == -1) {
+    // 4 <- value3
+    val nextOffset = Platform.getLong(baseObj, baseOffset + offset + 4)
+    if (nextOffset == -1L) {
       null
     } else {
       UnsafeIndexNode(buffer, nextOffset, dataEnd, schema)
@@ -179,7 +158,7 @@ private[spinach] class CurrentKey(node: IndexNode, keyIdx: Int, valueIdx: Int) {
     currentNode.keyAt(currentKeyIdx)
   }
 
-  def currentRowId: Int = currentValues(currentValueIdx)
+  def currentRowId: Long = currentValues(currentValueIdx)
 
   def moveNextValue: Unit = {
     if (currentValueIdx < currentValues.length - 1) {
@@ -211,7 +190,7 @@ private[spinach] class CurrentKey(node: IndexNode, keyIdx: Int, valueIdx: Int) {
 
 // we scan the index from the smallest to the greatest, this is the root class
 // of scanner, which will scan the B+ Tree (index) leaf node.
-private[spinach] trait RangeScanner extends Iterator[Int] {
+private[spinach] trait RangeScanner extends Iterator[Long] {
   // TODO this is a temp work around
   override def toString(): String = "RangeScanner"
   @transient protected var currentKey: CurrentKey = _
@@ -279,7 +258,7 @@ private[spinach] trait RangeScanner extends Iterator[Int] {
 
   override def hasNext: Boolean = !(currentKey.isEnd || shouldStop(currentKey))
 
-  override def next(): Int = {
+  override def next(): Long = {
     val rowId = currentKey.currentRowId
     currentKey.moveNextValue
     rowId
@@ -298,7 +277,7 @@ private[spinach] object DUMMY_SCANNER extends RangeScanner {
   override def shouldStop(key: CurrentKey): Boolean = true
   override def initialize(path: String, configuration: Configuration): RangeScanner = { this }
   override def hasNext: Boolean = false
-  override def next(): Int = throw new NoSuchElementException("end of iterating.")
+  override def next(): Long = throw new NoSuchElementException("end of iterating.")
   override def withNewStart(key: Key, include: Boolean): RangeScanner = this
   override def withNewEnd(key: Key, include: Boolean): RangeScanner = this
   override def meta: IndexMeta = throw new NotImplementedError()

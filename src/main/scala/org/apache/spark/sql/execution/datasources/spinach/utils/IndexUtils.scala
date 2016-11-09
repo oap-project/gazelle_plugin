@@ -32,6 +32,17 @@ object IndexUtils {
     out.write((v >>> 24) & 0xFF)
   }
 
+  def writeLong(out: OutputStream, v: Long): Unit = {
+    out.write((v >>>  0).toInt & 0xFF)
+    out.write((v >>>  8).toInt & 0xFF)
+    out.write((v >>> 16).toInt & 0xFF)
+    out.write((v >>> 24).toInt & 0xFF)
+    out.write((v >>> 32).toInt & 0xFF)
+    out.write((v >>> 40).toInt & 0xFF)
+    out.write((v >>> 48).toInt & 0xFF)
+    out.write((v >>> 56).toInt & 0xFF)
+  }
+
   def indexFileNameFromDataFileName(dataFile: String, name: String): String = {
     import SpinachFileFormat._
     assert(dataFile.endsWith(SPINACH_DATA_EXTENSION))

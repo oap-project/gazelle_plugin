@@ -26,7 +26,7 @@ case class FiberCacheData(fiberData: MemoryBlock)
  * Used to cache data in MemoryBlock (on-heap or off-heap)
  */
 private[spinach] case class IndexFiberCacheData(
-    fiberData: MemoryBlock, dataEnd: Int, rootOffset: Int)
+    fiberData: MemoryBlock, dataEnd: Long, rootOffset: Long)
 
 private[spinach] trait MemoryMode
 private[spinach] case object OffHeap extends MemoryMode
