@@ -170,7 +170,7 @@ class DataSourceMetaSuite extends SharedSQLContext with BeforeAndAfter {
     assert(spinachMeta2.dataReaderClassName === spinachMeta.dataReaderClassName)
   }
 
-  ignore("Spinach Meta integration test for parquet") {
+  test("Spinach Meta integration test for parquet") {
     val df = sparkContext.parallelize(1 to 100, 3)
       .map(i => (i, i + 100, s"this is row $i"))
       .toDF("a", "b", "c")
@@ -194,14 +194,9 @@ class DataSourceMetaSuite extends SharedSQLContext with BeforeAndAfter {
 
     val spinachMeta2 = DataSourceMeta.initialize(path, new Configuration())
     val fileHeader2 = spinachMeta2.fileHeader
-    // assert(fileHeader2.recordCount === 100)
-    // assert(fileHeader2.dataFileCount === 3)
+    assert(fileHeader2.recordCount === 100)
+    assert(fileHeader2.dataFileCount === 3)
     assert(fileHeader2.indexCount === 2)
-    // other should keep the same
-    // val fileMetas2 = spinachMeta2.fileMetas
-    // assert(fileMetas2.length === 3)
-    // assert(fileMetas2.map(_.recordCount).sum === 100)
-    // assert(fileMetas2(0).dataFileName.endsWith(SpinachFileFormat.SPINACH_DATA_EXTENSION))
   }
 
   test("Spinach meta for partitioned table") {
