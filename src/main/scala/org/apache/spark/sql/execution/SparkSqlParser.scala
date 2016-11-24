@@ -1398,7 +1398,9 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
    * }}}
    */
   override def visitSpinachDropIndex(ctx: SpinachDropIndexContext): LogicalPlan = withOrigin(ctx) {
-    DropIndex(ctx.IDENTIFIER.getText, visitTableIdentifier(ctx.tableIdentifier), ctx.EXISTS != null)
+    DropIndex(
+      ctx.IDENTIFIER.getText,
+      UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier)), ctx.EXISTS != null)
   }
 
   override def visitIndexCols(ctx: IndexColsContext): Array[IndexColumn] = withOrigin(ctx) {
