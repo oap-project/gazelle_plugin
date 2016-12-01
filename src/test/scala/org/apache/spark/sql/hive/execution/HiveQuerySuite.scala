@@ -1219,10 +1219,6 @@ class HiveQuerySuite extends HiveComparisonTest with BeforeAndAfter {
   }
 
   test("create hive table in parquet format") {
-    sql("""
-          |create table sc as select *
-          |from (select '2011-01-11', '2011-01-11+14:18:26' from src tablesample (1 rows))
-        """.stripMargin)
     sql("create table p_table (key int, val string) stored as parquet")
     sql("insert overwrite table p_table select * from src")
     sql("create sindex if not exists p_index on p_table(key)")
@@ -1232,15 +1228,11 @@ class HiveQuerySuite extends HiveComparisonTest with BeforeAndAfter {
   }
 
   test("create duplicate hive table in parquet format") {
-    sql("""
-          |create table sc as select *
-          |from (select '2011-01-11', '2011-01-11+14:18:26' from src tablesample (1 rows))
-        """.stripMargin)
-    sql("create table p_table (key int, val string) stored as parquet")
-    sql("insert overwrite table p_table select * from src")
+    sql("create table p_table1 (key int, val string) stored as parquet")
+    sql("insert overwrite table p_table1 select * from src")
 
-    sql("create sindex p_index on p_table(key)")
-    assertDupIndex { sql("create sindex p_index on p_table(key)") }
+    sql("create sindex p_index on p_table1(key)")
+    assertDupIndex { sql("create sindex p_index on p_table1(key)") }
   }
 }
 
