@@ -1386,7 +1386,7 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
     withOrigin(ctx) {
       CreateIndex(
         ctx.IDENTIFIER.getText, UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier())),
-        visitIndexCols(ctx.indexCols), ctx.EXISTS != null)
+        visitIndexCols(ctx.indexCols), ctx.EXISTS != null, visitIndexOps(ctx.indexOps()))
     }
 
   /**
@@ -1409,6 +1409,8 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
   override def visitIndexCol(ctx: IndexColContext): IndexColumn = withOrigin(ctx) {
     IndexColumn(ctx.identifier.getText, ctx.DESC == null)
   }
+
+  override def visitIndexOps(ctx: IndexOpsContext): String = withOrigin(ctx) { ctx.getText }
 
   override def visitSpinachRefreshIndices(ctx: SpinachRefreshIndicesContext): LogicalPlan =
     withOrigin(ctx) {
