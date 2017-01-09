@@ -54,7 +54,7 @@ case class CreateIndex(
         throw new SpinachException(s"We don't support index building for ${other.simpleString}")
     }
 
-    indexType match {
+    indexType.toUpperCase match {
       case "BTREE" =>
         logInfo(s"Creating index $indexName")
         val partitions = SpinachUtils.getPartitions(fileCatalog)

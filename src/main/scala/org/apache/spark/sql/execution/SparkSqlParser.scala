@@ -1379,7 +1379,7 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
    *
    * {{{
    *   CREATE INDEX [IF NOT EXISTS] indexName ON tableName (col1 [ASC | DESC], col2, ...)
-   *   [USING BTREE]
+   *   [USING (BTREE | BLOOM)]
    * }}}
    */
   override def visitSpinachCreateIndex(ctx: SpinachCreateIndexContext): LogicalPlan =
@@ -1410,7 +1410,9 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
     IndexColumn(ctx.identifier.getText, ctx.DESC == null)
   }
 
-  override def visitIndexOps(ctx: IndexOpsContext): String = withOrigin(ctx) { ctx.getText }
+  override def visitIndexOps(ctx: IndexOpsContext): String = withOrigin(ctx) {
+    if (ctx == null) "BTREE" else ctx.getText
+  }
 
   override def visitSpinachRefreshIndices(ctx: SpinachRefreshIndicesContext): LogicalPlan =
     withOrigin(ctx) {
