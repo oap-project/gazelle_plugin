@@ -1384,9 +1384,15 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
    */
   override def visitSpinachCreateIndex(ctx: SpinachCreateIndexContext): LogicalPlan =
     withOrigin(ctx) {
-      CreateIndex(
-        ctx.IDENTIFIER.getText, UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier())),
-        visitIndexCols(ctx.indexCols), ctx.EXISTS != null, visitIndexOps(ctx.indexOps()))
+      if (ctx.indexOps == null) {
+        CreateIndex(
+          ctx.IDENTIFIER.getText, UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier())),
+          visitIndexCols(ctx.indexCols), ctx.EXISTS != null, "BTREE")
+      } else {
+        CreateIndex(
+          ctx.IDENTIFIER.getText, UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier())),
+          visitIndexCols(ctx.indexCols), ctx.EXISTS != null, visitIndexOps(ctx.indexOps()))
+      }
     }
 
   /**
