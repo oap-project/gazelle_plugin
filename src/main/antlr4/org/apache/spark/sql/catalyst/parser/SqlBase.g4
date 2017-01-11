@@ -127,7 +127,7 @@ statement
     | SET .*?                                                          #setConfiguration
     | RESET                                                            #resetConfiguration
     | CREATE SINDEX (IF NOT EXISTS)? IDENTIFIER ON
-        tableIdentifier indexCols indexOps?                            #spinachCreateIndex
+        tableIdentifier indexCols (USING indexType)?                   #spinachCreateIndex
     | DROP SINDEX (IF EXISTS)? IDENTIFIER ON tableIdentifier           #spinachDropIndex
     | unsupportedHiveNativeCommands .*?                                #failNativeCommand
     ;
@@ -140,8 +140,9 @@ indexCol
     : identifier (ASC | DESC)?
     ;
 
-indexOps
-    : USING (BTREE | BLOOM)
+indexType
+    : BTREE
+    | BLOOM
     ;
 
 unsupportedHiveNativeCommands

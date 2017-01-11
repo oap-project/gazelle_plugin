@@ -36,7 +36,7 @@ case class CreateIndex(
     relation : LogicalPlan,
     indexColumns: Array[IndexColumn],
     allowExists: Boolean,
-    indexType: String) extends RunnableCommand with Logging {
+    indexType: AnyIndexType) extends RunnableCommand with Logging {
   override def children: Seq[LogicalPlan] = Seq(relation)
 
   override val output: Seq[Attribute] = Seq.empty
@@ -54,8 +54,8 @@ case class CreateIndex(
         throw new SpinachException(s"We don't support index building for ${other.simpleString}")
     }
 
-    indexType.toUpperCase match {
-      case "BTREE" =>
+    indexType match {
+      case BTreeIndexType =>
         logInfo(s"Creating index $indexName")
         val partitions = SpinachUtils.getPartitions(fileCatalog)
         // TODO currently we ignore empty partitions, so each partition may have different indexes,
