@@ -344,8 +344,66 @@ override def hasNext: Boolean = {
     this.keySchema = schema
     this
   }
-//  def withNewStart(key: Key, include: Boolean): RangeScanner = this
-//  def withNewEnd(key: Key, include: Boolean): RangeScanner = this
+//  def withNewStart(key: Key, include: Boolean): RangeScanner
+//  def withNewEnd(key: Key, include: Boolean): RangeScanner
+}
+
+private[spinach] case class BloomFilterScanner(me: IndexMeta) extends RangeScanner(me) {
+  var stopFlag = false
+
+  var bloomFilter: BloomFilter = _
+
+  var numOfElem: Int = _
+
+  var curIdx: Int = 0
+
+  override def hasNext: Boolean = !stopFlag && curIdx < numOfElem
+
+  override def next(): Long = {
+    val tmp = curIdx
+    curIdx += 1
+    tmp.toLong
+  }
+
+  lazy val equalValues: Array[Key] = { // get equal value from intervalArray
+    if (intervalArray.nonEmpty) {
+      // should not use ordering.compare here
+      intervalArray.filter(interval => (interval.start eq interval.end)
+        && interval.startInclude && interval.endInclude).map(_.start).toArray
+    } else null
+  }
+
+  override def initialize(inputPath: Path, configuration: Configuration): RangeScanner = {
+    assert(keySchema ne null)
+    this.ordering = GenerateOrdering.create(keySchema)
+
+    val path = IndexUtils.indexFileFromDataFile(inputPath, meta.name)
+    val indexScanner = IndexFiber(IndexFile(path))
+    val indexData: IndexFiberCacheData = FiberCacheManager(indexScanner, configuration)
+
+    def buffer: DataFiberCache = DataFiberCache(indexData.fiberData)
+    def getBaseObj = buffer.fiberData.getBaseObject
+    def getBaseOffset = buffer.fiberData.getBaseOffset
+    val bitArrayLength = Platform.getInt(getBaseObj, getBaseOffset + 0 )
+    val numOfHashFunc = Platform.getInt(getBaseObj, getBaseOffset + 4)
+    numOfElem = Platform.getInt(getBaseObj, getBaseOffset + 8)
+
+    var cur_pos = 4
+    val bitSetLongArr = (0 until bitArrayLength).map( i => {
+      cur_pos += 8
+      Platform.getLong(getBaseObj, getBaseOffset + cur_pos)
+    }).toArray
+
+    bloomFilter = BloomFilter(bitSetLongArr, numOfHashFunc)
+    if (equalValues != null && equalValues.length > 0) {
+      stopFlag = !equalValues.map(value => bloomFilter
+        .checkExist(value.getInt(0).toString)) // TODO getValue needs to be optimized
+        .reduceOption(_ || _).getOrElse(false)
+    }
+    this
+  }
+
+  override def toString: String = "BloomFilterScanner"
 }
 
 // A dummy scanner will actually not do any scanning
@@ -547,7 +605,12 @@ private[spinach] class ScannerBuilder(meta: IndexMeta, keySchema: StructType) {
 
   def buildScanner(intervalArray: ArrayBuffer[RangeInterval]): Unit = {
     intervalArray.sortWith(compare)
-    scanner = new RangeScanner(meta)
+    scanner = meta.indexType match {
+      case BloomFilterIndex(entries) =>
+        BloomFilterScanner(meta)
+      case _ =>
+        new RangeScanner(meta)
+    }
     scanner.intervalArray = intervalArray
   }
 
@@ -571,6 +634,17 @@ private[spinach] object ScannerBuilder {
     // TODO default we use the Ascending order
     // val ordering = GenerateOrdering.create(StructType(fields))
     val keySchema = StructType(fields)
+    new ScannerBuilder(meta, keySchema)
+  }
+
+  /**
+   * For scanner with no direction
+   * @param field to build a schema
+   * @param meta meta info
+   * @return
+   */
+  def apply(field: StructField, meta: IndexMeta): ScannerBuilder = {
+    val keySchema = new StructType().add(field)
     new ScannerBuilder(meta, keySchema)
   }
 
@@ -632,8 +706,10 @@ private[spinach] class IndexContext(meta: DataSourceMeta) {
         case BTreeIndex(entries) => entries.map { entry =>
           // TODO support multiple key in the index
         }
+        case BloomFilterIndex(entries) =>
+          return Some(ScannerBuilder(meta.schema(ordinal), meta.indexMetas(idx)))
         case other => // we don't support other types of index
-          // TODO support the other types of index
+        // TODO support the other types of index
       }
 
       idx += 1
@@ -659,8 +735,6 @@ private [spinach] class RangeInterval(s: Key, e: Key, includeStart: Boolean, inc
 private [spinach] object RangeInterval{
   def apply(s: Key, e: Key, includeStart: Boolean, includeEnd: Boolean): RangeInterval
   = new RangeInterval(s, e, includeStart, includeEnd)
-
-
 }
 
 // The build the BPlushTree Search Scanner according to the filter and indices,
