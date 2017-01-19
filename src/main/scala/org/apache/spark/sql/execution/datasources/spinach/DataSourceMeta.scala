@@ -303,8 +303,16 @@ private[spinach] class DataSourceMetaBuilder {
     this
   }
 
+  def containsFileMeta(fileMeta: FileMeta): Boolean = {
+    fileMetas.indexWhere{_.dataFileName == fileMeta.dataFileName} >= 0
+  }
+
   def containsFileMeta(fileName: String): Boolean = {
-    fileMetas.filter(_.dataFileName.equals(fileName)).nonEmpty
+    fileMetas.indexWhere{_.dataFileName == fileName} >= 0
+  }
+
+  def containsIndexMeta(indexMeta: IndexMeta): Boolean = {
+    indexMetas.indexWhere{_.name == indexMeta.name} >= 0
   }
 
   def withNewSchema(schema: StructType): this.type = {

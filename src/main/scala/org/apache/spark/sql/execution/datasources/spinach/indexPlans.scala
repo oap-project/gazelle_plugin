@@ -115,8 +115,9 @@ case class CreateIndex(
     val retMap = ret.groupBy(_.parent)
     bAndP.foreach(bp =>
       retMap.getOrElse(bp._2.toString, Nil).foreach(r =>
-        if (!bp._3) bp._1.addFileMeta(FileMeta(r.fingerprint, r.rowCount, r.dataFile)))
-    )
+        if (!bp._3) bp._1.addFileMeta(
+            FileMeta(r.fingerprint, r.rowCount, r.dataFile))
+    ))
     // write updated metas down
     bAndP.foreach(bp => DataSourceMeta.write(
       new Path(bp._2.toString, SpinachFileFormat.SPINACH_META_FILE),
@@ -230,6 +231,7 @@ case class RefreshIndex(
         Nil
       }
     }).groupBy(_.name).map(_._2.head)
+
     val bAndP = partitions.map(p => {
       val metaBuilder = new DataSourceMetaBuilder()
       val parent = p.files.head.getPath.getParent
@@ -257,6 +259,7 @@ case class RefreshIndex(
       // p.files.foreach(f => builder.addFileMeta(FileMeta("", 0, f.getPath.toString)))
       (metaBuilder, parent)
     })
+
     val buildrst = indices.map(i => {
       val indexColumns = i.indexType match {
         case BTreeIndex(entries) =>
@@ -274,25 +277,17 @@ case class RefreshIndex(
       // e.g. when inserting data in spn files the meta has already updated
       // so, we should ignore these cases
       // And files modifications for parquet should refresh spn meta in this way
-      val filteredBAndP = bAndP.filter(x => retMap.contains(x._2.toString)).map(bp => {
-        val newFilesMetas = retMap.get(bp._2.toString).get
-          .filterNot(r => bp._1.containsFileMeta(r.dataFile.substring(r.parent.length + 1)))
-
-        var exec = true;
-
-        if (newFilesMetas.nonEmpty) {
-          newFilesMetas.foreach(r => {
+      val filteredBAndP = bAndP.filter(x => retMap.contains(x._2.toString))
+      filteredBAndP.foreach(bp =>
+        retMap.getOrElse(bp._2.toString, Nil).foreach(r => {
+          if (!bp._1.containsFileMeta(r.dataFile)) {
             bp._1.addFileMeta(FileMeta(r.fingerprint, r.rowCount, r.dataFile))
-          })
-        } else {
-          exec = false;
+          }
         }
-
-        (bp._1, bp._2, exec)
-      })
+      ))
 
       // write updated metas down
-      filteredBAndP.filter(_._3).foreach(bp => DataSourceMeta.write(
+      filteredBAndP.foreach(bp => DataSourceMeta.write(
         new Path(bp._2.toString, SpinachFileFormat.SPINACH_META_FILE),
         sparkSession.sparkContext.hadoopConfiguration,
         bp._1.build(),
