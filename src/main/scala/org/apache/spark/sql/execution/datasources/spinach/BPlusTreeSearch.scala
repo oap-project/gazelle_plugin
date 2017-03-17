@@ -17,8 +17,6 @@
 
 package org.apache.spark.sql.execution.datasources.spinach
 
-import java.io.{ByteArrayInputStream, ObjectInputStream}
-
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,13 +25,12 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
-import org.apache.spark.sql.catalyst.expressions.{Ascending, JoinedRow, SortDirection, UnsafeRow}
+import org.apache.spark.sql.catalyst.expressions.{JoinedRow, UnsafeProjection, UnsafeRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.execution.datasources.spinach.utils.IndexUtils
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types.{StructField, StructType}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.Platform
-import org.apache.spark.util.collection.BitSet
 
 
 private[spinach] object RangeScanner {
@@ -430,10 +427,12 @@ private[spinach] case class BloomFilterScanner(me: IndexMeta) extends RangeScann
 
     bloomFilter = BloomFilter(bitSetLongArr, numOfHashFunc)
 
+    val projector = UnsafeProjection.create(keySchema)
+
     // TODO need optimization while considering multi-column
     stopFlag = if (equalValues != null && equalValues.length > 0) {
       !equalValues.map(value => bloomFilter
-        .checkExist(value.get(0, keySchema.head.dataType).toString))
+        .checkExist(projector(value).getBytes))
         .reduceOption(_ || _).getOrElse(false)
     } else false
     curIdx = 0
