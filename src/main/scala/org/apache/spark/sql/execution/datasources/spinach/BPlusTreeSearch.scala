@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.datasources.spinach
 
+import java.io.{ByteArrayInputStream, ObjectInputStream}
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
@@ -27,10 +29,11 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.catalyst.expressions.{Ascending, JoinedRow, SortDirection, UnsafeRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
-import org.apache.spark.sql.execution.datasources.spinach.utils.{IndexUtils, SpinachUtils}
+import org.apache.spark.sql.execution.datasources.spinach.utils.IndexUtils
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.unsafe.Platform
+import org.apache.spark.util.collection.BitSet
 
 
 private[spinach] object RangeScanner {
@@ -440,6 +443,7 @@ private[spinach] case class BloomFilterScanner(me: IndexMeta) extends RangeScann
   override def toString: String = "BloomFilterScanner"
 }
 
+
 // A dummy scanner will actually not do any scanning
 private[spinach] object DUMMY_SCANNER extends RangeScanner(null) {
   //  override def shouldStop(key: CurrentKey): Boolean = true
@@ -667,6 +671,12 @@ private[spinach] class IndexContext(meta: DataSourceMeta) {
               }
             }
           }
+        case BitMapIndex(entries) =>
+          for (entry <- entries) {
+            if (intervalMap.contains(meta.schema(entry).name)) {
+              availableIndexes.append((entries.indexOf(entry), meta.indexMetas(idx)) )
+            }
+          }
         case other => // TODO support other types of index
       }
       idx += 1
@@ -759,6 +769,13 @@ private[spinach] class IndexContext(meta: DataSourceMeta) {
         val filterOptimizer = unapply(attribute).get
         scanner.intervalArray =
           intervalMap(attribute).sortWith(filterOptimizer.compareRangeInterval)
+      case BitMapIndex(entries) =>
+        keySchema = new StructType().add(meta.schema(entries(lastIdx)))
+        scanner = BitMapScanner(bestIndexer)
+        val attribute = meta.schema(entries(lastIdx)).name
+        val filterOptimizer = unapply(attribute).get
+        scanner.intervalArray =
+          intervalMap(attribute).sortWith(filterOptimizer.compareRangeInterval)
       case _ =>
     }
 
@@ -775,7 +792,6 @@ private[spinach] class IndexContext(meta: DataSourceMeta) {
 
   def unapply(value: Any): Option[Key] =
     Some(InternalRow(CatalystTypeConverters.convertToCatalyst(value)))
-
 }
 
 private[spinach] object DummyIndexContext extends IndexContext(null) {
