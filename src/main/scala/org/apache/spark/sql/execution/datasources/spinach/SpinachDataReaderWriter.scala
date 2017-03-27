@@ -98,7 +98,7 @@ private[spinach] class SpinachDataWriter(
 private[spinach] class SpinachDataReader(
   path: Path,
   meta: DataSourceMeta,
-  filterScanner: Option[RangeScanner],
+  filterScanner: Option[IndexScanner],
   requiredIds: Array[Int]) extends Logging {
 
   def initialize(conf: Configuration): Iterator[InternalRow] = {
