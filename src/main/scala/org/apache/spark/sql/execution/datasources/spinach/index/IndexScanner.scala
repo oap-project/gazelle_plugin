@@ -39,11 +39,17 @@ private[spinach] object IndexScanner {
 
 private[spinach] abstract class IndexScanner(idxMeta: IndexMeta)
   extends Iterator[Long] with Serializable with Logging{
+
+  // TODO Currently, only B+ tree supports indexs, so this flag is toggled only in
+  // BPlusTreeScanner we can add other index-aware stats for other type of index later
+  def canBeOptimizedByStatistics: Boolean = false
+
   @transient protected var ordering: Ordering[Key] = _
   var intervalArray: ArrayBuffer[RangeInterval] = _
   protected var keySchema: StructType = _
 
   def meta: IndexMeta = idxMeta
+  def getSchema: StructType = keySchema
 
   def existRelatedIndexFile(dataPath: Path, conf: Configuration): Boolean = {
     val path = IndexUtils.indexFileFromDataFile(dataPath, meta.name)
