@@ -59,13 +59,18 @@ private[spinach] case class SpinachIndexBuild(
       // TODO use internal scan
       val hadoopConf = sparkSession.sparkContext.hadoopConfiguration
 
-      // TODO just add fsrate in hadoop conf
-      hadoopConf.setDouble(Statistics.thresName,
+      hadoopConf.setDouble(SQLConf.SPINACH_FULL_SCAN_THRESHOLD.key,
         sparkSession.conf.get(SQLConf.SPINACH_FULL_SCAN_THRESHOLD))
-      hadoopConf.setStrings(Statistics.Statistics_Type_Name,
+      hadoopConf.setStrings(SQLConf.SPINACH_STATISTICS_TYPES.key,
         sparkSession.conf.get(SQLConf.SPINACH_STATISTICS_TYPES))
-      hadoopConf.setDouble(Statistics.Sample_Based_SampleRate,
+      hadoopConf.setDouble(SQLConf.SPINACH_STATISTICS_SAMPLE_RATE.key,
         sparkSession.conf.get(SQLConf.SPINACH_STATISTICS_SAMPLE_RATE))
+
+      // bloom filter parameter
+      hadoopConf.setInt(SQLConf.SPINACH_BLOOMFILTER_MAXBITS.key,
+        sparkSession.conf.get(SQLConf.SPINACH_BLOOMFILTER_MAXBITS))
+      hadoopConf.setInt(SQLConf.SPINACH_BLOOMFILTER_NUMHASHFUNC.key,
+        sparkSession.conf.get(SQLConf.SPINACH_BLOOMFILTER_NUMHASHFUNC))
 
       val fs = paths.head.getFileSystem(hadoopConf)
       val fileIters = paths.map(fs.listFiles(_, false))
@@ -173,7 +178,7 @@ private[spinach] case class SpinachIndexBuild(
               val treeOffset = writeTreeToOut(treeShape, fileOut, offsetMap,
                 fileOffset, uniqueKeysList, keySchema, 0, -1L)
 
-              val stTypes = hadoopConf.getStrings(Statistics.Statistics_Type_Name)
+              val stTypes = hadoopConf.getStrings(SQLConf.SPINACH_STATISTICS_TYPES.key)
               if (stTypes != null && stTypes.length > 0) {
                 stTypes.foreach(stType => {
                   val t = stType.trim
@@ -181,7 +186,7 @@ private[spinach] case class SpinachIndexBuild(
                     val st = t match {
                       case "0" => new MinMaxStatistics
                       case "1" => new SampleBasedStatistics(
-                        hadoopConf.get(Statistics.Sample_Based_SampleRate).toDouble)
+                        hadoopConf.get(SQLConf.SPINACH_STATISTICS_SAMPLE_RATE.key).toDouble)
                       case "2" => new PartedByValueStatistics
                       case _ =>
                         throw new UnsupportedOperationException(s"non-supported statistic in id $t")
@@ -199,9 +204,15 @@ private[spinach] case class SpinachIndexBuild(
               fileOut.close()
               IndexBuildResult(dataString, cnt, "", d.getParent.toString)
             case BloomFilterIndexType =>
-              val bf_index = new BloomFilter()
+              val bfMaxBits = hadoopConf.getInt(
+                SQLConf.SPINACH_BLOOMFILTER_MAXBITS.key, 1073741824) // default 1 << 30
+              val bfNumOfHashFunc = hadoopConf.getInt(
+                SQLConf.SPINACH_BLOOMFILTER_NUMHASHFUNC.key, 3)
+              logDebug("Building bloom with paratemeter: maxBits = "
+                + bfMaxBits + " numHashFunc = " + bfNumOfHashFunc)
+              val bfIndex = new BloomFilter(bfMaxBits, bfNumOfHashFunc)()
               var elemCnt = 0 // element count
-            val boundReference = keySchema.zipWithIndex.map(x =>
+              val boundReference = keySchema.zipWithIndex.map(x =>
                 BoundReference(x._2, x._1.dataType, nullable = true))
               // for multi-column index, add all subsets into bloom filter
               // For example, a column with a = 1, b = 2, a and b are index columns
@@ -211,7 +222,7 @@ private[spinach] case class SpinachIndexBuild(
               while (it.hasNext) {
                 val row = it.next()
                 elemCnt += 1
-                projector.foreach(p => bf_index.addValue(p(row).getBytes))
+                projector.foreach(p => bfIndex.addValue(p(row).getBytes))
               }
               val indexFile = IndexUtils.indexFileFromDataFile(d, indexName)
               val fs = indexFile.getFileSystem(hadoopConf)
@@ -229,13 +240,13 @@ private[spinach] case class SpinachIndexBuild(
               // dataEndOffset        8 Bytes, Long, data end offset
               // rootOffset           8 Bytes, Long, root Offset
               val fileOut = fs.create(indexFile, true) // overwrite index file
-            val bitArray = bf_index.getBitMapLongArray
-              val numHashFunc = bf_index.getNumOfHashFunc
-              IndexUtils.writeInt(fileOut, bitArray.length)
-              IndexUtils.writeInt(fileOut, numHashFunc)
+              val bfBitArray = bfIndex.getBitMapLongArray
+              var offset = 0L
+              IndexUtils.writeInt(fileOut, bfBitArray.length) // bfBitArray length
+              IndexUtils.writeInt(fileOut, bfIndex.getNumOfHashFunc) // numOfHashFunc
               IndexUtils.writeInt(fileOut, elemCnt)
-              var offset = 12L
-              bitArray.foreach(l => {
+              offset += 12
+              bfBitArray.foreach(l => {
                 IndexUtils.writeLong(fileOut, l)
                 offset += 8
               })
