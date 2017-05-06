@@ -178,6 +178,8 @@ private[sql] class SpinachFileFormat extends FileFormat
 
         val requiredIds = requiredSchema.map(dataSchema.fields.indexOf(_)).toArray
 
+        hadoopConf.setDouble(SQLConf.SPINACH_FULL_SCAN_THRESHOLD.key,
+          sparkSession.conf.get(SQLConf.SPINACH_FULL_SCAN_THRESHOLD))
         val broadcastedHadoopConf =
           sparkSession.sparkContext.broadcast(new SerializableConfiguration(hadoopConf))
 
