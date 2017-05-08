@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources.spinach.io
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, Path}
-import org.apache.parquet.format.CompressionCodec
+import org.apache.parquet.format.{CompressionCodec, Encoding}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
@@ -31,7 +31,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.Platform
 
-
+// TODO: [linhong] Let's remove the `isCompressed` argument
 private[spinach] class SpinachDataWriter(
     isCompressed: Boolean,
     out: FSDataOutputStream,
@@ -106,11 +106,25 @@ private[spinach] class SpinachDataWriter(
       writeRowGroup()
     }
 
+    val columnEncodings = new Array[Encoding](rowGroup.length)
+    val dictDataLens = new Array[Int](rowGroup.length)
+    val dictSizes = new Array[Int](rowGroup.length)
+    rowGroup.indices.foreach { i =>
+      val dictByteData = rowGroup(i).buildDictionary
+      columnEncodings(i) = rowGroup(i).getEncoding
+      dictDataLens(i) = dictByteData.length
+      dictSizes(i) = rowGroup(i).getDictionarySize
+      if (dictDataLens(i) > 0) out.write(dictByteData)
+    }
+
     // and update the group count and row count in the last group
     fiberMeta
       .withGroupCount(rowGroupCount)
       .withRowCountInLastGroup(
         if (remainingRowCount != 0 || rowCount == 0) remainingRowCount else DEFAULT_ROW_GROUP_SIZE)
+      .withEncodings(columnEncodings)
+      .withDictionaryDataLens(dictDataLens)
+      .withDictionaryIdSizes(dictSizes)
 
     fiberMeta.write(out)
     out.close()
