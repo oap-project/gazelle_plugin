@@ -28,7 +28,7 @@ import org.apache.spark.sql.execution.datasources.spinach.filecache.DataFiberBui
 import org.apache.spark.sql.execution.datasources.spinach.index._
 import org.apache.spark.sql.execution.datasources.spinach.statistics._
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
 
 // TODO: [linhong] Let's remove the `isCompressed` argument
