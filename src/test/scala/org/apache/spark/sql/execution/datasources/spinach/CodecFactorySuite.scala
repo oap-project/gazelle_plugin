@@ -19,8 +19,8 @@ package org.apache.spark.sql.execution.datasources.spinach
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.format.CompressionCodec
+import org.scalacheck.{Arbitrary, Gen, Properties}
 import org.scalacheck.Prop.forAll
-import org.scalacheck.Properties
 import org.scalatest.prop.Checkers
 
 import org.apache.spark.SparkFunSuite
@@ -41,10 +41,16 @@ class CodecFactoryCheck extends Properties("CodecFactory") {
         .zip(bytes).exists(b => !(b._1 equals b._2))
       )
   }
+  implicit lazy val arbCompressionCodec: Arbitrary[CompressionCodec] = {
+    Arbitrary(genCompressionCodec)
+  }
+  private lazy val genCompressionCodec: Gen[CompressionCodec] = Gen.oneOf(
+    CompressionCodec.UNCOMPRESSED, CompressionCodec.GZIP,
+    CompressionCodec.SNAPPY, CompressionCodec.LZO)
 }
 class CodecFactorySuite extends SparkFunSuite with Checkers {
 
-  test("Check CodecFacoty Compress/Decompress") {
+  test("Check CodecFactory Compress/Decompress") {
     check(new CodecFactoryCheck)
   }
 }
