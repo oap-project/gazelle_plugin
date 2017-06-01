@@ -16,12 +16,19 @@
  */
 package org.apache.spark.sql.execution.datasources.spinach
 
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.spinach.index.IndexUtils
+import scala.collection.mutable.ArrayBuffer
+
+import org.apache.spark.sql.execution.datasources.spinach.index.{IndexScanner, IndexUtils}
 import org.apache.spark.sql.execution.datasources.spinach.statistics._
 import org.apache.spark.unsafe.Platform
 
+
 class PartByValueStatisticsSuite extends StatisticsTest{
+
+  class TestPartByValue extends PartByValueStatistics {
+    def getMetas: ArrayBuffer[PartedByValueMeta] = metas
+  }
+
   // for all data in this suite, all internal rows appear only once
   // 1, 2, 3, ..., 300
   // `partNum` = 5, then the file content should be
@@ -34,27 +41,22 @@ class PartByValueStatisticsSuite extends StatisticsTest{
   // (300,  "test#300")   299            300
 
   test("test write function") {
-    val keys = (1 to 300).map(i => rowGen(i)).toArray
-    val hashMap = new java.util.HashMap[InternalRow, java.util.ArrayList[Long]]()
-    val part = 6
-    val cntPerPart = keys.length / (part - 1)
+    val keys = (1 to 300).map(i => rowGen(i)).toArray // keys needs to be sorted
 
-    for (i <- keys.indices) {
-      val key = keys(i)
-      val offsetList = new java.util.ArrayList[Long]()
-      offsetList.add(i * 8)
-      hashMap.put(key, offsetList)
-    }
-
-    val statistics = new PartedByValueStatistics()
-    statistics.write(schema, out, keys, hashMap, null)
-
-    val bytes = out.buf.toByteArray
+    val testPartByValue = new TestPartByValue
+    testPartByValue.initialize(schema)
+    testPartByValue.write(out, keys.to[ArrayBuffer])
 
     var offset = 0L
-    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET) == 2) // PartByValueStatisticsType.id
-    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + 4) == part) // part count
-    offset += 8
+    val bytes = out.buf.toByteArray
+    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
+      == PartByValueStatisticsType.id)
+    offset += 4
+
+    val part = StatisticsManager.partNumber + 1
+    val cntPerPart = keys.length / (part - 1)
+    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset) == part)
+    offset += 4
 
     for (i <- 0 until part) {
       val curMaxIdx = Math.min(i * cntPerPart, keys.length - 1)
@@ -71,13 +73,15 @@ class PartByValueStatisticsSuite extends StatisticsTest{
   }
 
   test("read function test") {
+    val keys = (1 to 300).map(i => rowGen(i)).toArray // keys needs to be sorted
     val content = Array(1, 61, 121, 181, 241, 300)
     val curMaxId = Array(0, 60, 120, 180, 240, 299)
     val curAccumuCount = Array(1, 61, 121, 181, 241, 300)
 
-    IndexUtils.writeInt(out, 2) // PartByValueStatisticsType.id
-    IndexUtils.writeInt(out, 6) // partNum
+    val partNum = 6
 
+    IndexUtils.writeInt(out, PartByValueStatisticsType.id)
+    IndexUtils.writeInt(out, partNum)
     for (i <- content.indices) {
       Statistics.writeInternalRow(converter, rowGen(content(i)), out)
       IndexUtils.writeInt(out, curMaxId(i))
@@ -85,61 +89,83 @@ class PartByValueStatisticsSuite extends StatisticsTest{
     }
 
     val bytes = out.buf.toByteArray
-    val statistics = new PartedByValueStatistics()
+    val testPartByValue = new TestPartByValue
+    testPartByValue.initialize(schema)
+    testPartByValue.read(bytes, 0)
 
-    generateInterval(rowGen(10), rowGen(70), true, true)
-    assert(statistics.read(schema, intervalArray, bytes, 0) == 0.4)
+    val metas = testPartByValue.getMetas
+    for (i <- metas.indices) {
+      assert(metas(i).idx == i)
+      assert(ordering.compare(metas(i).row, keys(curMaxId(i))) == 0)
+      assert(ordering.compare(metas(i).row, rowGen(content(i))) == 0)
+      assert(metas(i).curMaxId == curMaxId(i))
+      assert(metas(i).accumulatorCnt == curAccumuCount(i))
+    }
 
-    generateInterval(rowGen(10), rowGen(190), true, true)
-    assert(statistics.read(schema, intervalArray, bytes, 0) == 0.8)
-
-    generateInterval(rowGen(-10), rowGen(10), true, true)
-    assert(statistics.read(schema, intervalArray, bytes, 0) == 31.0 / 300)
-
-    generateInterval(rowGen(-10), rowGen(0), true, true)
-    assert(statistics.read(schema, intervalArray, bytes, 0) == StaticsAnalysisResult.SKIP_INDEX)
-
-    generateInterval(rowGen(310), rowGen(400), true, true)
-    assert(statistics.read(schema, intervalArray, bytes, 0) == StaticsAnalysisResult.SKIP_INDEX)
-
-    generateInterval(rowGen(-10), rowGen(0), true, true)
-    assert(statistics.read(schema, intervalArray, bytes, 0) == StaticsAnalysisResult.SKIP_INDEX)
   }
 
   test("read and write") {
-    val keys = (1 to 300).map(i => rowGen(i)).toArray
-    val hashMap = new java.util.HashMap[InternalRow, java.util.ArrayList[Long]]()
+    val keys = (1 to 300).map(i => rowGen(i)).toArray // keys needs to be sorted
 
-    for (i <- keys.indices) {
-      val key = keys(i)
-      val offsetList = new java.util.ArrayList[Long]()
-      offsetList.add(i * 8)
-      hashMap.put(key, offsetList)
-    }
-
-    val statistics = new PartedByValueStatistics()
-    statistics.write(schema, out, keys, hashMap, null)
+    val partByCalueWrite = new TestPartByValue
+    partByCalueWrite.initialize(schema)
+    partByCalueWrite.write(out, keys.to[ArrayBuffer])
 
     val bytes = out.buf.toByteArray
 
-    val statisticsRead = new PartedByValueStatistics()
+    val partByValueRead = new TestPartByValue
+    partByValueRead.initialize(schema)
+    partByValueRead.read(bytes, 0)
+
+    val content = Array(1, 61, 121, 181, 241, 300)
+    val curMaxId = Array(0, 60, 120, 180, 240, 299)
+    val curAccumuCount = Array(1, 61, 121, 181, 241, 300)
+
+    val metas = partByValueRead.getMetas
+    for (i <- metas.indices) {
+      assert(metas(i).idx == i)
+      assert(ordering.compare(metas(i).row, keys(curMaxId(i))) == 0)
+      assert(ordering.compare(metas(i).row, rowGen(content(i))) == 0)
+      assert(metas(i).curMaxId == curMaxId(i))
+      assert(metas(i).accumulatorCnt == curAccumuCount(i))
+    }
+  }
+
+  test("test analyze function") {
+    val keys = (1 to 300).map(i => rowGen(i)).toArray // keys needs to be sorted
+
+    val partByCalueWrite = new TestPartByValue
+    partByCalueWrite.initialize(schema)
+    partByCalueWrite.write(out, keys.to[ArrayBuffer])
+
+    val bytes = out.buf.toByteArray
+
+    val partByValueRead = new TestPartByValue
+    partByValueRead.initialize(schema)
+    partByValueRead.read(bytes, 0)
+
+    generateInterval(IndexScanner.DUMMY_KEY_START, IndexScanner.DUMMY_KEY_END, true, true)
+    assert(partByValueRead.analyse(intervalArray) == 1.0)
+
+    generateInterval(rowGen(1), rowGen(301), true, true)
+    assert(partByValueRead.analyse(intervalArray) == 1.0)
 
     generateInterval(rowGen(10), rowGen(70), true, true)
-    assert(statisticsRead.read(schema, intervalArray, bytes, 0) == 0.4)
+    assert(partByValueRead.analyse(intervalArray) == 0.4)
 
     generateInterval(rowGen(10), rowGen(190), true, true)
-    assert(statisticsRead.read(schema, intervalArray, bytes, 0) == 0.8)
+    assert(partByValueRead.analyse(intervalArray) == 0.8)
 
     generateInterval(rowGen(-10), rowGen(10), true, true)
-    assert(statisticsRead.read(schema, intervalArray, bytes, 0) == 31.0 / 300)
+    assert(partByValueRead.analyse(intervalArray) == 31.0 / 300)
 
     generateInterval(rowGen(-10), rowGen(0), true, true)
-    assert(statisticsRead.read(schema, intervalArray, bytes, 0) == StaticsAnalysisResult.SKIP_INDEX)
+    assert(partByValueRead.analyse(intervalArray) == StaticsAnalysisResult.SKIP_INDEX)
 
     generateInterval(rowGen(310), rowGen(400), true, true)
-    assert(statisticsRead.read(schema, intervalArray, bytes, 0) == StaticsAnalysisResult.SKIP_INDEX)
+    assert(partByValueRead.analyse(intervalArray) == StaticsAnalysisResult.SKIP_INDEX)
 
     generateInterval(rowGen(-10), rowGen(0), true, true)
-    assert(statisticsRead.read(schema, intervalArray, bytes, 0) == StaticsAnalysisResult.SKIP_INDEX)
+    assert(partByValueRead.analyse(intervalArray) == StaticsAnalysisResult.SKIP_INDEX)
   }
 }

@@ -16,94 +16,134 @@
  */
 package org.apache.spark.sql.execution.datasources.spinach
 
-import org.apache.spark.sql.execution.datasources.spinach.index.IndexUtils
+import scala.collection.mutable.ArrayBuffer
+import scala.util.Random
+
+import org.apache.spark.sql.execution.datasources.spinach.index.{IndexScanner, IndexUtils}
 import org.apache.spark.sql.execution.datasources.spinach.statistics._
 import org.apache.spark.unsafe.Platform
 
 class SampleBasedStatisticsSuite extends StatisticsTest{
 
-  class TestSampleBaseStatistics(rate: Double = 0.1) extends SampleBasedStatistics(rate) {
-    override def takeSample(keys: Array[Key], size: Int): Array[Key] = keys.take(size)
+  class TestSample extends SampleBasedStatistics {
+    override def takeSample(keys: ArrayBuffer[Key], size: Int): Array[Key] = keys.take(size).toArray
+    def getSampleArray: Array[Key] = sampleArray
   }
 
   test("test write function") {
-    val sampleRate = 0.2
-    val keys = (1 to 300).map(i => rowGen(i)).toArray
-    val sampleSize = (keys.length * sampleRate).toInt
+    val keys = (1 to 300).map(i => rowGen(i)).toArray // keys needs to be sorted
 
-    val statistics = new TestSampleBaseStatistics(sampleRate)
-    statistics.write(schema, out, keys, null, null)
-
-    val bytes = out.buf.toByteArray
+    val testSample = new TestSample
+    testSample.initialize(schema)
+    testSample.write(out, keys.to[ArrayBuffer])
 
     var offset = 0L
-    // header
-    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET) == 1) // SampleBasedStatisticsType.id
-    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + 4) == sampleSize)
-    offset += 8
+    val bytes = out.buf.toByteArray
+    assert(Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
+      == SampleBasedStatisticsType.id)
+    offset += 4
+    val size = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
+    offset += 4
 
-    // content
-    for (i <- 0 until sampleSize) {
-      val size = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
-      val row = Statistics.getUnsafeRow(schema.length, bytes, offset, size)
-      checkInternalRow(row, converter(keys(i)))
-      offset += 4 + size
+    for (i <- 0 until size) {
+      val rowSize = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
+      val row = Statistics.getUnsafeRow(schema.length, bytes, offset, rowSize).copy()
+      assert(ordering.compare(row, keys(i)) == 0)
+      offset += 4 + rowSize
     }
   }
 
   test("read function test") {
-    val sampleRate = 0.2
-    val keys = (1 to 300).map(i => rowGen(i)).toArray
-    val sampleSize = (keys.length * sampleRate).toInt
+    val keys = Random.shuffle(1 to 300).map(i => rowGen(i)).toArray // random order
+    val size = (Random.nextInt() % 200 + 200) % 200 + 10 // assert nonEmpty sample
+    assert(size >= 0 && size <= 300)
 
-    IndexUtils.writeInt(out, 1) // SampleBasedStatisticsType.id
-    IndexUtils.writeInt(out, sampleSize)
+    IndexUtils.writeInt(out, SampleBasedStatisticsType.id)
+    IndexUtils.writeInt(out, size)
 
-    for (i <- 0 until sampleSize) {
-      Statistics.writeInternalRow(converter, keys(i), out)
+    for (idx <- 0 until size) {
+      Statistics.writeInternalRow(converter, keys(idx), out)
     }
 
     val bytes = out.buf.toByteArray
 
+    val testSample = new TestSample
+    testSample.initialize(schema)
+    testSample.read(bytes, 0)
 
-    val statistics = new TestSampleBaseStatistics()
+    val array = testSample.getSampleArray
 
-    generateInterval(rowGen(-10), rowGen(-1), startInclude = true, endInclude = true)
-    val res1 = statistics.read(schema, intervalArray, bytes, 0)
-    assert(res1 <= 0)
-
-    generateInterval(rowGen(301), rowGen(400), startInclude = true, endInclude = true)
-    val res2 = statistics.read(schema, intervalArray, bytes, 0)
-    assert(res2 <= 0)
-
-    generateInterval(rowGen(1), rowGen(300), startInclude = true, endInclude = true)
-    val res3 = statistics.read(schema, intervalArray, bytes, 0)
-    assert(res3 == 1.0) // all
+    for (i <- array.indices) {
+      assert(ordering.compare(keys(i), array(i)) == 0)
+    }
   }
 
   test("read and write") {
-    val sampleRate = 0.2
-    val keys = (1 to 300).map(i => rowGen(i)).toArray
+    val keys = Random.shuffle(1 to 300).map(i => rowGen(i)).toArray
 
-    // use random shuffle for integration test
-    val statistics = new SampleBasedStatistics(sampleRate)
-    statistics.write(schema, out, keys, null, null)
+    val sampleWrite = new TestSample
+    sampleWrite.initialize(schema)
+    sampleWrite.write(out, keys.to[ArrayBuffer])
 
     val bytes = out.buf.toByteArray
 
-    val statisticsRead = new SampleBasedStatistics()
+    val sampleRead = new TestSample
+    sampleRead.initialize(schema)
+    sampleRead.read(bytes, 0)
+
+    val array = sampleRead.getSampleArray
+
+    for (i <- array.indices) {
+      assert(ordering.compare(keys(i), array(i)) == 0)
+    }
+  }
+
+  test("test analyze function") {
+    val keys = Random.shuffle(1 to 300).map(i => rowGen(i)).toArray
+
+    val sampleWrite = new TestSample
+    sampleWrite.initialize(schema)
+    sampleWrite.write(out, keys.to[ArrayBuffer])
+
+    val bytes = out.buf.toByteArray
+
+    val sampleRead = new TestSample
+    sampleRead.initialize(schema)
+    sampleRead.read(bytes, 0)
 
     generateInterval(rowGen(-10), rowGen(-1), startInclude = true, endInclude = true)
-    val res1 = statisticsRead.read(schema, intervalArray, bytes, 0)
-    assert(res1 <= 0)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.USE_INDEX)
 
     generateInterval(rowGen(301), rowGen(400), startInclude = true, endInclude = true)
-    val res2 = statisticsRead.read(schema, intervalArray, bytes, 0)
-    assert(res2 <= 0)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.USE_INDEX)
 
-    generateInterval(rowGen(1), rowGen(300), startInclude = true, endInclude = true)
-    val res3 = statisticsRead.read(schema, intervalArray, bytes, 0)
-    assert(res3 == 1.0) // all
+    generateInterval(IndexScanner.DUMMY_KEY_START, IndexScanner.DUMMY_KEY_END,
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.FULL_SCAN)
+
+    generateInterval(IndexScanner.DUMMY_KEY_START, rowGen(0),
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.USE_INDEX)
+
+    generateInterval(IndexScanner.DUMMY_KEY_START, rowGen(300),
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.FULL_SCAN)
+
+    generateInterval(rowGen(0), IndexScanner.DUMMY_KEY_END,
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.FULL_SCAN)
+
+    generateInterval(rowGen(1), IndexScanner.DUMMY_KEY_END,
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.FULL_SCAN)
+
+    generateInterval(rowGen(300), IndexScanner.DUMMY_KEY_END,
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.USE_INDEX)
+
+    generateInterval(rowGen(301), IndexScanner.DUMMY_KEY_END,
+      startInclude = true, endInclude = true)
+    assert(sampleRead.analyse(intervalArray) == StaticsAnalysisResult.USE_INDEX)
   }
 }
 

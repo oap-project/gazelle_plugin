@@ -43,13 +43,7 @@ private[spinach] class BitMapIndexWriter(
     keySchema: StructType,
     indexName: String,
     isAppend: Boolean) extends IndexWriter(relation, job, isAppend) {
-
-  @transient val driverConf = relation.sparkSession.conf
-  job.getConfiguration.setStrings(
-    SQLConf.SPINACH_STATISTICS_TYPES.key, driverConf.get(SQLConf.SPINACH_STATISTICS_TYPES))
-  job.getConfiguration.setDouble(
-    SQLConf.SPINACH_STATISTICS_SAMPLE_RATE.key,
-    driverConf.get(SQLConf.SPINACH_STATISTICS_SAMPLE_RATE))
+  private var encodedSchema: StructType = _
 
   override def writeIndexFromRows(
       taskContext: TaskContext, iterator: Iterator[InternalRow]): Seq[IndexBuildResult] = {
@@ -84,6 +78,7 @@ private[spinach] class BitMapIndexWriter(
     val dictionaries = keySchema.map(field => dataFileSchema.indexOf(field))
       .map(ordinal => dataFile.getDictionary(ordinal, configuration))
       .toArray
+    encodedSchema = DataFile.encodeSchema(dictionaries, keySchema)
     def commitTask(): Seq[WriteResult] = {
       try {
         var writeResults: Seq[WriteResult] = Nil
@@ -112,6 +107,8 @@ private[spinach] class BitMapIndexWriter(
     }
 
     def writeTask(): Seq[IndexBuildResult] = {
+      val statisticsManager = new StatisticsManager
+      statisticsManager.initialize(BitMapIndexType, encodedSchema)
       // Current impl just for fast proving the effect of BitMap Index,
       // we can do the optimize below:
       // 1. each bitset in hashmap value has same length, we can save the
@@ -128,6 +125,7 @@ private[spinach] class BitMapIndexWriter(
           writeNewFile = true
         } else {
           val v = DataFile.encodeKey(dictionaries, keySchema, iterator.next().copy())
+          statisticsManager.addSpinachKey(v)
           if (!tmpMap.contains(v)) {
             val list = new mutable.ListBuffer[Int]()
             list += rowCnt
@@ -158,28 +156,7 @@ private[spinach] class BitMapIndexWriter(
       val indexEnd = 4 + objLen
       var offset: Long = indexEnd
 
-      val stTypes = configuration.getStrings(SQLConf.SPINACH_STATISTICS_TYPES.key)
-      if (stTypes != null && stTypes.length > 0) {
-        stTypes.foreach(stType => {
-          stType.trim match {
-            case BloomFilterStatisticsType.name =>
-              val bfMaxBits = configuration.getInt(
-                SQLConf.SPINACH_BLOOMFILTER_MAXBITS.key, 1073741824) // default 1 << 30
-              val bfNumOfHashFunc = configuration.getInt(
-              SQLConf.SPINACH_BLOOMFILTER_NUMHASHFUNC.key, 3)
-              val statistics = new BloomFilterStatistics()
-              statistics.initialize(bfMaxBits, bfNumOfHashFunc)
-              offset += statistics.arrayOffset
-              statistics
-            // TODO the following three type is not support yet
-            case MinMaxStatisticsType.name =>
-            case SampleBasedStatisticsType.name =>
-            case PartByValueStatisticsType.name =>
-            case _ =>
-              throw new UnsupportedOperationException(s"non-supported statistic type")
-            }
-        })
-      }
+      statisticsManager.write(writer)
 
       // write index file footer
       IndexUtils.writeLong(writer, indexEnd) // statistics start pos

@@ -46,15 +46,7 @@ private[spinach] class BTreeIndexWriter(
     keySchema: StructType,
     indexName: String,
     isAppend: Boolean) extends IndexWriter(relation, job, isAppend) {
-  // TODO we can improve this
-  @transient val driverConf = relation.sparkSession.conf
   private var encodedSchema: StructType = _
-
-  job.getConfiguration.setStrings(
-    SQLConf.SPINACH_STATISTICS_TYPES.key, driverConf.get(SQLConf.SPINACH_STATISTICS_TYPES))
-  job.getConfiguration.setDouble(
-    SQLConf.SPINACH_STATISTICS_SAMPLE_RATE.key,
-    driverConf.get(SQLConf.SPINACH_STATISTICS_SAMPLE_RATE))
 
   override def writeIndexFromRows(
       taskContext: TaskContext, iterator: Iterator[InternalRow]): Seq[IndexBuildResult] = {
@@ -134,6 +126,8 @@ private[spinach] class BTreeIndexWriter(
     }
 
     def writeTask(): Seq[IndexBuildResult] = {
+      val statisticsManager = new StatisticsManager
+      statisticsManager.initialize(BTreeIndexType, encodedSchema)
       // key -> RowIDs list
       val hashMap = new java.util.HashMap[InternalRow, java.util.ArrayList[Long]]()
       var cnt = 0L
@@ -144,6 +138,7 @@ private[spinach] class BTreeIndexWriter(
           writeNewFile = true
         } else {
           val v = DataFile.encodeKey(dictionaries, keySchema, iterator.next().copy())
+          statisticsManager.addSpinachKey(v)
           if (!hashMap.containsKey(v)) {
             val list = new java.util.ArrayList[Long]()
             list.add(cnt)
@@ -207,31 +202,7 @@ private[spinach] class BTreeIndexWriter(
       val treeOffset = writeTreeToOut(treeShape, writer, offsetMap,
         fileOffset, uniqueKeysList, encodedSchema, 0, -1L)
 
-      val stTypes = configuration.getStrings(SQLConf.SPINACH_STATISTICS_TYPES.key)
-      if (stTypes != null && stTypes.length > 0) {
-        stTypes.foreach(stType => {
-          val t = stType.trim
-          if (t.length > 0) {
-            val st = t match {
-              case MinMaxStatisticsType.name => new MinMaxStatistics
-              case SampleBasedStatisticsType.name => new SampleBasedStatistics(
-                configuration.get(SQLConf.SPINACH_STATISTICS_SAMPLE_RATE.key).toDouble)
-              case PartByValueStatisticsType.name => new PartedByValueStatistics
-              case BloomFilterStatisticsType.name =>
-                val bfMaxBits = configuration.getInt(
-                  SQLConf.SPINACH_BLOOMFILTER_MAXBITS.key, 1073741824) // default 1 << 30
-                val bfNumOfHashFunc = configuration.getInt(
-                  SQLConf.SPINACH_BLOOMFILTER_NUMHASHFUNC.key, 3)
-                val statistics = new BloomFilterStatistics()
-                statistics.initialize(bfMaxBits, bfNumOfHashFunc)
-                statistics
-              case _ =>
-                throw new UnsupportedOperationException(s"non-supported statistic type $t")
-            }
-            st.write(encodedSchema, writer, uniqueKeys, hashMap, offsetMap)
-          }
-        })
-      }
+      statisticsManager.write(writer)
 
       assert(uniqueKeysList.size == 1)
       IndexUtils.writeLong(writer, dataEnd + treeOffset._1)

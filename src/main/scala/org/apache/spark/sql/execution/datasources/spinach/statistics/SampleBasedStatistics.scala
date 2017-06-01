@@ -22,65 +22,73 @@ import scala.util.Random
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeProjection
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
+import org.apache.spark.sql.execution.datasources.spinach.Key
 import org.apache.spark.sql.execution.datasources.spinach.index._
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.Platform
 
 
-class SampleBasedStatistics(sampleRate: Double = 0.1) extends Statistics {
+private[spinach] class SampleBasedStatistics extends Statistics {
   override val id: Int = SampleBasedStatisticsType.id
 
-  protected def takeSample(keys: Array[InternalRow], size: Int): Array[InternalRow] =
-    Random.shuffle(keys.indices.toList).take(size).map(keys(_)).toArray
+  lazy val sampleRate: Double = StatisticsManager.sampleRate
+  @transient private lazy val converter = UnsafeProjection.create(schema)
+  @transient private lazy val ordering = GenerateOrdering.create(schema)
 
-  // for SampleBasedStatistics, input keys should be the whole file
-  // instead of uniqueKeys, can be refactor later
-  def write(schema: StructType, writer: IndexOutputWriter, uniqueKeys: Array[InternalRow],
-            hashMap: java.util.HashMap[InternalRow, java.util.ArrayList[Long]],
-            offsetMap: java.util.HashMap[InternalRow, Long]): Unit = {
-    // SampleBasedStatistics file structure
-    // statistics_id        4 Bytes, Int, specify the [[Statistic]] type
-    // sample_size          4 Bytes, Int, number of UnsafeRow
-    //
-    // | unsafeRow-1 sizeInBytes | unsafeRow-1 content |   (4 + u1_sizeInBytes) Bytes, unsafeRow-1
-    // | unsafeRow-2 sizeInBytes | unsafeRow-2 content |   (4 + u2_sizeInBytes) Bytes, unsafeRow-2
-    // | unsafeRow-3 sizeInBytes | unsafeRow-3 content |   (4 + u3_sizeInBytes) Bytes, unsafeRow-3
-    // ...
-    // | unsafeRow-(sample_size) sizeInBytes | unsafeRow-(sample_size) content |
 
-    val converter = UnsafeProjection.create(schema)
-    val sample_size = (uniqueKeys.length * sampleRate).toInt
+  protected var sampleArray: Array[Key] = _
 
-    IndexUtils.writeInt(writer, id)
-    IndexUtils.writeInt(writer, sample_size)
+  // SampleBasedStatistics file structure
+  // statistics_id        4 Bytes, Int, specify the [[Statistic]] type
+  // sample_size          4 Bytes, Int, number of UnsafeRow
+  //
+  // | unsafeRow-1 sizeInBytes | unsafeRow-1 content |   (4 + u1_sizeInBytes) Bytes, unsafeRow-1
+  // | unsafeRow-2 sizeInBytes | unsafeRow-2 content |   (4 + u2_sizeInBytes) Bytes, unsafeRow-2
+  // | unsafeRow-3 sizeInBytes | unsafeRow-3 content |   (4 + u3_sizeInBytes) Bytes, unsafeRow-3
+  // ...
+  // | unsafeRow-(sample_size) sizeInBytes | unsafeRow-(sample_size) content |
+  override def write(writer: IndexOutputWriter, sortedKeys: ArrayBuffer[Key]): Long = {
+    var offset = super.write(writer, sortedKeys)
+    val size = (sortedKeys.size * sampleRate).toInt
+    sampleArray = takeSample(sortedKeys, size)
 
-    val sampleArray = takeSample(uniqueKeys, sample_size)
-    sampleArray.foreach(row => Statistics.writeInternalRow(converter, row, writer))
+    IndexUtils.writeInt(writer, size)
+    offset += 4
+    sampleArray.foreach(key => {
+      offset += Statistics.writeInternalRow(converter, key, writer)
+    })
+    offset
   }
 
-  override var arrayOffset: Long = _
+  override def read(bytes: Array[Byte], baseOffset: Long): Long = {
+    var offset = super.read(bytes, baseOffset) + baseOffset
 
-  // TODO refactor offset variable to provide an easy access to file offset
-  override def read(schema: StructType, intervalArray: ArrayBuffer[RangeInterval],
-                    stsArray: Array[Byte], offset_temp: Long): Double = {
-    var offset = offset_temp
-    val id_from_file = Platform.getInt(stsArray, Platform.BYTE_ARRAY_OFFSET + offset)
-    offset += 4
-    assert(id_from_file == id, "Statistics type mismatch")
-    val ordering = GenerateOrdering.create(schema)
-    val size_from_file = Platform.getInt(stsArray, Platform.BYTE_ARRAY_OFFSET + offset)
+    val size = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
     offset += 4
 
-    var hit_count = 0
-    for (_ <- 0 until size_from_file) {
-      // read UnsafeRow, calculate hit_count without storing a single row
-      val size = Platform.getInt(stsArray, Platform.BYTE_ARRAY_OFFSET + offset)
-      val row = Statistics.getUnsafeRow(schema.length, stsArray, offset, size)
-      offset = offset + 4 + size
+    // TODO is it ok to store all sample array in memory?
+    sampleArray = new Array[Key](size)
 
-      if (Statistics.rowInIntervalArray(row, intervalArray, ordering)) hit_count += 1
+    for (i <- 0 until size) {
+      val rowSize = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
+      sampleArray(i) = Statistics.getUnsafeRow(schema.length, bytes, offset, rowSize).copy()
+      offset += (4 + rowSize)
     }
-    arrayOffset = offset
-    hit_count * 1.0 / size_from_file
+    offset - baseOffset
   }
+
+  override def analyse(intervalArray: ArrayBuffer[RangeInterval]): Double = {
+    if (sampleArray == null || sampleArray.length <= 0) {
+      StaticsAnalysisResult.USE_INDEX
+    } else {
+      var hitCnt = 0
+      for (row <- sampleArray) {
+        if (Statistics.rowInIntervalArray(row, intervalArray, ordering)) hitCnt += 1
+      }
+      hitCnt * 1.0 / sampleArray.length
+    }
+  }
+
+  protected def takeSample(keys: ArrayBuffer[InternalRow], size: Int): Array[InternalRow] =
+    Random.shuffle(keys.indices.toList).take(size).map(keys(_)).toArray
 }

@@ -19,49 +19,44 @@ package org.apache.spark.sql.execution.datasources.spinach.statistics
 
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
+import org.apache.spark.sql.execution.datasources.spinach.Key
 import org.apache.spark.sql.execution.datasources.spinach.index._
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
 
-class BloomFilterStatistics extends Statistics {
+private[spinach] class BloomFilterStatistics extends Statistics {
   override val id: Int = BloomFilterStatisticsType.id
-  override var arrayOffset: Long = _
-  private var schema: StructType = _
 
-  private var bfIndex: BloomFilter = _
+  protected var bfIndex: BloomFilter = _
 
-  def initialize(maxBits: Int, numOfHashFunc: Int): Unit = {
-    bfIndex = new BloomFilter(maxBits, numOfHashFunc)()
-  }
+  private lazy val bfMaxBits: Int = StatisticsManager.bloomFilterMaxBits
+  private lazy val bfHashFuncs: Int = StatisticsManager.bloomFilterHashFuncs
 
-  private def buildBloomFilter(uniqueKeys: Array[InternalRow]): Int = {
-    var elemCnt = 0 // element count
+  @transient private var projectors: Array[UnsafeProjection] = _ // for write
+  @transient private lazy val convertor: UnsafeProjection = UnsafeProjection.create(schema)
+  @transient private lazy val ordering = GenerateOrdering.create(schema)
+
+  override def initialize(schema: StructType): Unit = {
+    super.initialize(schema)
+    bfIndex = new BloomFilter(bfMaxBits, bfHashFuncs)()
     val boundReference = schema.zipWithIndex.map(x =>
       BoundReference(x._2, x._1.dataType, nullable = true))
     // for multi-column index, add all subsets into bloom filter
     // For example, a column with a = 1, b = 2, a and b are index columns
     // then three records: a = 1, b = 2, a = 1 b = 2, are inserted to bf
-    val projector = boundReference.toSet.subsets().filter(_.nonEmpty).map(s =>
+    projectors = boundReference.toSet.subsets().filter(_.nonEmpty).map(s =>
       UnsafeProjection.create(s.toArray)).toArray
-    for (row <- uniqueKeys) {
-      elemCnt += 1
-      projector.foreach(p => bfIndex.addValue(p(row).getBytes))
-    }
-    elemCnt
   }
 
-  // TODO write function parameters need to be optimized
-  def write(s: StructType, writer: IndexOutputWriter, uniqueKeys: Array[InternalRow],
-            hashMap: java.util.HashMap[InternalRow, java.util.ArrayList[Long]],
-            offsetMap: java.util.HashMap[InternalRow, Long]): Unit = {
-    arrayOffset = 0
-    schema = s
-    IndexUtils.writeInt(writer, id)
-    arrayOffset += 4
-    val elemCnt = buildBloomFilter(uniqueKeys)
+  override def addSpinachKey(key: Key): Unit = {
+    assert(bfIndex != null, "Please initialize the statistics")
+    projectors.foreach(p => bfIndex.addValue(p(key).getBytes))
+  }
+
+  override def write(writer: IndexOutputWriter, sortedKeys: ArrayBuffer[Key]): Long = {
+    var offset = super.write(writer, sortedKeys)
 
     // Bloom filter index file format:
     // numOfLong            4 Bytes, Int, record the total number of Longs in bit array
@@ -73,28 +68,28 @@ class BloomFilterStatistics extends Statistics {
     // long 2               8 Bytes, Long, the second element in bit array
     // ...
     // long $numOfLong      8 Bytes, Long, the $numOfLong -th element in bit array
-    //
-    // dataEndOffset        8 Bytes, Long, data end offset
-    // rootOffset           8 Bytes, Long, root Offset
     val bfBitArray = bfIndex.getBitMapLongArray
-    var offset = 0L
     IndexUtils.writeInt(writer, bfBitArray.length) // bfBitArray length
     IndexUtils.writeInt(writer, bfIndex.getNumOfHashFunc) // numOfHashFunc
-    IndexUtils.writeInt(writer, elemCnt)
-    offset += 12
+    offset += 8
     bfBitArray.foreach(l => {
       IndexUtils.writeLong(writer, l)
       offset += 8
     })
-    arrayOffset += offset
+    offset
   }
 
-  private def readBloomFilter(bytes: Array[Byte], startOffset: Long): Long = {
-    var offset = startOffset
+  override def read(bytes: Array[Byte], baseOffset: Long): Long = {
+    var offset = super.read(bytes, baseOffset) + baseOffset
+    offset += readBloomFilter(bytes, offset)
+    offset - baseOffset
+  }
+
+  private def readBloomFilter(bytes: Array[Byte], baseOffset: Long): Long = {
+    var offset = baseOffset
     val bitLength = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset)
     val numHashFunc = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset + 4)
-    val numOfElems = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + offset + 8)
-    offset += 12
+    offset += 8
 
     val bitSet = new Array[Long](bitLength)
 
@@ -104,36 +99,24 @@ class BloomFilterStatistics extends Statistics {
     }
 
     bfIndex = BloomFilter(bitSet, numHashFunc)
-    offset - startOffset
+    offset - baseOffset
   }
 
-  // TODO parameter needs to be optimized
-  def read(s: StructType, intervalArray: ArrayBuffer[RangeInterval],
-           bytes: Array[Byte], baseOffset: Long): Double = {
-    val idFromFile = Platform.getInt(bytes, Platform.BYTE_ARRAY_OFFSET + baseOffset)
-    assert(idFromFile == this.id)
-    schema = s
-    arrayOffset = baseOffset + 4
-    arrayOffset += readBloomFilter(bytes, baseOffset + 4)
-
-    val projector = UnsafeProjection.create(schema)
-
-    val order = GenerateOrdering.create(schema)
-
+  override def analyse(intervalArray: ArrayBuffer[RangeInterval]): Double = {
     // extract equal condition from intervalArray
-    val equalValues: Array[InternalRow] =
+    val equalValues: Array[Key] =
       if (intervalArray.nonEmpty) {
         // should not use ordering.compare here
-        intervalArray.filter(interval => order.compare(interval.start, interval.end) == 0
+        intervalArray.filter(interval => ordering.compare(interval.start, interval.end) == 0
           && interval.startInclude && interval.endInclude).map(_.start).toArray
       } else null
     val skipFlag = if (equalValues != null && equalValues.length > 0) {
       !equalValues.map(value => bfIndex
-        .checkExist(projector(value).getBytes))
+        .checkExist(convertor(value).getBytes))
         .reduceOption(_ || _).getOrElse(false)
     } else false
 
     if (skipFlag) StaticsAnalysisResult.SKIP_INDEX
-    else StaticsAnalysisResult.FULL_SCAN
+    else StaticsAnalysisResult.USE_INDEX
   }
 }
