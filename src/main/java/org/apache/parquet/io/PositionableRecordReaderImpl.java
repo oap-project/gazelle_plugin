@@ -18,42 +18,45 @@ package org.apache.parquet.io;
 
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.column.ColumnReader;
-import org.apache.parquet.io.RecordReaderImplementation.State;
-import org.apache.parquet.utils.Reflections;
+import org.apache.parquet.column.impl.ColumnReadStoreImpl;
+import org.apache.parquet.io.api.RecordMaterializer;
+import org.apache.parquet.it.unimi.dsi.fastutil.longs.LongList;
 
-public abstract class PositionableRecordReaderImpl<T> implements PositionableRecordReader<T> {
+public class PositionableRecordReaderImpl<T> extends RecordReaderImplementation<T> {
 
-    protected final long recordMaxCount;
+    private final long recordMaxCount;
 
     private long recordsRead = 0;
 
-    private RecordReader<T> recordReader;
+    private Long currentRowId = -1L;
 
-    private State[] states;
+    private LongList rowIdList = null;
 
-    protected Long currentRowId = -1L;
+    private int currentIndex = 0;
 
-    public PositionableRecordReaderImpl(RecordReader<T> recordReader, long recordCount) {
-        this.recordReader = recordReader;
+    public PositionableRecordReaderImpl(MessageColumnIO root,
+                                        RecordMaterializer<T> recordMaterializer,
+                                        ColumnReadStoreImpl columnStore,
+                                        long recordCount,
+                                        LongList rowIdList) {
+        super(root, recordMaterializer, false, columnStore);
+        Preconditions.checkNotNull(rowIdList,"rowIdList can not be null.");
+        Preconditions.checkArgument(!rowIdList.isEmpty(), "rowIdList must has item.");
         this.recordMaxCount = recordCount;
-        if(recordReader instanceof RecordReaderImplementation){
-            this.states = (State[]) Reflections.getFieldValue(recordReader, "states");
-        }
-
+        this.rowIdList = rowIdList;
     }
 
     public T read() {
-        if(this.states != null){
-            currentRowId = this.nextRowId();
-            seek(currentRowId);
-        }
+        currentRowId = rowIdList.getLong(currentIndex);
+        seek(currentRowId);
 
         if (recordsRead == recordMaxCount) {
             return null;
         }
 
         ++recordsRead;
-        return recordReader.read();
+        ++currentIndex;
+        return super.read();
     }
 
     private void seek(long position) {
@@ -67,14 +70,13 @@ public abstract class PositionableRecordReaderImpl<T> implements PositionableRec
             do {
                 ColumnReader columnReader = currentState.column;
 
-                // currentLevel = depth + 1 at this point
-                // set the current value
+                // has value, skip it
                 if (columnReader.getCurrentDefinitionLevel() >= currentState.maxDefinitionLevel) {
                     columnReader.skip();
                 }
+                // change r,d state
                 columnReader.consume();
 
-                // Based on repetition level work out next state to go to
                 int nextR =
                         currentState.maxRepetitionLevel == 0 ? 0 : columnReader.getCurrentRepetitionLevel();
                 currentState = currentState.getNextState(nextR);
@@ -82,20 +84,5 @@ public abstract class PositionableRecordReaderImpl<T> implements PositionableRec
             recordsRead++;
         }
     }
-
-    private State getState(int i) {
-        return states[i];
-    }
-
-    public boolean shouldSkipCurrentRecord() {
-        return this.recordReader.shouldSkipCurrentRecord();
-    }
-
-    @Override
-    public Long getCurrentRowId() {
-        return currentRowId;
-    }
-
-    protected abstract Long nextRowId();
 
 }

@@ -17,63 +17,68 @@
 
 package org.apache.spark.sql.execution.datasources.spinach.io
 
-import java.lang.{Long => JLong}
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.util.StringUtils
 import org.apache.parquet.column.Dictionary
+import org.apache.parquet.hadoop.RecordReaderBuilder
 import org.apache.parquet.hadoop.api.RecordReader
-import org.apache.parquet.hadoop.SpinachRecordReader
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportHelper
-import org.apache.spark.sql.execution.datasources.spinach.filecache.DataFiberCache
+import org.apache.spark.sql.execution.datasources.spinach.filecache._
 import org.apache.spark.sql.types.StructType
 
 
 private[spinach] case class ParquetDataFile(path: String, schema: StructType) extends DataFile {
 
   def getFiberData(groupId: Int, fiberId: Int, conf: Configuration): DataFiberCache = {
+    // TODO data cache
     throw new UnsupportedOperationException("Not support getFiberData Operation.")
   }
 
   def iterator(conf: Configuration, requiredIds: Array[Int]): Iterator[InternalRow] = {
-    iterator(conf, requiredIds, null)
+    val recordReader = recordReaderBuilder(conf, requiredIds)
+      .buildDefault()
+    recordReader.initialize()
+    new FileRecordReaderIterator[InternalRow](
+      recordReader.asInstanceOf[RecordReader[InternalRow]])
   }
 
   def iterator(conf: Configuration,
                requiredIds: Array[Int],
                rowIds: Array[Long]): Iterator[InternalRow] = {
-    if (rowIds != null && rowIds.length == 0) {
-      new Iterator[UnsafeRow] {
-        override def hasNext: Boolean = false
-
-        override def next(): UnsafeRow =
-          throw new java.util.NoSuchElementException("Input is Empty RowIds Array")
-      }
+    if (rowIds == null || rowIds.length == 0) {
+      ParquetDataFile.emptyIterator
     } else {
-      val requestSchemaString = {
-        var requestSchema = new StructType
-        for (index <- requiredIds) {
-          requestSchema = requestSchema.add(schema(index))
-        }
-        requestSchema.json
-      }
-      conf.set(ParquetReadSupportHelper.SPARK_ROW_REQUESTED_SCHEMA, requestSchemaString)
-      conf.set(SpinachReadSupportImpl.SPARK_ROW_READ_FROM_FILE_SCHEMA, requestSchemaString)
-
-      val readSupport = new SpinachReadSupportImpl
-
-      val recordReader = SpinachRecordReader.builder(readSupport, new Path(path), conf)
-        .withGlobalRowIds(rowIds).build()
+      val recordReader = recordReaderBuilder(conf, requiredIds)
+        .withGlobalRowIds(rowIds).buildIndexed()
       recordReader.initialize()
-      new FileRecordReaderIterator[JLong, UnsafeRow](
-        recordReader.asInstanceOf[RecordReader[JLong, UnsafeRow]])
+      new FileRecordReaderIterator[InternalRow](
+        recordReader.asInstanceOf[RecordReader[InternalRow]])
     }
   }
 
-  private class FileRecordReaderIterator[ID, V](rowReader: RecordReader[ID, V])
+  private def recordReaderBuilder(conf: Configuration,
+                                  requiredIds: Array[Int]): RecordReaderBuilder[InternalRow] = {
+    val requestSchemaString = {
+      var requestSchema = new StructType
+      for (index <- requiredIds) {
+        requestSchema = requestSchema.add(schema(index))
+      }
+      requestSchema.json
+    }
+    conf.set(ParquetReadSupportHelper.SPARK_ROW_REQUESTED_SCHEMA, requestSchemaString)
+
+    val readSupport = new SpinachReadSupportImpl
+
+    val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this, conf)
+    RecordReaderBuilder
+      .builder(readSupport, new Path(StringUtils.unEscapeString(path)), conf)
+      .withFooter(meta.footer)
+  }
+
+  private class FileRecordReaderIterator[V](rowReader: RecordReader[V])
     extends Iterator[V] {
     private[this] var havePair = false
     private[this] var finished = false
@@ -98,11 +103,21 @@ private[spinach] case class ParquetDataFile(path: String, schema: StructType) ex
     }
   }
 
-  override def createDataFileHandle(conf: Configuration): DataFileHandle = {
-    throw new UnsupportedOperationException("Not support initialize Operation.")
+  override def createDataFileHandle(conf: Configuration): ParquetDataFileHandle = {
+    new ParquetDataFileHandle().read(conf, new Path(StringUtils.unEscapeString(path)))
   }
 
   override def getDictionary(fiberId: Int, conf: Configuration): Dictionary = {
     null
+  }
+}
+
+private[spinach] object  ParquetDataFile {
+
+  val emptyIterator = new Iterator[InternalRow] {
+    override def hasNext: Boolean = false
+
+    override def next(): InternalRow =
+      throw new java.util.NoSuchElementException("Input is Empty RowIds Array")
   }
 }
