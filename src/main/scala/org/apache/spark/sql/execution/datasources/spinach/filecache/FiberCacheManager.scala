@@ -19,13 +19,27 @@ package org.apache.spark.sql.execution.datasources.spinach.filecache
 
 import java.util.concurrent.TimeUnit
 
+import scala.collection.mutable
+
+import collection.JavaConverters._
 import com.google.common.cache._
 import org.apache.hadoop.conf.Configuration
 
+import org.apache.spark.SparkConf
+import org.apache.spark.executor.custom.CustomManager
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.datasources.SpinachException
-import org.apache.spark.sql.execution.datasources.spinach.io.{DataFile, DataFileHandle, IndexFile}
+import org.apache.spark.sql.execution.datasources.spinach.io._
+import org.apache.spark.sql.execution.datasources.spinach.utils.CacheStatusSerDe
+import org.apache.spark.util.collection.BitSet
 
+
+// TODO need to register within the SparkContext
+class SpinachHeartBeatMessager extends CustomManager with Logging {
+  override def status(conf: SparkConf): String = {
+    FiberCacheManager.status
+  }
+}
 
 private[spinach] sealed case class ConfigurationCache[T](key: T, conf: Configuration) {
   override def hashCode: Int = key.hashCode()
@@ -41,7 +55,7 @@ private[spinach] sealed case class ConfigurationCache[T](key: T, conf: Configura
 private[spinach] sealed trait AbstractFiberCacheManger extends Logging {
   type ENTRY = ConfigurationCache[Fiber]
 
-  protected def fiber2Data(key: Fiber, conf: Configuration): FiberCache
+  protected def fiber2Data(fiber: Fiber, conf: Configuration): FiberCache
 
   @transient protected val cache =
     CacheBuilder
@@ -58,14 +72,14 @@ private[spinach] sealed trait AbstractFiberCacheManger extends Logging {
           MemoryManager.free(n.getValue)
         }
       })
-      .build(new CacheLoader[ENTRY, FiberCache]() {
-        override def load(key: ENTRY): FiberCache = {
-          fiber2Data(key.key, key.conf)
+      .build[ENTRY, FiberCache](new CacheLoader[ENTRY, FiberCache]() {
+        override def load(entry: ENTRY): FiberCache = {
+          fiber2Data(entry.key, entry.conf)
         }
       })
 
-  def apply[T <: FiberCache](fiberCache: Fiber, conf: Configuration): T = {
-    cache.get(ConfigurationCache(fiberCache, conf)).asInstanceOf[T]
+  def apply[T <: FiberCache](fiber: Fiber, conf: Configuration): T = {
+    cache.get(ConfigurationCache(fiber, conf)).asInstanceOf[T]
   }
 }
 
@@ -73,11 +87,43 @@ private[spinach] sealed trait AbstractFiberCacheManger extends Logging {
  * Fiber Cache Manager
  */
 object FiberCacheManager extends AbstractFiberCacheManger {
-  override def fiber2Data(key: Fiber, conf: Configuration): FiberCache = key match {
+  override def fiber2Data(fiber: Fiber, conf: Configuration): FiberCache = fiber match {
     case DataFiber(file, columnIndex, rowGroupId) =>
       file.getFiberData(rowGroupId, columnIndex, conf)
     case IndexFiber(file) => file.getIndexFiberData(conf)
     case other => throw new SpinachException(s"Cannot identify what's $other")
+  }
+
+  def status: String = {
+    val dataFiberConfPairs = this.cache.asMap().keySet().asScala.collect {
+      case entry @ ConfigurationCache(key: DataFiber, conf) => (key, conf)
+    }
+
+    val fiberFileToFiberMap = new mutable.HashMap[String, mutable.Buffer[DataFiber]]()
+    dataFiberConfPairs.foreach { case (dataFiber, _) =>
+      fiberFileToFiberMap.getOrElseUpdate(
+        dataFiber.file.path, new mutable.ArrayBuffer[DataFiber]) += dataFiber
+    }
+
+
+    val filePathSet = new mutable.HashSet[String]()
+    val statusRawData = dataFiberConfPairs.map {
+      case (dataFiber @ DataFiber(dataFile : SpinachDataFile, _, _), conf)
+        if !filePathSet.contains(dataFile.path) =>
+        val fileMeta =
+          DataFileHandleCacheManager(dataFile, conf).asInstanceOf[SpinachDataFileHandle]
+        val fiberBitSet = new BitSet(fileMeta.groupCount * fileMeta.fieldCount)
+        val fiberCachedList: Seq[DataFiber] =
+          fiberFileToFiberMap.getOrElse(dataFile.path, Seq.empty)
+        fiberCachedList.foreach { fiber =>
+          fiberBitSet.set(fiber.columnIndex + fileMeta.fieldCount * fiber.rowGroupId)
+        }
+        filePathSet.add(dataFile.path)
+        FiberCacheStatus(dataFile.path, fiberBitSet, fileMeta)
+    }.toSeq
+
+    val retStatus = CacheStatusSerDe.serialize(statusRawData)
+    retStatus
   }
 }
 
@@ -97,7 +143,7 @@ private[spinach] object DataFileHandleCacheManager extends Logging {
           n.getValue.fin.close()
         }
       })
-      .build(new CacheLoader[ENTRY, DataFileHandle]() {
+      .build[ENTRY, DataFileHandle](new CacheLoader[ENTRY, DataFileHandle]() {
         override def load(entry: ENTRY)
         : DataFileHandle = {
           logDebug(s"Loading Data File Handle ${entry.key.path}")
