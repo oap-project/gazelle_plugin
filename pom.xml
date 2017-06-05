@@ -39,6 +39,7 @@
     <scala.binary.version>2.11</scala.binary.version>
     <spark.version>2.0.0</spark.version>
     <spark.internal.version>2.0.0</spark.internal.version>
+    <jetty.version>9.2.16.v20160414</jetty.version>
   </properties>
 
   <repositories>
@@ -105,6 +106,59 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-plus</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-security</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-util</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-server</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-http</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-continuation</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-servlet</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.eclipse.jetty</groupId>
+      <artifactId>jetty-servlets</artifactId>
+      <scope>compile</scope>
+      <version>${jetty.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>javax.servlet-api</artifactId>
+      <version>3.1.0</version>
+    </dependency>
+    <dependency>
       <groupId>org.scala-lang</groupId>
       <artifactId>scala-library</artifactId>
       <version>${scala.version}</version>
@@ -125,7 +179,7 @@
       <groupId>com.fasterxml.jackson.module</groupId>
       <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
       <version>2.4.4</version>
-      <scope>runtime</scope>
+      <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
@@ -200,6 +254,11 @@
       <groupId>org.antlr</groupId>
       <artifactId>antlr4-runtime</artifactId>
       <version>4.5.3</version>
+    </dependency>
+    <dependency>
+      <groupId>org.json4s</groupId>
+      <artifactId>json4s-core_${scala.binary.version}</artifactId>
+      <version>3.2.11</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -398,8 +457,8 @@
         <artifactId>maven-compiler-plugin</artifactId>
         <version>3.3</version>
         <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
+          <source>1.8</source>
+          <target>1.8</target>
           <encoding>UTF-8</encoding>
           <maxmem>1024m</maxmem>
           <fork>true</fork>

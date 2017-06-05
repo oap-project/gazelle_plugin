@@ -20,4 +20,5 @@
 .scala_dependencies
 .settings
 target/
+dependency-reduced-pom.xml
 
