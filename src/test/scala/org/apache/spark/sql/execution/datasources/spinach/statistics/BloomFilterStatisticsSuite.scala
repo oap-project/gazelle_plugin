@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.statistics
 
 import scala.util.Random
 
 import org.apache.spark.sql.catalyst.expressions.{BoundReference, UnsafeProjection}
 import org.apache.spark.sql.execution.datasources.spinach.index.{BloomFilter, IndexUtils}
-import org.apache.spark.sql.execution.datasources.spinach.statistics.{BloomFilterStatistics, BloomFilterStatisticsType, StaticsAnalysisResult, StatisticsManager}
 import org.apache.spark.unsafe.Platform
 
 class BloomFilterStatisticsSuite extends StatisticsTest {

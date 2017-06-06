@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.io
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.parquet.format.CompressionCodec
@@ -24,7 +24,7 @@ import org.scalacheck.Prop.forAll
 import org.scalatest.prop.Checkers
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.sql.execution.datasources.spinach.io.CodecFactory
+
 
 class CodecFactoryCheck extends Properties("CodecFactory") {
 

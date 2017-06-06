@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.index
 
 import java.io.File
 
@@ -24,7 +24,7 @@ import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.sql.SaveMode
-import org.apache.spark.sql.execution.datasources.spinach.index.{IndexContext, ScannerBuilder}
+import org.apache.spark.sql.execution.datasources.spinach.{DataSourceMeta, SpinachFileFormat}
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.Utils

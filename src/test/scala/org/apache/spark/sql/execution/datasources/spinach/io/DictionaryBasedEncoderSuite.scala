@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.io
 
 import org.apache.parquet.bytes.BytesInput
 import org.apache.parquet.column.page.DictionaryPage
@@ -27,9 +27,9 @@ import org.scalatest.prop.Checkers
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.spinach.filecache.StringFiberBuilder
-import org.apache.spark.sql.execution.datasources.spinach.io._
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.unsafe.types.UTF8String
+
 
 class DictionaryBasedEncoderCheck extends Properties("DictionaryBasedEncoder") {
   private val rowCountInEachGroup = Gen.choose(1, 1024)

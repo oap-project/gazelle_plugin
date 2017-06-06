@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.io
 
 import java.io.File
 
@@ -27,8 +27,8 @@ import org.scalacheck.Prop._
 import org.scalatest.prop.Checkers
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.sql.execution.datasources.spinach.io.{RowGroupMeta, SpinachDataFileHandle}
 import org.apache.spark.util.Utils
+
 
 class SpinachDataFileHandleCheck extends Properties("SpinachDataFileHandle") {
 

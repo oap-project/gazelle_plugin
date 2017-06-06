@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.io
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -29,7 +29,6 @@ import org.apache.parquet.hadoop.example.GroupWriteSupport
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
 import org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED
 
-import org.apache.spark.sql.execution.datasources.spinach.io.ParquetDataFile
 import org.apache.spark.sql.types.StructType
 
 

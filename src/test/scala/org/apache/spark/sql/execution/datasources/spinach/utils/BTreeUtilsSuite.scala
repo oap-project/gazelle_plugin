@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.utils
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.datasources.spinach.utils.BTreeUtils
 
 
 class BTreeUtilsSuite extends SparkFunSuite with Logging {

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.io
 
 import org.scalacheck.{Gen, Properties}
 import org.scalacheck.Prop.forAll
@@ -24,9 +24,9 @@ import org.scalatest.prop.Checkers
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.spinach.filecache.StringFiberBuilder
-import org.apache.spark.sql.execution.datasources.spinach.io.{DeltaByteArrayDataFiberParser, DeltaByteArrayFiberBuilder, SpinachDataFileHandle}
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.unsafe.types.UTF8String
+
 
 class DeltaByteArrayEncoderCheck extends Properties("DeltaByteArrayEncoder") {
 

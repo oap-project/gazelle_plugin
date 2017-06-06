@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.filecache
 
 import scala.collection.mutable.ArrayBuffer
 
+import org.apache.spark.SparkFunSuite
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.SparkListenerCustomInfoUpdate
-import org.apache.spark.SparkFunSuite
-import org.apache.spark.sql.execution.datasources.spinach.filecache.{AbstractFiberSensor, FiberCacheStatus, FiberSensor}
 import org.apache.spark.sql.execution.datasources.spinach.io.{RowGroupMeta, SpinachDataFileHandle}
 import org.apache.spark.sql.execution.datasources.spinach.utils.CacheStatusSerDe
 import org.apache.spark.util.collection.BitSet

@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.sql.execution.datasources.spinach
+
+package org.apache.spark.sql.execution.datasources.spinach.index
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.sql.execution.datasources.spinach.index.BloomFilter
-
 
 /**
  * Bloom filter test suit

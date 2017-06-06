@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+
+package org.apache.spark.sql.execution.datasources.spinach.filecache
 
 import java.io.File
 
@@ -27,6 +28,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions.GenericMutableRow
+import org.apache.spark.sql.execution.datasources.spinach.{DataSourceMeta, SpinachFileFormat}
 import org.apache.spark.sql.execution.datasources.spinach.io._
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String

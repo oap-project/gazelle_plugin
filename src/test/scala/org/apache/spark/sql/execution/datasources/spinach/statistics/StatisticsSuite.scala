@@ -14,7 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.sql.execution.datasources.spinach
+
+package org.apache.spark.sql.execution.datasources.spinach.statistics
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -24,7 +25,6 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{UnsafeProjection, UnsafeRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.execution.datasources.spinach.index.{IndexScanner, IndexUtils, RangeInterval}
-import org.apache.spark.sql.execution.datasources.spinach.statistics.{StaticsAnalysisResult, Statistics}
 import org.apache.spark.sql.types.{DoubleType, IntegerType, StructField, StructType}
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.ByteBufferOutputStream

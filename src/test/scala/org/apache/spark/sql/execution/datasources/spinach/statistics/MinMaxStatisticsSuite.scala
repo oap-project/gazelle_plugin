@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.statistics
 
 import scala.util.Random
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.spinach.index.{IndexScanner, IndexUtils}
-import org.apache.spark.sql.execution.datasources.spinach.statistics._
 import org.apache.spark.unsafe.Platform
 
 class MinMaxStatisticsSuite extends StatisticsTest {

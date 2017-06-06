@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.spinach
+package org.apache.spark.sql.execution.datasources.spinach.io
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -25,13 +25,12 @@ import org.apache.parquet.column.ParquetProperties
 import org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_2_0
 import org.apache.parquet.example.data.Group
 import org.apache.parquet.example.data.simple.SimpleGroupFactory
-import org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED
 import org.apache.parquet.hadoop.ParquetWriter
 import org.apache.parquet.hadoop.example.GroupWriteSupport
 import org.apache.parquet.hadoop.metadata.CompressionCodecName
+import org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED
 import org.apache.parquet.schema.MessageTypeParser.parseMessageType
 
-import org.apache.spark.sql.execution.datasources.spinach.io.ParquetDataFile
 import org.apache.spark.sql.types.StructType
 
 
