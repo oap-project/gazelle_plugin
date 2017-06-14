@@ -22,6 +22,7 @@ import java.io.File
 import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.sql._
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 import org.apache.spark.util.Utils
@@ -30,18 +31,22 @@ import org.apache.spark.util.Utils
 class SpinachSuite extends QueryTest with SharedSQLContext with BeforeAndAfter {
   import testImplicits._
   private var path: File = null
+  private var parquetPath: File = null
   private var df: DataFrame = null
 
   override def beforeAll(): Unit = {
     super.beforeAll()
     path = Utils.createTempDir()
     path.delete()
+    parquetPath = Utils.createTempDir()
+    parquetPath.delete()
 
     val df = sparkContext.parallelize(1 to 100, 3)
       .map(i => (i, i + 100, s"this is row $i"))
       .toDF("a", "b", "c")
 
     df.write.format("spn").mode(SaveMode.Overwrite).save(path.getAbsolutePath)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(parquetPath.getAbsolutePath)
   }
 
   override def afterAll(): Unit = {
@@ -54,6 +59,21 @@ class SpinachSuite extends QueryTest with SharedSQLContext with BeforeAndAfter {
 
   test("reading spinach file") {
     verifyFrame(sqlContext.read.format("spn").load(path.getAbsolutePath))
+  }
+
+  test("No Lease Exception on Parquet File Format in Index Building (#243)") {
+    val df = sqlContext.read.format("parquet").load(parquetPath.getAbsolutePath)
+    df.createOrReplaceTempView("parquet_table")
+    val defaultMaxBytes = sqlContext.conf.getConf(SQLConf.FILES_MAX_PARTITION_BYTES)
+    sqlContext.conf.setConf(SQLConf.FILES_MAX_PARTITION_BYTES, 100L)
+    val numTasks = sql("select * from parquet_table").queryExecution.toRdd.partitions.length
+    try {
+      sql("create sindex parquet_idx on parquet_table (a)")
+      assert(numTasks == parquetPath.listFiles().count(_.getName.endsWith(".index")))
+      sqlContext.conf.setConf(SQLConf.FILES_MAX_PARTITION_BYTES, defaultMaxBytes)
+    } finally {
+      sql("drop sindex parquet_idx on parquet_table")
+    }
   }
 
   /** Verifies data and schema. */
