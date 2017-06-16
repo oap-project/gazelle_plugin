@@ -42,7 +42,7 @@ object SpinachUtils {
   }
 
   def getPartitions(fileCatalog: FileCatalog,
-                    partitionSpec: Option[TablePartitionSpec]): Seq[Partition] = {
+                    partitionSpec: Option[TablePartitionSpec] = None): Seq[Partition] = {
     val filters = if (partitionSpec.nonEmpty) {
       val PartitionSpec(partitionColumns, _) = fileCatalog.partitionSpec()
       val partitionColumnsInfo: Map[String, DataType] =

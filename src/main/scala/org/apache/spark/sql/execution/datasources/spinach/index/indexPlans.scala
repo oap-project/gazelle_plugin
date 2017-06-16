@@ -23,6 +23,7 @@ import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.SparkException
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
 import org.apache.spark.sql.catalyst.catalog.CatalogTypes._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Project}
@@ -272,7 +273,7 @@ case class RefreshIndex(
         throw new SpinachException(s"We don't support index refreshing for ${other.simpleString}")
     }
 
-    val partitions = SpinachUtils.getPartitions(fileCatalog, Option.empty).filter(_.files.nonEmpty)
+    val partitions = SpinachUtils.getPartitions(fileCatalog).filter(_.files.nonEmpty)
     // TODO currently we ignore empty partitions, so each partition may have different indexes,
     // this may impact index updating. It may also fail index existence check. Should put index
     // info at table level also.
@@ -405,7 +406,8 @@ case class RefreshIndex(
 /**
  * List indices for table
  */
-case class SpinachShowIndex(relation: LogicalPlan) extends RunnableCommand with Logging {
+case class SpinachShowIndex(relation: LogicalPlan, relationName: String)
+    extends RunnableCommand with Logging {
   override def children: Seq[LogicalPlan] = Seq(relation)
 
   override val output: Seq[Attribute] = {
@@ -418,18 +420,14 @@ case class SpinachShowIndex(relation: LogicalPlan) extends RunnableCommand with 
   }
 
   override def run(sparkSession: SparkSession): Seq[Row] = {
-    val (fileCatalog, s, readerClassName, identifier) = relation match {
-      case LogicalRelation(
-      HadoopFsRelation(_, fileCatalog, _, s, _, _: SpinachFileFormat, _), _, id) =>
-        (fileCatalog, s, SpinachFileFormat.SPINACH_DATA_FILE_CLASSNAME, id)
-      case LogicalRelation(
-      HadoopFsRelation(_, fileCatalog, _, s, _, _: ParquetFileFormat, _), _, id) =>
-        (fileCatalog, s, SpinachFileFormat.PARQUET_DATA_FILE_CLASSNAME, id)
+    val (fileCatalog, schema) = relation match {
+      case LogicalRelation(HadoopFsRelation(_, fileCatalog, _, s, _, _, _), _, id) =>
+        (fileCatalog, s)
       case other =>
-        throw new SpinachException(s"We don't support index refreshing for ${other.simpleString}")
+        throw new SpinachException(s"We don't support index listing for ${other.simpleString}")
     }
 
-    val partitions = SpinachUtils.getPartitions(fileCatalog, Option.empty).filter(_.files.nonEmpty)
+    val partitions = SpinachUtils.getPartitions(fileCatalog).filter(_.files.nonEmpty)
     // TODO currently we ignore empty partitions, so each partition may have different indexes,
     // this may impact index updating. It may also fail index existence check. Should put index
     // info at table level also.
@@ -452,10 +450,10 @@ case class SpinachShowIndex(relation: LogicalPlan) extends RunnableCommand with 
       case BTreeIndex(entries) =>
         entries.zipWithIndex.map(ei => {
           val dir = if (ei._1.dir == Ascending) "A" else "D"
-          Row(identifier.get.table, i.name, ei._2, s(ei._1.ordinal).name, dir, "BTREE")})
+          Row(relationName, i.name, ei._2, schema(ei._1.ordinal).name, dir, "BTREE")})
       case BitMapIndex(entries) =>
         entries.zipWithIndex.map(ei =>
-          Row(identifier.get.table, i.name, ei._2, s(ei._1).name, "A", "BITMAP"))
+          Row(relationName, i.name, ei._2, schema(ei._1).name, "A", "BITMAP"))
       case t => sys.error(s"not support index type $t for index ${i.name}")
     })
   }

@@ -1430,6 +1430,7 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
     }
 
   override def visitSpinachShowIndex(ctx: SpinachShowIndexContext): LogicalPlan = withOrigin(ctx) {
-    SpinachShowIndex(UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier)))
+    val tableName = visitTableIdentifier(ctx.tableIdentifier)
+    SpinachShowIndex(UnresolvedRelation(tableName), tableName.identifier)
   }
 }
