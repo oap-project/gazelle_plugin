@@ -19,9 +19,9 @@ package org.apache.spark.sql.execution.datasources.spinach.filecache
 
 import java.util.concurrent.TimeUnit
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import collection.JavaConverters._
 import com.google.common.cache._
 import org.apache.hadoop.conf.Configuration
 
@@ -31,6 +31,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.datasources.SpinachException
 import org.apache.spark.sql.execution.datasources.spinach.io._
 import org.apache.spark.sql.execution.datasources.spinach.utils.CacheStatusSerDe
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.util.collection.BitSet
 
 
@@ -52,33 +53,76 @@ private[spinach] sealed case class ConfigurationCache[T](key: T, conf: Configura
 /**
  * The abstract class is for unit testing purpose.
  */
-private[spinach] sealed trait AbstractFiberCacheManger extends Logging {
+private[spinach] trait AbstractFiberCacheManger extends Logging {
   type ENTRY = ConfigurationCache[Fiber]
 
   protected def fiber2Data(fiber: Fiber, conf: Configuration): FiberCache
+  protected def freeFiberData(fiberCache: FiberCache): Unit
 
-  @transient protected val cache =
-    CacheBuilder
-      .newBuilder()
+  @transient protected var cache: LoadingCache[ENTRY, FiberCache] = _
+
+  private def buildCache(conf: Configuration): LoadingCache[ENTRY, FiberCache] = {
+
+    val weightConfig = conf.getLong(SQLConf.SPINACH_FIBERCACHE_SIZE.key,
+                              SQLConf.SPINACH_FIBERCACHE_SIZE.defaultValue.get)
+
+    val weight =
+      if (weightConfig > 4L * Int.MaxValue) {
+
+        // In Guava 15.0, totalWeight is Int, so maximumWeight / concurrencyLevel should be
+        // less than Int.MaxValue. What's more, if one fiber cache is very large, it may cause
+        // totalWeight < Int.MaxValue < totalWeight + fiberSize. So the maximumWeight should
+        // also be *FAR* less than Int.MaxValue. If totalWeight > Int.MaxValue, overflow, then
+        // totalWeight will treated as a very small value, and never greater than maximumWeight.
+        logWarning(s"${SQLConf.SPINACH_FIBERCACHE_SIZE.key}): $weightConfig is too large." +
+          s"Reducing to 4TB")
+
+        4L * Int.MaxValue // The Unit here is KB. Int.MaxValue = 2G.
+
+      } else weightConfig
+
+    val builder = CacheBuilder.newBuilder()
       .concurrencyLevel(4) // DEFAULT_CONCURRENCY_LEVEL TODO verify that if it works
       .weigher(new Weigher[ENTRY, FiberCache] {
-        override def weigh(key: ENTRY, value: FiberCache): Int = value.fiberData.size().toInt
-      })
-      .maximumWeight(MemoryManager.getDataCacheCapacity())
-      .removalListener(new RemovalListener[ENTRY, FiberCache] {
-        override def onRemoval(n: RemovalNotification[ENTRY, FiberCache]): Unit = {
-          // TODO cause exception while we removal the using data. we need an lock machanism
-          // to lock the allocate, using and the free
-          MemoryManager.free(n.getValue)
+        override def weigh(key: ENTRY, value: FiberCache): Int = {
+          // Use KB as Unit due to large weight will cause Guava overflow
+          val weight = math.ceil(value.fiberData.size() / 1024.0)
+          if (weight > Int.MaxValue / 2) { // make sure totalWeight + fiberSize less than Int.Max
+            throw new SpinachException(s"Fiber with more than 1TB size is not allowed.")
+          }
+          weight.toInt
         }
       })
-      .build[ENTRY, FiberCache](new CacheLoader[ENTRY, FiberCache]() {
-        override def load(entry: ENTRY): FiberCache = {
-          fiber2Data(entry.key, entry.conf)
+      .maximumWeight(weight)
+      .removalListener(new RemovalListener[ENTRY, FiberCache] {
+        override def onRemoval(n: RemovalNotification[ENTRY, FiberCache]): Unit = {
+          logDebug("Removing Fiber Cache" + (n.getKey.key match {
+            case DataFiber(file, group, fiber) => s"(Data: ${file.path}, $group, $fiber)"
+            case IndexFiber(file) => s"(Index: ${file.file.toString})"
+            case _ => s"Unknown Fiber"
+          }))
+          // TODO cause exception while we removal the using data. we need an lock machanism
+          // to lock the allocate, using and the free
+          freeFiberData(n.getValue)
         }
       })
 
+    if (conf.getBoolean(SQLConf.SPINACH_FIBERCACHE_STATS.key, false)) builder.recordStats()
+
+    builder.build[ENTRY, FiberCache](new CacheLoader[ENTRY, FiberCache]() {
+      override def load(entry: ENTRY): FiberCache = {
+        logDebug("Loading Fiber Cache" + (entry.key match {
+          case DataFiber(file, group, fiber) => s"(Data: ${file.path}, $group, $fiber)"
+          case IndexFiber(file) => s"(Index: ${file.file.toString})"
+          case _ => s"Unknown Fiber"
+        }))
+        fiber2Data(entry.key, entry.conf)
+      }
+    })
+  }
+
   def apply[T <: FiberCache](fiber: Fiber, conf: Configuration): T = {
+    if (cache == null) cache = buildCache(conf)
     cache.get(ConfigurationCache(fiber, conf)).asInstanceOf[T]
   }
 }
@@ -94,10 +138,9 @@ object FiberCacheManager extends AbstractFiberCacheManger {
   def evictFiberCacheData(fiber: Fiber): Unit = fiber match {
     case idxFiber: IndexFiber =>
       val entry = ConfigurationCache[Fiber](idxFiber, new Configuration())
-      if(cache.asMap().asScala.contains(entry)) cache.invalidate(entry)
+      if(cache != null && cache.asMap().asScala.contains(entry)) cache.invalidate(entry)
     case _ => // todo: consider whether we indeed need to evict DataFiberCachedData manually
   }
-
 
   override def fiber2Data(fiber: Fiber, conf: Configuration): FiberCache = fiber match {
     case DataFiber(file, columnIndex, rowGroupId) =>
@@ -106,17 +149,22 @@ object FiberCacheManager extends AbstractFiberCacheManger {
     case other => throw new SpinachException(s"Cannot identify what's $other")
   }
 
+  override def freeFiberData(fiberCache: FiberCache): Unit = MemoryManager.free(fiberCache)
+
   def status: String = {
-    val dataFiberConfPairs = this.cache.asMap().keySet().asScala.collect {
-      case entry @ ConfigurationCache(key: DataFiber, conf) => (key, conf)
-    }
+    val dataFiberConfPairs =
+      if (cache == null) Set.empty
+      else {
+        this.cache.asMap().keySet().asScala.collect {
+          case entry @ ConfigurationCache(key: DataFiber, conf) => (key, conf)
+        }
+      }
 
     val fiberFileToFiberMap = new mutable.HashMap[String, mutable.Buffer[DataFiber]]()
     dataFiberConfPairs.foreach { case (dataFiber, _) =>
       fiberFileToFiberMap.getOrElseUpdate(
         dataFiber.file.path, new mutable.ArrayBuffer[DataFiber]) += dataFiber
     }
-
 
     val filePathSet = new mutable.HashSet[String]()
     val statusRawData = dataFiberConfPairs.collect {
@@ -138,8 +186,6 @@ object FiberCacheManager extends AbstractFiberCacheManger {
     retStatus
   }
 }
-
-
 
 private[spinach] object DataFileHandleCacheManager extends Logging {
   type ENTRY = ConfigurationCache[DataFile]
@@ -167,7 +213,6 @@ private[spinach] object DataFileHandleCacheManager extends Logging {
     cache.get(ConfigurationCache(fiberCache, conf)).asInstanceOf[T]
   }
 }
-
 
 private[spinach] trait Fiber
 
