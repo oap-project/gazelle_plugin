@@ -146,7 +146,7 @@ private[spinach] class SpinachDataReader(
     filterScanner match {
       case Some(fs) if fs.existRelatedIndexFile(path, conf) =>
         fs.initialize(path, conf)
-        val indexPath = IndexUtils.indexFileFromDataFile(path, fs.meta.name)
+        val indexPath = IndexUtils.indexFileFromDataFile(path, fs.meta.name, fs.meta.time)
 
         val initFinished = System.currentTimeMillis()
         val statsAnalyseResult = tryToReadStatistics(indexPath, conf)
