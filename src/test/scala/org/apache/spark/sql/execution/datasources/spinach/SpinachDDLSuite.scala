@@ -30,7 +30,6 @@ class SpinachDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfte
   import testImplicits._
 
   override def beforeEach(): Unit = {
-    System.setProperty("spinach.rowgroup.size", "1024")
     val path1 = Utils.createTempDir().getAbsolutePath
     val path2 = Utils.createTempDir().getAbsolutePath
 
@@ -82,7 +81,7 @@ class SpinachDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfte
 
   test("create and drop index with partition specify") {
     val data: Seq[(Int, Int)] = (1 to 10).map { i => (i, i) }
-    data.toDF("key", "value").registerTempTable("t")
+    data.toDF("key", "value").createOrReplaceTempView("t")
 
     val path = new Path(spark.sqlContext.conf.warehousePath)
 

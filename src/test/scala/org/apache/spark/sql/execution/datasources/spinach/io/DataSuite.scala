@@ -33,11 +33,10 @@ import org.apache.spark.util.Utils
 
 
 class DataSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
-  private var file: File = null
+  private var file: File = _
   val conf: Configuration = new Configuration()
 
   override def beforeAll(): Unit = {
-    System.setProperty("spinach.rowgroup.size", "1024")
     file = Utils.createTempDir()
     // file.delete()
   }
@@ -56,7 +55,7 @@ class DataSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
     val path = new Path(file.getAbsolutePath, "test1")
     writeData(path, schema, recordCount)
     val split = new FileSplit(
-      path, 0, FileSystem.get(conf).getFileStatus(path).getLen(), Array.empty[String])
+      path, 0, FileSystem.get(conf).getFileStatus(path).getLen, Array.empty[String])
     assertData(path, schema, split, recordCount)
     assertData(path, schema, split, recordCount)
     assertData(path, schema, split, recordCount)
@@ -81,7 +80,7 @@ class DataSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
       .add("k", TimestampType)
     writeData(childPath, schema, recordCount)
     val split = new FileSplit(
-      childPath, 0, FileSystem.get(conf).getFileStatus(childPath).getLen(), Array.empty[String])
+      childPath, 0, FileSystem.get(conf).getFileStatus(childPath).getLen, Array.empty[String])
     assertData(childPath, schema, split, recordCount)
   }
 
