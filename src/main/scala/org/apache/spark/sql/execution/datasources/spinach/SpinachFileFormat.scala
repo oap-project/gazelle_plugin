@@ -22,7 +22,7 @@ import java.net.URI
 import scala.collection.mutable
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, FSDataOutputStream, Path}
+import org.apache.hadoop.fs.{FileStatus, FileSystem, FSDataOutputStream, Path}
 import org.apache.hadoop.mapreduce.{Job, TaskAttemptContext}
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
 import org.apache.parquet.hadoop.util.{ContextUtil, SerializationUtil}
@@ -50,7 +50,8 @@ private[sql] class SpinachFileFormat extends FileFormat
   override def initialize(
     sparkSession: SparkSession,
     options: Map[String, String],
-    fileCatalog: FileCatalog): FileFormat = {
+    fileCatalog: FileCatalog,
+    readFiles: Option[Seq[FileStatus]] = None): FileFormat = {
     super.initialize(sparkSession, options, fileCatalog)
 
     val hadoopConf = sparkSession.sparkContext.hadoopConfiguration
@@ -58,15 +59,20 @@ private[sql] class SpinachFileFormat extends FileFormat
     // 1. Make the scanning etc. as lazy loading, as inferSchema probably not be called
     // 2. We need to pass down the spinach meta file and its associated partition path
 
-    // TODO we support partitions, but this only read meta from one of the partitions
-    val partition2Meta = fileCatalog.allFiles().map(_.getPath.getParent).distinct.map { parent =>
-      (parent, new Path(parent, SpinachFileFormat.SPINACH_META_FILE))
+    val parents = readFiles match {
+      case Some(files) => files.map(file => file.getPath.getParent)
+      case _ => fileCatalog.allFiles().map(_.getPath.getParent)
     }
-      .find(pair => pair._2.getFileSystem(hadoopConf).exists(pair._2))
-      .toMap
-    meta = partition2Meta.values.headOption.map {
+
+    // TODO we support partitions, but this only read meta from one of the partitions
+    val partition2Meta = parents.distinct.reverse.map { parent =>
+      new Path(parent, SpinachFileFormat.SPINACH_META_FILE)
+    }.find(metaPath => metaPath.getFileSystem(hadoopConf).exists(metaPath))
+
+    meta = partition2Meta.map {
       DataSourceMeta.initialize(_, hadoopConf)
     }
+
     // SpinachFileFormat.serializeDataSourceMeta(hadoopConf, meta)
     inferSchema = meta.map(_.schema)
 

@@ -90,6 +90,15 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
         fs.exists(meta)
       }
 
+      val partitionColumns =
+        l.resolve(_files.partitionSchema, _files.sparkSession.sessionState.analyzer.resolver)
+      val partitionSet = AttributeSet(partitionColumns)
+      val partitionKeyFilters =
+        ExpressionSet(normalizedFilters.filter(_.references.subsetOf(partitionSet)))
+      logInfo(s"Pruning directories with: ${partitionKeyFilters.mkString(",")}")
+
+      val selectedPartitions = _files.location.listFiles(partitionKeyFilters.toSeq)
+
       val files: HadoopFsRelation = _files.fileFormat match {
         // TODO a better rule to check if we need to substitute the ParquetFileFormat
         // as SpinachFileFormat
@@ -99,7 +108,11 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
         case a: ParquetFileFormat
           if fileExists(_files) && _files.sparkSession.conf.get(SQLConf.SPINACH_PARQUET_ENABLED) =>
           val spinachFileFormat = new SpinachFileFormat
-          spinachFileFormat.initialize(_files.sparkSession, _files.options, _files.location)
+          spinachFileFormat
+            .initialize(_files.sparkSession,
+              _files.options,
+              _files.location,
+              Some(selectedPartitions.flatMap(p => p.files)))
 
           if (spinachFileFormat.hasAvailableIndex(normalizedFilters)) {
             logInfo("hasAvailableIndex = true, will replace with SpinachFileFormat.")
@@ -115,13 +128,6 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
           _files
       }
 
-      val partitionColumns =
-        l.resolve(files.partitionSchema, files.sparkSession.sessionState.analyzer.resolver)
-      val partitionSet = AttributeSet(partitionColumns)
-      val partitionKeyFilters =
-        ExpressionSet(normalizedFilters.filter(_.references.subsetOf(partitionSet)))
-      logInfo(s"Pruning directories with: ${partitionKeyFilters.mkString(",")}")
-
       val dataColumns =
         l.resolve(files.dataSchema, files.sparkSession.sessionState.analyzer.resolver)
 
@@ -131,8 +137,6 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
       // Predicates with both partition keys and attributes need to be evaluated after the scan.
       val afterScanFilters = filterSet -- partitionKeyFilters
       logInfo(s"Post-Scan Filters: ${afterScanFilters.mkString(",")}")
-
-      val selectedPartitions = files.location.listFiles(partitionKeyFilters.toSeq)
 
       val filterAttributes = AttributeSet(afterScanFilters)
       val requiredExpressions: Seq[NamedExpression] = filterAttributes.toSeq ++ projects

@@ -18,7 +18,6 @@
 package org.apache.spark.sql.execution.datasources
 
 import scala.collection.mutable
-import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
@@ -195,7 +194,8 @@ trait FileFormat {
   def initialize(
     sparkSession: SparkSession,
     options: Map[String, String],
-    fileCatalog: FileCatalog): FileFormat = {
+    fileCatalog: FileCatalog,
+    readFiles: Option[Seq[FileStatus]] = None): FileFormat = {
     this.sparkSession = sparkSession
     this.parameters = options
     this.catalog = fileCatalog
