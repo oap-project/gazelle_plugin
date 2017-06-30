@@ -138,7 +138,7 @@ private[spark] class Executor(
 //  private val customInfoClassName = conf.getOption("spark.executor.customInfoClass")
   // todo: make it configurable
   private val customInfoClassName = Some(
-  "org.apache.spark.sql.execution.datasources.spinach.filecache.SpinachHeartBeatMessager")
+  "org.apache.spark.sql.execution.datasources.oap.filecache.OapHeartBeatMessager")
   private val customManager: Option[CustomManager] = customInfoClassName
     .map(cIC => Utils.classForName(cIC).newInstance().asInstanceOf[CustomManager])
 

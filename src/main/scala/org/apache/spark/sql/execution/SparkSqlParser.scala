@@ -31,7 +31,7 @@ import org.apache.spark.sql.catalyst.parser.SqlBaseParser._
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, OneRowRelation, ScriptInputOutputSchema}
 import org.apache.spark.sql.execution.command._
 import org.apache.spark.sql.execution.datasources.{CreateTempViewUsing, _}
-import org.apache.spark.sql.execution.datasources.spinach.index._
+import org.apache.spark.sql.execution.datasources.oap.index._
 import org.apache.spark.sql.internal.{HiveSerDe, SQLConf, VariableSubstitution}
 import org.apache.spark.sql.types.DataType
 
@@ -1378,11 +1378,11 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
    * Create an index. Create a [[CreateIndex]] command.
    *
    * {{{
-   *   CREATE SINDEX [IF NOT EXISTS] indexName ON tableName (col1 [ASC | DESC], col2, ...)
+   *   CREATE OINDEX [IF NOT EXISTS] indexName ON tableName (col1 [ASC | DESC], col2, ...)
    *   [USING (BTREE | BLOOM | BITMAP)] [PARTITION (partcol1=val1, partcol2=val2 ...)]
    * }}}
    */
-  override def visitSpinachCreateIndex(ctx: SpinachCreateIndexContext): LogicalPlan =
+  override def visitOapCreateIndex(ctx: OapCreateIndexContext): LogicalPlan =
     withOrigin(ctx) {
       CreateIndex(
         ctx.IDENTIFIER.getText, UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier())),
@@ -1394,10 +1394,10 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
    * Drop an index. Create a [[DropIndex]] command.
    *
    * {{{
-   *   DROP INDEX [IF EXISTS] indexName on tableName [PARTITION (partcol1=val1, partcol2=val2 ...)]
+   *   DROP OINDEX [IF EXISTS] indexName on tableName [PARTITION (partcol1=val1, partcol2=val2 ...)]
    * }}}
    */
-  override def visitSpinachDropIndex(ctx: SpinachDropIndexContext): LogicalPlan = withOrigin(ctx) {
+  override def visitOapDropIndex(ctx: OapDropIndexContext): LogicalPlan = withOrigin(ctx) {
     DropIndex(
       ctx.IDENTIFIER.getText,
       UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier)), ctx.EXISTS != null,
@@ -1424,13 +1424,13 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder {
     }
   }
 
-  override def visitSpinachRefreshIndices(ctx: SpinachRefreshIndicesContext): LogicalPlan =
+  override def visitOapRefreshIndices(ctx: OapRefreshIndicesContext): LogicalPlan =
     withOrigin(ctx) {
       RefreshIndex(UnresolvedRelation(visitTableIdentifier(ctx.tableIdentifier)))
     }
 
-  override def visitSpinachShowIndex(ctx: SpinachShowIndexContext): LogicalPlan = withOrigin(ctx) {
+  override def visitOapShowIndex(ctx: OapShowIndexContext): LogicalPlan = withOrigin(ctx) {
     val tableName = visitTableIdentifier(ctx.tableIdentifier)
-    SpinachShowIndex(UnresolvedRelation(tableName), tableName.identifier)
+    OapShowIndex(UnresolvedRelation(tableName), tableName.identifier)
   }
 }

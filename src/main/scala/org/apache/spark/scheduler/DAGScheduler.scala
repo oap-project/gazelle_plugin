@@ -272,24 +272,24 @@ class DAGScheduler(
   }
 
   private [scheduler]
-  def getSpinachCacheLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = this.synchronized {
+  def getOapCacheLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = this.synchronized {
     val locations = rdd.preferredLocations(rdd.partitions(partition))
 
     // here we check if the splits was cached, if the splits is cached, there will be hosts with
-    // format "SPINACH_HOST_host_SPINACH_EXECUTOR_exec", so we check the host list to filter out
+    // format "OAP_HOST_host_OAP_EXECUTOR_exec", so we check the host list to filter out
     // the cached hosts, so that the tasks' locality level will be PROCESS_LOCAL
     if (locations.nonEmpty) {
       // TODO use constant value for prefixes, these prefixes should be the same with that in
-      // [[org.apache.spark.sql.execution.datasources.spinach.FiberSensor]]
-      val cacheLocs = locations.filter(_.startsWith("SPINACH_HOST_"))
-      val spinachPrefs = cacheLocs.map { cacheLoc =>
-        val host = cacheLoc.split("_SPINACH_EXECUTOR_")(0).stripPrefix("SPINACH_HOST_")
-        val execId = cacheLoc.split("_SPINACH_EXECUTOR_")(1)
+      // [[org.apache.spark.sql.execution.datasources.oap.FiberSensor]]
+      val cacheLocs = locations.filter(_.startsWith("OAP_HOST_"))
+      val oapPrefs = cacheLocs.map { cacheLoc =>
+        val host = cacheLoc.split("_OAP_EXECUTOR_")(0).stripPrefix("OAP_HOST_")
+        val execId = cacheLoc.split("_OAP_EXECUTOR_")(1)
         (host, execId)
       }
-      if (spinachPrefs.nonEmpty) {
-        logDebug(s"got spinach prefer location value spinachPrefs is ${spinachPrefs}")
-        return spinachPrefs.map(loc => TaskLocation(loc._1, loc._2))
+      if (oapPrefs.nonEmpty) {
+        logDebug(s"got oap prefer location value oapPrefs is ${oapPrefs}")
+        return oapPrefs.map(loc => TaskLocation(loc._1, loc._2))
       }
     }
     Seq.empty
@@ -1581,12 +1581,12 @@ class DAGScheduler(
     }
     // If the partition is cached, return the cache locations
     val cached = getCacheLocs(rdd)(partition)
-    val spinachCached = getSpinachCacheLocs(rdd, partition)
+    val oapCached = getOapCacheLocs(rdd, partition)
 //    if (cached.nonEmpty) {
 //      return cached
 //    }
-    if (cached.nonEmpty || spinachCached.nonEmpty) {
-      return cached ++ spinachCached
+    if (cached.nonEmpty || oapCached.nonEmpty) {
+      return cached ++ oapCached
     }
 
     // If the RDD has some placement preferences (as is the case for input RDDs), get those

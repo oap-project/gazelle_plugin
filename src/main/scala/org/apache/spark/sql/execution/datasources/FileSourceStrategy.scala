@@ -31,8 +31,8 @@ import org.apache.spark.sql.execution.DataSourceScanExec
 import org.apache.spark.sql.execution.DataSourceScanExec.{INPUT_PATHS, PUSHED_FILTERS}
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
-import org.apache.spark.sql.execution.datasources.spinach.SpinachFileFormat
-import org.apache.spark.sql.execution.datasources.spinach.filecache.FiberSensor
+import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
+import org.apache.spark.sql.execution.datasources.oap.filecache.FiberSensor
 import org.apache.spark.sql.internal.SQLConf
 
 /**
@@ -86,7 +86,7 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
         if (paths.length < 1) return false
         val path = paths.head
         val fs = path.getFileSystem(r.sparkSession.sparkContext.hadoopConfiguration)
-        val meta = new Path(path, SpinachFileFormat.SPINACH_META_FILE)
+        val meta = new Path(path, OapFileFormat.OAP_META_FILE)
         fs.exists(meta)
       }
 
@@ -101,22 +101,22 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
 
       val files: HadoopFsRelation = _files.fileFormat match {
         // TODO a better rule to check if we need to substitute the ParquetFileFormat
-        // as SpinachFileFormat
-        // add spark.sql.spinach.parquet.enable config
-        // if config true turn to SpinachFileFormat
+        // as OapFileFormat
+        // add spark.sql.oap.parquet.enable config
+        // if config true turn to OapFileFormat
         // else turn to ParquetFileFormat
         case a: ParquetFileFormat
-          if fileExists(_files) && _files.sparkSession.conf.get(SQLConf.SPINACH_PARQUET_ENABLED) =>
-          val spinachFileFormat = new SpinachFileFormat
-          spinachFileFormat
+          if fileExists(_files) && _files.sparkSession.conf.get(SQLConf.OAP_PARQUET_ENABLED) =>
+          val oapFileFormat = new OapFileFormat
+          oapFileFormat
             .initialize(_files.sparkSession,
               _files.options,
               _files.location,
               Some(selectedPartitions.flatMap(p => p.files)))
 
-          if (spinachFileFormat.hasAvailableIndex(normalizedFilters)) {
-            logInfo("hasAvailableIndex = true, will replace with SpinachFileFormat.")
-            _files.copy(fileFormat = spinachFileFormat)
+          if (oapFileFormat.hasAvailableIndex(normalizedFilters)) {
+            logInfo("hasAvailableIndex = true, will replace with OapFileFormat.")
+            _files.copy(fileFormat = oapFileFormat)
           } else {
             logInfo("hasAvailableIndex = false, will retain ParquetFileFormat.")
             _files.fileFormat.initialize(_files.sparkSession, _files.options, _files.location)

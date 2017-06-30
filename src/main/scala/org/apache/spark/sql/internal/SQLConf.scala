@@ -552,24 +552,24 @@ object SQLConf {
       .timeConf(TimeUnit.MILLISECONDS)
       .createWithDefault(10L)
 
-  val SPINACH_PARQUET_ENABLED =
-    SQLConfigBuilder("spark.sql.spinach.parquet.enable")
+  val OAP_PARQUET_ENABLED =
+    SQLConfigBuilder("spark.sql.oap.parquet.enable")
       .internal()
-      .doc("Whether enable spinach file format when encounter parquet files")
+      .doc("Whether enable oap file format when encounter parquet files")
       .booleanConf
       .createWithDefault(true)
 
-  val SPINACH_FULL_SCAN_THRESHOLD =
-    SQLConfigBuilder("spark.sql.spinach.fsthreshold")
+  val OAP_FULL_SCAN_THRESHOLD =
+    SQLConfigBuilder("spark.sql.oap.fsthreshold")
       .internal()
-      .doc("Define the full scan threshold based on spinach statistics in index file. " +
+      .doc("Define the full scan threshold based on oap statistics in index file. " +
         "If the analysis result is above this threshold, it will full scan data file, " +
         "otherwise, follow index way.")
       .doubleConf
       .createWithDefault(0.8)
 
-  val SPINACH_STATISTICS_TYPES =
-    SQLConfigBuilder("spark.sql.spinach.StatisticsType")
+  val OAP_STATISTICS_TYPES =
+    SQLConfigBuilder("spark.sql.oap.StatisticsType")
       .internal()
       .doc("Which types of pre-defined statistics are added in index file. " +
         "And here you should just write the statistics name. " +
@@ -582,43 +582,43 @@ object SQLConf {
       .stringConf
       .createWithDefault("MINMAX, SAMPLE, PARTBYVALUE")
 
-  val SPINACH_STATISTICS_SAMPLE_RATE =
-    SQLConfigBuilder("spark.sql.spinach.Statistics.sampleRate")
+  val OAP_STATISTICS_SAMPLE_RATE =
+    SQLConfigBuilder("spark.sql.oap.Statistics.sampleRate")
       .internal()
       .doc("Sample rate for sample based statistics, default value 0.05")
       .doubleConf
       .createWithDefault(0.05)
 
-  val SPINACH_BLOOMFILTER_MAXBITS =
-    SQLConfigBuilder("spark.sql.spinach.Bloomfilter.maxBits")
+  val OAP_BLOOMFILTER_MAXBITS =
+    SQLConfigBuilder("spark.sql.oap.Bloomfilter.maxBits")
       .internal()
       .doc("Define the max bit count parameter used in bloom " +
         "filter, default 1073741824")
       .intConf
       .createWithDefault(1073741824)
 
-  val SPINACH_BLOOMFILTER_NUMHASHFUNC =
-    SQLConfigBuilder("spark.sql.spinach.Bloomfilter.numHashFunc")
+  val OAP_BLOOMFILTER_NUMHASHFUNC =
+    SQLConfigBuilder("spark.sql.oap.Bloomfilter.numHashFunc")
       .internal()
       .doc("Define the number of hash functions used in bloom filter, default 3")
       .intConf
       .createWithDefault(3)
 
-  val SPINACH_FIBERCACHE_SIZE =
-    SQLConfigBuilder("spark.sql.spinach.fiberCache.size")
+  val OAP_FIBERCACHE_SIZE =
+    SQLConfigBuilder("spark.sql.oap.fiberCache.size")
       .internal()
       .doc("Define the size of fiber cache in KB, default 300 * 1024 KB")
       .longConf
       .createWithDefault(307200)
 
-  val SPINACH_FIBERCACHE_STATS =
-    SQLConfigBuilder("spark.sql.spinach.fiberCache.stats")
+  val OAP_FIBERCACHE_STATS =
+    SQLConfigBuilder("spark.sql.oap.fiberCache.stats")
       .internal()
       .doc("Whether enable cach stats record, default false")
       .booleanConf
       .createWithDefault(false)
 
-  val SPINACH_COMPRESSION = SQLConfigBuilder("spark.sql.spinach.compression.codec")
+  val OAP_COMPRESSION = SQLConfigBuilder("spark.sql.oap.compression.codec")
     .internal()
     .doc("Sets the compression codec use when writing Parquet files. Acceptable values include: " +
       "uncompressed, snappy, gzip, lzo.")
@@ -627,8 +627,8 @@ object SQLConf {
     .checkValues(Set("uncompressed", "snappy", "gzip", "lzo"))
     .createWithDefault("uncompressed")
 
-  val SPINACH_ROW_GROUP_SIZE =
-    SQLConfigBuilder("spark.sql.spinach.rowgroup.size")
+  val OAP_ROW_GROUP_SIZE =
+    SQLConfigBuilder("spark.sql.oap.rowgroup.size")
       .internal()
       .doc("Define the row number for each row group")
       .intConf

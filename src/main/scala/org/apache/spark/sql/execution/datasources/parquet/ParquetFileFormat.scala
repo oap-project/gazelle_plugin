@@ -260,7 +260,7 @@ private[sql] class ParquetFileFormat
       sparkSession: SparkSession,
       options: Map[String, String],
       path: Path): Boolean = {
-    !sparkSession.conf.get(SQLConf.SPINACH_PARQUET_ENABLED)
+    !sparkSession.conf.get(SQLConf.OAP_PARQUET_ENABLED)
   }
 
   override private[sql] def buildReaderWithPartitionValues(

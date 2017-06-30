@@ -114,7 +114,7 @@ statement
     | (DESC | DESCRIBE) option=(EXTENDED | FORMATTED)?
         tableIdentifier partitionSpec? describeColName?                #describeTable
     | REFRESH TABLE tableIdentifier                                    #refreshTable
-    | REFRESH SINDEX ON tableIdentifier                                #spinachRefreshIndices
+    | REFRESH SINDEX ON tableIdentifier                                #oapRefreshIndices
     | REFRESH .*?                                                      #refreshResource
     | CACHE LAZY? TABLE tableIdentifier (AS? query)?                   #cacheTable
     | UNCACHE TABLE tableIdentifier                                    #uncacheTable
@@ -128,10 +128,10 @@ statement
     | RESET                                                            #resetConfiguration
     | CREATE SINDEX (IF NOT EXISTS)? IDENTIFIER ON
         tableIdentifier indexCols (USING indexType)?
-        partitionSpec?                                                 #spinachCreateIndex
+        partitionSpec?                                                 #oapCreateIndex
     | DROP SINDEX (IF EXISTS)? IDENTIFIER ON tableIdentifier
-        partitionSpec?                                                 #spinachDropIndex
-    | SHOW SINDEX (FROM | IN) tableIdentifier                          #spinachShowIndex
+        partitionSpec?                                                 #oapDropIndex
+    | SHOW SINDEX (FROM | IN) tableIdentifier                          #oapShowIndex
     | unsupportedHiveNativeCommands .*?                                #failNativeCommand
     ;
 
@@ -894,7 +894,7 @@ ANTI: 'ANTI';
 LOCAL: 'LOCAL';
 INPATH: 'INPATH';
 
-SINDEX: 'SINDEX';
+SINDEX: 'SINDEX' | 'OINDEX';
 BTREE: 'BTREE';
 BLOOM: 'BLOOM';
 BITMAP: 'BITMAP';

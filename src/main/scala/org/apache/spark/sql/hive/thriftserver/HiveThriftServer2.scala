@@ -78,10 +78,10 @@ object HiveThriftServer2 extends Logging {
     optionsProcessor.parse(args)
 
     logInfo("Starting SparkContext")
-    SpinachEnv.init()
+    OapEnv.init()
 
     ShutdownHookManager.addShutdownHook { () =>
-      SpinachEnv.stop()
+      OapEnv.stop()
       uiTab.foreach(_.detach())
     }
 

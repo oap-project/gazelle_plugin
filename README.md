@@ -7,12 +7,12 @@ OAP - Optimized Analytics Package (Spinach as code name) is designed to accelera
 mvn -DskipTests package
 ```
 ## Use OAP with Spark
-After `mvn package` you will find `oap-<version>.jar` in `target/`. Update `spark.driver.extraClassPath` and `spark.executor.extraClassPath` to include this jar file, and you can use Spinach from `bin/spark-sql`, `bin/spark-shell` or `sbin/start-thriftserver` as you usually do.
+After `mvn package` you will find `oap-<version>.jar` in `target/`. Update `spark.driver.extraClassPath` and `spark.executor.extraClassPath` to include this jar file, and you can use OAP from `bin/spark-sql`, `bin/spark-shell` or `sbin/start-thriftserver` as you usually do.
 ## Example
 ```
 ./bin/spark-shell
 > spark.sql(s"""CREATE TEMPORARY TABLE oap_test (a INT, b STRING)
-           | USING spn
+           | USING oap
            | OPTIONS (path 'hdfs:///oap-data-dir/')""".stripMargin)
 > val data = (1 to 300).map { i => (i, s"this is test $i") }.toDF().createOrReplaceTempView("t")
 > spark.sql("insert overwrite table oap_test select * from t")
@@ -33,29 +33,29 @@ mvn test
 ## Configuration
 Parquet Support - Enable OAP support for parquet files
 * Default: true
-* Usage: `sqlContext.conf.setConfString(SQLConf.SPINACH_PARQUET_ENABLED.key, "false")`
+* Usage: `sqlContext.conf.setConfString(SQLConf.OAP_PARQUET_ENABLED.key, "false")`
 
 Fiber Cache Size - Total Memory size to cache Fiber. Unit: KB
 * Default: 307200
-* Usage: `sqlContext.conf.setConfString(SQLConf.SPINACH_FIBERCACHE_SIZE.key, s"{100 * 1024 * 1024}")`
+* Usage: `sqlContext.conf.setConfString(SQLConf.OAP_FIBERCACHE_SIZE.key, s"{100 * 1024 * 1024}")`
 
 Full Scan Threshold - If the analysis result is above this threshold, it will full scan data file
 * Default: 0.8
-* Usage: `sqlContext.conf.setConfString(SQLConf.SPINACH_FULL_SCAN_THRESHOLD.key, "0.8")`
+* Usage: `sqlContext.conf.setConfString(SQLConf.OAP_FULL_SCAN_THRESHOLD.key, "0.8")`
 
 Row Group Size - Row count for each row group
 * Default: 1024
-* Usage1: `sqlContext.conf.setConfString(SQLConf.SPINACH_ROW_GROUP_SIZE.key, "1025")`
-* Usage2: `CREATE TABLE t USING spn OPTIONS ('rowgroup' '1024')` 
+* Usage1: `sqlContext.conf.setConfString(SQLConf.OAP_ROW_GROUP_SIZE.key, "1025")`
+* Usage2: `CREATE TABLE t USING oap OPTIONS ('rowgroup' '1024')`
 
 Compression Codec - Choose compression type
 * Default: UNCOMPRESSED
 * Values: UNCOMPRESSED, SNAPPY, GZIP, LZO
-* Usage1: `sqlContext.conf.setConfString(SQLConf.SPINACH_COMPRESSION.key, "SNAPPY")`
-* Usage2: `CREATE TABLE t USING spn OPTIONS ('compression' 'SNAPPY')`
+* Usage1: `sqlContext.conf.setConfString(SQLConf.OAP_COMPRESSION.key, "SNAPPY")`
+* Usage2: `CREATE TABLE t USING oap OPTIONS ('compression' 'SNAPPY')`
 
 ## How to Contribute
-If you are looking for some ideas on what to contribute, check out GitHub issues for this project labeled ["Pick me up!"](https://github.com/Intel-bigdata/Spinach/issues?labels=pick+me+up%21&state=open).
+If you are looking for some ideas on what to contribute, check out GitHub issues for this project labeled ["Pick me up!"](https://github.com/Intel-bigdata/OAP/issues?labels=pick+me+up%21&state=open).
 Comment on the issue with your questions and ideas.
 
 We tend to do fairly close readings of pull requests, and you may get a lot of comments. Some common issues that are not code structure related, but still important:

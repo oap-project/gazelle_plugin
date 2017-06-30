@@ -47,7 +47,7 @@ public class RecordReaderBuilder<T> {
 
 
     public RecordReader<T> buildIndexed() throws IOException {
-        return new SpinachRecordReader<>(readSupport, file, conf, globalRowIds, footer);
+        return new OapRecordReader<>(readSupport, file, conf, globalRowIds, footer);
     }
 
     public static <T> RecordReaderBuilder<T> builder(ReadSupport<T> readSupport, Path path) {
