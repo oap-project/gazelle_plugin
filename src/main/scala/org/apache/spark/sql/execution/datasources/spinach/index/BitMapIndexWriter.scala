@@ -27,6 +27,7 @@ import org.apache.hadoop.mapreduce.Job
 import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.rdd.InputFileNameHolder
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.FromUnsafeProjection
 import org.apache.spark.sql.execution.datasources.WriteResult
 import org.apache.spark.sql.execution.datasources.spinach.statistics._
 import org.apache.spark.sql.types.StructType
@@ -118,7 +119,7 @@ private[spinach] class BitMapIndexWriter(
           taskReturn = taskReturn ++: writeIndexFromRows(taskContext, iterator)
           writeNewFile = true
         } else {
-          val v = InternalRow.fromSeq(iterator.next().copy().toSeq(keySchema))
+          val v = genericProjector(iterator.next()).copy()
           statisticsManager.addSpinachKey(v)
           if (!tmpMap.contains(v)) {
             val list = new mutable.ListBuffer[Int]()
@@ -174,4 +175,5 @@ private[spinach] class BitMapIndexWriter(
         throw new SparkException("Task failed while writing rows", t)
     }
   }
+  @transient private lazy val genericProjector = FromUnsafeProjection(keySchema)
 }

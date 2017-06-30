@@ -130,7 +130,7 @@ private[spinach] class BTreeIndexWriter(
           taskReturn = taskReturn ++: writeIndexFromRows(taskContext, iterator)
           writeNewFile = true
         } else {
-          val v = InternalRow.fromSeq(iterator.next().copy().toSeq(keySchema))
+          val v = genericProjector(iterator.next()).copy()
           statisticsManager.addSpinachKey(v)
           if (!hashMap.containsKey(v)) {
             val list = new java.util.ArrayList[Long]()
@@ -161,10 +161,6 @@ private[spinach] class BTreeIndexWriter(
       // sort keys
       java.util.Arrays.sort(uniqueKeys, comparator)
       // build index file
-//      val indexFile = IndexUtils.indexFileFromDataFile(d, indexName)
-//      val fs = indexFile.getFileSystem(configuration)
-      // we are overwriting index files
-//      val fileOut = fs.create(indexFile, true)
       var i = 0
       var fileOffset = 0L
       val offsetMap = new java.util.HashMap[InternalRow, Long]()
@@ -259,6 +255,7 @@ private[spinach] class BTreeIndexWriter(
   }
 
   @transient private lazy val projector = UnsafeProjection.create(keySchema)
+  @transient private lazy val genericProjector = FromUnsafeProjection(keySchema)
 
   /**
    * write file correspond to [[UnsafeIndexNode]]
