@@ -19,9 +19,12 @@ package org.apache.spark.sql.execution.datasources.oap.statistics
 
 import scala.collection.mutable.ArrayBuffer
 
+import org.apache.hadoop.conf.Configuration
+
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.execution.datasources.oap.Key
 import org.apache.spark.sql.execution.datasources.oap.index._
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
 
@@ -56,15 +59,40 @@ class StatisticsManager {
   // for read with incorrect mask, the statistics is invalid
   private var invalidStatistics: Boolean = false
 
-  def initialize(indexType: AnyIndexType, s: StructType): Unit = {
-    val statsTypes = StatisticsManager.statisticsTypeMap(indexType)
-    stats = statsTypes.map(t => t match {
+  def initialize(indexType: AnyIndexType, s: StructType, conf: Configuration): Unit = {
+
+    StatisticsManager.setPartNumber(
+      conf.getInt(SQLConf.OAP_STATISTICS_PART_NUM.key,
+        SQLConf.OAP_STATISTICS_PART_NUM.defaultValue.get)
+    )
+
+    StatisticsManager.setSampleRate(
+      conf.getDouble(SQLConf.OAP_STATISTICS_SAMPLE_RATE.key,
+        SQLConf.OAP_STATISTICS_SAMPLE_RATE.defaultValue.get)
+    )
+
+    StatisticsManager.setBloomFilterMaxBits(
+      conf.getInt(SQLConf.OAP_BLOOMFILTER_MAXBITS.key,
+        SQLConf.OAP_BLOOMFILTER_MAXBITS.defaultValue.get)
+    )
+
+    StatisticsManager.setBloomFilterHashFuncs(
+      conf.getInt(SQLConf.OAP_BLOOMFILTER_NUMHASHFUNC.key,
+        SQLConf.OAP_BLOOMFILTER_NUMHASHFUNC.defaultValue.get)
+    )
+
+    val statsTypes = StatisticsManager.statisticsTypeMap(indexType).filter{ statType =>
+      val typeFromConfig = conf.get(SQLConf.OAP_STATISTICS_TYPES.key,
+        SQLConf.OAP_STATISTICS_TYPES.defaultValueString).split(",").map(_.trim)
+      typeFromConfig.contains(statType.name)
+    }
+    stats = statsTypes.map {
       case MinMaxStatisticsType => new MinMaxStatistics
       case SampleBasedStatisticsType => new SampleBasedStatistics
       case PartByValueStatisticsType => new PartByValueStatistics
       case BloomFilterStatisticsType => new BloomFilterStatistics
-      case _ => throw new UnsupportedOperationException(s"non-supported statistic type $t")
-    })
+      case t => throw new UnsupportedOperationException(s"non-supported statistic type $t")
+    }
     schema = s
     sortFlag = false
     content = new ArrayBuffer[Key]()
@@ -132,9 +160,13 @@ class StatisticsManager {
     }
   }
 
-  def analyse(intervalArray: ArrayBuffer[RangeInterval]): Double = {
+  def analyse(intervalArray: ArrayBuffer[RangeInterval], conf: Configuration): Double = {
     var resSum: Double = 0.0
     var resNum: Int = 0
+
+    StatisticsManager.setFullScanThreshold(
+      conf.getDouble(SQLConf.OAP_FULL_SCAN_THRESHOLD.key,
+        SQLConf.OAP_FULL_SCAN_THRESHOLD.defaultValue.get))
 
     if (invalidStatistics) StaticsAnalysisResult.USE_INDEX // use index if no statistics
     else {
@@ -170,12 +202,25 @@ object StatisticsManager {
       BitMapIndexType -> Array(MinMaxStatisticsType, SampleBasedStatisticsType,
         BloomFilterStatisticsType, PartByValueStatisticsType))
 
-  var sampleRate: Double = 0.1
-  var partNumber: Int = 5
-  var bloomFilterMaxBits: Int = 1 << 20
-  var bloomFilterHashFuncs: Int = 3
+  /**
+   * Using a static object to store parameter is not a good idea, some reasons:
+   * 1. In local mode, driver and worker will use one same object, but in cluster they are different
+   * 2. object.setXXX() then val a = object.XXX can be realized by Configuration.set and get
+   * But
+   * 1. current Statistics has no interface to set parameters by Configuration and many test suites
+   * depend on this static object.
+   * 2. the `initialize()` in each Statistics is depended by both `read` and `write` while `read`
+   * should get parameter from disk and doesn't need Configuration.
+   * 3. Some test suites only init specific Statistics and not init StatisticsManager, so remove
+   * this object will need interface change in every Statistics sub classes, this means more changes
+   * So, TODO: Let's address all of this latter.
+   */
+  var sampleRate: Double = SQLConf.OAP_STATISTICS_SAMPLE_RATE.defaultValue.get
+  var partNumber: Int = SQLConf.OAP_STATISTICS_PART_NUM.defaultValue.get
+  var bloomFilterMaxBits: Int = SQLConf.OAP_BLOOMFILTER_MAXBITS.defaultValue.get
+  var bloomFilterHashFuncs: Int = SQLConf.OAP_BLOOMFILTER_NUMHASHFUNC.defaultValue.get
 
-  var FULLSCANTHRESHOLD: Double = 0.8
+  var FULLSCANTHRESHOLD: Double = SQLConf.OAP_FULL_SCAN_THRESHOLD.defaultValue.get
 
   // TODO we need to find better ways to configure these parameters
   def setStatisticsType(indexType: AnyIndexType, statisticsType: Array[StatisticsType]): Unit =
@@ -183,4 +228,6 @@ object StatisticsManager {
   def setSampleRate(rate: Double): Unit = this.sampleRate = rate
   def setPartNumber(num: Int): Unit = this.partNumber = num
   def setFullScanThreshold(rate: Double): Unit = this.FULLSCANTHRESHOLD = rate
+  def setBloomFilterMaxBits(maxBits: Int): Unit = this.bloomFilterMaxBits = maxBits
+  def setBloomFilterHashFuncs(num: Int): Unit = this.bloomFilterHashFuncs = num
 }
