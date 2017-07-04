@@ -53,7 +53,6 @@ class StatisticsManager {
   // but for SampleBase and PartByValue, this is needed
   protected var content: ArrayBuffer[Key] = _
 
-  private var sortFlag: Boolean = _
   @transient private lazy val ordering = GenerateOrdering.create(schema)
 
   // for read with incorrect mask, the statistics is invalid
@@ -94,7 +93,6 @@ class StatisticsManager {
       case t => throw new UnsupportedOperationException(s"non-supported statistic type $t")
     }
     schema = s
-    sortFlag = false
     content = new ArrayBuffer[Key]()
     stats.foreach(stat => stat.initialize(schema))
   }
@@ -102,11 +100,9 @@ class StatisticsManager {
   def addOapKey(key: Key): Unit = {
     content.append(key)
     stats.foreach(_.addOapKey(key))
-    sortFlag = false
   }
 
   def write(out: IndexOutputWriter): Long = {
-    if (!sortFlag) sortKeys()
     var offset = 0L
 
     IndexUtils.writeLong(out, StatisticsManager.STATISTICSMASK)
@@ -119,18 +115,16 @@ class StatisticsManager {
       offset += 4
     }
 
+    val sortedKeys = sortKeys
     stats.foreach(stat => {
-      val off = stat.write(out, content)
+      val off = stat.write(out, sortedKeys)
       assert(off >= 0)
       offset += off
     })
     offset
   }
 
-  private def sortKeys(): Unit = {
-    content.sortWith((l, r) => ordering.compare(l, r) < 0)
-  }
-
+  private def sortKeys = content.sortWith((l, r) => ordering.compare(l, r) < 0)
 
   def read(bytes: Array[Byte], s: StructType): Unit = {
     var offset = 0L
