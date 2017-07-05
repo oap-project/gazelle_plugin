@@ -17,11 +17,10 @@
 
 package org.apache.spark.sql.execution.datasources.oap
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
 
-import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.{QueryTest, Row}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.Utils
 
@@ -33,7 +32,7 @@ class OapDDLIndexQuerySuite extends QueryTest with SharedSQLContext with BeforeA
     val path1 = Utils.createTempDir().getAbsolutePath
 
     sql(s"""CREATE TEMPORARY VIEW oap_test_1 (a INT, b STRING)
-           | USING parquet
+           | USING oap
            | OPTIONS (path '$path1')""".stripMargin)
   }
 
@@ -55,5 +54,24 @@ class OapDDLIndexQuerySuite extends QueryTest with SharedSQLContext with BeforeA
       assert(dfWithoutIdx.count == dfwithIdx.count)
       assert(dfWithoutIdx.count == dfOriginal.count)
   }
+
+  test("index row boundary") {
+    val groupSize = spark.sparkContext.hadoopConfiguration
+      .get(OapFileFormat.ROW_GROUP_SIZE,
+        OapFileFormat.DEFAULT_ROW_GROUP_SIZE).toInt;
+
+    val testRowId = groupSize - 1
+    val data: Seq[(Int, String)] = (0 until groupSize * 3)
+                                    .map { i => (i, s"this is test $i") }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table oap_test_1 select * from t")
+    sql("create sindex index1 on oap_test_1 (a)")
+
+    checkAnswer(sql(s"SELECT * FROM oap_test_1 WHERE a = $testRowId"),
+      Row(testRowId, s"this is test $testRowId") :: Nil)
+
+    sql("drop sindex index1 on oap_test_1")
+  }
+
 }
 
