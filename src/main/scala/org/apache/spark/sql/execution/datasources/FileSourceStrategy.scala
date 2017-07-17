@@ -80,16 +80,6 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
         }
       }
 
-      def fileExists(r: HadoopFsRelation): Boolean = {
-        val paths = r.location.paths
-        // no paths specify
-        if (paths.length < 1) return false
-        val path = paths.head
-        val fs = path.getFileSystem(r.sparkSession.sparkContext.hadoopConfiguration)
-        val meta = new Path(path, OapFileFormat.OAP_META_FILE)
-        fs.exists(meta)
-      }
-
       val partitionColumns =
         l.resolve(_files.partitionSchema, _files.sparkSession.sessionState.analyzer.resolver)
       val partitionSet = AttributeSet(partitionColumns)
@@ -106,7 +96,7 @@ private[sql] object FileSourceStrategy extends Strategy with Logging {
         // if config true turn to OapFileFormat
         // else turn to ParquetFileFormat
         case a: ParquetFileFormat
-          if fileExists(_files) && _files.sparkSession.conf.get(SQLConf.OAP_PARQUET_ENABLED) =>
+          if _files.sparkSession.conf.get(SQLConf.OAP_PARQUET_ENABLED) =>
           val oapFileFormat = new OapFileFormat
           oapFileFormat
             .initialize(_files.sparkSession,
