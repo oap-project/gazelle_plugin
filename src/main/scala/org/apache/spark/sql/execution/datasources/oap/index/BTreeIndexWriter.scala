@@ -22,6 +22,7 @@ import java.util.Comparator
 
 import scala.collection.JavaConverters._
 
+import com.google.common.collect.ArrayListMultimap
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.mapreduce.Job
 
@@ -122,7 +123,7 @@ private[oap] class BTreeIndexWriter(
       val statisticsManager = new StatisticsManager
       statisticsManager.initialize(BTreeIndexType, keySchema, configuration)
       // key -> RowIDs list
-      val hashMap = new java.util.HashMap[InternalRow, java.util.ArrayList[Long]]()
+      val multiHashMap = ArrayListMultimap.create[InternalRow, Long]()
       var cnt = 0L
       while (iterator.hasNext && !writeNewFile) {
         val fname = InputFileNameHolder.getInputFileName().toString
@@ -132,18 +133,12 @@ private[oap] class BTreeIndexWriter(
         } else {
           val v = genericProjector(iterator.next()).copy()
           statisticsManager.addOapKey(v)
-          if (!hashMap.containsKey(v)) {
-            val list = new java.util.ArrayList[Long]()
-            list.add(cnt)
-            hashMap.put(v, list)
-          } else {
-            hashMap.get(v).add(cnt)
-          }
+          multiHashMap.put(v, cnt)
           cnt = cnt + 1
         }
       }
-      val partitionUniqueSize = hashMap.size()
-      val uniqueKeys = hashMap.keySet().toArray(new Array[InternalRow](partitionUniqueSize))
+      val partitionUniqueSize = multiHashMap.keySet().size()
+      val uniqueKeys = multiHashMap.keySet().toArray(new Array[InternalRow](partitionUniqueSize))
       assert(uniqueKeys.size == partitionUniqueSize)
       lazy val comparator: Comparator[InternalRow] = new Comparator[InternalRow]() {
         override def compare(o1: InternalRow, o2: InternalRow): Int = {
@@ -168,7 +163,7 @@ private[oap] class BTreeIndexWriter(
       // write data segment.
       while (i < partitionUniqueSize) {
         offsetMap.put(uniqueKeys(i), fileOffset)
-        val rowIds = hashMap.get(uniqueKeys(i))
+        val rowIds = multiHashMap.get(uniqueKeys(i))
         // row count for same key
         IndexUtils.writeInt(writer, rowIds.size())
         // 4 -> value1, stores rowIds count.
