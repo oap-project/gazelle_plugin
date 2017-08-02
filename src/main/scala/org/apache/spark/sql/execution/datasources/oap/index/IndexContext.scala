@@ -137,7 +137,11 @@ private[oap] class IndexContext(meta: DataSourceMeta) extends Logging {
       lastIdx = availableIndexes.head._1
       bestIndexer = availableIndexes.head._2
     }
-    logDebug("\t" + bestIndexer.toString + "; lastIdx: " + lastIdx)
+    if (bestIndexer != null) {
+      logDebug("\t" + bestIndexer.toString + "; lastIdx: " + lastIdx)
+    } else {
+      logDebug("\t" + "No best indexer is found.")
+    }
     (lastIdx, bestIndexer)
   }
 
