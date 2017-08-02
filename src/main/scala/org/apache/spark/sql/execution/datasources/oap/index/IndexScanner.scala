@@ -25,7 +25,6 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
@@ -112,6 +111,11 @@ private[oap] object ScannerBuilder extends Logging {
         val leftMap = optimizeFilterBound(leftFilter, ic)
         val rightMap = optimizeFilterBound(rightFilter, ic)
         combineIntervalMaps(leftMap, rightMap, ic, needMerge = false)
+      case In(attribute, ic(keys)) =>
+        val eqBounds = keys.distinct
+          .map(key => new RangeInterval(key, key, true, true))
+          .to[ArrayBuffer]
+        scala.collection.mutable.HashMap(attribute -> eqBounds)
       case EqualTo(attribute, ic(key)) =>
         val ranger = new RangeInterval(key, key, true, true)
         scala.collection.mutable.HashMap(attribute -> ArrayBuffer(ranger))
@@ -141,6 +145,7 @@ private[oap] object ScannerBuilder extends Logging {
       case LessThanOrEqual(ic(indexer), _) => true
       case Or(ic(indexer), _) => true
       case And(ic(indexer), _) => true
+      case In(ic(indexer), _) => true
       case _ => false
     }
   }
