@@ -22,14 +22,16 @@ import scala.collection.mutable
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import sun.nio.ch.DirectBuffer
 
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.io.ChunkedByteBuffer
 
 private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(idxMeta) {
 
@@ -38,8 +40,20 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
   @transient var internalItr: Iterator[Int] = Iterator[Int]()
   var empty: Boolean = _
   var internalBitSet: BitSet = _
+  var indexFiber: IndexFiber = _
+  var indexData: CacheResult = _
 
-  override def hasNext: Boolean = !empty && internalItr.hasNext
+  override def hasNext: Boolean = {
+    if (!empty && internalItr.hasNext) {
+      true
+    } else {
+      if (indexData != null) {
+        if (indexData.cached) FiberCacheManager.releaseLock(indexFiber)
+        else indexData.buffer.dispose()
+      }
+      false
+    }
+  }
 
   override def next(): Long = internalItr.next().toLong
 
@@ -47,17 +61,18 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
     assert(keySchema ne null)
     val path = IndexUtils.indexFileFromDataFile(dataPath, meta.name, meta.time)
     val indexFile = IndexFile(path)
-    val indexFiber = IndexFiber(indexFile)
-    val indexData: IndexFiberCacheData = FiberCacheManager(indexFiber, conf)
-    open(indexData, indexFile.version(conf))
+    indexFiber = IndexFiber(indexFile)
+    indexData = FiberCacheManager.getOrElseUpdate(indexFiber, conf)
+    open(indexData.buffer, indexFile.version(conf))
 
     this
   }
 
-  def open(indexData: IndexFiberCacheData, version: Int = IndexFile.INDEX_VERSION): Unit = {
-    val buffer: DataFiberCache = DataFiberCache(indexData.fiberData)
-    val baseObj = buffer.fiberData.getBaseObject
-    val baseOffset = buffer.fiberData.getBaseOffset + IndexFile.indexFileHeaderLength
+  def open(indexData: ChunkedByteBuffer, version: Int = IndexFile.INDEX_VERSION): Unit = {
+    val (baseObj, baseOffset): (Object, Long) = indexData.chunks.head match {
+      case buf: DirectBuffer => (null, buf.address() + IndexFile.indexFileHeaderLength)
+      case _ => (indexData.toArray, Platform.BYTE_ARRAY_OFFSET + IndexFile.indexFileHeaderLength)
+    }
 
     // get the byte number first
     val objLength = Platform.getInt(baseObj, baseOffset)

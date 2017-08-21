@@ -19,6 +19,7 @@ package org.apache.spark.sql.execution.datasources.oap
 
 import org.scalatest.BeforeAndAfterEach
 
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
@@ -27,6 +28,8 @@ import org.apache.spark.util.Utils
 
 class OapIndexQuerySuite extends QueryTest with SharedSQLContext with BeforeAndAfterEach {
   import testImplicits._
+
+  sparkConf.set("spark.memory.offHeap.size", "100m")
 
   override def beforeEach(): Unit = {
     sqlContext.conf.setConf(SQLConf.OAP_IS_TESTING, true)
@@ -56,25 +59,10 @@ class OapIndexQuerySuite extends QueryTest with SharedSQLContext with BeforeAndA
       assert(dfWithoutIdx.count == dfOriginal.count)
   }
 
-  test("Large Bloom Bit Size Cause JVM crash. Issue #278") {
-    sqlContext.conf.setConf(SQLConf.OAP_BLOOMFILTER_MAXBITS, 1 << 30)
-
-    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
-    data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    sql("create oindex index1 on oap_test_1 (a)")
-
-    checkAnswer(sql("SELECT * FROM oap_test_1 WHERE a = 1"), Row(1, "this is test 1") :: Nil)
-
-    sql("drop oindex index1 on oap_test_1")
-    sqlContext.conf.setConf(SQLConf.OAP_BLOOMFILTER_MAXBITS,
-      SQLConf.OAP_BLOOMFILTER_MAXBITS.defaultValue.get)
-  }
-
   test("index row boundary") {
     val groupSize = spark.sparkContext.hadoopConfiguration
       .get(OapFileFormat.ROW_GROUP_SIZE,
-        OapFileFormat.DEFAULT_ROW_GROUP_SIZE).toInt;
+        OapFileFormat.DEFAULT_ROW_GROUP_SIZE).toInt
 
     val testRowId = groupSize - 1
     val data: Seq[(Int, String)] = (0 until groupSize * 3)

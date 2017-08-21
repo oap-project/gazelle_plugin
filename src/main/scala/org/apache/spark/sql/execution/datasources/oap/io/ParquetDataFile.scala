@@ -25,15 +25,16 @@ import org.apache.parquet.hadoop.RecordReaderBuilder
 import org.apache.parquet.hadoop.api.RecordReader
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportHelper
 import org.apache.spark.sql.execution.datasources.oap.filecache._
+import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportHelper
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.util.io.ChunkedByteBuffer
 
 
 private[oap] case class ParquetDataFile
 (path: String, schema: StructType, configuration: Configuration) extends DataFile {
 
-  def getFiberData(groupId: Int, fiberId: Int, conf: Configuration): DataFiberCache = {
+  def getFiberData(groupId: Int, fiberId: Int, conf: Configuration): ChunkedByteBuffer = {
     // TODO data cache
     throw new UnsupportedOperationException("Not support getFiberData Operation.")
   }
@@ -73,7 +74,7 @@ private[oap] case class ParquetDataFile
 
     val readSupport = new OapReadSupportImpl
 
-    val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this, conf)
+    val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this)
     RecordReaderBuilder
       .builder(readSupport, new Path(StringUtils.unEscapeString(path)), conf)
       .withFooter(meta.footer)
@@ -104,8 +105,8 @@ private[oap] case class ParquetDataFile
     }
   }
 
-  override def createDataFileHandle(conf: Configuration): ParquetDataFileHandle = {
-    new ParquetDataFileHandle().read(conf, new Path(StringUtils.unEscapeString(path)))
+  override def createDataFileHandle(): ParquetDataFileHandle = {
+    new ParquetDataFileHandle().read(configuration, new Path(StringUtils.unEscapeString(path)))
   }
 
   override def getDictionary(fiberId: Int, conf: Configuration): Dictionary = null

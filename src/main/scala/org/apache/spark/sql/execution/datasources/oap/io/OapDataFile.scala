@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.datasources.oap.io
 
+import java.nio.ByteBuffer
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.util.StringUtils
@@ -29,7 +31,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap.{BatchColumn, ColumnValues}
 import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.Platform
+import org.apache.spark.util.io.{ChunkedByteBuffer, ChunkedByteBufferOutputStream}
 import org.apache.spark.util.CompletionIterator
 
 
@@ -38,7 +40,7 @@ private[oap] case class OapDataFile(path: String, schema: StructType,
 
   private val dictionaries = new Array[Dictionary](schema.length)
   private val codecFactory = new CodecFactory(configuration)
-  private val meta: OapDataFileHandle = DataFileHandleCacheManager(this, configuration)
+  private val meta: OapDataFileHandle = DataFileHandleCacheManager(this)
 
   def getDictionary(fiberId: Int, conf: Configuration): Dictionary = {
     val lastGroupMeta = meta.rowGroupsMeta(meta.groupCount - 1)
@@ -64,7 +66,7 @@ private[oap] case class OapDataFile(path: String, schema: StructType,
     } else dictionaries(fiberId)
   }
 
-  def getFiberData(groupId: Int, fiberId: Int, conf: Configuration): DataFiberCache = {
+  def getFiberData(groupId: Int, fiberId: Int, conf: Configuration): ChunkedByteBuffer = {
     val groupMeta = meta.rowGroupsMeta(groupId)
     val decompressor: BytesDecompressor = codecFactory.getDecompressor(meta.codec)
 
@@ -104,36 +106,44 @@ private[oap] case class OapDataFile(path: String, schema: StructType,
     putToFiberCache(fiberParser.parse(decompressor.decompress(bytes, uncompressedLen), rowCount))
   }
 
-  private def putToFiberCache(buf: Array[Byte]): DataFiberCache = {
+  private def putToFiberCache(buf: Array[Byte]): ChunkedByteBuffer = {
     // TODO: make it configurable
-    // TODO: disable compress first since there's some issue to solve with conpression
-    val fiberCacheData = MemoryManager.allocate(buf.length)
-    Platform.copyMemory(buf, Platform.BYTE_ARRAY_OFFSET, fiberCacheData.fiberData.getBaseObject,
-      fiberCacheData.fiberData.getBaseOffset, buf.length)
-    fiberCacheData
+    // TODO: [linhong] For now, ChunkedByteBuffer only contains one ByteBuffer
+    val cbbos = new ChunkedByteBufferOutputStream(buf.length, ByteBuffer.allocate)
+    cbbos.write(buf)
+    cbbos.close()
+    cbbos.toChunkedByteBuffer
+  }
+
+  def closeRowGroup(fiber: Fiber, cacheResult: CacheResult): Unit = {
+    if (cacheResult.cached) FiberCacheManager.releaseLock(fiber)
+    else cacheResult.buffer.dispose()
   }
 
   // full file scan
+  // TODO: [linhong] two iterator functions are similar. Can we merge them?
   def iterator(conf: Configuration, requiredIds: Array[Int]): Iterator[InternalRow] = {
     val row = new BatchColumn()
-    val columns: Array[ColumnValues] = new Array[ColumnValues](requiredIds.length)
     val iterator =
       (0 until meta.groupCount).iterator.flatMap { groupId =>
-        var i = 0
-        while (i < columns.length) {
-          columns(i) = new ColumnValues(
-            meta.rowCountInEachGroup,
-            schema(requiredIds(i)).dataType,
-            FiberCacheManager(DataFiber(this, requiredIds(i), groupId), conf))
-          i += 1
+        val cacheResults = requiredIds.map(id =>
+          FiberCacheManager.getOrElseUpdate(DataFiber(this, id, groupId), conf))
+
+        val columns = cacheResults.zip(requiredIds).map { case (cacheResult, id) =>
+          new ColumnValues(meta.rowCountInEachGroup, schema(id).dataType, cacheResult.buffer)
         }
 
-        if (groupId < meta.groupCount - 1) {
+        val iterator = if (groupId < meta.groupCount - 1) {
           // not the last row group
           row.reset(meta.rowCountInEachGroup, columns).toIterator
         } else {
           row.reset(meta.rowCountInLastGroup, columns).toIterator
         }
+        CompletionIterator[InternalRow, Iterator[InternalRow]](iterator,
+          cacheResults.zip(requiredIds).foreach {
+            case (cacheResult, id) => closeRowGroup(DataFiber(this, id, groupId), cacheResult)
+          }
+        )
       }
     CompletionIterator[InternalRow, Iterator[InternalRow]](iterator, close())
   }
@@ -142,35 +152,32 @@ private[oap] case class OapDataFile(path: String, schema: StructType,
   def iterator(conf: Configuration, requiredIds: Array[Int], rowIds: Array[Long])
   : Iterator[InternalRow] = {
     val row = new BatchColumn()
-    val columns: Array[ColumnValues] = new Array[ColumnValues](requiredIds.length)
-    var lastGroupId = -1
+    val groupIds = rowIds.groupBy(rowId => (rowId / meta.rowCountInEachGroup).toInt)
     val iterator =
-      rowIds.indices.iterator.map { idx =>
-        val rowId = rowIds(idx)
-        val groupId = (rowId / meta.rowCountInEachGroup).toInt
-        val rowIdxInGroup = (rowId % meta.rowCountInEachGroup).toInt
+      groupIds.iterator.flatMap {
+        case (groupId, subRowIds) =>
+          val cacheResults = requiredIds.map(id =>
+            FiberCacheManager.getOrElseUpdate(DataFiber(this, id, groupId), conf))
 
-        if (lastGroupId != groupId) {
-          // if we move to another row group, or the first row group
-          var i = 0
-          while (i < columns.length) {
-            columns(i) = new ColumnValues(
-              meta.rowCountInEachGroup,
-              schema(requiredIds(i)).dataType,
-              FiberCacheManager(DataFiber(this, requiredIds(i), groupId), conf))
-            i += 1
+          val columns = cacheResults.zip(requiredIds).map { case (cacheResult, id) =>
+            new ColumnValues(meta.rowCountInEachGroup, schema(id).dataType, cacheResult.buffer)
           }
+
           if (groupId < meta.groupCount - 1) {
             // not the last row group
-            row.reset(meta.rowCountInEachGroup, columns)
+            row.reset(meta.rowCountInEachGroup, columns).toIterator
           } else {
-            row.reset(meta.rowCountInLastGroup, columns)
+            row.reset(meta.rowCountInLastGroup, columns).toIterator
           }
 
-          lastGroupId = groupId
-        }
+          val iterator =
+            subRowIds.iterator.map(rowId => row.moveToRow((rowId % meta.rowCountInEachGroup).toInt))
 
-        row.moveToRow(rowIdxInGroup)
+          CompletionIterator[InternalRow, Iterator[InternalRow]](iterator,
+            cacheResults.zip(requiredIds).foreach {
+              case (cacheResult, id) => closeRowGroup(DataFiber(this, id, groupId), cacheResult)
+            }
+          )
       }
     CompletionIterator[InternalRow, Iterator[InternalRow]](iterator, close())
   }
@@ -180,10 +187,10 @@ private[oap] case class OapDataFile(path: String, schema: StructType,
     codecFactory.release()
   }
 
-  override def createDataFileHandle(conf: Configuration): OapDataFileHandle = {
+  override def createDataFileHandle(): OapDataFileHandle = {
     val p = new Path(StringUtils.unEscapeString(path))
 
-    val fs = p.getFileSystem(conf)
+    val fs = p.getFileSystem(configuration)
 
     new OapDataFileHandle().read(fs.open(p), fs.getFileStatus(p).getLen)
   }

@@ -23,29 +23,32 @@ import java.io.File
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.mapreduce.lib.input.FileSplit
-import org.scalatest.BeforeAndAfterAll
-
-import org.apache.spark.SparkFunSuite
+import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions.GenericMutableRow
 import org.apache.spark.sql.execution.datasources.oap.{DataSourceMeta, OapFileFormat}
 import org.apache.spark.sql.execution.datasources.oap.io._
+import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.Utils
 
 
-class FiberSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
+class FiberSuite extends SharedSQLContext with Logging {
   private var file: File = _
   val conf: Configuration = new Configuration()
 
+  sparkConf.set("spark.memory.offHeap.size", "100m")
+
   override def beforeAll(): Unit = {
+    super.beforeAll()
     file = Utils.createTempDir()
     file.delete()
   }
 
   override def afterAll(): Unit = {
     Utils.deleteRecursively(file)
+    super.afterAll()
   }
 
   test("test reading / writing oap file") {
@@ -103,7 +106,7 @@ class FiberSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
     for (i <- rowCounts.indices) {
       val path = new Path(file.getAbsolutePath, rowCounts(i).toString)
       writeData(path, schema, rowCounts(i))
-      val meta = OapDataFile(path.toString, schema, conf).createDataFileHandle(conf)
+      val meta = OapDataFile(path.toString, schema, conf).createDataFileHandle()
       assert(meta.totalRowCount() === rowCounts(i))
       assert(meta.rowCountInLastGroup === rowCountInLastGroups(i))
       assert(meta.rowGroupsMeta.length === rowGroupCounts(i))
@@ -124,7 +127,7 @@ class FiberSuite extends SparkFunSuite with Logging with BeforeAndAfterAll {
     val path = new Path(file.getAbsolutePath, 10.toString)
     writeData(path, schema, 10)
 
-    val meta = OapDataFile(path.toString, schema, conf).createDataFileHandle(conf)
+    val meta = OapDataFile(path.toString, schema, conf).createDataFileHandle()
     assert(meta.totalRowCount() === 10)
     assert(meta.rowCountInEachGroup === 12345)
     assert(meta.rowCountInLastGroup === 10)
