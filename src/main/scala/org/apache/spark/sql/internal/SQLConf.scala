@@ -648,6 +648,12 @@ object SQLConf {
       .booleanConf
       .createWithDefault(false)
 
+  val OAP_ENABLE_OINDEX =
+    SQLConfigBuilder("spark.sql.oap.oindex.enabled")
+      .internal()
+      .doc("To indicate to enable/disable oindex for developers even if the index file is there")
+      .booleanConf
+      .createWithDefault(true)
 
   object Deprecated {
     val MAPRED_REDUCE_TASKS = "mapred.reduce.tasks"
