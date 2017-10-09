@@ -38,7 +38,7 @@ import org.apache.spark.util.io.ChunkedByteBuffer
 
 
 // TODO need to register within the SparkContext
-class OapHeartBeatMessager extends CustomManager with Logging {
+class OapFiberCacheHeartBeatMessager extends CustomManager with Logging {
   override def status(conf: SparkConf): String = {
     FiberCacheManager.status
   }
