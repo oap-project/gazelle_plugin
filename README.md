@@ -7,7 +7,7 @@ OAP - Optimized Analytics Package (previously known as Spinach) is designed to a
 mvn -DskipTests package
 ```
 ## Prerequisites
-You should have [Apache Spark](http://spark.apache.org/) of version 2.0.2 installed in your cluster. Refer to Apache Spark's [documents](http://spark.apache.org/docs/2.0.2/) for details.
+You should have [Apache Spark](http://spark.apache.org/) of version 2.1.0 installed in your cluster. Refer to Apache Spark's [documents](http://spark.apache.org/docs/2.1.0/) for details.
 ## Use OAP with Spark
 1. Build OAP, `mvn -DskipTests package` and find `oap-<version>.jar` in `target/`
 2. Deploy `oap-<version>.jar` to master machine.
