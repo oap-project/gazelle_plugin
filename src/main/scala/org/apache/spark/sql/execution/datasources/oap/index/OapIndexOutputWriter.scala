@@ -26,6 +26,7 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.OutputWriter
 
+// TODO: parameter name "path" is ambiguous
 private[index] class OapIndexOutputWriter(
     path: String,
     context: TaskAttemptContext
@@ -36,7 +37,6 @@ private[index] class OapIndexOutputWriter(
 
       val outputPath = FileOutputFormat.getOutputPath(context)
       val inputFile = new Path(inputFileName)
-      val partitionDir = inputFile.getParent.toString.replace(outputPath.toString, "")
 
       val dataName = inputFile.getName
       val pos = dataName.lastIndexOf(".")
@@ -48,7 +48,8 @@ private[index] class OapIndexOutputWriter(
 
       // Workaround: FileFormatWriter passes a temp file name to us. But index file name is not
       // a random name. So we only use the upper directory.
-      new Path(new Path(path).getParent + partitionDir, "." + indexFileName + extension)
+      IndexUtils.getIndexWorkPath(
+        inputFile, outputPath, new Path(path).getParent, "." + indexFileName + extension)
     }
   }
 

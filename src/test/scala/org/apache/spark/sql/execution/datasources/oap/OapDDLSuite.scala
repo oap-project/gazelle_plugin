@@ -21,8 +21,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
 
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.{QueryTest, Row}
+import org.apache.spark.sql.{QueryTest, Row, SaveMode}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.Utils
@@ -53,6 +52,17 @@ class OapDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
     sqlContext.dropTempTable("oap_test_1")
     sqlContext.dropTempTable("oap_test_2")
     sqlContext.sql("drop table oap_partition_table")
+  }
+
+  test("write index for table read in from DS api") {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    val df = data.toDF("key", "value")
+    // TODO test when path starts with "hdfs:/"
+    val path = Utils.createTempDir("/tmp/").toString
+    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("oap").load(path)
+    oapDf.createOrReplaceTempView("t")
+    sql("create oindex index1 on t (key)")
   }
 
   test("show index") {

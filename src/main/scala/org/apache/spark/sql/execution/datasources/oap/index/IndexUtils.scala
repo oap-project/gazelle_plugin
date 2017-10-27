@@ -27,7 +27,7 @@ import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
 /**
  * Utils for Index read/write
  */
-object IndexUtils {
+private[oap] object IndexUtils {
   // TODO remove this and corresponding test
   def writeInt(out: OutputStream, v: Int): Unit = {
     out.write((v >>>  0) & 0xFF)
@@ -58,5 +58,15 @@ object IndexUtils {
     writer.write((v >>> 40).toInt & 0xFF)
     writer.write((v >>> 48).toInt & 0xFF)
     writer.write((v >>> 56).toInt & 0xFF)
+  }
+
+  /**
+   * Note: outputPath comes from `FileOutputFormat.getOutputPath`, which is made by Data source
+   * API, so `outputPath` should be simple enough, without scheme and authority.
+   */
+  def getIndexWorkPath(
+      inputFile: Path, outputPath: Path, attemptPath: Path, indexFile: String): Path = {
+    new Path(inputFile.getParent.toString.replace(
+      outputPath.toString, attemptPath.toString), indexFile)
   }
 }

@@ -152,7 +152,7 @@ class OapSuite extends QueryTest with SharedSQLContext with BeforeAndAfter {
     dir.delete()
   }
 
-  test("OapIndexInfo status and update") {
+  ignore("OapIndexInfo status and update") {
     val path1 = "partitionFile1"
     val useIndex1 = true
     val path2 = "partitionFile2"
