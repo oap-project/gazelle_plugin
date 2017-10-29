@@ -26,8 +26,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.types.StructType
 
-private[index] class OapIndexOutputFormat()
-    extends FileOutputFormat[Void, InternalRow] {
+private[index] class OapIndexOutputFormat extends FileOutputFormat[Void, InternalRow] {
 
   override def getRecordWriter(
       taskAttemptContext: TaskAttemptContext): RecordWriter[Void, InternalRow] = {
@@ -60,6 +59,10 @@ private[index] class OapIndexOutputFormat()
     } else if (indexType == "BITMAP") {
       val writer = file.getFileSystem(configuration).create(file, true)
       new BitmapIndexRecordWriter(configuration, writer, schema)
+    } else if (indexType == "PERMUTERM") {
+      val writer = file.getFileSystem(configuration).create(file, true)
+      // use BTree temporary
+      new BTreeIndexRecordWriter(configuration, writer, schema)
     } else {
       throw new OapException("Unknown Index Type: " + indexType)
     }

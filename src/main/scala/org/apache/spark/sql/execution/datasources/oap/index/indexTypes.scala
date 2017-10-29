@@ -29,3 +29,7 @@ case object BTreeIndexType extends AnyIndexType {
 case object BitMapIndexType extends AnyIndexType {
   override def toString: String = "BITMAP"
 }
+
+case object PermutermIndexType extends AnyIndexType {
+  override def toString: String = "PERMUTERM"
+}

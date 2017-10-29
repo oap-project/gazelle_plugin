@@ -707,6 +707,14 @@ object SQLConf {
       .intConf
       .createWithDefault(1024 * 1024)
 
+  val OAP_ENABLE_TRIE_OVER_BTREE =
+    SQLConfigBuilder("spark.sql.oap.oindex.trie.enabled")
+      .internal()
+      .doc("To indicate to enable/disable using trie for single-column string type column " +
+        "to build index using trie when the index type is btree")
+      .booleanConf
+      .createWithDefault(true)
+
   val OAP_IS_TESTING =
     SQLConfigBuilder("spark.sql.oap.testing")
       .internal()
