@@ -23,14 +23,15 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.unsafe.types.UTF8String
 
-private case class BTreeIndexRecordReader(
+private[index] case class BTreeIndexRecordReader(
     configuration: Configuration,
-    keySchema: StructType) extends Iterator[Int] {
+    schema: StructType) extends Iterator[Int] {
 
   private var internalIterator: Iterator[Int] = _
 
@@ -39,21 +40,123 @@ private case class BTreeIndexRecordReader(
   private var rowIdList: BTreeRowIdList = _
   private var reader: BTreeIndexFileReader = _
 
-  def initialize(path: Path, intervalArray: ArrayBuffer[RangeInterval]): Unit = {
+  private lazy val ordering = GenerateOrdering.create(schema)
+  private lazy val partialOrdering = GenerateOrdering.create(StructType(schema.dropRight(1)))
 
+  def initialize(path: Path, intervalArray: ArrayBuffer[RangeInterval]): Unit = {
     reader = BTreeIndexFileReader(configuration, path)
     footer = BTreeFooter(reader.readFooter())
     rowIdList = BTreeRowIdList(reader.readRowIdList())
-
     internalIterator = intervalArray.toIterator.flatMap { interval =>
       val (start, end) = findRowIdRange(interval)
       (start until end).toIterator.map(rowIdList.getRowId)
     }
   }
 
-  private def findRowIdRange(interval: RangeInterval): (Int, Int) = {
-    // TODO: Need implementation
-    (0, footer.getRecordCount)
+  private[index] def findRowIdRange(interval: RangeInterval): (Int, Int) = {
+    val (nodeIdxForStart, isStartFound) = findNodeIdx(interval.start, isStart = true)
+    val (nodeIdxForEnd, isEndFound) = findNodeIdx(interval.end, isStart = false)
+
+    val recordCount = footer.getRecordCount
+    if (nodeIdxForStart == nodeIdxForEnd && !isStartFound && !isEndFound) {
+      (0, 0)
+    } else {
+      val start = if (interval.start == IndexScanner.DUMMY_KEY_START) 0
+      else {
+        nodeIdxForStart.map { idx =>
+          findRowIdPos(idx, interval.start, isStart = true, !interval.startInclude)
+        }.getOrElse(recordCount)
+      }
+      val end = if (interval.end == IndexScanner.DUMMY_KEY_END) recordCount
+      else {
+        nodeIdxForEnd.map { idx =>
+          findRowIdPos(idx, interval.end, isStart = false, interval.endInclude)
+        }.getOrElse(recordCount)
+      }
+      (start, end)
+    }
+  }
+
+  private def findRowIdPos(
+      nodeIdx: Int,
+      candidate: InternalRow,
+      isStart: Boolean,
+      findNext: Boolean): Int = {
+    val node =
+      BTreeNodeData(reader.readNode(footer.getNodeOffset(nodeIdx), footer.getNodeSize(nodeIdx)))
+    val keyCount = node.getKeyCount
+    val (pos, found) =
+      binarySearch(0, keyCount, node.getKey(_, schema), candidate, rowOrdering(_, _, isStart))
+    val keyPos = if (found && findNext) pos + 1 else pos
+    if (keyPos == keyCount) {
+      if (nodeIdx + 1 == footer.getNodesCount) footer.getRecordCount
+      else {
+        val nextNode =
+          BTreeNodeData(
+            reader.readNode(
+              footer.getNodeOffset(nodeIdx + 1), footer.getNodeSize(nodeIdx + 1)))
+        nextNode.getRowIdPos(0)
+      }
+    } else node.getRowIdPos(keyPos)
+  }
+
+  /**
+   * Find the Node index contains the candidate. If no, return the first which node.max >= candidate
+   * If candidate > all node.max, return None
+   * @param isStart to indicate if the candidate is interval.start or interval.end
+   * @return Option of Node index and if candidate falls in node (means min <= candidate < max)
+   */
+  private def findNodeIdx(candidate: InternalRow, isStart: Boolean): (Option[Int], Boolean) = {
+    val idxOption = (0 until footer.getNodesCount).find { idx =>
+      rowOrdering(candidate, footer.getMaxValue(idx, schema), isStart) <= 0
+    }
+
+    (idxOption, idxOption.exists { idx =>
+      rowOrdering(candidate, footer.getMinValue(idx, schema), isStart) >= 0
+    })
+  }
+
+  /**
+   * Constrain: keys.last >= candidate must be true. This is guaranteed by [[findNodeIdx]]
+   * @return the first key >= candidate. (keys.last >= candidate makes this always possible)
+   */
+  private[index] def binarySearch(
+      start: Int, length: Int,
+      keys: Int => InternalRow, candidate: InternalRow,
+      compare: (InternalRow, InternalRow) => Int): (Int, Boolean) = {
+    var s = 0
+    var e = length - 1
+    var found = false
+    var m = s
+    while (s <= e & !found) {
+      assert(s + e >= 0, "too large array size caused overflow")
+      m = (s + e) / 2
+      val cmp = compare(keys(m), candidate)
+      if (cmp == 0) found = true
+      else if (cmp < 0) s = m + 1
+      else e = m - 1
+    }
+    if (!found) m = s
+    (m, found)
+  }
+
+  /**
+   * Compare auxiliary function.
+   * @param x, y are the key to be compared.
+   *         One comes from interval.start/end. One comes from index records
+   * @param isStart indicates to compare interval.start or interval end
+   */
+  private[index] def rowOrdering(x: InternalRow, y: InternalRow, isStart: Boolean): Int = {
+    if (x.numFields == y.numFields) {
+      ordering.compare(x, y)
+    } else if (x.numFields < y.numFields) {
+      val cmp = partialOrdering.compare(x, y)
+      if (cmp == 0) {
+        if (isStart) -1 else 1
+      } else cmp
+    } else {
+      -rowOrdering(y, x, isStart) // Keep x.numFields <= y.numFields to simplify
+    }
   }
 
   def close(): Unit = {
@@ -136,21 +239,19 @@ private[index] object BTreeIndexRecordReader {
       BTreeIndexRecordReader.readBasedOnSchema(
         buf, getMinValueOffset(idx), schema)
     def getMinValueOffset(idx: Int): Int =
-      nodeMetaStart + nodeMetaByteSize * getNodesCount + Platform.getInt(
-        buf,
-        Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + nodeMetaByteSize * idx + minPosOffset)
+      nodeMetaStart + nodeMetaByteSize * getNodesCount +
+          Platform.getInt(
+            buf, Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + nodeMetaByteSize * idx + minPosOffset)
     def getMaxValueOffset(idx: Int): Int =
-      nodeMetaStart + nodeMetaByteSize * getNodesCount + Platform.getInt(
-        buf,
-        Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + nodeMetaByteSize * idx + maxPosOffset)
+      nodeMetaStart + nodeMetaByteSize * getNodesCount +
+          Platform.getInt(
+            buf, Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + nodeMetaByteSize * idx + maxPosOffset)
     def getNodeOffset(idx: Int): Int =
       Platform.getInt(
-        buf,
-        Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + idx * nodeMetaByteSize + nodePosOffset)
+        buf, Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + idx * nodeMetaByteSize + nodePosOffset)
     def getNodeSize(idx: Int): Int =
       Platform.getInt(
-        buf,
-        Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + idx * nodeMetaByteSize + nodeSizeOffset)
+        buf, Platform.BYTE_ARRAY_OFFSET + nodeMetaStart + idx * nodeMetaByteSize + nodeSizeOffset)
   }
 
   private[index] case class BTreeRowIdList(buf: Array[Byte]) {
@@ -169,7 +270,8 @@ private[index] object BTreeIndexRecordReader {
           Platform.getInt(buf, Platform.BYTE_ARRAY_OFFSET + posSectionStart + idx * posEntrySize)
       readBasedOnSchema(buf, offset, schema)
     }
-    def getRowIdPos(idx: Int): Int = Platform.getInt(
-      buf, Platform.BYTE_ARRAY_OFFSET + posSectionStart + idx * posEntrySize + Integer.BYTES)
+    def getRowIdPos(idx: Int): Int =
+      Platform.getInt(
+        buf, Platform.BYTE_ARRAY_OFFSET + posSectionStart + idx * posEntrySize + Integer.BYTES)
   }
 }
