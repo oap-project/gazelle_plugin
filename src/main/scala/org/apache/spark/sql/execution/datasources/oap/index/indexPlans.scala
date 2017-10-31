@@ -17,7 +17,9 @@
 
 package org.apache.spark.sql.execution.datasources.oap.index
 
-import org.apache.hadoop.fs.Path
+import scala.collection.mutable
+
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.io.FileCommitProtocol
@@ -494,5 +496,55 @@ case class OapShowIndex(table: TableIdentifier, relationName: String)
         Seq(Row(relationName, i.name, 0, schema(entry).name, "A", "TRIE"))
       case t => sys.error(s"not support index type $t for index ${i.name}")
     })
+  }
+}
+
+case class OapCheckIndex(table: TableIdentifier, tableName: String)
+  extends RunnableCommand with Logging {
+  override val output: Seq[Attribute] =
+    AttributeReference("Analysis Result", StringType, nullable = false)() :: Nil
+
+  private def checkOapMetaFile(fs: FileSystem,
+                               partitionDirs: Seq[PartitionDirectory]): (Seq[Path], Seq[Path]) = {
+    require(null ne fs, "file system should not be null!")
+
+    partitionDirs.map(_.files.head.getPath.getParent)
+      .partition(partitionDir => fs.exists(new Path(partitionDir, OapFileFormat.OAP_META_FILE)))
+  }
+
+  private def processPartitionsWithNoMeta(partitionDirs: Seq[Path]): Seq[Row] = {
+    partitionDirs.map(partitionPath =>
+      Row(s"Meta file not found in partition: ${partitionPath.toUri.getPath}"))
+  }
+
+  override def run(sparkSession: SparkSession): Seq[Row] = {
+    val relation =
+      EliminateSubqueryAliases(sparkSession.sessionState.catalog.lookupRelation(table)) match {
+        case r: SimpleCatalogRelation => new FindDataSourceTable(sparkSession)(r)
+        case other => other
+      }
+
+    val (fileCatalog, dataSchema) = relation match {
+      case LogicalRelation(HadoopFsRelation(f, _, s, _, _, _), _, id) =>
+        (f, s)
+      case other =>
+        throw new OapException(s"We don't support index checking for ${other.simpleString}")
+    }
+
+    // ignore empty partition directory
+    val partitionDirs = OapUtils.getPartitions(fileCatalog).filter(_.files.nonEmpty)
+    val fs = if (partitionDirs.nonEmpty) {
+      partitionDirs.head.files.head.getPath
+        .getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
+    } else {
+      null
+    }
+
+    if (partitionDirs.isEmpty || (null eq fs)) {
+      return Seq.empty
+    }
+
+    val (partitionWithMeta, partitionWithNoMeta) = checkOapMetaFile(fs, partitionDirs)
+    processPartitionsWithNoMeta(partitionWithNoMeta)
   }
 }

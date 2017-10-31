@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.datasources.oap
 
+import java.io.File
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
@@ -54,6 +56,62 @@ class OapDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
     sqlContext.dropTempTable("oap_test_2")
     sqlContext.sql("drop table oap_partition_table")
     sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, true)
+  }
+
+  test("check index on empty table") {
+    checkAnswer(sql("check oindex on oap_test_2"), Nil)
+  }
+
+  test("check existent meta file") {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    val df = data.toDF("key", "value")
+    val path = Utils.createTempDir("/tmp/").toString
+    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("oap").load(path)
+    oapDf.createOrReplaceTempView("t")
+    checkAnswer(sql("check oindex on t"), Nil)
+  }
+
+  test("check nonexistent meta file") {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    val df = data.toDF("key", "value")
+    val path = Utils.createTempDir("/tmp/").toString
+    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("oap").load(path)
+    oapDf.createOrReplaceTempView("t")
+    checkAnswer(sql("check oindex on t"), Nil)
+    Utils.deleteRecursively(new File(path, OapFileFormat.OAP_META_FILE))
+    checkAnswer(sql("check oindex on t"),
+      Row(s"Meta file not found in partition: $path"))
+  }
+
+  test("check meta file: Partially missing") {
+    val data: Seq[(Int, Int)] = (1 to 10).map { i => (i, i) }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+
+    sql(
+      """
+        |INSERT OVERWRITE TABLE oap_partition_table
+        |partition (b=1, c='c1')
+        |SELECT key from t where value < 4
+      """.stripMargin)
+
+    sql(
+      """
+        |INSERT INTO TABLE oap_partition_table
+        |partition (b=2, c='c2')
+        |SELECT key from t where value == 4
+      """.stripMargin)
+    sql("create oindex idx1 on oap_partition_table(a)")
+
+    checkAnswer(sql("check oindex on oap_partition_table"), Nil)
+
+    val partitionPath =
+      new Path(spark.sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+    Utils.deleteRecursively(new File(partitionPath.toUri.getPath, OapFileFormat.OAP_META_FILE))
+
+    checkAnswer(sql("check oindex on oap_partition_table"),
+      Row(s"Meta file not found in partition: ${partitionPath.toUri.getPath}"))
   }
 
   test("write index for table read in from DS api") {
