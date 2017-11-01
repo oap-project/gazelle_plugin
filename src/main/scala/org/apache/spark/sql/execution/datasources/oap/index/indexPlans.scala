@@ -78,6 +78,17 @@ case class CreateIndex(
     // this may impact index updating. It may also fail index existence check. Should put index
     // info at table level also.
     val time = System.currentTimeMillis().toHexString
+    val innerIndexType =
+      if (sparkSession.conf.get(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE) &&
+        indexType == BTreeIndexType && indexColumns.length == 1) {
+        // if indexColumn only has size 1 and is of StringType, we can build trie to support
+        // better search.
+        if (schema(indexColumns(0).columnName).dataType.sameType(StringType)) {
+          logInfo("Building a TRIE index for the column, to turn off this, " +
+            s"please disable ${SQLConf.OAP_ENABLE_TRIE_OVER_BTREE.key}")
+          PermutermIndexType
+        } else BTreeIndexType
+      } else indexType
     val bAndP = partitions.filter(_.files.nonEmpty).map(p => {
       val metaBuilder = new DataSourceMetaBuilder()
       val parent = p.files.head.getPath.getParent
@@ -107,17 +118,6 @@ case class CreateIndex(
         metaBuilder.withNewSchema(schema)
       }
 
-      val innerIndexType =
-        if (sparkSession.conf.get(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE) &&
-          indexType == BTreeIndexType && indexColumns.length == 1) {
-          // if indexColumn only has size 1 and is of StringType, we can build trie to support
-          // better search.
-          if (schema(indexColumns(0).columnName).dataType.sameType(StringType)) {
-            logInfo("Building a TRIE index for the column, to turn off this, " +
-              s"please disable ${SQLConf.OAP_ENABLE_TRIE_OVER_BTREE.key}")
-            PermutermIndexType
-          } else BTreeIndexType
-        } else indexType
       innerIndexType match {
         case BTreeIndexType =>
           val entries = indexColumns.map(c => {
@@ -177,7 +177,7 @@ case class CreateIndex(
       "indexName" -> indexName,
       "indexTime" -> time,
       "isAppend" -> "true",
-      "indexType" -> indexType.toString
+      "indexType" -> innerIndexType.toString
     )
 
     val retVal = FileFormatWriter.write(
