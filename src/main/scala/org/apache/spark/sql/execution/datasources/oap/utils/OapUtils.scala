@@ -93,5 +93,19 @@ object OapUtils extends Logging {
     value.map(v => InternalRow(CatalystTypeConverters.convertToCatalyst(v)))
   }
   def keyFromAny(value: Any): Key = InternalRow(CatalystTypeConverters.convertToCatalyst(value))
-}
 
+  /**
+   * Refresh any cached file listings of @param fileIndex,
+   * and return partitions if data is partitioned, or a single partition if data is unpartitioned.
+   * indicate all valid files grouped into partition(s) on the disk
+   * @param fileIndex [[FileIndex]] of a relation
+   * @param partitionSpec the specification of the partitions
+   * @return all valid files grouped into partition(s) on the disk
+   */
+  def getPartitionsRefreshed(
+      fileIndex: FileIndex,
+      partitionSpec: Option[TablePartitionSpec] = None): Seq[PartitionDirectory] = {
+    fileIndex.refresh()
+    getPartitions(fileIndex, partitionSpec)
+  }
+}
