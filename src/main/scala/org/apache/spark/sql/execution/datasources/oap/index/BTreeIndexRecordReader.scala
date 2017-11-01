@@ -249,35 +249,35 @@ private[index] object BTreeIndexRecordReader {
       case StringType =>
         val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
         Platform.copyMemory(
-          baseObj, offset + Integer.BYTES,
+          baseObj, offset + Integer.SIZE / 8,
           bytes, Platform.BYTE_ARRAY_OFFSET,
           bytes.length)
-        (UTF8String.fromBytes(bytes), Integer.BYTES + bytes.length)
+        (UTF8String.fromBytes(bytes), Integer.SIZE / 8 + bytes.length)
       case BinaryType =>
         val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
         Platform.copyMemory(
-          baseObj, offset + Integer.BYTES,
+          baseObj, offset + Integer.SIZE / 8,
           bytes, Platform.BYTE_ARRAY_OFFSET,
           bytes.length)
-        (bytes, Integer.BYTES + bytes.length)
+        (bytes, Integer.SIZE / 8 + bytes.length)
       case _ => throw new OapException("Not supported data type")
     }
   }
 
   private[index] case class BTreeFooter(buf: ChunkedByteBuffer) {
-    private val nodePosOffset = Integer.BYTES
-    private val nodeSizeOffset = Integer.BYTES * 2
-    private val minPosOffset = Integer.BYTES * 3
-    private val maxPosOffset = Integer.BYTES * 4
-    private val nodeMetaStart = Integer.BYTES * 2
-    private val nodeMetaByteSize = Integer.BYTES * 5
+    private val nodePosOffset = Integer.SIZE / 8
+    private val nodeSizeOffset = Integer.SIZE / 8 * 2
+    private val minPosOffset = Integer.SIZE / 8 * 3
+    private val maxPosOffset = Integer.SIZE / 8 * 4
+    private val nodeMetaStart = Integer.SIZE / 8 * 2
+    private val nodeMetaByteSize = Integer.SIZE / 8 * 5
 
     private val (baseObj, baseOffset): (Object, Long) = buf.chunks.head match {
       case db: DirectBuffer => (null, db.address())
       case _ => (buf.toArray, Platform.BYTE_ARRAY_OFFSET)
     }
     def getRecordCount: Int = Platform.getInt(baseObj, baseOffset)
-    def getNodesCount: Int = Platform.getInt(baseObj, baseOffset + Integer.BYTES)
+    def getNodesCount: Int = Platform.getInt(baseObj, baseOffset + Integer.SIZE / 8)
     def getMaxValue(idx: Int, schema: StructType): InternalRow =
       BTreeIndexRecordReader.readBasedOnSchema(baseObj, baseOffset + getMaxValueOffset(idx), schema)
     def getMinValue(idx: Int, schema: StructType): InternalRow =
@@ -299,12 +299,12 @@ private[index] object BTreeIndexRecordReader {
       case db: DirectBuffer => (null, db.address())
       case _ => (buf.toArray, Platform.BYTE_ARRAY_OFFSET)
     }
-    def getRowId(idx: Int): Int = Platform.getInt(baseObj, baseOffset + idx * Integer.BYTES)
+    def getRowId(idx: Int): Int = Platform.getInt(baseObj, baseOffset + idx * Integer.SIZE / 8)
   }
 
   private[index] case class BTreeNodeData(buf: ChunkedByteBuffer) {
-    private val posSectionStart = Integer.BYTES
-    private val posEntrySize = Integer.BYTES * 2
+    private val posSectionStart = Integer.SIZE / 8
+    private val posEntrySize = Integer.SIZE / 8 * 2
     private val (baseObj, baseOffset): (Object, Long) = buf.chunks.head match {
       case db: DirectBuffer => (null, db.address())
       case _ => (buf.toArray, Platform.BYTE_ARRAY_OFFSET)
@@ -318,6 +318,6 @@ private[index] object BTreeIndexRecordReader {
       BTreeIndexRecordReader.readBasedOnSchema(baseObj, baseOffset + offset, schema)
     }
     def getRowIdPos(idx: Int): Int =
-      Platform.getInt(baseObj, baseOffset + posSectionStart + idx * posEntrySize + Integer.BYTES)
+      Platform.getInt(baseObj, baseOffset + posSectionStart + idx * posEntrySize + Integer.SIZE / 8)
   }
 }

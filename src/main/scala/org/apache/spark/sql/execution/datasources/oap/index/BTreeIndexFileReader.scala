@@ -27,8 +27,8 @@ private[oap] case class BTreeIndexFileReader(
     file: Path) {
 
   private val VERSION_SIZE = 8
-  private val FOOTER_LENGTH_SIZE = Integer.BYTES
-  private val ROW_ID_LIST_LENGTH_SIZE = Integer.BYTES
+  private val FOOTER_LENGTH_SIZE = Integer.SIZE / 8
+  private val ROW_ID_LIST_LENGTH_SIZE = Integer.SIZE / 8
 
   private val (reader, fileLength) = {
     val fs = file.getFileSystem(configuration)

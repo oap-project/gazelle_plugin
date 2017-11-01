@@ -83,9 +83,9 @@ class BTreeRecordReaderWriterSuite extends SparkFunSuite {
       assert(value === answerValue, s"value: $value")
       value match {
         case x: UTF8String =>
-          assert(offset === x.getBytes.length + Integer.BYTES, s"string: $x")
+          assert(offset === x.getBytes.length + Integer.SIZE / 8, s"string: $x")
         case y: Array[Byte] =>
-          assert(offset === y.length + Integer.BYTES, s"binary: ${y.mkString(",")}")
+          assert(offset === y.length + Integer.SIZE / 8, s"binary: ${y.mkString(",")}")
         case other =>
           assert(offset === toSparkDataType(other).defaultSize, s"value $other")
       }
