@@ -84,8 +84,8 @@ private[index] class OapIndexOutputWriter(
     if (recordWriter != null) {
       recordWriter.close(context)
       recordWriter = null
-      results = results :+
-          IndexBuildResult(inputFileName, rowCount, "", new Path(inputFileName).getParent.toString)
+      results = results :+ IndexBuildResult(
+        new Path(inputFileName).getName, rowCount, "", new Path(inputFileName).getParent.toString)
     }
   }
 
