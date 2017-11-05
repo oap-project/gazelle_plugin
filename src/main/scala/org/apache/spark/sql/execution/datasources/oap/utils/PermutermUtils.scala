@@ -18,14 +18,13 @@
 package org.apache.spark.sql.execution.datasources.oap.utils
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap.index.InMemoryTrie
 import org.apache.spark.unsafe.types.UTF8String
 
 private[oap] object PermutermUtils extends Logging {
   def generatePermuterm(
-      uniqueList: java.util.LinkedList[InternalRow],
-      offsetMap: java.util.HashMap[InternalRow, Int],
+      uniqueList: java.util.LinkedList[UTF8String],
+      offsetMap: java.util.HashMap[UTF8String, Int],
       root: InMemoryTrie = InMemoryTrie()): Long = {
     val it = uniqueList.iterator()
     var count = 0L
@@ -37,14 +36,13 @@ private[oap] object PermutermUtils extends Logging {
   }
 
   private def addWordToPermutermTree(
-      row: InternalRow,
+      utf8String: UTF8String,
       root: InMemoryTrie,
-      offsetMap: java.util.HashMap[InternalRow, Int]): Int = {
-    val utf8String = row.getUTF8String(0)
+      offsetMap: java.util.HashMap[UTF8String, Int]): Int = {
     val bytes = utf8String.getBytes
-    assert(offsetMap.containsKey(row))
+    assert(offsetMap.containsKey(utf8String))
     val endMark = UTF8String.fromString("\3").getBytes
-    val offset = offsetMap.get(row)
+    val offset = offsetMap.get(utf8String)
     // including "\3abc" and "abc\3" and "bc\3a" and "c\3ab"
     (0 to bytes.length).map(i => {
       val token = bytes.slice(i, bytes.length) ++ endMark ++ bytes.slice(0, i)

@@ -18,20 +18,19 @@
 package org.apache.spark.sql.execution.datasources.oap.index
 
 import org.apache.spark.SparkFunSuite
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap.utils.PermutermUtils
 import org.apache.spark.unsafe.types.UTF8String
 
 class PermutermUtilsSuite extends SparkFunSuite {
   test("generate permuterm") {
-    val row1 = InternalRow(UTF8String.fromString("Alpha"))
-    val row2 = InternalRow(UTF8String.fromString("Alphabeta"))
-    val row3 = InternalRow(UTF8String.fromString("AlphaHello"))
-    val row4 = InternalRow(UTF8String.fromString("Beta"))
-    val row5 = InternalRow(UTF8String.fromString("Zero"))
+    val row1 = UTF8String.fromString("Alpha")
+    val row2 = UTF8String.fromString("Alphabeta")
+    val row3 = UTF8String.fromString("AlphaHello")
+    val row4 = UTF8String.fromString("Beta")
+    val row5 = UTF8String.fromString("Zero")
 
-    val uniqueList = new java.util.LinkedList[InternalRow]()
-    val offsetMap = new java.util.HashMap[InternalRow, Int]()
+    val uniqueList = new java.util.LinkedList[UTF8String]()
+    val offsetMap = new java.util.HashMap[UTF8String, Int]()
 
     val list1 = List(row1, row2)
     list1.foreach(uniqueList.add)
