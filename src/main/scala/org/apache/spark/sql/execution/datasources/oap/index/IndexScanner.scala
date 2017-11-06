@@ -44,6 +44,7 @@ private[oap] abstract class IndexScanner(idxMeta: IndexMeta)
 
   @transient protected var ordering: Ordering[Key] = _
   var intervalArray: ArrayBuffer[RangeInterval] = _
+  var pattern: Array[Byte] = _
   protected var keySchema: StructType = _
 
   /**
