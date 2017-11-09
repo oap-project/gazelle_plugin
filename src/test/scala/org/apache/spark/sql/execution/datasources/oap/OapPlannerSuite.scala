@@ -37,7 +37,6 @@ class OapPlannerSuite
   sparkConf.set("spark.memory.offHeap.size", "100m")
 
   override def beforeEach(): Unit = {
-    sqlContext.conf.setConf(SQLConf.OAP_IS_TESTING, true)
     val path1 = Utils.createTempDir().getAbsolutePath
     val path2 = Utils.createTempDir().getAbsolutePath
     val path3 = Utils.createTempDir().getAbsolutePath
@@ -212,5 +211,4 @@ class OapPlannerSuite
 
     sql("drop oindex index1 on oap_fix_length_schema_table")
   }
-
 }
