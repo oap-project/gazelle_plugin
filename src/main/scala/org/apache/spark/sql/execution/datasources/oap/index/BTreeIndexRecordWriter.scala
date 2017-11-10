@@ -30,10 +30,8 @@ import org.apache.parquet.bytes.LittleEndianDataOutputStream
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
-import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.utils.{BTreeNode, BTreeUtils}
 import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.types.UTF8String
 
 private[index] case class BTreeIndexRecordWriter(
     configuration: Configuration,
@@ -242,29 +240,7 @@ private[index] object BTreeIndexRecordWriter {
   private[index] def writeBasedOnSchema(
       writer: LittleEndianDataOutputStream, row: InternalRow, schema: StructType): Unit = {
     schema.zipWithIndex.foreach {
-      case (field, index) => writeBasedOnDataType(writer, row.get(index, field.dataType))
-    }
-  }
-
-  private[index] def writeBasedOnDataType(
-      writer: LittleEndianDataOutputStream,
-      value: Any): Unit = {
-    value match {
-      case int: Boolean => writer.writeBoolean(int)
-      case short: Short => writer.writeShort(short)
-      case byte: Byte => writer.writeByte(byte)
-      case int: Int => writer.writeInt(int)
-      case long: Long => writer.writeLong(long)
-      case float: Float => writer.writeFloat(float)
-      case double: Double => writer.writeDouble(double)
-      case string: UTF8String =>
-        val bytes = string.getBytes
-        writer.writeInt(bytes.length)
-        writer.write(bytes)
-      case binary: Array[Byte] =>
-        writer.writeInt(binary.length)
-        writer.write(binary)
-      case other => throw new OapException(s"not support data type $other")
+      case (field, index) => IndexUtils.writeBasedOnDataType(writer, row.get(index, field.dataType))
     }
   }
 }

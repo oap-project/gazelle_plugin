@@ -25,11 +25,9 @@ import sun.nio.ch.DirectBuffer
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
-import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.filecache.{BTreeFiber, CacheResult, FiberCacheManager}
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
-import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.io.ChunkedByteBuffer
 
 private[index] case class BTreeIndexRecordReader(
@@ -229,39 +227,11 @@ private[index] object BTreeIndexRecordReader {
       baseObj: Object, offset: Long, schema: StructType): InternalRow = {
     var pos = offset
     val values = schema.map(_.dataType).map { dataType =>
-      val (value, length) = readBasedOnDataType(baseObj, pos, dataType)
+      val (value, length) = IndexUtils.readBasedOnDataType(baseObj, pos, dataType)
       pos += length
       value
     }
     InternalRow.fromSeq(values)
-  }
-
-  private[index] def readBasedOnDataType(baseObj: Object, offset: Long, dataType: DataType) = {
-    dataType match {
-      case BooleanType => (Platform.getBoolean(baseObj, offset), BooleanType.defaultSize)
-      case ByteType => (Platform.getByte(baseObj, offset), ByteType.defaultSize)
-      case ShortType => (Platform.getShort(baseObj, offset), ShortType.defaultSize)
-      case IntegerType => (Platform.getInt(baseObj, offset), IntegerType.defaultSize)
-      case LongType => (Platform.getLong(baseObj, offset), LongType.defaultSize)
-      case FloatType => (Platform.getFloat(baseObj, offset), FloatType.defaultSize)
-      case DoubleType => (Platform.getDouble(baseObj, offset), DoubleType.defaultSize)
-      case DateType => (Platform.getInt(baseObj, offset), DateType.defaultSize)
-      case StringType =>
-        val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
-        Platform.copyMemory(
-          baseObj, offset + Integer.SIZE / 8,
-          bytes, Platform.BYTE_ARRAY_OFFSET,
-          bytes.length)
-        (UTF8String.fromBytes(bytes), Integer.SIZE / 8 + bytes.length)
-      case BinaryType =>
-        val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
-        Platform.copyMemory(
-          baseObj, offset + Integer.SIZE / 8,
-          bytes, Platform.BYTE_ARRAY_OFFSET,
-          bytes.length)
-        (bytes, Integer.SIZE / 8 + bytes.length)
-      case _ => throw new OapException("Not supported data type")
-    }
   }
 
   private[index] case class BTreeFooter(buf: ChunkedByteBuffer) {

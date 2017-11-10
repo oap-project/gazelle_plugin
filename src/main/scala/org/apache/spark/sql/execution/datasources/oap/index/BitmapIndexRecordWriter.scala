@@ -17,84 +17,163 @@
 
 package org.apache.spark.sql.execution.datasources.oap.index
 
-import java.io.{ByteArrayOutputStream, ObjectOutputStream, OutputStream}
+import java.io.{ByteArrayOutputStream, DataOutputStream, ObjectOutputStream, OutputStream}
 
 import scala.collection.mutable
+import scala.collection.immutable
 import scala.collection.JavaConverters._
 
-import com.google.common.collect.ArrayListMultimap
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.mapreduce.{RecordWriter, TaskAttemptContext}
+import org.roaringbitmap.buffer.MutableRoaringBitmap
 
-import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.parquet.bytes.LittleEndianDataOutputStream
+import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.catalyst.expressions.FromUnsafeProjection
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.sql.execution.datasources.oap.statistics.StatisticsManager
-import org.apache.spark.sql.types.StructType
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.sql.types._
 
-private[index] class BitmapIndexRecordWriter(
+/* Below is the bitmap index general layout and sections.
+ * #section id     section size(B) section description
+ *    1              4               header
+ *    2              varied          sorted unique key list (index column unique values)
+ *    3              varied          bitmap entry list
+ *    4              varied          bitmap entry offset list
+ *    5              varied          keep the original statistics, not changed than before.
+ *    6              40(5*8)         footer to save total key list size and length, total entry
+ *                                   list size and total offset list size, and also the original
+ *                                   index end.
+ *
+ * TODO: 1. Bitmap index is suitable for the enumeration columns which actually has not many
+ *          unique values, thus we will load the key list and offset list respectively as a
+ *          whole, rather than splitting into more smaller partial loading units.
+ *       2. Bitmap index query will be limited for equal queries, thus each equal query will
+ *          only be corresponding to one single bitmap entry. It's not decided yet to regard
+ *          and cache each targeted bitmap entry or several consecutive bitmap entries as the
+ *          partialy loading unit. It will depend on the following benchmark profiling result.
+ */
+private[oap] class BitmapIndexRecordWriter(
     configuration: Configuration,
     writer: OutputStream,
     keySchema: StructType) extends RecordWriter[Void, InternalRow] {
 
   @transient private lazy val genericProjector = FromUnsafeProjection(keySchema)
 
-  private val multiHashMap = ArrayListMultimap.create[InternalRow, Int]()
+  private val rowMapBitmap = new mutable.HashMap[InternalRow, MutableRoaringBitmap]()
   private var recordCount: Int = 0
+
+  private var bmUniqueKeyListOffset: Int = _
+  private var bmEntryListOffset: Int = _
+  private var bmOffsetListOffset: Int = _
+
+  private var bmUniqueKeyList: immutable.List[InternalRow] = _
+  private var bmOffsetListBuffer: mutable.ListBuffer[Int] = _
+
+  private var bmUniqueKeyListTotalSize: Int = _
+  private var bmUniqueKeyListCount: Int = _
+  private var bmEntryListTotalSize: Int = _
+  private var bmOffsetListTotalSize: Int = _
+  private var bmIndexEnd: Int = _
 
   override def write(key: Void, value: InternalRow): Unit = {
     val v = genericProjector(value).copy()
-    multiHashMap.put(v, recordCount)
+    if (!rowMapBitmap.contains(v)) {
+      val bm = new MutableRoaringBitmap()
+      bm.add(recordCount)
+      rowMapBitmap.put(v, bm)
+    } else {
+      rowMapBitmap.get(v).get.add(recordCount)
+    }
     recordCount += 1
   }
 
   override def close(context: TaskAttemptContext): Unit = {
-    flushToFile(writer)
+    flushToFile()
     writer.close()
   }
 
-  private def flushToFile(out: OutputStream): Unit = {
-
-    val statisticsManager = new StatisticsManager
-    statisticsManager.initialize(BitMapIndexType, keySchema, configuration)
-
-    // generate the bitset hashmap
-    val hashMap = new mutable.HashMap[InternalRow, BitSet]()
-
-    multiHashMap.asMap().asScala.foreach(kv => {
-      val bs = new BitSet(recordCount)
-      kv._2.asScala.foreach(bs.set)
-      hashMap.put(kv._1, bs)
+  private def writeUniqueKeyList(): Unit = {
+    val ordering = GenerateOrdering.create(keySchema)
+    // Currently OAP index type supports the column with one single field.
+    assert(keySchema.fields.size == 1)
+    bmUniqueKeyList = rowMapBitmap.keySet.toList.sorted(ordering)
+    val bos = new ByteArrayOutputStream()
+    val leDos = new LittleEndianDataOutputStream(bos)
+    bmUniqueKeyList.foreach(key => {
+      IndexUtils.writeBasedOnDataType(leDos, key.get(0, keySchema.fields(0).dataType))
     })
-
-    val header = writeHead(writer, IndexFile.INDEX_VERSION)
-    // serialize hashMap and get length
-    val writeBuf = new ByteArrayOutputStream()
-    val out = new ObjectOutputStream(writeBuf)
-    out.writeObject(hashMap)
-    out.flush()
-    val objLen = writeBuf.size()
-    // write byteArray length and byteArray
-    IndexUtils.writeInt(writer, objLen)
-    writer.write(writeBuf.toByteArray)
-    out.close()
-    val indexEnd = 4 + objLen + header
-    val offset: Long = indexEnd
-
-    statisticsManager.write(writer)
-
-    // write index file footer
-    IndexUtils.writeLong(writer, indexEnd) // statistics start pos
-    IndexUtils.writeLong(writer, offset) // index file end offset
-    IndexUtils.writeLong(writer, indexEnd) // dataEnd
+    bmUniqueKeyListTotalSize = bos.size()
+    bmUniqueKeyListCount = bmUniqueKeyList.size
+    writer.write(bos.toByteArray)
   }
 
-  private def writeHead(writer: OutputStream, version: Int): Int = {
-    writer.write("OAPIDX".getBytes("UTF-8"))
+  private def writeBmEntryList(): Unit = {
+    /* TODO: 1. Use BitSet of Spark or Scala or Java to replace roaring bitmap.
+     *       2. Optimize roaring bitmap usage to further reduce index file size.
+     */
+    bmEntryListOffset = IndexFile.indexFileHeaderLength + bmUniqueKeyListTotalSize
+    bmOffsetListBuffer = new mutable.ListBuffer[Int]()
+    // Get the bitmap total size, and write each bitmap entrys one by one.
+    var totalBitmapSize = 0
+    bmUniqueKeyList.foreach(uniqueKey => {
+      bmOffsetListBuffer.append(bmEntryListOffset + totalBitmapSize)
+      val bm = rowMapBitmap.get(uniqueKey).get
+      bm.runOptimize()
+      val bos = new ByteArrayOutputStream()
+      val dos = new DataOutputStream(bos)
+      // Below serialization is directly written into byte/int/long arrays
+      // according to roaring bitmap internal format(http://roaringbitmap.org/).
+      bm.serialize(dos)
+      dos.flush()
+      totalBitmapSize += bos.size
+      writer.write(bos.toByteArray)
+      dos.close()
+      bos.close()
+    })
+    bmOffsetListBuffer.append(bmEntryListOffset + totalBitmapSize)
+    bmEntryListTotalSize = totalBitmapSize
+  }
+
+  private def writeBmOffsetList(): Unit = {
+    // write offset for each bitmap entry to fast locate expected bitmap entries during scanning.
+    bmOffsetListBuffer.foreach(offsetIdx => IndexUtils.writeInt(writer, offsetIdx))
+    bmOffsetListTotalSize = 4 * bmOffsetListBuffer.size
+  }
+
+  private def writeBmFooter(): Unit = {
+    // The beginning of the footer are bitmap total size, key list size and offset total size.
+    // Others keep back compatible and not changed than before.
+    bmIndexEnd = bmEntryListOffset + bmEntryListTotalSize + bmOffsetListTotalSize
+    IndexUtils.writeInt(writer, bmUniqueKeyListTotalSize)
+    IndexUtils.writeInt(writer, bmUniqueKeyListCount)
+    IndexUtils.writeInt(writer, bmEntryListTotalSize)
+    IndexUtils.writeInt(writer, bmOffsetListTotalSize)
+    IndexUtils.writeLong(writer, bmIndexEnd)
+    IndexUtils.writeLong(writer, bmIndexEnd)
+    IndexUtils.writeLong(writer, bmIndexEnd)
+  }
+
+  private def flushToFile(): Unit = {
+    val statisticsManager = new StatisticsManager
+    statisticsManager.initialize(BitMapIndexType, keySchema, configuration)
+    writeHead(writer, IndexFile.INDEX_VERSION)
+    writeUniqueKeyList()
+    writeBmEntryList()
+    writeBmOffsetList()
+    // The index end is also the starting position of stats file.
+    statisticsManager.write(writer)
+    writeBmFooter()
+  }
+
+ // TODO: below are common for both BTree and Bitmap indexes. It can be abstracted into IndexWriter.
+  private def writeHead(writer: OutputStream, version: Int): Unit = {
+    val headerContent = "OAPIDX"
+    writer.write(headerContent.getBytes("UTF-8"))
     assert(version <= 65535)
-    val data = Array((version >> 8).toByte, (version & 0xFF).toByte)
-    writer.write(data)
-    IndexFile.indexFileHeaderLength
+    val versionData = Array((version >> 8).toByte, (version & 0xFF).toByte)
+    writer.write(versionData)
+    assert((headerContent.length + versionData.size) == IndexFile.indexFileHeaderLength)
   }
 }

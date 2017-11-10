@@ -20,8 +20,13 @@ package org.apache.spark.sql.execution.datasources.oap.index
 import java.io.OutputStream
 
 import org.apache.hadoop.fs.Path
+import org.apache.parquet.bytes.LittleEndianDataOutputStream
 
+import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
+import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.Platform
+import org.apache.spark.unsafe.types.UTF8String
 
 
 /**
@@ -68,5 +73,56 @@ private[oap] object IndexUtils {
       inputFile: Path, outputPath: Path, attemptPath: Path, indexFile: String): Path = {
     new Path(inputFile.getParent.toString.replace(
       outputPath.toString, attemptPath.toString), indexFile)
+  }
+
+  def writeBasedOnDataType(
+      writer: LittleEndianDataOutputStream,
+      value: Any): Unit = {
+    value match {
+      case int: Boolean => writer.writeBoolean(int)
+      case short: Short => writer.writeShort(short)
+      case byte: Byte => writer.writeByte(byte)
+      case int: Int => writer.writeInt(int)
+      case long: Long => writer.writeLong(long)
+      case float: Float => writer.writeFloat(float)
+      case double: Double => writer.writeDouble(double)
+      case string: UTF8String =>
+        val bytes = string.getBytes
+        writer.writeInt(bytes.length)
+        writer.write(bytes)
+      case binary: Array[Byte] =>
+        writer.writeInt(binary.length)
+        writer.write(binary)
+      case other => throw new OapException(s"OAP index currently doesn't support data type $other")
+    }
+  }
+
+  def readBasedOnDataType(
+      baseObj: Object, offset: Long, dataType: DataType): (Any, Long) = {
+    dataType match {
+      case BooleanType => (Platform.getBoolean(baseObj, offset), BooleanType.defaultSize)
+      case ByteType => (Platform.getByte(baseObj, offset), ByteType.defaultSize)
+      case ShortType => (Platform.getShort(baseObj, offset), ShortType.defaultSize)
+      case IntegerType => (Platform.getInt(baseObj, offset), IntegerType.defaultSize)
+      case LongType => (Platform.getLong(baseObj, offset), LongType.defaultSize)
+      case FloatType => (Platform.getFloat(baseObj, offset), FloatType.defaultSize)
+      case DoubleType => (Platform.getDouble(baseObj, offset), DoubleType.defaultSize)
+      case DateType => (Platform.getInt(baseObj, offset), DateType.defaultSize)
+      case StringType =>
+        val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
+        Platform.copyMemory(
+          baseObj, offset + Integer.SIZE / 8,
+          bytes, Platform.BYTE_ARRAY_OFFSET,
+          bytes.length)
+        (UTF8String.fromBytes(bytes), Integer.SIZE / 8 + bytes.length)
+      case BinaryType =>
+        val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
+        Platform.copyMemory(
+          baseObj, offset + Integer.SIZE / 8,
+          bytes, Platform.BYTE_ARRAY_OFFSET,
+          bytes.length)
+        (bytes, Integer.SIZE / 8 + bytes.length)
+      case other => throw new OapException(s"OAP index currently doesn't support data type $other")
+    }
   }
 }

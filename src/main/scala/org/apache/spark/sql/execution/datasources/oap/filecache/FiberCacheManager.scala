@@ -78,6 +78,8 @@ object FiberCacheManager extends Logging {
         FiberBlockId("index_" + file.file)
       case BTreeFiber(_, file, section, idx) =>
         FiberBlockId("btree_" + file + "_" + section + "_" + idx)
+      case BitmapFiber(_, file, sectionIdxOfFile, loadUnitIdxOfSection) =>
+        FiberBlockId("bitmapIndex_" + file + "_" + sectionIdxOfFile + "_" + loadUnitIdxOfSection)
     }
   }
 
@@ -137,6 +139,7 @@ object FiberCacheManager extends Logging {
       file.getFiberData(rowGroupId, columnIndex, conf)
     case IndexFiber(file) => file.getIndexFiberData(conf)
     case BTreeFiber(getFiberData, _, _, _) => toByteBuffer(getFiberData())
+    case BitmapFiber(getFiberData, _, _, _) => toByteBuffer(getFiberData())
     case other => throw new OapException(s"Cannot identify what's $other")
   }
 
@@ -228,3 +231,12 @@ case class BTreeFiber(
     file: String,
     section: Int,
     idx: Int) extends Fiber
+
+private[oap]
+case class BitmapFiber(
+    getFiberData: () => Array[Byte],
+    file: String,
+    // "0" means no split sections within file.
+    sectionIdxOfFile: Int,
+    // "0" means no smaller loading units.
+    loadUnitIdxOfSection: Int) extends Fiber

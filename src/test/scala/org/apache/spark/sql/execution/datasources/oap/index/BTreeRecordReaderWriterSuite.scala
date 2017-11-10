@@ -75,9 +75,9 @@ class BTreeRecordReaderWriterSuite extends SparkFunSuite {
     values.foreach { value =>
       val buf = new ByteBufferOutputStream()
       val writer = new LittleEndianDataOutputStream(buf)
-      BTreeIndexRecordWriter.writeBasedOnDataType(writer, value)
+      IndexUtils.writeBasedOnDataType(writer, value)
 
-      val (answerValue, offset) = BTreeIndexRecordReader.readBasedOnDataType(
+      val (answerValue, offset) = IndexUtils.readBasedOnDataType(
         buf.toByteArray, Platform.BYTE_ARRAY_OFFSET, toSparkDataType(value))
 
       assert(value === answerValue, s"value: $value")
