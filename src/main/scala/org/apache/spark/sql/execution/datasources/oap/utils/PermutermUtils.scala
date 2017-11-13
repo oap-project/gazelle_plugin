@@ -22,6 +22,18 @@ import org.apache.spark.sql.execution.datasources.oap.index.InMemoryTrie
 import org.apache.spark.unsafe.types.UTF8String
 
 private[oap] object PermutermUtils extends Logging {
+  def generatePages(size: Long, maxPage: Int): Seq[Int] = {
+    if (size > maxPage) {
+      val pageNum = (if (size % maxPage == 0) size / maxPage else size / maxPage + 1).toInt
+      val basicPage = (size / pageNum).toInt
+      val totalAdj = (size % pageNum).toInt
+      def adj(idx: Int, remainder: Int, pages: Int): Int = if (idx < remainder) 1 else 0
+      (0 until pageNum).map(basicPage + adj(_, totalAdj, pageNum))
+    } else {
+      Seq(size.toInt)
+    }
+  }
+
   def generatePermuterm(
       uniqueList: java.util.LinkedList[UTF8String],
       offsetMap: java.util.HashMap[UTF8String, Int],
@@ -41,7 +53,7 @@ private[oap] object PermutermUtils extends Logging {
       offsetMap: java.util.HashMap[UTF8String, Int]): Int = {
     val bytes = utf8String.getBytes
     assert(offsetMap.containsKey(utf8String))
-    val endMark = UTF8String.fromString("\3").getBytes
+    val endMark = UTF8String.fromString("\u0003").getBytes
     val offset = offsetMap.get(utf8String)
     // including "\3abc" and "abc\3" and "bc\3a" and "c\3ab"
     (0 to bytes.length).map(i => {

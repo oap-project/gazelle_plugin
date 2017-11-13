@@ -707,6 +707,13 @@ object SQLConf {
       .intConf
       .createWithDefault(1024 * 1024)
 
+  val OAP_PERMUTERM_MAX_GROUP_SIZE =
+    SQLConfigBuilder("spark.sql.oap.oindex.permuterm.maxGroupSize")
+      .internal()
+      .doc("Define max node number in each permuterm index page")
+      .intConf
+      .createWithDefault(128 * 1024)
+
   val OAP_ENABLE_TRIE_OVER_BTREE =
     SQLConfigBuilder("spark.sql.oap.oindex.trie.enabled")
       .internal()

@@ -22,8 +22,7 @@ import sun.nio.ch.DirectBuffer
 
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.execution.datasources.oap.filecache._
-import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.io.ChunkedByteBuffer
 
@@ -31,11 +30,12 @@ private[oap] case class PermutermScanner(idxMeta: IndexMeta) extends IndexScanne
 
   override def canBeOptimizedByStatistics: Boolean = false
 
-  var indexFiber: IndexFiber = _
-  var indexData: CacheResult = _
   var matchRoot: TrieNode = null
+  var permutermFootCache: CacheResult = _
+  var permutermDataCache: CacheResult = _
+  private var permutermFile: PermutermIndexFile = _
   protected lazy val allPointers = matchRoot.allPointers
-  private lazy val allUnsafeIds = allPointers.map(UnsafeIds(indexData.buffer, _))
+  private lazy val allUnsafeIds = allPointers.map(UnsafeIds(permutermDataCache.buffer, _))
   private lazy val internalIter = allUnsafeIds.iterator
   private var remain: Int = 0
   private var currentCount: Int = 0
@@ -46,10 +46,10 @@ private[oap] case class PermutermScanner(idxMeta: IndexMeta) extends IndexScanne
     val path = IndexUtils.indexFileFromDataFile(dataPath, meta.name, meta.time)
     logDebug("Loading Index File: " + path)
     logDebug("\tFile Size: " + path.getFileSystem(conf).getFileStatus(path).getLen)
-    val indexFile = IndexFile(path)
-    indexFiber = IndexFiber(indexFile)
-    indexData = FiberCacheManager.getOrElseUpdate(indexFiber, conf)
-    val root = open(indexData.buffer, keySchema, indexFile.version(conf))
+    permutermFile = PermutermIndexFile(path)
+    val permutermFootFiber = PermutermFootFiber(permutermFile)
+    permutermFootCache = FiberCacheManager.getOrElseUpdate(permutermFootFiber, conf)
+    val root = open(permutermFootCache.buffer, conf, permutermFile.version(conf))
 
     _init(root)
     this
@@ -67,20 +67,30 @@ private[oap] case class PermutermScanner(idxMeta: IndexMeta) extends IndexScanne
     }
   }
 
+  def getPageData(page: TriePage, conf: Configuration): ChunkedByteBuffer = {
+    val permutermPage = PermutermFiber(permutermFile, page.offset, page.length)
+    val permutermPageCache = FiberCacheManager.getOrElseUpdate(permutermPage, conf)
+    permutermPageCache.buffer
+  }
+
   def open(
-    data: ChunkedByteBuffer,
-    keySchema: StructType,
-    version: Int = IndexFile.INDEX_VERSION): TrieNode = {
+      data: ChunkedByteBuffer,
+      conf: Configuration,
+      version: Int = IndexFile.INDEX_VERSION): TrieNode = {
     assert(version == IndexFile.INDEX_VERSION, "Unsupported version of index data!")
     val (baseObject, baseOffset): (Object, Long) = data.chunks.head match {
       case buf: DirectBuffer => (null, buf.address())
       case _ => (data.toArray, Platform.BYTE_ARRAY_OFFSET)
     }
     val dataEnd = Platform.getInt(baseObject, baseOffset + data.size - 8)
-    val length = Platform.getInt(baseObject, baseOffset + data.size - 4)
     val rootPage = Platform.getInt(baseObject, baseOffset + data.size - 12)
     val rootOffset = Platform.getInt(baseObject, baseOffset + data.size - 16)
-    UnsafeTrie(data, rootPage, rootOffset, dataEnd)
+    permutermDataCache = FiberCacheManager.getOrElseUpdate(
+      PermutermFiber(permutermFile, 0, dataEnd), conf)
+    val pageTable = UnsafeTrieFooter(data)
+    UnsafeTrie(
+      getPageData(pageTable.page(rootPage, dataEnd), conf),
+      rootOffset, dataEnd, i => getPageData(pageTable.page(i, dataEnd), conf))
   }
 
   override def toString: String = "PermutermScanner"

@@ -54,9 +54,9 @@ private[oap] trait TrieNode {
  */
 private[oap] case class UnsafeTrie(
     buffer: ChunkedByteBuffer,
-    page: Int,
     intOffset: Int,
-    dataEnd: Long) extends TrieNode with UnsafeIndexTree {
+    dataEnd: Long,
+    getBuffer: Int => ChunkedByteBuffer) extends TrieNode with UnsafeIndexTree {
   def offset: Long = intOffset.toLong
   private lazy val firstInt: Int = Platform.getInt(baseObj, baseOffset + offset)
   // def nodeKey: Byte = Platform.getShort(baseObj, baseOffset + offset).toByte
@@ -67,9 +67,9 @@ private[oap] case class UnsafeTrie(
   def rowIdsPointer: Int = Platform.getInt(baseObj, baseOffset + offset + 4)
   def children: Seq[TrieNode] = (0 until childCount).map(childAt)
   def childAt(idx: Int): TrieNode =
-    UnsafeTrie(buffer,
-      Platform.getInt(baseObj, baseOffset + offset + 8 + idx * 8 + 4),
-      Platform.getInt(baseObj, baseOffset + offset + 8 + idx * 8), dataEnd)
+    UnsafeTrie(
+      getBuffer(Platform.getInt(baseObj, baseOffset + offset + 8 + idx * 8 + 4)),
+      Platform.getInt(baseObj, baseOffset + offset + 8 + idx * 8), dataEnd, getBuffer)
   def allPointers: Seq[Int] = if (canTerminate) {
     rowIdsPointer +: children.flatMap(_.allPointers)
   } else {
@@ -77,6 +77,21 @@ private[oap] case class UnsafeTrie(
   }
   override def length: Int = 8 + 8 * childCount
   override val baseOffset = super.baseOffset + dataEnd
+}
+
+private[oap] case class UnsafeTrieFooter(buffer: ChunkedByteBuffer) extends UnsafeIndexTree {
+  // TODO refactor class structure to get rid of offset here.
+  def offset: Long = 0
+  def page(idx: Int, dataEnd: Int): TriePage = {
+    require(idx <= length)
+    if (idx == 0) {
+      TriePage(0, dataEnd)
+    } else {
+      val pageOffset = Platform.getLong(buffer, baseOffset + 4 + (idx - 1) * 12)
+      val pageLength = Platform.getInt(buffer, baseOffset + idx * 12)
+      TriePage(pageOffset, pageLength)
+    }
+  }
 }
 
 private[oap] case class UnsafeIds(buffer: ChunkedByteBuffer, offset: Long) extends UnsafeIndexTree {

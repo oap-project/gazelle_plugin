@@ -23,9 +23,8 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.oap.filecache.{FiberCacheManager, IndexFiber}
-import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.sql.execution.datasources.oap.{IndexMeta, TrieIndex}
+import org.apache.spark.sql.execution.datasources.oap.filecache.CacheResult
 import org.apache.spark.sql.execution.datasources.oap.utils.PermutermUtils
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.unsafe.Platform
@@ -53,13 +52,10 @@ class PermutermScannerSuite extends SparkFunSuite {
   }
 
   class TestPermutermScanner
-    extends PermutermScanner(new IndexMeta("index1", "ABC", TrieIndex(0))) {
+      extends PermutermScanner(new IndexMeta("index1", "ABC", TrieIndex(0))) {
     private var unsafeTrie: UnsafeTrie = _
     def allPointersString: String = allPointers.mkString(",")
     override def initialize(path: Path, configuration: Configuration): TestPermutermScanner = {
-      val indexFile = IndexFile(path)
-      indexFiber = IndexFiber(indexFile)
-      indexData = FiberCacheManager.getOrElseUpdate(indexFiber, configuration)
       val fs = path.getFileSystem(configuration)
       val fileSize = fs.getFileStatus(path).getLen
       val buffer = new Array[Byte](fileSize.toInt)
@@ -69,9 +65,10 @@ class PermutermScannerSuite extends SparkFunSuite {
       cbbos.close()
       val baseOffset = Platform.BYTE_ARRAY_OFFSET
       val dataEnd = Platform.getInt(buffer, baseOffset + fileSize - 8)
-      val rootPage = Platform.getInt(buffer, baseOffset + fileSize - 12)
       val rootOffset = Platform.getInt(buffer, baseOffset + fileSize - 16)
-      unsafeTrie = UnsafeTrie(cbbos.toChunkedByteBuffer, rootPage, rootOffset, dataEnd)
+      val cbb = cbbos.toChunkedByteBuffer
+      permutermDataCache = new CacheResult(true, cbb)
+      unsafeTrie = UnsafeTrie(cbb, rootOffset, dataEnd, _ => cbb)
       this
     }
     def scan(): Unit = {

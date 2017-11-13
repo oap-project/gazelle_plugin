@@ -22,6 +22,15 @@ import org.apache.spark.sql.execution.datasources.oap.utils.PermutermUtils
 import org.apache.spark.unsafe.types.UTF8String
 
 class PermutermUtilsSuite extends SparkFunSuite {
+  test("split pages") {
+    assert(PermutermUtils.generatePages(10, 3) == Seq(3, 3, 2, 2))
+    assert(PermutermUtils.generatePages(3, 3) == Seq(3))
+    assert(PermutermUtils.generatePages(3, 4) == Seq(3))
+    assert(PermutermUtils.generatePages(8, 4) == Seq(4, 4))
+    assert(PermutermUtils.generatePages(8, 3) == Seq(3, 3, 2))
+    assert(PermutermUtils.generatePages(7, 3) == Seq(3, 2, 2))
+  }
+
   test("generate permuterm") {
     val row1 = UTF8String.fromString("Alpha")
     val row2 = UTF8String.fromString("Alphabeta")

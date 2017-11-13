@@ -24,19 +24,28 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.util.io.{ChunkedByteBuffer, ChunkedByteBufferOutputStream}
 
-
-/**
- * Read the index file into memory, and can be accessed as [[ChunkedByteBuffer]].
- */
-private[oap] case class IndexFile(file: Path) {
-  private def putToFiberCache(buf: Array[Byte]): ChunkedByteBuffer = {
+private[oap] trait CommonIndexFile {
+  def file: Path
+  def version(conf: Configuration): Int = {
+    val fs = file.getFileSystem(conf)
+    val fin = fs.open(file)
+    val bytes = new Array[Byte](8)
+    fin.read(bytes, 0, 8)
+    fin.close()
+    (bytes(6) << 8) + bytes(7)
+  }
+  protected def putToFiberCache(buf: Array[Byte]): ChunkedByteBuffer = {
     // TODO: make it configurable
     val cbbos = new ChunkedByteBufferOutputStream(buf.length, ByteBuffer.allocate)
     cbbos.write(buf)
     cbbos.close()
     cbbos.toChunkedByteBuffer
   }
-
+}
+/**
+ * Read the index file into memory, and can be accessed as [[ChunkedByteBuffer]].
+ */
+private[oap] case class IndexFile(file: Path) extends CommonIndexFile {
   def getIndexFiberData(conf: Configuration): ChunkedByteBuffer = {
     val fs = file.getFileSystem(conf)
     val fin = fs.open(file)
@@ -50,18 +59,45 @@ private[oap] case class IndexFile(file: Path) {
     // TODO partial cached index fiber
     putToFiberCache(bytes)
   }
-
-  def version(conf: Configuration): Int = {
-    val fs = file.getFileSystem(conf)
-    val fin = fs.open(file)
-    val bytes = new Array[Byte](8)
-    fin.read(bytes, 0, 8)
-    fin.close()
-    (bytes(6) << 8) + bytes(7)
-  }
 }
 
 private[oap] object IndexFile {
   val indexFileHeaderLength = 8
   val INDEX_VERSION = 1
+}
+
+private[oap] case class PermutermIndexFile(file: Path) extends CommonIndexFile {
+  def getRootPage(conf: Configuration): ChunkedByteBuffer = {
+    val fs = file.getFileSystem(conf)
+    val fin = fs.open(file)
+    val fileLength = fs.getContentSummary(file).getLength
+    val reading = math.min(PermutermIndexFile.PRE_READ_BYTES, fileLength).toInt
+    val bytes = new Array[Byte](reading)
+
+    fin.readFully(fileLength - reading, bytes)
+    val footBegin = bytes(reading)
+    val rootBytes = if (footBegin > reading) {
+      val allFooter = new Array[Byte](footBegin)
+      fin.readFully(fileLength - footBegin, allFooter)
+      allFooter
+    } else {
+      bytes.slice(reading - footBegin, reading)
+    }
+    fin.close()
+    putToFiberCache(rootBytes)
+  }
+
+  def getPage(pageOffset: Long, pageLength: Int, conf: Configuration): ChunkedByteBuffer = {
+    val fs = file.getFileSystem(conf)
+    val fin = fs.open(file)
+    val bytes = new Array[Byte](pageLength)
+
+    fin.read(bytes, pageOffset.toInt, pageLength)
+    fin.close()
+    putToFiberCache(bytes)
+  }
+}
+
+object PermutermIndexFile {
+  val PRE_READ_BYTES = 512
 }

@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.catalyst.InternalRow
@@ -31,9 +32,10 @@ import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.Utils
 import org.apache.spark.util.io.ChunkedByteBufferOutputStream
 
-class PermutermReadWriteSuite extends SparkFunSuite {
-
-  test("Permuterm index Read/Write") {
+class PermutermReadWriteSuite extends SparkFunSuite with BeforeAndAfterEach {
+  private lazy val path = new Path(Utils.createTempDir().getAbsolutePath, "index")
+  private var trie: InMemoryTrie = _
+  override def beforeEach(): Unit = {
     val row1 = UTF8String.fromString("Alpha")
     val row2 = UTF8String.fromString("AlphaHello")
     val row3 = UTF8String.fromString("Alphabeta")
@@ -46,10 +48,9 @@ class PermutermReadWriteSuite extends SparkFunSuite {
     val list = List(row1, row2, row3, row4, row5)
     list.foreach(uniqueList.add)
     list.zipWithIndex.foreach(i => offsetMap.put(i._1, 8 * (i._2 + 1)))
-    val trie = InMemoryTrie()
+    trie = InMemoryTrie()
     PermutermUtils.generatePermuterm(uniqueList, offsetMap, trie)
 
-    val path = new Path(Utils.createTempDir().getAbsolutePath, "index")
     val configuration = new Configuration()
     val fs = path.getFileSystem(configuration)
     val fileWriter = fs.create(path, true)
@@ -59,8 +60,19 @@ class PermutermReadWriteSuite extends SparkFunSuite {
     list.foreach(s => indexWriter.write(null, InternalRow(s)))
     indexWriter.flushToFile()
     fileWriter.close()
+  }
 
+  override def afterEach(): Unit = {
+    trie = null
+    val configuration = new Configuration()
+    val fs = path.getFileSystem(configuration)
+    fs.delete(path, false)
+  }
+
+  test("Permuterm index Read/Write") {
     // Read content from File
+    val configuration = new Configuration()
+    val fs = path.getFileSystem(configuration)
     val fileSize = fs.getFileStatus(path).getLen
     val buffer = new Array[Byte](fileSize.toInt)
     fs.open(path).readFully(0, buffer)
@@ -69,9 +81,9 @@ class PermutermReadWriteSuite extends SparkFunSuite {
     cbbos.close()
     val baseOffset = Platform.BYTE_ARRAY_OFFSET
     val dataEnd = Platform.getInt(buffer, baseOffset + fileSize - 8)
-    val rootPage = Platform.getInt(buffer, baseOffset + fileSize - 12)
     val rootOffset = Platform.getInt(buffer, baseOffset + fileSize - 16)
-    val fileTrie = UnsafeTrie(cbbos.toChunkedByteBuffer, rootPage, rootOffset, dataEnd)
+    val cbb = cbbos.toChunkedByteBuffer
+    val fileTrie = UnsafeTrie(cbb, rootOffset, dataEnd, _ => cbb)
     assert(fileTrie.toString.equals(trie.toString), fileTrie.toString + "\n" + trie.toString)
   }
 }
