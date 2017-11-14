@@ -155,7 +155,7 @@ statement
     | DROP SINDEX (IF EXISTS)? IDENTIFIER ON tableIdentifier
         partitionSpec?                                                 #oapDropIndex
     | SHOW SINDEX (FROM | IN) tableIdentifier                          #oapShowIndex
-    | CHECK SINDEX ON tableIdentifier                                  #oapCheckIndex
+    | CHECK SINDEX ON tableIdentifier partitionSpec?                   #oapCheckIndex
     | unsupportedHiveNativeCommands .*?                                #failNativeCommand
     ;
 

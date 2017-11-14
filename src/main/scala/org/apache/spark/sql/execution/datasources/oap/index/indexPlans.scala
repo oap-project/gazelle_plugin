@@ -509,8 +509,10 @@ case class OapShowIndex(table: TableIdentifier, relationName: String)
  * @param table TableIdentifier of the specified table
  * @param tableName table name of the specified table
  */
-case class OapCheckIndex(table: TableIdentifier, tableName: String)
-  extends RunnableCommand with Logging {
+case class OapCheckIndex(
+    table: TableIdentifier,
+    tableName: String,
+    partitionSpec: Option[TablePartitionSpec]) extends RunnableCommand with Logging {
   override val output: Seq[Attribute] =
     AttributeReference("Analysis Result", StringType, nullable = false)() :: Nil
 
@@ -639,7 +641,8 @@ case class OapCheckIndex(table: TableIdentifier, tableName: String)
     }
 
     // ignore empty partition directory
-    val partitionDirs = OapUtils.getPartitionsRefreshed(fileCatalog).filter(_.files.nonEmpty)
+    val partitionDirs =
+      OapUtils.getPartitionsRefreshed(fileCatalog, partitionSpec).filter(_.files.nonEmpty)
     val fs = if (partitionDirs.nonEmpty) {
       partitionDirs.head.files.head.getPath
         .getFileSystem(sparkSession.sparkContext.hadoopConfiguration)

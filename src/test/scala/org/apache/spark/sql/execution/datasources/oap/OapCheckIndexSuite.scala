@@ -330,4 +330,123 @@ class OapCheckIndexSuite extends QueryTest with SharedSQLContext with BeforeAndA
       "\nAmbiguous Index(different indices have the same name):\nindex name:idx1"))
 
   }
+
+  test("check index on partitioned table for a specified partition: Missing meta file") {
+    val data: Seq[(Int, Int)] = (1 to 10).map { i => (i, i) }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+
+    sql(
+      """
+        |INSERT OVERWRITE TABLE oap_partition_table
+        |partition (b=1, c='c1')
+        |SELECT key from t where value < 4
+      """.stripMargin)
+
+    sql(
+      """
+        |INSERT INTO TABLE oap_partition_table
+        |partition (b=2, c='c2')
+        |SELECT key from t where value == 4
+      """.stripMargin)
+
+    val partitionPath =
+      new Path(spark.sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+    checkAnswer(
+      sql("check oindex on oap_partition_table partition(b=2, c='c2')"),
+      Row(s"Meta file not found in partition: ${partitionPath.toUri.getPath}"))
+
+    sql("create oindex idx1 on oap_partition_table(a) partition(b=2, c='c2')")
+
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), Nil)
+  }
+
+  test("check index on partitioned table for a specified partition: Missing data file") {
+    val data = sparkContext.parallelize(1 to 300, 4).map { i => (i, i) }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+
+    sql(
+      """
+        |INSERT OVERWRITE TABLE oap_partition_table
+        |partition (b=1, c='c1')
+        |SELECT key from t where value < 4
+      """.stripMargin)
+
+    sql(
+      """
+        |INSERT INTO TABLE oap_partition_table
+        |partition (b=2, c='c2')
+        |SELECT key from t where value >= 104
+      """.stripMargin)
+
+    sql("create oindex idx1 on oap_partition_table(a)")
+
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=1, c='c1')"), Nil)
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), Nil)
+
+    val partitionPath =
+      new Path(spark.sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+    // Delete a data file
+    val metaOpt = OapUtils.getMeta(sparkContext.hadoopConfiguration, partitionPath)
+    assert(metaOpt.nonEmpty)
+    assert(metaOpt.get.fileMetas.nonEmpty)
+
+    val dataFileName = metaOpt.get.fileMetas.head.dataFileName
+    Utils.deleteRecursively(new File(new Path(partitionPath, dataFileName).toUri.getPath))
+
+    val checkResult: Seq[Row] =
+      if (metaOpt.get.fileMetas.length > 1) {
+        Seq(Row(s"Data file: ${partitionPath.toUri.getPath}/$dataFileName not found!"))
+      } else {
+        Nil
+      }
+    // Check again
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=1, c='c1')"), Nil)
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), checkResult)
+  }
+
+  test("check index on partitioned table for a specified partition: Missing index file") {
+    val data = sparkContext.parallelize(1 to 300, 4).map { i => (i, i) }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+
+    sql(
+      """
+        |INSERT OVERWRITE TABLE oap_partition_table
+        |partition (b=1, c='c1')
+        |SELECT key from t where value < 4
+      """.stripMargin)
+
+    sql(
+      """
+        |INSERT INTO TABLE oap_partition_table
+        |partition (b=2, c='c2')
+        |SELECT key from t where value == 104
+      """.stripMargin)
+
+    // Create a B+ tree index on Column("a")
+    sql("create oindex idx1 on oap_partition_table(a)")
+
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), Nil)
+
+    // Delete an index file
+    val partitionPath = new Path(spark.sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+    val metaOpt = OapUtils.getMeta(sparkContext.hadoopConfiguration, partitionPath)
+    assert(metaOpt.nonEmpty)
+    assert(metaOpt.get.fileMetas.nonEmpty)
+    assert(metaOpt.get.indexMetas.nonEmpty)
+    val indexMeta = metaOpt.get.indexMetas.head
+
+    val dataFileName = metaOpt.get.fileMetas.head.dataFileName
+    val indexFileName =
+      IndexUtils.indexFileFromDataFile(
+        new Path(partitionPath, dataFileName), indexMeta.name, indexMeta.time).toUri.getPath
+    Utils.deleteRecursively(new File(indexFileName))
+
+    // Check again
+    checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"),
+      Row(
+        s"""Missing index:idx1,
+          |indexColumn(s): a, indexType: BTree
+          |for Data File: ${partitionPath.toUri.getPath}/$dataFileName
+          |of table: oap_partition_table""".stripMargin))
+  }
 }
