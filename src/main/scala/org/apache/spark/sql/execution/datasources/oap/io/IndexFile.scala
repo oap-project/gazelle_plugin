@@ -30,7 +30,7 @@ private[oap] trait CommonIndexFile {
     val fs = file.getFileSystem(conf)
     val fin = fs.open(file)
     val bytes = new Array[Byte](8)
-    fin.read(bytes, 0, 8)
+    fin.readFully(bytes, 0, 8)
     fin.close()
     (bytes(6) << 8) + bytes(7)
   }
@@ -92,7 +92,7 @@ private[oap] case class PermutermIndexFile(file: Path) extends CommonIndexFile {
     val fin = fs.open(file)
     val bytes = new Array[Byte](pageLength)
 
-    fin.read(bytes, pageOffset.toInt, pageLength)
+    fin.readFully(bytes, pageOffset.toInt, pageLength)
     fin.close()
     putToFiberCache(bytes)
   }

@@ -152,14 +152,14 @@ private[oap] object ColumnStatistics {
     val minLength = in.readInt()
     val min = if (minLength != 0) {
       val bytes = new Array[Byte](minLength)
-      in.read(bytes)
+      in.readFully(bytes)
       bytes
     } else null
 
     val maxLength = in.readInt()
     val max = if (maxLength != 0) {
       val bytes = new Array[Byte](maxLength)
-      in.read(bytes)
+      in.readFully(bytes)
       bytes
     } else null
 
@@ -309,7 +309,7 @@ private[oap] class OapDataFileHandle(
     val in = new DataInputStream(new ByteArrayInputStream(metaBytes))
 
     val buffer = new Array[Byte](MAGIC.length)
-    in.read(buffer)
+    in.readFully(buffer)
     val magic = UTF8String.fromBytes(buffer).toString
     if (magic != MAGIC) {
       throw new OapException("Not a valid Oap Data File")

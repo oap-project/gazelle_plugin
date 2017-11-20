@@ -102,7 +102,7 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
 
   private def loadBmFooter(fin: FSDataInputStream): Array[Byte] = {
     bmFooterBuffer = new Array[Byte](BITMAP_FOOTER_SIZE)
-    fin.read(bmFooterOffset, bmFooterBuffer, 0, BITMAP_FOOTER_SIZE)
+    fin.readFully(bmFooterOffset, bmFooterBuffer, 0, BITMAP_FOOTER_SIZE)
     bmFooterBuffer
   }
 
@@ -121,7 +121,7 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
     bmUniqueKeyListBuffer = new Array[Byte](bmUniqueKeyListTotalSize)
     // TODO: seems not supported yet on my local dev machine(hadoop is 2.7.3).
     // fin.setReadahead(bmUniqueKeyListTotalSize)
-    fin.read(bmUniqueKeyListOffset, bmUniqueKeyListBuffer, 0, bmUniqueKeyListTotalSize)
+    fin.readFully(bmUniqueKeyListOffset, bmUniqueKeyListBuffer, 0, bmUniqueKeyListTotalSize)
     bmUniqueKeyListBuffer
   }
 
@@ -146,13 +146,13 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
 
   private def loadBmEntryList(fin: FSDataInputStream): Array[Byte] = {
     bmEntryListBuffer = new Array[Byte](bmEntryListTotalSize)
-    fin.read(bmEntryListOffset, bmEntryListBuffer, 0, bmEntryListTotalSize)
+    fin.readFully(bmEntryListOffset, bmEntryListBuffer, 0, bmEntryListTotalSize)
     bmEntryListBuffer
   }
 
   private def loadBmOffsetList(fin: FSDataInputStream): Array[Byte] = {
     bmOffsetListBuffer = new Array[Byte](bmOffsetListTotalSize)
-    fin.read(bmOffsetListOffset, bmOffsetListBuffer, 0, bmOffsetListTotalSize)
+    fin.readFully(bmOffsetListOffset, bmOffsetListBuffer, 0, bmOffsetListTotalSize)
     bmOffsetListBuffer
   }
 
