@@ -33,7 +33,6 @@ class OapDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
   sparkConf.set("spark.memory.offHeap.size", "100m")
 
   override def beforeEach(): Unit = {
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, false)
     val path1 = Utils.createTempDir().getAbsolutePath
     val path2 = Utils.createTempDir().getAbsolutePath
 
@@ -52,7 +51,6 @@ class OapDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
     sqlContext.dropTempTable("oap_test_1")
     sqlContext.dropTempTable("oap_test_2")
     sqlContext.sql("drop table oap_partition_table")
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, true)
   }
 
   test("write index for table read in from DS api") {
@@ -93,32 +91,6 @@ class OapDDLSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
         Row("oap_test_2", "index6", 0, "a", "A", "BITMAP") ::
         Row("oap_test_2", "index1", 0, "a", "D", "BTREE") ::
         Row("oap_test_2", "index1", 1, "b", "D", "BTREE") :: Nil)
-  }
-
-  test("check create index with trie") {
-    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
-    data.toDF("key", "value").createOrReplaceTempView("t")
-    checkAnswer(sql("show oindex from oap_test_1"), Nil)
-    sql("insert overwrite table oap_test_1 select * from t")
-    sql("insert overwrite table oap_test_2 select * from t")
-    sql("create oindex index1 on oap_test_1 (b) using btree")
-    sql("create oindex index2 on oap_test_1 (b desc) ")
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, true)
-    sql("create oindex index3 on oap_test_2 (b desc) using btree")
-    sql("create oindex index4 on oap_test_2 (b desc)")
-    sql("create oindex index5 on oap_test_2 (a desc)")
-    sql("create oindex index1 on oap_test_2 (b desc, a desc)")
-
-    checkAnswer(sql("show oindex from oap_test_1"),
-      Row("oap_test_1", "index1", 0, "b", "A", "BTREE") ::
-        Row("oap_test_1", "index2", 0, "b", "D", "BTREE") :: Nil)
-
-    checkAnswer(sql("show oindex in oap_test_2"),
-      Row("oap_test_2", "index1", 0, "b", "D", "BTREE") ::
-        Row("oap_test_2", "index1", 1, "a", "D", "BTREE") ::
-        Row("oap_test_2", "index3", 0, "b", "A", "TRIE") ::
-        Row("oap_test_2", "index4", 0, "b", "A", "TRIE") ::
-        Row("oap_test_2", "index5", 0, "a", "D", "BTREE") :: Nil)
   }
 
   test("create and drop index with partition specify") {

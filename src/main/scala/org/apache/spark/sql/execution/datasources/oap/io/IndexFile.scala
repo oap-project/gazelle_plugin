@@ -65,39 +65,3 @@ private[oap] object IndexFile {
   val indexFileHeaderLength = 8
   val INDEX_VERSION = 1
 }
-
-private[oap] case class PermutermIndexFile(file: Path) extends CommonIndexFile {
-  def getRootPage(conf: Configuration): ChunkedByteBuffer = {
-    val fs = file.getFileSystem(conf)
-    val fin = fs.open(file)
-    val fileLength = fs.getContentSummary(file).getLength
-    val reading = math.min(PermutermIndexFile.PRE_READ_BYTES, fileLength).toInt
-    val bytes = new Array[Byte](reading)
-
-    fin.readFully(fileLength - reading, bytes)
-    val footBegin = bytes(reading)
-    val rootBytes = if (footBegin > reading) {
-      val allFooter = new Array[Byte](footBegin)
-      fin.readFully(fileLength - footBegin, allFooter)
-      allFooter
-    } else {
-      bytes.slice(reading - footBegin, reading)
-    }
-    fin.close()
-    putToFiberCache(rootBytes)
-  }
-
-  def getPage(pageOffset: Long, pageLength: Int, conf: Configuration): ChunkedByteBuffer = {
-    val fs = file.getFileSystem(conf)
-    val fin = fs.open(file)
-    val bytes = new Array[Byte](pageLength)
-
-    fin.readFully(bytes, pageOffset.toInt, pageLength)
-    fin.close()
-    putToFiberCache(bytes)
-  }
-}
-
-object PermutermIndexFile {
-  val PRE_READ_BYTES = 512
-}

@@ -36,7 +36,6 @@ class FilterSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
   private var currentPath: String = _
 
   override def beforeEach(): Unit = {
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, false)
     val path = Utils.createTempDir().getAbsolutePath
     currentPath = path
     sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
@@ -70,7 +69,6 @@ class FilterSuite extends QueryTest with SharedSQLContext with BeforeAndAfterEac
     sqlContext.dropTempTable("parquet_test_date")
     sql("DROP TABLE IF EXISTS t_refresh")
     sql("DROP TABLE IF EXISTS t_refresh_parquet")
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, true)
   }
 
   test("empty table") {

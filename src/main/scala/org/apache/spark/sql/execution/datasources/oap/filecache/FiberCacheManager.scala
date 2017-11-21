@@ -78,9 +78,6 @@ object FiberCacheManager extends Logging {
         FiberBlockId("index_" + file.file)
       case BTreeFiber(_, file, section, idx) =>
         FiberBlockId("btree_" + file + "_" + section + "_" + idx)
-      case PermutermFiber(file, pageOffset, pageLength) =>
-        FiberBlockId("permuterm_" + file + "_" + pageOffset + "_" + pageLength)
-      case PermutermFootFiber(file) => FiberBlockId("permuterm_" + file + "_footer")
       case BitmapFiber(_, file, sectionIdxOfFile, loadUnitIdxOfSection) =>
         FiberBlockId("bitmapIndex_" + file + "_" + sectionIdxOfFile + "_" + loadUnitIdxOfSection)
     }
@@ -142,8 +139,6 @@ object FiberCacheManager extends Logging {
       file.getFiberData(rowGroupId, columnIndex, conf)
     case IndexFiber(file) => file.getIndexFiberData(conf)
     case BTreeFiber(getFiberData, _, _, _) => toByteBuffer(getFiberData())
-    case PermutermFiber(file, pageOffset, pageLength) => file.getPage(pageOffset, pageLength, conf)
-    case PermutermFootFiber(file) => file.getRootPage(conf)
     case BitmapFiber(getFiberData, _, _, _) => toByteBuffer(getFiberData())
     case other => throw new OapException(s"Cannot identify what's $other")
   }
@@ -236,11 +231,6 @@ case class BTreeFiber(
     file: String,
     section: Int,
     idx: Int) extends Fiber
-
-private[oap] case class PermutermFootFiber(file: PermutermIndexFile) extends Fiber
-
-private[oap] case class PermutermFiber(
-    file: PermutermIndexFile, pageOffset: Long, pageLength: Int) extends Fiber
 
 private[oap]
 case class BitmapFiber(

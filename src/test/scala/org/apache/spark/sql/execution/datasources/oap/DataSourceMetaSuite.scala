@@ -45,7 +45,6 @@ class DataSourceMetaSuite extends SharedSQLContext with BeforeAndAfter {
   }
 
   override def afterAll(): Unit = {
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, true)
     try {
       Utils.deleteRecursively(tmpDir)
     } finally {
@@ -368,7 +367,6 @@ class DataSourceMetaSuite extends SharedSQLContext with BeforeAndAfter {
   }
 
   test("test hasAvailableIndex from Meta") {
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, false)
     val df = sparkContext.parallelize(1 to 100, 3)
       .map(i => (i, i + 100, s"this is row $i"))
       .toDF("a", "b", "c")

@@ -194,8 +194,7 @@ object StatisticsManager {
   val statisticsTypeMap: scala.collection.mutable.Map[AnyIndexType, Array[StatisticsType]] =
     scala.collection.mutable.Map(
       BTreeIndexType -> Array.empty,
-      BitMapIndexType -> Array.empty,
-      PermutermIndexType -> Array.empty)
+      BitMapIndexType -> Array.empty)
 
   /**
    * Using a static object to store parameter is not a good idea, some reasons:

@@ -78,17 +78,6 @@ case class CreateIndex(
     // this may impact index updating. It may also fail index existence check. Should put index
     // info at table level also.
     val time = System.currentTimeMillis().toHexString
-    val innerIndexType =
-      if (sparkSession.conf.get(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE) &&
-        indexType == BTreeIndexType && indexColumns.length == 1) {
-        // if indexColumn only has size 1 and is of StringType, we can build trie to support
-        // better search.
-        if (schema(indexColumns(0).columnName).dataType.sameType(StringType)) {
-          logInfo("Building a TRIE index for the column, to turn off this, " +
-            s"please disable ${SQLConf.OAP_ENABLE_TRIE_OVER_BTREE.key}")
-          PermutermIndexType
-        } else BTreeIndexType
-      } else indexType
     val bAndP = partitions.filter(_.files.nonEmpty).map(p => {
       val metaBuilder = new DataSourceMetaBuilder()
       val parent = p.files.head.getPath.getParent
@@ -119,7 +108,7 @@ case class CreateIndex(
         metaBuilder.withNewSchema(schema)
       }
 
-      innerIndexType match {
+      indexType match {
         case BTreeIndexType =>
           val entries = indexColumns.map(c => {
             val dir = if (c.isAscending) Ascending else Descending
@@ -130,9 +119,6 @@ case class CreateIndex(
           val entries = indexColumns.map(col =>
             schema.map(_.name).toIndexedSeq.indexOf(col.columnName))
           metaBuilder.addIndexMeta(new IndexMeta(indexName, time, BitMapIndex(entries)))
-        case PermutermIndexType =>
-          val entry = schema.map(_.name).toIndexedSeq.indexOf(indexColumns(0).columnName)
-          metaBuilder.addIndexMeta(new IndexMeta(indexName, time, TrieIndex(entry)))
         case _ =>
           sys.error(s"Not supported index type $indexType")
       }
@@ -178,7 +164,7 @@ case class CreateIndex(
       "indexName" -> indexName,
       "indexTime" -> time,
       "isAppend" -> "true",
-      "indexType" -> innerIndexType.toString
+      "indexType" -> indexType.toString
     )
 
     val retVal = FileFormatWriter.write(
@@ -361,9 +347,6 @@ case class RefreshIndex(
         case BitMapIndex(entries) =>
           indexType = BitMapIndexType
           entries.map(e => IndexColumn(schema(e).name))
-        case TrieIndex(entry) =>
-          indexType = PermutermIndexType
-          Seq(IndexColumn(schema(entry).name))
         case it => sys.error(s"Not implemented index type $it")
       }
 
@@ -494,8 +477,6 @@ case class OapShowIndex(table: TableIdentifier, relationName: String)
       case BitMapIndex(entries) =>
         entries.zipWithIndex.map(ei =>
           Row(relationName, i.name, ei._2, schema(ei._1).name, "A", "BITMAP"))
-      case TrieIndex(entry) =>
-        Seq(Row(relationName, i.name, 0, schema(entry).name, "A", "TRIE"))
       case t => sys.error(s"not support index type $t for index ${i.name}")
     })
   }
@@ -572,8 +553,6 @@ case class OapCheckIndex(
           ("Bitmap", entries.map(dataSchema(_).name).mkString(","))
         case HashIndex(entries) =>
           ("Bitmap", entries.map(dataSchema(_).name).mkString(","))
-        case TrieIndex(entry) =>
-          ("Trie", dataSchema(entry).name)
         case other => throw new OapException(s"We don't support this type of index: $other")
       }
       val dataFilesWithoutIndices = fileMetas.filter { file_meta =>

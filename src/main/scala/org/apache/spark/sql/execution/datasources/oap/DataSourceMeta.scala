@@ -131,10 +131,6 @@ private[oap] case class BitMapIndex(entries: Seq[Int] = Nil) extends IndexType {
   override def toString: String = "COLUMN(" + entries.mkString(", ") + ") BITMAP"
 }
 
-private[oap] case class TrieIndex(entry: Int) extends IndexType {
-  override def toString: String = s"COLUMN($entry) TRIE"
-}
-
 private[oap] case class HashIndex(entries: Seq[Int] = Nil) extends IndexType {
   def appendEntry(entry: Int): HashIndex = HashIndex(entries :+ entry)
 
@@ -236,10 +232,6 @@ private[oap] class IndexMeta(
         out.writeByte(HASH_INDEX_TYPE)
         entries.foreach(keyBits += _)
         writeBitSet(keyBits, INDEX_META_KEY_LENGTH, out)
-      case TrieIndex(entry) =>
-        out.writeByte(TRIE_INDEX_TYPE)
-        keyBits += entry
-        writeBitSet(keyBits, INDEX_META_KEY_LENGTH, out)
     }
   }
 
@@ -271,7 +263,6 @@ private[oap] class IndexMeta(
         flag match {
           case BITMAP_INDEX_TYPE => BitMapIndex(keyBits.toSeq)
           case HASH_INDEX_TYPE => HashIndex(keyBits.toSeq)
-          case TRIE_INDEX_TYPE => TrieIndex(keyBits.firstKey)
         }
     }
   }
@@ -281,7 +272,6 @@ private[oap] object IndexMeta {
   final val BTREE_INDEX_TYPE = 0
   final val BITMAP_INDEX_TYPE = 1
   final val HASH_INDEX_TYPE = 2
-  final val TRIE_INDEX_TYPE = 3
 
   def apply(): IndexMeta = new IndexMeta()
   def apply(name: String, time: String, indexType: IndexType): IndexMeta = {
@@ -359,8 +349,6 @@ private[oap] case class DataSourceMeta(
             case index @ BitMapIndex(entries) =>
               entries.map(ordinal =>
                 schema(ordinal).name).contains(attr) && index.satisfy(requirements)
-            case index @ TrieIndex(entry) =>
-              schema(entry).name.contains(attr) && index.satisfy(requirements)
             case _ => false
           }
         }

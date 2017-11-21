@@ -35,7 +35,6 @@ class OapCheckIndexSuite extends QueryTest with SharedSQLContext with BeforeAndA
   sparkConf.set("spark.memory.offHeap.size", "100m")
 
   override def beforeEach(): Unit = {
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, false)
     val path1 = Utils.createTempDir().getAbsolutePath
     val path2 = Utils.createTempDir().getAbsolutePath
 
@@ -54,7 +53,6 @@ class OapCheckIndexSuite extends QueryTest with SharedSQLContext with BeforeAndA
     sqlContext.dropTempTable("oap_test_1")
     sqlContext.dropTempTable("oap_test_2")
     sqlContext.sql("drop table oap_partition_table")
-    sqlContext.conf.setConf(SQLConf.OAP_ENABLE_TRIE_OVER_BTREE, true)
   }
 
   test("check index on empty table") {
