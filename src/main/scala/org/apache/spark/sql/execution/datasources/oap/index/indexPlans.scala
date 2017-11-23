@@ -500,11 +500,11 @@ case class OapCheckIndex(
 
   private def checkOapMetaFile(
       fs: FileSystem,
-      partitionDirs: Seq[PartitionDirectory]): (Seq[Path], Seq[Path]) = {
+      partitionDirs: Seq[Path]): (Seq[Path], Seq[Path]) = {
     require(null ne fs, "file system should not be null!")
 
-    partitionDirs.map(_.files.head.getPath.getParent)
-      .partition(partitionDir => fs.exists(new Path(partitionDir, OapFileFormat.OAP_META_FILE)))
+    partitionDirs.partition(partitionDir =>
+      fs.exists(new Path(partitionDir, OapFileFormat.OAP_META_FILE)))
   }
 
   private def processPartitionsWithNoMeta(partitionDirs: Seq[Path]): Seq[Row] = {
@@ -620,19 +620,19 @@ case class OapCheckIndex(
         throw new OapException(s"We don't support index checking for ${other.simpleString}")
     }
 
-    // ignore empty partition directory
-    val partitionDirs =
-      OapUtils.getPartitionsRefreshed(fileCatalog, partitionSpec).filter(_.files.nonEmpty)
-    val fs = if (partitionDirs.nonEmpty) {
-      partitionDirs.head.files.head.getPath
-        .getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
+    val rootPaths = fileCatalog.rootPaths
+    val fs = if (rootPaths.nonEmpty) {
+      rootPaths.head.getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
     } else {
       null
     }
 
-    if (partitionDirs.isEmpty || (null eq fs)) {
+    if (rootPaths.isEmpty || (null eq fs)) {
       Seq.empty
     } else {
+      val partitionDirs =
+        OapUtils.getPartitionPaths(rootPaths, fs, fileCatalog.partitionSchema, partitionSpec)
+
       val (partitionWithMeta, partitionWithNoMeta) = checkOapMetaFile(fs, partitionDirs)
       analyzeIndexBetweenPartitions(sparkSession, fs, partitionWithMeta)
       processPartitionsWithNoMeta(partitionWithNoMeta) ++
