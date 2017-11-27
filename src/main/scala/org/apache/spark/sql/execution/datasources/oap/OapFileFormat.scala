@@ -231,7 +231,9 @@ private[sql] class OapFileFormat extends FileFormat
           if (supportFilters.nonEmpty) {
             // determine whether we can use index
             supportFilters.foreach(filter => logDebug("\t" + filter.toString))
-            ScannerBuilder.build(supportFilters, ic)
+            // get index options such as limit, order, etc.
+            val indexOptions = options.filterKeys(OapFileFormat.oapOptimizationKeySeq.contains(_))
+            ScannerBuilder.build(supportFilters, ic, indexOptions)
           }
         }
 
@@ -466,4 +468,11 @@ private[sql] object OapFileFormat {
   val OAP_QUERY_LIMIT_OPTION_KEY = "oap.scan.file.limit"
   val OAP_INDEX_SCAN_NUM_OPTION_KEY = "oap.scan.index.limit"
   val OAP_INDEX_GROUP_BY_OPTION_KEY = "oap.scan.index.group"
+
+  val oapOptimizationKeySeq : Seq[String] = {
+      OAP_QUERY_ORDER_OPTION_KEY ::
+      OAP_QUERY_LIMIT_OPTION_KEY ::
+      OAP_INDEX_SCAN_NUM_OPTION_KEY ::
+      OAP_INDEX_GROUP_BY_OPTION_KEY :: Nil
+  }
 }

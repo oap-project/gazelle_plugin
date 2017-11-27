@@ -21,6 +21,7 @@ import java.io.IOException
 import java.nio.charset.StandardCharsets
 
 import scala.collection.mutable.{ArrayBuffer, BitSet}
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.sql.catalyst.expressions._
@@ -57,7 +58,7 @@ import org.apache.spark.sql.types._
  *
  */
 
-private[oap] trait IndexType {
+trait IndexType {
 
   // Bit is set if index is sorted index. hash-based index unset this.
   // Once this bit is on, indexOrder should be called to check direction.
@@ -337,7 +338,7 @@ private[oap] case class DataSourceMeta(
     dataReaderClassName: String,
     @transient fileHeader: FileHeader) extends Serializable {
 
-    def isSupportedByIndex(exp: Expression, requirements: Option[IndexType] = None): Boolean = {
+    def isSupportedByIndex(exp: Expression, requirement: Option[IndexType] = None): Boolean = {
     var attr: String = null
     def checkInMetaSet(attrRef: AttributeReference): Boolean = {
       if (attr ==  null || attr == attrRef.name) {
@@ -345,10 +346,10 @@ private[oap] case class DataSourceMeta(
         indexMetas.exists{
           _.indexType match {
             case index @ BTreeIndex(entries) =>
-              schema(entries.head.ordinal).name == attr && index.satisfy(requirements)
+              schema(entries.head.ordinal).name == attr && index.satisfy(requirement)
             case index @ BitMapIndex(entries) =>
               entries.map(ordinal =>
-                schema(ordinal).name).contains(attr) && index.satisfy(requirements)
+                schema(ordinal).name).contains(attr) && index.satisfy(requirement)
             case _ => false
           }
         }

@@ -53,7 +53,6 @@ class OapPlannerSuite
            | USING oap
            | OPTIONS (path '$path3')""".stripMargin)
 
-
     spark.experimental.extraStrategies = oapStrategies
   }
 
@@ -115,7 +114,7 @@ class OapPlannerSuite
     sql("drop oindex index2 on oap_sort_opt_table")
   }
 
-  ignore("Distinct index scan if SemiJoin Test") {
+  test("Distinct index scan if SemiJoin Test") {
     spark.sqlContext.setConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key, "false")
     spark.conf.set(OapFileFormat.ROW_GROUP_SIZE, 50)
     val data = (1 to 300).map{ i => (i, s"this is test $i")}
@@ -130,14 +129,14 @@ class OapPlannerSuite
 
     dataRDD1.toDF("key", "value").createOrReplaceTempView("t1")
     sql("insert overwrite table oap_distinct_opt_table select * from t1")
-    sql("create oindex index1 on oap_distinct_opt_table (a)")
+    sql("create oindex index1 on oap_distinct_opt_table (a) using bitmap")
 
     checkKeywordsExist(
       sql("explain SELECT * " +
       "FROM oap_sort_opt_table t1 " +
       "WHERE EXISTS " +
       "(SELECT 1 FROM oap_distinct_opt_table t2 " +
-      "WHERE t1.a = t2.a AND t2.a >= 1 AND t1.a < 5) " +
+      "WHERE t1.a = t2.a AND t2.a IN (1, 2, 3, 4)) " +
       "ORDER BY a"), "OapDistinctFileScanExec")
 
     checkAnswer(

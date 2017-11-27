@@ -19,9 +19,7 @@ package org.apache.spark.sql.execution.datasources.oap.index
 
 import org.scalatest.BeforeAndAfterEach
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.{QueryTest, Row}
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSQLContext
 import org.apache.spark.util.Utils
 
@@ -37,9 +35,6 @@ class BitMapIndexSuite extends QueryTest with SharedSQLContext with BeforeAndAft
   override def beforeEach(): Unit = {
     val path = Utils.createTempDir().getAbsolutePath
     sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-            | USING oap
-            | OPTIONS (path '$path')""".stripMargin)
-    sql(s"""CREATE TEMPORARY VIEW oap_test_date (a INT, b DATE)
             | USING oap
             | OPTIONS (path '$path')""".stripMargin)
     sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
@@ -58,7 +53,6 @@ class BitMapIndexSuite extends QueryTest with SharedSQLContext with BeforeAndAft
 
   override def afterEach(): Unit = {
     sqlContext.dropTempTable("oap_test")
-    sqlContext.dropTempTable("oap_test_date")
     sqlContext.dropTempTable("parquet_test")
     sqlContext.dropTempTable("parquet_test_date")
     sql("DROP TABLE IF EXISTS t_refresh")

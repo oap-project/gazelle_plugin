@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution
+package org.apache.spark.sql.execution.datasources.oap
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
@@ -29,9 +29,9 @@ import org.apache.spark.sql.catalyst.planning.{ExtractEquiJoinKeys, PhysicalAggr
 import org.apache.spark.sql.catalyst.plans.{logical, LeftSemi}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
+import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.aggregate.OapAggUtils
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
 import org.apache.spark.sql.execution.joins.BuildRight
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.util.Utils
@@ -45,9 +45,11 @@ trait OapStrategies extends Logging {
     if (conf.getConf(SQLConf.OAP_ENABLE_EXECUTOR_INDEX_SELECTION)) {
       Nil
     } else {
+      // BtreeIndex applicable strategies.
       OapSortLimitStrategy ::
-      // Disable semi join temporarily. TODO: Move scan number logic into IndexScanner
-      // OapSemiJoinStrategy ::
+      // BitMapIndex applicable strategies.
+      OapSemiJoinStrategy ::
+      // No requirement.
       OapGroupAggregateStrategy :: Nil
     }
   }
@@ -106,13 +108,18 @@ trait OapStrategies extends Logging {
             (OapFileFormat.OAP_QUERY_ORDER_OPTION_KEY -> order.head.isAscending.toString))
           val indexHint = if (filters.nonEmpty) filters
             else IsNotNull(orderAttributes.head) :: Nil
+          val indexRequirement = indexHint.map(_ => BTreeIndex())
 
           createOapFileScanPlan(
-            projectList, filters, relation, file, table, oapOption, indexHint) match {
-            case Some(fastScan) =>
-              OapOrderLimitFileScanExec(
-                limit, order, projectList,
-                fastScan)
+            projectList,
+            filters,
+            relation,
+            file,
+            table,
+            oapOption,
+            indexHint,
+            indexRequirement) match {
+            case Some(fastScan) => OapOrderLimitFileScanExec(limit, order, projectList, fastScan)
             case None => PlanLater(child)
           }
         }
@@ -165,20 +172,24 @@ trait OapStrategies extends Logging {
           (filterAttributes.isEmpty || filterAttributes == orderAttributes)) {
           val oapOption = new CaseInsensitiveMap(file.options +
             (OapFileFormat.OAP_INDEX_SCAN_NUM_OPTION_KEY -> "1"))
-
           val indexHint = if (filters.nonEmpty) filters
             else IsNotNull(orderAttributes.head) :: Nil
+          val indexRequirement = indexHint.map(_ => BitMapIndex())
 
           createOapFileScanPlan(
-            projectList, filters, relation, file, table, oapOption, indexHint) match {
-            case Some(fastScan) =>
-              OapDistinctFileScanExec(
-                scanNumber = 1,
-                projectList,
-                fastScan)
+            projectList,
+            filters,
+            relation,
+            file,
+            table,
+            oapOption,
+            indexHint,
+            indexRequirement) match {
+            case Some(fastScan) => OapDistinctFileScanExec(scanNumber = 1, projectList, fastScan)
             case None => PlanLater(child)
           }
         } else PlanLater(child)
+      case _ => PlanLater(child)
     }
   }
 
@@ -194,7 +205,6 @@ trait OapStrategies extends Logging {
     def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
       case PhysicalAggregation(
       groupingExpressions, aggregateExpressions, resultExpressions, child) =>
-
         val (functionsWithDistinct, _) =
           aggregateExpressions.partition(_.isDistinct)
         if (functionsWithDistinct.map(_.aggregateFunction.children).distinct.length > 1) {
@@ -227,9 +237,7 @@ trait OapStrategies extends Logging {
             // TODO: support distinct in future.
             Nil
           }
-
         aggregateOperator
-
       case _ => Nil
     }
 
@@ -252,18 +260,13 @@ trait OapStrategies extends Logging {
         // Expression case class to do index full scan (include NULL).
         // If none in Spark, we can create one for OAP.
         val indexHint = if (filterAttributes == groupingAttributes) filters
-          else IsNotNull(groupingAttributes.head) :: Nil
+                        else IsNotNull(groupingAttributes.head) :: Nil
 
         createOapFileScanPlan(
-          projectList, indexHint, relation, file, table, oapOption, indexHint) match {
-          case Some(fastScan) =>
-            OapAggregationFileScanExec(
-              aggExpressions,
-              projectList,
-              fastScan)
+          projectList, indexHint, relation, file, table, oapOption, indexHint, Nil) match {
+          case Some(fastScan) => OapAggregationFileScanExec(aggExpressions, projectList, fastScan)
           case _ => PlanLater(child)
         }
-
       case _ => PlanLater(child)
     }
   }
@@ -280,7 +283,8 @@ trait OapStrategies extends Logging {
       _fsRelation: HadoopFsRelation,
       table: Option[CatalogTable],
       oapOption: Map[String, String],
-      indexHint: Seq[Expression]): Option[SparkPlan] = {
+      indexHint: Seq[Expression],
+      indexRequirements: Seq[IndexType]): Option[SparkPlan] = {
     // Filters on this relation fall into four categories based
     // on where we can use them to avoid
     // reading unneeded data:
@@ -317,59 +321,61 @@ trait OapStrategies extends Logging {
 
     val selectedPartitions = _fsRelation.location.listFiles(partitionKeyFilters.toSeq)
 
-    val fsRelation: HadoopFsRelation = _fsRelation.fileFormat match {
-      case fileFormat : OapFileFormat =>
+    _fsRelation.fileFormat match {
+      case fileFormat: OapFileFormat =>
         fileFormat.initialize(_fsRelation.sparkSession, oapOption,
           selectedPartitions.flatMap(p => p.files))
-        _fsRelation
+
+        if (fileFormat.hasAvailableIndex(normalizedIndexHint, indexRequirements)) {
+          val dataColumns = l.resolve(
+              _fsRelation.dataSchema, _fsRelation.sparkSession.sessionState.analyzer.resolver)
+
+          // Partition keys are not available in the statistics of the files.
+          val dataFilters = normalizedIndexHint.filter(_.references.intersect(partitionSet).isEmpty)
+
+          // Predicates with both partition keys and attributes need to be evaluated after the scan.
+          val afterScanFilters = filterSet -- partitionKeyFilters.filter(_.references.nonEmpty)
+          logInfo(s"Post-Scan Filters: ${afterScanFilters.mkString(",")}")
+
+          val filterAttributes = AttributeSet(afterScanFilters)
+          val requiredExpressions: Seq[NamedExpression] = filterAttributes.toSeq ++ projects
+          val requiredAttributes = AttributeSet(requiredExpressions)
+
+          val readDataColumns =
+            dataColumns
+              .filter(requiredAttributes.contains)
+              .filterNot(partitionColumns.contains)
+          val outputSchema = readDataColumns.toStructType
+          logInfo(s"Output Data Schema: ${outputSchema.simpleString(5)}")
+
+          val pushedDownFilters = dataFilters.flatMap(DataSourceStrategy.translateFilter)
+          logInfo(s"Pushed Filters: ${pushedDownFilters.mkString(",")}")
+
+          val outputAttributes = readDataColumns ++ partitionColumns
+
+          val scan =
+            new FileSourceScanExec(
+              _fsRelation,
+              outputAttributes,
+              outputSchema,
+              partitionKeyFilters.toSeq,
+              pushedDownFilters,
+              table.map(_.identifier))
+
+          val afterScanFilter = afterScanFilters.toSeq.reduceOption(expressions.And)
+          val withFilter = afterScanFilter.map(execution.FilterExec(_, scan)).getOrElse(scan)
+          val withProjections = if (projects == withFilter.output) {
+            withFilter
+          } else {
+            execution.ProjectExec(projects, withFilter)
+          }
+
+          Option(withProjections)
+        } else {
+          None
+        }
+      case _ => None
     }
-
-    if (fsRelation.fileFormat.asInstanceOf[OapFileFormat].hasAvailableIndex(normalizedIndexHint)) {
-      val dataColumns =
-        l.resolve(fsRelation.dataSchema, fsRelation.sparkSession.sessionState.analyzer.resolver)
-
-      // Partition keys are not available in the statistics of the files.
-      val dataFilters = normalizedIndexHint.filter(_.references.intersect(partitionSet).isEmpty)
-
-      // Predicates with both partition keys and attributes need to be evaluated after the scan.
-      val afterScanFilters = filterSet -- partitionKeyFilters.filter(_.references.nonEmpty)
-      logInfo(s"Post-Scan Filters: ${afterScanFilters.mkString(",")}")
-
-      val filterAttributes = AttributeSet(afterScanFilters)
-      val requiredExpressions: Seq[NamedExpression] = filterAttributes.toSeq ++ projects
-      val requiredAttributes = AttributeSet(requiredExpressions)
-
-      val readDataColumns =
-        dataColumns
-          .filter(requiredAttributes.contains)
-          .filterNot(partitionColumns.contains)
-      val outputSchema = readDataColumns.toStructType
-      logInfo(s"Output Data Schema: ${outputSchema.simpleString(5)}")
-
-      val pushedDownFilters = dataFilters.flatMap(DataSourceStrategy.translateFilter)
-      logInfo(s"Pushed Filters: ${pushedDownFilters.mkString(",")}")
-
-      val outputAttributes = readDataColumns ++ partitionColumns
-
-      val scan =
-        new FileSourceScanExec(
-          fsRelation,
-          outputAttributes,
-          outputSchema,
-          partitionKeyFilters.toSeq,
-          pushedDownFilters,
-          table.map(_.identifier))
-
-      val afterScanFilter = afterScanFilters.toSeq.reduceOption(expressions.And)
-      val withFilter = afterScanFilter.map(execution.FilterExec(_, scan)).getOrElse(scan)
-      val withProjections = if (projects == withFilter.output) {
-        withFilter
-      } else {
-        execution.ProjectExec(projects, withFilter)
-      }
-
-      Option(withProjections)
-    } else None
   }
 }
 
