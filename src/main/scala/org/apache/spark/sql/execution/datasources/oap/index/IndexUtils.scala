@@ -25,8 +25,8 @@ import org.apache.parquet.bytes.LittleEndianDataOutputStream
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
+import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache
 import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.Platform
 import org.apache.spark.unsafe.types.UTF8String
 
 
@@ -41,7 +41,7 @@ private[oap] object IndexUtils {
     assert(version <= 65535)
     val versionData = Array((version >> 8).toByte, (version & 0xFF).toByte)
     writer.write(versionData)
-    assert((headerContent.length + versionData.size) == IndexFile.indexFileHeaderLength)
+    assert((headerContent.length + versionData.length) == IndexFile.indexFileHeaderLength)
     IndexFile.indexFileHeaderLength
   }
 
@@ -109,29 +109,23 @@ private[oap] object IndexUtils {
   }
 
   def readBasedOnDataType(
-      baseObj: Object, offset: Long, dataType: DataType): (Any, Long) = {
+      fiberCache: FiberCache, offset: Long, dataType: DataType): (Any, Long) = {
     dataType match {
-      case BooleanType => (Platform.getBoolean(baseObj, offset), BooleanType.defaultSize)
-      case ByteType => (Platform.getByte(baseObj, offset), ByteType.defaultSize)
-      case ShortType => (Platform.getShort(baseObj, offset), ShortType.defaultSize)
-      case IntegerType => (Platform.getInt(baseObj, offset), IntegerType.defaultSize)
-      case LongType => (Platform.getLong(baseObj, offset), LongType.defaultSize)
-      case FloatType => (Platform.getFloat(baseObj, offset), FloatType.defaultSize)
-      case DoubleType => (Platform.getDouble(baseObj, offset), DoubleType.defaultSize)
-      case DateType => (Platform.getInt(baseObj, offset), DateType.defaultSize)
+      case BooleanType => (fiberCache.getBoolean(offset), BooleanType.defaultSize)
+      case ByteType => (fiberCache.getByte(offset), ByteType.defaultSize)
+      case ShortType => (fiberCache.getShort(offset), ShortType.defaultSize)
+      case IntegerType => (fiberCache.getInt(offset), IntegerType.defaultSize)
+      case LongType => (fiberCache.getLong(offset), LongType.defaultSize)
+      case FloatType => (fiberCache.getFloat(offset), FloatType.defaultSize)
+      case DoubleType => (fiberCache.getDouble(offset), DoubleType.defaultSize)
+      case DateType => (fiberCache.getInt(offset), DateType.defaultSize)
       case StringType =>
-        val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
-        Platform.copyMemory(
-          baseObj, offset + Integer.SIZE / 8,
-          bytes, Platform.BYTE_ARRAY_OFFSET,
-          bytes.length)
-        (UTF8String.fromBytes(bytes), Integer.SIZE / 8 + bytes.length)
+        val length = fiberCache.getInt(offset)
+        val string = fiberCache.getUTF8String(offset + Integer.SIZE / 8, length)
+        (string, Integer.SIZE / 8 + length)
       case BinaryType =>
-        val bytes = new Array[Byte](Platform.getInt(baseObj, offset))
-        Platform.copyMemory(
-          baseObj, offset + Integer.SIZE / 8,
-          bytes, Platform.BYTE_ARRAY_OFFSET,
-          bytes.length)
+        val length = fiberCache.getInt(offset)
+        val bytes = fiberCache.getBytes(offset + Integer.SIZE / 8, length)
         (bytes, Integer.SIZE / 8 + bytes.length)
       case other => throw new OapException(s"OAP index currently doesn't support data type $other")
     }
