@@ -21,7 +21,6 @@ import scala.util.Random
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, Path}
-import org.apache.parquet.bytes.LittleEndianDataOutputStream
 
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.index.IndexUtils
@@ -62,8 +61,7 @@ class MemoryManagerSuite extends SharedOapContext {
 
     fiberCache = {
       val buf = new ByteBufferOutputStream()
-      val writer = new LittleEndianDataOutputStream(buf)
-      values.foreach(value => IndexUtils.writeBasedOnDataType(writer, value))
+      values.foreach(value => IndexUtils.writeBasedOnDataType(buf, value))
       MemoryManager.putToDataFiberCache(buf.toByteArray)
     }
   }
