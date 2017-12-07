@@ -56,7 +56,7 @@ private[oap] class SampleBasedStatistics(schema: StructType) extends Statistics(
     offset += IndexUtils.INT_SIZE
     val tempWriter = new ByteArrayOutputStream()
     sampleArray.foreach(key => {
-      IndexUtils.writeBasedOnSchema(tempWriter, key, schema)
+      nnkw.writeKey(tempWriter, key)
       IndexUtils.writeInt(writer, tempWriter.size())
       offset += IndexUtils.INT_SIZE
     })
@@ -76,8 +76,8 @@ private[oap] class SampleBasedStatistics(schema: StructType) extends Statistics(
 
     var rowOffset = 0
     for (i <- 0 until size) {
-      sampleArray(i) = IndexUtils.readBasedOnSchema(
-        fiberCache, readOffset + size * IndexUtils.INT_SIZE + rowOffset, schema)
+      sampleArray(i) = nnkr.readKey(
+        fiberCache, readOffset + size * IndexUtils.INT_SIZE + rowOffset)._1
       rowOffset = fiberCache.getInt(readOffset + i * IndexUtils.INT_SIZE)
     }
     readOffset += (rowOffset + size * IndexUtils.INT_SIZE)

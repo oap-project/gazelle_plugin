@@ -30,7 +30,8 @@ import org.apache.spark.sql.types.StructType
 
 private[oap] class MinMaxStatistics(schema: StructType) extends Statistics(schema) {
   override val id: Int = MinMaxStatisticsType.id
-  @transient private lazy val ordering = GenerateOrdering.create(schema)
+  @transient
+  private lazy val ordering = GenerateOrdering.create(schema)
 
   protected var min: Key = _
   protected var max: Key = _
@@ -49,9 +50,9 @@ private[oap] class MinMaxStatistics(schema: StructType) extends Statistics(schem
     var offset = super.write(writer, sortedKeys)
     if (min != null) {
       val tempWriter = new ByteArrayOutputStream()
-      IndexUtils.writeBasedOnSchema(tempWriter, min, schema)
+      nnkw.writeKey(tempWriter, min)
       IndexUtils.writeInt(writer, tempWriter.size)
-      IndexUtils.writeBasedOnSchema(tempWriter, max, schema)
+      nnkw.writeKey(tempWriter, max)
       IndexUtils.writeInt(writer, tempWriter.size)
       offset += IndexUtils.INT_SIZE * 2
       writer.write(tempWriter.toByteArray)
@@ -67,8 +68,8 @@ private[oap] class MinMaxStatistics(schema: StructType) extends Statistics(schem
     readOffset += 4
     val totalSize = fiberCache.getInt(readOffset)
     readOffset += 4
-    min = IndexUtils.readBasedOnSchema(fiberCache, readOffset, schema)
-    max = IndexUtils.readBasedOnSchema(fiberCache, readOffset + minSize, schema)
+    min = nnkr.readKey(fiberCache, readOffset)._1
+    max = nnkr.readKey(fiberCache, readOffset + minSize)._1
     readOffset += totalSize
 
     readOffset - offset

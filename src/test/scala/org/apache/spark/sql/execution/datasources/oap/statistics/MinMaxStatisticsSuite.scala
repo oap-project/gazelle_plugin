@@ -47,7 +47,7 @@ class MinMaxStatisticsSuite extends StatisticsTest {
     }
 
     val fiber = wrapToFiberCache(out)
-    var offset = 0L
+    var offset = 0
 
     assert(fiber.getInt(0) == MinMaxStatisticsType.id)
     offset += 4
@@ -55,10 +55,10 @@ class MinMaxStatisticsSuite extends StatisticsTest {
     offset += 4
     val totalSize = fiber.getInt(offset + 4)
     offset += 4
-    val minFromFile = IndexUtils.readBasedOnSchema(fiber, offset, schema)
+    val minFromFile = nnkr.readKey(fiber, offset)._1
     checkInternalRow(minFromFile, rowGen(1))
 
-    val maxFromFile = IndexUtils.readBasedOnSchema(fiber, offset + minSize, schema)
+    val maxFromFile = nnkr.readKey(fiber, offset + minSize)._1
     checkInternalRow(maxFromFile, rowGen(300))
     offset += (4 + totalSize)
   }
@@ -68,9 +68,9 @@ class MinMaxStatisticsSuite extends StatisticsTest {
 
     IndexUtils.writeInt(out, MinMaxStatisticsType.id)
     val tempWriter = new ByteArrayOutputStream()
-    IndexUtils.writeBasedOnSchema(tempWriter, rowGen(1), schema)
+    nnkw.writeKey(tempWriter, rowGen(1))
     IndexUtils.writeInt(out, tempWriter.size)
-    IndexUtils.writeBasedOnSchema(tempWriter, rowGen(300), schema)
+    nnkw.writeKey(tempWriter, rowGen(300))
     IndexUtils.writeInt(out, tempWriter.size)
     out.write(tempWriter.toByteArray)
 

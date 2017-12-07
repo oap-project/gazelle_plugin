@@ -50,7 +50,7 @@ class PartByValueStatisticsSuite extends StatisticsTest{
     val testPartByValue = new TestPartByValue(schema)
     testPartByValue.write(out, keys.to[ArrayBuffer])
 
-    var offset = 0L
+    var offset = 0
     val fiber = wrapToFiberCache(out)
     assert(fiber.getInt(offset) == PartByValueStatisticsType.id)
     offset += 4
@@ -66,7 +66,7 @@ class PartByValueStatisticsSuite extends StatisticsTest{
       assert(fiber.getInt(offset + i * 12) == curMaxIdx) // index
       assert(fiber.getInt(offset + i * 12 + 4) == (curMaxIdx + 1)) // count
 
-      val row = IndexUtils.readBasedOnSchema(fiber, offset + part * 12 + rowOffset, schema)
+      val row = nnkr.readKey(fiber, offset + part * 12 + rowOffset)._1
       rowOffset = fiber.getInt(offset + i * 12 + 8)
       checkInternalRow(row, keys(curMaxIdx)) // row
     }
@@ -84,7 +84,7 @@ class PartByValueStatisticsSuite extends StatisticsTest{
     IndexUtils.writeInt(out, partNum)
     val tempWriter = new ByteArrayOutputStream()
     for (i <- content.indices) {
-      IndexUtils.writeBasedOnSchema(tempWriter, rowGen(content(i)), schema)
+      nnkw.writeKey(tempWriter, rowGen(content(i)))
       IndexUtils.writeInt(out, curMaxId(i))
       IndexUtils.writeInt(out, curAccumuCount(i))
       IndexUtils.writeInt(out, tempWriter.size())
