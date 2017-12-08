@@ -728,6 +728,13 @@ object SQLConf {
       .doubleConf
       .createWithDefault(0.7)
 
+  val OAP_INDEXER_CHOICE_MAX_SIZE =
+    SQLConfigBuilder("spark.sql.oap.indexer.max.use.size")
+      .internal()
+      .doc("The max availabe indexer choose size.")
+      .intConf
+      .createWithDefault(1)
+
   object Deprecated {
     val MAPRED_REDUCE_TASKS = "mapred.reduce.tasks"
   }

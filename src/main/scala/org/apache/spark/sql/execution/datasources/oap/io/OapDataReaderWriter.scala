@@ -21,6 +21,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataOutputStream, Path}
 import org.apache.parquet.format.CompressionCodec
 import org.apache.parquet.io.api.Binary
+
 import org.apache.spark.executor.custom.CustomManager
 import org.apache.spark.internal.Logging
 import org.apache.spark.SparkConf
@@ -187,7 +188,7 @@ private[oap] object OapIndexInfo extends Logging {
 private[oap] class OapDataReader(
   path: Path,
   meta: DataSourceMeta,
-  filterScanner: Option[IndexScanner],
+  filterScanners: Option[IndexScanners],
   requiredIds: Array[Int]) extends Logging {
 
   def initialize(conf: Configuration,
@@ -196,10 +197,10 @@ private[oap] class OapDataReader(
     // TODO how to save the additional FS operation to get the Split size
     val fileScanner = DataFile(path.toString, meta.schema, meta.dataReaderClassName, conf)
 
-    filterScanner match {
-      case Some(indexScanner) if indexScanner.indexIsAvailable(path, conf) =>
+    filterScanners match {
+      case Some(indexScanners) if indexScanners.indexIsAvailable(path, conf) =>
         def getRowIds(options: Map[String, String]): Array[Int] = {
-          indexScanner.initialize(path, conf)
+          indexScanners.initialize(path, conf)
 
           // total Row count can be get from the index scanner
           val limit = options.getOrElse(OapFileFormat.OAP_QUERY_LIMIT_OPTION_KEY, "0").toInt
@@ -208,11 +209,11 @@ private[oap] class OapDataReader(
             val isAscending = options.getOrElse(
               OapFileFormat.OAP_QUERY_ORDER_OPTION_KEY, "true").toBoolean
             val sameOrder =
-              !((indexScanner.meta.indexType.indexOrder.head == Ascending) ^ isAscending)
+              !((indexScanners.order == Ascending) ^ isAscending)
 
-            if (sameOrder) indexScanner.take(limit).toArray
-            else indexScanner.toArray.reverse.take(limit)
-          } else indexScanner.toArray
+            if (sameOrder) indexScanners.take(limit).toArray
+            else indexScanners.toArray.reverse.take(limit)
+          } else indexScanners.toArray
 
           // Parquet reader does not support backward scan, so rowIds must be sorted.
           if (meta.dataReaderClassName.contains("ParquetDataFile")) rowIds.sorted

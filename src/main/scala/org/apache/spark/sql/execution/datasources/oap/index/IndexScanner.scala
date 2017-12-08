@@ -24,7 +24,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.expressions.UnsafeRow
+import org.apache.spark.sql.catalyst.expressions.{SortDirection, UnsafeRow}
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.execution.datasources.oap.io.OapIndexInfo
 import org.apache.spark.sql.execution.datasources.oap.statistics.StaticsAnalysisResult
@@ -276,8 +276,11 @@ private[oap] object ScannerBuilder extends Logging {
     }
   }
 
-  def build(filters: Array[Filter], ic: IndexContext,
-      scannerOptions: Map[String, String] = Map.empty): Array[Filter] = {
+  def build(
+      filters: Array[Filter],
+      ic: IndexContext,
+      scannerOptions: Map[String, String] = Map.empty,
+      maxChooseSize: Int = 1): Array[Filter] = {
     if (filters == null || filters.isEmpty) return filters
     logDebug("Transform filters into Intervals:")
     val intervalMapArray = filters.map(optimizeFilterBound(_, ic))
@@ -293,10 +296,51 @@ private[oap] object ScannerBuilder extends Logging {
       intervalMap.foreach(intervals =>
         logDebug("\t" + intervals._1 + ": " + intervals._2.mkString(" - ")))
 
-      ic.buildScanner(intervalMap, scannerOptions)
+      ic.buildScanners(intervalMap, scannerOptions, maxChooseSize)
     }
 
     filters.filterNot(canSupport(_, ic))
   }
 
 }
+
+private[oap] class IndexScanners(val scanners: Seq[IndexScanner])
+  extends Iterator[Int] with Serializable with Logging{
+
+  private var actualUsedScanners: Seq[IndexScanner] = _
+
+  private var backendIter: Iterator[Int] = _
+
+  def indexIsAvailable(dataPath: Path, conf: Configuration): Boolean = {
+    actualUsedScanners = scanners.filter(_.indexIsAvailable(dataPath, conf))
+    actualUsedScanners.nonEmpty
+  }
+
+  def order: SortDirection = actualUsedScanners.head.meta.indexType.indexOrder.head
+
+  def initialize(dataPath: Path, conf: Configuration): IndexScanners = {
+    backendIter = actualUsedScanners.length match {
+      case 0 => Iterator.empty
+      case 1 =>
+        actualUsedScanners.head.initialize(dataPath, conf)
+        actualUsedScanners.head.toArray.iterator
+      case _ =>
+        actualUsedScanners.par.foreach(_.initialize(dataPath, conf))
+        actualUsedScanners.map(_.toArray)
+          .sortBy(_.length)
+          .reduce((left, right) => {
+            if (left.isEmpty) left
+            else left.intersect(right)
+          }).iterator
+    }
+    this
+  }
+
+  override def hasNext: Boolean = backendIter.hasNext
+
+  override def next(): Int = backendIter.next
+
+  override def toString(): String = scanners.map(_.toString()).mkString("|")
+
+}
+
