@@ -326,10 +326,9 @@ private[oap] class IndexScanners(val scanners: Seq[IndexScanner])
         actualUsedScanners.head.toArray.iterator
       case _ =>
         actualUsedScanners.par.foreach(_.initialize(dataPath, conf))
-        actualUsedScanners.map(_.toArray)
-          .sortBy(_.length)
+        actualUsedScanners.map(_.toSet)
           .reduce((left, right) => {
-            if (left.isEmpty) left
+            if (left.isEmpty || right.isEmpty) Set.empty
             else left.intersect(right)
           }).iterator
     }
