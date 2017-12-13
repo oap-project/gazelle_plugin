@@ -31,7 +31,7 @@ class FiberCacheManagerSuite extends SharedOapContext {
 
   test("unit test") {
     val memorySizeInMB = (MemoryManager.maxMemory / mbSize).toInt
-    val origStats = FiberCacheManager.getStats
+    val origStats = FiberCacheManager.cacheStats
     (1 to memorySizeInMB * 2).foreach { i =>
       val data = generateData(kbSize)
       val fiber = TestFiber(() => MemoryManager.putToDataFiberCache(data), s"test fiber #$i")
@@ -40,7 +40,7 @@ class FiberCacheManagerSuite extends SharedOapContext {
       assert(fiberCache.toArray sameElements data)
       assert(fiberCache2.toArray sameElements data)
     }
-    val stats = FiberCacheManager.getStats.minus(origStats)
+    val stats = FiberCacheManager.cacheStats.minus(origStats)
     assert(stats.missCount() == memorySizeInMB * 2)
     assert(stats.hitCount() == memorySizeInMB * 2)
     assert(stats.evictionCount() >= memorySizeInMB)
@@ -72,5 +72,16 @@ class FiberCacheManagerSuite extends SharedOapContext {
     val fiber1 = TestFiber(() => MemoryManager.putToDataFiberCache(data1), s"test fiber #1")
     val fiberCache1 = FiberCacheManager.get(fiber1, configuration)
     assert(fiberCache1.isDisposed)
+  }
+
+  test("fiber key equality test") {
+    val data = generateData(kbSize)
+    val origStats = FiberCacheManager.cacheStats
+    val fiber = TestFiber(() => MemoryManager.putToDataFiberCache(data), s"test fiber")
+    FiberCacheManager.get(fiber, configuration)
+    assert(FiberCacheManager.cacheStats.minus(origStats).missCount() == 1)
+    val sameFiber = TestFiber(() => MemoryManager.putToDataFiberCache(data), s"test fiber")
+    FiberCacheManager.get(sameFiber, configuration)
+    assert(FiberCacheManager.cacheStats.minus(origStats).hitCount() == 1)
   }
 }
