@@ -41,16 +41,20 @@ private[oap] class MinMaxStatisticsReader(schema: StructType) extends Statistics
 
     val minSize = fiberCache.getInt(readOffset)
     readOffset += 4
-    val totalSize = fiberCache.getInt(readOffset)
-    readOffset += 4
-    min = nnkr.readKey(fiberCache, readOffset)._1
-    max = nnkr.readKey(fiberCache, readOffset + minSize)._1
-    readOffset += totalSize
+    if (minSize != 0) {
+      val totalSize = fiberCache.getInt(readOffset)
+      readOffset += 4
+      min = nnkr.readKey(fiberCache, readOffset)._1
+      max = nnkr.readKey(fiberCache, readOffset + minSize)._1
+      readOffset += totalSize
+    }
 
     readOffset - offset
   }
 
   override def analyse(intervalArray: ArrayBuffer[RangeInterval]): Double = {
+    if (min == null || max == null) return StaticsAnalysisResult.USE_INDEX
+
     val start = intervalArray.head
     val end = intervalArray.last
 
@@ -102,6 +106,10 @@ private[oap] class MinMaxStatisticsWriter(
       offset += IndexUtils.INT_SIZE * 2
       writer.write(tempWriter.toByteArray)
       offset += tempWriter.size
+    } else {
+      // No valid min/max.
+      IndexUtils.writeInt(writer, 0)
+      offset += IndexUtils.INT_SIZE
     }
     offset
   }
