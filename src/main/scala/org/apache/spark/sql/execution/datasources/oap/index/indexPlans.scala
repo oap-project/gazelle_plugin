@@ -116,9 +116,13 @@ case class CreateIndex(
           })
           metaBuilder.addIndexMeta(new IndexMeta(indexName, time, BTreeIndex(entries)))
         case BitMapIndexType =>
+          // Currently OAP index type supports the column with one single field.
+          assert(indexColumns.length == 1, "BitMapIndexType only supports one single column")
           val entries = indexColumns.map(col =>
             schema.map(_.name).toIndexedSeq.indexOf(col.columnName))
           metaBuilder.addIndexMeta(new IndexMeta(indexName, time, BitMapIndex(entries)))
+        case BitMapIndexType =>
+          sys.error(s"BitMapIndexType supports the column with one single field")
         case _ =>
           sys.error(s"Not supported index type $indexType")
       }
