@@ -104,6 +104,8 @@ class OapSuite extends QueryTest with SharedOapContext with BeforeAndAfter {
         }
       }
     })
+    // Restore compression type back to default.
+    sqlConf.setConfString(SQLConf.OAP_COMPRESSION.key, SQLConf.OAP_COMPRESSION.defaultValueString)
   }
 
   test("Enable/disable using OAP index after the index is created already") {
@@ -122,7 +124,7 @@ class OapSuite extends QueryTest with SharedOapContext with BeforeAndAfter {
     val df = sqlContext.read.format("oap").load(dir.getAbsolutePath)
     df.createOrReplaceTempView("oap_table")
     sql("create oindex oap_idx on oap_table (a)")
-    val conf = spark.sparkContext.hadoopConfiguration
+    val conf = configuration
     val filePath = new Path(oapDataFile.toString)
     val metaPath = new Path(oapMetaFile.toString)
     val dataSourceMeta = DataSourceMeta.initialize(metaPath, conf)
