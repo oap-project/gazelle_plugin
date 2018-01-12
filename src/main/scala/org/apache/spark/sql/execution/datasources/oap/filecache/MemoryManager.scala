@@ -18,6 +18,7 @@
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
 import java.util.concurrent.atomic.AtomicLong
+import javax.annotation.concurrent.GuardedBy
 
 import org.apache.hadoop.fs.FSDataInputStream
 
@@ -32,14 +33,47 @@ import org.apache.spark.unsafe.memory.{MemoryAllocator, MemoryBlock}
 import org.apache.spark.unsafe.types.UTF8String
 
 // TODO: make it an alias of MemoryBlock
-trait FiberCache {
+trait FiberCache extends Logging {
+
   // In our design, fiberData should be a internal member.
   protected def fiberData: MemoryBlock
 
-  // TODO: need a flag to avoid accessing disposed FiberCache
+  @GuardedBy("FiberCache.this")
+  private var _refCount: Long = 0L
+  def refCount: Long = _refCount
+
+  def occupy(): Unit = synchronized {
+    _refCount += 1
+  }
+
+  def release(): Unit = synchronized {
+    assert(refCount > 0, "release a non-used fiber")
+    _refCount -= 1
+    notifyAll()
+  }
+
+  def tryDispose(timeout: Long): Boolean = synchronized {
+    val startTime = System.currentTimeMillis()
+    // Give caller a chance to deal with the long wait case.
+    while (System.currentTimeMillis() - startTime <= timeout) {
+      if (_refCount > 0) {
+        try {
+          wait(100)
+        } catch {
+          case _: InterruptedException =>
+            logWarning(s"Fiber Cache Dispose waiting detected for ${this}")
+        }
+      } else {
+        realDispose()
+        return true
+      }
+    }
+    false
+  }
+
   private var disposed = false
   def isDisposed: Boolean = disposed
-  def dispose(): Unit = {
+  private[filecache] def realDispose(): Unit = {
     if (!disposed) MemoryManager.free(fiberData)
     disposed = true
   }
@@ -133,25 +167,26 @@ private[oap] object MemoryManager extends Logging {
   private val DUMMY_BLOCK_ID = TestBlockId("oap_memory_request_block")
 
   // TODO: a config to control max memory size
-  private val _maxMemory = {
-    if (SparkEnv.get == null) {
-      throw new OapException("No SparkContext is found")
+  private val (_cacheMemory, _cacheGuardianMemory) = {
+    assert(SparkEnv.get != null, "Oap can't run without SparkContext")
+    val memoryManager = SparkEnv.get.memoryManager
+    // TODO: make 0.7 configurable
+    val oapMemory = (memoryManager.maxOffHeapStorageMemory * 0.7).toLong
+    if (memoryManager.acquireStorageMemory(
+      DUMMY_BLOCK_ID, oapMemory, MemoryMode.OFF_HEAP)) {
+      // TODO: make 0.9, 0.1 configurable
+      ((oapMemory * 0.9).toLong, (oapMemory * 0.1).toLong)
     } else {
-      val memoryManager = SparkEnv.get.memoryManager
-      // TODO: make 0.7 configurable
-      val oapMaxMemory = (memoryManager.maxOffHeapStorageMemory * 0.7).toLong
-      if (memoryManager.acquireStorageMemory(DUMMY_BLOCK_ID, oapMaxMemory, MemoryMode.OFF_HEAP)) {
-        oapMaxMemory
-      } else {
-        throw new OapException("Can't acquire memory from spark Memory Manager")
-      }
+      throw new OapException("Can't acquire memory from spark Memory Manager")
     }
   }
 
   // TODO: Atomic is really needed?
   private val _memoryUsed = new AtomicLong(0)
   def memoryUsed: Long = _memoryUsed.get()
-  def maxMemory: Long = _maxMemory
+
+  def cacheMemory: Long = _cacheMemory
+  def cacheGuardianMemory: Long = _cacheGuardianMemory
 
   private[filecache] def allocate(numOfBytes: Int): MemoryBlock = {
     _memoryUsed.getAndAdd(numOfBytes)
