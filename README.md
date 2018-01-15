@@ -15,7 +15,9 @@ You should have [Apache Spark](http://spark.apache.org/) of version 2.1.0 instal
 ```
 spark.files                      file:///path/to/oap-dir/oap-<version>.jar
 spark.executor.extraClassPath      ./oap-<version>.jar
-spark.driver.extraClassPath        /path/to/oap-dir/oap-0.2.0.jar
+spark.driver.extraClassPath        /path/to/oap-dir/oap-<version>.jar
+spark.memory.offHeap.enabled       true
+spark.memory.offHeap.size          2g
 ```
 4. Run spark by `bin/spark-sql`, `bin/spark-shell`, `sbin/start-thriftserver` or `bin/pyspark` and try our examples
 
@@ -30,9 +32,9 @@ spark.driver.extraClassPath        /path/to/oap-dir/oap-0.2.0.jar
 > val data = (1 to 300).map { i => (i, s"this is test $i") }.toDF().createOrReplaceTempView("t")
 > spark.sql("insert overwrite table oap_test select * from t")
 > spark.sql("create oindex index1 on oap_test (a)")
-> spark.sql("show oindex from oap_test")
+> spark.sql("show oindex from oap_test").show()
 > spark.sql("SELECT * FROM oap_test WHERE a = 1").show()
-> spark.sql("drop oindex index on oap_test")
+> spark.sql("drop oindex index1 on oap_test")
 ```
 For a more detailed examples with performance compare, you can refer to [this page](https://github.com/Intel-bigdata/OAP/wiki/OAP-examples) for further instructions.
 ## Running Test
