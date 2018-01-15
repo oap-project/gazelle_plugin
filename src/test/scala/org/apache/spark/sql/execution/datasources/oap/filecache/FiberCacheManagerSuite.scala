@@ -17,10 +17,8 @@
 
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
-import java.util.concurrent.{Callable, Executors, ThreadFactory, TimeUnit}
-import java.lang.Thread.UncaughtExceptionHandler
+import java.util.concurrent.{Callable, Executors, TimeUnit}
 
-import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.test.oap.SharedOapContext
 import org.apache.spark.util.Utils
 
@@ -82,7 +80,7 @@ class FiberCacheManagerSuite extends SharedOapContext {
     }
     val threads = (0 until 5).map(i => new FiberTestRunner(i))
     threads.foreach(_.start())
-    threads.foreach(_.join(5000))
+    threads.foreach(_.join(10000))
     threads.foreach(t => assert(!t.isAlive))
   }
 
@@ -243,5 +241,16 @@ class FiberCacheManagerSuite extends SharedOapContext {
     pool.shutdown()
     pool.awaitTermination(1000, TimeUnit.MILLISECONDS)
     assert(result.get())
+  }
+
+  test("test Simple Cache Strategy") {
+    val cache = new SimpleOapCache()
+    val data = generateData(10 * kbSize)
+    val fiber = TestFiber(() => MemoryManager.putToDataFiberCache(data), "test simple cache fiber")
+    val fiberCache = cache.get(fiber, configuration)
+    assert(fiberCache.toArray sameElements data)
+    fiberCache.release()
+    Thread.sleep(10)
+    assert(fiberCache.isDisposed)
   }
 }
