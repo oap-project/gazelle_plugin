@@ -74,6 +74,10 @@ private[oap] object IndexUtils {
     out.write(v >>> 8 & 0xFF)
   }
 
+  def toBytes(v: Int): Array[Byte] = {
+    Array(0, 8, 16, 24).map(shift => ((v >>> shift) & 0XFF).toByte)
+  }
+
   def writeInt(out: OutputStream, v: Int): Unit = {
     out.write((v >>>  0) & 0xFF)
     out.write((v >>>  8) & 0xFF)

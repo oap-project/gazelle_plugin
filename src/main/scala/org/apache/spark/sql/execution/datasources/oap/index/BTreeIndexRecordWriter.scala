@@ -146,8 +146,7 @@ private[index] case class BTreeIndexRecordWriter(
       else BTreeNodeMetaData(rowCount, nodeBuf.length, nodeUniqueKeys.head, nodeUniqueKeys.last)
     }
     // Write Row Id List
-    fileWriter.writeRowIdList(serializeRowIdLists(nonNullUniqueKeys ++ nullKeys))
-
+    serializeAndWriteRowIdLists(nonNullUniqueKeys ++ nullKeys)
     // Write Footer
     val nullKeyRowCount = nullKeys.map(multiHashMap.get(_).size()).sum
     fileWriter.writeFooter(serializeFooter(nullKeyRowCount, nodes))
@@ -198,11 +197,12 @@ private[index] case class BTreeIndexRecordWriter(
    * Key:    1 2 3 4 1 2 3 4 1 2
    * Then Row Id List is Stored as: 0481592637
    */
-  private def serializeRowIdLists(uniqueKeys: Seq[InternalRow]): Array[Byte] = {
-    val buffer = new ByteArrayOutputStream()
-    uniqueKeys.flatMap(key =>
-      multiHashMap.get(key).asScala).foreach(IndexUtils.writeInt(buffer, _))
-    buffer.toByteArray
+  private def serializeAndWriteRowIdLists(uniqueKeys: Seq[InternalRow]): Unit = {
+    uniqueKeys.foreach { key =>
+      multiHashMap.get(key).asScala.foreach(x =>
+        fileWriter.writeRowId(IndexUtils.toBytes(x))
+      )
+    }
   }
 
   /**

@@ -188,7 +188,7 @@ private[oap] object MemoryManager extends Logging {
   def cacheMemory: Long = _cacheMemory
   def cacheGuardianMemory: Long = _cacheGuardianMemory
 
-  private[filecache] def allocate(numOfBytes: Int): MemoryBlock = {
+  private[filecache] def allocate(numOfBytes: Long): MemoryBlock = {
     _memoryUsed.getAndAdd(numOfBytes)
     logDebug(s"allocate $numOfBytes memory, used: $memoryUsed")
     MemoryAllocator.UNSAFE.allocate(numOfBytes)
@@ -205,7 +205,6 @@ private[oap] object MemoryManager extends Logging {
   def putToIndexFiberCache(in: FSDataInputStream, position: Long, length: Int): IndexFiberCache = {
     val bytes = new Array[Byte](length)
     in.readFully(position, bytes)
-
     val memoryBlock = allocate(bytes.length)
     Platform.copyMemory(
       bytes,
