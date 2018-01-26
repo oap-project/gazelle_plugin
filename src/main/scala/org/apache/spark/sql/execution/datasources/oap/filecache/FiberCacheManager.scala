@@ -17,8 +17,9 @@
 
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
-import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.google.common.cache._
 import org.apache.hadoop.conf.Configuration
@@ -49,7 +50,7 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
 
   def addRemovalFiber(fiber: Fiber, fiberCache: FiberCache): Unit = {
     _pendingFiberSize.addAndGet(fiberCache.size())
-    removalPendingQueue.offer((fiber, fiberCache))
+    removalPendingQueue.offer(fiber, fiberCache)
     if (_pendingFiberSize.get() > maxMemory) {
       logWarning("Fibers pending on removal use too much memory, " +
           s"current: ${_pendingFiberSize.get()}, max: $maxMemory")
@@ -62,12 +63,12 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
       val (fiber, fiberCache) = removalPendingQueue.take()
       logDebug(s"Removing fiber: $fiber")
       // Block if fiber is in use.
-      while (!fiberCache.tryDispose(3000)) {
+      while (!fiberCache.tryDispose(fiber, 3000)) {
         // Check memory usage every 3s while we are waiting fiber release.
         logDebug(s"Waiting fiber to be released timeout. Fiber: $fiber")
         if (_pendingFiberSize.get() > maxMemory) {
           logWarning("Fibers pending on removal use too much memory, " +
-              s"current: ${_pendingFiberSize.get()}, max: $maxMemory")
+            s"current: ${_pendingFiberSize.get()}, max: $maxMemory")
         }
       }
       // TODO: Make log more readable
@@ -104,12 +105,12 @@ object FiberCacheManager extends Logging {
   // NOTE: all members' init should be placed before this line.
   logDebug(s"Initialized FiberCacheManager")
 
-  def get(fiber: Fiber, conf: Configuration): FiberCache = synchronized {
+  def get(fiber: Fiber, conf: Configuration): FiberCache = {
     logDebug(s"Getting Fiber: $fiber")
     cacheBackend.get(fiber, conf)
   }
 
-  def removeIndexCache(indexName: String): Unit = synchronized {
+  def removeIndexCache(indexName: String): Unit = {
     logDebug(s"Going to remove all index cache of $indexName")
     val fiberToBeRemoved = cacheBackend.getFibers.filter {
       case BTreeFiber(_, file, _, _) => file.contains(indexName)
@@ -121,7 +122,7 @@ object FiberCacheManager extends Logging {
   }
 
   // Used by test suite
-  private[filecache] def removeFiber(fiber: TestFiber): Unit = synchronized {
+  private[filecache] def removeFiber(fiber: TestFiber): Unit = {
     if (cacheBackend.getIfPresent(fiber) != null) cacheBackend.invalidate(fiber)
   }
 
@@ -277,5 +278,22 @@ private[oap] case class TestFiber(getData: () => FiberCache, name: String) exten
 
   override def toString: String = {
     s"type: TestFiber name: $name"
+  }
+}
+
+object FiberLockManager {
+  private val lockMap = new ConcurrentHashMap[Fiber, ReentrantReadWriteLock]()
+  def getFiberLock(fiber: Fiber): ReentrantReadWriteLock = {
+    var lock = lockMap.get(fiber)
+    if (lock == null) {
+      val newLock = new ReentrantReadWriteLock()
+      val prevLock = lockMap.putIfAbsent(fiber, newLock)
+      lock = if (prevLock == null) newLock else prevLock
+    }
+    lock
+  }
+
+  def removeFiberLock(fiber: Fiber): Unit = {
+    lockMap.remove(fiber)
   }
 }
