@@ -22,9 +22,10 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
+import org.apache.spark.TaskContext
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
-import org.apache.spark.sql.execution.datasources.oap.filecache.{BTreeFiber, FiberCache, FiberCacheManager}
+import org.apache.spark.sql.execution.datasources.oap.filecache.{BTreeFiber, FiberCache, FiberCacheManager, WrappedFiberCache}
 import org.apache.spark.sql.execution.datasources.oap.utils.NonNullKeyReader
 import org.apache.spark.sql.types._
 import org.apache.spark.util.CompletionIterator
@@ -39,22 +40,23 @@ private[index] case class BTreeIndexRecordReader(
   import BTreeIndexRecordReader.{BTreeFooter, BTreeRowIdList, BTreeNodeData}
   private var footer: BTreeFooter = _
   private var footerFiber: BTreeFiber = _
-  private var footerCache: FiberCache = _
+  private var footerCache: WrappedFiberCache = _
+  private val indexCaches: ArrayBuffer[WrappedFiberCache] = new ArrayBuffer[WrappedFiberCache]()
 
   private var reader: BTreeIndexFileReader = _
 
   private lazy val ordering = GenerateOrdering.create(schema)
   private lazy val partialOrdering = GenerateOrdering.create(StructType(schema.dropRight(1)))
 
-  def getFooterFiber: FiberCache = footerCache
-
   def initialize(path: Path, intervalArray: ArrayBuffer[RangeInterval]): Unit = {
     reader = BTreeIndexFileReader(configuration, path)
+    Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => close()))
 
     footerFiber = BTreeFiber(
       () => reader.readFooter(), reader.file.toString, reader.footerSectionId, 0)
-    footerCache = FiberCacheManager.get(footerFiber, configuration)
-    footer = BTreeFooter(footerCache, schema)
+    footerCache = WrappedFiberCache(FiberCacheManager.get(footerFiber, configuration))
+    indexCaches += footerCache
+    footer = BTreeFooter(footerCache.fc, schema)
 
     reader.checkVersionNum(footer.getVersionNum)
 
@@ -68,12 +70,13 @@ private[index] case class BTreeIndexRecordReader(
             reader.file.toString,
             reader.rowIdListSectionId, partIdx)
 
-          val rowIdListCache = FiberCacheManager.get(rowIdListFiber, configuration)
-          val rowIdList = BTreeRowIdList(rowIdListCache)
+          val rowIdListCache =
+            WrappedFiberCache(FiberCacheManager.get(rowIdListFiber, configuration))
+          indexCaches += rowIdListCache
+          val rowIdList = BTreeRowIdList(rowIdListCache.fc)
           val iterator =
             subPosList.toIterator.map(i => rowIdList.getRowId(i % reader.rowIdListSizePerSection))
-          CompletionIterator[Int, Iterator[Int]](iterator,
-            releaseCache(rowIdListCache, rowIdListFiber))
+          CompletionIterator[Int, Iterator[Int]](iterator, rowIdListCache.release())
       }
     } // get the row ids
   }
@@ -117,8 +120,9 @@ private[index] case class BTreeIndexRecordReader(
       reader.nodeSectionId,
       nodeIdx
     )
-    val nodeCache = FiberCacheManager.get(nodeFiber, configuration)
-    val node = BTreeNodeData(nodeCache, schema)
+    val nodeCache = WrappedFiberCache(FiberCacheManager.get(nodeFiber, configuration))
+    indexCaches += nodeCache
+    val node = BTreeNodeData(nodeCache.fc, schema)
 
     val keyCount = node.getKeyCount
 
@@ -139,14 +143,15 @@ private[index] case class BTreeIndexRecordReader(
             reader.file.toString,
             reader.nodeSectionId,
             nodeIdx + 1)
-          val nextNodeCache = FiberCacheManager.get(nextNodeFiber, configuration)
-          val nextNode = BTreeNodeData(nextNodeCache, schema)
+          val nextNodeCache = WrappedFiberCache(FiberCacheManager.get(nextNodeFiber, configuration))
+          indexCaches += nextNodeCache
+          val nextNode = BTreeNodeData(nextNodeCache.fc, schema)
           val rowPos = nextNode.getRowIdPos(0)
-          releaseCache(nextNodeCache, nextNodeFiber)
+          nextNodeCache.release()
           rowPos
         }
       } else node.getRowIdPos(keyPos)
-    releaseCache(nodeCache, nodeFiber)
+    nodeCache.release()
     rowPos
   }
 
@@ -187,26 +192,20 @@ private[index] case class BTreeIndexRecordReader(
     }
   }
 
-  private def releaseCache(cache: FiberCache, fiber: BTreeFiber): Unit = {
-    cache.release()
-  }
-
   def close(): Unit = {
-    releaseCache(footerCache, footerFiber)
-    reader.close()
+    if (reader != null) {
+      reader.close()
+      reader = null
+    }
+    indexCaches.foreach(_.release())
+    indexCaches.clear()
   }
 
-  /**
-   * TODO: if this hasNext doesn't reach false, the resource can't be released
-   * For example:
-   *   Assume recordReader.size = 100, Someone called `recordReader.take(10)`.
-   */
-  override def hasNext: Boolean = {
-    if (internalIterator.hasNext) true
-    else {
-      close()
-      false
-    }
+  override def hasNext: Boolean = if (internalIterator.hasNext) {
+    true
+  } else {
+    close()
+    false
   }
 
   override def next(): Int = internalIterator.next()
