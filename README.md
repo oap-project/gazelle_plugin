@@ -13,15 +13,17 @@ You should have [Apache Spark](http://spark.apache.org/) of version 2.1.0 instal
 2. Deploy `oap-<version>.jar` to master machine.
 3. Put below configurations to _$SPARK_HOME/conf/spark-defaults.conf_
 ```
-spark.files                      file:///path/to/oap-dir/oap-<version>.jar
-spark.executor.extraClassPath      ./oap-<version>.jar
-spark.driver.extraClassPath        /path/to/oap-dir/oap-<version>.jar
-spark.memory.offHeap.enabled       true
-spark.memory.offHeap.size          2g
+spark.files                         file:///path/to/oap-dir/oap-<version>.jar
+spark.executor.extraClassPath       ./oap-<version>.jar
+spark.driver.extraClassPath         /path/to/oap-dir/oap-<version>.jar
+spark.memory.offHeap.enabled        true
+spark.memory.offHeap.size           20g
 ```
 4. Run spark by `bin/spark-sql`, `bin/spark-shell`, `sbin/start-thriftserver` or `bin/pyspark` and try our examples
 
-**NOTE**: For spark standalone mode, you have to put `oap-<version>.jar` to both driver and executor since `spark.files` is not working. Also don't forget to update `extraClassPath`.
+**NOTE**: 1. For spark standalone mode, you have to put `oap-<version>.jar` to both driver and executor since `spark.files` is not working. Also don't forget to update `extraClassPath`.
+          2. For yarn mode, we need to config all spark.driver.memory, spark.memory.offHeap.size and spark.yarn.executor.memoryOverhead (should be close to offHeap.size) to enable fiber cache.
+          3. The comprehensive guidence and example of OAP configuration can be referred @https://github.com/Intel-bigdata/OAP/wiki/OAP-User-guide. Briefly speaking, the recommanded configuration is one executor per one node with fully memory/computation capability.
 
 ## Example
 ```
@@ -66,9 +68,9 @@ Parquet Support - Enable OAP support for parquet files
 * Default: true
 * Usage: `sqlContext.conf.setConfString(SQLConf.OAP_PARQUET_ENABLED.key, "false")`
 
-Fiber Cache Size - Total Memory size to cache Fiber. Unit: KB
-* Default: `spark.executor.memory * 0.3`
-* Usage: `sqlContext.conf.setConfString(SQLConf.OAP_FIBERCACHE_SIZE.key, s"{100 * 1024 * 1024}")`
+Fiber Cache Size - Total Memory size to cache Fiber, configured implicitly by 'spark.memory.offHeap.size'
+* Default Size: `spark.memory.offHeap.size * 0.7`
+* Usage: Fiber cache locates in off heap storage memory, basically this size is spark.memory.offHeap.size * 0.7. But as execution can borrow a few memory from storage in UnifiedMemoryManager mode, it may vary during execution.
 
 Full Scan Threshold - If the analysis result is above this threshold, it will go through the whole data file instead of read index data.
 * Default: 0.8
@@ -76,8 +78,8 @@ Full Scan Threshold - If the analysis result is above this threshold, it will go
 
 Row Group Size - Row count for each row group
 * Default: 1048576
-* Usage1: `sqlContext.conf.setConfString(SQLConf.OAP_ROW_GROUP_SIZE.key, "1025")`
-* Usage2: `CREATE TABLE t USING oap OPTIONS ('rowgroup' '1024')`
+* Usage1: `sqlContext.conf.setConfString(SQLConf.OAP_ROW_GROUP_SIZE.key, "1048576")`
+* Usage2: `CREATE TABLE t USING oap OPTIONS ('rowgroup' '1048576')`
 
 Compression Codec - Choose compression type for OAP data files.
 * Default: GZIP
@@ -86,6 +88,27 @@ Compression Codec - Choose compression type for OAP data files.
 * Usage2: `CREATE TABLE t USING oap OPTIONS ('compression' 'SNAPPY')`
 
 Refer to [OAP User guide](https://github.com/Intel-bigdata/OAP/wiki/OAP-User-guide) for more details.
+
+## Query Example and Performance Data
+
+Take 2 simple ad-hoc queries as instances, the store_sales table comes from TPCDS with data scale 200G. Generally we can see 5x boost in performance.
+1. "SELECT * FROM store_sales WHERE ss_ticket_number BETWEEN 100 AND 200"
++---------------------+-----+-----+-----+---------+
+|                 Q6: |T1/ms|T2/ms|T3/ms|Median/ms|
++---------------------+-----+-----+-----+---------+
+|       oap-with-index|  542|  295|  370|      370|
+|   parquet-with-index| 1161|  682|  680|      682|
+|parquet-without-index| 2010| 1922| 1915|     1922|
++---------------------+-----+-----+-----+---------+
+
+2. "SELECT * FROM store_sales WHERE ss_ticket_number < 10000 AND ss_net_paid BETWEEN 100.0 AND 110.0")
++---------------------+-----+-----+-----+---------+
+|                Q12: |T1/ms|T2/ms|T3/ms|Median/ms|
++---------------------+-----+-----+-----+---------+
+|       oap-with-index|  509|  431|  437|      437|
+|   parquet-with-index|  944|  930| 1318|      944|
+|parquet-without-index| 2084| 1895| 2007|     2007|
++---------------------+-----+-----+-----+---------+
 
 ## How to Contribute
 If you are looking for some ideas on what to contribute, check out GitHub issues for this project labeled ["Pick me up!"](https://github.com/Intel-bigdata/OAP/issues?labels=pick+me+up%21&state=open).
