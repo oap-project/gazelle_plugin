@@ -35,6 +35,19 @@ class FilterSuite extends QueryTest with SharedOapContext with BeforeAndAfterEac
   import testImplicits._
 
   private var currentPath: String = _
+  private var defaultEis: Boolean = true
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    // In this suite we don't want to skip index even if the cost is higher.
+    defaultEis = sqlConf.getConf(OapConf.OAP_ENABLE_EXECUTOR_INDEX_SELECTION)
+    sqlConf.setConf(OapConf.OAP_ENABLE_EXECUTOR_INDEX_SELECTION, false)
+  }
+
+  override def afterAll(): Unit = {
+    sqlConf.setConf(OapConf.OAP_ENABLE_EXECUTOR_INDEX_SELECTION, defaultEis)
+    super.afterAll()
+  }
 
   override def beforeEach(): Unit = {
     val path = Utils.createTempDir().getAbsolutePath
