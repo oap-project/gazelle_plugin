@@ -28,7 +28,7 @@ import org.apache.parquet.hadoop.api.RecordReader
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.datasources.oap.filecache._
-import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportHelper
+import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportWrapper
 import org.apache.spark.sql.types.StructType
 
 
@@ -54,7 +54,7 @@ private[oap] case class ParquetDataFile(
           new VectorizedOapRecordReader(file, configuration, meta.footer))
       case _ =>
         initRecordReader(
-          new DefaultRecordReader[UnsafeRow](new OapReadSupportImpl,
+          new DefaultRecordReader[UnsafeRow](new ParquetReadSupportWrapper,
             file, configuration, meta.footer))
     }
   }
@@ -75,7 +75,7 @@ private[oap] case class ParquetDataFile(
               configuration, meta.footer, rowIds))
         case _ =>
           initRecordReader(
-            new OapRecordReader[UnsafeRow](new OapReadSupportImpl,
+            new OapRecordReader[UnsafeRow](new ParquetReadSupportWrapper,
               file, configuration, rowIds, meta.footer))
       }
     }
@@ -112,7 +112,7 @@ private[oap] case class ParquetDataFile(
       }
       requestSchema.json
     }
-    conf.set(ParquetReadSupportHelper.SPARK_ROW_REQUESTED_SCHEMA, requestSchemaString)
+    conf.set(ParquetReadSupportWrapper.SPARK_ROW_REQUESTED_SCHEMA, requestSchemaString)
   }
 
   private class FileRecordReaderIterator[V](private[this] var rowReader: RecordReader[V])
