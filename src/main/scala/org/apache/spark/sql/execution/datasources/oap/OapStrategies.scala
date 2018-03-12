@@ -243,8 +243,7 @@ trait OapStrategies extends Logging {
         groupExpressions: Seq[NamedExpression],
         aggExpressions: Seq[AggregateExpression],
         resultExpressions: Seq[NamedExpression],
-        child : LogicalPlan
-    ) : SparkPlan = child match {
+        child : LogicalPlan) : SparkPlan = child match {
       case PhysicalOperation(projectList, filters,
         relation @ LogicalRelation(
           file @ HadoopFsRelation(_, _, _, _, _ : OapFileFormat, _), _, table)) =>
@@ -407,8 +406,7 @@ abstract class OapFileScanExec extends UnaryExecNode with CodegenSupport {
     child.asInstanceOf[CodegenSupport].produce(ctx, this)
   }
 
-  override def doConsume(
-      ctx: CodegenContext, input: Seq[ExprCode], row: ExprCode): String = {
+  override def doConsume(ctx: CodegenContext, input: Seq[ExprCode], row: ExprCode): String = {
     s"""
        ${consume(ctx, input)}
      """.stripMargin

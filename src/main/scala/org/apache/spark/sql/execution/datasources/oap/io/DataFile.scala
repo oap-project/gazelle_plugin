@@ -32,7 +32,6 @@ import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.Utils
 
-
 abstract class DataFile {
   def path: String
   def schema: StructType
@@ -59,7 +58,10 @@ private[oap] object DataFile {
           classOf[String], classOf[StructType], classOf[Configuration])
   })
 
-  def apply(path: String, schema: StructType, dataFileClassName: String,
+  def apply(
+      path: String,
+      schema: StructType,
+      dataFileClassName: String,
       configuration: Configuration): DataFile = {
     Try(cache.get(dataFileClassName)).toOption match {
       case Some(ctor) =>

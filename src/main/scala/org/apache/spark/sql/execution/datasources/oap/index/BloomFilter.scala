@@ -24,8 +24,8 @@ import scala.util.hashing.{MurmurHash3 => MH3}
  * Implementation for Bloom filter.
  */
 class BloomFilter(
-    maxBitCount: Int, numOfHashFunc: Int)(var bloomBitSet: mutable.BitSet = null) {
-//  private var bloomBitSet: mutable.BitSet = new mutable.BitSet(maxBitCount)
+    maxBitCount: Int,
+    numOfHashFunc: Int)(var bloomBitSet: mutable.BitSet = null) {
   private val hashFunctions: Array[BloomHashFunction] =
     BloomHashFunction.getMurmurHashFunction(maxBitCount, numOfHashFunc)
   if (bloomBitSet == null) {
@@ -89,4 +89,3 @@ private[oap] object BloomHashFunction {
     (0 until cnt).map(i => new MurmurHashFunction(maxCount, i.toString.hashCode())).toArray
   }
 }
-

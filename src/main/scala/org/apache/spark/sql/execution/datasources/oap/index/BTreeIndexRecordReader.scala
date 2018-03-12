@@ -30,14 +30,12 @@ import org.apache.spark.sql.execution.datasources.oap.utils.NonNullKeyReader
 import org.apache.spark.sql.types._
 import org.apache.spark.util.CompletionIterator
 
-
 private[index] case class BTreeIndexRecordReader(
     configuration: Configuration,
     schema: StructType) extends Iterator[Int] {
+  import BTreeIndexRecordReader.{BTreeFooter, BTreeRowIdList, BTreeNodeData}
 
   private var internalIterator: Iterator[Int] = _
-
-  import BTreeIndexRecordReader.{BTreeFooter, BTreeRowIdList, BTreeNodeData}
   private var footer: BTreeFooter = _
   private var footerFiber: BTreeFiber = _
   private var footerCache: WrappedFiberCache = _
@@ -80,6 +78,7 @@ private[index] case class BTreeIndexRecordReader(
       }
     } // get the row ids
   }
+
   // find the row id list start pos, end pos of the range interval
   private[index] def findRowIdRange(interval: RangeInterval): (Int, Int) = {
     val recordCount = footer.getNonNullKeyRecordCount
@@ -235,29 +234,43 @@ private[index] object BTreeIndexRecordReader {
     @transient protected lazy val nnkr: NonNullKeyReader = new NonNullKeyReader(schema)
 
     def getVersionNum: Int = fiberCache.getInt(0)
+
     def getNonNullKeyRecordCount: Int = fiberCache.getInt(IndexUtils.INT_SIZE)
+
     def getNullKeyRecordCount: Int = fiberCache.getInt(IndexUtils.INT_SIZE * 2)
+
     def getNodesCount: Int = fiberCache.getInt(IndexUtils.INT_SIZE * 3)
+
     // get idx Node's max value
     def getMaxValue(idx: Int, schema: StructType): InternalRow =
       nnkr.readKey(fiberCache, getMaxValueOffset(idx))._1
+
     def getMinValue(idx: Int, schema: StructType): InternalRow =
       nnkr.readKey(fiberCache, getMinValueOffset(idx))._1
-    def getMinValueOffset(idx: Int): Int =
+
+    def getMinValueOffset(idx: Int): Int = {
       fiberCache.getInt(nodeMetaStart + nodeMetaByteSize * idx + minPosOffset) +
-          nodeMetaStart + nodeMetaByteSize * getNodesCount + statsLengthSize + getStatsLength
-    def getMaxValueOffset(idx: Int): Int =
+        nodeMetaStart + nodeMetaByteSize * getNodesCount + statsLengthSize + getStatsLength
+    }
+
+    def getMaxValueOffset(idx: Int): Int = {
       fiberCache.getInt(nodeMetaStart + nodeMetaByteSize * idx + maxPosOffset) +
         nodeMetaStart + nodeMetaByteSize * getNodesCount + statsLengthSize + getStatsLength
+    }
+
     def getRowCountOfNode(idx: Int): Int =
       fiberCache.getInt(nodeMetaStart + idx * nodeMetaByteSize)
+
     def getNodeOffset(idx: Int): Int =
       fiberCache.getInt(nodeMetaStart + idx * nodeMetaByteSize + nodePosOffset)
+
     def getNodeSize(idx: Int): Int =
       fiberCache.getInt(nodeMetaStart + idx * nodeMetaByteSize + nodeSizeOffset)
+
     def getStatsOffset: Int = nodeMetaStart + nodeMetaByteSize * getNodesCount + statsLengthSize
-    private def getStatsLength: Int = fiberCache.getInt(
-      nodeMetaStart + nodeMetaByteSize * getNodesCount)
+
+    private def getStatsLength: Int =
+      fiberCache.getInt(nodeMetaStart + nodeMetaByteSize * getNodesCount)
   }
 
   private[index] case class BTreeRowIdList(fiberCache: FiberCache) {
@@ -273,11 +286,13 @@ private[index] object BTreeIndexRecordReader {
     protected lazy val nnkr: NonNullKeyReader = new NonNullKeyReader(schema)
 
     def getKeyCount: Int = fiberCache.getInt(0)
+
     def getKey(idx: Int, schema: StructType): InternalRow = {
       val offset = valueSectionStart +
           fiberCache.getInt(posSectionStart + idx * posEntrySize)
       nnkr.readKey(fiberCache, offset)._1
     }
+
     def getRowIdPos(idx: Int): Int =
       fiberCache.getInt(posSectionStart + idx * posEntrySize + IndexUtils.INT_SIZE)
   }

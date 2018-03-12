@@ -250,7 +250,8 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
     startIdxOffset
   }
 
-  private def getBitmapIdx(keySeq: IndexedSeq[InternalRow],
+  private def getBitmapIdx(
+      keySeq: IndexedSeq[InternalRow],
       range: RangeInterval): (Int, Int) = {
     val keyLength = keySeq.length
     val startIdx = if (range.start == IndexScanner.DUMMY_KEY_START) {
@@ -296,8 +297,11 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
     (startIdx, endIdx)
   }
 
-  private def getDesiredBitmaps(byteCache: FiberCache, position: Int,
-      startIdx: Int, endIdx: Int): IndexedSeq[RoaringBitmap] = {
+  private def getDesiredBitmaps(
+      byteCache: FiberCache,
+      position: Int,
+      startIdx: Int,
+      endIdx: Int): IndexedSeq[RoaringBitmap] = {
     if (byteCache.size() != 0) {
       val bmStream = new BitmapDataInputStream(byteCache)
       bmStream.skipBytes(position)

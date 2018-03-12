@@ -31,7 +31,6 @@ import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportWrapper
 import org.apache.spark.sql.types.StructType
 
-
 private[oap] case class ParquetDataFile(
     path: String,
     schema: StructType,

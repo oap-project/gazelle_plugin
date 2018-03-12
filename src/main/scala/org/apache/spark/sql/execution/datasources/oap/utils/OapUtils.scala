@@ -36,7 +36,6 @@ import org.apache.spark.sql.execution.datasources.oap.{DataSourceMeta, Key, OapF
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
-
 /**
  * Utils for Oap
  */
@@ -50,8 +49,9 @@ object OapUtils extends Logging {
     }
   }
 
-  def getPartitions(fileIndex: FileIndex,
-                    partitionSpec: Option[TablePartitionSpec] = None): Seq[PartitionDirectory] = {
+  def getPartitions(
+      fileIndex: FileIndex,
+      partitionSpec: Option[TablePartitionSpec] = None): Seq[PartitionDirectory] = {
     val filters = if (partitionSpec.nonEmpty) {
       val partitionColumnsInfo: Map[String, DataType] =
         fileIndex.partitionSchema.map {

@@ -25,7 +25,6 @@ import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCacheStatus
 import org.apache.spark.sql.execution.datasources.oap.io.OapDataFileHandle
 import org.apache.spark.util.collection.BitSet
 
-
 /**
  * This is user defined Json protocol for SerDe, here the format of Json output should like
  * following:
@@ -44,7 +43,6 @@ import org.apache.spark.util.collection.BitSet
  *      }]
  *     []...[]}
  */
-
 private[oap] object CacheStatusSerDe extends SerDe[String, Seq[FiberCacheStatus]] {
   import org.json4s.jackson.JsonMethods._
 
@@ -75,9 +73,9 @@ private[oap] object CacheStatusSerDe extends SerDe[String, Seq[FiberCacheStatus]
   // we only transfer 4 items in DataFileMeta to driver, ther are rowCountInEachGroup,
   // rowCountInLastGroup, groupCount, fieldCount respectively
   private[oap] def dataFileMetaToJson(dataFileMeta: OapDataFileHandle): JValue = {
-    ("rowCountInEachGroup" -> dataFileMeta.rowCountInEachGroup)~
-      ("rowCountInLastGroup" -> dataFileMeta.rowCountInLastGroup)~
-      ("groupCount" -> dataFileMeta.groupCount)~
+    ("rowCountInEachGroup" -> dataFileMeta.rowCountInEachGroup) ~
+      ("rowCountInLastGroup" -> dataFileMeta.rowCountInLastGroup) ~
+      ("groupCount" -> dataFileMeta.groupCount) ~
       ("fieldCount" -> dataFileMeta.fieldCount)
   }
 
@@ -94,8 +92,8 @@ private[oap] object CacheStatusSerDe extends SerDe[String, Seq[FiberCacheStatus]
   }
 
   private[oap] def statusRawDataToJson(statusRawData: FiberCacheStatus): JValue = {
-    ("fiberFilePath" -> statusRawData.file)~
-      ("bitSetJValue" -> bitSetToJson(statusRawData.bitmask))~
+    ("fiberFilePath" -> statusRawData.file) ~
+      ("bitSetJValue" -> bitSetToJson(statusRawData.bitmask)) ~
       ("dataFileMetaJValue" -> dataFileMetaToJson(statusRawData.meta))
   }
 
