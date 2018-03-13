@@ -213,26 +213,29 @@ private[oap] class CurrentKey(node: IndexNode, keyIdx: Int, valueIdx: Int, index
   def isEnd: Boolean = currentNode == null || currentKey == IndexScanner.DUMMY_KEY_END
 }
 
-private [oap] class RangeInterval(
+private[oap] class RangeInterval(
     s: Key,
     e: Key,
     includeStart: Boolean,
     includeEnd: Boolean,
+    ignoreTail: Boolean = false,
     isNull: Boolean = false) extends Serializable {
   var start = s
   var end = e
   var startInclude = includeStart
   var endInclude = includeEnd
   val isNullPredicate = isNull
+  val isPrefixMatch = ignoreTail
 }
 
-private [oap] object RangeInterval{
+private[oap] object RangeInterval{
   def apply(
       s: Key,
       e: Key,
       includeStart: Boolean,
       includeEnd: Boolean,
+      ignoreTail: Boolean = false,
       isNull: Boolean = false): RangeInterval = {
-    new RangeInterval(s, e, includeStart, includeEnd, isNull)
+    new RangeInterval(s, e, includeStart, includeEnd, ignoreTail, isNull)
   }
 }

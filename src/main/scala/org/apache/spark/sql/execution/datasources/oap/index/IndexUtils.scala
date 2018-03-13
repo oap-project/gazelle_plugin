@@ -118,25 +118,79 @@ private[oap] object IndexUtils {
       start: Int, length: Int,
       keys: Int => InternalRow, candidate: InternalRow,
       compare: (InternalRow, InternalRow) => Int): (Int, Boolean) = {
-    var s = 0
+    var s = start
     var e = length - 1
     var found = false
     var m = s
-    while (s <= e & !found) {
+    while (s <= e && !found) {
       assert(s + e >= 0, "too large array size caused overflow")
       m = (s + e) / 2
-      val cmp = compare(keys(m), candidate)
+      val cmp = compare(candidate, keys(m))
       if (cmp == 0) {
         found = true
-      } else if (cmp < 0) {
+      } else if (cmp > 0) {
         s = m + 1
       } else {
         e = m - 1
       }
-    }
-    if (!found) {
-      m = s
+      if (!found) {
+        m = s
+      }
     }
     (m, found)
+  }
+
+  def binarySearchForStart(
+      start: Int, length: Int,
+      keys: Int => InternalRow, candidate: InternalRow,
+      compare: (InternalRow, InternalRow) => Int): (Int, Boolean) = {
+    var s = start + 1
+    var e = length - 1
+    lazy val initCmp = compare(candidate, keys(0))
+    if (length <= 0 || initCmp <= 0) {
+      return (0, length > 0 && initCmp == 0)
+    }
+    var found = false
+    var m = s
+    while (s <= e && !found) {
+      assert(s + e >= 0, "too large array size caused overflow")
+      m = (s + e) / 2
+      val cmp = compare(candidate, keys(m))
+      val marginCmp = compare(candidate, keys(m - 1))
+      if (cmp == 0 && marginCmp > 0) found = true
+      else if (cmp > 0) s = m + 1
+      else e = m - 1
+    }
+    if (!found) m = s
+    (m, found)
+  }
+
+  def binarySearchForEnd(
+      start: Int, length: Int,
+      keys: Int => InternalRow, candidate: InternalRow,
+      compare: (InternalRow, InternalRow) => Int): (Int, Boolean) = {
+    var s = start
+    var e = length - 2
+    lazy val initCmp = compare(candidate, keys(length - 1))
+    if (length <= 0 || compare(candidate, keys(0)) < 0) {
+      (-1, false)
+    } else if (initCmp > 0) {
+      (length, false)
+    } else if (initCmp == 0) {
+      (length - 1, true)
+    } else {
+      var (m, found) = (s, false)
+      while (s <= e && !found) {
+        assert(s + e >= 0, "too large array size caused overflow")
+        m = (s + e) / 2
+        val cmp = compare(candidate, keys(m))
+        val marginCmp = compare(candidate, keys(m + 1))
+        if (cmp == 0 && marginCmp < 0) found = true
+        else if (cmp < 0) e = m - 1
+        else s = m + 1
+      }
+      if (!found) m = s
+      (m, found)
+    }
   }
 }

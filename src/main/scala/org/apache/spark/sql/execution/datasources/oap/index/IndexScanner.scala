@@ -24,6 +24,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{SortDirection, UnsafeRow}
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.execution.datasources.oap.io.OapIndexInfo
@@ -31,6 +32,7 @@ import org.apache.spark.sql.execution.datasources.oap.statistics.StaticsAnalysis
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.unsafe.types.UTF8String
 
 private[oap] object IndexScanner {
   val DUMMY_KEY_START: Key = new UnsafeRow() // we compare the ref not the value
@@ -192,11 +194,11 @@ private[oap] object ScannerBuilder extends Logging {
             // combine all intervals of the same attribute of leftMap and rightMap
             if (needMerge) {
               leftMap.put(attribute,
-                filterOptimizer.mergeBound(leftMap.getOrElseUpdate (attribute, null), intervals))
+                filterOptimizer.mergeBound(leftMap.getOrElseUpdate(attribute, null), intervals))
             } else {
               // add bound of the same attribute to the left map
               leftMap.put(attribute,
-                filterOptimizer.addBound(leftMap.getOrElse (attribute, null), intervals))
+                filterOptimizer.addBound(leftMap.getOrElse(attribute, null), intervals))
             }
           case _ => // this attribute does not exist, do nothing
         }
@@ -273,6 +275,15 @@ private[oap] object ScannerBuilder extends Logging {
             includeStart = true,
             includeEnd = true,
             isNull = true)
+        mutable.HashMap(attribute -> ArrayBuffer(ranger))
+      case StringStartsWith(attribute, v) =>
+        val ranger =
+          RangeInterval(
+            InternalRow.apply(UTF8String.fromString(v)),
+            InternalRow.apply(UTF8String.fromString(v)),
+            includeStart = true,
+            includeEnd = true,
+            ignoreTail = true)
         mutable.HashMap(attribute -> ArrayBuffer(ranger))
       case _ => mutable.HashMap.empty
     }

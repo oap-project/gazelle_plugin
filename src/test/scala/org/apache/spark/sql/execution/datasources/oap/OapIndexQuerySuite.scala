@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution.datasources.oap
 import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.sql.{QueryTest, Row}
+import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.test.oap.SharedOapContext
 import org.apache.spark.sql.types._
 import org.apache.spark.util.Utils
@@ -88,21 +89,20 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
 
     // While a in (0, 3), rowIds = (1, 10, 2)
     // sort to ensure the sequence reading on parquet. so results are (1, 2, 10)
-    val parquetRslt = sql("select * from oap_parquet_test_1 where a > 0 and a < 3").collect
-    assert(parquetRslt.corresponds(
-      Row(1, "this is test 1") ::
+    val parquetRslt = sql("select * from oap_parquet_test_1 where a > 0 and a < 3")
+    checkAnswer(parquetRslt, Row(1, "this is test 1") ::
       Row(2, "this is test 2") ::
-      Row(1, "this is test 10") :: Nil) {_ == _})
+      Row(1, "this is test 10") :: Nil)
 
     sql("insert overwrite table oap_test_1 select * from t")
     sql("create oindex index1 on oap_test_1 (a)")
 
     // Sort is unnecessary for oap format, so rowIds should be (1, 10, 2)
-    val oapResult = sql("select * from oap_test_1 where a > 0 and a < 3").collect
-    assert(oapResult.corresponds(
+    val oapResult = sql("select * from oap_test_1 where a > 0 and a < 3")
+    checkAnswer(oapResult,
       Row(1, "this is test 1") ::
       Row(1, "this is test 10") ::
-      Row(2, "this is test 2") :: Nil) {_ == _})
+      Row(2, "this is test 2") :: Nil)
 
     sql("drop oindex index1 on oap_parquet_test_1")
     sql("drop oindex index1 on oap_test_1")
@@ -125,5 +125,54 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
     checkAnswer(df1, Row(1, "this is row 1") :: Row(1, "this is row 21") :: Nil)
 
     sql("drop oindex bmidx1 on oap_test_1")
+  }
+
+  test("startswith using index") {
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
+    val data: Seq[(Int, String)] =
+      scala.util.Random.shuffle(1 to 30).map(i => (i, s"this$i is test"))
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table oap_test_1 select * from t")
+    sql("create oindex index1 on oap_test_1 (b) using btree")
+    checkAnswer(sql("SELECT * FROM oap_test_1 WHERE b like 'this3%'"),
+      Row(3, "this3 is test") :: Row(30, "this30 is test") :: Nil)
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
+  }
+
+  test("startswith using multi-dimension index") {
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
+    val data: Seq[(Int, String)] =
+      scala.util.Random.shuffle(1 to 30).map(i => (i, s"this$i is test"))
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table oap_test_1 select * from t")
+    sql("create oindex index1 on oap_test_1 (b, a) using btree")
+    checkAnswer(sql("SELECT * FROM oap_test_1 WHERE b like 'this3%'"),
+      Row(3, "this3 is test") :: Row(30, "this30 is test") :: Nil)
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
+  }
+
+  test("startswith using multi-dimension index - multi-filters") {
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
+    val data: Seq[(Int, String)] =
+      scala.util.Random.shuffle(1 to 30).map(i => (i % 7, s"this$i is test"))
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table oap_test_1 select * from t")
+    sql("create oindex index1 on oap_test_1 (a, b) using btree")
+    checkAnswer(sql("SELECT * FROM oap_test_1 WHERE a = 3 and b like 'this3%'"),
+      Row(3, "this3 is test") :: Nil)
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
+  }
+
+  test("startswith using multi-dimension index 2") {
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
+    val data: Seq[(Int, String)] = Seq(
+      15, 29, 26, 4, 28, 17, 16, 11, 12, 27, 22, 6, 10, 18, 19, 20, 30, 21, 14, 25, 1, 2,
+      13, 23, 7, 24, 3, 8, 5, 9).map(i => (i, s"this$i is test"))
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table oap_test_1 select * from t")
+    sql("create oindex index1 on oap_test_1 (b) using btree")
+    checkAnswer(sql("SELECT * FROM oap_test_1 WHERE b like 'this3%'"),
+      Row(3, "this3 is test") :: Row(30, "this30 is test") :: Nil)
+    sqlConf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
   }
 }

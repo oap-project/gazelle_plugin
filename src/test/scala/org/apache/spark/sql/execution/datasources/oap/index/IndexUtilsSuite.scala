@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution.datasources.oap.index
 import java.io.{ByteArrayOutputStream, DataOutputStream}
 
 import org.apache.hadoop.fs.Path
+import org.apache.spark.sql.catalyst.InternalRow
 import org.junit.Assert._
 
 import org.apache.spark.SparkFunSuite
@@ -94,5 +95,65 @@ class IndexUtilsSuite extends SparkFunSuite with Logging {
       (IndexFile.VERSION_NUM >> 8).toByte)
     assert(Platform.getByte(bytes, Platform.BYTE_ARRAY_OFFSET + 7) ==
       (IndexFile.VERSION_NUM & 0xFF).toByte)
+  }
+
+  test("binary search") {
+    def compare(x: InternalRow, y: InternalRow): Int = {
+      val xVal = x.getInt(0)
+      val yVal = y.getInt(0)
+      xVal - yVal
+    }
+    assert(IndexUtils.binarySearch(
+      0, 10, i => InternalRow(i + 5), InternalRow(7), compare) == (2, true))
+    assert(IndexUtils.binarySearch(
+      0, 10, i => InternalRow(i + 5), InternalRow(5), compare) == (0, true))
+    assert(IndexUtils.binarySearch(
+      0, 10, i => InternalRow(i + 5), InternalRow(4), compare) == (0, false))
+    assert(IndexUtils.binarySearch(
+      0, 10, i => InternalRow(i + 5), InternalRow(15), compare) == (10, false))
+    assert(IndexUtils.binarySearch(
+      0, 10, i => InternalRow(i + 5), InternalRow(14), compare) == (9, true))
+    assert(IndexUtils.binarySearch(
+      0, 0, i => InternalRow(i + 5), InternalRow(5), compare) == (0, false))
+
+    assert(IndexUtils.binarySearchForStart(
+      0, 10, i => InternalRow(i + 4), InternalRow(7), compare) == (3, true))
+    assert(IndexUtils.binarySearchForStart(
+      0, 10, i => InternalRow(i / 3), InternalRow(2), compare) == (6, true))
+    assert(IndexUtils.binarySearchForStart(
+      0, 10, i => InternalRow(i / 3), InternalRow(0), compare) == (0, true))
+    assert(IndexUtils.binarySearchForStart(
+      0, 0, i => InternalRow(i / 3), InternalRow(0), compare) == (0, false))
+    assert(IndexUtils.binarySearchForStart(
+      0, 1, i => InternalRow(i / 3), InternalRow(0), compare) == (0, true))
+    assert(IndexUtils.binarySearchForStart(
+      0, 1, i => InternalRow(i / 3), InternalRow(1), compare) == (1, false))
+    assert(IndexUtils.binarySearchForStart(
+      0, 1, i => InternalRow(i / 3), InternalRow(-1), compare) == (0, false))
+    assert(IndexUtils.binarySearchForStart(
+      0, 10, i => InternalRow(i / 3), InternalRow(-11), compare) == (0, false))
+    assert(IndexUtils.binarySearchForStart(
+      0, 10, i => InternalRow(i / 3), InternalRow(11), compare) == (10, false))
+    assert(IndexUtils.binarySearchForStart(
+      0, 10, i => InternalRow(i * 2), InternalRow(3), compare) == (2, false))
+
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i + 4), InternalRow(13), compare) == (9, true))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i / 3), InternalRow(2), compare) == (8, true))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i / 3), InternalRow(3), compare) == (9, true))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i / 3), InternalRow(5), compare) == (10, false))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i / 3), InternalRow(0), compare) == (2, true))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i / 3), InternalRow(-1), compare) == (-1, false))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 0, i => InternalRow(i / 3), InternalRow(0), compare) == (-1, false))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 1, i => InternalRow(i / 3), InternalRow(0), compare) == (0, true))
+    assert(IndexUtils.binarySearchForEnd(
+      0, 10, i => InternalRow(i * 2), InternalRow(3), compare) == (2, false))
   }
 }

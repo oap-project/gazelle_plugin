@@ -25,6 +25,7 @@ import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.catalyst.expressions.JoinedRow
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
 import org.apache.spark.sql.execution.datasources.oap._
+import org.apache.spark.sql.execution.datasources.oap.index.ScannerBuilder.IntervalArrayMap
 import org.apache.spark.sql.types.StructType
 
 private[oap] class IndexContext(meta: DataSourceMeta) extends Logging {
@@ -51,7 +52,7 @@ private[oap] class IndexContext(meta: DataSourceMeta) extends Logging {
   }
 
   private def selectAvailableIndex(
-      intervalMap: mutable.HashMap[String, ArrayBuffer[RangeInterval]],
+      intervalMap: IntervalArrayMap,
       indexDisableListStr: String): Unit = {
     logDebug("Selecting Available Index:")
     val indexDisableList = indexDisableListStr.split(",").map(_.trim).toSeq
@@ -73,9 +74,10 @@ private[oap] class IndexContext(meta: DataSourceMeta) extends Logging {
             if (intervalMap.contains(attribute) && intervalMap(attribute).length == 1) {
               val start = intervalMap(attribute).head.start
               val end = intervalMap(attribute).head.end
+              val isPattern = intervalMap(attribute).head.isPrefixMatch
               val ordering = unapply(attribute).get.order
               if (start != IndexScanner.DUMMY_KEY_START &&
-                end != IndexScanner.DUMMY_KEY_END &&
+                end != IndexScanner.DUMMY_KEY_END && !isPattern &&
                 ordering.compare(start, end) == 0) {
                 num += 1
               } else {
@@ -267,7 +269,10 @@ private[oap] class IndexContext(meta: DataSourceMeta) extends Logging {
           scanner.intervalArray.append(
             RangeInterval(compositeStartKey, compositeEndKey,
               intervalMap(attributes.last)(i).startInclude,
-              intervalMap(attributes.last)(i).endInclude)
+              intervalMap(attributes.last)(i).endInclude,
+              intervalMap(attributes.last)(i).isPrefixMatch,
+              intervalMap(attributes.last)(i).isNullPredicate
+            )
           )
 
         } // end for
@@ -326,7 +331,8 @@ private[oap] class FilterOptimizer(keySchema: StructType) {
   val order = GenerateOrdering.create(keySchema)
 
   def isSingleValueInterval(interval: RangeInterval): Boolean =
-    interval.start == interval.end && interval.startInclude && interval.endInclude
+    interval.start == interval.end && interval.startInclude && interval.endInclude &&
+      !interval.isPrefixMatch
 
   // compare two intervals: return true if interval1.start < interval2.start
   // isNullPredicate is assumed to be "smallest"
@@ -352,7 +358,7 @@ private[oap] class FilterOptimizer(keySchema: StructType) {
   // return: true if two intervals are unioned together
   //         false if these two intervals cannot be unioned, since they do not overlap
   def intervalUnion(base: RangeInterval, extra: RangeInterval): Boolean = {
-    def union: Boolean = {// union two intervals
+    def union: Boolean = { // union two intervals
       if ((extra.end eq IndexScanner.DUMMY_KEY_END) || order.compare(extra.end, base.end)>0) {
         base.end = extra.end
         base.endInclude = extra.endInclude
@@ -406,6 +412,7 @@ private[oap] class FilterOptimizer(keySchema: StructType) {
       union
     }
   }
+
   // "Or" operation: (union multiple range intervals which may overlap)
   def addBound(
       intervalArray1: ArrayBuffer[RangeInterval],
@@ -487,7 +494,8 @@ private[oap] class FilterOptimizer(keySchema: StructType) {
       interval1 <- intervalArray1
       interval2 <- intervalArray2
       // isNull & otherPredicate => empty
-      if !(interval1.isNullPredicate ^ interval2.isNullPredicate)
+      if (!(interval1.isNullPredicate ^ interval2.isNullPredicate)) &&
+        !interval1.isPrefixMatch && !interval2.isPrefixMatch
     } yield {
       // isNull & isNull => isNull
       if (interval1.isNullPredicate && interval2.isNullPredicate) {
