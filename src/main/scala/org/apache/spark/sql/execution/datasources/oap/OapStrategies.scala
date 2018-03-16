@@ -41,10 +41,11 @@ trait OapStrategies extends Logging {
   def oapStrategies: Seq[Strategy] = {
     // BtreeIndex applicable strategies.
     OapSortLimitStrategy ::
+    OapGroupAggregateStrategy ::
     // BitMapIndex applicable strategies.
     OapSemiJoinStrategy ::
     // No requirement.
-    OapGroupAggregateStrategy :: Nil
+    Nil
   }
 
   /**
@@ -249,13 +250,21 @@ trait OapStrategies extends Logging {
           file @ HadoopFsRelation(_, _, _, _, _ : OapFileFormat, _), _, table)) =>
         val filterAttributes = AttributeSet(ExpressionSet(filters))
         val groupingAttributes = AttributeSet(groupExpressions.map(_.toAttribute))
+        val indexRequirement = filters.map(_ => BTreeIndex())
 
         if (groupingAttributes.size == 1 && filterAttributes == groupingAttributes) {
           val oapOption = new CaseInsensitiveMap(file.options +
             (OapFileFormat.OAP_INDEX_GROUP_BY_OPTION_KEY -> "true"))
 
           createOapFileScanPlan(
-            projectList, filters, relation, file, table, oapOption, filters, Nil) match {
+            projectList,
+            filters,
+            relation,
+            file,
+            table,
+            oapOption,
+            filters,
+            indexRequirement) match {
             case Some(fastScan) => OapAggregationFileScanExec(aggExpressions, projectList, fastScan)
             case _ => PlanLater(child)
           }
@@ -280,9 +289,11 @@ trait OapStrategies extends Logging {
       oapOption: Map[String, String],
       indexHint: Seq[Expression],
       indexRequirements: Seq[IndexType]): Option[SparkPlan] = {
-    // If executor index selection (EIS) is enabled, oapStrategies are disabled.
     val conf = SparkSession.getActiveSession.get.sessionState.conf
-    if (conf.getConf(OapConf.OAP_ENABLE_EXECUTOR_INDEX_SELECTION)) {
+    if (!conf.getConf(OapConf.OAP_ENABLE_OPTIMIZATION_STRATEGIES) ||
+        conf.getConf(OapConf.OAP_ENABLE_EXECUTOR_INDEX_SELECTION)) {
+      // If executor index selection (spark.sql.oap.oindex.eis.enabled) is enabled,
+      // oapStrategies does not work because exeutor may skip the index scan.
       return None
     }
 
