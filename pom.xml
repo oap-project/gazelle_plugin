@@ -441,6 +441,7 @@
           <argLine>-ea -Xmx3g -XX:MaxPermSize=512m -XX:ReservedCodeCacheSize=512m</argLine>
           <stderr/>
           <environmentVariables>
+            <SPARK_SCALA_VERSION>${scala.binary.version}</SPARK_SCALA_VERSION>
             <!--
               Setting SPARK_DIST_CLASSPATH is a simple way to make sure any child processes
               launched by the tests have access to the correct test-time classpath.
@@ -456,6 +457,7 @@
             <spark.ui.showConsoleProgress>false</spark.ui.showConsoleProgress>
             <spark.driver.allowMultipleContexts>true</spark.driver.allowMultipleContexts>
             <spark.unsafe.exceptionOnMemoryLeak>true</spark.unsafe.exceptionOnMemoryLeak>
+            <spark.test.home>${env.SPARK_HOME}</spark.test.home>
           </systemProperties>
         </configuration>
         <executions>

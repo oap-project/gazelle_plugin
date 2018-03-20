@@ -45,10 +45,12 @@ To run all the tests, use
 ```
 mvn test
 ```
-If you want to run any specific test suite, for example `OapDDLSuite`, use
+To run any specific test suite, for example `OapDDLSuite`, use
 ```
 mvn -DwildcardSuites=org.apache.spark.sql.execution.datasources.oap.OapDDLSuite test
 ```
+To run test suites using `LocalClusterMode`, please refer to `SharedOapLocalClusterContext`
+
 ## Features
 
 * Index - BTREE, BITMAP

@@ -25,12 +25,28 @@ import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, SparkPlan
 import org.apache.spark.sql.execution.datasources.oap.{IndexType, OapFileFormat}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
-import org.apache.spark.sql.test.SharedSQLContext
+import org.apache.spark.sql.test.{SharedSQLContext, TestOapLocalClusterSession, TestOapSession, TestSparkSession}
 
-trait SharedOapContext extends SharedSQLContext {
+trait SharedOapContext extends SharedOapContextBase {
+  protected override def createSparkSession: TestSparkSession = {
+    new TestOapSession(sparkConf)
+  }
+}
+
+/**
+ * Extend this context to test in LocalClusterMode
+ */
+trait SharedOapLocalClusterContext extends SharedOapContextBase {
+  protected override def createSparkSession: TestSparkSession = {
+    new TestOapLocalClusterSession(sparkConf)
+  }
+}
+
+trait SharedOapContextBase extends SharedSQLContext {
 
   // avoid the overflow of offHeap memory
   sparkConf.set("spark.memory.offHeap.size", "100m")
+
   protected override def beforeAll(): Unit = {
     super.beforeAll()
     spark.sqlContext.setConf(OapConf.OAP_BTREE_ROW_LIST_PART_SIZE, 64)
