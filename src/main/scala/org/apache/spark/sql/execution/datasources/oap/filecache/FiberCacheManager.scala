@@ -40,7 +40,8 @@ class OapFiberCacheHeartBeatMessager extends CustomManager with Logging {
   }
 }
 
-private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logging {
+private[filecache] class CacheGuardian(maxMemory: Long)
+  extends Thread with Logging {
 
   private val _pendingFiberSize: AtomicLong = new AtomicLong(0)
 
@@ -49,15 +50,17 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
   // Tell if guardian thread is trying to remove one Fiber.
   @volatile private var bRemoving: Boolean = false
 
-  def pendingSize: Int = if (bRemoving) {
+  def pendingFiberCount: Int = if (bRemoving) {
     removalPendingQueue.size() + 1
   } else {
     removalPendingQueue.size()
   }
 
+  def pendingFiberSize: Long = _pendingFiberSize.get()
+
   def addRemovalFiber(fiber: Fiber, fiberCache: FiberCache): Unit = {
     _pendingFiberSize.addAndGet(fiberCache.size())
-    removalPendingQueue.offer(fiber, fiberCache)
+    removalPendingQueue.offer((fiber, fiberCache))
     if (_pendingFiberSize.get() > maxMemory) {
       logWarning("Fibers pending on removal use too much memory, " +
           s"current: ${_pendingFiberSize.get()}, max: $maxMemory")
@@ -80,8 +83,8 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
             s"current: ${_pendingFiberSize.get()}, max: $maxMemory")
         }
       } else {
-        // TODO: Make log more readable
         _pendingFiberSize.addAndGet(-fiberCache.size())
+        // TODO: Make log more readable
         logDebug(s"Fiber removed successfully. Fiber: $fiber")
       }
       bRemoving = false
@@ -94,6 +97,11 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
  *
  * TODO: change object to class for better initialization
  */
+class FiberCacheManagerMessager extends CustomManager {
+  override def status(conf: SparkConf): String =
+    CacheStats.status(FiberCacheManager.cacheStats, conf)
+}
+
 object FiberCacheManager extends Logging {
 
   private val GUAVA_CACHE = "guava"
@@ -139,6 +147,9 @@ object FiberCacheManager extends Logging {
     }
   }
 
+  // Used by test suite
+  private[filecache] def clearAllFibers(): Unit = cacheBackend.cleanUp
+
   // TODO: test case, consider data eviction, try not use DataFileHandle which my be costly
   private[filecache] def status: String = {
     logDebug(s"Reporting ${cacheBackend.cacheCount} fibers to the master")
@@ -163,7 +174,7 @@ object FiberCacheManager extends Logging {
   def cacheSize: Long = cacheBackend.cacheSize
 
   // Used by test suite
-  private[filecache] def pendingSize: Int = cacheBackend.pendingSize
+  private[filecache] def pendingCount: Int = cacheBackend.pendingFiberCount
 
   // A description of this FiberCacheManager for debugging.
   def toDebugString: String = {

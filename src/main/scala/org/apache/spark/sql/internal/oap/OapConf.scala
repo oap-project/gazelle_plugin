@@ -183,4 +183,10 @@ object OapConf {
     .stringConf
     .createWithDefault("")
 
+  val OAP_UPDATE_FIBER_CACHE_METRICS_INTERVAL_SEC =
+    SQLConfigBuilder("spark.sql.oap.update.fiber.cache.metrics.interval.sec")
+      .internal()
+      .doc("The interval of fiber cache metrics update")
+      .longConf
+      .createWithDefault(10L)
 }

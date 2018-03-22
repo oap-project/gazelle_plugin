@@ -33,12 +33,15 @@ import org.apache.spark.util._
  * components to convey liveness or execution information for in-progress tasks. It will also
  * expire the hosts that have not heartbeated for more than spark.network.timeout.
  * spark.executor.heartbeatInterval should be significantly less than spark.network.timeout.
+ *
+ * @param customizedInfo is added by OAP for deliver some metrics, whose (k,v) represents
+ *  (CustomClassName, CustomInfo)
  */
 private[spark] case class Heartbeat(
     executorId: String,
     accumUpdates: Array[(Long, Seq[AccumulatorV2[_, _]])], // taskId -> accumulator updates
     blockManagerId: BlockManagerId,
-    customizedInfo: Seq[String] = Nil)
+    customizedInfo: Seq[(String, String)] = Nil)
 
 /**
  * An event that SparkContext uses to notify HeartbeatReceiver that SparkContext.taskScheduler is
@@ -153,12 +156,12 @@ private[spark] class HeartbeatReceiver(sc: SparkContext, clock: Clock)
       // Second is for oap index infor update.
       // The cusInfo is serialized string for fiber and oap index status.
       customizedInfo.foreach { cusInfo =>
-        if (cusInfo.contains("fiberFilePath")) {
-          sc.listenerBus.post(SparkListenerCustomInfoUpdate(blockManagerId.host, executorId,
-            cusInfo))
-        } else if (cusInfo.contains("useOapIndex")) {
+        if (cusInfo._2.contains("useOapIndex")) {
           sc.listenerBus.post(SparkListenerOapIndexInfoUpdate(blockManagerId.host, executorId,
-            cusInfo))
+            cusInfo._2))
+        } else { // for CostomInfoUpdate
+          sc.listenerBus.post(SparkListenerCustomInfoUpdate(blockManagerId.host, executorId,
+            cusInfo._1, cusInfo._2))
         }
       }
   }
