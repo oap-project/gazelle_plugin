@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources.oap.index
 
 import java.io.OutputStream
 
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FSDataInputStream, Path}
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
@@ -42,6 +42,14 @@ private[oap] object IndexUtils {
     assert(versionData.length == IndexFile.VERSION_LENGTH)
     writer.write(versionData)
     IndexFile.VERSION_LENGTH
+  }
+
+  def readHead(reader: FSDataInputStream, offset: Int): Int = {
+    val magic = new Array[Byte](IndexFile.VERSION_LENGTH)
+    reader.readFully(offset, magic)
+    (1 to IndexFile.VERSION_NUM)
+      .find(version => magic sameElements serializeVersion(version))
+      .getOrElse(IndexFile.UNKNOWN_VERSION)
   }
 
   def indexFileFromDataFile(dataFile: Path, name: String, time: String): Path = {

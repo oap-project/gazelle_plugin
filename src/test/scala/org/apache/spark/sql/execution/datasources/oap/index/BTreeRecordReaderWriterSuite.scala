@@ -64,7 +64,7 @@ class BTreeRecordReaderWriterSuite extends SparkFunSuite {
   test("check read/write nodes") {
     // answer stores sorted unique key list, and the start pos in (sorted) row id list
     val answer = fileWriter.nodes.flatMap { buf =>
-      val node = BTreeIndexRecordReader.BTreeNodeData(FiberCache(buf), schema)
+      val node = BTreeIndexRecordReaderV1.BTreeNodeData(FiberCache(buf), schema)
       (0 until node.getKeyCount).map(i => (node.getRowIdPos(i), node.getKey(i, schema).getInt(0)))
     }
     assert(answer ===
@@ -72,7 +72,7 @@ class BTreeRecordReaderWriterSuite extends SparkFunSuite {
   }
 
   test("check read/write rowIdList") {
-    val rowIdList = BTreeIndexRecordReader.BTreeRowIdList(FiberCache(fileWriter.rowIdList))
+    val rowIdList = BTreeIndexRecordReaderV1.BTreeRowIdList(FiberCache(fileWriter.rowIdList))
     assert(nonNullKeyRecords.sorted ===
       nonNullKeyRecords.indices.map(rowIdList.getRowId).map(nonNullKeyRecords(_)))
     assert(nullKeyRecords.indices.map(idx => nonNullKeyRecords.size + idx) ===
@@ -80,7 +80,7 @@ class BTreeRecordReaderWriterSuite extends SparkFunSuite {
   }
 
   test("check read/write footer") {
-    val footer = BTreeIndexRecordReader.BTreeFooter(FiberCache(fileWriter.footer), schema)
+    val footer = BTreeIndexRecordReaderV1.BTreeFooter(FiberCache(fileWriter.footer), schema)
     val nodeCount = footer.getNodesCount
     assert(footer.getNonNullKeyRecordCount === nonNullKeyRecords.size)
     assert(footer.getNullKeyRecordCount === nullKeyRecords.size)
@@ -92,7 +92,7 @@ class BTreeRecordReaderWriterSuite extends SparkFunSuite {
     assert(nodeOffsetSeq === nodeSizeSeq.scanLeft(0)(_ + _).dropRight(1))
 
     val keyOffsetSeq = (0 until nodeCount).map ( i =>
-      BTreeIndexRecordReader.BTreeNodeData(FiberCache(fileWriter.nodes(i)), schema).getKeyCount
+      BTreeIndexRecordReaderV1.BTreeNodeData(FiberCache(fileWriter.nodes(i)), schema).getKeyCount
     ).scanLeft(0)(_ + _)
     val uniqueValues = nonNullKeyRecords.sorted.distinct
     (0 until nodeCount).foreach { i =>

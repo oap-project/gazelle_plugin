@@ -21,9 +21,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.sql.execution.datasources.oap._
-import org.apache.spark.sql.execution.datasources.oap.filecache._
-import org.apache.spark.sql.execution.datasources.oap.index.BTreeIndexRecordReader.BTreeFooter
-import org.apache.spark.sql.execution.datasources.oap.statistics.{StatisticsManager, StatsAnalysisResult}
+import org.apache.spark.sql.execution.datasources.oap.statistics.StatsAnalysisResult
 
 // we scan the index from the smallest to the largest,
 // this will scan the B+ Tree (index) leaf node.
@@ -32,44 +30,29 @@ private[oap] class BPlusTreeScanner(idxMeta: IndexMeta) extends IndexScanner(idx
   override def toString(): String = "BPlusTreeScanner"
   @transient protected var currentKeyArray: Array[CurrentKey] = _
 
-  var recordReader: BTreeIndexRecordReader = _
+  @transient var recordReader: BTreeIndexRecordReader = _
 
   def initialize(dataPath: Path, conf: Configuration): IndexScanner = {
     assert(keySchema ne null)
-    // val root = BTreeIndexCacheManager(dataPath, context, keySchema, meta)
-    val path = IndexUtils.indexFileFromDataFile(dataPath, meta.name, meta.time)
-    logDebug("Loading Index File: " + path)
-    logDebug("\tFile Size: " + path.getFileSystem(conf).getFileStatus(path).getLen)
+    val indexPath = IndexUtils.indexFileFromDataFile(dataPath, meta.name, meta.time)
+    logDebug("Loading Index File: " + indexPath)
+    logDebug("\tFile Size: " + indexPath.getFileSystem(conf).getFileStatus(indexPath).getLen)
 
-    recordReader = BTreeIndexRecordReader(conf, keySchema)
-    recordReader.initialize(path, intervalArray)
+    recordReader = BTreeIndexRecordReader(conf, keySchema, indexPath)
+    recordReader.initialize(indexPath, intervalArray)
     this
   }
 
   override protected def analyzeStatistics(
       indexPath: Path,
       conf: Configuration): StatsAnalysisResult = {
-    var reader: BTreeIndexFileReader = null
-    var footerCache: FiberCache = null
+    var recordReader = BTreeIndexRecordReader(conf, keySchema, indexPath)
     try {
-      // TODO decouple with btreeindexrecordreader
-      // This is called before the scanner call `initialize`
-      reader = BTreeIndexFileReader(conf, indexPath)
-      val footerFiber = BTreeFiber(
-        () => reader.readFooter(), reader.file.toString, reader.footerSectionId, 0)
-      footerCache = FiberCacheManager.get(footerFiber, conf)
-      val footer = BTreeFooter(footerCache, keySchema)
-      val offset = footer.getStatsOffset
-
-      val stats = StatisticsManager.read(footerCache, offset, keySchema)
-      val result = StatisticsManager.analyse(stats, intervalArray, conf)
-      result
+      recordReader.analyzeStatistics(keySchema, intervalArray)
     } finally {
-      if (footerCache != null) {
-        footerCache.release()
-      }
-      if (reader != null) {
-        reader.close()
+      if (recordReader != null) {
+        recordReader.close()
+        recordReader = null
       }
     }
   }

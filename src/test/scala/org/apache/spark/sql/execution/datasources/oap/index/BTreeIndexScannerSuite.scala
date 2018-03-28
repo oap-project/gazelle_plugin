@@ -37,8 +37,9 @@ class BTreeIndexScannerSuite extends SharedOapContext {
   test("test rowOrdering") {
     // Only check Integer is enough. We use [[GenerateOrdering]] to handle different data types.
     val fields = StructField("col1", IntegerType) :: StructField("col2", IntegerType) :: Nil
-    val singleColumnReader = BTreeIndexRecordReader(configuration, StructType(fields.take(1)))
-    val multiColumnReader = BTreeIndexRecordReader(configuration, StructType(fields))
+    val singleColumnReader =
+      BTreeIndexRecordReaderV1(configuration, StructType(fields.take(1)), null)
+    val multiColumnReader = BTreeIndexRecordReaderV1(configuration, StructType(fields), null)
     // Compare DUMMY_START
     val x1 = IndexScanner.DUMMY_KEY_START
     val y1 = InternalRow(Int.MinValue)
@@ -115,7 +116,8 @@ class BTreeIndexScannerSuite extends SharedOapContext {
     (1 to 300 by 2).map(InternalRow(_)).foreach(writer.write(null, _))
     writer.close(null)
 
-    val reader = BTreeIndexRecordReader(configuration, schema)
+    val reader =
+      BTreeIndexRecordReader(configuration, schema, path).asInstanceOf[BTreeIndexRecordReaderV1]
     reader.initialize(path, new ArrayBuffer[RangeInterval]())
 
     // DUMMY_START <= x <= DUMMY_END
@@ -162,7 +164,8 @@ class BTreeIndexScannerSuite extends SharedOapContext {
     (1 to 300 by 2).map(InternalRow(_)).foreach(writer.write(null, _))
     writer.close(null)
 
-    val reader = BTreeIndexRecordReader(configuration, schema)
+    val reader =
+      BTreeIndexRecordReader(configuration, schema, path).asInstanceOf[BTreeIndexRecordReaderV1]
     reader.initialize(path, new ArrayBuffer[RangeInterval]())
 
     assert(
@@ -187,7 +190,8 @@ class BTreeIndexScannerSuite extends SharedOapContext {
     (1 to 5).map(_ => InternalRow(null)).foreach(writer.write(null, _))
     writer.close(null)
 
-    val reader = BTreeIndexRecordReader(configuration, schema)
+    val reader =
+      BTreeIndexRecordReader(configuration, schema, path).asInstanceOf[BTreeIndexRecordReaderV1]
     reader.initialize(path, new ArrayBuffer[RangeInterval]())
 
     assert(
@@ -211,7 +215,8 @@ class BTreeIndexScannerSuite extends SharedOapContext {
     (1 to 5).map(_ => InternalRow(null)).foreach(writer.write(null, _))
     writer.close(null)
 
-    val reader = BTreeIndexRecordReader(configuration, schema)
+    val reader =
+      BTreeIndexRecordReader(configuration, schema, path).asInstanceOf[BTreeIndexRecordReaderV1]
     reader.initialize(path, new ArrayBuffer[RangeInterval]())
 
     assert(
@@ -234,7 +239,8 @@ class BTreeIndexScannerSuite extends SharedOapContext {
     (1 to 5).map(_ => InternalRow(null)).foreach(writer.write(null, _))
     writer.close(null)
 
-    val reader = BTreeIndexRecordReader(configuration, schema)
+    val reader =
+      BTreeIndexRecordReader(configuration, schema, path).asInstanceOf[BTreeIndexRecordReaderV1]
     reader.initialize(path, new ArrayBuffer[RangeInterval]())
 
     assert(
