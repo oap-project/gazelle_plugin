@@ -41,6 +41,8 @@ abstract class DataFile {
   def getFiberData(groupId: Int, fiberId: Int): FiberCache
   def iterator(requiredIds: Array[Int]): OapIterator[InternalRow]
   def iterator(requiredIds: Array[Int], rowIds: Array[Int]): OapIterator[InternalRow]
+
+  def totalRows(): Long
 }
 
 private[oap] class OapIterator[T](inner: Iterator[T]) extends Iterator[T] with Closeable {

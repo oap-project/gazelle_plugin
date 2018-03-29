@@ -46,7 +46,7 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
   @transient
   protected lazy val nnkr: NonNullKeyReader = new NonNullKeyReader(keySchema)
 
-  private val BITMAP_FOOTER_SIZE = 4 + 5 * 8
+  private val BITMAP_FOOTER_SIZE = 6 * 8
 
   private var bmUniqueKeyListTotalSize: Int = _
   private var bmUniqueKeyListCount: Int = _
@@ -65,6 +65,9 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
 
   private var bmEntryListFiber: BitmapFiber = _
   private var bmEntryListCache: WrappedFiberCache = _
+
+  private var _totalRows: Long = 0
+  override def totalRows(): Long = _totalRows
 
   private var fin: FSDataInputStream = _
 
@@ -99,6 +102,9 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
     }
     if (bmFooterCache == null) {
       bmFooterCache = WrappedFiberCache(FiberCacheManager.get(bmFooterFiber, conf))
+
+      // Calculate total rows right after footer cache is loaded.
+      _totalRows = bmFooterCache.fc.getInt(IndexUtils.INT_SIZE * 7)
     }
   }
 

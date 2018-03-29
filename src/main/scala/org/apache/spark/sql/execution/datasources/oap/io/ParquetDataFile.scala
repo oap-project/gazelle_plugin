@@ -152,4 +152,12 @@ private[oap] case class ParquetDataFile(
   override def createDataFileHandle(): ParquetDataFileHandle = {
     new ParquetDataFileHandle().read(configuration, new Path(StringUtils.unEscapeString(path)))
   }
+
+  override def totalRows(): Long = {
+    import scala.collection.JavaConverters._
+    val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this)
+    meta.footer.getBlocks.asScala.foldLeft(0L) {
+      (sum, block) => sum + block.getRowCount
+    }
+  }
 }

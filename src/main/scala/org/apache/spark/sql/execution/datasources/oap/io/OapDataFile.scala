@@ -179,4 +179,6 @@ private[oap] case class OapDataFile(
 
     new OapDataFileHandle().read(fs.open(p), fs.getFileStatus(p).getLen)
   }
+
+  def totalRows(): Long = meta.totalRowCount()
 }

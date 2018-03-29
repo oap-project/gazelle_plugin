@@ -197,6 +197,7 @@ private[oap] class BitmapIndexRecordWriter(
     IndexUtils.writeInt(writer, bmOffsetListTotalSize)
     IndexUtils.writeInt(writer, bmNullEntryOffset)
     IndexUtils.writeInt(writer, bmNullEntrySize)
+    IndexUtils.writeInt(writer, recordCount)
     IndexUtils.writeLong(writer, bmIndexEnd)
     IndexUtils.writeLong(writer, statSize.toLong)
   }

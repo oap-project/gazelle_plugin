@@ -32,6 +32,10 @@ private[oap] class BPlusTreeScanner(idxMeta: IndexMeta) extends IndexScanner(idx
 
   @transient var recordReader: BTreeIndexRecordReader = _
 
+  // Set by analyzeStatistics()
+  private var _totalRows: Long = 0
+  override def totalRows(): Long = _totalRows
+
   def initialize(dataPath: Path, conf: Configuration): IndexScanner = {
     assert(keySchema ne null)
     val indexPath = IndexUtils.indexFileFromDataFile(dataPath, meta.name, meta.time)
@@ -40,6 +44,9 @@ private[oap] class BPlusTreeScanner(idxMeta: IndexMeta) extends IndexScanner(idx
 
     recordReader = BTreeIndexRecordReader(conf, keySchema, indexPath)
     recordReader.initialize(indexPath, intervalArray)
+
+    // For some case, analyzeStatistics will be skipped, so we have to get totalRows here as well.
+    _totalRows = recordReader.totalRows()
     this
   }
 
@@ -48,7 +55,9 @@ private[oap] class BPlusTreeScanner(idxMeta: IndexMeta) extends IndexScanner(idx
       conf: Configuration): StatsAnalysisResult = {
     var recordReader = BTreeIndexRecordReader(conf, keySchema, indexPath)
     try {
-      recordReader.analyzeStatistics(keySchema, intervalArray)
+      val result = recordReader.analyzeStatistics(keySchema, intervalArray)
+      _totalRows = recordReader.totalRows()
+      result
     } finally {
       if (recordReader != null) {
         recordReader.close()

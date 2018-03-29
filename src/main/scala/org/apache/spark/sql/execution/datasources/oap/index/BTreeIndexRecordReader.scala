@@ -30,6 +30,7 @@ trait BTreeIndexRecordReader extends Iterator[Int] {
   def analyzeStatistics(
       keySchema: StructType,
       intervalArray: ArrayBuffer[RangeInterval]): StatsAnalysisResult
+  def totalRows(): Long
   def close(): Unit
 }
 

@@ -252,6 +252,9 @@ private[index] case class BTreeIndexRecordReaderV1(
 
   private[index] def strMatching(xStr: String, yStr: String): Boolean = yStr.startsWith(xStr)
 
+  def totalRows(): Long =
+    (0 until footer.getNodesCount).map(footer.getRowCountOfNode).sum
+
   def close(): Unit = {
     if (reader != null) {
       reader.close()

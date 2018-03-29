@@ -206,6 +206,9 @@ private[oap] class OapDataReader(
   def rowsReadByIndex: Option[Long] = _rowsReadWhenHitIndex
   def indexStat: INDEX_STAT = _indexStat
 
+  def totalRows(): Long = _totalRows
+  private var _totalRows: Long = 0
+
   def initialize(
       conf: Configuration,
       options: Map[String, String] = Map.empty): OapIterator[InternalRow] = {
@@ -220,6 +223,9 @@ private[oap] class OapDataReader(
       val start = if (log.isDebugEnabled) System.currentTimeMillis else 0
       val iter = fileScanner.iterator(requiredIds)
       val end = if (log.isDebugEnabled) System.currentTimeMillis else 0
+
+      _totalRows = fileScanner.totalRows()
+
       logDebug("Construct File Iterator: " + (end - start) + " ms")
       iter
     }
@@ -228,6 +234,8 @@ private[oap] class OapDataReader(
       case Some(indexScanners) if indexScanners.indexIsAvailable(path, conf) =>
         def getRowIds(options: Map[String, String]): Array[Int] = {
           indexScanners.initialize(path, conf)
+
+          _totalRows = indexScanners.totalRows()
 
           // total Row count can be get from the index scanner
           val limit = options.getOrElse(OapFileFormat.OAP_QUERY_LIMIT_OPTION_KEY, "0").toInt
