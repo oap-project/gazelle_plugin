@@ -21,6 +21,7 @@ import scala.collection.mutable
 
 import org.apache.hadoop.fs.{FileSystem, Path}
 
+import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.io.FileCommitProtocol
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
@@ -34,11 +35,11 @@ import org.apache.spark.sql.catalyst.plans.logical.Project
 import org.apache.spark.sql.execution.command.RunnableCommand
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.oap._
-import org.apache.spark.sql.execution.datasources.oap.OapMessages.CacheDrop
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCacheManager
 import org.apache.spark.sql.execution.datasources.oap.utils.OapUtils
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
 import org.apache.spark.sql.internal.oap.OapConf
+import org.apache.spark.sql.oap.rpc.OapMessages.CacheDrop
 import org.apache.spark.sql.types._
 
 
@@ -216,9 +217,10 @@ case class DropIndexCommand(
     qe.assertAnalyzed()
     val relation = qe.optimizedPlan
 
-    sparkSession.sparkContext.schedulerBackend match {
+    val scheduler = sparkSession.sparkContext.schedulerBackend
+    scheduler match {
       case scheduler: CoarseGrainedSchedulerBackend =>
-          OapMessageUtils.sendMessageToExecutors(scheduler, CacheDrop(indexName))
+        SparkEnv.get.oapRpcManager.send(CacheDrop(indexName))
       case _: LocalSchedulerBackend => FiberCacheManager.removeIndexCache(indexName)
     }
 

@@ -33,14 +33,16 @@ import org.apache.spark.internal.config._
 import org.apache.spark.memory.{MemoryManager, StaticMemoryManager, UnifiedMemoryManager}
 import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.network.netty.NettyBlockTransferService
-import org.apache.spark.rpc.{RpcEndpoint, RpcEndpointRef, RpcEnv}
+import org.apache.spark.rpc._
 import org.apache.spark.scheduler.{LiveListenerBus, OutputCommitCoordinator}
 import org.apache.spark.scheduler.OutputCommitCoordinator.OutputCommitCoordinatorEndpoint
 import org.apache.spark.security.CryptoStreamUtils
 import org.apache.spark.serializer.{JavaSerializer, Serializer, SerializerManager}
 import org.apache.spark.shuffle.ShuffleManager
+import org.apache.spark.sql.oap.rpc.{OapRpcManager, OapRpcManagerMaster, OapRpcManagerMasterEndpoint, OapRpcManagerSlave}
 import org.apache.spark.storage._
 import org.apache.spark.util.{RpcUtils, Utils}
+
 
 /**
  * :: DeveloperApi ::
@@ -67,6 +69,7 @@ class SparkEnv (
     val metricsSystem: MetricsSystem,
     val memoryManager: MemoryManager,
     val outputCommitCoordinator: OutputCommitCoordinator,
+    val oapRpcManager: OapRpcManager,
     val conf: SparkConf) extends Logging {
 
   private[spark] var isStopped = false
@@ -372,6 +375,16 @@ object SparkEnv extends Logging {
       new OutputCommitCoordinatorEndpoint(rpcEnv, outputCommitCoordinator))
     outputCommitCoordinator.coordinatorRef = Some(outputCommitCoordinatorRef)
 
+    val oapRpcManagerMasterEndpoint = new OapRpcManagerMasterEndpoint(rpcEnv)
+    val oapRpcDriverEndpoint = registerOrLookupEndpoint(
+      OapRpcManagerMaster.DRIVER_ENDPOINT_NAME, oapRpcManagerMasterEndpoint)
+
+    val oapRpcManager = if (isDriver) {
+      new OapRpcManagerMaster(oapRpcManagerMasterEndpoint)
+    } else {
+      new OapRpcManagerSlave(rpcEnv, oapRpcDriverEndpoint, executorId, conf)
+    }
+
     val envInstance = new SparkEnv(
       executorId,
       rpcEnv,
@@ -386,6 +399,7 @@ object SparkEnv extends Logging {
       metricsSystem,
       memoryManager,
       outputCommitCoordinator,
+      oapRpcManager,
       conf)
 
     // Add a reference to tmp dir created by driver, we will delete this tmp dir when stop() is
@@ -449,4 +463,3 @@ object SparkEnv extends Logging {
       "Classpath Entries" -> classPaths)
   }
 }
-

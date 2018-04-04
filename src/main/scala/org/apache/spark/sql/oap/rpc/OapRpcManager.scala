@@ -15,10 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.oap
+package org.apache.spark.sql.oap.rpc
 
-private[spark] sealed trait OapMessage extends Serializable
+import org.apache.spark.internal.Logging
+import org.apache.spark.sql.oap.rpc.OapMessages.OapMessage
 
-private[spark] object OapMessages {
-  case class CacheDrop(indexName: String) extends OapMessage
+/**
+ * A base trait of OapRpcManagerMaster/Slave, use this class running on Driver/Executors to send
+ * messages to Executors/Driver.
+ * Note that not all functions need to be implemented in OapRpcManagerMaster/Slave
+ */
+
+trait OapRpcManager extends Logging {
+
+  private[spark] def send(message: OapMessage): Unit
+
 }
