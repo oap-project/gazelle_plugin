@@ -117,7 +117,7 @@ object FiberCacheManager extends Logging {
     } else if (cacheName.equals(SIMPLE_CACHE)) {
       new SimpleOapCache()
     } else {
-      throw new OapException("Unsupported cache strategy")
+      throw new OapException(s"Unsupported cache strategy $cacheName")
     }
   }
 
