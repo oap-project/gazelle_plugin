@@ -196,4 +196,11 @@ object OapConf {
       .doc("The interval of fiber cache metrics update")
       .longConf
       .createWithDefault(10L)
+
+  val OAP_PARQUET_DATA_CACHE_ENABLED =
+    SQLConfigBuilder("spark.sql.oap.parquet.data.cache.enable")
+      .internal()
+      .doc("To indicate if enable parquet data cache, default false")
+      .booleanConf
+      .createWithDefault(false)
 }
