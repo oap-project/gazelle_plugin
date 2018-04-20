@@ -27,6 +27,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.memory.MemoryMode
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.ColumnValues
+import org.apache.spark.sql.execution.datasources.oap.index.IndexFileReader
 import org.apache.spark.storage.{BlockManager, TestBlockId}
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.unsafe.memory.{MemoryAllocator, MemoryBlock}
@@ -79,7 +80,7 @@ trait FiberCache extends Logging {
         }
       }
     }
-    logWarning(s"Fiber Cache Dispose waiting detected for ${fiber}")
+    logWarning(s"Fiber Cache Dispose waiting detected for $fiber")
     false
   }
 

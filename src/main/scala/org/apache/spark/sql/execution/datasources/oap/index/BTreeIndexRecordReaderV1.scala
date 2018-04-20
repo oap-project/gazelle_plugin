@@ -24,17 +24,20 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.codegen.{BaseOrdering, GenerateOrdering}
-import org.apache.spark.sql.execution.datasources.oap.filecache.{BTreeFiber, FiberCache, FiberCacheManager, WrappedFiberCache}
+import org.apache.spark.sql.catalyst.expressions.codegen.GenerateOrdering
+import org.apache.spark.sql.execution.datasources.oap.filecache._
+import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.sql.execution.datasources.oap.statistics.{StatisticsManager, StatsAnalysisResult}
 import org.apache.spark.sql.execution.datasources.oap.utils.NonNullKeyReader
+import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.CompletionIterator
 
 private[index] case class BTreeIndexRecordReaderV1(
     configuration: Configuration,
     schema: StructType,
-    private var reader: BTreeIndexFileReaderV1) extends BTreeIndexRecordReader {
+    fileReader: IndexFileReader) extends BTreeIndexRecordReader {
   import BTreeIndexRecordReaderV1.{BTreeFooter, BTreeRowIdList, BTreeNodeData}
 
   private var internalIterator: Iterator[Int] = _
@@ -48,14 +51,68 @@ private[index] case class BTreeIndexRecordReaderV1(
 
   type CompareFunction = (InternalRow, InternalRow, Boolean) => Int
 
+  private val FOOTER_LENGTH_SIZE = IndexUtils.INT_SIZE
+  private val ROW_ID_LIST_LENGTH_SIZE = IndexUtils.LONG_SIZE
+
+  val footerSectionId: Int = 0
+  val rowIdListSectionId: Int = 1
+  val nodeSectionId: Int = 2
+  val rowIdListSizePerSection: Int =
+    configuration.getInt(OapConf.OAP_BTREE_ROW_LIST_PART_SIZE.key, 1024 * 1024)
+
+  private[index] case class BTreeFileMeta(
+      fileLength: Long,
+      footerLength: Int,
+      rowIdListLength: Long) {
+    def footerOffset: Long =
+      fileLength - FOOTER_LENGTH_SIZE - ROW_ID_LIST_LENGTH_SIZE - footerLength
+    def rowIdListOffset: Long = footerOffset - rowIdListLength
+    def nodeOffset: Long = IndexFile.VERSION_LENGTH
+  }
+
+  private var meta: BTreeFileMeta = _
+  private[index] def initFileMeta(): Unit = {
+    val sectionLengthIndex = fileReader.getLen - FOOTER_LENGTH_SIZE - ROW_ID_LIST_LENGTH_SIZE
+    val sectionLengthBuffer = new Array[Byte](FOOTER_LENGTH_SIZE + ROW_ID_LIST_LENGTH_SIZE)
+    fileReader.readFully(sectionLengthIndex, sectionLengthBuffer)
+    val rowIdListSize = getLongFromBuffer(sectionLengthBuffer, 0)
+    val footerSize = getIntFromBuffer(sectionLengthBuffer, ROW_ID_LIST_LENGTH_SIZE)
+    meta = BTreeFileMeta(fileReader.getLen, footerSize, rowIdListSize)
+  }
+  private[index] def getFileMeta: BTreeFileMeta = meta
+
+  private def getLongFromBuffer(buffer: Array[Byte], offset: Int) =
+    Platform.getLong(buffer, Platform.BYTE_ARRAY_OFFSET + offset)
+
+  private def getIntFromBuffer(buffer: Array[Byte], offset: Int) =
+    Platform.getInt(buffer, Platform.BYTE_ARRAY_OFFSET + offset)
+
   def getFooterFiber: FiberCache = footerCache.fc
+
+  private[index] def readFooter() =
+    fileReader.readFiberCache(meta.footerOffset, meta.footerLength)
+
+  private[index] def readRowIdList(partIdx: Int) = {
+    val partSize = rowIdListSizePerSection.toLong * IndexUtils.INT_SIZE
+    val readLength = if (partIdx * partSize + partSize > meta.rowIdListLength) {
+      meta.rowIdListLength % partSize
+    } else {
+      partSize
+    }
+    assert(readLength <= Int.MaxValue, "Size of each row id list partition is too large!")
+    fileReader.readFiberCache(meta.rowIdListOffset + partIdx * partSize, readLength.toInt)
+  }
+
+  private[index] def readNode(offset: Int, size: Int) =
+    fileReader.readFiberCache(meta.nodeOffset + offset, size)
 
   def analyzeStatistics(
       keySchema: StructType,
       intervalArray: ArrayBuffer[RangeInterval]): StatsAnalysisResult = {
     if (footer == null) {
+      initFileMeta()
       footerFiber = BTreeFiber(
-        () => reader.readFooter(), reader.file.toString, reader.footerSectionId, 0)
+        () => readFooter(), fileReader.getName, footerSectionId, 0)
       footerCache = WrappedFiberCache(FiberCacheManager.get(footerFiber, configuration))
       indexCaches += footerCache
       footer = BTreeFooter(footerCache.fc, schema)
@@ -68,30 +125,30 @@ private[index] case class BTreeIndexRecordReaderV1(
   def initialize(path: Path, intervalArray: ArrayBuffer[RangeInterval]): Unit = {
     Option(TaskContext.get()).foreach(_.addTaskCompletionListener(_ => close()))
     if (footer == null) {
+      initFileMeta()
       footerFiber = BTreeFiber(
-        () => reader.readFooter(), reader.file.toString, reader.footerSectionId, 0)
+        () => readFooter(), fileReader.getName, footerSectionId, 0)
       footerCache = WrappedFiberCache(FiberCacheManager.get(footerFiber, configuration))
       indexCaches += footerCache
       footer = BTreeFooter(footerCache.fc, schema)
     }
-    reader.checkVersionNum(footer.getVersionNum)
 
     internalIterator = intervalArray.toIterator.flatMap { interval =>
       val (start, end) = findRowIdRange(interval)
-      val groupedPos = (start until end).groupBy(i => i / reader.rowIdListSizePerSection)
+      val groupedPos = (start until end).groupBy(i => i / rowIdListSizePerSection)
       groupedPos.toIterator.flatMap {
         case (partIdx, subPosList) =>
           val rowIdListFiber = BTreeFiber(
-            () => reader.readRowIdList(partIdx),
-            reader.file.toString,
-            reader.rowIdListSectionId, partIdx)
+            () => readRowIdList(partIdx),
+            fileReader.getName,
+            rowIdListSectionId, partIdx)
 
           val rowIdListCache =
             WrappedFiberCache(FiberCacheManager.get(rowIdListFiber, configuration))
           indexCaches += rowIdListCache
           val rowIdList = BTreeRowIdList(rowIdListCache.fc)
           val iterator =
-            subPosList.toIterator.map(i => rowIdList.getRowId(i % reader.rowIdListSizePerSection))
+            subPosList.toIterator.map(i => rowIdList.getRowId(i % rowIdListSizePerSection))
           CompletionIterator[Int, Iterator[Int]](iterator, rowIdListCache.release())
       }
     } // get the row ids
@@ -140,9 +197,9 @@ private[index] case class BTreeIndexRecordReaderV1(
       compareFunc: CompareFunction = rowOrdering): Int = {
 
     val nodeFiber = BTreeFiber(
-      () => reader.readNode(footer.getNodeOffset(nodeIdx), footer.getNodeSize(nodeIdx)),
-      reader.file.toString,
-      reader.nodeSectionId,
+      () => readNode(footer.getNodeOffset(nodeIdx), footer.getNodeSize(nodeIdx)),
+      fileReader.getName,
+      nodeSectionId,
       nodeIdx
     )
     val nodeCache = WrappedFiberCache(FiberCacheManager.get(nodeFiber, configuration))
@@ -169,9 +226,9 @@ private[index] case class BTreeIndexRecordReaderV1(
           val offset = footer.getNodeOffset(nodeIdx + 1)
           val size = footer.getNodeSize(nodeIdx + 1)
           val nextNodeFiber = BTreeFiber(
-            () => reader.readNode(offset, size),
-            reader.file.toString,
-            reader.nodeSectionId,
+            () => readNode(offset, size),
+            fileReader.getName,
+            nodeSectionId,
             nodeIdx + 1)
           val nextNodeCache = WrappedFiberCache(FiberCacheManager.get(nextNodeFiber, configuration))
           indexCaches += nextNodeCache
@@ -256,10 +313,7 @@ private[index] case class BTreeIndexRecordReaderV1(
     (0 until footer.getNodesCount).map(footer.getRowCountOfNode).sum
 
   def close(): Unit = {
-    if (reader != null) {
-      reader.close()
-      reader = null
-    }
+    fileReader.close()
     indexCaches.foreach(_.release())
     indexCaches.clear()
   }
