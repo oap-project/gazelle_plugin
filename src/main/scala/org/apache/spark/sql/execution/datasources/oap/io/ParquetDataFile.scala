@@ -45,7 +45,7 @@ private[oap] case class ParquetDataFile(
     configuration: Configuration) extends DataFile {
 
   private var context: Option[VectorizedContext] = None
-  private lazy val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this)
+  private lazy val meta = DataFileHandleCacheManager(this).asInstanceOf[ParquetDataFileHandle]
   private val file = new Path(StringUtils.unEscapeString(path))
   private val parquetDataCacheEnable =
     configuration.getBoolean(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key,
@@ -205,7 +205,7 @@ private[oap] case class ParquetDataFile(
     } else {
       addRequestSchemaToConf(configuration, requiredIds)
       val file = new Path(StringUtils.unEscapeString(path))
-      val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this)
+      val meta = DataFileHandleCacheManager(this).asInstanceOf[ParquetDataFileHandle]
       context match {
         case Some(c) =>
           if (parquetDataCacheEnable) {
@@ -298,7 +298,7 @@ private[oap] case class ParquetDataFile(
 
   override def totalRows(): Long = {
     import scala.collection.JavaConverters._
-    val meta: ParquetDataFileHandle = DataFileHandleCacheManager(this)
+    val meta = DataFileHandleCacheManager(this).asInstanceOf[ParquetDataFileHandle]
     meta.footer.getBlocks.asScala.foldLeft(0L) {
       (sum, block) => sum + block.getRowCount
     }

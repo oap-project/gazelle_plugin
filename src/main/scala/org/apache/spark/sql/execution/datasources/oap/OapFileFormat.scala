@@ -305,7 +305,8 @@ private[sql] class OapFileFormat extends FileFormat
           def canSkipByDataFileStatistics: Boolean = {
             if (m.dataReaderClassName == OapFileFormat.OAP_DATA_FILE_CLASSNAME) {
               val dataFile = DataFile(file.filePath, m.schema, m.dataReaderClassName, conf)
-              val dataFileHandle: OapDataFileHandle = DataFileHandleCacheManager(dataFile)
+              val dataFileHandle =
+                DataFileHandleCacheManager(dataFile).asInstanceOf[OapDataFileHandle]
               if (filters.exists(filter =>
                 canSkipFile(dataFileHandle.columnsMeta.map(_.statistics), filter, m.schema))) {
                 val totalRows = dataFileHandle.totalRowCount()
