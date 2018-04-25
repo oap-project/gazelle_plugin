@@ -104,6 +104,8 @@ class OapRpcManagerSuite extends SparkFunSuite with BeforeAndAfterEach with Priv
     Thread.sleep(2000 + 2 * sc.conf.getTimeAsMs(
       OapConf.OAP_HEARTBEAT_INTERVAL.key, OapConf.OAP_HEARTBEAT_INTERVAL.defaultValue.get))
     verify(rpcManagerMasterEndpoint, new AtLeast(1)).invokePrivate(_handleHeartbeat(heartbeat))
+    
+    rpcManagerSlave1.stop()
   }
 
   private def addSpiedRpcManagerSlaveEndpoint(executorId: String): OapRpcManagerSlaveEndpoint = {
