@@ -35,4 +35,9 @@ private[oap] class ParquetDataFileHandle(
     this.footer = ParquetFileReader.readFooter(conf, path, NO_FILTER)
     this
   }
+
+  override def getGroupCount: Int = if (footer == null) 0 else footer.getBlocks.size()
+
+  override def getFieldCount: Int =
+    if (footer == null) 0 else footer.getFileMetaData.getSchema.getColumns.size()
 }

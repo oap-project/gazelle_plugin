@@ -144,8 +144,8 @@ class FiberSensorSuite extends QueryTest with SharedOapContext
 
   test("test get hosts from FiberSensor") {
     val filePath = "file1"
-    val dataFileMeta = new OapDataFileHandle(
-      rowCountInEachGroup = 10, rowCountInLastGroup = 2, groupCount = 30, fieldCount = 3)
+    val groupCount = 30
+    val fieldCount = 3
 
     // executor1 update
     val host1 = "host1"
@@ -153,7 +153,7 @@ class FiberSensorSuite extends QueryTest with SharedOapContext
     val bitSet1 = new BitSet(90)
     bitSet1.set(1)
     bitSet1.set(2)
-    val fcs = Seq(FiberCacheStatus(filePath, bitSet1, dataFileMeta))
+    val fcs = Seq(FiberCacheStatus(filePath, bitSet1, groupCount, fieldCount))
     val fiberInfo = SparkListenerCustomInfoUpdate(host1, execId1,
       "OapFiberCacheHeartBeatMessager", CacheStatusSerDe.serialize(fcs))
     this.update(fiberInfo)
@@ -173,7 +173,7 @@ class FiberSensorSuite extends QueryTest with SharedOapContext
 
     val fiberInfo2 = SparkListenerCustomInfoUpdate(host2, execId2,
       "OapFiberCacheHeartBeatMessager", CacheStatusSerDe
-        .serialize(Seq(FiberCacheStatus(filePath, bitSet2, dataFileMeta))))
+        .serialize(Seq(FiberCacheStatus(filePath, bitSet2, groupCount, fieldCount))))
     this.update(fiberInfo2)
     assert(this.getHosts(filePath) contains  (FiberSensor.OAP_CACHE_HOST_PREFIX + host2 +
       FiberSensor.OAP_CACHE_EXECUTOR_PREFIX + execId2))
@@ -188,7 +188,7 @@ class FiberSensorSuite extends QueryTest with SharedOapContext
     bitSet3.set(10)
     val fiberInfo3 = SparkListenerCustomInfoUpdate(host3, execId3,
       "OapFiberCacheHeartBeatMessager", CacheStatusSerDe
-        .serialize(Seq(FiberCacheStatus(filePath, bitSet3, dataFileMeta))))
+        .serialize(Seq(FiberCacheStatus(filePath, bitSet3, groupCount, fieldCount))))
     this.update(fiberInfo3)
     assert(this.getHosts(filePath) === Some(FiberSensor.OAP_CACHE_HOST_PREFIX + host2 +
       FiberSensor.OAP_CACHE_EXECUTOR_PREFIX + execId2))

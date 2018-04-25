@@ -156,13 +156,21 @@ object FiberCacheManager extends Logging {
       case fiber: DataFiber => fiber
     }
 
+    // Use a bit set to represent current cache status of one file.
+    // Say, there is a file has 3 row groups and 3 columns. Then bit set size is 3 * 3 = 9
+    // Say, cache status is below:
+    //            field#0    field#1     field#2
+    // group#0       -        cached        -          // BitSet(1 + 0 * 3) = 1
+    // group#1       -        cached        -          // BitSet(1 + 1 * 3) = 1
+    // group#2       -          -         cached       // BitSet(2 + 2 * 3) = 1
+    // The final bit set is: 010010001
     val statusRawData = dataFibers.groupBy(_.file).map {
       case (dataFile, fiberSet) =>
-        val fileMeta = DataFileHandleCacheManager(dataFile).asInstanceOf[OapDataFileHandle]
-        val fiberBitSet = new BitSet(fileMeta.groupCount * fileMeta.fieldCount)
+        val fileMeta: DataFileHandle = DataFileHandleCacheManager(dataFile)
+        val fiberBitSet = new BitSet(fileMeta.getGroupCount * fileMeta.getFieldCount)
         fiberSet.foreach(fiber =>
-          fiberBitSet.set(fiber.columnIndex + fileMeta.fieldCount * fiber.rowGroupId))
-        FiberCacheStatus(dataFile.path, fiberBitSet, fileMeta)
+          fiberBitSet.set(fiber.columnIndex + fileMeta.getFieldCount * fiber.rowGroupId))
+        FiberCacheStatus(dataFile.path, fiberBitSet, fileMeta.getGroupCount, fileMeta.getFieldCount)
     }.toSeq
 
     CacheStatusSerDe.serialize(statusRawData)
