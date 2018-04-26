@@ -24,21 +24,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock
 import com.google.common.cache._
 import org.apache.hadoop.conf.Configuration
 
-import org.apache.spark.{SparkConf, SparkEnv}
-import org.apache.spark.executor.custom.CustomManager
+import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.sql.execution.datasources.oap.utils.CacheStatusSerDe
+import org.apache.spark.sql.oap.rpc.OapRpcManagerSlave
 import org.apache.spark.util.Utils
 import org.apache.spark.util.collection.BitSet
-
-// TODO need to register within the SparkContext
-class OapFiberCacheHeartBeatMessager extends CustomManager with Logging {
-  override def status(conf: SparkConf): String = {
-    FiberCacheManager.status
-  }
-}
 
 private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logging {
 
@@ -91,17 +84,9 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
   }
 }
 
-/**
- * Fiber Cache Manager
- *
- * TODO: change object to class for better initialization
- */
-class FiberCacheManagerMessager extends CustomManager {
-  override def status(conf: SparkConf): String =
-    CacheStats.status(FiberCacheManager.cacheStats, conf)
-}
-
 object FiberCacheManager extends Logging {
+
+  SparkEnv.get.oapRpcManager.asInstanceOf[OapRpcManagerSlave].startOapHeartbeater
 
   private val GUAVA_CACHE = "guava"
   private val SIMPLE_CACHE = "simple"
@@ -150,7 +135,7 @@ object FiberCacheManager extends Logging {
   private[oap] def clearAllFibers(): Unit = cacheBackend.cleanUp
 
   // TODO: test case, consider data eviction, try not use DataFileHandle which my be costly
-  private[filecache] def status: String = {
+  private[sql] def status(): String = {
     logDebug(s"Reporting ${cacheBackend.cacheCount} fibers to the master")
     val dataFibers = cacheBackend.getFibers.collect {
       case fiber: DataFiber => fiber
