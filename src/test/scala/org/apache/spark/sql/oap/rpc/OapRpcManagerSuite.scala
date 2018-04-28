@@ -21,14 +21,9 @@ import org.apache.spark._
 import org.apache.spark.rpc.{RpcEndpointRef, RpcEnv}
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.rpc.OapMessages.{DummyHeartbeat, DummyMessage, Heartbeat, RegisterOapRpcManager}
-import org.apache.spark.storage.{BlockManager, BlockManagerId}
 import org.mockito.Mockito._
 import org.mockito.internal.verification.AtLeast
 import org.scalatest.{BeforeAndAfterEach, PrivateMethodTester}
-
-import scala.collection.immutable.HashSet
-
-
 
 class OapRpcManagerSuite extends SparkFunSuite with BeforeAndAfterEach with PrivateMethodTester
     with LocalSparkContext {
@@ -56,10 +51,10 @@ class OapRpcManagerSuite extends SparkFunSuite with BeforeAndAfterEach with Priv
   override def beforeEach(): Unit = {
     super.beforeEach()
     val conf = new SparkConf()
-        .setMaster("local[2]")
-        .setAppName("test")
-        .set("spark.memory.offHeap.enabled", "true")
-        .set("spark.memory.offHeap.size", "1g")
+      .setMaster("local[2]")
+      .setAppName("test")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "1g")
 
     sc = new SparkContext(conf)
     rpcEnv = sc.env.rpcEnv
@@ -96,13 +91,12 @@ class OapRpcManagerSuite extends SparkFunSuite with BeforeAndAfterEach with Priv
     rpcManagerSlave1.send(message)
     Thread.sleep(2000)
     verify(rpcManagerMasterEndpoint).invokePrivate(_handleNormalOapMessage(message))
+    rpcManagerSlave1.stop()
   }
 
   test("Send heartbeat message from Executor to Driver") {
 
     val rpcManagerSlave1 = addRpcManagerSlave(executorId1)
-
-    rpcManagerSlave1.startOapHeartbeater()
 
     // Initial delay is at most 2 * interval
     Thread.sleep(2000 + 2 * sc.conf.getTimeAsMs(
@@ -122,10 +116,9 @@ class OapRpcManagerSuite extends SparkFunSuite with BeforeAndAfterEach with Priv
 
   // This doesn't need to be spied due to it's used to send messages
   private def addRpcManagerSlave(executorId: String): OapRpcManagerSlave = {
-    class TestDummyHeartbeatMaterials extends OapHeartbeatMaterialsInterface{
-      override def get: HashSet[() => Heartbeat] = HashSet[() => Heartbeat] (() => heartbeat)
-    }
     new OapRpcManagerSlave(
-      rpcEnv, rpcDriverEndpoint, executorId, null, sc.conf, Some(new TestDummyHeartbeatMaterials))
+      rpcEnv, rpcDriverEndpoint, executorId, SparkEnv.get.blockManager, sc.conf) {
+      override def heartbeatMessages: Array[() => Heartbeat] = { Array(() => heartbeat) }
+    }
   }
 }
