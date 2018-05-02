@@ -71,7 +71,7 @@ case class FiberCache(protected val fiberData: MemoryBlock) extends Logging {
         }
       }
     }
-    logWarning(s"Fiber Cache Dispose waiting detected for ${fiber}")
+    logWarning(s"Fiber Cache Dispose waiting detected for $fiber")
     false
   }
 
@@ -142,6 +142,7 @@ case class FiberCache(protected val fiberData: MemoryBlock) extends Logging {
   def size(): Long = fiberData.size()
 }
 
+// TODO: Need modify `OapBitmapWrappedFiberCache` to not depend on this.
 case class WrappedFiberCache(fc: FiberCache) {
   private var released = false
 

@@ -51,6 +51,20 @@ private[oap] case class ParquetDataFile(
     configuration.getBoolean(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key,
       OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.defaultValue.get)
 
+  private val inUseFiberCache = new Array[FiberCache](schema.length)
+
+  private def release(idx: Int): Unit = synchronized {
+    Option(inUseFiberCache(idx)).foreach { fiberCache =>
+      fiberCache.release()
+      inUseFiberCache.update(idx, null)
+    }
+  }
+
+  private def update(idx: Int, fiberCache: FiberCache): Unit = {
+    release(idx)
+    inUseFiberCache.update(idx, fiberCache)
+  }
+
   private def buildFiberByteData(
        dataType: DataType,
        rowGroupRowCount: Int,
@@ -141,16 +155,17 @@ private[oap] case class ParquetDataFile(
     val rows = new BatchColumn()
     val groupIdToRowIds = rowIds.map(optionRowIds => getGroupIdForRowIds(optionRowIds))
     val groupIds = groupIdToRowIds.map(_.keys).getOrElse(0 until meta.footer.getBlocks.size())
-    var fiberCacheGroup: Array[WrappedFiberCache] = null
 
     val iterator = groupIds.iterator.flatMap { groupId =>
-      fiberCacheGroup = requiredColumnIds.map { id =>
-        WrappedFiberCache(FiberCacheManager.get(DataFiber(this, id, groupId), conf))
+      val fiberCacheGroup = requiredColumnIds.map { id =>
+        val fiberCache = FiberCacheManager.get(DataFiber(this, id, groupId), conf)
+        update(id, fiberCache)
+        fiberCache
       }
 
       val rowCount = meta.footer.getBlocks.get(groupId).getRowCount.toInt
       val columns = fiberCacheGroup.zip(requiredColumnIds).map { case (fiberCache, id) =>
-        new ColumnValues(rowCount, schema(id).dataType, fiberCache.fc)
+        new ColumnValues(rowCount, schema(id).dataType, fiberCache)
       }
 
       rows.reset(rowCount, columns)
@@ -162,16 +177,13 @@ private[oap] case class ParquetDataFile(
           rows.toIterator
       }
 
-      CompletionIterator[InternalRow, Iterator[InternalRow]](iter,
-        fiberCacheGroup.zip(requiredColumnIds).foreach {
-          case (fiberCache, id) => fiberCache.release()
-        }
-      )
+      CompletionIterator[InternalRow, Iterator[InternalRow]](
+        iter, requiredColumnIds.foreach(release))
     }
     new OapIterator[InternalRow](iterator) {
       override def close(): Unit = {
         // To ensure if any exception happens, caches are still released after calling close()
-        if (fiberCacheGroup != null) fiberCacheGroup.foreach(_.release())
+        inUseFiberCache.indices.foreach(release)
       }
     }
   }
