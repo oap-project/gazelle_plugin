@@ -29,8 +29,7 @@ private[index] case class IndexFileWriterImpl(
     indexPath: Path) extends IndexFileWriter {
 
   protected override val os: OutputStream =
-
-  indexPath.getFileSystem(configuration).create(indexPath, true)
+    indexPath.getFileSystem(configuration).create(indexPath, true)
 
   // Give RecordWriter a chance which file it's writing to.
   override def getName: String = indexPath.toString

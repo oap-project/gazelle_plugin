@@ -100,9 +100,7 @@ private[oap] case class ParquetDataFile(
       // read a single column for each group.
       // comments: Parquet vectorized read can get multi-columns every time. However,
       // the minimum unit of cache is one column of one group.
-      val requiredId = new Array[Int](1)
-      requiredId(0) = fiberId
-      addRequestSchemaToConf(conf, requiredId)
+      addRequestSchemaToConf(conf, Array(fiberId))
       reader = new SingleGroupOapRecordReader(file, conf, meta.footer, groupId, rowGroupRowCount)
       reader.initialize()
       reader.initBatch()
