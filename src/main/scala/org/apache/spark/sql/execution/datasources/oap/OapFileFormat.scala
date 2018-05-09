@@ -50,11 +50,18 @@ private[sql] class OapFileFormat extends FileFormat
 
   val oapMetrics = new OapMetrics
 
-  override def initialize(
+  private var initialized = false
+  @transient protected var options: Map[String, String] = _
+  @transient protected var sparkSession: SparkSession = _
+  @transient protected var files: Seq[FileStatus] = _
+
+  def init(
       sparkSession: SparkSession,
       options: Map[String, String],
       files: Seq[FileStatus]): FileFormat = {
-    super.initialize(sparkSession, options, files)
+    this.sparkSession = sparkSession
+    this.options = options
+    this.files = files
 
     val hadoopConf = sparkSession.sparkContext.hadoopConfiguration
     // TODO
@@ -74,8 +81,19 @@ private[sql] class OapFileFormat extends FileFormat
 
     // OapFileFormat.serializeDataSourceMeta(hadoopConf, meta)
     inferSchema = meta.map(_.schema)
+    initialized = true
 
     this
+  }
+
+  override def inferSchema(
+      sparkSession: SparkSession,
+      options: Map[String, String],
+      files: Seq[FileStatus]): Option[StructType] = {
+    if (!initialized) {
+      init(sparkSession, options, files)
+    }
+    inferSchema
   }
 
   // TODO inferSchema could be lazy computed
