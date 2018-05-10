@@ -540,8 +540,11 @@ private[oap] class OapOutputWriter(
     writer.write(row)
   }
 
-  override def close(): WriteResult = {
+  override def close(): Unit = {
     writer.close()
+  }
+
+  override def writeStatus(): WriteResult = {
     OapWriteResult(dataFileName, rowCount, partitionString)
   }
 
