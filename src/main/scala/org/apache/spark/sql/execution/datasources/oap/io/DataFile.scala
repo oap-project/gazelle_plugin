@@ -29,6 +29,7 @@ import org.apache.hadoop.fs.FSDataInputStream
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache
+import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.Utils
 
@@ -39,8 +40,9 @@ abstract class DataFile {
 
   def createDataFileHandle(): DataFileHandle
   def getFiberData(groupId: Int, fiberId: Int): FiberCache
-  def iterator(requiredIds: Array[Int]): OapIterator[InternalRow]
-  def iterator(requiredIds: Array[Int], rowIds: Array[Int]): OapIterator[InternalRow]
+  def iterator(requiredIds: Array[Int], filters: Seq[Filter] = Nil): OapIterator[InternalRow]
+  def iteratorWithRowIds(requiredIds: Array[Int], rowIds: Array[Int], filters: Seq[Filter] = Nil)
+    : OapIterator[InternalRow]
 
   def totalRows(): Long
 }

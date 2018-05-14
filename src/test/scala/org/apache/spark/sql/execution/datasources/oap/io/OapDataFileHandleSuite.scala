@@ -47,6 +47,7 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
         CompressionCodec.GZIP,
         CompressionCodec.UNCOMPRESSED)
       columnsMeta <- Gen.listOfN(fieldCount, arbitrary[ColumnMeta])
+      rowGroupStatistics <- Gen.listOfN(fieldCount, arbitrary[ColumnStatistics])
     } yield generateOapDataFileHandle(rowGroupCount,
       defaultRowCount,
       fieldCount,
@@ -54,7 +55,8 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
       fiberLens.toArray,
       uncompressedFiberLens.toArray,
       columnsMeta,
-      codec)
+      codec,
+      rowGroupStatistics.toArray)
   }
 
   implicit lazy val arbOapDataFileHandle: Arbitrary[OapDataFileHandle] = {
@@ -69,7 +71,8 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
       fiberLens: Array[Int],
       uncompressedFiberLens: Array[Int],
       columnsMeta: Seq[ColumnMeta],
-      codec: CompressionCodec): OapDataFileHandle = {
+      codec: CompressionCodec,
+      rowGroupStatistics: Array[ColumnStatistics]): OapDataFileHandle = {
 
     val rowGroupMetaArray = new Array[RowGroupMeta](rowGroupCount)
     rowGroupMetaArray.indices.foreach(
@@ -78,6 +81,7 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
         .withNewEnd(100)
         .withNewFiberLens(fiberLens)
         .withNewUncompressedFiberLens(uncompressedFiberLens)
+        .withNewStatistics(rowGroupStatistics)
     )
 
     val oapDataFileHandle = new OapDataFileHandle(
@@ -129,7 +133,10 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
   private def isEqual(l: RowGroupMeta, r: RowGroupMeta): Boolean = {
     l.start == r.start && l.end == r.end &&
       (l.fiberLens sameElements r.fiberLens) &&
-      (l.fiberUncompressedLens sameElements r.fiberUncompressedLens)
+      (l.fiberUncompressedLens sameElements r.fiberUncompressedLens) &&
+      l.statistics.zip(r.statistics).forall {
+      case (left, right) => isEqual(left, right)
+      }
   }
 
   private def isEqual(l: OapDataFileHandle, r: OapDataFileHandle): Boolean = {
@@ -141,11 +148,11 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
       l.codec == r.codec &&
       l.rowGroupsMeta.length == r.rowGroupsMeta.length &&
       l.columnsMeta.length == r.columnsMeta.length &&
-      !l.columnsMeta.zip(r.columnsMeta).exists{
-        case (left, right) => !isEqual(left, right)
+      l.columnsMeta.zip(r.columnsMeta).forall {
+        case (left, right) => isEqual(left, right)
       } &&
-      !l.rowGroupsMeta.zip(r.rowGroupsMeta).exists{
-        case (left, right) => !isEqual(left, right)
+      l.rowGroupsMeta.zip(r.rowGroupsMeta).forall {
+        case (left, right) => isEqual(left, right)
       }
   }
 
@@ -154,7 +161,7 @@ class OapDataFileHandleCheck extends Properties("OapDataFileHandle") {
     l.encoding == r.encoding &&
       l.dictionaryDataLength == r.dictionaryDataLength &&
     l.dictionaryIdSize == r.dictionaryIdSize &&
-    isEqual(l.statistics, r.statistics)
+    isEqual(l.fileStatistics, r.fileStatistics)
   }
 
   def isEqual(l: ColumnStatistics, r: ColumnStatistics): Boolean = {
