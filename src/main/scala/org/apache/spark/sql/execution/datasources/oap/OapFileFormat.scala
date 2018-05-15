@@ -31,7 +31,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Expression, JoinedRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.{GenerateOrdering, GenerateUnsafeProjection}
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.execution.datasources.oap.filecache.DataFileHandleCacheManager
+import org.apache.spark.sql.execution.datasources.oap.filecache.DataFileMetaCacheManager
 import org.apache.spark.sql.execution.datasources.oap.index.{IndexContext, ScannerBuilder}
 import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.sql.execution.datasources.oap.utils.{FilterHelper, OapUtils}
@@ -258,11 +258,11 @@ private[sql] class OapFileFormat extends FileFormat
           def isSkippedByFile: Boolean = {
             if (m.dataReaderClassName == OapFileFormat.OAP_DATA_FILE_CLASSNAME) {
               val dataFile = DataFile(file.filePath, m.schema, m.dataReaderClassName, conf)
-              val dataFileHandle = DataFileHandleCacheManager(dataFile)
-                  .asInstanceOf[OapDataFileHandle]
+              val dataFileMeta = DataFileMetaCacheManager(dataFile)
+                  .asInstanceOf[OapDataFileMeta]
               if (filters.exists(filter => isSkippedByStatistics(
-                  dataFileHandle.columnsMeta.map(_.fileStatistics).toArray, filter, m.schema))) {
-                val totalRows = dataFileHandle.totalRowCount()
+                  dataFileMeta.columnsMeta.map(_.fileStatistics).toArray, filter, m.schema))) {
+                val totalRows = dataFileMeta.totalRowCount()
                 oapMetrics.updateTotalRows(totalRows)
                 oapMetrics.skipForStatistic(totalRows)
                 return true

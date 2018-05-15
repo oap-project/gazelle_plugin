@@ -179,9 +179,9 @@ class SimpleDataSuite extends ParquetDataFileSuite {
     }
   }
 
-  test("createDataFileHandle") {
+  test("getDataFileMeta") {
     val reader = ParquetDataFile(fileName, requestSchema, configuration)
-    val meta = reader.createDataFileHandle()
+    val meta = reader.getDataFileMeta()
     val footer = meta.footer
     assert(footer.getFileMetaData != null)
     assert(footer.getBlocks != null)

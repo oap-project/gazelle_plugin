@@ -38,7 +38,7 @@ abstract class DataFile {
   def schema: StructType
   def configuration: Configuration
 
-  def createDataFileHandle(): DataFileHandle
+  def getDataFileMeta(): DataFileMeta
   def getFiberData(groupId: Int, fiberId: Int): FiberCache
   def iterator(requiredIds: Array[Int], filters: Seq[Filter] = Nil): OapIterator[InternalRow]
   def iteratorWithRowIds(requiredIds: Array[Int], rowIds: Array[Int], filters: Seq[Filter] = Nil)
@@ -94,11 +94,11 @@ private[oap] case class VectorizedContext(
     returningBatch: Boolean)
 
 /**
- * The data file handle, will be cached for performance purpose, as we don't want to open the
+ * The data file meta, will be cached for performance purpose, as we don't want to open the
  * specified file again and again to get its data meta, the data file extension can have its own
  * implementation.
  */
-abstract class DataFileHandle {
+abstract class DataFileMeta {
   def fin: FSDataInputStream
   def len: Long
 

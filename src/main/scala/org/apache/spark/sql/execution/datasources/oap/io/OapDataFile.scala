@@ -40,7 +40,7 @@ private[oap] case class OapDataFile(
 
   private val dictionaries = new Array[Dictionary](schema.length)
   private val codecFactory = new CodecFactory(configuration)
-  private val meta = DataFileHandleCacheManager(this).asInstanceOf[OapDataFileHandle]
+  private val meta = DataFileMetaCacheManager(this).asInstanceOf[OapDataFileMeta]
 
   def isSkippedByRowGroup(filters: Seq[Filter] = Nil, rowGroupId: Int): Boolean = {
     if (filters.exists(filter =>
@@ -199,16 +199,16 @@ private[oap] case class OapDataFile(
   }
 
   def close(): Unit = {
-    // We don't close DataFileHandle in order to re-use it from cache.
+    // We don't close DataFileMeta in order to re-use it from cache.
     codecFactory.release()
   }
 
-  override def createDataFileHandle(): OapDataFileHandle = {
+  override def getDataFileMeta(): OapDataFileMeta = {
     val p = new Path(StringUtils.unEscapeString(path))
 
     val fs = p.getFileSystem(configuration)
 
-    new OapDataFileHandle().read(fs.open(p), fs.getFileStatus(p).getLen)
+    new OapDataFileMeta().read(fs.open(p), fs.getFileStatus(p).getLen)
   }
 
   def totalRows(): Long = meta.totalRowCount()

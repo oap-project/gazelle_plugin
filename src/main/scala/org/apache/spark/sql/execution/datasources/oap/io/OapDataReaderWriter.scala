@@ -80,7 +80,7 @@ private[oap] class OapDataWriter(
     }
   }
 
-  private val fiberMeta = new OapDataFileHandle(
+  private val fiberMeta = new OapDataFileMeta(
     rowCountInEachGroup = ROW_GROUP_SIZE,
     fieldCount = schema.length,
     codec = COMPRESSION_CODEC)
