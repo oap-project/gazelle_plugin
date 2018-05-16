@@ -64,8 +64,13 @@ private[index] case class BTreeIndexRecordWriter(
   private val mergeCombiner: (Seq[Int], Seq[Int]) => Seq[Int] = _ ++ _
   private val aggregator =
     new Aggregator[InternalRow, Int, Seq[Int]](combiner, merger, mergeCombiner)
-  private val externalSorter = new OapExternalSorter[InternalRow, Int, Seq[Int]](
-    TaskContext.get(), Some(aggregator), Some(ordering))
+  private val externalSorter = {
+    val taskContext = TaskContext.get()
+    val sorter = new OapExternalSorter[InternalRow, Int, Seq[Int]](
+      taskContext, Some(aggregator), Some(ordering))
+    taskContext.addTaskCompletionListener(_ => sorter.stop())
+    sorter
+  }
   private var recordCount: Int = 0
   private var nullRecordCount: Int = 0
   private lazy val statisticsManager = new StatisticsWriteManager {
