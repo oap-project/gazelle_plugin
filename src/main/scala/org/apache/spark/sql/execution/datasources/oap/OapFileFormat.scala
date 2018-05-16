@@ -24,7 +24,7 @@ import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.{Job, TaskAttemptContext}
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
 
-import org.apache.spark.TaskContext
+import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
@@ -46,7 +46,7 @@ private[sql] class OapFileFormat extends FileFormat
   with Logging
   with Serializable {
 
-  val oapMetrics = new OapMetrics
+  val oapMetrics = SparkEnv.get.oapManager.metricsManager
 
   private var initialized = false
   @transient protected var options: Map[String, String] = _
