@@ -20,13 +20,13 @@ package org.apache.spark.sql.execution.datasources.oap.io
 import java.io.Closeable
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ArrayBuffer
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.util.StringUtils
 import org.apache.parquet.hadoop._
 import org.apache.parquet.hadoop.api.RecordReader
+import org.apache.parquet.hadoop.metadata.{IndexedBlockMetaData, OrderedBlockMetaData}
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
@@ -40,6 +40,33 @@ import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
 import org.apache.spark.util.CompletionIterator
 
+/**
+ * ParquetDataFile use xxRecordReader read Parquet Data File,
+ * RecordReader divided into 2 categories:
+ * <p><b>Vectorized Record Reader</b></p>
+ * <ol>
+ *   <li><p><b>SpecificOapRecordReaderBase:</b> base of Vectorized Record Reader, similar to
+ *     SpecificParquetRecordReaderBase, include initialize and close method.</p></li>
+ *   <li><p><b>VectorizedOapRecordReader:</b> extends SpecificOapRecordReaderBase, similar to
+ *   VectorizedParquetRecordReader, use for full table scan, support batchReturn feature.</p></li>
+ *   <li><p><b>IndexedVectorizedOapRecordReader:</b> extends VectorizedOapRecordReader, use for
+ *   indexed table scan, mark valid records in result ColumnarBatch.</p></li>
+ *   <li><p><b>SingleGroupOapRecordReader:</b> extends VectorizedOapRecordReader, only read
+ *   one RowGroup data of one column, use for load data into DataFiber.</p></li>
+ * </ol>
+ * <p><b>MapReduce Record Reader</b></p>
+ * <ol>
+ *   <li><p><b>MrOapRecordReader:</b> similar to ParquetRecordReader of parquet-hadoop module,
+ *   use for full table scan, it slow than VectorizedOapRecordReader, but can read all data types
+ *   not just AtomicType data.</p></li>
+ *   <li><p><b>IndexedMrOapRecordReader:</b> use for indexed table scan, only return row data
+ *   in rowIds, it slow than IndexedVectorizedOapRecordReader, but can read all data types
+ *   not just AtomicType data.</p></li>
+ * </ol>
+ * @param path data file path
+ * @param schema parquet data file schema
+ * @param configuration hadoop configuration
+ */
 private[oap] case class ParquetDataFile(
     path: String,
     schema: StructType,
@@ -118,66 +145,13 @@ private[oap] case class ParquetDataFile(
     }
   }
 
-  private def getGroupIdForRowIds(rowIds: Array[Int]): Map[Int, Array[Int]] = {
-    val totalCount = rowIds.length
-    val groupIdToRowIds = ArrayBuffer[(Int, Array[Int])]()
-    var nextRowGroupStartRowId = 0
-    var index = 0
-    var flag = false
-    var blockId = 0
-    meta.footer.getBlocks.asScala.foreach(block => {
-      val currentRowGroupStartRowId = nextRowGroupStartRowId
-      nextRowGroupStartRowId += block.getRowCount.toInt
-      flag = true
-      val rowIdArray = new ArrayBuffer[Int]()
-      while (flag && index < totalCount) {
-        val globalRowId = rowIds(index)
-        if(globalRowId < nextRowGroupStartRowId) {
-          rowIdArray.append(globalRowId - currentRowGroupStartRowId)
-          index += 1
-        } else {
-          flag = false
-        }
-      }
-      if (rowIdArray.nonEmpty) {
-        groupIdToRowIds.append((blockId, rowIdArray.toArray))
-      }
-      blockId += 1
-    })
-    groupIdToRowIds.toMap
-  }
-
   private def buildIterator(
        conf: Configuration,
        requiredColumnIds: Array[Int],
        rowIds: Option[Array[Int]]): OapIterator[InternalRow] = {
-    val rows = new BatchColumn()
-    val groupIdToRowIds = rowIds.map(optionRowIds => getGroupIdForRowIds(optionRowIds))
-    val groupIds = groupIdToRowIds.map(_.keys).getOrElse(0 until meta.footer.getBlocks.size())
-
-    val iterator = groupIds.iterator.flatMap { groupId =>
-      val fiberCacheGroup = requiredColumnIds.map { id =>
-        val fiberCache = FiberCacheManager.get(DataFiber(this, id, groupId), conf)
-        update(id, fiberCache)
-        fiberCache
-      }
-
-      val rowCount = meta.footer.getBlocks.get(groupId).getRowCount.toInt
-      val columns = fiberCacheGroup.zip(requiredColumnIds).map { case (fiberCache, id) =>
-        new ColumnValues(rowCount, schema(id).dataType, fiberCache)
-      }
-
-      rows.reset(rowCount, columns)
-
-      val iter = groupIdToRowIds match {
-        case Some(map) =>
-          map(groupId).iterator.map(rowId => rows.moveToRow(rowId))
-        case None =>
-          rows.toIterator
-      }
-
-      CompletionIterator[InternalRow, Iterator[InternalRow]](
-        iter, requiredColumnIds.foreach(release))
+    val iterator = rowIds match {
+      case Some(ids) => buildIndexedIterator(conf, requiredColumnIds, ids)
+      case None => buildFullScanIterator(conf, requiredColumnIds)
     }
     new OapIterator[InternalRow](iterator) {
       override def close(): Unit = {
@@ -203,7 +177,7 @@ private[oap] case class ParquetDataFile(
         }
       case _ =>
         initRecordReader(
-          new DefaultRecordReader[UnsafeRow](new ParquetReadSupportWrapper,
+          new MrOapRecordReader[UnsafeRow](new ParquetReadSupportWrapper,
             file, configuration, meta.footer))
     }
   }
@@ -227,7 +201,7 @@ private[oap] case class ParquetDataFile(
           }
         case _ =>
           initRecordReader(
-            new OapRecordReader[UnsafeRow](new ParquetReadSupportWrapper,
+            new IndexedMrOapRecordReader[UnsafeRow](new ParquetReadSupportWrapper,
               file, configuration, rowIds, meta.footer))
       }
     }
@@ -254,6 +228,53 @@ private[oap] case class ParquetDataFile(
     new OapIterator[InternalRow](iterator.asInstanceOf[Iterator[InternalRow]]) {
       override def close(): Unit = iterator.close()
     }
+  }
+
+  private def buildFullScanIterator(
+      conf: Configuration,
+      requiredColumnIds: Array[Int]): Iterator[InternalRow] = {
+    val footer = meta.footer.toParquetMetadata
+    footer.getBlocks.asScala.iterator.flatMap { rowGroupMeta =>
+      val orderedBlockMetaData = rowGroupMeta.asInstanceOf[OrderedBlockMetaData]
+      val rows = buildBatchColumnFromCache(orderedBlockMetaData, conf, requiredColumnIds)
+      val iter = rows.toIterator
+      CompletionIterator[InternalRow, Iterator[InternalRow]](
+        iter, requiredColumnIds.foreach(release))
+    }
+  }
+
+  private def buildIndexedIterator(
+      conf: Configuration,
+      requiredColumnIds: Array[Int],
+      rowIds: Array[Int]): Iterator[InternalRow] = {
+    val footer = meta.footer.toParquetMetadata(rowIds)
+    footer.getBlocks.asScala.iterator.flatMap { rowGroupMeta =>
+      val indexedBlockMetaData = rowGroupMeta.asInstanceOf[IndexedBlockMetaData]
+      val rows = buildBatchColumnFromCache(indexedBlockMetaData, conf, requiredColumnIds)
+      val iter = indexedBlockMetaData.getNeedRowIds.iterator.
+        asScala.map(rowId => rows.moveToRow(rowId))
+      CompletionIterator[InternalRow, Iterator[InternalRow]](
+        iter, requiredColumnIds.foreach(release))
+    }
+  }
+
+  private def buildBatchColumnFromCache(
+      blockMetaData: OrderedBlockMetaData,
+      conf: Configuration,
+      requiredColumnIds: Array[Int]): BatchColumn = {
+    val rows = new BatchColumn()
+    val groupId = blockMetaData.getRowGroupId
+    val fiberCacheGroup = requiredColumnIds.map { id =>
+      val fiberCache = FiberCacheManager.get(DataFiber(this, id, groupId), conf)
+      update(id, fiberCache)
+      fiberCache
+    }
+    val rowCount = blockMetaData.getRowCount.toInt
+    val columns = fiberCacheGroup.zip(requiredColumnIds).map { case (fiberCache, id) =>
+      new ColumnValues(rowCount, schema(id).dataType, fiberCache)
+    }
+    rows.reset(rowCount, columns)
+    rows
   }
 
   private def addRequestSchemaToConf(conf: Configuration, requiredIds: Array[Int]): Unit = {
@@ -303,7 +324,7 @@ private[oap] case class ParquetDataFile(
   }
 
   override def getDataFileMeta(): ParquetDataFileMeta =
-    new ParquetDataFileMeta(configuration, path)
+    ParquetDataFileMeta(configuration, path)
 
   override def totalRows(): Long = {
     import scala.collection.JavaConverters._
