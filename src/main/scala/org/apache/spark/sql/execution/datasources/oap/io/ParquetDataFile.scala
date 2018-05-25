@@ -32,10 +32,11 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.{BatchColumn, ColumnValues}
-import org.apache.spark.sql.execution.datasources.oap.filecache.{MemoryManager, _}
+import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportWrapper
 import org.apache.spark.sql.execution.vectorized.ColumnarBatch
 import org.apache.spark.sql.internal.oap.OapConf
+import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
 import org.apache.spark.util.CompletionIterator
@@ -133,7 +134,7 @@ private[oap] case class ParquetDataFile(
       reader.initialize()
       reader.initBatch()
       val data = buildFiberByteData(schema(fiberId).dataType, rowGroupRowCount, reader)
-      MemoryManager.toDataFiberCache(data)
+      OapRuntime.getOrCreate.memoryManager.toDataFiberCache(data)
     } finally {
       if (reader != null) {
         try {
@@ -265,7 +266,8 @@ private[oap] case class ParquetDataFile(
     val rows = new BatchColumn()
     val groupId = blockMetaData.getRowGroupId
     val fiberCacheGroup = requiredColumnIds.map { id =>
-      val fiberCache = FiberCacheManager.get(DataFiber(this, id, groupId), conf)
+      val fiberCache =
+        OapRuntime.getOrCreate.fiberCacheManager.get(DataFiber(this, id, groupId), conf)
       update(id, fiberCache)
       fiberCache
     }

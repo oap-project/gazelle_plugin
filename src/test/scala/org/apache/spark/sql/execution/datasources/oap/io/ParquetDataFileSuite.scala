@@ -36,10 +36,10 @@ import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCacheManager
 import org.apache.spark.sql.execution.vectorized.ColumnarBatch
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
+import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.test.oap.SharedOapContext
 import org.apache.spark.sql.types._
 import org.apache.spark.util.Utils
@@ -438,7 +438,7 @@ class ParquetCacheDataSuite extends ParquetDataFileSuite {
   override def beforeEach(): Unit = {
     super.beforeEach()
     configuration.setBoolean(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key, true)
-    FiberCacheManager.clearAllFibers()
+    OapRuntime.getOrCreate.fiberCacheManager.clearAllFibers()
   }
 
   override def afterEach(): Unit = {
@@ -473,7 +473,7 @@ class ParquetCacheDataSuite extends ParquetDataFileSuite {
     for (i <- rowIds.indices) {
       assert(rowIds(i) == result(i))
     }
-    assert(FiberCacheManager.cacheCount == 2, "Cache count does not match.")
+    assert(OapRuntime.getOrCreate.fiberCacheManager.cacheCount == 2, "Cache count does not match.")
   }
 
   test("read by columnIds in fiberCache") {
@@ -492,7 +492,7 @@ class ParquetCacheDataSuite extends ParquetDataFileSuite {
     for (i <- 0 until length) {
       assert(i == result(i))
     }
-    assert(FiberCacheManager.cacheCount == 4, "Cache count does not match.")
+    assert(OapRuntime.getOrCreate.fiberCacheManager.cacheCount == 4, "Cache count does not match.")
   }
 }
 
