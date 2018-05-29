@@ -121,7 +121,7 @@ private[oap] case class ParquetDataFile(
     dataFiberBuilder.build().fiberData
   }
 
-  def getFiberData(groupId: Int, fiberId: Int): FiberCache = {
+  def cache(groupId: Int, fiberId: Int): FiberCache = {
     var reader: SingleGroupOapRecordReader = null
     try {
       val conf = new Configuration(configuration)
