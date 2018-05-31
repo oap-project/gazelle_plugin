@@ -81,6 +81,10 @@ private[oap] class SampleBasedStatisticsWriter(schema: StructType, conf: Configu
   lazy val sampleRate: Double = conf.getDouble(
     OapConf.OAP_STATISTICS_SAMPLE_RATE.key, OapConf.OAP_STATISTICS_SAMPLE_RATE.defaultValue.get)
 
+  private val minSampleSize = conf.getInt(
+    OapConf.OAP_STATISTICS_SAMPLE_MIN_SIZE.key,
+    OapConf.OAP_STATISTICS_SAMPLE_MIN_SIZE.defaultValue.get)
+
   protected var sampleArray: Array[Key] = _
 
   // SampleBasedStatistics file structure
@@ -94,7 +98,8 @@ private[oap] class SampleBasedStatisticsWriter(schema: StructType, conf: Configu
   // | unsafeRow-(sample_size) sizeInBytes | unsafeRow-(sample_size) content |
   override def write(writer: OutputStream, sortedKeys: ArrayBuffer[Key]): Int = {
     var offset = super.write(writer, sortedKeys)
-    val size = (sortedKeys.size * sampleRate).toInt
+    val size = math.max(
+      (sortedKeys.size * sampleRate).toInt, math.min(minSampleSize, sortedKeys.size))
     sampleArray = takeSample(sortedKeys, size)
 
     IndexUtils.writeInt(writer, size)

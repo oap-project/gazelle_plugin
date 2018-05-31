@@ -74,6 +74,13 @@ object OapConf {
       .doubleConf
       .createWithDefault(0.05)
 
+  val OAP_STATISTICS_SAMPLE_MIN_SIZE =
+    SQLConfigBuilder("spark.sql.oap.statistics.sampleMinSize")
+      .internal()
+      .doc("Minimum sample size for Sample Statistics, default value 24")
+      .intConf
+      .createWithDefault(24)
+
   val OAP_BLOOMFILTER_MAXBITS =
     SQLConfigBuilder("spark.sql.oap.statistics.bloom.maxBits")
       .internal()
