@@ -378,7 +378,7 @@ private[index] object BTreeIndexRecordReader {
 
     val fileReader = IndexFileReaderImpl(configuration, indexPath)
 
-    readVersion(fileReader) match {
+    IndexUtils.readVersion(fileReader) match {
       case Some(version) =>
         IndexVersion(version) match {
           case IndexVersion.OAP_INDEX_V1 =>
@@ -389,11 +389,6 @@ private[index] object BTreeIndexRecordReader {
       case None =>
         throw new OapException("not a valid index file")
     }
-  }
-
-  private def readVersion(fileReader: IndexFileReader): Option[Int] = {
-    val magicBytes = fileReader.read(0, IndexFile.VERSION_LENGTH)
-    IndexUtils.deserializeVersion(magicBytes)
   }
 }
 
