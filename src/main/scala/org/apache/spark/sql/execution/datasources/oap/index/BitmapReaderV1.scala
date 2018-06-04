@@ -17,19 +17,16 @@
 
 package org.apache.spark.sql.execution.datasources.oap.index
 
-import java.io.DataInput
-import java.io.EOFException
+import java.io.{DataInput, EOFException}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.hadoop.conf.Configuration
-import org.roaringbitmap.FastAggregation
-import org.roaringbitmap.RoaringBitmap
+import org.roaringbitmap.{FastAggregation, RoaringBitmap}
 
 import org.apache.spark.sql.execution.datasources.oap.filecache.{BitmapFiber, FiberCache}
 import org.apache.spark.sql.execution.datasources.oap.index.impl.IndexFileReaderImpl
-import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.sql.types.StructType
 
 private[oap] class BitmapReaderV1(
@@ -77,14 +74,14 @@ private[oap] class BitmapReaderV1(
             val entrySize = getIdxOffset(bmOffsetListCache, 0L, idx + 1) - curIdxOffset
             val entryFiber = BitmapFiber(() => fileReader.readFiberCache(curIdxOffset, entrySize),
               fileReader.getName, BitmapIndexSectionId.entryListSection, idx)
-            val entryCache = fiberCacheManager.get(entryFiber, conf)
+            val entryCache = fiberCacheManager.get(entryFiber)
             val entry = getDesiredBitmap(entryCache)
             entryCache.release
             entry
           })
         }
       case range if range.isNullPredicate =>
-        bmNullListCache = fiberCacheManager.get(bmNullListFiber, conf)
+        bmNullListCache = fiberCacheManager.get(bmNullListFiber)
         if (bmNullListCache.size != 0) {
           Seq(getDesiredBitmap(bmNullListCache))
         } else {

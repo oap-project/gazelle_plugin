@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.oap.utils
 
-import java.io.{ByteArrayOutputStream, DataOutputStream, File, FileOutputStream}
+import java.io.{ByteArrayOutputStream, DataOutputStream, FileOutputStream}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, Path}
@@ -66,7 +66,7 @@ class OapBitmapWrappedFiberCacheSuite
       val rbFileSize = rbPath.getFileSystem(conf).getFileStatus(rbPath).getLen
       val rbFiber = BitmapFiber(() => loadRbFile(fin, 0L, rbFileSize.toInt), rbPath.toString, 0, 0)
       val rbWfc = new OapBitmapWrappedFiberCache(
-        OapRuntime.getOrCreate.fiberCacheManager.get(rbFiber, conf))
+        OapRuntime.getOrCreate.fiberCacheManager.get(rbFiber))
       rbWfc.init
       val chunkLength = rbWfc.getTotalChunkLength
       val length = dataIdx.size / CHUNK_SIZE

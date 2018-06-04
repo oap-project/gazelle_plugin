@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.google.common.cache._
-import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
@@ -111,9 +110,9 @@ private[sql] class FiberCacheManager(
   // NOTE: all members' init should be placed before this line.
   logDebug(s"Initialized FiberCacheManager")
 
-  def get(fiber: Fiber, conf: Configuration): FiberCache = {
+  def get(fiber: Fiber): FiberCache = {
     logDebug(s"Getting Fiber: $fiber")
-    cacheBackend.get(fiber, conf)
+    cacheBackend.get(fiber)
   }
 
   def releaseIndexCache(indexName: String): Unit = {

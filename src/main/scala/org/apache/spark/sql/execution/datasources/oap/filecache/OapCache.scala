@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.collection.JavaConverters._
 
 import com.google.common.cache._
-import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.Utils
@@ -34,7 +33,7 @@ trait OapCache {
   val dataFiberCount: AtomicLong = new AtomicLong(0)
   val indexFiberCount: AtomicLong = new AtomicLong(0)
 
-  def get(fiber: Fiber, conf: Configuration): FiberCache
+  def get(fiber: Fiber): FiberCache
   def getIfPresent(fiber: Fiber): FiberCache
   def getFibers: Set[Fiber]
   def invalidate(fiber: Fiber): Unit
@@ -72,8 +71,8 @@ class SimpleOapCache extends OapCache with Logging {
   private val cacheGuardian = new CacheGuardian(Int.MaxValue)
   cacheGuardian.start()
 
-  override def get(fiber: Fiber, conf: Configuration): FiberCache = {
-    val fiberCache = fiber.cache(conf)
+  override def get(fiber: Fiber): FiberCache = {
+    val fiberCache = fiber.cache()
     incFiberCountAndSize(fiber, 1, fiberCache.size())
     fiberCache.occupy()
     // We only use fiber for once, and CacheGuardian will dispose it after release.
@@ -132,11 +131,11 @@ class GuavaOapCache(cacheMemory: Long, cacheGuardianMemory: Long) extends OapCac
    * To avoid storing configuration in each Cache, use a loader.
    * After all, configuration is not a part of Fiber.
    */
-  private def cacheLoader(fiber: Fiber, configuration: Configuration) =
+  private def cacheLoader(fiber: Fiber) =
     new Callable[FiberCache] {
       override def call(): FiberCache = {
         val startLoadingTime = System.currentTimeMillis()
-        val fiberCache = fiber.cache(configuration)
+        val fiberCache = fiber.cache()
         incFiberCountAndSize(fiber, 1, fiberCache.size())
         logDebug("Load missed fiber took %s. Fiber: %s"
           .format(Utils.getUsedTimeMs(startLoadingTime), fiber))
@@ -153,11 +152,11 @@ class GuavaOapCache(cacheMemory: Long, cacheGuardianMemory: Long) extends OapCac
     .concurrencyLevel(CONCURRENCY_LEVEL)
     .build[Fiber, FiberCache]()
 
-  override def get(fiber: Fiber, conf: Configuration): FiberCache = {
+  override def get(fiber: Fiber): FiberCache = {
     val readLock = FiberLockManager.getFiberLock(fiber).readLock()
     readLock.lock()
     try {
-      val fiberCache = cache.get(fiber, cacheLoader(fiber, conf))
+      val fiberCache = cache.get(fiber, cacheLoader(fiber))
       // Avoid loading a fiber larger than MAX_WEIGHT / CONCURRENCY_LEVEL
       assert(fiberCache.size() <= MAX_WEIGHT * KB / CONCURRENCY_LEVEL,
         s"Failed to cache fiber(${Utils.bytesToString(fiberCache.size())}) " +

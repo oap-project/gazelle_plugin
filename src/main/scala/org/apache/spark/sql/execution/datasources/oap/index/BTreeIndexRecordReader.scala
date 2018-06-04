@@ -88,7 +88,7 @@ private[index] abstract class BTreeIndexRecordReader(
     val readFunc =
       () => OapRuntime.getOrCreate.memoryManager.toIndexFiberCache(readData(offset, length))
     val fiber = BTreeFiber(readFunc, fileReader.getName, sectionId, idx)
-    OapRuntime.getOrCreate.fiberCacheManager.get(fiber, configuration)
+    OapRuntime.getOrCreate.fiberCacheManager.get(fiber)
   }
 
   protected def getLongFromBuffer(buffer: Array[Byte], offset: Int): Long =
