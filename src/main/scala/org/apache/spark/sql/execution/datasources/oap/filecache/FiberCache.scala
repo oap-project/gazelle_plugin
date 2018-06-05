@@ -134,21 +134,6 @@ case class FiberCache(protected val fiberData: MemoryBlock) extends Logging {
   def size(): Long = fiberData.size()
 }
 
-// TODO: Need modify `OapBitmapWrappedFiberCache` to not depend on this.
-case class WrappedFiberCache(fc: FiberCache) {
-  private var released = false
-
-  def release(): Unit = synchronized {
-    if (!released) {
-      try {
-        fc.release()
-      } finally {
-        released = true
-      }
-    }
-  }
-}
-
 object FiberCache {
   //  For test purpose :convert Array[Byte] to FiberCache
   private[oap] def apply(data: Array[Byte]): FiberCache = {
