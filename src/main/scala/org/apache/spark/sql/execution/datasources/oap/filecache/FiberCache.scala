@@ -49,27 +49,31 @@ case class FiberCache(protected val fiberData: MemoryBlock) extends Logging {
   // TODO: Couple Fiber and FiberCache. Pass fiber as a parameter is weired.
   def tryDispose(fiber: Fiber, timeout: Long): Boolean = {
     val startTime = System.currentTimeMillis()
-    val writeLock = FiberLockManager.getFiberLock(fiber).writeLock()
-    // Give caller a chance to deal with the long wait case.
-    while (System.currentTimeMillis() - startTime <= timeout) {
-      if (refCount != 0) {
-        // LRU access (get and occupy) done, but fiber was still occupied by at least one reader,
-        // so it needs to sleep some time to see if the reader done.
-        // Otherwise, it becomes a polling loop.
-        // TODO: use lock/sync-obj to leverage the concurrency APIs instead of explicit sleep.
-        Thread.sleep(100)
-      } else {
-        if (writeLock.tryLock(200, TimeUnit.MILLISECONDS)) {
-          try {
-            if (refCount == 0) {
-              realDispose(fiber)
-              return true
+    val writeLockOp = OapRuntime.get.map(_.fiberLockManager.getFiberLock(fiber).writeLock())
+    writeLockOp match {
+      case None => return true // already stopped OapRuntime
+      case Some(writeLock) =>
+        // Give caller a chance to deal with the long wait case.
+        while (System.currentTimeMillis() - startTime <= timeout) {
+          if (refCount != 0) {
+            // LRU access (get and occupy) done, but fiber was still occupied by at least one
+            // reader, so it needs to sleep some time to see if the reader done.
+            // Otherwise, it becomes a polling loop.
+            // TODO: use lock/sync-obj to leverage the concurrency APIs instead of explicit sleep.
+            Thread.sleep(100)
+          } else {
+            if (writeLock.tryLock(200, TimeUnit.MILLISECONDS)) {
+              try {
+                if (refCount == 0) {
+                  realDispose(fiber)
+                  return true
+                }
+              } finally {
+                writeLock.unlock()
+              }
             }
-          } finally {
-            writeLock.unlock()
           }
         }
-      }
     }
     logWarning(s"Fiber Cache Dispose waiting detected for $fiber")
     false
@@ -80,7 +84,7 @@ case class FiberCache(protected val fiberData: MemoryBlock) extends Logging {
   protected[filecache] def realDispose(fiber: Fiber): Unit = {
     if (!disposed) {
       OapRuntime.get.foreach(_.memoryManager.free(fiberData))
-      FiberLockManager.removeFiberLock(fiber)
+      OapRuntime.get.foreach(_.fiberLockManager.removeFiberLock(fiber))
     }
     disposed = true
   }

@@ -24,6 +24,7 @@ import scala.collection.JavaConverters._
 import com.google.common.cache._
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.util.Utils
 
 trait OapCache {
@@ -144,8 +145,9 @@ class GuavaOapCache(cacheMemory: Long, cacheGuardianMemory: Long) extends OapCac
       }
     })
 
+
   override def get(fiber: Fiber): FiberCache = {
-    val readLock = FiberLockManager.getFiberLock(fiber).readLock()
+    val readLock = OapRuntime.getOrCreate.fiberLockManager.getFiberLock(fiber).readLock()
     readLock.lock()
     try {
       val fiberCache = cache.get(fiber)

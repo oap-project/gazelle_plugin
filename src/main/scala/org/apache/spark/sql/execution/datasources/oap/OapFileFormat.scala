@@ -29,9 +29,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Expression, JoinedRow}
-import org.apache.spark.sql.catalyst.expressions.codegen.{GenerateOrdering, GenerateUnsafeProjection}
+import org.apache.spark.sql.catalyst.expressions.codegen.GenerateUnsafeProjection
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.execution.datasources.oap.filecache.DataFileMetaCacheManager
 import org.apache.spark.sql.execution.datasources.oap.index.{IndexContext, ScannerBuilder}
 import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.sql.execution.datasources.oap.utils.{FilterHelper, OapUtils}
@@ -39,7 +38,7 @@ import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.types.{AtomicType, StructField, StructType}
+import org.apache.spark.sql.types.{AtomicType, StructType}
 import org.apache.spark.util.SerializableConfiguration
 
 private[sql] class OapFileFormat extends FileFormat
@@ -260,7 +259,7 @@ private[sql] class OapFileFormat extends FileFormat
           def isSkippedByFile: Boolean = {
             if (m.dataReaderClassName == OapFileFormat.OAP_DATA_FILE_CLASSNAME) {
               val dataFile = DataFile(file.filePath, m.schema, m.dataReaderClassName, conf)
-              val dataFileMeta = DataFileMetaCacheManager(dataFile)
+              val dataFileMeta = OapRuntime.getOrCreate.dataFileMetaCacheManager.get(dataFile)
                   .asInstanceOf[OapDataFileMeta]
               if (filters.exists(filter => isSkippedByStatistics(
                   dataFileMeta.columnsMeta.map(_.fileStatistics).toArray, filter, m.schema))) {

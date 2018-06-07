@@ -41,7 +41,8 @@ private[oap] case class OapDataFile(
 
   private val dictionaries = new Array[Dictionary](schema.length)
   private val codecFactory = new CodecFactory(configuration)
-  private val meta = DataFileMetaCacheManager(this).asInstanceOf[OapDataFileMeta]
+  private val meta =
+    OapRuntime.getOrCreate.dataFileMetaCacheManager.get(this).asInstanceOf[OapDataFileMeta]
 
   def isSkippedByRowGroup(filters: Seq[Filter] = Nil, rowGroupId: Int): Boolean = {
     if (filters.exists(filter =>
