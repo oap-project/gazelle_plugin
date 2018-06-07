@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
-import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
@@ -127,36 +126,29 @@ class GuavaOapCache(cacheMemory: Long, cacheGuardianMemory: Long) extends OapCac
       math.ceil(value.size() / KB).toInt
   }
 
-  /**
-   * To avoid storing configuration in each Cache, use a loader.
-   * After all, configuration is not a part of Fiber.
-   */
-  private def cacheLoader(fiber: Fiber) =
-    new Callable[FiberCache] {
-      override def call(): FiberCache = {
-        val startLoadingTime = System.currentTimeMillis()
-        val fiberCache = fiber.cache()
-        incFiberCountAndSize(fiber, 1, fiberCache.size())
-        logDebug("Load missed fiber took %s. Fiber: %s"
-          .format(Utils.getUsedTimeMs(startLoadingTime), fiber))
-        _cacheSize.addAndGet(fiberCache.size())
-        fiberCache
-      }
-    }
-
   private val cache = CacheBuilder.newBuilder()
     .recordStats()
     .removalListener(removalListener)
     .maximumWeight(MAX_WEIGHT)
     .weigher(weigher)
     .concurrencyLevel(CONCURRENCY_LEVEL)
-    .build[Fiber, FiberCache]()
+    .build[Fiber, FiberCache](new CacheLoader[Fiber, FiberCache] {
+      override def load(key: Fiber): FiberCache = {
+        val startLoadingTime = System.currentTimeMillis()
+        val fiberCache = key.cache()
+        incFiberCountAndSize(key, 1, fiberCache.size())
+        logDebug(
+          "Load missed fiber took %s. Fiber: %s".format(Utils.getUsedTimeMs(startLoadingTime), key))
+        _cacheSize.addAndGet(fiberCache.size())
+        fiberCache
+      }
+    })
 
   override def get(fiber: Fiber): FiberCache = {
     val readLock = FiberLockManager.getFiberLock(fiber).readLock()
     readLock.lock()
     try {
-      val fiberCache = cache.get(fiber, cacheLoader(fiber))
+      val fiberCache = cache.get(fiber)
       // Avoid loading a fiber larger than MAX_WEIGHT / CONCURRENCY_LEVEL
       assert(fiberCache.size() <= MAX_WEIGHT * KB / CONCURRENCY_LEVEL,
         s"Failed to cache fiber(${Utils.bytesToString(fiberCache.size())}) " +
