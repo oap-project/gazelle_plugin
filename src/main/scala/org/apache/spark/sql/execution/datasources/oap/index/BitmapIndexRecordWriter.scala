@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.oap.index
 
-import java.io.{ByteArrayOutputStream, DataOutputStream, OutputStream}
+import java.io.{ByteArrayOutputStream, DataOutput, DataOutputStream, OutputStream}
 
 import scala.collection.immutable
 import scala.collection.mutable
@@ -149,16 +149,13 @@ private[oap] class BitmapIndexRecordWriter(
       bmOffsetListBuffer.append(bmEntryListOffset + totalBitmapSize)
       val bm = rowMapBitmap.get(uniqueKey).get
       bm.runOptimize()
-      val bos = new ByteArrayOutputStream()
-      val dos = new DataOutputStream(bos)
-      // Below serialization is directly written into byte/int/long arrays
+      val stream = new DataOutputStream(writer)
+      // Below serialization is directly written into byte/short/int/long arrays
       // according to roaring bitmap internal format(http://roaringbitmap.org/).
-      bm.serialize(dos)
-      dos.flush()
-      totalBitmapSize += bos.size
-      writer.write(bos.toByteArray)
-      dos.close()
-      bos.close()
+      // The serialize method accepts any classes which correctly implement
+      // the java DataOutput interface.
+      bm.serialize(stream)
+      totalBitmapSize += stream.size()
     })
     // Add another offset in order to easily get the offset for the last entry.
     bmOffsetListBuffer.append(bmEntryListOffset + totalBitmapSize)
@@ -169,14 +166,9 @@ private[oap] class BitmapIndexRecordWriter(
       bmNullEntryOffset = bmEntryListOffset + totalBitmapSize
       val bm = rowMapBitmap.get(bmNullKeyList.head).get
       bm.runOptimize()
-      val bos = new ByteArrayOutputStream()
-      val dos = new DataOutputStream(bos)
-      bm.serialize(dos)
-      dos.flush()
-      bmNullEntrySize = bos.size
-      writer.write(bos.toByteArray)
-      dos.close()
-      bos.close()
+      val stream = new DataOutputStream(writer)
+      bm.serialize(stream)
+      bmNullEntrySize = stream.size()
     }
   }
 
