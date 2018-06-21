@@ -209,7 +209,7 @@ private[oap] class OapDataReader(
   def initialize(
       conf: Configuration,
       options: Map[String, String] = Map.empty,
-      filters: Seq[Filter] = Nil): OapIterator[InternalRow] = {
+      filters: Seq[Filter] = Nil): OapCompletionIterator[InternalRow] = {
     logDebug("Initializing OapDataReader...")
     // TODO how to save the additional FS operation to get the Split size
     val fileScanner = DataFile(pathStr, meta.schema, meta.dataReaderClassName, conf)
@@ -217,7 +217,7 @@ private[oap] class OapDataReader(
       fileScanner.asInstanceOf[ParquetDataFile].setVectorizedContext(context)
     }
 
-    def fullScan: OapIterator[InternalRow] = {
+    def fullScan: OapCompletionIterator[InternalRow] = {
       val start = if (log.isDebugEnabled) System.currentTimeMillis else 0
       val iter = fileScanner.iterator(requiredIds, filters)
       val end = if (log.isDebugEnabled) System.currentTimeMillis else 0
