@@ -63,7 +63,7 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
         throw new OapException("not a valid index file")
     }
     _totalRows = bitmapReader.totalRows
-    fileReader.close
+    fileReader.close()
     this
   }
 
@@ -72,8 +72,12 @@ private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(i
       conf: Configuration): StatsAnalysisResult = {
     val fileReader = IndexFileReaderImpl(conf, idxPath)
     val reader = BitmapReader(fileReader, intervalArray, keySchema, conf)
-    fileReader.close
-    reader.analyzeStatistics
+    _totalRows = reader.totalRows
+    try {
+      reader.analyzeStatistics()
+    } finally {
+      fileReader.close()
+    }
   }
 
   override def toString: String = "BitMapScanner"
