@@ -17,16 +17,18 @@
 
 package org.apache.spark.sql.execution.datasources.oap.io
 
-import java.io.File
+import java.io.{File, IOException}
 
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.hadoop.fs.Path
+import org.apache.parquet.column.ColumnDescriptor
 import org.apache.parquet.column.ParquetProperties.WriterVersion
 import org.apache.parquet.column.ParquetProperties.WriterVersion.{PARQUET_1_0, PARQUET_2_0}
 import org.apache.parquet.example.Paper
 import org.apache.parquet.example.data.Group
 import org.apache.parquet.example.data.simple.{SimpleGroup, SimpleGroupFactory}
+import org.apache.parquet.hadoop.ParquetFiberDataReader
 import org.apache.parquet.hadoop.example.{ExampleParquetWriter, GroupWriteSupport}
 import org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED
 import org.apache.parquet.schema.{MessageType, PrimitiveType}
@@ -36,7 +38,9 @@ import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.execution.vectorized.ColumnarBatch
+import org.apache.spark.memory.MemoryMode
+import org.apache.spark.sql.execution.datasources.parquet.{VectorizedColumnReader, VectorizedColumnReaderWrapper}
+import org.apache.spark.sql.execution.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
@@ -493,6 +497,63 @@ class ParquetCacheDataSuite extends ParquetDataFileSuite {
       assert(i == result(i))
     }
     assert(OapRuntime.getOrCreate.fiberCacheManager.cacheCount == 4, "Cache count does not match.")
+  }
+}
+
+class ParquetFiberDataReaderSuite extends ParquetDataFileSuite {
+
+  override def parquetSchema: MessageType = new MessageType("test",
+    new PrimitiveType(REQUIRED, INT32, "int32_field"),
+    new PrimitiveType(REQUIRED, INT64, "int64_field"),
+    new PrimitiveType(REQUIRED, BOOLEAN, "boolean_field"),
+    new PrimitiveType(REQUIRED, FLOAT, "float_field"),
+    new PrimitiveType(REQUIRED, DOUBLE, "double_field")
+  )
+
+  override def dataVersion: WriterVersion = PARQUET_1_0
+
+  override def data: Seq[Group] = {
+    val factory = new SimpleGroupFactory(parquetSchema)
+    (0 until 1000 by 2).map(i => factory.newGroup()
+      .append("int32_field", i)
+      .append("int64_field", 64L)
+      .append("boolean_field", true)
+      .append("float_field", 1.0f)
+      .append("double_field", 2.0d))
+  }
+
+  test("read single column in a group") {
+    val meta = ParquetDataFileMeta(configuration, fileName)
+    val reader = ParquetFiberDataReader.open(configuration,
+      new Path(fileName), meta.footer.toParquetMetadata)
+    val footer = reader.getFooter
+    val rowCount = footer.getBlocks.get(0).getRowCount.toInt
+    val vector = ColumnVector.allocate(rowCount, IntegerType, MemoryMode.ON_HEAP)
+    val blockMetaData = footer.getBlocks.get(0)
+    val columnDescriptor = parquetSchema.getColumns.get(0)
+    val fiberData = reader.readFiberData(blockMetaData, columnDescriptor)
+    val columnReader =
+      new VectorizedColumnReaderWrapper(
+        new VectorizedColumnReader(columnDescriptor, fiberData.getPageReader(columnDescriptor)))
+    columnReader.readBatch(rowCount, vector)
+    for (i <- 0 until rowCount) {
+      assert(i * 2 == vector.getInt(i))
+    }
+  }
+
+  test("can not find column meta") {
+    val meta = ParquetDataFileMeta(configuration, fileName)
+    val reader = ParquetFiberDataReader.open(configuration,
+      new Path(fileName), meta.footer.toParquetMetadata)
+    val footer = reader.getFooter
+    val rowCount = footer.getBlocks.get(0).getRowCount.toInt
+    val vector = ColumnVector.allocate(rowCount, IntegerType, MemoryMode.ON_HEAP)
+    val blockMetaData = footer.getBlocks.get(0)
+    val columnDescriptor = new ColumnDescriptor(Array(s"${fileName}_temp"), INT32, 0, 0)
+    val exception = intercept[IOException] {
+      reader.readFiberData(blockMetaData, columnDescriptor)
+    }
+    assert(exception.getMessage.contains("Can not find column meta of column"))
   }
 }
 
