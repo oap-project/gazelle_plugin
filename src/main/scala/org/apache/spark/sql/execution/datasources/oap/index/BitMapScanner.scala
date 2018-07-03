@@ -27,8 +27,6 @@ import org.apache.spark.sql.execution.datasources.oap.statistics.StatsAnalysisRe
 
 private[oap] case class BitMapScanner(idxMeta: IndexMeta) extends IndexScanner(idxMeta) {
 
-  override def canBeOptimizedByStatistics: Boolean = true
-
   private var _totalRows: Long = 0
   @transient private var bmRowIdIterator: Iterator[Int] = _
   override def hasNext: Boolean = bmRowIdIterator.hasNext

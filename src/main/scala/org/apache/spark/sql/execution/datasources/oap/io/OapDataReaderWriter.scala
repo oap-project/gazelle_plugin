@@ -258,7 +258,7 @@ private[oap] class OapDataReaderV1(
     }
 
     filterScanners match {
-      case Some(indexScanners) if indexScanners.indexIsAvailable(path, conf) =>
+      case Some(indexScanners) if indexScanners.isIndexFileBeneficial(path, conf) =>
         def getRowIds(options: Map[String, String]): Array[Int] = {
           indexScanners.initialize(path, conf)
 
