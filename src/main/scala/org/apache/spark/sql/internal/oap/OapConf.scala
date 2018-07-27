@@ -234,4 +234,12 @@ object OapConf {
       .doc("To indicate if enable parquet data cache, default false")
       .booleanConf
       .createWithDefault(false)
+
+  val OAP_INDEX_DIRECTORY =
+    SQLConfigBuilder("spark.sql.oap.index.directory")
+      .internal()
+      .doc("To specify the directory of index file, if the value " +
+        "is empty, it will store in the data file path")
+      .stringConf
+      .createWithDefault("")
 }

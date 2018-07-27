@@ -27,12 +27,13 @@ import org.apache.parquet.bytes.BytesUtils
 import org.apache.parquet.io.api.Binary
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.AnalysisException
+import org.apache.spark.sql.{AnalysisException, RuntimeConfig}
 import org.apache.spark.sql.catalyst.{CatalystTypeConverters, InternalRow}
 import org.apache.spark.sql.catalyst.catalog.CatalogTypes._
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, EqualTo, Literal}
 import org.apache.spark.sql.execution.datasources.{FileIndex, PartitionDirectory, PartitioningUtils}
 import org.apache.spark.sql.execution.datasources.oap.{DataSourceMeta, Key, OapFileFormat}
+import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.types.UTF8String
 
@@ -198,24 +199,5 @@ object OapUtils extends Logging {
       partitionSpec: Option[TablePartitionSpec] = None): Seq[PartitionDirectory] = {
     fileIndex.refresh()
     getPartitions(fileIndex, partitionSpec)
-  }
-
-  /**
-   * If fileIndex.rootPaths has only one item, it will use as job temporary dir,
-   * else get table base dir use as job temporary dir.
-   * @param fileIndex [[FileIndex]] of a relation
-   * @return path use to save job temporary data
-   */
-  def getOutPutPath(fileIndex: FileIndex): Path = {
-    def getTableBaseDir(path: Path, times: Int): Path = {
-      if (times > 0) getTableBaseDir(path.getParent, times - 1)
-      else path
-    }
-    val paths = fileIndex.rootPaths
-    assert(paths.nonEmpty, "Expected at least one path of fileIndex.rootPaths, but no value")
-    paths.length match {
-      case 1 => paths.head
-      case _ => getTableBaseDir(paths.head, fileIndex.partitionSchema.length)
-    }
   }
 }
