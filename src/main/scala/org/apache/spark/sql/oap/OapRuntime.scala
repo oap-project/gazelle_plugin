@@ -54,7 +54,7 @@ private[oap] class OapDriverRuntime(sparkEnv: SparkEnv) extends OapRuntime {
   OapEnv.initWithoutCreatingOapSession()
 
   override val memoryManager =
-    if (OapRuntime.isLocal(sparkEnv.conf)) new MemoryManager(sparkEnv) else null
+    if (OapRuntime.isLocal(sparkEnv.conf)) MemoryManager(sparkEnv) else null
   override val fiberCacheManager =
     if (OapRuntime.isLocal(sparkEnv.conf)) new FiberCacheManager(sparkEnv, memoryManager) else null
   override val fiberSensor = new FiberSensor
@@ -97,7 +97,7 @@ private[oap] class OapDriverRuntime(sparkEnv: SparkEnv) extends OapRuntime {
  * Initializing [[FiberCacheManager]], [[MemoryManager]]
  */
 private[oap] class OapExecutorRuntime(sparkEnv: SparkEnv) extends OapRuntime {
-  override val memoryManager = new MemoryManager(sparkEnv)
+  override val memoryManager = MemoryManager(sparkEnv)
   override val fiberCacheManager = new FiberCacheManager(sparkEnv, memoryManager)
   private val oapRpcDriverEndpoint = RpcUtils.makeDriverRef(
     OapRpcManagerMaster.DRIVER_ENDPOINT_NAME, sparkEnv.conf, sparkEnv.rpcEnv)
