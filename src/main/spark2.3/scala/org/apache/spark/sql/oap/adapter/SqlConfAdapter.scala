@@ -18,29 +18,14 @@
 package org.apache.spark.sql.oap.adapter
 
 import org.apache.spark.internal.config.ConfigBuilder
-import org.apache.spark.sql.internal.SQLConf.SQLConfigBuilder
+import org.apache.spark.sql.internal.SQLConf
 
 object SqlConfAdapter {
-  def buildConf(key: String): ConfigBuilder = SQLConfigBuilder(key)
+  def buildConf(key: String): ConfigBuilder = SQLConf.buildConf(key)
 
-  val ORC_VECTORIZED_READER_ENABLED =
-    SqlConfAdapter.buildConf("spark.sql.orc.enableVectorizedReader")
-      .doc("Enables vectorized orc decoding.")
-      .booleanConf
-      .createWithDefault(true)
+  val ORC_VECTORIZED_READER_ENABLED = SQLConf.ORC_VECTORIZED_READER_ENABLED
 
-  val COLUMN_VECTOR_OFFHEAP_ENABLED =
-    SqlConfAdapter.buildConf("spark.sql.columnVector.offheap.enabled")
-      .internal()
-      .doc("When true, use OffHeapColumnVector in ColumnarBatch.")
-      .booleanConf
-      .createWithDefault(false)
+  val COLUMN_VECTOR_OFFHEAP_ENABLED = SQLConf.COLUMN_VECTOR_OFFHEAP_ENABLED
 
-  val ORC_COPY_BATCH_TO_SPARK =
-    SqlConfAdapter.buildConf("spark.sql.orc.copyBatchToSpark")
-      .doc("Whether or not to copy the ORC columnar batch to Spark columnar batch in the " +
-        "vectorized ORC reader.")
-      .internal()
-      .booleanConf
-      .createWithDefault(false)
+  val ORC_COPY_BATCH_TO_SPARK = SQLConf.ORC_COPY_BATCH_TO_SPARK
 }
