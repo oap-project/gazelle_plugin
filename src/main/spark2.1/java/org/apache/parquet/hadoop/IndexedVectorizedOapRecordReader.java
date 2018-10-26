@@ -27,6 +27,8 @@ import org.apache.parquet.hadoop.metadata.ParquetFooter;
 import org.apache.parquet.hadoop.OapParquetFileReader.RowGroupDataAndRowIds;
 import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntArrayList;
 import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntList;
+
+import org.apache.spark.sql.execution.vectorized.ColumnVector;
 import org.apache.spark.sql.oap.adapter.CapacityAdapter;
 
 public class IndexedVectorizedOapRecordReader extends VectorizedOapRecordReader {
@@ -95,6 +97,49 @@ public class IndexedVectorizedOapRecordReader extends VectorizedOapRecordReader 
 
     /**
      * Advances to the next batch of rows. Returns false if there are no more.
+     *
+     * The RowGroup data divide into ColumnarBatch may as following:
+     * ---------------------------
+     * | batch(0)   no index hit |
+     * ---------------------------
+     * | batch(1)   index hit    |
+     * ---------------------------
+     * | batch(2)   no index hit |
+     * ---------------------------
+     * | batch(3)   index hit    |
+     * ---------------------------
+     * | batch(4)   no index hit |
+     * ---------------------------
+     *
+     * The sample data above will be read through call nextBatch() method 3 times:
+     *
+     * 1. The first time:
+     *    1.1 `idsMap.isEmpty` is true, assignment `totalCountLoadedSoFar` to `rowsReturned`,
+     *    now `rowsReturned` and `totalCountLoadedSoFar` both 0.
+     *    1.2 `rowsReturned < totalRowCount` is false because totalRowCount init by footer, with
+     *    sample data totalRowCount may eq (columnarBatch capacity * 4 + n)
+     *    1.3 Call `checkEndOfRowGroup` method, it will read next row group data and divide
+     *    row group level rowIds into columnarBatch level (pageNumber-> rowIds) pairs and put
+     *    them into idsMap.
+     *    1.4 Call `skipBatchInternal` because `idsMap.remove(0)` is null.
+     *    1.5 Call `nextBatchInternal` and `filterRowsWithIndex(ids)` because `idsMap.remove(1)`
+     *    not empty.
+     *    1.6 return true, and now columnarBatch has been filled by batch(1)
+     *
+     * 2. The second time:
+     *    2.1 `idsMap.isEmpty` is false
+     *    2.2 `rowsReturned >= totalRowCount` is false
+     *    2.3 `checkEndOfRowGroup` will jump out because `rowsReturned != totalCountLoadedSoFar`
+     *    2.4 Call `skipBatchInternal` because `idsMap.remove(2)` is null.
+     *    2.5 Call `nextBatchInternal` and `filterRowsWithIndex(ids)` because `idsMap.remove(3)`
+     *    not empty.
+     *    2.6 return true, and now columnarBatch has been filled by batch(3)
+     *
+     * 3. The third time:
+     *    3.1 `idsMap.isEmpty` is true, assignment `totalCountLoadedSoFar` to `rowsReturned`,
+     *    now `rowsReturned` and `totalCountLoadedSoFar` both eq `totalRowCount`
+     *    3.2 return false because `rowsReturned >= totalRowCount` is true, and the batch(4) will
+     *    discard directly.
      */
     @Override
     public boolean nextBatch() throws IOException {
@@ -103,33 +148,26 @@ public class IndexedVectorizedOapRecordReader extends VectorizedOapRecordReader 
       if (idsMap.isEmpty()) {
         rowsReturned = totalCountLoadedSoFar;
       }
-      return super.nextBatch() && filterRowsWithIndex();
-    }
 
-    @Override
-    protected void checkEndOfRowGroup() throws IOException {
-      if (rowsReturned != totalCountLoadedSoFar) {
-        return;
-      }
-      // if rowsReturned == totalCountLoadedSoFar
-      // readNextRowGroup & divideRowIdsIntoPages
-      readNextRowGroup();
-    }
+      if (rowsReturned >= totalRowCount) return false;
 
-    private boolean filterRowsWithIndex() throws IOException {
-      IntList ids = idsMap.remove(currentPageNumber);
-      if (ids == null || ids.isEmpty()) {
-        currentPageNumber++;
-        return this.nextBatch();
-      } else {
-        // TODO push ids to ColumnReader
-        if (!returnColumnarBatch) {
-          batchIds = ids;
-          numBatched = ids.size();
-        }
-        currentPageNumber++;
-        return true;
+      checkEndOfRowGroup();
+
+      IntList ids = idsMap.remove(currentPageNumber++);
+
+      // when we do this while loop there must be remainder pageNumber->ids in idsMap，
+      // it guarantee by rowsReturned value and checkEndOfRowGroup method.
+      while (ids == null || ids.isEmpty()) {
+        skipBatchInternal();
+        ids = idsMap.remove(currentPageNumber++);
       }
+
+      nextBatchInternal();
+      if (!returnColumnarBatch) {
+        batchIds = ids;
+        numBatched = ids.size();
+      }
+      return true;
     }
 
     private void divideRowIdsIntoPages(IntList currentIndexList) {
@@ -154,5 +192,21 @@ public class IndexedVectorizedOapRecordReader extends VectorizedOapRecordReader 
     RowGroupDataAndRowIds rowGroupDataAndRowIds = reader.readNextRowGroupAndRowIds();
     initColumnReaders(rowGroupDataAndRowIds.getPageReadStore());
     divideRowIdsIntoPages(rowGroupDataAndRowIds.getRowIds());
+  }
+
+  /**
+   * Do skipBatch for every ColumnVector in ColumnarBatch, actually when we call this method, we
+   * will skip the whole columnarBatch, so this num is columnarBatch.capacity().
+   */
+  protected void skipBatchInternal() throws IOException {
+    int num = columnarBatch.capacity();
+    for (int i = 0; i < columnReaders.length; ++i) {
+      if (columnReaders[i] == null) continue;
+      ColumnVector vector = columnarBatch.column(i);
+      columnReaders[i].skipBatch(num, vector);
+    }
+    rowsReturned += num;
+    numBatched = num;
+    batchIdx = 0;
   }
 }
