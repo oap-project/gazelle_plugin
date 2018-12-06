@@ -1366,6 +1366,24 @@ class FilterSuite extends QueryTest with SharedOapContext with BeforeAndAfterEac
     }
   }
 
+  test("OAP-930 test columns hit index when in optimized to inset") {
+    val data: Seq[(Int, String)] = (0 to 100).map { i => (i, s"this is row $i") }
+    data.toDF("a", "b").createOrReplaceTempView("t")
+
+    sql("insert overwrite table parquet_test select * from t")
+    withIndex(TestIndex("parquet_test", "idx1")) {
+      sql("create oindex idx1 on parquet_test (a)")
+      // create sequence with one more element than in-to-inSet optimized threshold
+      val intSeq = 0 to sqlContext.conf.optimizerInSetConversionThreshold
+      val df = sql(s"SELECT * from parquet_test WHERE a in(" +
+        s"${intSeq.map(_.toString).mkString(",")})")
+      val rowList = intSeq.map(i => Row(i, s"this is row $i"))
+      checkAnswer(df, rowList)
+      val ret = getColumnsHitIndex(df.queryExecution.sparkPlan)
+      assert(ret.keySet.size == 1 && ret.contains("a"))
+    }
+  }
+
   test("filtering parquet in FiberCache") {
     withSQLConf("spark.sql.oap.parquet.data.cache.enable" -> "true") {
       val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }

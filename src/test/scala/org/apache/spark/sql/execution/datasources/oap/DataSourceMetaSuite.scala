@@ -426,6 +426,9 @@ class DataSourceMetaSuite extends SharedOapContext with BeforeAndAfter {
       val lte = Seq(LessThanOrEqual(AttributeReference("a", IntegerType)(), Literal(1)))
       val gte = Seq(GreaterThanOrEqual(AttributeReference("a", IntegerType)(), Literal(1)))
       val gte1 = Seq(GreaterThanOrEqual(Literal(1), AttributeReference("a", IntegerType)()))
+      val inSet = Seq(InSet(AttributeReference("a", IntegerType)(),
+        Set(Literal(1), Literal(2), Literal(3), Literal(4), Literal(5), Literal(6),
+          Literal(7), Literal(8), Literal(9), Literal(10), Literal(11))))
       val or1 = Seq(Or(GreaterThan(AttributeReference("a", IntegerType)(), Literal(15)),
         EqualTo(AttributeReference("a", IntegerType)(), Literal(1))))
       val or2 = Seq(Or(GreaterThan(AttributeReference("a", IntegerType)(), Literal(15)),
@@ -512,6 +515,7 @@ class DataSourceMetaSuite extends SharedOapContext with BeforeAndAfter {
       assert(lte.exists(meta.isSupportedByIndex(_, None)))
       assert(gte.exists(meta.isSupportedByIndex(_, None)))
       assert(gte1.exists(meta.isSupportedByIndex(_, None)))
+      assert(inSet.exists(meta.isSupportedByIndex(_, None)))
       assert(!eq2.exists(meta.isSupportedByIndex(_, None)))
       assert(or1.exists(meta.isSupportedByIndex(_, None)))
       assert(or2.exists(meta.isSupportedByIndex(_, None)))
