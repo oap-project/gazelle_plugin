@@ -655,6 +655,11 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+              <excludes>
+                <exclude>src/main/spark2.3.2</exclude>
+              </excludes>
+            </configuration>
           </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
