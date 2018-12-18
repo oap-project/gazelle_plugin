@@ -622,8 +622,8 @@
         <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
-        <spark.version>2.3.0</spark.version>
-        <spark.internal.version>2.3.0</spark.internal.version>
+        <spark.version>2.3.2</spark.version>
+        <spark.internal.version>2.3.2</spark.internal.version>
         <scala.version>2.11.8</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
         <java.version>1.8</java.version>
@@ -649,7 +649,7 @@
             </executions>
             <configuration>
               <visitor>true</visitor>
-              <sourceDirectory>src/main/spark2.3/antlr4</sourceDirectory>
+              <sourceDirectory>src/main/spark2.3.2/antlr4</sourceDirectory>
             </configuration>
           </plugin>
           <plugin>
@@ -674,6 +674,7 @@
                 </goals>
                 <configuration>
                   <sources>
+                    <source>src/main/spark2.3.2</source>
                     <source>src/main/spark2.3</source>
                   </sources>
                 </configuration>
