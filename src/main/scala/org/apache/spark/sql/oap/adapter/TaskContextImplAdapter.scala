@@ -17,27 +17,35 @@
 
 package org.apache.spark.sql.oap.adapter
 
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.expressions.{Expression, Attribute}
-import org.apache.spark.sql.execution.FileSourceScanExec
-import org.apache.spark.sql.execution.datasources.{DataSourceStrategy, HadoopFsRelation}
-import org.apache.spark.sql.types.StructType
+import java.util.Properties
 
-object FileSourceScanExecAdapter {
-  def createFileSourceScanExec(
-      relation: HadoopFsRelation,
-      output: Seq[Attribute],
-      requiredSchema: StructType,
-      partitionFilters: Seq[Expression],
-      dataFilters: Seq[Expression],
-      metastoreTableIdentifier: Option[TableIdentifier]): FileSourceScanExec = {
-    FileSourceScanExec(
-      relation,
-      output,
-      requiredSchema,
-      partitionFilters,
-      dataFilters,
-      metastoreTableIdentifier)
+import org.apache.spark.{TaskContext, TaskContextImpl}
+import org.apache.spark.memory.TaskMemoryManager
+import org.apache.spark.metrics.MetricsSystem
+
+
+object TaskContextImplAdapter {
+
+  /**
+   * The Construction of TaskContextImpl has changed in the spark2.3 version.
+   * Ignore it in the spark2.1, spark2.2 version
+   */
+  def createTaskContextImpl(
+      stageId: Int,
+      partitionId: Int,
+      taskAttemptId: Long,
+      attemptNumber: Int,
+      taskMemoryManager: TaskMemoryManager,
+      localProperties: Properties,
+      metricsSystem: MetricsSystem): TaskContext = {
+    new TaskContextImpl(
+      stageId,
+      stageAttemptNumber = 0,
+      partitionId,
+      taskAttemptId,
+      attemptNumber,
+      taskMemoryManager,
+      localProperties,
+      metricsSystem)
   }
 }

@@ -17,14 +17,9 @@
 
 package org.apache.spark.sql.oap.adapter
 
-import org.apache.parquet.hadoop.VectorizedOapRecordReader
-import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Statistics}
+import org.apache.spark.sql.internal.SQLConf
 
-object CapacityAdapter {
-  /**
-    * Returns batch CAPACITY
-    */
-  def getCapacity(columnarBatch: ColumnarBatch): Int = {
-    VectorizedOapRecordReader.CAPACITY
-  }
+object LogicalPlanAdapter {
+  def getStatistics(plan: LogicalPlan, conf: SQLConf): Statistics = plan.stats
 }

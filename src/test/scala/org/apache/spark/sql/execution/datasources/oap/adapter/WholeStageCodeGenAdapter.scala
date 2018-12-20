@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.oap.adapter
+package org.apache.spark.sql.execution.datasources.oap.adapter
 
-import org.apache.spark.sql.catalyst.plans.logical.{Statistics, LogicalPlan}
-import org.apache.spark.sql.internal.SQLConf
+object WholeStageCodeGenAdapter {
+  /**
+   * Enable WholeStageCodeGen, explains of Sql plans has changed in the spark2.3 version.
+   */
+  def getKeywordPrefix(): String = {
+    "*(1) "
+  }
 
-object LogicalPlanAdapter {
-  def getStatistics(plan: LogicalPlan, conf:SQLConf): Statistics = plan.stats
 }

@@ -17,34 +17,21 @@
 
 package org.apache.spark.sql.oap.adapter
 
-import java.util.Properties
+import org.apache.spark.memory.MemoryMode
+import org.apache.spark.sql.execution.vectorized.{OffHeapColumnVector, OnHeapColumnVector, WritableColumnVector}
+import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.vectorized.ColumnVector
 
-import org.apache.spark.{TaskContext, TaskContextImpl}
-import org.apache.spark.memory.TaskMemoryManager
-import org.apache.spark.metrics.MetricsSystem
-
-
-object TaskContextImplAdapter {
+object ColumnVectorAdapter {
   /**
-    * The Construction of TaskContextImpl has changed in the spark2.3 version.
-    * Ignore it in the spark2.1, spark2.2 version
-    */
-  def createTaskContextImpl(
-      stageId: Int,
-      partitionId: Int,
-      taskAttemptId: Long,
-      attemptNumber: Int,
-      taskMemoryManager: TaskMemoryManager,
-      localProperties: Properties,
-      metricsSystem: MetricsSystem): TaskContext = {
-    new TaskContextImpl(
-      stageId,
-      stageAttemptNumber = 0,
-      partitionId,
-      taskAttemptId,
-      attemptNumber,
-      taskMemoryManager,
-      localProperties,
-      metricsSystem)
+   * The Construction of ColumnVector has changed in the spark2.3 version.
+   */
+  def allocate(capacity: Int, dt: DataType, memMode: MemoryMode): WritableColumnVector = {
+    if (memMode == MemoryMode.OFF_HEAP) {
+      new OffHeapColumnVector(capacity, dt)
+    } else {
+      new OnHeapColumnVector(capacity, dt)
+    }
   }
+
 }

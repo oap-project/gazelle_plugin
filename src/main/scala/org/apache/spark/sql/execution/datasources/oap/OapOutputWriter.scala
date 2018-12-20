@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution.datasources.oap
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.TaskAttemptContext
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
+
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{OutputWriter, WriteResult}
 import org.apache.spark.sql.execution.datasources.oap.io.OapDataWriter

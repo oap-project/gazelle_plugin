@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.oap.adapter
+package org.apache.spark.sql.oap.adapter
 
-object WholeStageCodeGenAdapter {
+import org.apache.parquet.hadoop.VectorizedOapRecordReader
+
+import org.apache.spark.sql.vectorized.ColumnarBatch
+
+object CapacityAdapter {
   /**
-    * Enable WholeStageCodeGen, explains of Sql plans has changed in the spark2.3 version.
-    * Ignore it in the spark2.1, spark2.2 version
-    */
-  def getKeywordPrefix(): String = {
-    "*(1) "
+   * Returns batch CAPACITY
+   */
+  def getCapacity(columnarBatch: ColumnarBatch): Int = {
+    VectorizedOapRecordReader.CAPACITY
   }
-
 }

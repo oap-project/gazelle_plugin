@@ -227,15 +227,12 @@ public class VectorizedOapRecordReader extends SpecificOapRecordReaderBase<Objec
         }
       }
 
-//      columnarBatch = ColumnarBatch.allocate(batchSchema, memMode);
-
-
-        if (memMode == MemoryMode.OFF_HEAP) {
-            columnVectors = OffHeapColumnVector.allocateColumns(CAPACITY, batchSchema);
-        } else {
-            columnVectors = OnHeapColumnVector.allocateColumns(CAPACITY, batchSchema);
-        }
-        columnarBatch = new ColumnarBatch(columnVectors);
+      if (memMode == MemoryMode.OFF_HEAP) {
+        columnVectors = OffHeapColumnVector.allocateColumns(CAPACITY, batchSchema);
+      } else {
+        columnVectors = OnHeapColumnVector.allocateColumns(CAPACITY, batchSchema);
+      }
+      columnarBatch = new ColumnarBatch(columnVectors);
 
       if (partitionColumns != null) {
         int partitionIdx = sparkSchema.fields().length;

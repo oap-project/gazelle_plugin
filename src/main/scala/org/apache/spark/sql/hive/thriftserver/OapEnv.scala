@@ -21,7 +21,7 @@ import java.io.PrintStream
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{SQLContext, SparkSession}
+import org.apache.spark.sql.{SparkSession, SQLContext}
 import org.apache.spark.sql.hive.{HiveExternalCatalog, HiveUtils}
 import org.apache.spark.sql.oap.OapSession
 import org.apache.spark.sql.oap.listener.OapListener

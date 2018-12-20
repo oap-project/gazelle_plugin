@@ -48,10 +48,11 @@ object OapSession {
 
     private[this] var userSuppliedContext: Option[SparkContext] = None
 
-    override private[spark] def sparkContext(sparkContext: SparkContext): OapSessionBuilder = synchronized {
-      userSuppliedContext = Option(sparkContext)
-      this
-    }
+    override private[spark] def sparkContext(sparkContext: SparkContext): OapSessionBuilder =
+      synchronized {
+        userSuppliedContext = Option(sparkContext)
+        this
+      }
 
     /**
      * Sets a name for the application, which will be shown in the Spark web UI.

@@ -15,23 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.oap.adapter
+package org.apache.spark.sql.execution.datasources.oap.adapter
 
-import org.apache.spark.memory.MemoryMode
-import org.apache.spark.sql.execution.vectorized.{OffHeapColumnVector, OnHeapColumnVector, WritableColumnVector}
-import org.apache.spark.sql.types.DataType
-import org.apache.spark.sql.vectorized.ColumnVector
+import org.scalacheck.{Prop, Properties}
 
-object ColumnVectorAdapter {
+object PropertiesAdapter {
   /**
-   * The Construction of ColumnVector has changed in the spark2.3 version. Ignore it in the spark2.1, spark2.2 version
+   * The Properties has changed in the spark2.3 version.
+   * Ignore it in the spark2.1, spark2.2 version
    */
-  def allocate(capacity: Int, dt: DataType, memMode: MemoryMode): WritableColumnVector = {
-    if (memMode == MemoryMode.OFF_HEAP) {
-      new OffHeapColumnVector(capacity, dt)
-    } else {
-      new OnHeapColumnVector(capacity, dt)
-    }
-  }
+  def getProp(properties: Properties): Prop = Prop.all(properties.properties.map(_._2): _*)
 
 }
