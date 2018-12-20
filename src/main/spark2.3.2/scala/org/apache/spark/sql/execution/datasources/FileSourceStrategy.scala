@@ -25,8 +25,9 @@ import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.{FileSourceScanExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources.oap.{OapFileFormat, OptimizedOrcFileFormat, OptimizedParquetFileFormat}
-import org.apache.spark.sql.execution.datasources.orc.ReadOnlyOrcFileFormat
+import org.apache.spark.sql.execution.datasources.orc.ReadOnlyNativeOrcFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ReadOnlyParquetFileFormat}
+import org.apache.spark.sql.hive.orc.ReadOnlyOrcFileFormat
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.types.AtomicType
@@ -116,7 +117,7 @@ object FileSourceStrategy extends Strategy with Logging {
         case _: ReadOnlyParquetFileFormat =>
           logInfo("index operation for parquet, retain ReadOnlyParquetFileFormat.")
           _fsRelation
-        case _: ReadOnlyOrcFileFormat =>
+        case _: ReadOnlyOrcFileFormat | _: ReadOnlyNativeOrcFileFormat =>
           logInfo("index operation for orc, retain ReadOnlyOrcFileFormat.")
           _fsRelation
         // There are two scenarios will use OptimizedParquetFileFormat:
@@ -175,11 +176,9 @@ object FileSourceStrategy extends Strategy with Logging {
 
           if (optimizedOrcFileFormat.hasAvailableIndex(normalizedFilters)) {
             logInfo("hasAvailableIndex = true, will replace with OapFileFormat.")
-            // isOapOrcFileFormat is used to indicate to read orc data with oap index accelerated.
             val orcOptions: Map[String, String] =
               Map(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key ->
                 _fsRelation.sparkSession.sessionState.conf.orcFilterPushDown.toString) ++
-                Map("isOapOrcFileFormat" -> "true") ++
                 _fsRelation.options
 
             _fsRelation.copy(fileFormat = optimizedOrcFileFormat,

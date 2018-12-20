@@ -15,22 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.vectorized.oap.orc;
+package org.apache.spark.sql.execution.datasources.orc
 
-import org.apache.spark.unsafe.types.UTF8String;
+import org.apache.orc.storage.ql.io.sarg.SearchArgument
 
-import static org.apache.spark.unsafe.Platform.*;
+import org.apache.spark.sql.sources.Filter
+import org.apache.spark.sql.types._
 
-/**
- * Utilities to help manipulate classes for orc
- */
-public class OapOrcUtils {
-
-    public static UTF8String copy(UTF8String utf8String) {
-      byte[] bytes = new byte[utf8String.numBytes()];
-      copyMemory(utf8String.getBaseObject(), utf8String.getBaseOffset(),
-                bytes, BYTE_ARRAY_OFFSET, utf8String.numBytes());
-      return UTF8String.fromBytes(bytes);
-    }
-
+private[datasources] object OrcFiltersAdapter {
+  def createFilter(schema: StructType, filters: Seq[Filter]): Option[SearchArgument] =
+    OrcFilters.createFilter(schema, filters)
 }

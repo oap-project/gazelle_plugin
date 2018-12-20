@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.vectorized.oap.orc;
+package org.apache.spark.sql.execution.datasources.orc;
 
-/**
- * The interface for dictionary in ColumnVector to decode dictionary encoded values.
- */
-public interface Dictionary {
+import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+import org.apache.spark.sql.types.DataType;
 
-  int decodeToInt(int id);
+public final class OrcColumnVectorAllocator {
 
-  long decodeToLong(int id);
-
-  float decodeToFloat(int id);
-
-  double decodeToDouble(int id);
-
-  byte[] decodeToBinary(int id);
+  public static OrcColumnVector allocate(DataType type, ColumnVector vector) {
+    return new OrcColumnVector(type, vector);
+  }
 }
