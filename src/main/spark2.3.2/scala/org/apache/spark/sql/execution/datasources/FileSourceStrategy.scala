@@ -149,7 +149,7 @@ object FileSourceStrategy extends Strategy with Logging {
           }
 
           def canUseIndex: Boolean = {
-            val ret = optimizedParquetFileFormat.hasAvailableIndex(normalizedFilters)
+            val ret = optimizedParquetFileFormat.hasAvailableIndex(dataFilters)
             if (ret) {
               logInfo("hasAvailableIndex = true, " +
                 "will replace with OptimizedParquetFileFormat.")
@@ -174,7 +174,7 @@ object FileSourceStrategy extends Strategy with Logging {
               _fsRelation.options,
               selectedPartitions.flatMap(p => p.files))
 
-          if (optimizedOrcFileFormat.hasAvailableIndex(normalizedFilters)) {
+          if (optimizedOrcFileFormat.hasAvailableIndex(dataFilters)) {
             logInfo("hasAvailableIndex = true, will replace with OapFileFormat.")
             val orcOptions: Map[String, String] =
               Map(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key ->
