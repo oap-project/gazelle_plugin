@@ -308,7 +308,7 @@ class DAGScheduler(
   }
 
   private [scheduler]
-  def getOapCacheLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = this.synchronized {
+  def getOapCacheLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = {
     val locations = rdd.preferredLocations(rdd.partitions(partition))
 
     // here we check if the splits was cached, if the splits is cached, there will be hosts with
