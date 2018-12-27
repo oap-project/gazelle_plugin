@@ -71,7 +71,7 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
 
     val testRowId = groupSize - 1
     val data: Seq[(Int, String)] = (0 until groupSize * 3)
-                                    .map { i => (i, s"this is test $i") }
+      .map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
     sql("insert overwrite table oap_test_1 select * from t")
 
@@ -146,7 +146,6 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
   }
 
   test("startswith using index") {
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 30).map(i => (i, s"this$i is test"))
     data.toDF("key", "value").createOrReplaceTempView("t")
@@ -156,11 +155,9 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
       checkAnswer(sql("SELECT * FROM oap_test_1 WHERE b like 'this3%'"),
         Row(3, "this3 is test") :: Row(30, "this30 is test") :: Nil)
     }
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
   }
 
   test("startswith using multi-dimension index") {
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 30).map(i => (i, s"this$i is test"))
     data.toDF("key", "value").createOrReplaceTempView("t")
@@ -170,11 +167,9 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
       checkAnswer(sql("SELECT * FROM oap_test_1 WHERE b like 'this3%'"),
         Row(3, "this3 is test") :: Row(30, "this30 is test") :: Nil)
     }
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
   }
 
   test("startswith using multi-dimension index - multi-filters") {
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 30).map(i => (i % 7, s"this$i is test"))
     data.toDF("key", "value").createOrReplaceTempView("t")
@@ -184,11 +179,9 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
       checkAnswer(sql("SELECT * FROM oap_test_1 WHERE a = 3 and b like 'this3%'"),
         Row(3, "this3 is test") :: Nil)
     }
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
   }
 
   test("startswith using multi-dimension index 2") {
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, false)
     val data: Seq[(Int, String)] = Seq(
       15, 29, 26, 4, 28, 17, 16, 11, 12, 27, 22, 6, 10, 18, 19, 20, 30, 21, 14, 25, 1, 2,
       13, 23, 7, 24, 3, 8, 5, 9).map(i => (i, s"this$i is test"))
@@ -199,6 +192,5 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
       checkAnswer(sql("SELECT * FROM oap_test_1 WHERE b like 'this3%'"),
         Row(3, "this3 is test") :: Row(30, "this30 is test") :: Nil)
     }
-    sqlContext.conf.setConf(OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY, true)
   }
 }
