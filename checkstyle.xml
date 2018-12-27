@@ -155,13 +155,11 @@
         </module>
         -->
         <!-- TODO: 11/09/15 disabled - order is currently wrong in many places -->
-        <!--
         <module name="ImportOrder">
             <property name="separated" value="true"/>
             <property name="ordered" value="true"/>
             <property name="groups" value="/^javax?\./,scala,*,org.apache.spark"/>
         </module>
-        -->
         <module name="MethodParamPad"/>
         <module name="AnnotationLocation">
             <property name="tokens" value="CLASS_DEF, INTERFACE_DEF, ENUM_DEF, METHOD_DEF, CTOR_DEF"/>

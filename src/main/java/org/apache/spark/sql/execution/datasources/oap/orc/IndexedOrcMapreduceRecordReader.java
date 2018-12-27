@@ -17,11 +17,11 @@
  */
 package org.apache.spark.sql.execution.datasources.oap.orc;
 
+import java.io.IOException;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.WritableComparable;
-
-import java.io.IOException;
 
 /**
  * This record reader has rowIds in order to seek to specific rows to skip unused data.

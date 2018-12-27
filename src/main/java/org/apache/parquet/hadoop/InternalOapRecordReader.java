@@ -16,21 +16,18 @@
  */
 package org.apache.parquet.hadoop;
 
-import static org.apache.parquet.Log.DEBUG;
-import static org.apache.parquet.hadoop.ParquetInputFormat.STRICT_TYPE_CHECKING;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.column.page.PageReadStore;
+import org.apache.parquet.hadoop.OapParquetFileReader.RowGroupDataAndRowIds;
 import org.apache.parquet.hadoop.api.InitContext;
 import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.IndexedBlockMetaData;
-import org.apache.parquet.hadoop.OapParquetFileReader.RowGroupDataAndRowIds;
 import org.apache.parquet.hadoop.utils.Collections3;
 import org.apache.parquet.io.ColumnIOFactory;
 import org.apache.parquet.io.MessageColumnIO;
@@ -42,6 +39,9 @@ import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntList;
 import org.apache.parquet.schema.MessageType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.apache.parquet.Log.DEBUG;
+import static org.apache.parquet.hadoop.ParquetInputFormat.STRICT_TYPE_CHECKING;
 
 public class InternalOapRecordReader<T> {
 

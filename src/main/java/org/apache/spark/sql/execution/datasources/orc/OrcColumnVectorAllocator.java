@@ -18,6 +18,7 @@
 package org.apache.spark.sql.execution.datasources.orc;
 
 import org.apache.orc.storage.ql.exec.vector.ColumnVector;
+
 import org.apache.spark.sql.types.DataType;
 
 public final class OrcColumnVectorAllocator {

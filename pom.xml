@@ -434,8 +434,14 @@
           <failOnViolation>true</failOnViolation>
           <failOnWarning>false</failOnWarning>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <sourceDirectory>src/main/scala</sourceDirectory>
-          <testSourceDirectory>src/test/scala</testSourceDirectory>
+          <sourceDirectories>
+            <directory>src/main/scala</directory>
+            <directory>src/main/spark2.3.2/scala</directory>
+          </sourceDirectories>
+          <testSourceDirectories>
+            <directory>src/test/scala</directory>
+            <directory>src/test/spark2.3.2/scala</directory>
+          </testSourceDirectories>
           <configLocation>scalastyle-config.xml</configLocation>
           <outputFile>target/scalastyle-output.xml</outputFile>
           <inputEncoding>UTF-8</inputEncoding>
@@ -589,12 +595,12 @@
           <failOnViolation>true</failOnViolation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <sourceDirectories>
-            <directory>${basedir}/src/main/java</directory>
-            <directory>${basedir}/src/main/scala</directory>
+            <directory>src/main/java</directory>
+            <directory>src/spark2.3.2/scala</directory>
           </sourceDirectories>
           <testSourceDirectories>
-            <directory>${basedir}/src/test/java</directory>
-            <directory>${basedir}/src/test/scala</directory>
+            <directory>src/test/java</directory>
+            <directory>src/test/spark2.3.2/java</directory>
           </testSourceDirectories>
           <configLocation>checkstyle.xml</configLocation>
           <outputFile>${basedir}/target/checkstyle-output.xml</outputFile>

@@ -19,16 +19,15 @@ package org.apache.spark.status.api.v1
 import java.io.OutputStream
 import java.util.{List => JList}
 import java.util.zip.ZipOutputStream
-
 import javax.ws.rs.{GET, Path, PathParam, Produces, QueryParam}
 import javax.ws.rs.core.{MediaType, Response, StreamingOutput}
 
 import scala.util.control.NonFatal
+
 import org.apache.spark.JobExecutionStatus
 import org.apache.spark.sql.execution.datasources.oap.filecache.CacheStats
 import org.apache.spark.sql.oap.OapRuntime
-import org.apache.spark.sql.oap.ui.{FiberCacheManagerPage, FiberCacheManagerSummary}
-import org.apache.spark.ui.SparkUI
+import org.apache.spark.sql.oap.ui.FiberCacheManagerSummary
 
 @Produces(Array(MediaType.APPLICATION_JSON))
 private[v1] class AbstractApplicationResource extends BaseAppResource {
@@ -62,8 +61,8 @@ private[v1] class AbstractApplicationResource extends BaseAppResource {
     seqExecutorSummary.map(
       executorSummary =>
         {
-          val cacheStats =
-            OapRuntime.getOrCreate.fiberSensor.getExecutorToCacheManager.getOrDefault(executorSummary.id, CacheStats())
+          val cacheStats = OapRuntime.getOrCreate.fiberSensor.getExecutorToCacheManager.
+            getOrDefault(executorSummary.id, CacheStats())
 
           new FiberCacheManagerSummary(
             executorSummary.id,

@@ -1629,13 +1629,13 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder(conf) {
   }
 
   /**
-    * Create an index. Create a [[CreateIndexCommand]] command.
-    *
-    * {{{
-    *   CREATE OINDEX [IF NOT EXISTS] indexName ON tableName (col1 [ASC | DESC], col2, ...)
-    *   [USING (BTREE | BITMAP)] [PARTITION (partcol1=val1, partcol2=val2 ...)]
-    * }}}
-    */
+   * Create an index. Create a [[CreateIndexCommand]] command.
+   *
+   * {{{
+   *   CREATE OINDEX [IF NOT EXISTS] indexName ON tableName (col1 [ASC | DESC], col2, ...)
+   *   [USING (BTREE | BITMAP)] [PARTITION (partcol1=val1, partcol2=val2 ...)]
+   * }}}
+   */
   override def visitOapCreateIndex(ctx: OapCreateIndexContext): LogicalPlan =
     withOrigin(ctx) {
       CreateIndexCommand(
@@ -1647,12 +1647,12 @@ class SparkSqlAstBuilder(conf: SQLConf) extends AstBuilder(conf) {
     }
 
   /**
-    * Drop an index. Create a [[DropIndexCommand]] command.
-    *
-    * {{{
-    *   DROP OINDEX [IF EXISTS] indexName on tableName [PARTITION (partcol1=val1, partcol2=val2 ...)]
-    * }}}
-    */
+   * Drop an index. Create a [[DropIndexCommand]] command.
+   *
+   * {{{
+   *   DROP OINDEX [IF EXISTS] indexName on tableName [PARTITION (partcol1=val1, partcol2=val2 ...)]
+   * }}}
+   */
   override def visitOapDropIndex(ctx: OapDropIndexContext): LogicalPlan = withOrigin(ctx) {
     DropIndexCommand(
       ctx.IDENTIFIER.getText,
