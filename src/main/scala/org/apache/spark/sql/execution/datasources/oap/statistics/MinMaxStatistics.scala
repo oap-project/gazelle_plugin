@@ -52,6 +52,8 @@ private[oap] class MinMaxStatisticsReader(schema: StructType) extends Statistics
   }
 
   override def analyse(intervalArray: ArrayBuffer[RangeInterval]): StatsAnalysisResult = {
+    if (intervalArray.exists(_.isPrefixMatch)) return StatsAnalysisResult.USE_INDEX
+
     if (min == null || max == null) {
       return StatsAnalysisResult.USE_INDEX
     }

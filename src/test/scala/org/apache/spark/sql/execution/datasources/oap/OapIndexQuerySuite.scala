@@ -157,6 +157,20 @@ class OapIndexQuerySuite extends QueryTest with SharedOapContext with BeforeAndA
     }
   }
 
+  test("OAP-978 Misjudged by " +
+    "MinMaxStatisticsReader & PartByValueStatisticsReader startswith using index.") {
+    val data: Seq[(Int, String)] =
+      scala.util.Random.shuffle(30 to 90).map(i => (i, s"this$i is test"))
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table oap_test_1 select * from t")
+    withIndex(TestIndex("oap_test_1", "index1")) {
+      sql("create oindex index1 on oap_test_1 (b) using btree")
+      val ret = sql("SELECT a FROM oap_test_1 WHERE b like 'this3%'")
+      checkAnswer(ret, Row(30) :: Row(31) :: Row(32) :: Row(33) :: Row(34) :: Row(35) :: Row(36)
+        :: Row(37) :: Row(38) :: Row(39) :: Nil)
+    }
+  }
+
   test("startswith using multi-dimension index") {
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 30).map(i => (i, s"this$i is test"))

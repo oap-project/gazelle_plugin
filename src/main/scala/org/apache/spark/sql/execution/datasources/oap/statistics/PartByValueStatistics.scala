@@ -109,7 +109,7 @@ private[oap] class PartByValueStatisticsReader(schema: StructType)
   }
 
   override def analyse(intervalArray: ArrayBuffer[RangeInterval]): StatsAnalysisResult = {
-    if (metas.nonEmpty) {
+    if (metas.nonEmpty && !intervalArray.exists(_.isPrefixMatch)) {
       val wholeCount = metas.last.accumulatorCnt
 
       val start = intervalArray.head
