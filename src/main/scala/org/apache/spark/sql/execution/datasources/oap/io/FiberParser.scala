@@ -24,7 +24,7 @@ import org.apache.parquet.format.Encoding
 
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.collection.OapBitSet
 
 private[oap] trait DataFiberParser {
   def parse(bytes: Array[Byte], rowCount: Int): Array[Byte]
@@ -72,7 +72,7 @@ private[oap] case class DeltaByteArrayDataFiberParser(
 
     val valuesReader = new DeltaByteArrayReader()
 
-    val bits = new BitSet(meta.rowCountInEachGroup)
+    val bits = new OapBitSet(meta.rowCountInEachGroup)
     Platform.copyMemory(bytes, Platform.BYTE_ARRAY_OFFSET,
       bits.toLongArray(), Platform.LONG_ARRAY_OFFSET, bits.toLongArray().length * 8)
 
@@ -121,7 +121,7 @@ private[oap] case class PlainDictionaryFiberParser(
   override def parse(bytes: Array[Byte], rowCount: Int): Array[Byte] = {
     val valuesReader = new DictionaryValuesReader(dictionary)
 
-    val bits = new BitSet(meta.rowCountInEachGroup)
+    val bits = new OapBitSet(meta.rowCountInEachGroup)
     Platform.copyMemory(bytes, Platform.BYTE_ARRAY_OFFSET,
       bits.toLongArray(), Platform.LONG_ARRAY_OFFSET, bits.toLongArray().length * 8)
 

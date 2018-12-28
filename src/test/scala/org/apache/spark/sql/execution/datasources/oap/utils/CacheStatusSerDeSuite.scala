@@ -17,13 +17,14 @@
 
 package org.apache.spark.sql.execution.datasources.oap.utils
 
-import org.json4s.jackson.JsonMethods._
 import scala.collection.mutable.ArrayBuffer
+
+import org.json4s.jackson.JsonMethods._
 
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCacheStatus
 import org.apache.spark.sql.execution.datasources.oap.io.{OapDataFileMeta, OapDataFileMetaV1}
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.collection.OapBitSet
 
 class CacheStatusSerDeSuite extends SparkFunSuite {
   private def assertStringEquals(json1: String, json2: String) {
@@ -33,7 +34,7 @@ class CacheStatusSerDeSuite extends SparkFunSuite {
   }
 
   test("test BitSet Json") {
-    val bitSet = new BitSet(100)
+    val bitSet = new OapBitSet(100)
     bitSet.set(3)
     bitSet.set(8)
     val bitSetStr = compact(render(CacheStatusSerDe.bitSetToJson(bitSet)))
@@ -52,7 +53,7 @@ class CacheStatusSerDeSuite extends SparkFunSuite {
 
   test("test status raw data") {
     val path = "file1"
-    val bitSet = new BitSet(90)
+    val bitSet = new OapBitSet(90)
     bitSet.set(3)
     bitSet.set(8)
     val groupCount = 30
@@ -67,8 +68,8 @@ class CacheStatusSerDeSuite extends SparkFunSuite {
     val rawDataArray = new ArrayBuffer[FiberCacheStatus]()
     val path1 = "file1"
     val path2 = "file2"
-    val bitSet1 = new BitSet(90)
-    val bitSet2 = new BitSet(150)
+    val bitSet1 = new OapBitSet(90)
+    val bitSet2 = new OapBitSet(150)
     bitSet1.set(3)
     bitSet1.set(8)
     bitSet2.set(5)
@@ -90,7 +91,7 @@ class CacheStatusSerDeSuite extends SparkFunSuite {
     }
   }
 
-  private def assertBitSetEquals(bitSet1: BitSet, bitSet2: BitSet) {
+  private def assertBitSetEquals(bitSet1: OapBitSet, bitSet2: OapBitSet) {
     assert(bitSet1.cardinality() === bitSet2.cardinality())
     assert(bitSet1.nextSetBit(0) === bitSet2.nextSetBit(0))
     assert(bitSet1.nextSetBit(5) === bitSet2.nextSetBit(5))

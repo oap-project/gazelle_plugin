@@ -23,7 +23,7 @@ import org.json4s.JsonDSL._
 
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCacheStatus
 import org.apache.spark.sql.execution.datasources.oap.io.{OapDataFileMeta, OapDataFileMetaV1}
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.collection.{BitSet, OapBitSet}
 
 /**
  * This is user defined Json protocol for SerDe, here the format of Json output should like
@@ -57,17 +57,17 @@ private[oap] object CacheStatusSerDe extends SerDe[String, Seq[FiberCacheStatus]
     (parse(json) \ "statusRawDataArray").extract[List[JValue]].map(statusRawDataFromJson)
   }
 
-  private[oap] def bitSetToJson(bitSet: BitSet): JValue = {
+  private[oap] def bitSetToJson(bitSet: OapBitSet): JValue = {
     val words: Array[Long] = bitSet.toLongArray()
     val bitSetJson = JArray(words.map(word => ("word" -> word): JValue).toList)
     ("bitSet" -> bitSetJson)
   }
 
-  private[oap] def bitSetFromJson(json: JValue): BitSet = {
+  private[oap] def bitSetFromJson(json: JValue): OapBitSet = {
     val words: Array[Long] = (json \ "bitSet").extract[List[JValue]].map { word =>
       (word \ "word").extract[Long]
     }.toArray[Long]
-    new BitSet(words)
+    new OapBitSet(words)
   }
 
   // we only transfer 4 items in DataFileMeta to driver, ther are rowCountInEachGroup,

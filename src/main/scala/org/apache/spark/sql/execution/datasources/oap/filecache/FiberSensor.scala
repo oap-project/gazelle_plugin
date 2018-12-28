@@ -30,11 +30,11 @@ import org.apache.spark.sql.execution.datasources.oap.utils.CacheStatusSerDe
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.oap.listener.SparkListenerCustomInfoUpdate
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.collection.OapBitSet
 
 private[oap] case class FiberCacheStatus(
     file: String,
-    bitmask: BitSet,
+    bitmask: OapBitSet,
     groupCount: Int,
     fieldCount: Int) {
 

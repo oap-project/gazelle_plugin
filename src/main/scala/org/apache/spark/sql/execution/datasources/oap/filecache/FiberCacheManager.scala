@@ -30,7 +30,7 @@ import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.sql.execution.datasources.oap.utils.CacheStatusSerDe
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.util.Utils
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.collection.OapBitSet
 
 private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logging {
 
@@ -162,7 +162,7 @@ private[sql] class FiberCacheManager(
     val statusRawData = dataFibers.groupBy(_.file).map {
       case (dataFile, fiberSet) =>
         val fileMeta: DataFileMeta = OapRuntime.getOrCreate.dataFileMetaCacheManager.get(dataFile)
-        val fiberBitSet = new BitSet(fileMeta.getGroupCount * fileMeta.getFieldCount)
+        val fiberBitSet = new OapBitSet(fileMeta.getGroupCount * fileMeta.getFieldCount)
         fiberSet.foreach(fiber =>
           fiberBitSet.set(fiber.columnIndex + fileMeta.getFieldCount * fiber.rowGroupId))
         FiberCacheStatus(dataFile.path, fiberBitSet, fileMeta.getGroupCount, fileMeta.getFieldCount)

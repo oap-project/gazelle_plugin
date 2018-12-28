@@ -22,11 +22,11 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.parquet.format.Encoding
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.oap.io.{DeltaByteArrayFiberBuilder, PlainBinaryDictionaryFiberBuilder, PlainIntegerDictionaryFiberBuilder}
+import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.Platform
 import org.apache.spark.unsafe.types.UTF8String
-import org.apache.spark.util.collection.BitSet
+import org.apache.spark.util.collection.OapBitSet
 
 /**
  * Used to build fiber on-heap
@@ -37,7 +37,7 @@ private[oap] trait DataFiberBuilder {
   def defaultRowGroupRowCount: Int
   def ordinal: Int
 
-  protected val bitStream: BitSet = new BitSet(defaultRowGroupRowCount)
+  protected val bitStream: OapBitSet = new OapBitSet(defaultRowGroupRowCount)
   protected var currentRowId: Int = 0
 
   def append(row: InternalRow): Unit = {
