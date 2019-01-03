@@ -133,7 +133,7 @@ private[oap] abstract class IndexScanner(idxMeta: IndexMeta)
           OapConf.OAP_EXECUTOR_INDEX_SELECTION_STATISTICS_POLICY.defaultValue.get)
 
       // Policy 4: statistics tells the scan cost
-      if (statsPolicyEnable) {
+      if (statsPolicyEnable && !intervalArray.exists(_.isPrefixMatch)) {
         if (intervalArray.isEmpty) {
           StatsAnalysisResult.SKIP_INDEX
         } else {

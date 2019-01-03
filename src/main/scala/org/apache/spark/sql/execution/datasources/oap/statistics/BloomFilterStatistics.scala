@@ -81,23 +81,18 @@ private[oap] class BloomFilterStatisticsReader(
      *    2.2 interval.start != interval.end (not equal or DUMMY_KEY). Just return false
      */
     val skipIndex = !intervalArray.exists { interval =>
-      // If this interval is a PrefixMatch, don't use bf checkExist.
-      if (interval.isPrefixMatch) {
-        true
-      } else {
-        val numFields = math.min(interval.start.numFields, interval.end.numFields)
-        if (schema.length > 1) {
-          if (numFields == schema.length && ordering.compare(interval.start, interval.end) == 0) {
-            bfIndex.checkExist(converter(interval.start).getBytes)
-          } else {
-            bfIndex.checkExist(partialConverter(interval.start).getBytes)
-          }
+      val numFields = math.min(interval.start.numFields, interval.end.numFields)
+      if (schema.length > 1) {
+        if (numFields == schema.length && ordering.compare(interval.start, interval.end) == 0) {
+          bfIndex.checkExist(converter(interval.start).getBytes)
         } else {
-          if (numFields == 1 && ordering.compare(interval.start, interval.end) == 0) {
-            bfIndex.checkExist(converter(interval.start).getBytes)
-          } else {
-            true
-          }
+          bfIndex.checkExist(partialConverter(interval.start).getBytes)
+        }
+      } else {
+        if (numFields == 1 && ordering.compare(interval.start, interval.end) == 0) {
+          bfIndex.checkExist(converter(interval.start).getBytes)
+        } else {
+          true
         }
       }
     }
