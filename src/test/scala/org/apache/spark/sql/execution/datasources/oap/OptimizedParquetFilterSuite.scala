@@ -25,7 +25,7 @@ import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.execution.{DataSourceScanExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources.HadoopFsRelation
 import org.apache.spark.sql.internal.oap.OapConf
-import org.apache.spark.sql.test.oap.SharedOapContext
+import org.apache.spark.sql.test.oap.{SharedOapContext, TestIndex}
 import org.apache.spark.util.Utils
 
 class OptimizedParquetFilterSuite extends QueryTest with SharedOapContext with BeforeAndAfterEach {
@@ -78,6 +78,34 @@ class OptimizedParquetFilterSuite extends QueryTest with SharedOapContext with B
           case _ => assert(false)
         }
       )
+    }
+  }
+
+  test("disable index and use data cache independent") {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table parquet_test select * from t")
+
+    withIndex(TestIndex("parquet_test", "index1")) {
+      withSQLConf(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key -> "true",
+        OapConf.OAP_PARQUET_INDEX_ENABLED.key -> "false") {
+        sql("create oindex index1 on parquet_test (b)")
+        val df = sql("SELECT b FROM parquet_test WHERE b = 'this is test 1'")
+        checkAnswer(df, Row("this is test 1") :: Nil)
+        val plans = new ArrayBuffer[SparkPlan]
+        df.queryExecution.executedPlan.foreach(node => plans.append(node))
+        val dataSources = plans.filter(p => p.isInstanceOf[DataSourceScanExec])
+        assert(dataSources.nonEmpty)
+        dataSources.foreach(p =>
+          p.asInstanceOf[DataSourceScanExec].relation match {
+            case h: HadoopFsRelation =>
+              assert(h.fileFormat.isInstanceOf[OptimizedParquetFileFormat])
+              val format = h.fileFormat.asInstanceOf[OptimizedParquetFileFormat]
+              assert(format.getHitIndexColumns.isEmpty)
+            case _ => assert(false)
+          }
+        )
+      }
     }
   }
 }

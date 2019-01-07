@@ -26,6 +26,7 @@ import org.apache.spark.sql.execution.datasources.{OutputWriterFactory, Partitio
 import org.apache.spark.sql.execution.datasources.oap.io.{DataFileContext, OapDataReaderV1, ParquetVectorizedContext}
 import org.apache.spark.sql.execution.datasources.oap.utils.FilterHelper
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.{AtomicType, StructType}
 import org.apache.spark.util.SerializableConfiguration
@@ -60,7 +61,8 @@ private[sql] class OptimizedParquetFileFormat extends OapFileFormat {
       hadoopConf: Configuration): PartitionedFile => Iterator[InternalRow] = {
     // TODO we need to pass the extra data source meta information via the func parameter
     val (filterScanners, m) = meta match {
-      case Some(x) => (indexScanners(x, filters), x)
+      case Some(x) if sparkSession.conf.get(OapConf.OAP_PARQUET_INDEX_ENABLED) =>
+        (indexScanners(x, filters), x)
       case _ =>
         // TODO Now we need use a meta with PARQUET_DATA_FILE_CLASSNAME & dataSchema to init
         // ParquetDataFile, try to remove this condition.

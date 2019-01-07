@@ -58,8 +58,9 @@ object HadoopFsRelationOptimizer extends Logging {
 
         def canUseCache: Boolean = {
           val runtimeConf = relation.sparkSession.conf
-          val ret = runtimeConf.get(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED) &&
-            runtimeConf.get(SQLConf.PARQUET_VECTORIZED_READER_ENABLED) &&
+          val cacheEnabled = runtimeConf.get(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED)
+          logDebug(s"config - ${OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key} is $cacheEnabled")
+          val ret = cacheEnabled && runtimeConf.get(SQLConf.PARQUET_VECTORIZED_READER_ENABLED) &&
             runtimeConf.get(SQLConf.WHOLESTAGE_CODEGEN_ENABLED) &&
             outputSchema.forall(_.dataType.isInstanceOf[AtomicType])
           if (ret) {
@@ -70,9 +71,11 @@ object HadoopFsRelationOptimizer extends Logging {
         }
 
         def canUseIndex: Boolean = {
-          val ret = optimizedParquetFileFormat.hasAvailableIndex(dataFilters)
+          val indexEnabled = relation.sparkSession.conf.get(OapConf.OAP_PARQUET_INDEX_ENABLED)
+          logDebug(s"config - ${OapConf.OAP_PARQUET_INDEX_ENABLED.key} is $indexEnabled")
+          val ret = indexEnabled && optimizedParquetFileFormat.hasAvailableIndex(dataFilters)
           if (ret) {
-            logInfo("hasAvailableIndex = true, " +
+            logInfo("index enable and hasAvailableIndex is true, " +
               "will replace with OptimizedParquetFileFormat.")
           }
           ret
@@ -81,8 +84,7 @@ object HadoopFsRelationOptimizer extends Logging {
         if (canUseCache || canUseIndex) {
           relation.copy(fileFormat = optimizedParquetFileFormat)(relation.sparkSession)
         } else {
-          logInfo("hasAvailableIndex = false and data cache disable, will retain " +
-            "ParquetFileFormat.")
+          logInfo("neither index nor data cache is available, retain ParquetFileFormat.")
           relation
         }
 

@@ -294,6 +294,13 @@ object OapConf {
       .booleanConf
       .createWithDefault(false)
 
+  val OAP_PARQUET_INDEX_ENABLED =
+    SqlConfAdapter.buildConf("spark.sql.oap.parquet.index.enable")
+      .internal()
+      .doc("To indicate if enable parquet index, default true")
+      .booleanConf
+      .createWithDefault(true)
+
   val OAP_INDEX_DIRECTORY =
     SqlConfAdapter.buildConf("spark.sql.oap.index.directory")
       .internal()
