@@ -22,18 +22,22 @@ import scala.collection.mutable
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources.oap.{IndexType, OapFileFormat}
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.{OapDriverRuntime, OapRuntime}
-import org.apache.spark.sql.test.{SharedSQLContext, TestOapLocalClusterSession, TestOapSession, TestSparkSession}
+import org.apache.spark.sql.test.OapSharedSQLContext
 
 trait SharedOapContext extends SharedOapContextBase {
-  protected override def createSparkSession: TestSparkSession = {
-    val testSession = new TestOapSession(oapSparkConf)
-    OapRuntime.getOrCreate.asInstanceOf[OapDriverRuntime].setTestSession(testSession)
-    testSession
+  protected override def createSparkSession: SparkSession = {
+    SparkSession.cleanupAnyExistingSession()
+    val session = SparkSession.builder()
+      .master("local[2]")
+      .appName("test-oap-context")
+      .config(oapSparkConf).getOrCreate()
+    OapRuntime.getOrCreate.asInstanceOf[OapDriverRuntime].setTestSession(session)
+    session
   }
 }
 
@@ -41,14 +45,18 @@ trait SharedOapContext extends SharedOapContextBase {
  * Extend this context to test in LocalClusterMode
  */
 trait SharedOapLocalClusterContext extends SharedOapContextBase {
-  protected override def createSparkSession: TestSparkSession = {
-    val testSession = new TestOapLocalClusterSession(oapSparkConf)
-    OapRuntime.getOrCreate.asInstanceOf[OapDriverRuntime].setTestSession(testSession)
-    testSession
+  protected override def createSparkSession: SparkSession = {
+    SparkSession.cleanupAnyExistingSession()
+    val session = SparkSession.builder()
+      .master("local-cluster[2, 2, 1024]")
+      .appName("test-oap-local-cluster-context")
+      .config(oapSparkConf).getOrCreate()
+    OapRuntime.getOrCreate.asInstanceOf[OapDriverRuntime].setTestSession(session)
+    session
   }
 }
 
-trait SharedOapContextBase extends SharedSQLContext {
+trait SharedOapContextBase extends OapSharedSQLContext {
 
   // In Spark 2.1, sparkConf is a val. However is Spark 2.2 sparkConf is a function that create
   // a new SparkConf each time.
