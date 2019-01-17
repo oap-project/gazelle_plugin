@@ -20,10 +20,8 @@ package org.apache.spark.sql.execution.datasources.oap.index
 import org.apache.hadoop.fs.RawLocalFileSystem
 import org.scalatest.BeforeAndAfterEach
 
-import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.sql.{QueryTest, Row}
-import org.apache.spark.sql.test.TestSparkSession
-import org.apache.spark.sql.test.oap.SharedOapContextBase
+import org.apache.spark.sql.test.oap.SharedOapContext
 import org.apache.spark.util.Utils
 
 /*
@@ -34,23 +32,8 @@ import org.apache.spark.util.Utils
  * check and verify that the exception will be thrown as expected if the input stream
  * is closed before the file read when the bimap scanner tries to analyze the statistics.
  */
-
-private[oap] class TestOapSessionWithRawLocalFileSystem(sc: SparkContext)
-    extends TestSparkSession(sc) { self =>
-
-  def this(sparkConf: SparkConf) {
-    this(new SparkContext(
-      "local[2]",
-      "test-oap-context",
-      sparkConf.set("spark.sql.testkey", "true")
-        .set("spark.hadoop.fs.file.impl", classOf[RawLocalFileSystem].getName)))
-  }
-}
-
-trait SharedOapContextWithRawLocalFileSystem extends SharedOapContextBase {
-  protected override def createSparkSession: TestSparkSession = {
-    new TestOapSessionWithRawLocalFileSystem(oapSparkConf)
-  }
+trait SharedOapContextWithRawLocalFileSystem extends SharedOapContext {
+  oapSparkConf.set("spark.hadoop.fs.file.impl", classOf[RawLocalFileSystem].getName)
 }
 
 class BitmapAnalyzeStatisticsSuite extends QueryTest with SharedOapContextWithRawLocalFileSystem

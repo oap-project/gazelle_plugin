@@ -20,7 +20,7 @@ package org.apache.spark.sql.hive
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.parser.{ParserInterface, SqlBaseParser}
 import org.apache.spark.sql.execution.{SparkPlanner, SparkSqlParser}
-import org.apache.spark.sql.execution.datasources.{DataSourceStrategy, FileSourceStrategy}
+import org.apache.spark.sql.execution.datasources.{DataSourceStrategy, FileSourceStrategy, OapFileSourceStrategy}
 import org.apache.spark.sql.execution.datasources.oap.OapStrategies
 import org.apache.spark.sql.internal.{SessionState, SQLConf, VariableSubstitution}
 
@@ -42,6 +42,7 @@ class OapSessionStateBuilder(session: SparkSession, parentState: Option[SessionS
         experimentalMethods.extraStrategies ++
           extraPlanningStrategies ++
           oapStrategies ++ Seq(
+          OapFileSourceStrategy,
           FileSourceStrategy,
           DataSourceStrategy(conf),
           SpecialLimits,

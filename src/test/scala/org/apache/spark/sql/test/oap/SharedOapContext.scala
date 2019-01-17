@@ -22,7 +22,7 @@ import scala.collection.mutable
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{OapExtensions, SparkSession}
 import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources.oap.{IndexType, OapFileFormat}
 import org.apache.spark.sql.internal.oap.OapConf
@@ -63,6 +63,7 @@ trait SharedOapContextBase extends OapSharedSQLContext {
   val oapSparkConf = sparkConf
   // avoid the overflow of offHeap memory
   oapSparkConf.set("spark.memory.offHeap.size", "100m")
+  oapSparkConf.set("spark.sql.extensions", classOf[OapExtensions].getCanonicalName)
 
   protected override def beforeAll(): Unit = {
     super.beforeAll()
