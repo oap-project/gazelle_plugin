@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql
 
+import org.apache.spark.sql.execution.OapSparkSqlParser
 import org.apache.spark.sql.execution.datasources.OapFileSourceStrategy
 import org.apache.spark.sql.execution.datasources.oap.{OapGroupAggregateStrategy, OapSemiJoinStrategy, OapSortLimitStrategy}
 
@@ -27,5 +28,7 @@ class OapExtensions extends (SparkSessionExtensions => Unit) {
     extensions.injectPlannerStrategy(_ => OapSemiJoinStrategy)
     extensions.injectPlannerStrategy(_ => OapGroupAggregateStrategy)
     extensions.injectPlannerStrategy(_ => OapFileSourceStrategy)
+    // Oap Custom SqlParser.
+    extensions.injectParser((_, _) => new OapSparkSqlParser)
   }
 }
