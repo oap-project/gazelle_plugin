@@ -202,7 +202,9 @@ case class CreateIndexCommand(
       "indexType" -> indexType.toString
     )
 
-    val retVal = FileFormatWriter.write(
+    val statsTrackers = new OapIndexWriteJobStatsTracker
+
+    FileFormatWriter.write(
       sparkSession = sparkSession,
       ds.queryExecution.executedPlan,
       fileFormat = new OapIndexFileFormat,
@@ -212,10 +214,10 @@ case class CreateIndexCommand(
       hadoopConf = configuration,
       Seq.empty, // partitionColumns
       bucketSpec = None,
-      statsTrackers = Nil,
-      options = options)._1.asInstanceOf[Seq[Seq[IndexBuildResult]]]
+      statsTrackers = Seq(statsTrackers),
+      options = options)
 
-    val retMap = retVal.flatten.groupBy(_.parent)
+    val retMap = statsTrackers.indexBuildResults.groupBy(_.parent)
     bAndP.foreach(bp =>
       retMap.getOrElse(bp._2.toString, Nil).foreach(r =>
         if (!bp._3) {
@@ -460,6 +462,8 @@ case class RefreshIndexCommand(
         "indexType" -> indexType.toString
       )
 
+      val statsTrackers = new OapIndexWriteJobStatsTracker
+
       FileFormatWriter.write(
         sparkSession = sparkSession,
         ds.queryExecution.executedPlan,
@@ -470,11 +474,12 @@ case class RefreshIndexCommand(
         hadoopConf = configuration,
         Seq.empty, // partitionColumns
         bucketSpec = None,
-        statsTrackers = Nil,
-        options = options)._1.asInstanceOf[Seq[Seq[IndexBuildResult]]]
+        statsTrackers = Seq(statsTrackers),
+        options = options)
+      statsTrackers.indexBuildResults
     })
     if (buildrst.nonEmpty) {
-      val retMap: Map[String, Seq[IndexBuildResult]] = buildrst.head.flatten.groupBy(_.parent)
+      val retMap: Map[String, Seq[IndexBuildResult]] = buildrst.head.groupBy(_.parent)
 
       // there some cases oap meta files have already been updated
       // e.g. when inserting data in oap files the meta has already updated

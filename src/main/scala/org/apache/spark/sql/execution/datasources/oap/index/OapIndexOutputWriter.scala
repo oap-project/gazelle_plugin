@@ -45,8 +45,6 @@ private[index] class OapIndexOutputWriter(
 
   private var inputFileName: String = _
 
-  private var results: Seq[IndexBuildResult] = Nil
-
   private var rowCount: Long = 0
 
   override def write(row: InternalRow): Unit = {
@@ -59,10 +57,6 @@ private[index] class OapIndexOutputWriter(
     closeWriter()
   }
 
-  override def writeStatus(): Seq[IndexBuildResult] = {
-    results
-  }
-
   private def initWriter(): Unit = {
     inputFileName = InputFileNameHolderAdapter.getInputFileName().toString
     recordWriter = outputFormat.getRecordWriter(context)
@@ -73,8 +67,6 @@ private[index] class OapIndexOutputWriter(
     if (recordWriter != null) {
       recordWriter.close(context)
       recordWriter = null
-      results = results :+ IndexBuildResult(
-        new Path(inputFileName).getName, rowCount, "", new Path(inputFileName).getParent.toString)
     }
   }
 

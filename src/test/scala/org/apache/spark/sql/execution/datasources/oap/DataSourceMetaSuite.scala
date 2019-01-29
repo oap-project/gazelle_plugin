@@ -247,6 +247,17 @@ class DataSourceMetaSuite extends SharedOapContext with BeforeAndAfter {
         assert(fileHeader2.recordCount === 100)
         assert(fileHeader2.dataFileCount === 3)
         assert(fileHeader2.indexCount === 2)
+
+        // Append more data to test refresh cmd.
+        df.write.format(s"$fileFormat").mode(SaveMode.Append).save(tmpDir.getAbsolutePath)
+        val oapDf2 = sqlContext.read.format(s"$fileFormat").load(tmpDir.getAbsolutePath)
+        oapDf2.createOrReplaceTempView("oapt1")
+        sql("refresh oindex on oapt1")
+        val oapMeta3 = DataSourceMeta.initialize(path, new Configuration())
+        val fileHeader3 = oapMeta3.fileHeader
+        assert(fileHeader3.recordCount === 200)
+        assert(fileHeader3.dataFileCount === 6)
+        assert(fileHeader3.indexCount === 2)
       }
     })
   }
@@ -277,6 +288,18 @@ class DataSourceMetaSuite extends SharedOapContext with BeforeAndAfter {
         assert(fileMetas.map(_.recordCount).sum === 100)
         assert(fileMetas(0).dataFileName.endsWith("." + s"${fileFormat}"))
         assert(fileMetas(0).dataFileName.startsWith("part"))
+
+        // Append more data to test refresh cmd.
+        df.write.format(s"$fileFormat").mode(SaveMode.Append).save(tmpDir.getAbsolutePath)
+        val oapDf2 = sqlContext.read.format(s"$fileFormat").load(tmpDir.getAbsolutePath)
+        oapDf2.createOrReplaceTempView("t")
+        sql("refresh oindex on t")
+        val oapMeta1 = DataSourceMeta.initialize(path, sparkContext.hadoopConfiguration)
+        val fileMetas1 = oapMeta1.fileMetas
+        assert(fileMetas1.length === 6)
+        assert(fileMetas1.map(_.recordCount).sum === 200)
+        assert(fileMetas1(0).dataFileName.endsWith("." + s"$fileFormat"))
+        assert(fileMetas1(0).dataFileName.startsWith("part"))
       }
     })
   }
