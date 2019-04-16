@@ -18,8 +18,12 @@
 package org.apache.spark.sql.execution.datasources.oap
 
 import java.io.File
+import java.io.FileNotFoundException
+import java.io.IOException
 
 import scala.collection.mutable
+import scala.collection.parallel.ForkJoinTaskSupport
+import scala.concurrent.forkjoin.ForkJoinPool
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -573,6 +577,37 @@ class DataSourceMetaSuite extends SharedOapContext with BeforeAndAfter {
       assert(
         multi_column6.zip(multiRequirements)
           .map(x => meta.isSupportedByIndex(x._1, Some(x._2))).reduce(_ && _))
+    }
+  }
+
+  test("OAP should create .oap.meta_bk file in data file dir #1030 ") {
+    var testSchema = new StructType()
+    for(a <- 0 to 120) {
+      testSchema = testSchema.add(s"test_schema_column_$a", IntegerType)
+    }
+
+    val partitions = new Array[Path](100)
+    for(p <- 0 to 99) {
+      val file = new File(tmpDir.getAbsolutePath, s"partition=$p")
+      file.mkdirs()
+      val path = new Path(
+        new File(file.getAbsolutePath, "testOap.meta").getAbsolutePath)
+      partitions(p) = path
+
+    }
+    val taskSupport = new ForkJoinTaskSupport(new ForkJoinPool(10))
+    val parPartition = partitions.toSeq.par
+    parPartition.tasksupport = taskSupport
+
+    // If we revert this patch, this UT will throw one of following exceptions:
+    // 1.java.io.FileNotFoundException: File testOap.meta_bk does not exist
+    // 2.java.io.IOException: Could not create testOap.meta_bk
+    // and this UT will fail
+    try {
+      parPartition.map(writeMetaFile(_))
+    } catch {
+      case e: FileNotFoundException => fail(e.getMessage)
+      case e: IOException => fail(e.getMessage)
     }
   }
 }

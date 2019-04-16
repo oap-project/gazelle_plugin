@@ -563,7 +563,7 @@ private[oap] object DataSourceMeta extends Logging {
       throw new FileAlreadyExistsException(s"File $path already exists.")
     }
 
-    val rn_path = new Path(path.getName + "_bk")
+    val rn_path = new Path(path.getParent, path.getName + "_bk")
 
     val out = fs.create(rn_path)
     meta.fileMetas.foreach(_.write(out))
