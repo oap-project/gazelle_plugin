@@ -28,8 +28,8 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.oap.io.{DataFileContext, OapDataReaderV1, OrcDataFileContext}
-import org.apache.spark.sql.execution.datasources.orc.{OrcFilters, OrcFiltersAdapter, OrcUtils}
-import org.apache.spark.sql.internal.oap.OapConf
+import org.apache.spark.sql.execution.datasources.orc.{OrcFiltersAdapter, OrcUtils}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.{AtomicType, StructType}
 import org.apache.spark.util.SerializableConfiguration
@@ -49,7 +49,7 @@ private[sql] class OptimizedOrcFileFormat extends OapFileFormat {
    */
   override def supportBatch(sparkSession: SparkSession, schema: StructType): Boolean = {
     val conf = sparkSession.sessionState.conf
-    conf.getConf(OapConf.ORC_VECTORIZED_READER_ENABLED) &&
+    conf.getConf(SQLConf.ORC_VECTORIZED_READER_ENABLED) &&
       conf.wholeStageEnabled &&
       schema.length <= conf.wholeStageMaxNumFields &&
       schema.forall(_.dataType.isInstanceOf[AtomicType])
@@ -83,9 +83,9 @@ private[sql] class OptimizedOrcFileFormat extends OapFileFormat {
         val requiredIds = requiredSchema.map(dataSchema.fields.indexOf(_)).toArray
 
         val enableOffHeapColumnVector =
-          sparkSession.sessionState.conf.getConf(OapConf.COLUMN_VECTOR_OFFHEAP_ENABLED)
+          sparkSession.sessionState.conf.getConf(SQLConf.COLUMN_VECTOR_OFFHEAP_ENABLED)
         val copyToSpark =
-          sparkSession.sessionState.conf.getConf(OapConf.ORC_COPY_BATCH_TO_SPARK)
+          sparkSession.sessionState.conf.getConf(SQLConf.ORC_COPY_BATCH_TO_SPARK)
         val isCaseSensitive = sparkSession.sessionState.conf.caseSensitiveAnalysis
 
         // Push down the filters to the orc record reader.

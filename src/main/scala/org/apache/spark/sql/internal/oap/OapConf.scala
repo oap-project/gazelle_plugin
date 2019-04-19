@@ -308,13 +308,4 @@ object OapConf {
         "is empty, it will store in the data file path")
       .stringConf
       .createWithDefault("")
-
-  val ORC_VECTORIZED_READER_ENABLED =
-    SqlConfAdapter.ORC_VECTORIZED_READER_ENABLED
-
-  val COLUMN_VECTOR_OFFHEAP_ENABLED =
-    SqlConfAdapter.COLUMN_VECTOR_OFFHEAP_ENABLED
-
-  val ORC_COPY_BATCH_TO_SPARK =
-    SqlConfAdapter.ORC_COPY_BATCH_TO_SPARK
 }
