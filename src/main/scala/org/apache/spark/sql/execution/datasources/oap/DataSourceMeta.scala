@@ -297,7 +297,7 @@ private[oap] case class Version(major: Byte, minor: Byte, revision: Byte) {
 }
 
 private[oap] object  Version {
-  val versionSet = Set(Version(1, 0, 1), Version(1, 0, 1))
+  val versionSet = Set(Version(1, 0, 0), Version(1, 0, 1))
 
   def isCompatible(version: Version): Boolean = {
     versionSet.contains(version)
