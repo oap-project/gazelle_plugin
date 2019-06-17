@@ -25,6 +25,7 @@ import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.JoinedRow
+import org.apache.spark.sql.execution.datasources.oap.Key
 import org.apache.spark.sql.execution.datasources.oap.index.{IndexScanner, IndexUtils}
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.types.StructType
@@ -173,5 +174,68 @@ class PartByValueStatisticsSuite extends StatisticsTest {
 
     generateInterval(rowGen(-10), rowGen(0), true, true)
     assert(partByValueRead.analyse(intervalArray) == StatsAnalysisResult.SKIP_INDEX)
+  }
+
+  test("test write2 function") {
+    val keys = (1 to 300).map(i => rowGen(i)).toArray
+
+    val product2Keys = keys.map(v => (v, Seq(1)))
+      .asInstanceOf[Array[Product2[Key, Seq[Int]]]]
+
+    val testPartByValueWriter = new TestPartByValueWriter(schema)
+    testPartByValueWriter.initParams(product2Keys.size)
+    testPartByValueWriter.buildMetas(product2Keys, true)
+    testPartByValueWriter.write2(out)
+
+    var offset = 0
+    val fiber = wrapToFiberCache(out)
+    assert(fiber.getInt(offset) == StatisticsType.TYPE_PART_BY_VALUE)
+    offset += 4
+
+    val part = OapConf.OAP_STATISTICS_PART_NUM.defaultValue.get + 1
+    val cntPerPart = keys.length / (part - 1)
+    assert(fiber.getInt(offset) == part)
+    offset += 4
+
+    var rowOffset = 0
+    for (i <- 0 until part) {
+      val curMaxIdx = Math.min(i * cntPerPart, keys.length - 1)
+      assert(fiber.getInt(offset + i * 12) == curMaxIdx) // index
+      assert(fiber.getInt(offset + i * 12 + 4) == (curMaxIdx + 1)) // count
+
+      val row = nnkr.readKey(fiber, offset + part * 12 + rowOffset)._1
+      rowOffset = fiber.getInt(offset + i * 12 + 8)
+      checkInternalRow(row, keys(curMaxIdx)) // row
+    }
+  }
+
+  test("read and write2") {
+    val keys = (1 to 300).map(i => rowGen(i)).toArray
+
+    val product2Keys = keys.map(v => (v, Seq(1)))
+      .asInstanceOf[Array[Product2[Key, Seq[Int]]]]
+
+    val testPartByValueWriter = new TestPartByValueWriter(schema)
+    testPartByValueWriter.initParams(product2Keys.size)
+    testPartByValueWriter.buildMetas(product2Keys, true)
+    testPartByValueWriter.write2(out)
+
+    val fiber = wrapToFiberCache(out)
+
+    val partByValueRead = new TestPartByValueReader(schema)
+    partByValueRead.read(fiber, 0)
+
+    val content = Array(1, 61, 121, 181, 241, 300)
+    val curMaxId = Array(0, 60, 120, 180, 240, 299)
+    val curAccumuCount = Array(1, 61, 121, 181, 241, 300)
+
+    val metas = partByValueRead.getMetas
+    for (i <- metas.indices) {
+      assert(metas(i).idx == i)
+      assert(ordering.compare(metas(i).row, keys(curMaxId(i))) == 0)
+      assert(ordering.compare(metas(i).row, rowGen(content(i))) == 0)
+      assert(metas(i).curMaxId == curMaxId(i))
+      assert(metas(i).accumulatorCnt == curAccumuCount(i))
+    }
   }
 }

@@ -31,10 +31,16 @@ import org.apache.spark.sql.execution.datasources.oap.index.{IndexScanner, Index
 import org.apache.spark.sql.types.StructType
 
 class SampleBasedStatisticsSuite extends StatisticsTest {
+  val resultIdx = Array(1, 20, 100, 156, 233)
 
   class TestSampleWriter(schema: StructType)
     extends SampleBasedStatisticsWriter(schema, new Configuration()) {
     override def takeSample(keys: ArrayBuffer[Key], size: Int): Array[Key] = keys.take(size).toArray
+
+    override def initParams(totalSorterRecordSize: Int): Unit = {
+      resultIdx.foreach(randomHashSet.add(_))
+      sampleArrayBuffer = ArrayBuffer.empty[Key]
+    }
     def getSampleArray: Array[Key] = sampleArray
   }
 
@@ -155,5 +161,53 @@ class SampleBasedStatisticsSuite extends StatisticsTest {
     generateInterval(rowGen(301), dummyEnd,
       startInclude = true, endInclude = true)
     assert(sampleRead.analyse(intervalArray) == StatsAnalysisResult.USE_INDEX)
+  }
+
+  test("test write2 function") {
+    val keys = (1 to 300).map(i => rowGen(i)).toArray
+
+    val product2Keys = keys.map(v => (v, Seq(1)))
+      .asInstanceOf[Array[Product2[Key, Seq[Int]]]]
+
+    val testSampleWriter = new TestSampleWriter(schema)
+    testSampleWriter.initParams(product2Keys.size)
+    testSampleWriter.buildSampleArray(product2Keys, true)
+    testSampleWriter.write2(out)
+
+    var offset = 0
+    val fiber = wrapToFiberCache(out)
+    assert(fiber.getInt(offset) == StatisticsType.TYPE_SAMPLE_BASE)
+    offset += 4
+    val size = fiber.getInt(offset)
+    offset += 4
+    var rowOffset = 0
+    for (i <- 0 until size) {
+      val row = nnkr.readKey(fiber, offset + size * 4 + rowOffset)._1
+      rowOffset = fiber.getInt(offset + i * 4)
+      checkInternalRow(row, keys(resultIdx(i)))
+    }
+  }
+
+  test("read and write2") {
+    val keys = (1 to 300).map(i => rowGen(i)).toArray
+
+    val product2Keys = keys.map(v => (v, Seq(1)))
+      .asInstanceOf[Array[Product2[Key, Seq[Int]]]]
+
+    val testSampleWriter = new TestSampleWriter(schema)
+    testSampleWriter.initParams(product2Keys.size)
+    testSampleWriter.buildSampleArray(product2Keys, true)
+    testSampleWriter.write2(out)
+
+    val fiber = wrapToFiberCache(out)
+
+    val sampleRead = new TestSampleReader(schema)
+    sampleRead.read(fiber, 0)
+
+    val array = sampleRead.getSampleArray
+
+    for (i <- array.indices) {
+      checkInternalRow(array(i), keys(resultIdx(i)))
+    }
   }
 }

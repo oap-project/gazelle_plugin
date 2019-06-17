@@ -84,6 +84,12 @@ abstract class StatisticsWriter(schema: StructType, conf: Configuration) {
     IndexUtils.writeInt(writer, id)
     4
   }
+
+  // this write2 is used when enable externalSorter
+  def write2(writer: OutputStream): Int = {
+    IndexUtils.writeInt(writer, id)
+    4
+  }
 }
 
 // tool function for Statistics class

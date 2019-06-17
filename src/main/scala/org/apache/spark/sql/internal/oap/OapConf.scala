@@ -330,4 +330,11 @@ object OapConf {
         "is empty, it will store in the data file path")
       .stringConf
       .createWithDefault("")
+
+  val OAP_INDEX_STATISTIC_EXTERNALSORTER_ENABLE =
+    SqlConfAdapter.buildConf("spark.sql.oap.index.statistic.externalsorter.enable")
+      .internal()
+      .doc("To indicate if to enable externalsorter for statistic calculation")
+      .booleanConf
+      .createWithDefault(true)
 }

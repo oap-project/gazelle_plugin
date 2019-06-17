@@ -158,8 +158,26 @@ private[oap] class PartByValueStatisticsWriter(schema: StructType, conf: Configu
 
   protected lazy val metas: ArrayBuffer[PartedByValueMeta] = new ArrayBuffer[PartedByValueMeta]()
 
+  // this is the common part used by write and write2
+  private def internalWrite(writer: OutputStream, offsetP: Int): Int = {
+    var offset = offsetP
+    IndexUtils.writeInt(writer, metas.length)
+    offset += IndexUtils.INT_SIZE
+    val tempWriter = new ByteArrayOutputStream()
+    metas.foreach(meta => {
+      nnkw.writeKey(tempWriter, meta.row)
+      IndexUtils.writeInt(writer, meta.curMaxId)
+      IndexUtils.writeInt(writer, meta.accumulatorCnt)
+      IndexUtils.writeInt(writer, tempWriter.size())
+      offset += 12
+    })
+    writer.write(tempWriter.toByteArray)
+    offset += tempWriter.size
+    offset
+  }
+
   override def write(writer: OutputStream, sortedKeys: ArrayBuffer[Key]): Int = {
-    var offset = super.write(writer, sortedKeys)
+    val offset = super.write(writer, sortedKeys)
     val hashMap = new java.util.HashMap[Key, Int]()
     val uniqueKeys: ArrayBuffer[Key] = new ArrayBuffer[Key]()
 
@@ -187,20 +205,7 @@ private[oap] class PartByValueStatisticsWriter(schema: StructType, conf: Configu
 
     buildPartMeta(uniqueKeys, hashMap)
 
-    // start writing
-    IndexUtils.writeInt(writer, metas.length)
-    offset += IndexUtils.INT_SIZE
-    val tempWriter = new ByteArrayOutputStream()
-    metas.foreach(meta => {
-      nnkw.writeKey(tempWriter, meta.row)
-      IndexUtils.writeInt(writer, meta.curMaxId)
-      IndexUtils.writeInt(writer, meta.accumulatorCnt)
-      IndexUtils.writeInt(writer, tempWriter.size())
-      offset += 12
-    })
-    writer.write(tempWriter.toByteArray)
-    offset += tempWriter.size
-    offset
+    internalWrite(writer, offset)
   }
 
   // TODO needs refactor, kept for easy debug
@@ -230,6 +235,55 @@ private[oap] class PartByValueStatisticsWriter(schema: StructType, conf: Configu
         index += 1
       }
       metas.append(PartedByValueMeta(partNum, uniqueKeys.last, size - 1, count))
+    }
+  }
+
+  override def write2(writer: OutputStream): Int = {
+    val offset = super.write2(writer)
+    internalWrite(writer, offset)
+  }
+
+  private var partCount: Int = _
+  private var partSize: Int = _
+  private var curIdxCount: Int = _
+  private var idxNum: Int = _
+  private var uniqueKeySize: Int = _
+  private var keyCount: Int = _
+  private var curIdx: Int = _
+
+  def initParams(totalKeySize: Int): Unit = {
+    this.uniqueKeySize = totalKeySize
+    if (this.uniqueKeySize > 0) {
+      this.partCount = if (this.uniqueKeySize > maxPartNum) maxPartNum else this.uniqueKeySize
+      this.partSize = this.uniqueKeySize / this.partCount
+      this.curIdxCount = 0
+      this.idxNum = 0
+      this.keyCount = 0
+      this.curIdx = this.idxNum * this.partSize
+    }
+  }
+
+  // This should provide the same function to get the metas as buildPartMeta().
+  // And this will be used when using the oapExternalSorter data
+  def buildMetas(keyArray: Array[Product2[Key, Seq[Int]]], isLast: Boolean): Unit = {
+    var kv: Product2[Key, Seq[Int]] = null
+    if (keyArray != null && keyArray.size != 0) {
+      keyArray.foreach(
+        value => {
+          kv = value
+          this.keyCount += 1
+          this.curIdxCount += kv._2.size
+          if ((this.keyCount - 1) >= this.curIdx) {
+            metas.append(PartedByValueMeta(this.idxNum, kv._1, this.curIdx, this.curIdxCount))
+            this.idxNum += 1
+            this.curIdx = this.idxNum * this.partSize
+          }
+        }
+      )
+
+      if (isLast && ((this.keyCount - 1) > (this.idxNum - 1) * this.partSize)) {
+        metas.append(PartedByValueMeta(this.idxNum, kv._1, this.keyCount - 1, this.curIdxCount))
+      }
     }
   }
 }

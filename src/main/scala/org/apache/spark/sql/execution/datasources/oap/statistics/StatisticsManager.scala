@@ -50,9 +50,16 @@ class StatisticsWriteManager {
 
   @transient private lazy val ordering = GenerateOrdering.create(schema)
 
+  private var _isExternalSorterEnable = true
+
+  def isExternalSorterEnable: Boolean = _isExternalSorterEnable
   // When a task initialize statisticsWriteManager, we read all config from `conf`,
   // which is created from `SparkUtils`, hence containing all spark config values.
   def initialize(indexType: OapIndexType, s: StructType, conf: Configuration): Unit = {
+    _isExternalSorterEnable = conf.getBoolean(OapConf.OAP_INDEX_STATISTIC_EXTERNALSORTER_ENABLE.key,
+      OapConf.OAP_INDEX_STATISTIC_EXTERNALSORTER_ENABLE.defaultValue.get
+    ) && indexType.toString.equals(BTreeIndexType.toString)
+
     val statsTypes = StatisticsManager.statisticsTypeMap(indexType).filter { statType =>
       val typeFromConfig = conf.get(OapConf.OAP_STATISTICS_TYPES.key,
         OapConf.OAP_STATISTICS_TYPES.defaultValueString).split(",").map(_.trim)
@@ -71,7 +78,9 @@ class StatisticsWriteManager {
       // stats info does not collect null keys
       return
     }
-    content.append(key)
+    if (!_isExternalSorterEnable) {
+      content.append(key)
+    }
     stats.foreach(_.addOapKey(key))
   }
 
@@ -88,13 +97,31 @@ class StatisticsWriteManager {
       offset += 4
     }
 
-    val sortedKeys = sortKeys
-    stats.foreach { stat =>
-      val off = stat.write(out, sortedKeys)
-      assert(off >= 0)
-      offset += off
+    if (_isExternalSorterEnable) {
+      stats.foreach { stat =>
+        val off = stat.write2(out)
+        assert(off >= 0)
+        offset += off
+      }
+    } else {
+      val sortedKeys = sortKeys
+      stats.foreach { stat =>
+        val off = stat.write(out, sortedKeys)
+        assert(off >= 0)
+        offset += off
+      }
     }
     offset
+  }
+
+  def getPartByValueStat: Option[PartByValueStatisticsWriter] = {
+    stats.find(v => v.isInstanceOf[PartByValueStatisticsWriter])
+      .asInstanceOf[Option[PartByValueStatisticsWriter]]
+  }
+
+  def getSampleBasedStat: Option[SampleBasedStatisticsWriter] = {
+    stats.find(v => v.isInstanceOf[SampleBasedStatisticsWriter])
+      .asInstanceOf[Option[SampleBasedStatisticsWriter]]
   }
 
   private def sortKeys = content.sortWith((l, r) => ordering.compare(l, r) < 0)
