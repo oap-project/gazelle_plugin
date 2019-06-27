@@ -83,16 +83,30 @@ private[oap] case class BitmapFiberId(
   }
 }
 
-private[oap] case class TestFiberId(getData: () => FiberCache, name: String) extends FiberId {
+private[oap] case class TestDataFiberId(getData: () => FiberCache, name: String) extends FiberId {
 
   override def hashCode(): Int = name.hashCode()
 
   override def equals(obj: Any): Boolean = obj match {
-    case another: TestFiberId => name.equals(another.name)
+    case another: TestDataFiberId => name.equals(another.name)
     case _ => false
   }
 
   override def toString: String = {
-    s"type: TestFiber name: $name"
+    s"type: TestDataFiber name: $name"
+  }
+}
+
+private[oap] case class TestIndexFiberId(getData: () => FiberCache, name: String) extends FiberId {
+
+  override def hashCode(): Int = name.hashCode()
+
+  override def equals(obj: Any): Boolean = obj match {
+    case another: TestIndexFiberId => name.equals(another.name)
+    case _ => false
+  }
+
+  override def toString: String = {
+    s"type: TestIndexFiber name: $name"
   }
 }

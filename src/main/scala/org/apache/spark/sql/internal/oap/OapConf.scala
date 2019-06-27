@@ -125,6 +125,22 @@ object OapConf {
       .doubleConf
       .createWithDefault(0.7)
 
+  val OAP_DATAFIBER_USE_FIBERCACHE_RATIO =
+    SqlConfAdapter.buildConf("spark.sql.oap.dataCache.use.fiberCache.ratio")
+      .internal()
+      .doc("Define the ratio of data cache use fiber cache ratio. " +
+        "This is not available under mix mode")
+      .doubleConf
+      .createWithDefault(0.8)
+
+  val OAP_INDEX_DATA_SEPARATION_ENABLE =
+    SqlConfAdapter.buildConf("spark.sql.oap.index.data.cache.separation.enable")
+      .internal()
+      .doc("This is to enable index and data cache separation feature for offheap and pm, " +
+        "not for MixMemoryManager")
+      .booleanConf
+      .createWithDefault(false)
+
   val OAP_FIBERCACHE_MEMORY_MANAGER =
     SqlConfAdapter.buildConf("spark.sql.oap.fiberCache.memory.manager")
       .internal()
@@ -132,6 +148,26 @@ object OapConf {
         "(PM) Intel Optane DC persistent memory currently.")
       .stringConf
       .createWithDefault("offheap")
+
+  val OAP_MIX_INDEX_MEMORY_MANAGER =
+    SqlConfAdapter.buildConf("spark.sql.oap.mix.index.memory.manager")
+      .internal()
+      .doc("Sets the implement of index memory manager in mix mode," +
+        "it only supports offheap(DRAM OFF_HEAP) and " +
+        "(PM) Intel Optane DC persistent memory currently." +
+        "It should be different from spark.sql.oap.mix.data.memory.manager")
+      .stringConf
+      .createWithDefault("offheap")
+
+  val OAP_MIX_DATA_MEMORY_MANAGER =
+    SqlConfAdapter.buildConf("spark.sql.oap.mix.data.memory.manager")
+      .internal()
+      .doc("Sets the implement of data memory manager in mix mode," +
+        "it only supports offheap(DRAM OFF_HEAP) and " +
+        "(PM) Intel Optane DC persistent memory currently." +
+        "It should be different from spark.sql.oap.mix.index.memory.manager")
+      .stringConf
+      .createWithDefault("pm")
 
   val OAP_FIBERCACHE_PERSISTENT_MEMORY_CONFIG_FILE =
     SqlConfAdapter.buildConf("spark.sql.oap.fiberCache.persistent.memory.config.file")

@@ -121,8 +121,8 @@ class FiberSensorSuite extends QueryTest with SharedOapContext with BeforeAndAft
       val summary2 = getCacheStats(fiberSensor)
       logWarning(s"Summary2: ${summary2.toDebugString}")
       assertResult(1)(fiberSensor.executorToCacheManager.size())
-      assert(summary.hitCount < summary2.hitCount)
-      assertResult(summary.missCount)(summary2.missCount)
+      assert(summary.dataFiberHitCount < summary2.dataFiberHitCount)
+      assertResult(summary.dataFiberMissCount)(summary2.dataFiberMissCount)
       assertResult(summary.dataFiberCount)(summary2.dataFiberCount)
       assertResult(summary.dataFiberSize)(summary2.dataFiberSize)
       assertResult(summary.indexFiberCount)(summary2.indexFiberCount)
@@ -147,7 +147,7 @@ class FiberSensorSuite extends QueryTest with SharedOapContext with BeforeAndAft
     CacheStats.reset
     val conf: SparkConf = new SparkConf()
     conf.set(OapConf.OAP_UPDATE_FIBER_CACHE_METRICS_INTERVAL_SEC.key, 0L.toString)
-    val cacheStats = CacheStats(2, 19, 10, 2, 0, 0, 213, 23, 23, 123131, 2)
+    val cacheStats = CacheStats(2, 19, 10, 2, 0, 0, 213, 23, 23, 123131, 2, 3, 23, 11, 22, 33)
     listener.onOtherEvent(SparkListenerCustomInfoUpdate(
       host, execID, messager, CacheStats.status(cacheStats, conf)))
     assertResult(1)(fiberSensor.executorToCacheManager.size())

@@ -141,11 +141,17 @@ $(document).ready(function () {
             var allIndexFiberCount = 0;
             var allPendingFiberSize = 0;
             var allPendingFiberCount = 0;
-            var allHitCount = 0;
-            var allMissCount = 0;
-            var allLoadCount = 0;
-            var allLoadTime = 0;
-            var allEvictionCount = 0;
+            var allDataFiberHitCount = 0;
+            var allDataFiberMissCount = 0;
+            var allDataFiberLoadCount = 0;
+            var allDataLoadTime = 0;
+            var allDataEvictionCount = 0;
+            var allIndexFiberHitCount = 0;
+            var allIndexFiberMissCount = 0;
+            var allIndexFiberLoadCount = 0;
+            var allIndexLoadTime = 0;
+            var allIndexEvictionCount = 0;
+            var indexDataCacheSeparationEnable = true;
 
             response.forEach(function (exec) {
                 allExecCnt += 1;
@@ -161,11 +167,17 @@ $(document).ready(function () {
                 allIndexFiberCount   += exec.indexFiberCount;
                 allPendingFiberSize  += exec.pendingFiberSize;
                 allPendingFiberCount += exec.pendingFiberCount;
-                allHitCount          += exec.hitCount;
-                allMissCount         += exec.missCount;
-                allLoadCount         += exec.loadCount;
-                allLoadTime          += exec.loadTime;
-                allEvictionCount     += exec.evictionCount;
+                allDataFiberHitCount          += exec.dataFiberHitCount;
+                allDataFiberMissCount         += exec.dataFiberMissCount;
+                allDataFiberLoadCount         += exec.dataFiberLoadCount;
+                allDataLoadTime          += exec.dataTotalLoadTime;
+                allDataEvictionCount     += exec.dataEvictionCount;
+                allIndexFiberHitCount          += exec.indexFiberHitCount;
+                allIndexFiberMissCount         += exec.indexFiberMissCount;
+                allIndexFiberLoadCount         += exec.indexFiberLoadCount;
+                allIndexLoadTime          += exec.indexTotalLoadTime;
+                allIndexEvictionCount     += exec.indexEvictionCount;
+                indexDataCacheSeparationEnable = exec.indexDataCacheSeparationEnable;
             });
 
             var totalSummary = {
@@ -182,158 +194,358 @@ $(document).ready(function () {
                 "allIndexFiberCount": allIndexFiberCount,
                 "allPendingFiberSize": allPendingFiberSize,
                 "allPendingFiberCount": allPendingFiberCount,
-                "allHitCount": allHitCount,
-                "allMissCount": allMissCount,
-                "allLoadCount": allLoadCount,
-                "allLoadTime": allLoadTime,
-                "allEvictionCount": allEvictionCount
+                "allDataFiberHitCount": allDataFiberHitCount,
+                "allDataFiberMissCount": allDataFiberMissCount,
+                "allDataFiberLoadCount": allDataFiberLoadCount,
+                "allDataLoadTime": allDataLoadTime,
+                "allDataEvictionCount": allDataEvictionCount,
+                "allIndexFiberHitCount": allIndexFiberHitCount,
+                "allIndexFiberMissCount": allIndexFiberMissCount,
+                "allIndexFiberLoadCount": allIndexFiberLoadCount,
+                "allIndexLoadTime": allIndexLoadTime,
+                "allIndexEvictionCount": allIndexEvictionCount
             };
 
             var data = {fibercachemanagers: response, "fiberCacheManagerSummary": [totalSummary]};
             $.get(createTemplateURI(appId), function (template) {
 
                 fiberCacheManagersSummary.append(Mustache.render($(template).filter("#cms-summary-template").html(), data));
-                var selector = "#active-cms-table";
-                var conf = {
-                    "data": response,
-                    "columns": [
-                        {
-                            data: function (row, type) {
-                                return type !== 'display' ? (isNaN(row.id) ? 0 : row.id ) : row.id;
-                            }
-                        },
-                        {data: 'hostPort'},
-                        {data: 'isActive', render: formatStatus},
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.memoryUsed, type) + ' / '
-                                    + formatBytes(row.maxMemory, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.cacheSize, type)  + ' / '
-                                    + formatCount(row.cacheCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.backendCacheSize, type)  + ' / '
-                                    + formatCount(row.backendCacheCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.dataFiberSize, type)  + ' / '
-                                    + formatCount(row.dataFiberCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.indexFiberSize, type)  + ' / '
-                                    + formatCount(row.indexFiberCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.pendingFiberSize, type)  + ' / '
-                                    + formatCount(row.pendingFiberCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (row.hitCount * 100
-                                    / (row.hitCount + row.missCount)).toFixed(2)
-                                    + '% (' + formatCount(row.hitCount, type) + '/'
-                                    + formatCount(row.missCount, type) + ')' : 'Nan'
-                            }
-                        },
-                        {data: 'loadCount', render: formatCount},
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ?
-                                    formatDuration((row.loadTime / 1000000 / row.loadCount).toFixed(2)) : 'Nan'
-                            }
-                        },
-                        {data: 'evictionCount', render: formatCount}
-                    ],
-                    "order": [[0, "asc"]]
-                };
 
-                $(selector).DataTable(conf);
-                $('#active-cms [data-toggle="tooltip"]').tooltip();
+                if (indexDataCacheSeparationEnable) {
+                    var selector = "#cache-separation-active-cms-table";
+                    var conf = {
+                        "data": response,
+                        "columns": [
+                            {
+                                data: function (row, type) {
+                                    return type !== 'display' ? (isNaN(row.id) ? 0 : row.id ) : row.id;
+                                }
+                            },
+                            {data: 'hostPort'},
+                            {data: 'isActive', render: formatStatus},
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.memoryUsed, type) + ' / '
+                                        + formatBytes(row.maxMemory, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.cacheSize, type)  + ' / '
+                                        + formatCount(row.cacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.backendCacheSize, type)  + ' / '
+                                        + formatCount(row.backendCacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.dataFiberSize, type)  + ' / '
+                                        + formatCount(row.dataFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (row.dataFiberHitCount * 100
+                                        / (row.dataFiberHitCount + row.dataFiberMissCount)).toFixed(2)
+                                        + '% (' + formatCount(row.dataFiberHitCount, type) + '/'
+                                        + formatCount(row.dataFiberMissCount, type) + ')' : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatCount(row.dataFiberLoadCount, type)  + ' / '
+                                        + formatCount(row.dataEvictionCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ?
+                                        formatDuration((row.dataTotalLoadTime / 1000000 / row.dataFiberLoadCount).toFixed(2)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.indexFiberSize, type)  + ' / '
+                                        + formatCount(row.indexFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (row.indexFiberHitCount * 100
+                                        / (row.indexFiberHitCount + row.indexFiberMissCount)).toFixed(2)
+                                        + '% (' + formatCount(row.indexFiberHitCount, type) + '/'
+                                        + formatCount(row.indexFiberMissCount, type) + ')' : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatCount(row.indexFiberLoadCount, type)  + ' / '
+                                        + formatCount(row.indexEvictionCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ?
+                                        formatDuration((row.indexTotalLoadTime / 1000000 / row.indexFiberLoadCount).toFixed(2)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.pendingFiberSize, type)  + ' / '
+                                        + formatCount(row.pendingFiberCount, type)) : 'Nan'
+                                }
+                            },
+                        ],
+                        "order": [[0, "asc"]]
+                    };
 
-                var sumSelector = "#summary-cms-table";
-                var sumConf = {
-                    "data": [totalSummary],
-                    "columns": [
-                        {
-                            data: 'execCnt',
-                            "fnCreatedCell": function (nTd, sData, oData, iRow, iCol) {
-                                $(nTd).css('font-weight', 'bold');
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.allMemoryUsed, type)
-                                    + ' / ' + formatBytes(row.allMaxMemory, type)) : 'Nan';
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.allCacheSize, type)
-                                    + ' / ' + formatCount(row.allCacheCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.allBackendCacheSize, type)
-                                    + ' / ' + formatCount(row.allBackendCacheCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.allDataFiberSize, type)
-                                    + ' / ' + formatCount(row.allDataFiberCount, type)) : 'Nan'
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.allIndexFiberSize, type)
-                                    + ' / ' + formatCount(row.allIndexFiberCount, type)) : "Nan"
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (formatBytes(row.allPendingFiberSize, type)
-                                    + ' / ' + formatCount(row.allPendingFiberCount, type)) : "Nan"
-                            }
-                        },
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ? (row.allHitCount * 100
-                                    / (row.allHitCount + row.allMissCount)).toFixed(2)
-                                    + '% (' + formatCount(row.allHitCount, type) + '/'
-                                    + formatCount(row.allMissCount, type) + ')' : 'Nan'
-                            }
-                        },
-                        {data: 'allLoadCount', render: formatCount},
-                        {
-                            data: function (row, type) {
-                                return type === 'display' ?
-                                    formatDuration((row.allLoadTime / 1000000 / row.allLoadCount).toFixed(2)) : 'Nan'
-                            }
-                        },
-                        {data: "allEvictionCount", render: formatCount}
-                    ],
-                    "paging": false,
-                    "searching": false,
-                    "info": false
+                    $(selector).DataTable(conf);
+                    $('#active-cms [data-toggle="tooltip"]').tooltip();
 
-                };
+                    var sumSelector = "#cache-separation-summary-cms-table";
+                    var sumConf = {
+                        "data": [totalSummary],
+                        "columns": [
+                            {
+                                data: 'execCnt',
+                                "fnCreatedCell": function (nTd, sData, oData, iRow, iCol) {
+                                    $(nTd).css('font-weight', 'bold');
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allMemoryUsed, type)
+                                        + ' / ' + formatBytes(row.allMaxMemory, type)) : 'Nan';
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allCacheSize, type)
+                                        + ' / ' + formatCount(row.allCacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allBackendCacheSize, type)
+                                        + ' / ' + formatCount(row.allBackendCacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allDataFiberSize, type)
+                                        + ' / ' + formatCount(row.allDataFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (row.allDataFiberHitCount * 100
+                                        / (row.allDataFiberHitCount + row.allDataFiberMissCount)).toFixed(2)
+                                        + '% (' + formatCount(row.allDataFiberHitCount, type) + '/'
+                                        + formatCount(row.allDataFiberMissCount, type) + ')' : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatCount(row.allDataFiberLoadCount, type)  + ' / '
+                                        + formatCount(row.allDataEvictionCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ?
+                                        formatDuration((row.allDataLoadTime / 1000000 / row.allDataFiberLoadCount).toFixed(2)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allIndexFiberSize, type)
+                                        + ' / ' + formatCount(row.allIndexFiberCount, type)) : "Nan"
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (row.allIndexFiberHitCount * 100
+                                        / (row.allIndexFiberHitCount + row.allIndexFiberMissCount)).toFixed(2)
+                                        + '% (' + formatCount(row.allIndexFiberHitCount, type) + '/'
+                                        + formatCount(row.allIndexFiberMissCount, type) + ')' : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatCount(row.allIndexFiberLoadCount, type)  + ' / '
+                                        + formatCount(row.allIndexEvictionCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ?
+                                        formatDuration((row.allIndexLoadTime / 1000000 / row.allIndexFiberLoadCount).toFixed(2)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allPendingFiberSize, type)
+                                        + ' / ' + formatCount(row.allPendingFiberCount, type)) : "Nan"
+                                }
+                            },
+                        ],
+                        "paging": false,
+                        "searching": false,
+                        "info": false
 
-                $(sumSelector).DataTable(sumConf);
-                $('#fiberCacheManagerSummary [data-toggle="tooltip"]').tooltip();
+                    };
+
+                    $(sumSelector).DataTable(sumConf);
+                    $('#fiberCacheManagerSummary [data-toggle="tooltip"]').tooltip();
+                    $("#indexdata-cache-combine").hide()
+                } else {
+                    var selector = "#active-cms-table";
+                    var conf = {
+                        "data": response,
+                        "columns": [
+                            {
+                                data: function (row, type) {
+                                    return type !== 'display' ? (isNaN(row.id) ? 0 : row.id ) : row.id;
+                                }
+                            },
+                            {data: 'hostPort'},
+                            {data: 'isActive', render: formatStatus},
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.memoryUsed, type) + ' / '
+                                        + formatBytes(row.maxMemory, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.cacheSize, type)  + ' / '
+                                        + formatCount(row.cacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.backendCacheSize, type)  + ' / '
+                                        + formatCount(row.backendCacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.dataFiberSize, type)  + ' / '
+                                        + formatCount(row.dataFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.indexFiberSize, type)  + ' / '
+                                        + formatCount(row.indexFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.pendingFiberSize, type)  + ' / '
+                                        + formatCount(row.pendingFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (row.dataFiberHitCount * 100
+                                        / (row.dataFiberHitCount + row.dataFiberMissCount)).toFixed(2)
+                                        + '% (' + formatCount(row.dataFiberHitCount, type) + '/'
+                                        + formatCount(row.dataFiberMissCount, type) + ')' : 'Nan'
+                                }
+                            },
+                            {data: 'dataFiberLoadCount', render: formatCount},
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ?
+                                        formatDuration((row.dataTotalLoadTime / 1000000 / row.dataFiberLoadCount).toFixed(2)) : 'Nan'
+                                }
+                            },
+                            {data: 'dataEvictionCount', render: formatCount}
+                        ],
+                        "order": [[0, "asc"]]
+                    };
+
+                    $(selector).DataTable(conf);
+                    $('#active-cms [data-toggle="tooltip"]').tooltip();
+
+                    var sumSelector = "#summary-cms-table";
+                    var sumConf = {
+                        "data": [totalSummary],
+                        "columns": [
+                            {
+                                data: 'execCnt',
+                                "fnCreatedCell": function (nTd, sData, oData, iRow, iCol) {
+                                    $(nTd).css('font-weight', 'bold');
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allMemoryUsed, type)
+                                        + ' / ' + formatBytes(row.allMaxMemory, type)) : 'Nan';
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allCacheSize, type)
+                                        + ' / ' + formatCount(row.allCacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allBackendCacheSize, type)
+                                        + ' / ' + formatCount(row.allBackendCacheCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allDataFiberSize, type)
+                                        + ' / ' + formatCount(row.allDataFiberCount, type)) : 'Nan'
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allIndexFiberSize, type)
+                                        + ' / ' + formatCount(row.allIndexFiberCount, type)) : "Nan"
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (formatBytes(row.allPendingFiberSize, type)
+                                        + ' / ' + formatCount(row.allPendingFiberCount, type)) : "Nan"
+                                }
+                            },
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ? (row.allDataFiberHitCount * 100
+                                        / (row.allDataFiberHitCount + row.allDataFiberMissCount)).toFixed(2)
+                                        + '% (' + formatCount(row.allDataFiberHitCount, type) + '/'
+                                        + formatCount(row.allDataFiberMissCount, type) + ')' : 'Nan'
+                                }
+                            },
+                            {data: 'allDataFiberLoadCount', render: formatCount},
+                            {
+                                data: function (row, type) {
+                                    return type === 'display' ?
+                                        formatDuration((row.allDataLoadTime / 1000000 / row.allDataFiberLoadCount).toFixed(2)) : 'Nan'
+                                }
+                            },
+                            {data: "allDataEvictionCount", render: formatCount}
+                        ],
+                        "paging": false,
+                        "searching": false,
+                        "info": false
+
+                    };
+
+                    $(sumSelector).DataTable(sumConf);
+                    $('#fiberCacheManagerSummary [data-toggle="tooltip"]').tooltip();
+                    $("#indexdata-cache-separation").hide()
+                }
 
             });
         });

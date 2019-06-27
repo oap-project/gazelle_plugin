@@ -41,11 +41,16 @@ case class CacheStats(
     indexFiberSize: Long,
     pendingFiberCount: Long,
     pendingFiberSize: Long,
-    hitCount: Long,
-    missCount: Long,
-    loadCount: Long,
-    totalLoadTime: Long,
-    evictionCount: Long) {
+    dataFiberHitCount: Long,
+    dataFiberMissCount: Long,
+    dataFiberLoadCount: Long,
+    dataTotalLoadTime: Long,
+    dataEvictionCount: Long,
+    indexFiberHitCount: Long,
+    indexFiberMissCount: Long,
+    indexFiberLoadCount: Long,
+    indexTotalLoadTime: Long,
+    indexEvictionCount: Long) {
 
   require(dataFiberCount >= 0)
   require(dataFiberSize >= 0)
@@ -53,22 +58,31 @@ case class CacheStats(
   require(indexFiberSize >= 0)
   require(pendingFiberCount >= 0)
   require(pendingFiberSize >= 0)
-  require(hitCount >= 0)
-  require(missCount >= 0)
-  require(loadCount >= 0)
-  require(totalLoadTime >= 0)
-  require(evictionCount >= 0)
+  require(dataFiberHitCount >= 0)
+  require(dataFiberMissCount >= 0)
+  require(dataFiberLoadCount >= 0)
+  require(dataTotalLoadTime >= 0)
+  require(dataEvictionCount >= 0)
+  require(indexFiberHitCount >= 0)
+  require(indexFiberMissCount >= 0)
+  require(indexFiberLoadCount >= 0)
+  require(indexTotalLoadTime >= 0)
+  require(indexEvictionCount >= 0)
 
-  def requestCount: Long = hitCount + missCount
+  def requestCount: Long =
+    dataFiberHitCount
+  + dataFiberMissCount
+  + indexFiberHitCount
+  + indexFiberMissCount
 
   def hitRate: Double = {
     val rc = requestCount
-    if (rc == 0) 1.0 else hitCount.toDouble / rc
+    if (rc == 0) 1.0 else (dataFiberHitCount + indexFiberHitCount).toDouble / rc
   }
 
   def missRate: Double = {
     val rc = requestCount
-    if (rc == 0) 0.0 else missCount.toDouble / rc
+    if (rc == 0) 0.0 else (dataFiberMissCount + indexFiberMissCount).toDouble / rc
   }
 
   def backendCacheSize: Long = indexFiberSize + dataFiberSize
@@ -79,7 +93,14 @@ case class CacheStats(
 
   def totalCacheCount: Long = backendCacheCount + pendingFiberCount
 
-  def averageLoadPenalty: Double = if (loadCount == 0) 0.0 else totalLoadTime.toDouble / loadCount
+  def averageLoadPenalty: Double = {
+    if ((indexFiberLoadCount + dataFiberLoadCount) == 0) {
+      0.0
+    }
+    else {
+      (indexTotalLoadTime + dataTotalLoadTime).toDouble / (indexFiberLoadCount + dataFiberLoadCount)
+    }
+  }
 
   def plus(other: CacheStats): CacheStats = this + other
 
@@ -93,11 +114,16 @@ case class CacheStats(
       indexFiberSize + other.indexFiberSize,
       pendingFiberCount + other.pendingFiberCount,
       pendingFiberSize + other.pendingFiberSize,
-      hitCount + other.hitCount,
-      missCount + other.missCount,
-      loadCount + other.loadCount,
-      totalLoadTime + other.totalLoadTime,
-      evictionCount + other.evictionCount)
+      dataFiberHitCount + other.dataFiberHitCount,
+      dataFiberMissCount + other.dataFiberMissCount,
+      dataFiberLoadCount + other.dataFiberLoadCount,
+      dataTotalLoadTime + other.dataTotalLoadTime,
+      dataEvictionCount + other.dataEvictionCount,
+      indexFiberHitCount + other.indexFiberHitCount,
+      indexFiberMissCount + other.indexFiberMissCount,
+      indexFiberLoadCount + other.indexFiberLoadCount,
+      indexTotalLoadTime + other.indexTotalLoadTime,
+      indexEvictionCount + other.indexEvictionCount)
 
   def -(other: CacheStats): CacheStats =
     CacheStats(
@@ -107,18 +133,25 @@ case class CacheStats(
       math.max(0, indexFiberSize - other.indexFiberSize),
       math.max(0, pendingFiberCount - other.pendingFiberCount),
       math.max(0, pendingFiberSize - other.pendingFiberSize),
-      math.max(0, hitCount - other.hitCount),
-      math.max(0, missCount - other.missCount),
-      math.max(0, loadCount - other.loadCount),
-      math.max(0, totalLoadTime - other.totalLoadTime),
-      math.max(0, evictionCount - other.evictionCount))
+      math.max(0, dataFiberHitCount - other.dataFiberHitCount),
+      math.max(0, dataFiberMissCount - other.dataFiberMissCount),
+      math.max(0, dataFiberLoadCount - other.dataFiberLoadCount),
+      math.max(0, dataTotalLoadTime - other.dataTotalLoadTime),
+      math.max(0, dataEvictionCount - other.dataEvictionCount),
+      math.max(0, indexFiberHitCount - other.indexFiberHitCount),
+      math.max(0, indexFiberMissCount - other.indexFiberMissCount),
+      math.max(0, indexFiberLoadCount - other.indexFiberLoadCount),
+      math.max(0, indexTotalLoadTime - other.indexTotalLoadTime),
+      math.max(0, indexEvictionCount - other.indexEvictionCount))
 
   def toDebugString: String = {
     s"CacheStats: { dataCacheCount/Size: $dataFiberCount/$dataFiberSize, " +
       s"indexCacheCount/Size: $indexFiberCount/$indexFiberSize, " +
       s"pendingCacheCount/Size: $pendingFiberCount/$pendingFiberSize, " +
-      s"hitCount=$hitCount, missCount=$missCount, " +
-      s"totalLoadTime=${totalLoadTime}ns, evictionCount=$evictionCount }"
+      s"dataFiberHitCount=$dataFiberHitCount, dataFiberMissCount=$dataFiberMissCount, " +
+      s"dataFiberLoadCount=${dataFiberLoadCount}ns, dataEvictionCount=$dataEvictionCount, " +
+      s"indexFiberHitCount=$indexFiberHitCount, indexFiberMissCount=$indexFiberMissCount, " +
+      s"indexTotalLoadTime=${indexTotalLoadTime}ns, indexEvictionCount=$indexEvictionCount }"
   }
 
   def toJson: JValue = {
@@ -128,11 +161,16 @@ case class CacheStats(
       ("indexFiberSize" -> indexFiberSize) ~
       ("pendingFiberCount" -> pendingFiberCount) ~
       ("pendingFiberSize" -> pendingFiberSize) ~
-      ("hitCount" -> hitCount) ~
-      ("missCount" -> missCount) ~
-      ("loadCount" -> loadCount) ~
-      ("totalLoadTime" -> totalLoadTime) ~
-      ("evictionCount" -> evictionCount)
+      ("dataFiberHitCount" -> dataFiberHitCount) ~
+      ("dataFiberMissCount" -> dataFiberMissCount) ~
+      ("dataFiberLoadCount" -> dataFiberLoadCount) ~
+      ("dataTotalLoadTime" -> dataTotalLoadTime) ~
+      ("dataEvictionCount" -> dataEvictionCount) ~
+      ("indexFiberHitCount" -> indexFiberHitCount) ~
+      ("indexFiberMissCount" -> indexFiberMissCount) ~
+      ("indexFiberLoadCount" -> indexFiberLoadCount) ~
+      ("indexTotalLoadTime" -> indexTotalLoadTime) ~
+      ("indexEvictionCount" -> indexEvictionCount)
   }
 }
 
@@ -141,7 +179,7 @@ object CacheStats extends Logging {
   private var updateInterval: Long = -1
   private var lastUpdateTime: Long = 0
 
-  def apply(): CacheStats = CacheStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+  def apply(): CacheStats = CacheStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
   def apply(json: String): CacheStats = CacheStats(parse(json))
 
@@ -152,11 +190,16 @@ object CacheStats extends Logging {
       (json \ "indexFiberSize").extract[Long],
       (json \ "pendingFiberCount").extract[Long],
       (json \ "pendingFiberSize").extract[Long],
-      (json \ "hitCount").extract[Long],
-      (json \ "missCount").extract[Long],
-      (json \ "loadCount").extract[Long],
-      (json \ "totalLoadTime").extract[Long],
-      (json \ "evictionCount").extract[Long])
+      (json \ "dataFiberHitCount").extract[Long],
+      (json \ "dataFiberMissCount").extract[Long],
+      (json \ "dataFiberLoadCount").extract[Long],
+      (json \ "dataTotalLoadTime").extract[Long],
+      (json \ "dataEvictionCount").extract[Long],
+      (json \ "indexFiberHitCount").extract[Long],
+      (json \ "indexFiberMissCount").extract[Long],
+      (json \ "indexFiberLoadCount").extract[Long],
+      (json \ "indexTotalLoadTime").extract[Long],
+      (json \ "indexEvictionCount").extract[Long])
 
   def status(cacheStats: CacheStats, conf: SparkConf): String = {
     updateInterval = if (updateInterval != -1) {
