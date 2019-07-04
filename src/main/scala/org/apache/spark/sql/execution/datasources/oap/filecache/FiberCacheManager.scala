@@ -22,6 +22,8 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.google.common.cache._
+import org.apache.hadoop.conf.Configuration
+import org.apache.parquet.format.CompressionCodec
 
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
@@ -101,6 +103,17 @@ private[sql] class FiberCacheManager(
   private val SIMPLE_CACHE = "simple"
   private val DEFAULT_CACHE_STRATEGY = GUAVA_CACHE
 
+  private var _dataCacheCompressEnable = sparkEnv.conf.get(
+    OapConf.OAP_ENABLE_DATA_FIBER_CACHE_COMPRESSION)
+  private var _dataCacheCompressionCodec = sparkEnv.conf.get(
+    OapConf.OAP_DATA_FIBER_CACHE_COMPRESSION_CODEC)
+  private val _dataCacheCompressionSize = sparkEnv.conf.get(
+    OapConf.OAP_DATA_FIBER_CACHE_COMPRESSION_SIZE)
+
+  def dataCacheCompressEnable: Boolean = _dataCacheCompressEnable
+  def dataCacheCompressionCodec: String = _dataCacheCompressionCodec
+  def dataCacheCompressionSize: Int = _dataCacheCompressionSize
+
   private val cacheBackend: OapCache = {
     val cacheName = sparkEnv.conf.get("spark.oap.cache.strategy", DEFAULT_CACHE_STRATEGY)
     if (cacheName.equals(GUAVA_CACHE)) {
@@ -130,6 +143,12 @@ private[sql] class FiberCacheManager(
   def get(fiber: FiberId): FiberCache = {
     logDebug(s"Getting Fiber: $fiber")
     cacheBackend.get(fiber)
+  }
+  // only for unit test
+  def setCompressionConf(dataEnable: Boolean = false,
+      dataCompressCodec: String = "SNAPPY"): Unit = {
+    _dataCacheCompressEnable = dataEnable
+    _dataCacheCompressionCodec = dataCompressCodec
   }
 
   def releaseIndexCache(indexName: String): Unit = {

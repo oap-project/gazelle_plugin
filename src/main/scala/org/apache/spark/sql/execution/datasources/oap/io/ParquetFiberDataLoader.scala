@@ -27,6 +27,7 @@ import org.apache.parquet.hadoop.utils.Collections3
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetReadSupportWrapper, VectorizedColumnReader}
 import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
+import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.types._
 
 /**
@@ -59,7 +60,7 @@ private[oap] case class ParquetFiberDataLoader(
     // Notes: rowIds is IntegerType in oap index.
     val rowCount = reader.getFooter.getBlocks.get(blockId).getRowCount.toInt
 
-    val column = new OnHeapColumnVector(rowCount, dataType)
+
     val columnDescriptor = requestedSchema.getColumns.get(0)
     val originalType = requestedSchema.asGroupType.getFields.get(0).getOriginalType
     val blockMetaData = footer.getBlocks.get(blockId)
@@ -67,7 +68,15 @@ private[oap] case class ParquetFiberDataLoader(
     val columnReader =
       new VectorizedColumnReader(columnDescriptor, originalType,
         fiberData.getPageReader(columnDescriptor), TimeZone.getDefault)
-    columnReader.readBatch(rowCount, column)
-    ParquetDataFiberWriter.dumpToCache(column.asInstanceOf[OnHeapColumnVector], rowCount)
+
+    if (OapRuntime.getOrCreate.fiberCacheManager.dataCacheCompressEnable) {
+      ParquetDataFiberCompressedWriter.dumpToCache(
+        columnReader, rowCount, dataType)
+    } else {
+      val column = new OnHeapColumnVector(rowCount, dataType)
+      columnReader.readBatch(rowCount, column)
+      ParquetDataFiberWriter.dumpToCache(
+        column.asInstanceOf[OnHeapColumnVector], rowCount)
+    }
   }
 }
