@@ -128,24 +128,27 @@ object OapConf {
   val OAP_DATAFIBER_USE_FIBERCACHE_RATIO =
     SqlConfAdapter.buildConf("spark.sql.oap.dataCache.use.fiberCache.ratio")
       .internal()
-      .doc("Define the ratio of data cache use fiber cache ratio. " +
-        "This is not available under mix mode")
+      .doc("Define the ratio of data cache use fiber cache ratio " +
+        "when enable cache separation for single physical storage. " +
+        "This is not available under mix mode because the index and data " +
+        "will be stored in different physical storage")
       .doubleConf
       .createWithDefault(0.8)
 
   val OAP_INDEX_DATA_SEPARATION_ENABLE =
     SqlConfAdapter.buildConf("spark.sql.oap.index.data.cache.separation.enable")
       .internal()
-      .doc("This is to enable index and data cache separation feature for offheap and pm, " +
-        "not for MixMemoryManager")
+      .doc("This is to enable index data cache separation feature including mix memory manager")
       .booleanConf
       .createWithDefault(false)
 
   val OAP_FIBERCACHE_MEMORY_MANAGER =
     SqlConfAdapter.buildConf("spark.sql.oap.fiberCache.memory.manager")
       .internal()
-      .doc("Sets the implement of memory manager, it only supports offheap(DRAM OFF_HEAP) and " +
-        "(PM) Intel Optane DC persistent memory currently.")
+      .doc("Sets the implement of memory manager, it currently supports offheap(DRAM OFF_HEAP), " +
+        "pm(Intel Optane DC persistent memory) and mix(A combination of offheap and pm)." +
+        "To enable mix mode, you need to set " +
+        "spark.sql.oap.index.data.cache.separation.enable to true")
       .stringConf
       .createWithDefault("offheap")
 
