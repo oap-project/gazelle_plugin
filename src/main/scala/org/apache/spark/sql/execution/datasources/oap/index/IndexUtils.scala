@@ -22,18 +22,36 @@ import java.io.OutputStream
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
+import org.apache.spark.internal.Logging
+import org.apache.spark.internal.io.FileCommitProtocol
+import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.RuntimeConfig
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.FileIndex
+import org.apache.spark.sql.catalyst.catalog.CatalogTable
+import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import org.apache.spark.sql.catalyst.plans.logical.Project
+import org.apache.spark.sql.execution.datasources.{FileFormatWriter, FileIndex, PartitionDirectory}
+import org.apache.spark.sql.execution.datasources.HadoopFsRelation
+import org.apache.spark.sql.execution.datasources.LogicalRelation
+import org.apache.spark.sql.execution.datasources.OapException
+import org.apache.spark.sql.execution.datasources.OapIndexWriteJobStatsTracker
+import org.apache.spark.sql.execution.datasources.oap.IndexMeta
 import org.apache.spark.sql.execution.datasources.oap.OapFileFormat
 import org.apache.spark.sql.execution.datasources.oap.io.{BytesCompressor, BytesDecompressor, IndexFile}
+import org.apache.spark.sql.execution.datasources.orc.ReadOnlyNativeOrcFileFormat
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
+import org.apache.spark.sql.execution.datasources.parquet.ReadOnlyParquetFileFormat
+import org.apache.spark.sql.hive.orc.ReadOnlyOrcFileFormat
 import org.apache.spark.sql.internal.oap.OapConf
+import org.apache.spark.sql.types.MetadataBuilder
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.unsafe.Platform
 
 /**
  * Utils for Index read/write
  */
-private[oap] object IndexUtils {
+private[oap] object IndexUtils extends  Logging {
 
   def readVersion(fileReader: IndexFileReader): Option[Int] = {
     val magicBytes = fileReader.read(0, IndexFile.VERSION_LENGTH)
@@ -227,6 +245,37 @@ private[oap] object IndexUtils {
     }
   }
 
+  def getOutputPathBasedOnConf(
+      partitionDirs: Seq[PartitionDirectory], fileIndex: FileIndex, conf: RuntimeConfig): Path = {
+
+    def getTableBaseDir(path: Path, times: Int): Path = {
+      if (times > 0) getTableBaseDir(path.getParent, times - 1)
+      else path
+    }
+
+    val prtitionLength = fileIndex.partitionSchema.length
+    val baseDirs = partitionDirs
+      .filter(_.files.nonEmpty).map(dir => dir.files.head.getPath.getParent)
+      .map(getTableBaseDir(_, prtitionLength)).toSet
+
+    val dataPath = if (baseDirs.isEmpty) {
+      getOutputPathBasedOnConf(fileIndex, conf)
+    } else if (baseDirs.size == 1) {
+      baseDirs.head
+    } else {
+      throw new UnsupportedOperationException("Not support multi data base dir now")
+    }
+    logWarning(s"data path = $dataPath")
+
+    val indexDirectory = conf.get(OapConf.OAP_INDEX_DIRECTORY.key)
+    if (indexDirectory.trim != "") {
+      new Path (
+        indexDirectory + Path.getPathWithoutSchemeAndAuthority(dataPath).toString)
+    } else {
+      dataPath
+    }
+  }
+
   val INT_SIZE = 4
   val LONG_SIZE = 8
 
@@ -330,5 +379,121 @@ private[oap] object IndexUtils {
     } else {
       bytes
     }
+  }
+
+  def extractInfoFromPlan(sparkSession: SparkSession, optimized: LogicalPlan)
+    : (FileIndex, StructType, String, Option[CatalogTable], LogicalPlan) = {
+    val (fileCatalog, schema, readerClassName, identifier, relation) = optimized match {
+      case LogicalRelation(
+          _ @ HadoopFsRelation(f, _, s, _, _: OapFileFormat, _), _, id, _) =>
+        (f, s, OapFileFormat.OAP_DATA_FILE_CLASSNAME, id, optimized)
+      case LogicalRelation(
+          _fsRelation @ HadoopFsRelation(f, _, s, _, _: ParquetFileFormat, _),
+          attributes, id, _) =>
+        if (!sparkSession.conf.get(OapConf.OAP_PARQUET_ENABLED)) {
+          throw new OapException(s"turn on ${
+            OapConf.OAP_PARQUET_ENABLED.key
+          } to allow index operation on parquet files")
+        }
+        // Use ReadOnlyParquetFileFormat instead of ParquetFileFormat because of
+        // ReadOnlyParquetFileFormat.isSplitable always return false.
+        val fsRelation = _fsRelation.copy(
+          fileFormat = new ReadOnlyParquetFileFormat(),
+          options = _fsRelation.options)(_fsRelation.sparkSession)
+        val logical = LogicalRelation(fsRelation, attributes, id, isStreaming = false)
+        (f, s, OapFileFormat.PARQUET_DATA_FILE_CLASSNAME, id, logical)
+      case LogicalRelation(
+          _fsRelation @ HadoopFsRelation(f, _, s, _, format, _), attributes, id, _)
+        if format.isInstanceOf[org.apache.spark.sql.hive.orc.OrcFileFormat] ||
+          format.isInstanceOf[org.apache.spark.sql.execution.datasources.orc.OrcFileFormat] =>
+        if (!sparkSession.conf.get(OapConf.OAP_ORC_ENABLED)) {
+          throw new OapException(s"turn on ${
+            OapConf.OAP_ORC_ENABLED.key
+          } to allow index building on orc files")
+        }
+        // ReadOnlyOrcFileFormat and ReadOnlyNativeOrcFileFormat don't support splitable.
+        // ReadOnlyOrcFileFormat is for hive orc.
+        // ReadOnlyNativeOrcFileFormat is for native orc introduced in Spark 2.3.
+        val fsRelation = format match {
+          case _: org.apache.spark.sql.hive.orc.OrcFileFormat =>
+            _fsRelation.copy(fileFormat = new ReadOnlyOrcFileFormat(),
+              options = _fsRelation.options)(_fsRelation.sparkSession)
+          case _: org.apache.spark.sql.execution.datasources.orc.OrcFileFormat =>
+            _fsRelation.copy(fileFormat = new ReadOnlyNativeOrcFileFormat(),
+              options = _fsRelation.options)(_fsRelation.sparkSession)
+        }
+        val logical = LogicalRelation(fsRelation, attributes, id, isStreaming = false)
+        (f, s, OapFileFormat.ORC_DATA_FILE_CLASSNAME, id, logical)
+      case other =>
+        throw new OapException(s"We don't support index operation for ${other.simpleString}")
+    }
+    (fileCatalog, schema, readerClassName, identifier, relation)
+  }
+
+  def buildPartitionsFilter(partitions: Seq[PartitionDirectory], schema: StructType): String = {
+    partitions.map{ p =>
+      (0 until p.values.numFields).
+        map(i => (schema.fields(i).name, p.values.get(i, schema.fields(i).dataType))).
+        map{ case (k, v) => s"$k='$v'" }.reduce(_ + " AND " + _)
+    }.map("(" + _ + ")").reduce(_ + " OR " + _)
+  }
+
+  def buildPartitionIndex(
+    relation: LogicalPlan,
+    sparkSession: SparkSession,
+    partitions: Seq[PartitionDirectory],
+    outPutPath: Path,
+    partitionSchema: StructType,
+    indexColumns: Seq[IndexColumn],
+    indexType: OapIndexType,
+    indexMeta: IndexMeta): Seq[IndexBuildResult] = {
+    val projectList = indexColumns.map { indexColumn =>
+      relation.output.find(p => p.name == indexColumn.columnName).get.withMetadata(
+        new MetadataBuilder().putBoolean("isAscending", indexColumn.isAscending).build())
+    }
+
+    var ds = Dataset.ofRows(sparkSession, Project(projectList, relation))
+    if (partitionSchema.nonEmpty) {
+      val disjunctivePartitionsFilter = buildPartitionsFilter(partitions, partitionSchema)
+      ds = ds.filter(disjunctivePartitionsFilter)
+    }
+
+    assert(outPutPath != null, "Expected exactly one path to be specified, but no value")
+
+    val configuration = sparkSession.sessionState.newHadoopConf()
+    val qualifiedOutputPath = {
+      val fs = outPutPath.getFileSystem(configuration)
+      outPutPath.makeQualified(fs.getUri, fs.getWorkingDirectory)
+    }
+
+    val committer = FileCommitProtocol.instantiate(
+      sparkSession.sessionState.conf.fileCommitProtocolClass,
+      jobId = java.util.UUID.randomUUID().toString,
+      outputPath = outPutPath.toUri.toString,
+      false)
+
+    val options = Map(
+      "indexName" -> indexMeta.name,
+      "indexTime" -> indexMeta.time,
+      "isAppend" -> "true",
+      "indexType" -> indexType.toString
+    )
+
+    val statsTrackers = new OapIndexWriteJobStatsTracker
+
+    FileFormatWriter.write(
+      sparkSession = sparkSession,
+      ds.queryExecution.executedPlan,
+      fileFormat = new OapIndexFileFormat,
+      committer = committer,
+      outputSpec = FileFormatWriter.OutputSpec(
+        qualifiedOutputPath.toUri.toString, Map.empty, ds.queryExecution.analyzed.output),
+      hadoopConf = configuration,
+      Seq.empty, // partitionColumns
+      bucketSpec = None,
+      statsTrackers = Seq(statsTrackers),
+      options = options)
+
+    statsTrackers.indexBuildResults
   }
 }

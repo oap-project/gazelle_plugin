@@ -19,25 +19,23 @@ package org.apache.spark.sql.execution.datasources.oap.index
 
 import scala.collection.mutable
 
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path, PathFilter}
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.internal.io.FileCommitProtocol
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.scheduler.local.LocalSchedulerBackend
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
+import org.apache.spark.sql.catalyst.catalog.CatalogTable
 import org.apache.spark.sql.catalyst.catalog.CatalogTypes._
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.plans.logical.Project
 import org.apache.spark.sql.execution.command.RunnableCommand
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.execution.datasources.oap.utils.OapUtils
-import org.apache.spark.sql.execution.datasources.orc.ReadOnlyNativeOrcFileFormat
-import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ReadOnlyParquetFileFormat}
-import org.apache.spark.sql.hive.orc.ReadOnlyOrcFileFormat
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.oap.rpc.OapMessages.CacheDrop
@@ -54,66 +52,15 @@ case class CreateIndexCommand(
     indexType: OapIndexType,
     partitionSpec: Option[TablePartitionSpec]) extends RunnableCommand with Logging {
 
-  override def run(sparkSession: SparkSession): Seq[Row] = {
-    val qe = sparkSession.sessionState.executePlan(UnresolvedRelation(table))
-    qe.assertAnalyzed()
-    val optimized = qe.optimizedPlan
-
-    val (fileCatalog, schema, readerClassName, identifier, relation) = optimized match {
-      case LogicalRelation(
-          _fsRelation @ HadoopFsRelation(f, _, s, _, _: OapFileFormat, _), _, id, _) =>
-        (f, s, OapFileFormat.OAP_DATA_FILE_CLASSNAME, id, optimized)
-      case LogicalRelation(
-          _fsRelation @ HadoopFsRelation(f, _, s, _, format: ParquetFileFormat, _),
-          attributes, id, _) =>
-        if (!sparkSession.conf.get(OapConf.OAP_PARQUET_ENABLED)) {
-          throw new OapException(s"turn on ${
-            OapConf.OAP_PARQUET_ENABLED.key} to allow index building on parquet files")
-        }
-        // Use ReadOnlyParquetFileFormat instead of ParquetFileFormat because of
-        // ReadOnlyParquetFileFormat.isSplitable always return false.
-        val fsRelation = _fsRelation.copy(
-          fileFormat = new ReadOnlyParquetFileFormat(),
-          options = _fsRelation.options)(_fsRelation.sparkSession)
-        val logical = LogicalRelation(fsRelation, attributes, id, false)
-        (f, s, OapFileFormat.PARQUET_DATA_FILE_CLASSNAME, id, logical)
-      case LogicalRelation(
-          _fsRelation @ HadoopFsRelation(f, _, s, _, format, _), attributes, id, _)
-          if (format.isInstanceOf[org.apache.spark.sql.hive.orc.OrcFileFormat] ||
-          format.isInstanceOf[org.apache.spark.sql.execution.datasources.orc.OrcFileFormat]) =>
-        if (!sparkSession.conf.get(OapConf.OAP_ORC_ENABLED)) {
-          throw new OapException(s"turn on ${
-            OapConf.OAP_ORC_ENABLED.key} to allow index building on orc files")
-        }
-        // ReadOnlyOrcFileFormat and ReadOnlyNativeOrcFileFormat don't support splitable.
-        // ReadOnlyOrcFileFormat is for hive orc.
-        // ReadOnlyNativeOrcFileFormat is for native orc introduced in Spark 2.3.
-        val fsRelation = format match {
-          case a: org.apache.spark.sql.hive.orc.OrcFileFormat =>
-            _fsRelation.copy(fileFormat = new ReadOnlyOrcFileFormat(),
-              options = _fsRelation.options)(_fsRelation.sparkSession)
-          case a: org.apache.spark.sql.execution.datasources.orc.OrcFileFormat =>
-            _fsRelation.copy(fileFormat = new ReadOnlyNativeOrcFileFormat(),
-              options = _fsRelation.options)(_fsRelation.sparkSession)
-        }
-        val logical = LogicalRelation(fsRelation, attributes, id, false)
-        (f, s, OapFileFormat.ORC_DATA_FILE_CLASSNAME, id, logical)
-      case other =>
-        throw new OapException(s"We don't support index building for ${other.simpleString}")
-    }
-
-    logInfo(s"Creating index $indexName")
+  def buildPartitionMeta(
+    sparkSession: SparkSession,
+    identifier: Option[CatalogTable],
+    partitions: Seq[PartitionDirectory],
+    readerClassName: String,
+    schema: StructType,
+    time: String): Seq[(DataSourceMetaBuilder, Path, Boolean)] = {
     val configuration = sparkSession.sessionState.newHadoopConf()
-    val partitions = OapUtils.getPartitions(fileCatalog, partitionSpec)
-    // TODO currently we ignore empty partitions, so each partition may have different indexes,
-    // this may impact index updating. It may also fail index existence check. Should put index
-    // info at table level also.
-    val time = if (sparkSession.conf.get(OapConf.OAP_INDEXER_USE_CONSTANT_TIMESTAMPS_ENABLED)) {
-      sparkSession.conf.get(OapConf.OAP_INDEXER_TIMESTAMPS_CONSTANT).toHexString
-    } else {
-      System.currentTimeMillis().toHexString
-    }
-    val bAndP = partitions.filter(_.files.nonEmpty).map(p => {
+    partitions.filter(_.files.nonEmpty).map(p => {
       val metaBuilder = new DataSourceMetaBuilder()
       val parent = p.files.head.getPath.getParent
       // TODO get `fs` outside of map() to boost
@@ -134,9 +81,11 @@ case class CreateIndexCommand(
             return Nil
           }
         }
+
         if (existsData != null) {
           existsData.foreach(metaBuilder.addFileMeta)
         }
+
         if (existsIndexes != null) {
           existsIndexes.filter(_.name != indexName).foreach(metaBuilder.addIndexMeta)
         }
@@ -173,55 +122,13 @@ case class CreateIndexCommand(
       // p.files.foreach(f => builder.addFileMeta(FileMeta("", 0, f.getPath.toString)))
       (metaBuilder, parent, existOld)
     })
+  }
 
-    val projectList = indexColumns.map { indexColumn =>
-      relation.output.find(p => p.name == indexColumn.columnName).get.withMetadata(
-        new MetadataBuilder().putBoolean("isAscending", indexColumn.isAscending).build())
-    }
-
-    var ds = Dataset.ofRows(sparkSession, Project(projectList, relation))
-    partitionSpec.getOrElse(Map.empty).foreach { case (k, v) =>
-      ds = ds.filter(s"$k='$v'")
-    }
-    // Generate the outPutPath based on OapConf.OAP_INDEX_DIRECTORY and the data path,
-    // here the dataPath does not contain the partition path
-    val outPutPath = IndexUtils.getOutputPathBasedOnConf(fileCatalog, sparkSession.conf)
-    assert(outPutPath != null, "Expected exactly one path to be specified, but no value")
-
-    val qualifiedOutputPath = {
-      val fs = outPutPath.getFileSystem(configuration)
-      outPutPath.makeQualified(fs.getUri, fs.getWorkingDirectory)
-    }
-
-    val committer = FileCommitProtocol.instantiate(
-      sparkSession.sessionState.conf.fileCommitProtocolClass,
-      jobId = java.util.UUID.randomUUID().toString,
-      outputPath = outPutPath.toUri.getPath,
-       false)
-
-    val options = Map(
-      "indexName" -> indexName,
-      "indexTime" -> time,
-      "isAppend" -> "true",
-      "indexType" -> indexType.toString
-    )
-
-    val statsTrackers = new OapIndexWriteJobStatsTracker
-
-    FileFormatWriter.write(
-      sparkSession = sparkSession,
-      ds.queryExecution.executedPlan,
-      fileFormat = new OapIndexFileFormat,
-      committer = committer,
-      outputSpec = FileFormatWriter.OutputSpec(
-        qualifiedOutputPath.toUri.getPath, Map.empty, ds.queryExecution.analyzed.output),
-      hadoopConf = configuration,
-      Seq.empty, // partitionColumns
-      bucketSpec = None,
-      statsTrackers = Seq(statsTrackers),
-      options = options)
-
-    val retMap = statsTrackers.indexBuildResults.groupBy(_.parent)
+  def writePartitionMeta(
+    sparkSession: SparkSession,
+    bAndP: Seq[(DataSourceMetaBuilder, Path, Boolean)],
+    retMap: Map[String, Set[IndexBuildResult]]): Unit = {
+    val configuration = sparkSession.sessionState.newHadoopConf()
     bAndP.foreach(bp =>
       retMap.getOrElse(bp._2.toString, Nil).foreach(r =>
         if (!bp._3) {
@@ -235,6 +142,56 @@ case class CreateIndexCommand(
       configuration,
       bp._1.build(),
       deleteIfExits = true))
+  }
+  override def run(sparkSession: SparkSession): Seq[Row] = {
+    val qe = sparkSession.sessionState.executePlan(UnresolvedRelation(table))
+    qe.assertAnalyzed()
+    val optimized = qe.optimizedPlan
+
+    val (fileCatalog, schema, readerClassName, identifier, relation) =
+      IndexUtils.extractInfoFromPlan(sparkSession, optimized)
+
+    logInfo(s"Creating index $indexName")
+    val partitions = OapUtils.getPartitions(fileCatalog, partitionSpec).filter(_.files.nonEmpty)
+    val partitionSchema = fileCatalog.partitionSchema
+
+    val partitionsGroupByBaseDir = partitions.groupBy { s =>
+      IndexUtils.getOutputPathBasedOnConf(Seq(s), fileCatalog, sparkSession.conf)
+    }
+
+    val baseDirSet = partitionsGroupByBaseDir.keySet
+    val time = if (sparkSession.conf.get(OapConf.OAP_INDEXER_USE_CONSTANT_TIMESTAMPS_ENABLED)) {
+      sparkSession.conf.get(OapConf.OAP_INDEXER_TIMESTAMPS_CONSTANT).toHexString
+    } else {
+      System.currentTimeMillis().toHexString
+    }
+    val indexMeta = IndexMeta(indexName, time, null)
+
+    val bAndP = buildPartitionMeta(sparkSession, identifier,
+      partitions, readerClassName,
+      schema, time)
+    if (bAndP.isEmpty) {
+      return Nil
+    }
+
+    val retMap = baseDirSet.flatMap{ baseDir =>
+      val partitions = partitionsGroupByBaseDir(baseDir)
+      // TODO currently we ignore empty partitions, so each partition may have different indexes,
+      //  this may impact index updating. It may also fail index existence check. Should put index
+      //  info at table level also.
+
+      IndexUtils.buildPartitionIndex(
+        relation,
+        sparkSession,
+        partitions,
+        baseDir,
+        partitionSchema,
+        indexColumns.toSeq,
+        indexType,
+        indexMeta)
+    }.groupBy(_.parent)
+
+    writePartitionMeta(sparkSession, bAndP, retMap)
     Seq.empty
   }
 }
@@ -332,53 +289,9 @@ case class RefreshIndexCommand(
     table: TableIdentifier,
     partitionSpec: Option[TablePartitionSpec]) extends RunnableCommand with Logging {
 
-  override def run(sparkSession: SparkSession): Seq[Row] = {
-    val qe = sparkSession.sessionState.executePlan(UnresolvedRelation(table))
-    qe.assertAnalyzed()
-    val optimized = qe.optimizedPlan
-
-    val (fileCatalog, schema, readerClassName, relation) = optimized match {
-      case LogicalRelation(
-          HadoopFsRelation(f, _, s, _, _: OapFileFormat, _), _, _, _) =>
-        (f, s, OapFileFormat.OAP_DATA_FILE_CLASSNAME, optimized)
-      case LogicalRelation(
-          _fsRelation @ HadoopFsRelation(f, _, s, _, format: ParquetFileFormat, _),
-          attributes, id, _) =>
-        // Use ReadOnlyParquetFileFormat instead of ParquetFileFormat because of
-        // ReadOnlyParquetFileFormat.isSplitable always return false
-        val fsRelation = _fsRelation.copy(
-          fileFormat = new ReadOnlyParquetFileFormat(),
-          options = _fsRelation.options)(_fsRelation.sparkSession)
-        val logical = LogicalRelation(fsRelation, attributes, id, false)
-        (f, s, OapFileFormat.PARQUET_DATA_FILE_CLASSNAME, logical)
-      case LogicalRelation(
-          _fsRelation @ HadoopFsRelation(f, _, s, _, format, _), attributes, id, _)
-          if (format.isInstanceOf[org.apache.spark.sql.hive.orc.OrcFileFormat] ||
-          format.isInstanceOf[org.apache.spark.sql.execution.datasources.orc.OrcFileFormat]) =>
-        // ReadOnlyOrcFileFormat and ReadOnlyNativeOrcFileFormat don't support splitable.
-        // ReadOnlyOrcFileFormat is for hive orc.
-        // ReadOnlyNativeOrcFileFormat is for native orc introduced in Spark 2.3.
-        val fsRelation = format match {
-          case a: org.apache.spark.sql.hive.orc.OrcFileFormat =>
-            _fsRelation.copy(fileFormat = new ReadOnlyOrcFileFormat(),
-              options = _fsRelation.options)(_fsRelation.sparkSession)
-          case a: org.apache.spark.sql.execution.datasources.orc.OrcFileFormat =>
-            _fsRelation.copy(fileFormat = new ReadOnlyNativeOrcFileFormat(),
-              options = _fsRelation.options)(_fsRelation.sparkSession)
-        }
-        val logical = LogicalRelation(fsRelation, attributes, id, false)
-        (f, s, OapFileFormat.ORC_DATA_FILE_CLASSNAME, logical)
-      case other =>
-        throw new OapException(s"We don't support index refreshing for ${other.simpleString}")
-    }
-
-    val configuration = sparkSession.sessionState.newHadoopConf()
-    val partitions = OapUtils.getPartitions(fileCatalog, partitionSpec).filter(_.files.nonEmpty)
-    // TODO currently we ignore empty partitions, so each partition may have different indexes,
-    // this may impact index updating. It may also fail index existence check. Should put index
-    // info at table level also.
-    // aggregate all existing indices
-    val indices = partitions.flatMap(p => {
+  def collectIndexMeta(
+    sparkSession: SparkSession, partitions: Seq[PartitionDirectory]): Seq[IndexMeta] = {
+    partitions.flatMap(p => {
       val parent = p.files.head.getPath.getParent
       // TODO get `fs` outside of map() to boost
       val fs = parent.getFileSystem(sparkSession.sparkContext.hadoopConfiguration)
@@ -391,8 +304,17 @@ case class RefreshIndexCommand(
       } else {
         Nil
       }
-    }).groupBy(_.name).map(_._2.head)
+    }).groupBy(_.name).map(_._2.head).toSeq
+  }
 
+  def refreshPartitionMeta(
+    sparkSession: SparkSession,
+    configuration: Configuration,
+    identifier: Option[CatalogTable],
+    partitions: Seq[PartitionDirectory],
+    readerClassName: String,
+    schema: StructType,
+    indices: Seq[IndexMeta]): Seq[(DataSourceMetaBuilder, Path)] = {
     val bAndP = partitions.map(p => {
       val metaBuilder = new DataSourceMetaBuilder()
       val parent = p.files.head.getPath.getParent
@@ -420,11 +342,63 @@ case class RefreshIndexCommand(
       // p.files.foreach(f => builder.addFileMeta(FileMeta("", 0, f.getPath.toString)))
       (metaBuilder, parent)
     })
+    bAndP
+  }
 
-    val buildrst = indices.map(i => {
+  def writePartitionMeta(
+    sparkSession: SparkSession,
+    bAndP: Seq[(DataSourceMetaBuilder, Path)],
+    retMap: Map[String, Seq[IndexBuildResult]]): Unit = {
+    // there some cases oap meta files have already been updated
+    // e.g. when inserting data in oap files the meta has already updated
+    // so, we should ignore these cases
+    // And files modifications for parquet should refresh oap meta in this way
+    val filteredBAndP = bAndP.filter(x => retMap.contains(x._2.toString))
+    filteredBAndP.foreach(bp =>
+      retMap.getOrElse(bp._2.toString, Nil).foreach(r => {
+        if (!bp._1.containsFileMeta(r.dataFile)) {
+          bp._1.addFileMeta(FileMeta(r.fingerprint, r.rowCount, r.dataFile))
+        }
+      }
+      ))
+
+    // write updated metas down
+    filteredBAndP.foreach(bp => DataSourceMeta.write(
+      new Path(bp._2.toString, OapFileFormat.OAP_META_FILE),
+      sparkSession.sparkContext.hadoopConfiguration,
+      bp._1.build()))
+  }
+
+  override def run(sparkSession: SparkSession): Seq[Row] = {
+    val qe = sparkSession.sessionState.executePlan(UnresolvedRelation(table))
+    qe.assertAnalyzed()
+    val optimized = qe.optimizedPlan
+
+    val (fileCatalog, schema, readerClassName, identifier, relation) =
+      IndexUtils.extractInfoFromPlan(sparkSession, optimized)
+
+    val configuration = sparkSession.sessionState.newHadoopConf()
+    val partitions = OapUtils.getPartitions(fileCatalog, partitionSpec).filter(_.files.nonEmpty)
+
+    val partitionsGroupByBaseDir = partitions.groupBy { s =>
+      IndexUtils.getOutputPathBasedOnConf(Seq(s), fileCatalog, sparkSession.conf)
+    }
+
+    // TODO currently we ignore empty partitions, so each partition may have different indexes,
+    //  this may impact index updating. It may also fail index existence check. Should put index
+    //  info at table level also.
+
+    // aggregate all existing indices
+    val indices = collectIndexMeta(sparkSession, partitions)
+    val partitionSchema = fileCatalog.partitionSchema
+    val bAndP = refreshPartitionMeta(sparkSession, configuration, identifier, partitions,
+      readerClassName, schema, indices)
+
+    val buildrst = indices.map(index => {
+
       var indexType: OapIndexType = BTreeIndexType
 
-      val indexColumns = i.indexType match {
+      val indexColumns = index.indexType match {
         case BTreeIndex(entries) =>
           entries.map(e => IndexColumn(schema(e.ordinal).name, e.dir == Ascending))
         case BitMapIndex(entries) =>
@@ -433,78 +407,15 @@ case class RefreshIndexCommand(
         case it => sys.error(s"Not implemented index type $it")
       }
 
-      val projectList = indexColumns.map { indexColumn =>
-        relation.output.find(p => p.name == indexColumn.columnName).get.withMetadata(
-          new MetadataBuilder().putBoolean("isAscending", indexColumn.isAscending).build())
-      }
-
-      var ds = Dataset.ofRows(sparkSession, Project(projectList, relation))
-      partitionSpec.getOrElse(Map.empty).foreach { case (k, v) =>
-        ds = ds.filter(s"$k='$v'")
-      }
-
-      // Generate the outPutPath based on OapConf.OAP_INDEX_DIRECTORY and the data path,
-      // here the dataPath does not contain the partition path
-      val outPutPath = IndexUtils.getOutputPathBasedOnConf(fileCatalog, sparkSession.conf)
-      assert(outPutPath != null, "Expected exactly one path to be specified, but no value")
-
-      val qualifiedOutputPath = {
-        val fs = outPutPath.getFileSystem(configuration)
-        outPutPath.makeQualified(fs.getUri, fs.getWorkingDirectory)
-      }
-
-      val committer = FileCommitProtocol.instantiate(
-        sparkSession.sessionState.conf.fileCommitProtocolClass,
-        jobId = java.util.UUID.randomUUID().toString,
-        outputPath = outPutPath.toUri.getPath,
-        false)
-
-      val options = Map(
-        "indexName" -> i.name,
-        "indexTime" -> i.time,
-        "isAppend" -> "true",
-        "indexType" -> indexType.toString
-      )
-
-      val statsTrackers = new OapIndexWriteJobStatsTracker
-
-      FileFormatWriter.write(
-        sparkSession = sparkSession,
-        ds.queryExecution.executedPlan,
-        fileFormat = new OapIndexFileFormat,
-        committer = committer,
-        outputSpec = FileFormatWriter.OutputSpec(
-          qualifiedOutputPath.toUri.getPath, Map.empty, ds.queryExecution.analyzed.output),
-        hadoopConf = configuration,
-        Seq.empty, // partitionColumns
-        bucketSpec = None,
-        statsTrackers = Seq(statsTrackers),
-        options = options)
-      statsTrackers.indexBuildResults
+      partitionsGroupByBaseDir.flatMap{ case (baseDir, partitionSeq) =>
+        IndexUtils.buildPartitionIndex(relation, sparkSession, partitionSeq, baseDir,
+          partitionSchema, indexColumns, indexType, index)
+      }.toSeq
     })
+
     if (buildrst.nonEmpty) {
       val retMap: Map[String, Seq[IndexBuildResult]] = buildrst.head.groupBy(_.parent)
-
-      // there some cases oap meta files have already been updated
-      // e.g. when inserting data in oap files the meta has already updated
-      // so, we should ignore these cases
-      // And files modifications for parquet should refresh oap meta in this way
-      val filteredBAndP = bAndP.filter(x => retMap.contains(x._2.toString))
-      filteredBAndP.foreach(bp =>
-        retMap.getOrElse(bp._2.toString, Nil).foreach(r => {
-          if (!bp._1.containsFileMeta(r.dataFile)) {
-            bp._1.addFileMeta(FileMeta(r.fingerprint, r.rowCount, r.dataFile))
-          }
-        }
-      ))
-
-      // write updated metas down
-      filteredBAndP.foreach(bp => DataSourceMeta.write(
-        new Path(bp._2.toString, OapFileFormat.OAP_META_FILE),
-        sparkSession.sparkContext.hadoopConfiguration,
-        bp._1.build(),
-        deleteIfExits = true))
-
+      writePartitionMeta(sparkSession, bAndP, retMap)
       fileCatalog.refresh()
     }
 

@@ -25,12 +25,13 @@ import org.junit.Assert._
 import org.apache.spark.SparkFunSuite
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.{InMemoryFileIndex, OapException}
+import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
+import org.apache.spark.sql.execution.datasources.{InMemoryFileIndex, OapException, PartitionDirectory}
 import org.apache.spark.sql.execution.datasources.oap.index.OapIndexProperties.IndexVersion
 import org.apache.spark.sql.execution.datasources.oap.io.IndexFile
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.test.oap.SharedOapContext
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
+import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.unsafe.Platform
 
 class IndexUtilsSuite extends SparkFunSuite with SharedOapContext with Logging {
@@ -379,5 +380,28 @@ class IndexUtilsSuite extends SparkFunSuite with SharedOapContext with Logging {
     val fileIndex = new InMemoryFileIndex(spark, rootPaths, Map.empty, Some(partitionSchema))
     val ret = IndexUtils.getOutputPathBasedOnConf(fileIndex, spark.conf)
     assert(ret.equals(part1))
+  }
+
+  test("test build partitions filter") {
+    val rows = Array.fill[GenericInternalRow](3)(new GenericInternalRow(3))
+    val values = Seq(Array(1, "a", 2), Array(1, "b", 1), Array(2, "c", 1))
+    val internalRows = rows.zip(values).map { case (row, value) =>
+      value.indices.foreach(i => row.update(i, value(i)))
+      row
+    }
+    val partitionSchema = new StructType()
+      .add(StructField("col_a", IntegerType))
+      .add(StructField("col_b", StringType))
+      .add(StructField("col_c", IntegerType))
+    val partitions = internalRows.map(PartitionDirectory(_, Nil))
+    val filters = IndexUtils.buildPartitionsFilter(partitions, partitionSchema)
+    val expression = spark.sessionState.sqlParser.parseExpression(filters)
+
+    val expectStr = "(col_a = '1' and col_b = 'a' and col_c = '2') " +
+      "or (col_a = '1' and col_b = 'b' and col_c = '1') " +
+      "or (col_a = '2' and col_b = 'c' and col_c = '1')"
+    val expectExpr = spark.sessionState.sqlParser.parseExpression(expectStr)
+
+    assert(expression.semanticEquals(expectExpr))
   }
 }
