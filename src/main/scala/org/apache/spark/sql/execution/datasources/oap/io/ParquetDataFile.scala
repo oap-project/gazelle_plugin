@@ -208,6 +208,7 @@ private[oap] case class ParquetDataFile(
         inUseFiberCache.indices.foreach(release)
         if (fiberDataReader != null) {
           fiberDataReader.close()
+          reader.close()
         }
       }
     }

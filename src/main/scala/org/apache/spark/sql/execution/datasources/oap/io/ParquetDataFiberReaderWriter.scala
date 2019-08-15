@@ -50,37 +50,57 @@ object ParquetDataFiberWriter extends Logging {
         val length = fiberLength(column, total, 0 )
         logDebug(s"will apply $length bytes off heap memory for data fiber.")
         val fiber = emptyDataFiber(length)
-        val nativeAddress = header.writeToCache(fiber.getBaseOffset)
-        dumpDataToFiber(nativeAddress, column, total)
+        if (!fiber.isFailedMemoryBlock()) {
+          val nativeAddress = header.writeToCache(fiber.getBaseOffset)
+          dumpDataToFiber(nativeAddress, column, total)
+        } else {
+          fiber.setColumn(column)
+        }
         fiber
       case ParquetDataFiberHeader(true, false, dicLength) =>
         val length = fiberLength(column, total, 0, dicLength)
         logDebug(s"will apply $length bytes off heap memory for data fiber.")
         val fiber = emptyDataFiber(length)
-        val nativeAddress = header.writeToCache(fiber.getBaseOffset)
-        dumpDataAndDicToFiber(nativeAddress, column, total, dicLength)
+        if (!fiber.isFailedMemoryBlock()) {
+          val nativeAddress = header.writeToCache(fiber.getBaseOffset)
+          dumpDataAndDicToFiber(nativeAddress, column, total, dicLength)
+        } else {
+          fiber.setColumn(column)
+        }
         fiber
       case ParquetDataFiberHeader(false, true, _) =>
         logDebug(s"will apply ${ParquetDataFiberHeader.defaultSize} " +
           s"bytes off heap memory for data fiber.")
         val fiber = emptyDataFiber(ParquetDataFiberHeader.defaultSize)
-        header.writeToCache(fiber.getBaseOffset)
+        if (!fiber.isFailedMemoryBlock()) {
+          header.writeToCache(fiber.getBaseOffset)
+        } else {
+          fiber.setColumn(column)
+        }
         fiber
       case ParquetDataFiberHeader(false, false, 0) =>
         val length = fiberLength(column, total, 1)
         logDebug(s"will apply $length bytes off heap memory for data fiber.")
         val fiber = emptyDataFiber(length)
-        val nativeAddress =
-          dumpNullsToFiber(header.writeToCache(fiber.getBaseOffset), column, total)
-        dumpDataToFiber(nativeAddress, column, total)
+        if (!fiber.isFailedMemoryBlock()) {
+          val nativeAddress =
+            dumpNullsToFiber(header.writeToCache(fiber.getBaseOffset), column, total)
+          dumpDataToFiber(nativeAddress, column, total)
+        } else {
+          fiber.setColumn(column)
+        }
         fiber
       case ParquetDataFiberHeader(false, false, dicLength) =>
         val length = fiberLength(column, total, 1, dicLength)
         logDebug(s"will apply $length bytes off heap memory for data fiber.")
         val fiber = emptyDataFiber(length)
-        val nativeAddress =
-          dumpNullsToFiber(header.writeToCache(fiber.getBaseOffset), column, total)
-        dumpDataAndDicToFiber(nativeAddress, column, total, dicLength)
+        if (!fiber.isFailedMemoryBlock()) {
+          val nativeAddress =
+            dumpNullsToFiber(header.writeToCache(fiber.getBaseOffset), column, total)
+          dumpDataAndDicToFiber(nativeAddress, column, total, dicLength)
+        } else {
+          fiber.setColumn(column)
+        }
         fiber
       case ParquetDataFiberHeader(true, true, _) =>
         throw new OapException("impossible header status (true, true, _).")
@@ -298,9 +318,9 @@ object ParquetDataFiberWriter extends Logging {
 class ParquetDataFiberReader (address: Long, dataType: DataType, total: Int) extends
   Logging {
 
-  private var header: ParquetDataFiberHeader = _
+  protected var header: ParquetDataFiberHeader = _
 
-  private var dictionary: org.apache.spark.sql.execution.vectorized.Dictionary = _
+  protected var dictionary: org.apache.spark.sql.execution.vectorized.Dictionary = _
 
   /**
    * Read num values to OnHeapColumnVector from data fiber by start position.
@@ -419,7 +439,7 @@ class ParquetDataFiberReader (address: Long, dataType: DataType, total: Int) ext
   /**
    * Read ParquetDataFiberHeader and dictionary from data fiber.
    */
-  private def readRowGroupMetas(): Unit = {
+  protected def readRowGroupMetas(): Unit = {
     header = ParquetDataFiberHeader(address)
     header match {
       case ParquetDataFiberHeader(_, _, 0) =>
@@ -444,7 +464,7 @@ class ParquetDataFiberReader (address: Long, dataType: DataType, total: Int) ext
    * Read num values to OnHeapColumnVector from data fiber by start position,
    * not Dictionary encode.
    */
-  private def readBatch(
+  protected def readBatch(
       dataNativeAddress: Long, start: Int, num: Int, column: OnHeapColumnVector): Unit = {
 
     def readBinaryToColumnVector(): Unit = {

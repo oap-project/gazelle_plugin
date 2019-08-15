@@ -18,11 +18,11 @@
 package org.apache.spark.sql.execution.datasources.oap.io
 
 import java.io.IOException
+import java.util
 
 import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.parquet.format.CompressionCodec
 import org.apache.parquet.hadoop.api.{InitContext, RecordReader}
 import org.apache.parquet.hadoop.metadata._
 import org.apache.parquet.hadoop.utils.Collections3
@@ -32,14 +32,12 @@ import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.memory.MemoryMode
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportWrapper
 import org.apache.spark.sql.execution.vectorized._
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-import org.apache.spark.unsafe.Platform
 
 class VectorizedCacheReader(
     configuration: Configuration,
@@ -83,6 +81,11 @@ class VectorizedCacheReader(
 
   protected var currentRowGroupRowsReturned: Int = 0
 
+  // To record if current row group has failed memory block
+  protected var hasFailedMemoryBlock = false
+
+  protected var failedMemoryBlockList: util.LinkedList[FiberId] = new util.LinkedList[FiberId]()
+
   override def initialize(): Unit = {
     initializeMetas()
     initializeInternal()
@@ -112,11 +115,11 @@ class VectorizedCacheReader(
   }
 
   override def close(): Unit = {
+    clearFailedCache()
     columnarBatch.close()
   }
 
   def nextBatch: Boolean = {
-
     if (rowsReturned >= totalRowCount) {
       return false
     }
@@ -149,6 +152,8 @@ class VectorizedCacheReader(
 
   protected def readNextRowGroup(): Unit = {
     assert(rowGroupMetaIter.hasNext)
+    hasFailedMemoryBlock = false
+
     currentRowGroup = rowGroupMetaIter.next()
     val groupId = currentRowGroup.asInstanceOf[OrderedBlockMetaData].getRowGroupId
 
@@ -173,19 +178,30 @@ class VectorizedCacheReader(
           null
         } else {
           val start = System.nanoTime()
+          val fiberId = DataFiberId(dataFile, id, groupId);
           val fiberCache: FiberCache =
-            OapRuntime.getOrCreate.fiberCacheManager.get(DataFiberId(dataFile, id, groupId))
+            OapRuntime.getOrCreate.fiberCacheManager.get(fiberId)
           val end = System.nanoTime()
           loadFiberTime += (end - start)
           dataFile.update(id, fiberCache)
           val start2 = System.nanoTime()
 
+          if (fiberCache.isFailedMemoryBlock()) {
+            failedMemoryBlockList.offer(fiberId)
+            hasFailedMemoryBlock = true
+          }
+
           val reader: ParquetDataFiberReader = if (fiberCache.fiberCompressed) {
             ParquetDataFiberCompressedReader(fiberCache.getBaseOffset,
               columnarBatch.column(order).dataType(), rowCount, fiberCache)
           } else {
-            ParquetDataFiberReader(fiberCache.getBaseOffset,
-              columnarBatch.column(order).dataType(), rowCount)
+            if (!fiberCache.isFailedMemoryBlock()) {
+              ParquetDataFiberReader(fiberCache.getBaseOffset,
+                columnarBatch.column(order).dataType(), rowCount)
+            } else {
+              ParquetDataFaultFiberReader(fiberCache,
+                columnarBatch.column(order).dataType(), rowCount)
+            }
           }
           val end2 = System.nanoTime()
           loadDicTime += (end2 - start2)
@@ -299,6 +315,14 @@ class VectorizedCacheReader(
 
     if (rowsReturned == totalCountLoadedSoFar) {
       dataFile.releaseAll()
+      clearFailedCache()
+    }
+  }
+
+  protected def clearFailedCache(): Unit = {
+    while (!failedMemoryBlockList.isEmpty) {
+      val tempFiberId = failedMemoryBlockList.poll()
+      OapRuntime.getOrCreate.fiberCacheManager.releaseFiber(tempFiberId)
     }
   }
 }

@@ -468,9 +468,7 @@ class ParquetDataFiberCompressedReader (
      var fiberCache: FiberCache) extends ParquetDataFiberReader(
      address = address, dataType = dataType, total = total) {
 
-  private var header: ParquetDataFiberCompressedHeader = _
-
-  var dictionary: org.apache.spark.sql.execution.vectorized.Dictionary = _
+  private var compressHeader: ParquetDataFiberCompressedHeader = _
 
   /**
    * Read num values to OnHeapColumnVector from data fiber by start position.
@@ -488,7 +486,7 @@ class ParquetDataFiberCompressedReader (
       // Use dictionary encode, value store in dictionaryIds, it's a int array.
       column.setDictionary(dictionary)
       val dictionaryIds = column.reserveDictionaryIds(num).asInstanceOf[OnHeapColumnVector]
-      header match {
+      compressHeader match {
         case ParquetDataFiberCompressedHeader(true, false, _) =>
           if (baseObject != null) {
             // the batch is compressed
@@ -544,7 +542,7 @@ class ParquetDataFiberCompressedReader (
       }
     } else {
       column.setDictionary(null)
-      header match {
+      compressHeader match {
         case ParquetDataFiberCompressedHeader(true, false, _) =>
           if (baseObject != null) {
             // the batch is compressed
@@ -599,9 +597,9 @@ class ParquetDataFiberCompressedReader (
   /**
    * Read ParquetDataFiberCompressedHeader and dictionary from data fiber.
    */
-  private def readRowGroupMetas(): Unit = {
-    header = ParquetDataFiberCompressedHeader(address, fiberCache)
-    header match {
+  override def readRowGroupMetas(): Unit = {
+    compressHeader = ParquetDataFiberCompressedHeader(address, fiberCache)
+    compressHeader match {
       case ParquetDataFiberCompressedHeader(_, _, 0) =>
         dictionary = null
       case ParquetDataFiberCompressedHeader(false, true, _) =>

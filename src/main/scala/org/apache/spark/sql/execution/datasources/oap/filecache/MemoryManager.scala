@@ -34,7 +34,7 @@ import org.apache.spark.util.Utils
 
 object CacheEnum extends Enumeration {
   type CacheEnum = Value
-  val INDEX, DATA, GENERAL = Value
+  val INDEX, DATA, GENERAL, FAIL = Value
 }
 
 /**
@@ -89,13 +89,19 @@ private[sql] abstract class MemoryManager {
 
   @inline protected def toFiberCache(bytes: Array[Byte]): FiberCache = {
     val block = allocate(bytes.length)
-    Platform.copyMemory(
-      bytes,
-      Platform.BYTE_ARRAY_OFFSET,
-      block.baseObject,
-      block.baseOffset,
-      bytes.length)
-    FiberCache(block)
+    if (block.cacheType != CacheEnum.FAIL) {
+      Platform.copyMemory(
+        bytes,
+        Platform.BYTE_ARRAY_OFFSET,
+        block.baseObject,
+        block.baseOffset,
+        bytes.length)
+      FiberCache(block)
+    } else {
+      val fiberCache = FiberCache(block)
+      fiberCache.setOriginByteArray(bytes)
+      fiberCache
+    }
   }
 
   /**
@@ -302,12 +308,18 @@ private[filecache] class PersistentMemoryManager(sparkEnv: SparkEnv)
   override def cacheGuardianMemory: Long = _cacheGuardianMemory
 
   override private[filecache] def allocate(size: Long): MemoryBlockHolder = {
-    val address = PersistentMemoryPlatform.allocateVolatileMemory(size)
-    val occupiedSize = PersistentMemoryPlatform.getOccupiedSize(address)
-    _memoryUsed.getAndAdd(occupiedSize)
-    logDebug(s"request allocate $size memory, actual occupied size: " +
-      s"${occupiedSize}, used: $memoryUsed")
-    MemoryBlockHolder(CacheEnum.GENERAL, null, address, size, occupiedSize)
+    try {
+      val address = PersistentMemoryPlatform.allocateVolatileMemory(size)
+      val occupiedSize = PersistentMemoryPlatform.getOccupiedSize(address)
+      _memoryUsed.getAndAdd(occupiedSize)
+      logDebug(s"request allocate $size memory, actual occupied size: " +
+        s"${occupiedSize}, used: $memoryUsed")
+      MemoryBlockHolder(CacheEnum.GENERAL, null, address, size, occupiedSize)
+    } catch {
+      case e: OutOfMemoryError =>
+        logWarning(e.getMessage)
+        MemoryBlockHolder(CacheEnum.FAIL, null, 0L, 0L, 0L)
+    }
   }
 
   override private[filecache] def free(block: MemoryBlockHolder): Unit = {
@@ -368,19 +380,35 @@ private[filecache] class MixMemoryManager(sparkEnv: SparkEnv)
   }
 
   override def toIndexFiberCache(in: FSDataInputStream, position: Long, length: Int): FiberCache = {
-    indexMemoryManager.toIndexFiberCache(in, position, length).setMemBlockCacheType(CacheEnum.INDEX)
+    val fiberCache = indexMemoryManager.toIndexFiberCache(in, position, length)
+    if (!fiberCache.isFailedMemoryBlock()) {
+      fiberCache.setMemBlockCacheType(CacheEnum.INDEX)
+    }
+    fiberCache
   }
 
   override def toIndexFiberCache(bytes: Array[Byte]): FiberCache = {
-    indexMemoryManager.toIndexFiberCache(bytes).setMemBlockCacheType(CacheEnum.INDEX)
+    val fiberCache = indexMemoryManager.toIndexFiberCache(bytes)
+    if (!fiberCache.isFailedMemoryBlock()) {
+      fiberCache.setMemBlockCacheType(CacheEnum.INDEX)
+    }
+    fiberCache
   }
 
   override def toDataFiberCache(bytes: Array[Byte]): FiberCache = {
-    dataMemoryManager.toDataFiberCache(bytes).setMemBlockCacheType(CacheEnum.DATA)
+    val fiberCache = dataMemoryManager.toDataFiberCache(bytes)
+    if (!fiberCache.isFailedMemoryBlock()) {
+      fiberCache.setMemBlockCacheType(CacheEnum.DATA)
+    }
+    fiberCache
   }
 
   override def getEmptyDataFiberCache(length: Long): FiberCache = {
-    dataMemoryManager.getEmptyDataFiberCache(length).setMemBlockCacheType(CacheEnum.DATA)
+    val fiberCache = dataMemoryManager.getEmptyDataFiberCache(length)
+    if (!fiberCache.isFailedMemoryBlock()) {
+      fiberCache.setMemBlockCacheType(CacheEnum.DATA)
+    }
+    fiberCache
   }
 
   override private[filecache] def free(block: MemoryBlockHolder): Unit = {

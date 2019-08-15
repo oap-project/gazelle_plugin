@@ -217,12 +217,9 @@ private[sql] class FiberCacheManager(
       OapRuntime.getOrCreate.fiberCacheManager.dcpmmWaitingThreshold)
   }
 
-  // Used by test suite
-  private[filecache] def releaseFiber(fiber: FiberId): Unit = {
-    if (fiber.isInstanceOf[TestDataFiberId] || fiber.isInstanceOf[TestIndexFiberId]) {
-      if (cacheBackend.getIfPresent(fiber) != null) {
-        cacheBackend.invalidate(fiber)
-      }
+  def releaseFiber(fiber: FiberId): Unit = {
+    if (cacheBackend.getIfPresent(fiber) != null) {
+      cacheBackend.invalidate(fiber)
     }
   }
 
