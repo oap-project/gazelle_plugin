@@ -28,6 +28,7 @@ import org.apache.parquet.hadoop.metadata._
 import org.apache.parquet.hadoop.utils.Collections3
 import org.apache.parquet.schema.{MessageType, Type}
 
+import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.memory.MemoryMode
 import org.apache.spark.sql.catalyst.InternalRow
@@ -154,6 +155,17 @@ class VectorizedCacheReader(
     var loadFiberTime = 0L
     var loadDicTime = 0L
     val rowCount = currentRowGroup.getRowCount.toInt
+
+    OapRuntime.getOrCreate.fiberCacheManager.getCacheGuardian().getGuardianLock().lock()
+    while (OapRuntime.getOrCreate.fiberCacheManager.isNeedWaitForFree) {
+      logWarning(s"${TaskContext.get().taskAttemptId()} start to wait for cache free, " +
+        s"current pending occupied size: " +
+        s"${OapRuntime.getOrCreate.fiberCacheManager.pendingOccupiedSize}")
+      OapRuntime.getOrCreate.fiberCacheManager
+        .getCacheGuardian().getGuardianLockCondition().await()
+      logWarning(s"${TaskContext.get().taskAttemptId()} leave wait")
+    }
+    OapRuntime.getOrCreate.fiberCacheManager.getCacheGuardian().getGuardianLock().unlock()
 
     fiberReaders = requiredColumnIds.zipWithIndex.map {
       case (id, order) =>
@@ -284,5 +296,9 @@ class VectorizedCacheReader(
     numBatched = num
     batchIdx = 0
     currentRowGroupRowsReturned += num
+
+    if (rowsReturned == totalCountLoadedSoFar) {
+      dataFile.releaseAll()
+    }
   }
 }

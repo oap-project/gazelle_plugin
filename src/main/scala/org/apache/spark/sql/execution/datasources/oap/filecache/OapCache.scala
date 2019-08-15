@@ -43,6 +43,9 @@ trait OapCache {
   def cacheCount: Long
   def cacheStats: CacheStats
   def pendingFiberCount: Int
+  def pendingFiberSize: Long
+  def pendingFiberOccupiedSize: Long
+  def getCacheGuardian: CacheGuardian
   def cleanUp(): Unit = {
     invalidateAll(getFibers)
     dataFiberSize.set(0L)
@@ -115,6 +118,12 @@ class SimpleOapCache extends OapCache with Logging {
   override def cacheCount: Long = 0
 
   override def pendingFiberCount: Int = cacheGuardian.pendingFiberCount
+
+  override def pendingFiberSize: Long = cacheGuardian.pendingFiberSize
+
+  override def pendingFiberOccupiedSize: Long = cacheGuardian.pendingFiberOccupiedSize
+
+  override def getCacheGuardian: CacheGuardian = cacheGuardian
 }
 
 class GuavaOapCache(
@@ -330,6 +339,12 @@ class GuavaOapCache(
     }
 
   override def pendingFiberCount: Int = cacheGuardian.pendingFiberCount
+
+  override def pendingFiberSize: Long = cacheGuardian.pendingFiberSize
+
+  override def pendingFiberOccupiedSize: Long = cacheGuardian.pendingFiberOccupiedSize
+
+  override def getCacheGuardian: CacheGuardian = cacheGuardian
 
   override def cleanUp(): Unit = {
     super.cleanUp()

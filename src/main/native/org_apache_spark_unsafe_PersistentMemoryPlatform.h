@@ -30,7 +30,7 @@ extern "C" {
  * Signature: (Ljava/lang/String;J)V
  */
 JNIEXPORT void JNICALL Java_org_apache_spark_unsafe_PersistentMemoryPlatform_initializeNative
-  (JNIEnv *, jclass, jstring, jlong);
+  (JNIEnv *, jclass, jstring, jlong, jint);
 
 /*
  * Class:     org_apache_spark_unsafe_PersistentMemoryPlatform

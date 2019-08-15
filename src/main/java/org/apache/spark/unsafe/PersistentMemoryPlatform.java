@@ -41,7 +41,7 @@ public class PersistentMemoryPlatform {
    * @param path The initial path which should be a directory.
    * @param size The initial size
    */
-  public static void initialize(String path, long size) {
+  public static void initialize(String path, long size, int pattern) {
     synchronized (PersistentMemoryPlatform.class) {
       if (!initialized) {
         Preconditions.checkNotNull(path, "Persistent memory initial path can't be null");
@@ -51,7 +51,7 @@ public class PersistentMemoryPlatform {
         Preconditions.checkArgument(size > 0,
           "Persistent memory initial size must be a positive number");
         try {
-          initializeNative(path, size);
+          initializeNative(path, size, pattern);
         } catch (Exception e) {
           throw new ExceptionInInitializerError("Persistent memory initialize (path: " + path +
             ", size: " + size + ") failed. Please check the path permission and initial size.");
@@ -61,7 +61,7 @@ public class PersistentMemoryPlatform {
     }
   }
 
-  private static native void initializeNative(String path, long size);
+  private static native void initializeNative(String path, long size, int pattern);
 
   /**
    * Allocate volatile memory from persistent memory.

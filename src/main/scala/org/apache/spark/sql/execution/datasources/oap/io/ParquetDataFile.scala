@@ -90,6 +90,10 @@ private[oap] case class ParquetDataFile(
     inUseFiberCache.update(idx, fiberCache)
   }
 
+  private[oap] def releaseAll(): Unit = {
+    inUseFiberCache.indices.foreach(release)
+  }
+
   def cache(groupId: Int, fiberId: Int): FiberCache = {
     if (fiberDataReader == null) {
       fiberDataReader =

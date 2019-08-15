@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources.oap.filecache
 
 import java.util.concurrent.{ConcurrentHashMap, LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.ReentrantReadWriteLock
+import java.util.concurrent.locks.{Condition, ReentrantLock, ReentrantReadWriteLock}
 
 import com.google.common.cache._
 import org.apache.hadoop.conf.Configuration
@@ -45,8 +45,25 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
 
   private val removalPendingQueue = new LinkedBlockingQueue[(FiberId, FiberCache)]()
 
+  private val guardianLock = new ReentrantLock()
+  private val guardianLockCond = guardianLock.newCondition()
+
+  private var waitNotifyActive: Boolean = false
+
   // Tell if guardian thread is trying to remove one Fiber.
   @volatile private var bRemoving: Boolean = false
+
+  def enableWaitNotifyActive(): Unit = {
+    waitNotifyActive = true
+  }
+
+  def getGuardianLock(): ReentrantLock = {
+    guardianLock
+  }
+
+  def getGuardianLockCondition(): Condition = {
+    guardianLockCond
+  }
 
   def pendingFiberCount: Int = if (bRemoving) {
     removalPendingQueue.size() + 1
@@ -55,6 +72,8 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
   }
 
   def pendingFiberSize: Long = _pendingFiberSize.get()
+
+  def pendingFiberOccupiedSize: Long = _pendingFiberCapacity.get()
 
   def addRemovalFiber(fiber: FiberId, fiberCache: FiberCache): Unit = {
     _pendingFiberSize.addAndGet(fiberCache.size())
@@ -88,9 +107,19 @@ private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logg
       }
     } else {
       _pendingFiberSize.addAndGet(-cache.size())
-      _pendingFiberCapacity.addAndGet(-cache.getOccupiedSize())
+
       // TODO: Make log more readable
       logDebug(s"Fiber removed successfully. Fiber: $fiberId")
+      if (waitNotifyActive) {
+        this.getGuardianLock().lock()
+        _pendingFiberCapacity.addAndGet(-cache.getOccupiedSize())
+        if (_pendingFiberCapacity.get() == 0) {
+          guardianLockCond.signalAll()
+        }
+        this.getGuardianLock().unlock()
+      } else {
+        _pendingFiberCapacity.addAndGet(-cache.getOccupiedSize())
+      }
     }
     bRemoving = false
   }
@@ -110,9 +139,13 @@ private[sql] class FiberCacheManager(
   private val _dataCacheCompressionSize = sparkEnv.conf.get(
     OapConf.OAP_DATA_FIBER_CACHE_COMPRESSION_SIZE)
 
+  private val _dcpmmWaitingThreshold = sparkEnv.conf.get(OapConf.DCPMM_FREE_WAIT_THRESHOLD)
+
   def dataCacheCompressEnable: Boolean = _dataCacheCompressEnable
   def dataCacheCompressionCodec: String = _dataCacheCompressionCodec
   def dataCacheCompressionSize: Int = _dataCacheCompressionSize
+
+  def dcpmmWaitingThreshold: Long = _dcpmmWaitingThreshold
 
   private val cacheBackend: OapCache = {
     val cacheName = sparkEnv.conf.get("spark.oap.cache.strategy", DEFAULT_CACHE_STRATEGY)
@@ -137,6 +170,9 @@ private[sql] class FiberCacheManager(
     cacheBackend.cleanUp()
   }
 
+  if (memoryManager.isDcpmmUsed()) {
+    cacheBackend.getCacheGuardian.enableWaitNotifyActive()
+  }
   // NOTE: all members' init should be placed before this line.
   logDebug(s"Initialized FiberCacheManager")
 
@@ -160,6 +196,25 @@ private[sql] class FiberCacheManager(
     }
     cacheBackend.invalidateAll(fiberToBeRemoved)
     logDebug(s"Removed ${fiberToBeRemoved.size} fibers.")
+  }
+
+  def getCacheGuardian(): CacheGuardian = {
+    cacheBackend.getCacheGuardian
+  }
+
+  def isDcpmmUsed(): Boolean = {
+    memoryManager.isDcpmmUsed()
+  }
+
+  def isNeedWaitForFree(): Boolean = {
+    logDebug(
+      s"dcpmm wait threshold: " +
+        s"${OapRuntime.getOrCreate.fiberCacheManager.dcpmmWaitingThreshold}, " +
+        s"cache guardian pending size: " +
+        s"${OapRuntime.getOrCreate.fiberCacheManager.pendingOccupiedSize}")
+    memoryManager.isDcpmmUsed() &&
+      (OapRuntime.getOrCreate.fiberCacheManager.pendingOccupiedSize >
+      OapRuntime.getOrCreate.fiberCacheManager.dcpmmWaitingThreshold)
   }
 
   // Used by test suite
@@ -216,6 +271,10 @@ private[sql] class FiberCacheManager(
 
   // Used by test suite
   private[filecache] def pendingCount: Int = cacheBackend.pendingFiberCount
+
+  def pendingSize: Long = cacheBackend.pendingFiberSize
+
+  def pendingOccupiedSize: Long = cacheBackend.pendingFiberOccupiedSize
 
   // A description of this FiberCacheManager for debugging.
   def toDebugString: String = {

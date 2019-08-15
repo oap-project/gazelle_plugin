@@ -26,6 +26,7 @@
 
 using memkind = struct memkind;
 memkind *pmemkind = NULL;
+struct memkind_config *pmemkind_config;
 
 // copied form openjdk: http://hg.openjdk.java.net/jdk8/jdk8/hotspot/file/87ee5ee27509/src/share/vm/prims/unsafe.cpp
 inline void* addr_from_java(jlong addr) {
@@ -50,12 +51,24 @@ inline void check(JNIEnv *env) {
 }
 
 JNIEXPORT void JNICALL Java_org_apache_spark_unsafe_PersistentMemoryPlatform_initializeNative
-  (JNIEnv *env, jclass clazz, jstring path, jlong size) {
+  (JNIEnv *env, jclass clazz, jstring path, jlong size, jint pattern) {
   // str should not be null, we should checked in java code
   const char* str = env->GetStringUTFChars(path, NULL);
   size_t sz = (size_t)size;
   // Initialize persistent memory
-  int error = memkind_create_pmem(str, sz, &pmemkind);
+  int pattern_c = (int)pattern;
+  int error;
+
+  if (pattern_c == 0) {
+    error = memkind_create_pmem(str, sz, &pmemkind);
+  } else {
+    pmemkind_config = memkind_config_new();
+    memkind_config_set_path(pmemkind_config, str);
+    memkind_config_set_size(pmemkind_config, sz);
+    memkind_config_set_memory_usage_policy(pmemkind_config, MEMKIND_MEM_USAGE_POLICY_CONSERVATIVE);
+    error = memkind_create_pmem_with_config(pmemkind_config, &pmemkind);
+  }
+
   if (error) {
     jclass exceptionCls = env->FindClass("java/lang/Exception");
     env->ThrowNew(exceptionCls,
