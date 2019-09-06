@@ -18,10 +18,11 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{execution, Strategy}
+import org.apache.spark.sql.{execution, SparkSession, Strategy}
 import org.apache.spark.sql.catalyst.planning.PhysicalOperation
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, ProjectExec, SparkPlan}
+import org.apache.spark.sql.internal.oap.OapConf
 
 /**
  * OapFileSourceStrategy use to intercept [[FileSourceStrategy]]
@@ -38,56 +39,136 @@ object OapFileSourceStrategy extends Strategy with Logging {
      * Classified discussion the 4 scenarios and assemble a new [[SparkPlan]] if can optimized.
      */
     def tryOptimize(head: SparkPlan): SparkPlan = {
+      val tableEnbale = SparkSession.getActiveSession.get.conf
+        .get(OapConf.OAP_CACHE_TABLE_LISTS_ENABLE)
+      val cacheTablelists =
+        SparkSession.getActiveSession.get.conf.get(OapConf.OAP_CACHE_TABLE_LISTS).split(";")
+
       head match {
         // ProjectExec -> FilterExec -> FileSourceScanExec
         case ProjectExec(projectList, FilterExec(condition,
           FileSourceScanExec(relation, output, outputSchema, partitionFilters,
           dataFilters, tableIdentifier))) =>
-          val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
-            relation, partitionFilters, dataFilters, outputSchema)
-          if (isOptimized) {
-            val scan = FileSourceScanExec(hadoopFsRelation, output, outputSchema,
-              partitionFilters, dataFilters, tableIdentifier)
-            execution.ProjectExec(projectList, execution.FilterExec(condition, scan))
-          } else {
+
+          var canCache = true
+          if(tableEnbale) {
+            canCache = false
+            tableIdentifier match {
+              case Some(table) =>
+                if (cacheTablelists.contains(table.unquotedString)) {
+                  logInfo(s"cacheTablelists include ${table.unquotedString}")
+                  canCache = true
+                }
+                else logInfo(s"cacheTablelists do not include ${table.unquotedString}")
+              case None => logInfo("Relation has no table")
+            }
+          }
+          if(!canCache) {
             head
+          }
+          else {
+            val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
+              relation, partitionFilters, dataFilters, outputSchema)
+            if (isOptimized) {
+              val scan = FileSourceScanExec(hadoopFsRelation, output, outputSchema,
+                partitionFilters, dataFilters, tableIdentifier)
+              execution.ProjectExec(projectList, execution.FilterExec(condition, scan))
+            } else {
+              head
+            }
           }
         // ProjectExec -> FileSourceScanExec
         case ProjectExec(projectList,
           FileSourceScanExec(relation, output, outputSchema, partitionFilters,
           dataFilters, tableIdentifier)) =>
 
-          val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
-            relation, partitionFilters, dataFilters, outputSchema)
-          if (isOptimized) {
-            val scan = FileSourceScanExec(hadoopFsRelation, output, outputSchema,
-              partitionFilters, dataFilters, tableIdentifier)
-            execution.ProjectExec(projectList, scan)
-          } else {
+          var canCache = true
+          if(tableEnbale) {
+            canCache = false
+            tableIdentifier match {
+              case Some(table) =>
+                if (cacheTablelists.contains(table.unquotedString)) {
+                  logInfo(s"cacheTablelists include ${table.unquotedString}")
+                  canCache = true
+                }
+                else logInfo(s"cacheTablelists do not include ${table.unquotedString}")
+              case None => logInfo("Relation has no table")
+            }
+          }
+          if(!canCache) {
             head
+          }
+          else {
+            val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
+              relation, partitionFilters, dataFilters, outputSchema)
+            if (isOptimized) {
+              val scan = FileSourceScanExec(hadoopFsRelation, output, outputSchema,
+                partitionFilters, dataFilters, tableIdentifier)
+              execution.ProjectExec(projectList, scan)
+            } else {
+              head
+            }
           }
         // FilterExec -> FileSourceScanExec
         case FilterExec(condition, FileSourceScanExec(relation, output, outputSchema,
           partitionFilters, dataFilters, tableIdentifier)) =>
-          val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
-            relation, partitionFilters, dataFilters, outputSchema)
-          if (isOptimized) {
-            val scan = FileSourceScanExec(hadoopFsRelation, output, outputSchema,
-              partitionFilters, dataFilters, tableIdentifier)
-            execution.FilterExec(condition, scan)
-          } else {
+
+          var canCache = true
+          if(tableEnbale) {
+            canCache = false
+            tableIdentifier match {
+              case Some(table) =>
+                if (cacheTablelists.contains(table.unquotedString)) {
+                  logInfo(s"cacheTablelists include ${table.unquotedString}")
+                  canCache = true
+                }
+                else logInfo(s"cacheTablelists do not include ${table.unquotedString}")
+              case None => logInfo("Relation has no table")
+            }
+          }
+          if(!canCache) {
             head
+          }
+          else {
+            val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
+              relation, partitionFilters, dataFilters, outputSchema)
+            if (isOptimized) {
+              val scan = FileSourceScanExec(hadoopFsRelation, output, outputSchema,
+                partitionFilters, dataFilters, tableIdentifier)
+              execution.FilterExec(condition, scan)
+            } else {
+              head
+            }
           }
         // FileSourceScanExec
         case FileSourceScanExec(relation, output, outputSchema, partitionFilters,
           dataFilters, tableIdentifier) =>
-          val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
-            relation, partitionFilters, dataFilters, outputSchema)
-          if (isOptimized) {
-            FileSourceScanExec(hadoopFsRelation, output, outputSchema,
-              partitionFilters, dataFilters, tableIdentifier)
-          } else {
+
+          var canCache = true
+          if(tableEnbale) {
+            canCache = false
+            tableIdentifier match {
+              case Some(table) =>
+                if (cacheTablelists.contains(table.unquotedString)) {
+                  logInfo(s"cacheTablelists include ${table.unquotedString}")
+                  canCache = true
+                }
+                else logInfo(s"cacheTablelists do not include ${table.unquotedString}")
+              case None => logInfo("Relation has no table")
+            }
+          }
+          if(!canCache) {
             head
+          }
+          else {
+            val (hadoopFsRelation, isOptimized) = HadoopFsRelationOptimizer.tryOptimize(
+              relation, partitionFilters, dataFilters, outputSchema)
+            if (isOptimized) {
+              FileSourceScanExec(hadoopFsRelation, output, outputSchema,
+                partitionFilters, dataFilters, tableIdentifier)
+            } else {
+              head
+            }
           }
         case _ => throw new OapException(s"Unsupport plan mode $head")
       }
