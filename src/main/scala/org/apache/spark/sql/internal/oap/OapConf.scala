@@ -430,5 +430,5 @@ object OapConf {
       .internal()
       .doc("To enable memkind conservative pattern")
       .booleanConf
-      .createWithDefault(false)
+      .createWithDefault(true)
 }
