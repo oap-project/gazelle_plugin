@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.parquet.hadoop.api;
+package org.apache.spark.sql.execution.datasources;
 
 import java.io.Closeable;
 import java.io.IOException;

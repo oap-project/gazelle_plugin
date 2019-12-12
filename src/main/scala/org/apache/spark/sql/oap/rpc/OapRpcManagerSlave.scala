@@ -23,9 +23,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc.{RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
 import org.apache.spark.sql.execution.datasources.oap.filecache.{CacheStats, FiberCacheManager}
-import org.apache.spark.sql.execution.datasources.oap.io.OapIndexInfo
 import org.apache.spark.sql.internal.oap.OapConf
-import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.oap.adapter.RpcEndpointRefAdapter
 import org.apache.spark.sql.oap.rpc.OapMessages._
 import org.apache.spark.storage.BlockManager
@@ -56,7 +54,6 @@ private[spark] class OapRpcManagerSlave(
     Array(
       () => FiberCacheHeartbeat(
         executorId, blockManager.blockManagerId, fiberCacheManager.status()),
-      () => IndexHeartbeat(executorId, blockManager.blockManagerId, OapIndexInfo.status),
       () => FiberCacheMetricsHeartbeat(executorId, blockManager.blockManagerId,
         CacheStats.status(fiberCacheManager.cacheStats, conf)))
   }

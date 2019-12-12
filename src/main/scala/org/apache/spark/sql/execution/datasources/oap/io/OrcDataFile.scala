@@ -197,44 +197,9 @@ private[oap] case class OrcDataFile(
   private def initRecordReader(
       reader: OrcMapreduceRecordReader[OrcStruct]) = {
     val iterator =
-      new FileRecordReaderIterator[OrcStruct](reader.asInstanceOf[RecordReader[_, OrcStruct]])
+      new FileRecordReaderIterator[OrcStruct](reader)
     new OapCompletionIterator[OrcStruct](iterator, {}) {
       override def close(): Unit = iterator.close()
-    }
-  }
-
-  private class FileRecordReaderIterator[V](private[this] var rowReader: RecordReader[_, V])
-    extends Iterator[V] with Closeable {
-    private[this] var havePair = false
-    private[this] var finished = false
-
-    override def hasNext: Boolean = {
-      if (!finished && !havePair) {
-        finished = !rowReader.nextKeyValue
-        if (finished) {
-          close()
-        }
-        havePair = !finished
-      }
-      !finished
-    }
-
-    override def next(): V = {
-      if (!hasNext) {
-        throw new java.util.NoSuchElementException("End of stream")
-      }
-      havePair = false
-      rowReader.getCurrentValue
-    }
-
-    override def close(): Unit = {
-      if (rowReader != null) {
-        try {
-          rowReader.close()
-        } finally {
-          rowReader = null
-        }
-      }
     }
   }
 

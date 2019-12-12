@@ -17,18 +17,16 @@
 
 package org.apache.spark.sql.execution.datasources.oap.io
 
-import java.io.Closeable
-
 import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.util.StringUtils
 import org.apache.parquet.hadoop._
-import org.apache.parquet.hadoop.api.RecordReader
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
+import org.apache.spark.sql.execution.datasources.RecordReader
 import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.parquet.ParquetReadSupportWrapper
 import org.apache.spark.sql.internal.oap.OapConf
@@ -223,41 +221,6 @@ private[oap] case class ParquetDataFile(
       requestSchema.json
     }
     conf.set(ParquetReadSupportWrapper.SPARK_ROW_REQUESTED_SCHEMA, requestSchemaString)
-  }
-
-  private class FileRecordReaderIterator[V](private[this] var rowReader: RecordReader[V])
-    extends Iterator[V] with Closeable {
-    private[this] var havePair = false
-    private[this] var finished = false
-
-    override def hasNext: Boolean = {
-      if (!finished && !havePair) {
-        finished = !rowReader.nextKeyValue
-        if (finished) {
-          close()
-        }
-        havePair = !finished
-      }
-      !finished
-    }
-
-    override def next(): V = {
-      if (!hasNext) {
-        throw new java.util.NoSuchElementException("End of stream")
-      }
-      havePair = false
-      rowReader.getCurrentValue
-    }
-
-    override def close(): Unit = {
-      if (rowReader != null) {
-        try {
-          rowReader.close()
-        } finally {
-          rowReader = null
-        }
-      }
-    }
   }
 
   override def getDataFileMeta(): ParquetDataFileMeta =

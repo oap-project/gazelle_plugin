@@ -27,19 +27,17 @@ import org.apache.parquet.io.api.Binary
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Ascending, JoinedRow, UnsafeRow}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, JoinedRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateUnsafeProjection
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.execution.datasources.oap._
 import org.apache.spark.sql.execution.datasources.oap.filecache.DataFiberBuilder
 import org.apache.spark.sql.execution.datasources.oap.index._
-import org.apache.spark.sql.execution.datasources.oap.utils.{FilterHelper, OapIndexInfoStatusSerDe}
+import org.apache.spark.sql.execution.datasources.oap.utils.FilterHelper
 import org.apache.spark.sql.execution.datasources.orc.OrcDeserializer
 import org.apache.spark.sql.oap.OapRuntime
-import org.apache.spark.sql.oap.listener.SparkListenerOapIndexInfoUpdate
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
-import org.apache.spark.util.TimeStampedHashMap
 
 // TODO: [linhong] Let's remove the `isCompressed` argument
 private[oap] class OapDataWriter(
@@ -166,31 +164,6 @@ private[oap] class OapDataWriter(
     fiberMeta.write(out)
     codecFactory.release()
     out.close()
-  }
-}
-
-private[oap] case class OapIndexInfoStatus(path: String, useIndex: Boolean)
-
-private[sql] object OapIndexInfo extends Logging {
-  val partitionOapIndex = new TimeStampedHashMap[String, Boolean](updateTimeStampOnGet = true)
-
-  def status: String = {
-    val indexInfoStatusSeq = partitionOapIndex.map(kv => OapIndexInfoStatus(kv._1, kv._2)).toSeq
-    val threshTime = System.currentTimeMillis()
-    partitionOapIndex.clearOldValues(threshTime)
-    logDebug("current partition files: \n" +
-      indexInfoStatusSeq.map { indexInfoStatus =>
-        "partition file: " + indexInfoStatus.path +
-          " use index: " + indexInfoStatus.useIndex + "\n" }.mkString("\n"))
-    val indexStatusRawData = OapIndexInfoStatusSerDe.serialize(indexInfoStatusSeq)
-    indexStatusRawData
-  }
-
-  def update(indexInfo: SparkListenerOapIndexInfoUpdate): Unit = {
-    val indexStatusRawData = OapIndexInfoStatusSerDe.deserialize(indexInfo.oapIndexInfo)
-    indexStatusRawData.foreach {oapIndexInfo =>
-      logInfo("\nhost " + indexInfo.hostName + " executor id: " + indexInfo.executorId +
-        "\npartition file: " + oapIndexInfo.path + " use OAP index: " + oapIndexInfo.useIndex)}
   }
 }
 
@@ -321,7 +294,6 @@ private[oap] class OapDataReaderV1(
     if (isSkippedByFile) {
       Iterator.empty
     } else {
-      OapIndexInfo.partitionOapIndex.put(pathStr, false)
       FilterHelper.setFilterIfExist(conf, pushed)
 
       val iter = initialize()

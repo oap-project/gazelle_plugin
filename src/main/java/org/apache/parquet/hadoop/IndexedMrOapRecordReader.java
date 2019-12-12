@@ -24,8 +24,9 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.Preconditions;
 import org.apache.parquet.hadoop.api.ReadSupport;
-import org.apache.parquet.hadoop.api.RecordReader;
 import org.apache.parquet.hadoop.metadata.ParquetFooter;
+
+import org.apache.spark.sql.execution.datasources.RecordReader;
 
 public class IndexedMrOapRecordReader<T> implements RecordReader<T> {
 

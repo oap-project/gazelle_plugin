@@ -19,11 +19,10 @@ package org.apache.spark.sql.oap.rpc
 
 import scala.collection.mutable
 
-import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc.{RpcCallContext, RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
 import org.apache.spark.scheduler.LiveListenerBus
-import org.apache.spark.sql.oap.listener.{SparkListenerCustomInfoUpdate, SparkListenerOapIndexInfoUpdate}
+import org.apache.spark.sql.oap.listener.SparkListenerCustomInfoUpdate
 import org.apache.spark.sql.oap.rpc.OapMessages._
 
 /**
@@ -90,9 +89,6 @@ private[spark] class OapRpcManagerMasterEndpoint(
     case FiberCacheMetricsHeartbeat(executorId, blockManagerId, content) =>
       listenerBus.post(SparkListenerCustomInfoUpdate(
         blockManagerId.host, executorId, "FiberCacheManagerMessager", content))
-    case IndexHeartbeat(executorId, blockManagerId, content) =>
-      listenerBus.post(SparkListenerOapIndexInfoUpdate(
-        blockManagerId.host, executorId, content))
     case _ =>
   }
 }

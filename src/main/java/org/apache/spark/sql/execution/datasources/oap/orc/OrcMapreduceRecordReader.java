@@ -23,10 +23,7 @@ import java.util.List;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.orc.OrcConf;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
@@ -45,7 +42,7 @@ import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
  * @param <V> the root type of the file
  */
 public class OrcMapreduceRecordReader<V extends WritableComparable>
-    extends org.apache.hadoop.mapreduce.RecordReader<NullWritable, V> {
+    implements org.apache.spark.sql.execution.datasources.RecordReader<V> {
 
   protected final V row;
   protected final TypeDescription schema;
@@ -94,8 +91,7 @@ public class OrcMapreduceRecordReader<V extends WritableComparable>
   }
 
   @Override
-  public void initialize(InputSplit inputSplit,
-      TaskAttemptContext taskAttemptContext) {
+  public void initialize() throws IOException, InterruptedException {
     // nothing required
   }
 
@@ -126,17 +122,7 @@ public class OrcMapreduceRecordReader<V extends WritableComparable>
   }
 
   @Override
-  public NullWritable getCurrentKey() throws IOException, InterruptedException {
-    return NullWritable.get();
-  }
-
-  @Override
   public V getCurrentValue() throws IOException, InterruptedException {
     return row;
-  }
-
-  @Override
-  public float getProgress() throws IOException {
-    return batchReader.getProgress();
   }
 }

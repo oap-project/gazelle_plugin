@@ -18,27 +18,15 @@
 package org.apache.spark.sql.execution.datasources.oap.io;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.RecordReader;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.orc.*;
-import org.apache.orc.impl.ReaderImpl;
-import org.apache.orc.impl.RecordReaderCacheImpl;
-import org.apache.orc.mapred.OrcInputFormat;
 import org.apache.orc.storage.common.type.HiveDecimal;
 import org.apache.orc.storage.ql.exec.vector.*;
 import org.apache.orc.storage.serde2.io.HiveDecimalWritable;
-import org.apache.parquet.hadoop.ParquetFiberDataReader;
 import org.apache.spark.memory.MemoryMode;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.execution.datasources.oap.filecache.DataFiberId;
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache;
-import org.apache.spark.sql.execution.datasources.oap.io.OrcDataFile;
-import org.apache.spark.sql.execution.datasources.oap.io.OrcDataFileMeta;
-import org.apache.spark.sql.execution.datasources.oap.io.ParquetDataFiberReader;
-import org.apache.spark.sql.execution.datasources.oap.io.ParquetDataFiberReader$;
 import org.apache.spark.sql.execution.datasources.orc.OrcColumnVector;
 import org.apache.spark.sql.execution.datasources.orc.OrcColumnVectorAllocator;
 import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils;
@@ -53,7 +41,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class OrcCacheReader extends RecordReader<Void, ColumnarBatch> {
+public class OrcCacheReader
+    implements org.apache.spark.sql.execution.datasources.RecordReader<ColumnarBatch> {
   private static final Logger LOG = LoggerFactory.getLogger(OrcCacheReader.class);
 
   // TODO: make this configurable.
@@ -131,21 +120,9 @@ public class OrcCacheReader extends RecordReader<Void, ColumnarBatch> {
     this.fiberReaders = new ParquetDataFiberReader[requiredColumnIds.length];
   }
 
-
-
-  @Override
-  public Void getCurrentKey() {
-    return null;
-  }
-
   @Override
   public ColumnarBatch getCurrentValue() {
     return columnarBatch;
-  }
-
-  @Override
-  public float getProgress() throws IOException {
-    return (float) rowsReturned / totalRowCount;
   }
 
   @Override
@@ -166,7 +143,7 @@ public class OrcCacheReader extends RecordReader<Void, ColumnarBatch> {
   }
 
   @Override
-  public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) {
+  public void initialize() throws IOException, InterruptedException {
     // nothing required
   }
 

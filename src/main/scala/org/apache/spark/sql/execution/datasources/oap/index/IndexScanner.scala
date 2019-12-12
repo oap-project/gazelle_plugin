@@ -27,7 +27,6 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{SortDirection, UnsafeRow}
 import org.apache.spark.sql.execution.datasources.oap._
-import org.apache.spark.sql.execution.datasources.oap.io.OapIndexInfo
 import org.apache.spark.sql.execution.datasources.oap.statistics.StatsAnalysisResult
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.sources._
@@ -98,11 +97,7 @@ private[oap] abstract class IndexScanner(idxMeta: IndexMeta)
           StatsAnalysisResult.USE_INDEX
         } else {
           // Not blindly use the index, determining by more policies
-          val res = analysisResByStatistics(indexPath, dataPath, conf)
-          if (res != StatsAnalysisResult.FULL_SCAN) {
-            OapIndexInfo.partitionOapIndex.put(dataPath.toString, true)
-          }
-          res
+          analysisResByStatistics(indexPath, dataPath, conf)
         }
       }
     }

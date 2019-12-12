@@ -22,9 +22,6 @@ import java.io.IOException;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.RecordReader;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
 import org.apache.orc.OrcConf;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
@@ -36,6 +33,7 @@ import org.apache.orc.storage.serde2.io.HiveDecimalWritable;
 
 import org.apache.spark.memory.MemoryMode;
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.execution.datasources.RecordReader;
 import org.apache.spark.sql.execution.datasources.orc.OrcColumnVector;
 import org.apache.spark.sql.execution.datasources.orc.OrcColumnVectorAllocator;
 import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils;
@@ -55,7 +53,7 @@ import org.apache.spark.sql.vectorized.ColumnarBatch;
  * To support vectorization in WholeStageCodeGen, this reader returns ColumnarBatch.
  * After creating, `initialize` and `initBatch` should be called sequentially.
  */
-public class OrcColumnarBatchReader extends RecordReader<Void, ColumnarBatch> {
+public class OrcColumnarBatchReader implements RecordReader<ColumnarBatch> {
   // TODO: make this configurable.
   private static final int CAPACITY = 4 * 1024;
 
@@ -93,20 +91,9 @@ public class OrcColumnarBatchReader extends RecordReader<Void, ColumnarBatch> {
     this.copyToSpark = copyToSpark;
   }
 
-
-  @Override
-  public Void getCurrentKey() {
-    return null;
-  }
-
   @Override
   public ColumnarBatch getCurrentValue() {
     return columnarBatch;
-  }
-
-  @Override
-  public float getProgress() throws IOException {
-    return recordReader.getProgress();
   }
 
   @Override
@@ -127,7 +114,7 @@ public class OrcColumnarBatchReader extends RecordReader<Void, ColumnarBatch> {
   }
 
   @Override
-  public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) {
+  public void initialize() throws IOException, InterruptedException {
     // nothing required
   }
 

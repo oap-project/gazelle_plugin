@@ -17,45 +17,25 @@
 
 package org.apache.spark.sql.execution.datasources.oap.io;
 
-import com.google.common.base.Preconditions;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.InputSplit;
-import org.apache.hadoop.mapreduce.RecordReader;
-import org.apache.hadoop.mapreduce.TaskAttemptContext;
-import org.apache.orc.StripeInformation;
-import org.apache.orc.TypeDescription;
-import org.apache.orc.storage.common.type.HiveDecimal;
-import org.apache.orc.storage.ql.exec.vector.*;
-import org.apache.orc.storage.serde2.io.HiveDecimalWritable;
-import org.apache.parquet.hadoop.ParquetFiberDataReader;
-import org.apache.parquet.hadoop.metadata.IndexedStripeMeta;
-import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntList;
-import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntListIterator;
-import org.apache.spark.memory.MemoryMode;
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.execution.datasources.oap.filecache.DataFiberId;
-import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache;
-import org.apache.spark.sql.execution.datasources.orc.OrcColumnVector;
-import org.apache.spark.sql.execution.datasources.orc.OrcColumnVectorAllocator;
-import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils;
-import org.apache.spark.sql.execution.vectorized.OffHeapColumnVector;
-import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector;
-import org.apache.spark.sql.execution.vectorized.WritableColumnVector;
-import org.apache.spark.sql.oap.OapRuntime$;
-import org.apache.spark.sql.types.*;
-import org.apache.spark.sql.vectorized.ColumnarBatch;
-import org.datanucleus.store.types.simple.ArrayList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.google.common.collect.Lists;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.google.common.base.Preconditions;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.orc.StripeInformation;
+import org.apache.parquet.hadoop.metadata.IndexedStripeMeta;
+import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntArrayList;
+import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntList;
+import org.apache.parquet.it.unimi.dsi.fastutil.ints.IntListIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.spark.sql.execution.datasources.oap.filecache.DataFiberId;
+import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache;
+import org.apache.spark.sql.oap.OapRuntime$;
 
 public class IndexedOrcCacheReader extends OrcCacheReader {
   private static final Logger LOG = LoggerFactory.getLogger(IndexedOrcCacheReader.class);
@@ -84,11 +64,6 @@ public class IndexedOrcCacheReader extends OrcCacheReader {
                                int[] rowIds) {
     super(configuration, meta, dataFile, requiredColumnIds, useOffHeap, copyToSpark);
     this.rowIds = rowIds;
-  }
-
-  @Override
-  public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext) {
-    // nothing required
   }
 
   /**

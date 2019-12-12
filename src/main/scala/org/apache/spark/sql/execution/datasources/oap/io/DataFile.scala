@@ -27,7 +27,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FSDataInputStream
 
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.OapException
+import org.apache.spark.sql.execution.datasources.{OapException, RecordReader}
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
@@ -51,6 +51,42 @@ abstract class DataFile {
   override def equals(other: Any): Boolean = other match {
     case df: DataFile => path.equals(df.path)
     case _ => false
+  }
+}
+
+private[oap] class FileRecordReaderIterator[V](private[this] var rowReader: RecordReader[V])
+  extends Iterator[V] with Closeable {
+
+  private[this] var havePair = false
+  private[this] var finished = false
+
+  override def hasNext: Boolean = {
+    if (!finished && !havePair) {
+      finished = !rowReader.nextKeyValue
+      if (finished) {
+        close()
+      }
+      havePair = !finished
+    }
+    !finished
+  }
+
+  override def next(): V = {
+    if (!hasNext) {
+      throw new java.util.NoSuchElementException("End of stream")
+    }
+    havePair = false
+    rowReader.getCurrentValue
+  }
+
+  override def close(): Unit = {
+    if (rowReader != null) {
+      try {
+        rowReader.close()
+      } finally {
+        rowReader = null
+      }
+    }
   }
 }
 

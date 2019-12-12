@@ -24,12 +24,10 @@ import org.scalatest.BeforeAndAfter
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.datasources.oap.index.{IndexContext, ScannerBuilder}
-import org.apache.spark.sql.execution.datasources.oap.io.{OapDataReaderV1, OapIndexInfo, OapIndexInfoStatus}
-import org.apache.spark.sql.execution.datasources.oap.utils.OapIndexInfoStatusSerDe
+import org.apache.spark.sql.execution.datasources.oap.io.OapDataReaderV1
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
-import org.apache.spark.sql.oap.listener.SparkListenerOapIndexInfoUpdate
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.test.oap.{SharedOapContext, TestIndex}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
@@ -169,29 +167,6 @@ class OapSuite extends QueryTest with SharedOapContext with BeforeAndAfter {
       assert(itSetUseIndex.size == 4)
       dir.delete()
     }
-  }
-
-  test("OapIndexInfo status and update") {
-    val path1 = "partitionFile1"
-    val useIndex1 = true
-    val path2 = "partitionFile2"
-    val useIndex2 = false
-    val rawData1 = OapIndexInfoStatus(path1, useIndex1)
-    val rawData2 = OapIndexInfoStatus(path2, useIndex2)
-    OapIndexInfo.partitionOapIndex.clear()
-    OapIndexInfo.partitionOapIndex.put(path1, useIndex1)
-    OapIndexInfo.partitionOapIndex.put(path2, useIndex2)
-    val indexInfoStatusSerializeStr = OapIndexInfo.status
-    assert(Seq(Seq(rawData1, rawData2), Seq(rawData2, rawData1)).map(
-      OapIndexInfoStatusSerDe.serialize).contains(indexInfoStatusSerializeStr))
-    val host = "host1"
-    val executorId = "executorId1"
-    val oapIndexInfo =
-      SparkListenerOapIndexInfoUpdate(host, executorId, indexInfoStatusSerializeStr)
-    OapIndexInfo.update(oapIndexInfo)
-    assert(oapIndexInfo.hostName == host)
-    assert(oapIndexInfo.executorId == executorId)
-    assert(oapIndexInfo.oapIndexInfo == indexInfoStatusSerializeStr)
   }
 
   /** Verifies data and schema. */
