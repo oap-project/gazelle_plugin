@@ -2,6 +2,6 @@ OAP - Optimized Analytics Package is an optimized plugin package for Spark SQL t
 
 Please refer the below documents for more information.
 
-* [OAP Architecture Overview](./docs/OAP-Architect-Overview.md)
-* [OAP User Guide](./docs/OAP-User-Guide.md)
-* [OAP Developer Guide](./docs/OAP-Developer-Guide.md)
+* [OAP Architecture Overview](./OAP-Architect-Overview.md)
+* [OAP User Guide](./OAP-User-Guide.md)
+* [OAP Developer Guide](./OAP-Developer-Guide.md)
