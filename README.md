@@ -4,4 +4,4 @@ Please refer the below documents for more information.
 
 * [OAP Architecture Overview](./docs/OAP-Architect-Overview.md)
 * [OAP User Guide](./docs/OAP-User-Guide.md)
-* [OAP Developer Guide](./docs/OAP-Developer-Guide.md)
+* [OAP Developer Guide](./docs/Developer-Guide.md)
