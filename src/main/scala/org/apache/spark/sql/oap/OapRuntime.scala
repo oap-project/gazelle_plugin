@@ -58,7 +58,7 @@ private[sql] class OapDriverRuntime(sparkEnv: SparkEnv) extends OapRuntime {
   // this, nevertheless not instantly when a Spark application is started, but when an OapRuntime
   // is created. For example, OAP UI tab will show at the moment you read a Parquet file to OAP
   // cache
-  OapEnv.initWithoutCreatingOapSession()
+  OapEnv.initWithoutCreatingSparkSession()
 
   private var _sparkSession = OapEnv.sparkSession
   override def sparkSession: SparkSession = _sparkSession

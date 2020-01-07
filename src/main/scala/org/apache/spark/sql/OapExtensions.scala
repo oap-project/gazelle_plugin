@@ -20,6 +20,7 @@ package org.apache.spark.sql
 import org.apache.spark.sql.execution.OapSparkSqlParser
 import org.apache.spark.sql.execution.datasources.OapFileSourceStrategy
 import org.apache.spark.sql.execution.datasources.oap.{OapGroupAggregateStrategy, OapSemiJoinStrategy, OapSortLimitStrategy}
+import org.apache.spark.sql.hive.thriftserver.OapEnv
 
 class OapExtensions extends (SparkSessionExtensions => Unit) {
   override def apply(extensions: SparkSessionExtensions): Unit = {
@@ -29,6 +30,9 @@ class OapExtensions extends (SparkSessionExtensions => Unit) {
     extensions.injectPlannerStrategy(_ => OapGroupAggregateStrategy)
     extensions.injectPlannerStrategy(_ => OapFileSourceStrategy)
     // Oap Custom SqlParser.
-    extensions.injectParser((session, _) => new OapSparkSqlParser(session))
+    extensions.injectParser((session, _) => {
+      OapEnv.initWithoutCreatingSparkSession()
+      new OapSparkSqlParser(session)
+    })
   }
 }
