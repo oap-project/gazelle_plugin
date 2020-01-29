@@ -40,6 +40,7 @@ import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.oap.rpc.OapMessages.CacheDrop
 import org.apache.spark.sql.types._
+import org.apache.spark.util.SerializableConfiguration
 
 /**
  * Creates an index for table on indexColumns
@@ -230,42 +231,59 @@ case class DropIndexCommand(
           logWarning(s"""No data and Index in $partitions, DropIndexCommand do nothing.""")
           return Nil
         }
-        val hadoopConfiguration = sparkSession.sparkContext.hadoopConfiguration
-        val fs = FileSystem.get(hadoopConfiguration)
-        val dropIndexDirsCount = targetDirs.map(p => {
-          val parent = p.files.head.getPath.getParent
-          if (fs.exists(new Path(parent, OapFileFormat.OAP_META_FILE))) {
-            val metaBuilder = new DataSourceMetaBuilder()
-            val m = OapUtils.getMeta(hadoopConfiguration, parent)
-            assert(m.nonEmpty)
-            val oldMeta = m.get
-            val existsIndexes = oldMeta.indexMetas
-            val existsData = oldMeta.fileMetas
-            if (existsIndexes.forall(_.name != indexName)) {
-              logWarning(s"drop non-exists index $indexName")
-              allowNotExists
+        val partitionsDir = partitions.filter(_.files.nonEmpty).
+          map(_.files.head.getPath.getParent).map(_.toString).toSet
+        val sparkContext = sparkSession.sparkContext
+        val hadoopConf = sparkContext.hadoopConfiguration
+        val broadcastedConf = sparkContext.broadcast(new SerializableConfiguration(hadoopConf))
+        val dropedIndexInfo = sparkContext.
+          makeRDD(partitionsDir.toSeq, partitionsDir.toSeq.length).
+          map(p => {
+            val hadoopConfiguration = broadcastedConf.value.value
+            val parent = new Path(p)
+            val fs = FileSystem.get(hadoopConfiguration)
+            if (fs.exists(new Path(parent, OapFileFormat.OAP_META_FILE))) {
+              val metaBuilder = new DataSourceMetaBuilder()
+              val m = OapUtils.getMeta(hadoopConfiguration, parent)
+              assert(m.nonEmpty)
+              val oldMeta = m.get
+              val existsIndexes = oldMeta.indexMetas
+              val existsData = oldMeta.fileMetas
+              if (existsIndexes.forall(_.name != indexName)) {
+                logWarning(s"drop non-exists index $indexName")
+                (allowNotExists, null, null)
+              } else {
+                if (existsData != null) {
+                  existsData.foreach(metaBuilder.addFileMeta)
+                }
+                if (existsIndexes != null) {
+                  existsIndexes.filter(_.name != indexName).foreach(metaBuilder.addIndexMeta)
+                }
+                val path = new Path(parent.toString, OapFileFormat.OAP_META_FILE)
+                metaBuilder.withNewDataReaderClassName(oldMeta.dataReaderClassName)
+                (true, path.toString, metaBuilder.withNewSchema(oldMeta.schema).build())
+              }
             } else {
-              if (existsData != null) {
-                existsData.foreach(metaBuilder.addFileMeta)
-              }
-              if (existsIndexes != null) {
-                existsIndexes.filter(_.name != indexName).foreach(metaBuilder.addIndexMeta)
-              }
-              metaBuilder.withNewDataReaderClassName(oldMeta.dataReaderClassName)
-              DataSourceMeta.write(
-                new Path(parent.toString, OapFileFormat.OAP_META_FILE),
-                hadoopConfiguration,
-                metaBuilder.withNewSchema(oldMeta.schema).build())
-              fs.listStatus(parent, new PathFilter {
-                override def accept(path: Path): Boolean = path.getName.endsWith(
-                  "." + indexName + OapFileFormat.OAP_INDEX_EXTENSION)
-              }).foreach(file => fs.delete(file.getPath, true))
-              true
+              (false, null, null)
             }
-          } else {
-            false
-          }
-        }).count(_ == true)
+          }).collect()
+        val dropIndexDirsCount = dropedIndexInfo.count(_._1 == true)
+        dropedIndexInfo.filter(_._2 != null).foreach{
+          case (_, path, meta) => DataSourceMeta.write(new Path(path), hadoopConf, meta)
+        }
+        val paths = dropedIndexInfo.filter(_._2 != null).map(_._2)
+        if (paths.length > 0) {
+          sparkContext.makeRDD(paths.toSeq, paths.toSeq.length).map{ p =>
+            val hadoopConfiguration = broadcastedConf.value.value
+            val parent = new Path(p).getParent
+            val fs = FileSystem.get(hadoopConfiguration)
+            fs.listStatus(parent, new PathFilter {
+              override def accept(path: Path): Boolean = path.getName.endsWith(
+                "." + indexName + OapFileFormat.OAP_INDEX_EXTENSION)
+            }).foreach(file => fs.delete(file.getPath, true))
+            true
+          }.count()
+        }
         // No actually drop index action and allowNotExists is false, throw AnalysisException
         if (dropIndexDirsCount == 0 && !allowNotExists) {
           identifier match {

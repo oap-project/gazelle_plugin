@@ -140,7 +140,7 @@ private[oap] case class HashIndex(entries: Seq[Int] = Nil) extends IndexType {
   override def toString: String = "COLUMN(" + entries.mkString(", ") + ") BITMAP"
 }
 
-private[oap] class FileMeta {
+private[oap] class FileMeta extends  Serializable {
   import DataSourceMeta._
 
   var fingerprint: String = _
@@ -317,7 +317,7 @@ private[oap] object  Version {
 }
 
 
-private[oap] class FileHeader {
+private[oap] class FileHeader extends Serializable {
   import DataSourceMeta._
 
   var recordCount: Long = _
@@ -365,12 +365,12 @@ private[oap] object FileHeader {
 }
 
 private[oap] case class DataSourceMeta(
-    @transient fileMetas: Array[FileMeta],
+    fileMetas: Array[FileMeta],
     indexMetas: Array[IndexMeta],
     schema: StructType,
     // Indicate Parquet/OAP data file, not containing versions information
     dataReaderClassName: String,
-    @transient fileHeader: FileHeader) extends Serializable {
+    fileHeader: FileHeader) extends Serializable {
 
     // Check whether this expression is supported by index or not
   def isSupportedByIndex(exp: Expression, requirement: Option[IndexType] = None): Boolean = {
