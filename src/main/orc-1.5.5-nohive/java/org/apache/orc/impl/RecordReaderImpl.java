@@ -73,30 +73,30 @@ public class RecordReaderImpl implements RecordReader {
   private final long firstRow;
   private final List<StripeInformation> stripes =
       new ArrayList<StripeInformation>();
-  private OrcProto.StripeFooter stripeFooter;
+  protected OrcProto.StripeFooter stripeFooter;
   private final long totalRowCount;
   protected final TypeDescription schema;
-  private final List<OrcProto.Type> types;
-  private final int bufferSize;
+  protected final List<OrcProto.Type> types;
+  protected final int bufferSize;
   private final SchemaEvolution evolution;
   // the file included columns indexed by the file's column ids.
-  private final boolean[] fileIncluded;
-  private final long rowIndexStride;
-  private long rowInStripe = 0;
-  private int currentStripe = -1;
+  protected final boolean[] fileIncluded;
+  protected final long rowIndexStride;
+  protected long rowInStripe = 0;
+  protected int currentStripe = -1;
   private long rowBaseInStripe = 0;
-  private long rowCountInStripe = 0;
-  private final Map<StreamName, InStream> streams =
+  protected long rowCountInStripe = 0;
+  protected final Map<StreamName, InStream> streams =
       new HashMap<StreamName, InStream>();
   DiskRangeList bufferChunks = null;
-  private final TreeReaderFactory.TreeReader reader;
+  protected final TreeReaderFactory.TreeReader reader;
   private final OrcProto.RowIndex[] indexes;
   private final OrcProto.BloomFilterIndex[] bloomFilterIndices;
   private final OrcProto.Stream.Kind[] bloomFilterKind;
   private final SargApplier sargApp;
   // an array about which row groups aren't skipped
-  private boolean[] includedRowGroups = null;
-  private final DataReader dataReader;
+  protected boolean[] includedRowGroups = null;
+  protected DataReader dataReader;
   private final boolean ignoreNonUtf8BloomFilter;
   private final OrcFile.WriterVersion writerVersion;
   private final int maxDiskRangeChunkLimit;
@@ -1044,7 +1044,7 @@ public class RecordReaderImpl implements RecordReader {
    *
    * @throws IOException
    */
-  private void readStripe() throws IOException {
+  protected void readStripe() throws IOException {
     StripeInformation stripe = beginReadStripe();
     includedRowGroups = pickRowGroups();
 
@@ -1081,7 +1081,7 @@ public class RecordReaderImpl implements RecordReader {
     return true;
   }
 
-  private StripeInformation beginReadStripe() throws IOException {
+  protected StripeInformation beginReadStripe() throws IOException {
     StripeInformation stripe = stripes.get(currentStripe);
     stripeFooter = readStripeFooter(stripe);
     clearStreams();
@@ -1383,7 +1383,7 @@ public class RecordReaderImpl implements RecordReader {
         bloomFilterKind, bloomFilterIndex);
   }
 
-  private void seekToRowEntry(TreeReaderFactory.TreeReader reader, int rowEntry)
+  protected void seekToRowEntry(TreeReaderFactory.TreeReader reader, int rowEntry)
       throws IOException {
     PositionProvider[] index = new PositionProvider[indexes.length];
     for (int i = 0; i < indexes.length; ++i) {

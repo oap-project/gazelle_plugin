@@ -143,12 +143,12 @@ public class RecordReaderUtils {
     return result.get();
   }
 
-  private static class DefaultDataReader implements DataReader {
-    private FSDataInputStream file = null;
+  protected static class DefaultDataReader implements DataReader {
+    protected FSDataInputStream file = null;
     private ByteBufferAllocatorPool pool;
     private HadoopShims.ZeroCopyReaderShim zcr = null;
     private final FileSystem fs;
-    private final Path path;
+    protected final Path path;
     private final boolean useZeroCopy;
     private CompressionCodec codec;
     private final int bufferSize;
@@ -156,7 +156,7 @@ public class RecordReaderUtils {
     private CompressionKind compressionKind;
     private final int maxDiskRangeChunkLimit;
 
-    private DefaultDataReader(DataReaderProperties properties) {
+    protected DefaultDataReader(DataReaderProperties properties) {
       this.fs = properties.getFileSystem();
       this.path = properties.getPath();
       this.useZeroCopy = properties.getZeroCopy();

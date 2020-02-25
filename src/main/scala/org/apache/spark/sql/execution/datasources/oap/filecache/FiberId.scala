@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
+import org.apache.hadoop.fs.FSDataInputStream
 import org.apache.parquet.io.SeekableInputStream
 
 import org.apache.spark.sql.execution.datasources.oap.io.DataFile
@@ -64,6 +65,51 @@ case class BinaryDataFiberId(file: DataFile, columnIndex: Int, rowGroupId: Int) 
     val data = new Array[Byte](length)
     input.seek(offset)
     input.readFully(data)
+    val fiber = OapRuntime.getOrCreate.fiberCacheManager.getEmptyDataFiberCache(length)
+    Platform.copyMemory(data,
+      Platform.BYTE_ARRAY_OFFSET, null, fiber.getBaseOffset, length)
+    fiber
+  }
+}
+
+case class OrcBinaryFiberId(file: DataFile, columnIndex: Int, rowGroupId: Int) extends
+  DataFiberId {
+
+  private var input: FSDataInputStream = _
+  private var offset: Long = _
+  private var length: Int = _
+
+  def withLoadCacheParameters(input: FSDataInputStream, offset: Long, length: Int): Unit = {
+    this.input = input
+    this.offset = offset
+    this.length = length
+  }
+
+  def cleanLoadCacheParameters(): Unit = {
+    input = null
+    offset = -1
+    length = 0
+  }
+
+  override def hashCode(): Int = (file.path + columnIndex + rowGroupId).hashCode
+
+  override def equals(obj: Any): Boolean = obj match {
+    case another: OrcBinaryFiberId =>
+      another.columnIndex == columnIndex &&
+        another.rowGroupId == rowGroupId &&
+        another.file.path.equals(file.path)
+    case _ => false
+  }
+
+  override def toString: String = {
+    s"type: ORCColumn rowGroup: $rowGroupId column: $columnIndex\n\tfile: ${file.path}"
+  }
+
+  def doCache(): FiberCache = {
+    assert(input != null && offset >= 0 && length > 0,
+      "Illegal condition when load Parquet Chunk Fiber to cache.")
+    val data = new Array[Byte](length)
+    input.readFully((offset), data, 0, data.length);
     val fiber = OapRuntime.getOrCreate.fiberCacheManager.getEmptyDataFiberCache(length)
     Platform.copyMemory(data,
       Platform.BYTE_ARRAY_OFFSET, null, fiber.getBaseOffset, length)
