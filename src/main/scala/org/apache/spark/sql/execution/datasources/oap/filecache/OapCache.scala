@@ -557,9 +557,8 @@ class GuavaOapCache(
   private val cacheGuardian = new CacheGuardian(cacheGuardianMemory)
   cacheGuardian.start()
 
-  private val KB: Double = 1024
-  private val DATA_MAX_WEIGHT = (dataCacheMemory / KB).toInt
-  private val INDEX_MAX_WEIGHT = (indexCacheMemory / KB).toInt
+  private val DATA_MAX_WEIGHT = dataCacheMemory
+  private val INDEX_MAX_WEIGHT = indexCacheMemory
   private val TOTAL_MAX_WEIGHT = INDEX_MAX_WEIGHT + DATA_MAX_WEIGHT
   private val CONCURRENCY_LEVEL = 4
 
@@ -584,7 +583,7 @@ class GuavaOapCache(
   private val weigher = new Weigher[FiberId, FiberCache] {
     override def weigh(key: FiberId, value: FiberCache): Int = {
       // We should calculate the weigh with the occupied size of the block.
-      math.ceil(value.getOccupiedSize() / KB).toInt
+      value.getOccupiedSize().toInt
     }
   }
 
@@ -601,7 +600,7 @@ class GuavaOapCache(
     null
   }
 
-  private def initLoadingCache(weight: Int) = {
+  private def initLoadingCache(weight: Long) = {
     CacheBuilder.newBuilder()
       .recordStats()
       .removalListener(removalListener)
@@ -630,10 +629,10 @@ class GuavaOapCache(
           if (fiber.isInstanceOf[DataFiberId] || fiber.isInstanceOf[TestDataFiberId]) {
             val fiberCache = cacheInstance.get(fiber)
             // Avoid loading a fiber larger than DATA_MAX_WEIGHT / CONCURRENCY_LEVEL
-            assert(fiberCache.size() <= DATA_MAX_WEIGHT * KB / CONCURRENCY_LEVEL,
+            assert(fiberCache.size() <= DATA_MAX_WEIGHT / CONCURRENCY_LEVEL,
               s"Failed to cache fiber(${Utils.bytesToString(fiberCache.size())}) " +
                 s"with cache's MAX_WEIGHT" +
-                s"(${Utils.bytesToString(DATA_MAX_WEIGHT.toLong * KB.toLong)}) " +
+                s"(${Utils.bytesToString(DATA_MAX_WEIGHT.toLong)}) " +
                 s"/ $CONCURRENCY_LEVEL")
             fiberCache.occupy()
             fiberCache
@@ -643,10 +642,10 @@ class GuavaOapCache(
               fiber.isInstanceOf[TestIndexFiberId]) {
             val fiberCache = indexCacheInstance.get(fiber)
             // Avoid loading a fiber larger than INDEX_MAX_WEIGHT / CONCURRENCY_LEVEL
-            assert(fiberCache.size() <= INDEX_MAX_WEIGHT * KB / CONCURRENCY_LEVEL,
+            assert(fiberCache.size() <= INDEX_MAX_WEIGHT / CONCURRENCY_LEVEL,
               s"Failed to cache fiber(${Utils.bytesToString(fiberCache.size())}) " +
                 s"with cache's MAX_WEIGHT" +
-                s"(${Utils.bytesToString(INDEX_MAX_WEIGHT.toLong * KB.toLong)}) " +
+                s"(${Utils.bytesToString(INDEX_MAX_WEIGHT)}) " +
                 s"/ $CONCURRENCY_LEVEL")
             fiberCache.occupy()
             fiberCache
@@ -654,10 +653,10 @@ class GuavaOapCache(
         } else {
           val fiberCache = cacheInstance.get(fiber)
           // Avoid loading a fiber larger than MAX_WEIGHT / CONCURRENCY_LEVEL
-          assert(fiberCache.size() <= TOTAL_MAX_WEIGHT * KB / CONCURRENCY_LEVEL,
+          assert(fiberCache.size() <= TOTAL_MAX_WEIGHT / CONCURRENCY_LEVEL,
             s"Failed to cache fiber(${Utils.bytesToString(fiberCache.size())}) " +
               s"with cache's MAX_WEIGHT" +
-              s"(${Utils.bytesToString(TOTAL_MAX_WEIGHT.toLong * KB.toLong)}) / $CONCURRENCY_LEVEL")
+              s"(${Utils.bytesToString(TOTAL_MAX_WEIGHT)}) / $CONCURRENCY_LEVEL")
           fiberCache.occupy()
           fiberCache
         }
