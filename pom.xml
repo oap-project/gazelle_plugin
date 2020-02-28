@@ -45,6 +45,7 @@
     <scalacheck.version>1.13.5</scalacheck.version>
     <parquet.version>1.10.1</parquet.version>
     <jetty.version>9.3.24.v20180605</jetty.version>
+    <maven-antrun-plugin.version>1.8</maven-antrun-plugin.version>
     <!--diff: Spark-2.4.4 use orc 1.5.5 -->
     <orc.version>1.5.5</orc.version>
     <exec.maven.version>1.6.0</exec.maven.version>
@@ -653,10 +654,81 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>3.1.0</version>
+        <configuration>
+          <filesets>
+            <fileset>
+              <directory>${basedir}/src/main/spark${spark.internal.version}/scala/org/apache/spark/deploy</directory>
+              <includes>
+                <include>**</include>
+              </includes>
+            </fileset>
+            <fileset>
+              <directory>${basedir}/src/main/spark${spark.internal.version}/scala/org/apache/spark/executor</directory>
+              <includes>
+                <include>**</include>
+              </includes>
+            </fileset>
+          </filesets>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 
   <profiles>
+    <profile>
+      <id>vmemcache</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <skip>false</skip>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>${maven-antrun-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>build-vmemcahe-native</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <property name="native.src.dir" value="${basedir}/src/main/native/vmemcache/"/>
+                    <property name="build.native.target" value="${basedir}/src/main/resources/lib/linux64"/>
+                    <mkdir dir="${build.native.target}"/>
+                    <exec dir="${native.src.dir}" executable="make" failonerror="true">
+                    </exec>
+                  </target>
+                </configuration>
+              </execution>
+              <execution>
+                <id>clean-native</id>
+                <phase>clean</phase>
+                <goals>
+                  <goal>run</goal>
+                </goals>
+                <configuration>
+                  <target>
+                    <exec dir="${basedir}/src/main/native/vmemcache" executable="make" failonerror="true">
+                      <arg value="clean" />
+                    </exec>
+                  </target>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
     <profile>
       <id>persistent-memory</id>
       <build>

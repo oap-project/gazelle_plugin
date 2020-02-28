@@ -114,6 +114,16 @@ function formatCount(bytes, type) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + sizes[i];
 }
 
+function formatBytes(bytes, type) {
+    if (type !== 'display') return bytes;
+    if (bytes == 0) return '0';
+    var k = 1024;
+    var dm = 1;
+    var sizes = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
+    var i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + sizes[i];
+}
+
 $(document).ready(function () {
     $.extend($.fn.dataTable.defaults, {
         stateSave: true,

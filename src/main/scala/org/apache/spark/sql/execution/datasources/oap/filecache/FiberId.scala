@@ -24,7 +24,11 @@ import org.apache.spark.sql.execution.datasources.oap.io.DataFile
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.unsafe.Platform
 
-private[oap] abstract class FiberId {}
+private[oap] abstract class FiberId {
+  def toFiberKey(): String = {
+    throw new UnsupportedOperationException("Unsupported operation")
+  }
+}
 
 case class BinaryDataFiberId(file: DataFile, columnIndex: Int, rowGroupId: Int) extends
   DataFiberId {
@@ -121,6 +125,10 @@ case class VectorDataFiberId(file: DataFile, columnIndex: Int, rowGroupId: Int) 
   DataFiberId {
 
   override def hashCode(): Int = (file.path + columnIndex + rowGroupId).hashCode
+
+  val fiberKey = s"${file.path}_${rowGroupId}_${columnIndex})"
+
+  override def toFiberKey(): String = fiberKey
 
   override def equals(obj: Any): Boolean = obj match {
     case another: VectorDataFiberId =>

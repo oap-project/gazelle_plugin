@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources.oap.filecache
 
 import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.{ReentrantReadWriteLock}
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 import com.google.common.cache._
 import org.apache.hadoop.fs.FSDataInputStream
@@ -31,7 +31,7 @@ import org.apache.spark.sql.execution.datasources.oap.io._
 import org.apache.spark.sql.execution.datasources.oap.utils.CacheStatusSerDe
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
-import org.apache.spark.unsafe.{Platform}
+import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.Utils
 import org.apache.spark.util.collection.OapBitSet
 
@@ -39,6 +39,8 @@ private[sql] class FiberCacheManager(
     sparkEnv: SparkEnv) extends Logging {
   private val GUAVA_CACHE = "guava"
   private val SIMPLE_CACHE = "simple"
+  private val NO_EVICT_CACHE = "noevict"
+  private val VMEM_CACHE = "vmem"
   private val DEFAULT_CACHE_STRATEGY = GUAVA_CACHE
 
   private var _dataCacheCompressEnable = sparkEnv.conf.get(
@@ -77,6 +79,10 @@ private[sql] class FiberCacheManager(
         separateCache)
     } else if (cacheName.equals(SIMPLE_CACHE)) {
       new SimpleOapCache()
+    } else if (cacheName.equals(NO_EVICT_CACHE)) {
+      new NonEvictPMCache(dataCacheMemory, cacheGuardianMemory)
+    } else if (cacheName.equals(VMEM_CACHE)) {
+      new VMemCache()
     } else {
       throw new OapException(s"Unsupported cache strategy $cacheName")
     }

@@ -17,26 +17,107 @@
 
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.atomic.AtomicLong
+import java.io.File
+import java.util.concurrent.{ConcurrentHashMap, Executors, LinkedBlockingQueue}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.concurrent.locks.{Condition, ReentrantLock}
 
 import scala.collection.JavaConverters._
 
 import com.google.common.cache._
 
+import org.apache.spark.{SparkEnv, SparkException}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.datasources.OapException
+import org.apache.spark.sql.execution.datasources.oap.utils.PersistentMemoryConfigUtils
+import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
+import org.apache.spark.unsafe.VMEMCacheJNI
 import org.apache.spark.util.Utils
+
+private[filecache] class MultiThreadCacheGuardian(maxMemory: Long) extends CacheGuardian(maxMemory)
+  with Logging {
+
+  // pendingFiberSize and pendingFiberCapacity are different. pendingFiberSize used to
+  // show the pending size to user, however pendingFiberCapacity is used to record the
+  // actual used memory and log warn when exceed the maxMemory.
+  private val freeThreadNum = if (SparkEnv.get != null) {
+    SparkEnv.get.conf.get(OapConf.OAP_CACHE_GUARDIAN_FREE_THREAD_NUM)
+  } else {
+    OapConf.OAP_CACHE_GUARDIAN_FREE_THREAD_NUM.defaultValue.get
+  }
+  private val removalPendingQueues =
+    new Array[LinkedBlockingQueue[(FiberId, FiberCache)]](freeThreadNum)
+  for ( i <- 0 until freeThreadNum)
+    removalPendingQueues(i) = new LinkedBlockingQueue[(FiberId, FiberCache)]()
+  val roundRobin = new AtomicInteger(0)
+
+  override def pendingFiberCount: Int = {
+    var sum = 0
+    removalPendingQueues.foreach(sum += _.size())
+    sum
+  }
+
+  override def addRemovalFiber(fiber: FiberId, fiberCache: FiberCache): Unit = {
+    _pendingFiberSize.addAndGet(fiberCache.size())
+    // Record the occupied size
+    _pendingFiberCapacity.addAndGet(fiberCache.getOccupiedSize())
+    removalPendingQueues(roundRobin.addAndGet(1) % freeThreadNum)
+      .offer((fiber, fiberCache))
+    if (_pendingFiberCapacity.get() > maxMemory) {
+      // TODO:change back logWarning
+      logDebug("Fibers pending on removal use too much memory, " +
+        s"current: ${_pendingFiberCapacity.get()}, max: $maxMemory")
+    }
+  }
+
+  lazy val freeThreadPool = Executors.newFixedThreadPool(freeThreadNum)
+
+
+  override def start(): Unit = {
+    for (i <- 0 until freeThreadNum)
+      freeThreadPool.execute(new freeThread(i))
+
+    class freeThread(id: Int) extends Runnable {
+      override def run(): Unit = {
+        val queue = removalPendingQueues(id)
+        while (true) {
+          val fiberCache = queue.take()._2
+          releaseFiberCache(fiberCache)
+        }
+      }
+    }
+  }
+
+  private def releaseFiberCache(cache: FiberCache): Unit = {
+    val fiberId = cache.fiberId
+    logDebug(s"Removing fiber: $fiberId")
+    // Block if fiber is in use.
+    if (!cache.tryDispose()) {
+      logDebug(s"Waiting fiber to be released timeout. Fiber: $fiberId")
+      removalPendingQueues(roundRobin.addAndGet(1) % freeThreadNum)
+        .offer((fiberId, cache))
+      if (_pendingFiberCapacity.get() > maxMemory) {
+        // TODO:change back
+        logDebug("Fibers pending on removal use too much memory, " +
+          s"current: ${_pendingFiberCapacity.get()}, max: $maxMemory")
+      }
+    } else {
+      _pendingFiberSize.addAndGet(-cache.size())
+      _pendingFiberCapacity.addAndGet(-cache.getOccupiedSize())
+      // TODO: Make log more readable
+      logDebug(s"Fiber removed successfully. Fiber: $fiberId")
+    }
+  }
+}
 
 private[filecache] class CacheGuardian(maxMemory: Long) extends Thread with Logging {
 
   // pendingFiberSize and pendingFiberCapacity are different. pendingFiberSize used to
   // show the pending size to user, however pendingFiberCapacity is used to record the
   // actual used memory and log warn when exceed the maxMemory.
-  private val _pendingFiberSize: AtomicLong = new AtomicLong(0)
-  private val _pendingFiberCapacity: AtomicLong = new AtomicLong(0)
+  protected val _pendingFiberSize: AtomicLong = new AtomicLong(0)
+  protected val _pendingFiberCapacity: AtomicLong = new AtomicLong(0)
 
   private val removalPendingQueue = new LinkedBlockingQueue[(FiberId, FiberCache)]()
 
@@ -181,6 +262,83 @@ trait OapCache {
 
 }
 
+class NonEvictPMCache(pmSize: Long,
+                      cacheGuardianMemory: Long) extends OapCache with Logging {
+  // We don't bother the memory use of Simple Cache
+  private val cacheGuardian = new MultiThreadCacheGuardian(Int.MaxValue)
+  private val _cacheSize: AtomicLong = new AtomicLong(0)
+  private val _cacheCount: AtomicLong = new AtomicLong(0)
+  private val cacheHitCount: AtomicLong = new AtomicLong(0)
+  private val cacheMissCount: AtomicLong = new AtomicLong(0)
+
+  val cacheMap : ConcurrentHashMap[FiberId, FiberCache] = new ConcurrentHashMap[FiberId, FiberCache]
+  cacheGuardian.start()
+
+  override def get(fiber: FiberId): FiberCache = {
+    if (cacheMap.containsKey(fiber)) {
+      cacheHitCount.getAndAdd(1)
+      val fiberCache = cacheMap.get(fiber)
+      fiberCache.occupy()
+      fiberCache
+    } else {
+      cacheMissCount.getAndAdd(1)
+      val fiberCache = cache(fiber)
+      fiberCache.occupy()
+      if (fiberCache.fiberData.source.equals(SourceEnum.DRAM)) {
+        cacheGuardian.addRemovalFiber(fiber, fiberCache)
+      } else {
+        _cacheSize.addAndGet(fiberCache.size())
+        _cacheCount.addAndGet(1)
+        cacheMap.put(fiber, fiberCache)
+      }
+      fiberCache
+    }
+  }
+
+  override def getIfPresent(fiber: FiberId): FiberCache = {
+    if (cacheMap.contains(fiber)) {
+      cacheMap.get(fiber)
+    } else {
+      null
+    }
+  }
+
+  override def getFibers: Set[FiberId] = {
+    cacheMap.keySet().asScala.toSet
+  }
+
+  override def invalidate(fiber: FiberId): Unit = {
+    if (cacheMap.contains(fiber)) {
+      cacheMap.remove(fiber)
+    }
+  }
+
+  override def invalidateAll(fibers: Iterable[FiberId]): Unit = {
+    fibers.foreach(invalidate)
+  }
+
+  override def cacheSize: Long = {_cacheSize.get()}
+
+  override def cacheCount: Long = {_cacheCount.get()}
+
+  override def cacheStats: CacheStats = {
+    CacheStats(_cacheCount.get(), _cacheSize.get(), 0, 0, cacheGuardian.pendingFiberCount,
+      cacheGuardian.pendingFiberSize, cacheHitCount.get(), cacheMissCount.get(),
+      0, 0, 0,
+      0, 0, 0, 0, 0)
+  }
+
+  override def dataCacheCount: Long = 0
+
+  override def pendingFiberCount: Int = cacheGuardian.pendingFiberCount
+
+  override def pendingFiberSize: Long = cacheGuardian.pendingFiberSize
+
+  override def pendingFiberOccupiedSize: Long = cacheGuardian.pendingFiberOccupiedSize
+
+  override def getCacheGuardian: CacheGuardian = cacheGuardian
+}
+
 class SimpleOapCache extends OapCache with Logging {
 
   // We don't bother the memory use of Simple Cache
@@ -216,6 +374,170 @@ class SimpleOapCache extends OapCache with Logging {
   override def dataCacheCount: Long = 0
 
   override def pendingFiberCount: Int = cacheGuardian.pendingFiberCount
+
+  override def pendingFiberSize: Long = cacheGuardian.pendingFiberSize
+
+  override def pendingFiberOccupiedSize: Long = cacheGuardian.pendingFiberOccupiedSize
+
+  override def getCacheGuardian: CacheGuardian = cacheGuardian
+}
+
+class VMemCache extends OapCache with Logging {
+  private def emptyDataFiber(fiberLength: Long): FiberCache =
+    OapRuntime.getOrCreate.fiberCacheManager.getEmptyDataFiberCache(fiberLength)
+
+  private val cacheHitCount: AtomicLong = new AtomicLong(0)
+  private val cacheMissCount: AtomicLong = new AtomicLong(0)
+  private val cacheTotalGetTime: AtomicLong = new AtomicLong(0)
+  private var cacheTotalCount: Long = 0
+  private var cacheEvictCount: Long = 0
+  private var cacheTotalSize: Long = 0
+  // We don't bother the memory use of Simple Cache
+  private val cacheGuardian = new MultiThreadCacheGuardian(Int.MaxValue)
+  cacheGuardian.start()
+
+  @volatile private var initialized = false
+  private val lock = new Object
+  private val conf = SparkEnv.get.conf
+  private val initialSizeStr = conf.get(OapConf.OAP_FIBERCACHE_PERSISTENT_MEMORY_INITIAL_SIZE).trim
+  private val vmInitialSize = Utils.byteStringAsBytes(initialSizeStr)
+  require(vmInitialSize > 0, "AEP initial size must be greater than zero")
+  def initializeVMEMCache(): Unit = {
+    if (!initialized) {
+      lock.synchronized {
+        if (!initialized) {
+          val sparkEnv = SparkEnv.get
+          val conf = sparkEnv.conf
+          // The NUMA id should be set when the executor process start up. However, Spark don't
+          // support NUMA binding currently.
+          var numaId = conf.getInt("spark.executor.numa.id", -1)
+          val executorId = sparkEnv.executorId.toInt
+          val map = PersistentMemoryConfigUtils.parseConfig(conf)
+          if (numaId == -1) {
+            logWarning(s"Executor ${executorId} is not bind with NUMA. It would be better" +
+              s" to bind executor with NUMA when cache data to Intel Optane DC persistent memory.")
+            // Just round the executorId to the total NUMA number.
+            // TODO: improve here
+            numaId = executorId % PersistentMemoryConfigUtils.totalNumaNode(conf)
+          }
+          val initialPath = map.get(numaId).get
+          val fullPath = Utils.createTempDir(initialPath + File.separator + executorId)
+
+          require(fullPath.isDirectory(), "VMEMCache initialize path must be a directory")
+          val success = VMEMCacheJNI.initialize(fullPath.getCanonicalPath, vmInitialSize);
+          if (success != 0) {
+            throw new SparkException("Failed to call VMEMCacheJNI.initialize")
+          }
+          logInfo(s"Executors ${executorId}: VMEMCache initialize path:" +
+            s" ${fullPath.getCanonicalPath}, size: ${1.0 * vmInitialSize / 1024 / 1024 / 1024}GB")
+          initialized = true
+        }
+      }
+    }
+  }
+
+  initializeVMEMCache()
+
+  var fiberSet = scala.collection.mutable.Set[FiberId]()
+  override def get(fiber: FiberId): FiberCache = {
+    val fiberKey = fiber.toFiberKey()
+    val startTime = System.currentTimeMillis()
+    val res = VMEMCacheJNI.exist(fiberKey.getBytes(), null, 0, fiberKey.getBytes().length)
+    logDebug(s"vmemcache.exist return $res ," +
+      s" takes ${System.currentTimeMillis() - startTime} ms")
+    if (res <= 0) {
+      cacheMissCount.addAndGet(1)
+      val fiberCache = cache(fiber)
+      fiberSet.add(fiber)
+      incFiberCountAndSize(fiber, 1, fiberCache.size())
+      fiberCache.occupy()
+      decFiberCountAndSize(fiber, 1, fiberCache.size())
+      cacheGuardian.addRemovalFiber(fiber, fiberCache)
+      fiberCache
+    } else { // cache hit
+      cacheHitCount.addAndGet(1)
+      val length = res
+      val fiberCache = emptyDataFiber(length)
+      val startTime = System.currentTimeMillis()
+      val get = VMEMCacheJNI.getNative(fiberKey.getBytes(), null,
+        0, fiberKey.length, fiberCache.getBaseOffset, 0, fiberCache.size().toInt)
+      logDebug(s"second getNative require ${length} bytes. " +
+        s"returns $get bytes, takes ${System.currentTimeMillis() - startTime} ms")
+      fiberCache.fiberId = fiber
+      fiberCache.occupy()
+      cacheGuardian.addRemovalFiber(fiber, fiberCache)
+      fiberCache
+    }
+  }
+
+  override def getIfPresent(fiber: FiberId): FiberCache = null
+
+  override def getFibers: Set[FiberId] = {
+    val tmpFiberSet = fiberSet
+    // todo: we can implement a VmemcacheJNI.exist(keys:byte[][])
+    for(fibId <- tmpFiberSet) {
+      val fiberKey = fibId.toFiberKey()
+      val get = VMEMCacheJNI.exist(fiberKey.getBytes(), null, 0, fiberKey.getBytes().length)
+      if(get <=0 ) {
+        fiberSet.remove(fibId)
+        logDebug(s"$fiberKey is removed.")
+      } else {
+        logDebug(s"$fiberKey is still stored.")
+      }
+    }
+    fiberSet.toSet
+  }
+
+  override def invalidate(fiber: FiberId): Unit = {}
+
+  override def invalidateAll(fibers: Iterable[FiberId]): Unit = {}
+
+  override def cacheSize: Long = 0
+
+  override def cache(fiberId: FiberId): FiberCache = {
+    val fiber = super.cache(fiberId)
+    VMEMCacheJNI.putNative(fiberId.toFiberKey().getBytes(), null, 0,
+      fiberId.toFiberKey().length, fiber.getBaseOffset,
+      0, fiber.getOccupiedSize().toInt)
+    fiber
+  }
+
+  override def cacheStats: CacheStats = {
+    val status = new Array[Long](3)
+    VMEMCacheJNI.status(status)
+    cacheEvictCount = status(0)
+    cacheTotalCount = status(1)
+    cacheTotalSize = status(2)
+    logDebug(s"Current status is evict:$cacheEvictCount," +
+      s" count:$cacheTotalCount, size:$cacheTotalSize")
+    CacheStats(
+      cacheTotalCount, // dataFiberCount
+      cacheTotalSize, // dataFiberSize JNIGet
+      0, // indexFiberCount
+      0, // indexFiberSize
+      cacheGuardian.pendingFiberCount, // pendingFiberCount
+      cacheGuardian.pendingFiberSize, // pendingFiberSize
+      cacheHitCount.get(), // dataFiberHitCount
+      cacheMissCount.get(), // dataFiberMissCount
+      cacheHitCount.get(), // dataFiberLoadCount
+      cacheTotalGetTime.get(), // dataTotalLoadTime
+      cacheEvictCount, // dataEvictionCount
+      0, // indexFiberHitCount
+      0, // indexFiberMissCount
+      0, // indexFiberLoadCount
+      0, // indexFiberLoadTime
+      0) // indexEvictionCount JNIGet
+  }
+
+  override def cacheCount: Long = 0
+
+  override def pendingFiberCount: Int = 0
+
+  override def cleanUp: Unit = {
+    super.cleanUp
+  }
+
+  override def dataCacheCount: Long = 0
 
   override def pendingFiberSize: Long = cacheGuardian.pendingFiberSize
 

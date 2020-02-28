@@ -211,6 +211,78 @@ You need to change the value for spark.executor.instances, spark.sql.oap.fiberCa
 
 After the configuration, and you need to restart Spark Thrift Server to make the configuration changes taking effect. You can take the same steps described in [Use DRAM Cache](#Use-DRAM-Cache) to test and verify the cache is in working.
 
+##### Non-evictable Cache strategy
+
+Another cache strategy named Non-evictable is also supported in OAP based on memkind library for DCPMM.
+
+To apply Non-evictable cache strategy in your workload. Please follow prerequisites to set up DCPMM hardware and memkind library correctly. Then follow bellow configurations.
+
+Enable OAP extension in spark-defaults.conf.
+
+```
+spark.sql.extensions=org.apache.spark.sql.OapExtensions
+```
+Also need to add OAP jar file in spark.executor.extraClassPath and spark.driver.extraClassPath.
+
+For Parquet data format, provides following conf options:
+```
+--conf spark.sql.oap.parquet.data.cache.enable=true \
+--conf spark.sql.oap.fiberCache.memory.manager=hybrid \
+--conf spark.oap.cache.strategy=noevict \
+--conf spark.sql.oap.fiberCache.persistent.memory.initial.size=*g \
+--conf spark.sql.extensions=org.apache.spark.sql.OapExtensions \
+```
+For Orc data format, provides following conf options:
+```
+--conf spark.sql.orc.copyBatchToSpark=true \
+--conf spark.sql.oap.orc.data.cache.enable=true \
+--conf spark.sql.oap.orc.enable=true \
+--conf spark.sql.oap.fiberCache.memory.manager=hybrid \
+--conf spark.oap.cache.strategy=noevict \
+--conf spark.sql.oap.fiberCache.persistent.memory.initial.size=*g \
+--conf spark.sql.extensions=org.apache.spark.sql.OapExtensions \
+```
+
+### Use Vmemcache Cache
+Vmemcache cache strategy is implemented based on libvmemcache (buffer based LRU cache), which provides data store API using <key, value> as input.  Refer following steps to apply vmemcache cache strategy in your workload.
+
+Step 1. Install libvmemcache on each node. Please refer [vmemcache](https://github.com/pmem/vmemcache).
+        
+Step 2. Please follow prerequisites to configure DCPMM hardware 
+
+Step 3. Configure properties to enable vmemcache support in OAP
+
+Enable OAP extension in spark-defaults.conf.
+
+```
+spark.sql.extensions=org.apache.spark.sql.OapExtensions
+```
+Also need to add OAP jar file in spark.executor.extraClassPath and spark.driver.extraClassPath.
+
+For Parquet data format, provides following conf options:
+
+```
+--conf spark.sql.oap.parquet.enable=true \
+--conf spark.sql.oap.parquet.data.cache.enable=true \
+--conf spark.sql.oap.fiberCache.memory.manager=tmp \
+--conf spark.oap.cache.strategy=vmem \
+--conf spark.sql.oap.fiberCache.persistent.memory.initial.size=*g \
+--conf spark.sql.extensions=org.apache.spark.sql.OapExtensions \
+```
+
+For Orc data format, provides following conf options:
+
+```
+--conf spark.sql.oap.orc.enable=true \
+--conf spark.sql.orc.copyBatchToSpark=true \
+--conf spark.sql.oap.orc.data.cache.enable=true \
+--conf spark.sql.oap.fiberCache.memory.manager=tmp \
+--conf spark.oap.cache.strategy=vmem \
+--conf spark.sql.oap.fiberCache.persistent.memory.initial.size=*g \
+--conf spark.sql.extensions=org.apache.spark.sql.OapExtensions \
+```
+Note: If "PendingFiber Size" (on spark web-UI OAP page) is large, or some tasks failed due to "cache guardian use too much memory", user could set spark.sql.oap.cache.guardian.memory.size config to a larger number, which default size is 10GB. Besides, user could increase spark.sql.oap.cache.guardian.free.thread.nums or decrease spark.sql.oap.cache.dispose.timeout.ms to accelerate memory free.
+
 ## Run TPC-DS Benchmark for OAP Cache
 
 The section provides instructions and tools for running TPC-DS queries to evaluate the cache performance at various configurations. TPC-DS suite has many queries and we select 9 I/O intensive queries for making the performance evaluation simple.

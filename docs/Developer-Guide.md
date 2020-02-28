@@ -48,12 +48,21 @@ You  need to install the required packages on the build system listed below.
 - gcc-c++
 - [cmake](https://help.directadmin.com/item.php?id=494)
 - [Memkind](https://github.com/memkind/memkind)
+- [vmemcache](https://github.com/pmem/vmemcache)
 
 
 ##### Building package
-You need to add -Ppersistent-memory to the build command line for building with DCPMM support.
+You need to add -Ppersistent-memory to the build command line for building with DCPMM support. For Non-evictable cache stratege, you need to build with -Ppersistent-memory also.
 ```
 mvn clean -q -Ppersistent-memory -DskipTests package
+```
+for vmemcache cache strategy, please build with command:
+```
+mvn clean -q -Pvmemcache -DskipTests package
+```
+You can build with command to use all of them:
+```
+mvn clean -q -Ppersistent-memory -Pvmemcache -DskipTests package
 ```
 
 ## Integration with Spark
