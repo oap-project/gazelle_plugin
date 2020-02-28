@@ -27,6 +27,7 @@ import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
+import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.test.oap.{SharedOapContext, TestIndex, TestPartition}
 import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
 import org.apache.spark.util.Utils
@@ -290,6 +291,22 @@ class FilterSuite extends QueryTest with SharedOapContext with BeforeAndAfterEac
 
       checkAnswer(sql("SELECT * FROM orc_test WHERE a > 1 AND a <= 3"),
         Row(2, "this is test 2") :: Row(3, "this is test 3") :: Nil)
+    }
+  }
+
+  test("filtering orc using binary cache") {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql("insert overwrite table orc_test select * from t")
+    withIndex(TestIndex("orc_test", "index1")) {
+      sql("create oindex index1 on orc_test (a)")
+      withSQLConf(OapConf.OAP_ORC_BINARY_DATA_CACHE_ENABLED.key -> "true") {
+        val cacheManager = OapRuntime.getOrCreate.fiberCacheManager
+        val beforeQuery = cacheManager.dataCacheCount
+        checkAnswer(sql("SELECT * FROM orc_test WHERE  b = 'this is test 2'"),
+          Row(2, "this is test 2") :: Nil)
+        assert(cacheManager.dataCacheCount - beforeQuery == 4)
+      }
     }
   }
 

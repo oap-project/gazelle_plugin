@@ -167,6 +167,7 @@ trait OapCache {
   protected def cache(fiber: FiberId): FiberCache = {
     val cache = fiber match {
       case binary: BinaryDataFiberId => binary.doCache()
+      case orcChunk: OrcBinaryFiberId => orcChunk.doCache()
       case VectorDataFiberId(file, columnIndex, rowGroupId) => file.cache(rowGroupId, columnIndex)
       case BTreeFiberId(getFiberData, _, _, _) => getFiberData.apply()
       case BitmapFiberId(getFiberData, _, _, _) => getFiberData.apply()

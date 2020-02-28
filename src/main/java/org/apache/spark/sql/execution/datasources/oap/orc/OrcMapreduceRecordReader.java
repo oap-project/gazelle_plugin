@@ -24,14 +24,16 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.WritableComparable;
-import org.apache.orc.OrcConf;
-import org.apache.orc.OrcFile;
-import org.apache.orc.Reader;
-import org.apache.orc.RecordReader;
-import org.apache.orc.TypeDescription;
+import org.apache.orc.*;
+import org.apache.orc.impl.DataReaderProperties;
+import org.apache.orc.impl.ReaderImpl;
+import org.apache.orc.impl.RecordReaderBinaryCacheImpl;
+import org.apache.orc.impl.RecordReaderBinaryCacheUtils;
 import org.apache.orc.mapred.OrcMapredRecordReader;
 import org.apache.orc.mapred.OrcStruct;
 import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
+
+import org.apache.spark.sql.internal.oap.OapConf$;
 
 /**
  * This record reader is a copy of OrcMapreduceRecordReader with minor changes
@@ -61,7 +63,32 @@ public class OrcMapreduceRecordReader<V extends WritableComparable>
     Reader.Options options = org.apache.orc.mapred.OrcInputFormat.buildOptions(conf,
         fileReader, 0, length);
 
-    this.batchReader = fileReader.rows(options);
+    boolean binaryCacheEnabled = conf
+      .getBoolean(OapConf$.MODULE$.OAP_ORC_BINARY_DATA_CACHE_ENABLED().key(), false);
+    if (binaryCacheEnabled) {
+      Boolean zeroCopy = options.getUseZeroCopy();
+      if (zeroCopy == null) {
+        zeroCopy = OrcConf.USE_ZEROCOPY.getBoolean(conf);
+      }
+      DataReader dataReader = RecordReaderBinaryCacheUtils.createBinaryCacheDataReader(
+              DataReaderProperties.builder()
+                      .withBufferSize(fileReader.getCompressionSize())
+                      .withCompression(fileReader.getCompressionKind())
+                      .withFileSystem(fileSystem)
+                      .withPath(file)
+                      .withTypeCount(fileReader.getTypes().size())
+                      .withZeroCopy(zeroCopy)
+                      .withMaxDiskRangeChunkLimit(OrcConf
+                        .ORC_MAX_DISK_RANGE_CHUNK_LIMIT.getInt(conf))
+                      .build());
+      options.dataReader(dataReader);
+
+      this.batchReader = new RecordReaderBinaryCacheImpl((ReaderImpl)fileReader, options);
+
+    } else {
+      this.batchReader = fileReader.rows(options);
+    }
+
     if (options.getSchema() == null) {
       schema = fileReader.getSchema();
     } else {
