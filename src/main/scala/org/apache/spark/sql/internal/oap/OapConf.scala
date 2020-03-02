@@ -179,6 +179,13 @@ object OapConf {
       .stringConf
       .createWithDefault("offheap")
 
+  val OAP_FIBERCACHE_OFFHEAP_MEMORY_SIZE =
+    SqlConfAdapter.buildConf("spark.sql.oap.fiberCache.offheap.memory.size")
+      .internal()
+      .doc("Used to set available memory size for fiberCache for each executor.")
+      .stringConf
+      .createWithDefault("100m")
+
   val OAP_MIX_DATA_MEMORY_MANAGER =
     SqlConfAdapter.buildConf("spark.sql.oap.mix.data.memory.manager")
       .internal()
