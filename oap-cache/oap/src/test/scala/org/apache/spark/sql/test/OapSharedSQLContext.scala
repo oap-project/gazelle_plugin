@@ -25,6 +25,7 @@ import org.scalatest.concurrent.Eventually
 import org.apache.spark.{DebugFilesystem, SparkConf}
 import org.apache.spark.sql.{SparkSession, SQLContext}
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.oap.OapRuntime
 
 
 trait OapSharedSQLContext extends SQLTestUtils with OapSharedSparkSession
@@ -107,6 +108,7 @@ trait OapSharedSparkSession
           try {
             _spark.sessionState.catalog.reset()
           } finally {
+            OapRuntime.stop()
             _spark.stop()
             _spark = null
           }

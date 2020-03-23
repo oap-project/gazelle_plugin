@@ -30,7 +30,7 @@ import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberSensor.HostFiberCache
 import org.apache.spark.sql.hive.thriftserver.OapEnv
 import org.apache.spark.sql.oap.rpc._
-import org.apache.spark.util.{RpcUtils, Utils}
+import org.apache.spark.util.{RpcUtils, ShutdownHookManager, Utils}
 
 
 /**
@@ -152,6 +152,9 @@ object OapRuntime {
       } else {
         new OapExecutorRuntime(sparkEnv)
       }
+      // Call OapRuntime#stop() before sparkEnv#stop()
+      ShutdownHookManager
+        .addShutdownHook(ShutdownHookManager.DEFAULT_SHUTDOWN_PRIORITY)(() => this.stop())
     }
     rt
   }

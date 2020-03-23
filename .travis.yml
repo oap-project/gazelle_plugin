@@ -18,4 +18,5 @@ before_script:
 - sudo make install
 - cd ${TRAVIS_BUILD_DIR}
 script:
+- cd oap-cache/oap/
 - mvn clean -q -Ppersistent-memory test
