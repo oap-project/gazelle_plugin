@@ -17,19 +17,30 @@
 
 package org.apache.spark.sql.execution.datasources.oap.io
 
+import java.io.Closeable
+
+import scala.collection.JavaConverters._
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.mapreduce.RecordReader
 import org.apache.orc._
 import org.apache.orc.impl.{ReaderImpl, RecordReaderCacheImpl}
 import org.apache.orc.mapred.{OrcInputFormat, OrcStruct}
+import org.apache.orc.mapreduce._
+import org.apache.orc.storage.ql.exec.vector.{ColumnVector, VectorizedRowBatch}
+import org.apache.parquet.hadoop.{ParquetFiberDataReader, VectorizedOapRecordReader}
 
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.OapException
 import org.apache.spark.sql.execution.datasources.oap.filecache._
 import org.apache.spark.sql.execution.datasources.oap.orc.{OrcMapreduceRecordReader, _}
+import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
+import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
+import org.apache.spark.util.CompletionIterator
 
 /**
  * OrcDataFile is using below four record readers to read orc data file.
@@ -57,6 +68,9 @@ private[oap] case class OrcDataFile(
 
   private var context: OrcDataFileContext = _
   private val filePath: Path = new Path(path)
+  private val orcDataCacheEnable =
+    configuration.getBoolean(OapConf.OAP_ORC_DATA_CACHE_ENABLED.key,
+      OapConf.OAP_ORC_DATA_CACHE_ENABLED.defaultValue.get)
   val meta =
     OapRuntime.getOrCreate.dataFileMetaCacheManager.get(this).asInstanceOf[OrcDataFileMeta]
 //  meta.getOrcFileReader()
@@ -93,8 +107,22 @@ private[oap] case class OrcDataFile(
     filters: Seq[Filter] = Nil): OapCompletionIterator[Any] = {
     val iterator = context.returningBatch match {
       case true =>
-        initVectorizedReader(context,
-          new OrcColumnarBatchReader(context.enableOffHeapColumnVector, context.copyToSpark))
+        // Orc Stripe size can more than Int.MaxValue,
+        // in that sence we should not cache data in memory
+        // and rollback to read this stripe from file directly.
+        // TODO support cache without copyToSpark
+        if (orcDataCacheEnable &&
+          !meta.listStripeInformation.asScala.exists(_.getNumberOfRows > Int.MaxValue &&
+          context.copyToSpark)) {
+//          addRequestSchemaToConf(configuration, requiredIds)
+          initCacheReader(context,
+            new OrcCacheReader(configuration,
+              meta, this, requiredIds,
+              context.enableOffHeapColumnVector, context.copyToSpark))
+        } else {
+          initVectorizedReader(context,
+            new OrcColumnarBatchReader(context.enableOffHeapColumnVector, context.copyToSpark))
+        }
       case false =>
         initRecordReader(
           new OrcMapreduceRecordReader[OrcStruct](filePath, configuration))
@@ -111,9 +139,20 @@ private[oap] case class OrcDataFile(
     } else {
       val iterator = context.returningBatch match {
         case true =>
-          initVectorizedReader(context,
-            new IndexedOrcColumnarBatchReader(context.enableOffHeapColumnVector,
-              context.copyToSpark, rowIds))
+          // TODO support cache without copyToSpark
+          if (orcDataCacheEnable &&
+            !meta.listStripeInformation.asScala.exists(_.getNumberOfRows > Int.MaxValue &&
+              context.copyToSpark)) {
+            //          addRequestSchemaToConf(configuration, requiredIds)
+            initCacheReader(context,
+              new IndexedOrcCacheReader(configuration,
+                meta, this, requiredIds,
+                context.enableOffHeapColumnVector, context.copyToSpark, rowIds))
+          } else {
+            initVectorizedReader(context,
+              new IndexedOrcColumnarBatchReader(context.enableOffHeapColumnVector,
+                context.copyToSpark, rowIds))
+          }
         case false =>
           initRecordReader(
             new IndexedOrcMapreduceRecordReader[OrcStruct](filePath, configuration, rowIds))
@@ -136,6 +175,25 @@ private[oap] case class OrcDataFile(
     }
   }
 
+  private def initCacheReader(c: OrcDataFileContext,
+      reader: OrcCacheReader) = {
+    reader.initialize(filePath, configuration)
+    reader.initBatch(fileReader.getSchema, c.requestedColIds, c.requiredSchema.fields,
+      c.partitionColumns, c.partitionValues)
+    val iterator = new FileRecordReaderIterator(reader)
+    // TODO need to release
+    new OapCompletionIterator[InternalRow](iterator.asInstanceOf[Iterator[InternalRow]],
+      c.requestedColIds.foreach(release)) {
+      override def close(): Unit = {
+        // To ensure if any exception happens, caches are still released after calling close()
+        inUseFiberCache.indices.foreach(release)
+        if (recordReader != null) {
+          recordReader.close()
+        }
+      }
+    }
+  }
+
   private def initRecordReader(
       reader: OrcMapreduceRecordReader[OrcStruct]) = {
     val iterator =
@@ -152,7 +210,30 @@ private[oap] case class OrcDataFile(
     new OrcDataFileMeta(filePath, configuration)
 
   override def cache(groupId: Int, fiberId: Int): FiberCache = {
-    throw new OapException("VectorCache on orc file has been deprecated," +
-      " we should never reach here!")
+    val fileSchema = fileReader.getSchema
+    val columnTypeDesc = TypeDescription.createStruct()
+      .addField(fileSchema.getFieldNames.get(fiberId), fileSchema.getChildren.get(fiberId))
+    options.schema(columnTypeDesc)
+    recordReader = new RecordReaderCacheImpl(reader.asInstanceOf[ReaderImpl], options)
+
+    val rowCount = meta.listStripeInformation.get(groupId).getNumberOfRows.toInt
+    val vectorizedRowBatch = columnTypeDesc.createRowBatch(rowCount)
+    recordReader.readStripeByOap(groupId)
+    recordReader.readBatch(vectorizedRowBatch)
+    recordReader.close()
+
+    val fromColumn = vectorizedRowBatch.cols(0)
+    val field = schema.fields(fiberId)
+    val toColumn = new OnHeapColumnVector(rowCount, field.dataType)
+    if (fromColumn.isRepeating) {
+      OrcCacheReader.putRepeatingValues(rowCount, field, fromColumn, toColumn)
+    }
+    else if (fromColumn.noNulls) {
+      OrcCacheReader.putNonNullValues(rowCount, field, fromColumn, toColumn)
+    }
+    else {
+      OrcCacheReader.putValues(rowCount, field, fromColumn, toColumn)
+    }
+    ParquetDataFiberWriter.dumpToCache(toColumn, rowCount)
   }
 }
