@@ -67,14 +67,14 @@ private[oap] case class OrcDataFile(
     configuration: Configuration) extends DataFile {
 
   private var context: OrcDataFileContext = _
-  private val filePath: Path = new Path(path)
-  private val orcDataCacheEnable =
+  private lazy val filePath: Path = new Path(path)
+  private lazy val orcDataCacheEnable =
     configuration.getBoolean(OapConf.OAP_ORC_DATA_CACHE_ENABLED.key,
       OapConf.OAP_ORC_DATA_CACHE_ENABLED.defaultValue.get)
-  val meta =
+  lazy val meta =
     OapRuntime.getOrCreate.dataFileMetaCacheManager.get(this).asInstanceOf[OrcDataFileMeta]
 //  meta.getOrcFileReader()
-  private val fileReader: Reader = {
+  private lazy val fileReader: Reader = {
     import scala.collection.JavaConverters._
 //    val meta =
 //      OapRuntime.getOrCreate.dataFileMetaCacheManager.get(this).asInstanceOf[OrcDataFileMeta]
@@ -83,14 +83,15 @@ private[oap] case class OrcDataFile(
 
 //  recordReader = reader.rows(options)
 
-  val reader: Reader = OrcFile.createReader(meta.path, OrcFile.readerOptions(meta.configuration)
+  lazy val reader: Reader = OrcFile.createReader(meta.path,
+    OrcFile.readerOptions(meta.configuration)
     .maxLength(OrcConf.MAX_FILE_LENGTH.getLong(meta.configuration)).filesystem(meta.fs))
-  val options: Reader.Options = OrcInputFormat.buildOptions(meta.configuration,
+  lazy val options: Reader.Options = OrcInputFormat.buildOptions(meta.configuration,
     reader, 0, meta.length)
 
   var recordReader: RecordReaderCacheImpl = _
 
-  private val inUseFiberCache = new Array[FiberCache](schema.length)
+  private lazy val inUseFiberCache = new Array[FiberCache](schema.length)
 
   private def release(idx: Int): Unit = Option(inUseFiberCache(idx)).foreach { fiberCache =>
     fiberCache.release()
@@ -166,7 +167,10 @@ private[oap] case class OrcDataFile(
 
   private def initVectorizedReader(c: OrcDataFileContext,
       reader: OrcColumnarBatchReader) = {
-    reader.initialize(filePath, configuration)
+    val taskConf = new Configuration(configuration)
+    taskConf.set(OrcConf.INCLUDE_COLUMNS.getAttribute,
+      c.requestedColIds.filter(_ != -1).sorted.mkString(","))
+    reader.initialize(filePath, taskConf)
     reader.initBatch(fileReader.getSchema, c.requestedColIds, c.requiredSchema.fields,
       c.partitionColumns, c.partitionValues)
     val iterator = new FileRecordReaderIterator(reader)

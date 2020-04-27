@@ -139,7 +139,8 @@ object OapConf {
   val OAP_INDEX_DATA_SEPARATION_ENABLE =
     SqlConfAdapter.buildConf("spark.sql.oap.index.data.cache.separation.enable")
       .internal()
-      .doc("This is to enable index data cache separation feature including mix memory manager")
+      .doc("This is to enable index data cache separation feature including mix memory manager" +
+        "and mix cache backend")
       .booleanConf
       .createWithDefault(false)
 
@@ -169,6 +170,16 @@ object OapConf {
       .stringConf
       .createWithDefault("offheap")
 
+  val OAP_FIBERCACHE_STRATEGY =
+    SqlConfAdapter.buildConf("spark.oap.cache.strategy")
+      .internal()
+      .doc("Sets the implement of cache strategy, it currently supports guava(Guava Cache), " +
+        "vmem(VMemCache), simple, noevict." +
+        "To enable mix mode, you need to set " +
+        "spark.sql.oap.index.data.cache.separation.enable to true")
+      .stringConf
+      .createWithDefault("guava")
+
   val OAP_MIX_INDEX_MEMORY_MANAGER =
     SqlConfAdapter.buildConf("spark.sql.oap.mix.index.memory.manager")
       .internal()
@@ -195,6 +206,20 @@ object OapConf {
         "It should be different from spark.sql.oap.mix.index.memory.manager")
       .stringConf
       .createWithDefault("pm")
+
+  val OAP_MIX_INDEX_CACHE_BACKEND =
+    SqlConfAdapter.buildConf("spark.sql.oap.mix.index.cache.backend")
+      .internal()
+      .doc("Sets the implement of index cache backend in mix mode.")
+      .stringConf
+      .createWithDefault("guava")
+
+  val OAP_MIX_DATA_CACHE_BACKEND =
+    SqlConfAdapter.buildConf("spark.sql.oap.mix.data.cache.backend")
+      .internal()
+      .doc("Sets the implement of data memory manager in mix mode.")
+      .stringConf
+      .createWithDefault("guava")
 
   val OAP_FIBERCACHE_PERSISTENT_MEMORY_CONFIG_FILE =
     SqlConfAdapter.buildConf("spark.sql.oap.fiberCache.persistent.memory.config.file")
@@ -414,6 +439,13 @@ object OapConf {
       .doc("total cache guardian memory size")
       .stringConf
       .createWithDefault("10g")
+
+  val OAP_CACHE_GUARDIAN_RETRY_TIME_IN_MS =
+    SqlConfAdapter.buildConf("spark.sql.oap.cache.guardian.retry.time.in.ms")
+    .internal()
+    .doc("Retry time for TmpMemoryManager allocate")
+    .intConf
+    .createWithDefault(5000)
 
   val OAP_INDEX_STATISTIC_EXTERNALSORTER_ENABLE =
     SqlConfAdapter.buildConf("spark.sql.oap.index.statistic.externalsorter.enable")
