@@ -1,4 +1,6 @@
-package org.apache.spark.unsafe;
+package com.intel.oap.common.unsafe;
+
+import com.intel.oap.common.util.NativeLibraryLoader;
 
 import java.nio.ByteBuffer;
 
@@ -17,7 +19,7 @@ public class VMEMCacheJNI {
 
     static {
         LOG.info("Trying to load the native library from jni...");
-        NativeLoader.loadLibrary(LIBRARY_NAME);
+        NativeLibraryLoader.load(LIBRARY_NAME);
     }
 
     public static synchronized int initialize(String path, long maxSize) {

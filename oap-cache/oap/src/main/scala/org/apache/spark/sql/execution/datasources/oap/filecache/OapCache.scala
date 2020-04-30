@@ -18,6 +18,7 @@
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
 import java.io.File
+import java.nio.{ByteBuffer, DirectByteBuffer}
 import java.util.concurrent.{ConcurrentHashMap, Executors, LinkedBlockingQueue}
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.concurrent.locks.{Condition, ReentrantLock}
@@ -25,6 +26,11 @@ import java.util.concurrent.locks.{Condition, ReentrantLock}
 import scala.collection.JavaConverters._
 
 import com.google.common.cache._
+import com.google.common.hash._
+import com.intel.oap.common.unsafe.VMEMCacheJNI
+import org.apache.arrow.plasma
+import org.apache.arrow.plasma.exceptions.{DuplicateObjectException, PlasmaClientException}
+import sun.nio.ch.DirectBuffer
 
 import org.apache.spark.{SparkEnv, SparkException}
 import org.apache.spark.internal.Logging
@@ -34,7 +40,7 @@ import org.apache.spark.sql.execution.datasources.oap.filecache.FiberType.FiberT
 import org.apache.spark.sql.execution.datasources.oap.utils.PersistentMemoryConfigUtils
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
-import org.apache.spark.unsafe.VMEMCacheJNI
+import org.apache.spark.unsafe.Platform
 import org.apache.spark.util.Utils
 
 private[filecache] class MultiThreadCacheGuardian(maxMemory: Long) extends CacheGuardian(maxMemory)
@@ -221,7 +227,8 @@ private[filecache] object OapCache {
       case "guava" => new GuavaOapCache(cacheMemory, cacheGuardianMemory, fiberType)
       case "vmem" => new VMemCache(fiberType)
       case "simple" => new SimpleOapCache()
-      case "noevict" => new NonEvictPMCache(cacheMemory, cacheGuardianMemory, fiberType)
+      case "noevict" => new NoEvictPMCache(cacheMemory, cacheGuardianMemory, fiberType)
+      case "external" => new ExternalCache(fiberType)
       case _ => throw new UnsupportedOperationException(
         s"The cache backend: ${oapCacheOpt} is not supported now")
     }
@@ -289,7 +296,7 @@ trait OapCache {
 
 }
 
-class NonEvictPMCache(pmSize: Long,
+class NoEvictPMCache(pmSize: Long,
                       cacheGuardianMemory: Long,
                       fiberType: FiberType) extends OapCache with Logging {
   // We don't bother the memory use of Simple Cache
@@ -739,22 +746,8 @@ class MixCache(dataCacheMemory: Long,
 
   private val (dataCacheBackend, indexCacheBackend) = init()
 
-  private def isCompatibleWithMemoryManager() = {
-    val dataMemoryManager = sparkEnv.conf.get(OapConf.OAP_MIX_DATA_MEMORY_MANAGER)
-    val indexMemoryManager = sparkEnv.conf.get(OapConf.OAP_MIX_INDEX_MEMORY_MANAGER)
-    val dataCacheBackend = sparkEnv.conf.get(OapConf.OAP_MIX_DATA_CACHE_BACKEND)
-    val indexCacheBackend = OapConf.OAP_MIX_INDEX_CACHE_BACKEND
-
-    // TmpDramMemoryManager is designed only for VMemcache
-    if ((dataCacheBackend.equals("vmem") && !dataMemoryManager.equals("tmp")) ||
-      (indexCacheBackend.equals("vmem") && !indexMemoryManager.equals("tmp"))) {
-      throw new OapException("Please configure TmpDramMemoryManager(tmp) for VMemcache(vmem)")
-    }
-  }
-
   private def init(): (OapCache, OapCache) = {
     if (!separation) {
-      isCompatibleWithMemoryManager()
       val dataCacheBackend = OapCache(sparkEnv, OapConf.OAP_MIX_DATA_CACHE_BACKEND,
         dataCacheMemory, dataCacheGuardianMemory, FiberType.DATA);
       val indexCacheBackend = OapCache(sparkEnv, OapConf.OAP_MIX_INDEX_CACHE_BACKEND,
@@ -850,5 +843,201 @@ class MixCache(dataCacheMemory: Long,
   override def cleanUp: Unit = {
     dataCacheBackend.cleanUp()
     indexCacheBackend.cleanUp()
+  }
+}
+
+class ExternalCache(fiberType: FiberType) extends OapCache with Logging {
+  private val conf = SparkEnv.get.conf
+  private val externalStoreCacheSocket: String = "/tmp/plasmaStore"
+  private var cacheInit: Boolean = false
+  def init(): Unit = {
+    if (!cacheInit) {
+      try {
+        System.loadLibrary("plasma_java")
+        cacheInit = true
+      } catch {
+        case e: Exception => logError(s"load plasma jni lib failed " + e.getMessage)
+      }
+    }
+  }
+
+  init()
+
+  private val cacheHitCount: AtomicLong = new AtomicLong(0)
+  private val cacheMissCount: AtomicLong = new AtomicLong(0)
+  private val cacheTotalGetTime: AtomicLong = new AtomicLong(0)
+  private var cacheTotalCount: AtomicLong = new AtomicLong(0)
+  private var cacheEvictCount: AtomicLong = new AtomicLong(0)
+  private var cacheTotalSize: AtomicLong = new AtomicLong(0)
+
+  private def emptyDataFiber(fiberLength: Long): FiberCache =
+    OapRuntime.getOrCreate.fiberCacheManager.getEmptyDataFiberCache(fiberLength)
+
+  var fiberSet = scala.collection.mutable.Set[FiberId]()
+  val clientPoolSize = conf.get(OapConf.OAP_EXTERNAL_CACHE_CLIENT_POOL_SIZE)
+  val clientRoundRobin = new AtomicInteger(0)
+  val plasmaClientPool = new Array[ plasma.PlasmaClient](clientPoolSize)
+  for ( i <- 0 until clientPoolSize) {
+    plasmaClientPool(i) = new plasma.PlasmaClient(externalStoreCacheSocket, "", 0)
+  }
+
+  val cacheGuardian = new MultiThreadCacheGuardian(Int.MaxValue)
+  cacheGuardian.start()
+
+  val hf: HashFunction = Hashing.murmur3_128()
+
+  def hash(key: Array[Byte]): Array[Byte] = {
+    val ret = new Array[Byte](20)
+    hf.newHasher().putBytes(key).hash().writeBytesTo(ret, 0, 20)
+    ret
+  }
+
+  def hash(key: String): Array[Byte] = {
+    hash(key.getBytes())
+  }
+
+  def delete(fiberId: FiberId): Unit = {
+    val objectId = hash(fiberId.toString)
+    plasmaClientPool(clientRoundRobin.getAndAdd(1) % clientPoolSize).delete(objectId)
+  }
+
+  def contains(fiberId: FiberId): Boolean = {
+    val objectId = hash(fiberId.toString)
+    if (plasmaClientPool(clientRoundRobin.getAndAdd(1) % clientPoolSize).contains(objectId)) true
+    else false
+  }
+
+  override def get(fiberId: FiberId): FiberCache = {
+    logDebug(s"external cache get FiberId is ${fiberId}")
+    val objectId = hash(fiberId.toString)
+    if(contains(fiberId)) {
+      var fiberCache : FiberCache = null
+      try{
+        logDebug(s"Cache hit, get from external cache.")
+        val plasmaClient = plasmaClientPool(clientRoundRobin.getAndAdd(1) % clientPoolSize)
+        val buf: ByteBuffer = plasmaClient.getObjAsByteBuffer(objectId, -1, false)
+        cacheHitCount.addAndGet(1)
+        fiberCache = emptyDataFiber(buf.capacity())
+        fiberCache.fiberId = fiberId
+        Platform.copyMemory(null, buf.asInstanceOf[DirectBuffer].address(),
+          null, fiberCache.fiberData.baseOffset, buf.capacity())
+        plasmaClient.release(objectId)
+      }
+      catch {
+        case getException : plasma.exceptions.PlasmaGetException =>
+          logWarning("Get exception: " + getException.getMessage)
+          fiberCache = cache(fiberId)
+          cacheMissCount.addAndGet(1)
+      }
+      fiberCache.occupy()
+      cacheGuardian.addRemovalFiber(fiberId, fiberCache)
+      fiberCache
+    } else {
+      val fiberCache = cache(fiberId)
+      cacheMissCount.addAndGet(1)
+      fiberSet.add(fiberId)
+      fiberCache.occupy()
+      cacheGuardian.addRemovalFiber(fiberId, fiberCache)
+      fiberCache
+    }
+  }
+
+  override def cache(fiberId: FiberId): FiberCache = {
+    val fiber = super.cache(fiberId)
+    fiber.fiberId = fiberId
+
+    val objectId = hash(fiberId.toString)
+    if( !contains(fiberId)) {
+      val plasmaClient = plasmaClientPool(clientRoundRobin.getAndAdd(1) % clientPoolSize)
+      try {
+        val buf = plasmaClient.create(objectId, fiber.size().toInt)
+        Platform.copyMemory(null, fiber.fiberData.baseOffset,
+          null, buf.asInstanceOf[DirectBuffer].address(), fiber.size())
+        plasmaClient.seal(objectId)
+        plasmaClient.release(objectId)
+      } catch {
+        case e: DuplicateObjectException => logWarning(e.getMessage)
+      }
+    }
+    fiber
+  }
+
+  private val _cacheSize: AtomicLong = new AtomicLong(0)
+
+  override def getIfPresent(fiber: FiberId): FiberCache = null
+
+  override def getFibers: Set[FiberId] = {
+        val list : Array[Array[Byte]] =
+        plasmaClientPool(clientRoundRobin.getAndAdd(1) % clientPoolSize).list();
+        cacheTotalCount = new AtomicLong(list.length)
+        logDebug("cache total size is " + cacheTotalCount)
+        list.toSet
+        fiberSet.foreach( fiber =>
+          if ( !list.contains(hash(fiber.toFiberKey()))) fiberSet.remove(fiber) )
+        fiberSet.toSet
+  }
+
+  override def invalidate(fiber: FiberId): Unit = { }
+
+  override def invalidateAll(fibers: Iterable[FiberId]): Unit = { }
+
+  override def cacheSize: Long = _cacheSize.get()
+
+  override def cacheCount: Long = 0
+
+  override def cacheStats: CacheStats = {
+    val array = new Array[Long](4)
+//    plasmaClientPool(clientRoundRobin.getAndAdd(1) % clientPoolSize).metrics(array)
+    cacheTotalSize = new AtomicLong(array(3) + array(1))
+    // Memory store and external store used size
+
+    if (fiberType == FiberType.INDEX) {
+      CacheStats(
+        0, 0,
+        cacheTotalCount.get(),
+        cacheTotalSize.get(),
+        cacheGuardian.pendingFiberCount, // pendingFiberCount
+        cacheGuardian.pendingFiberSize, // pendingFiberSize
+        0, 0, 0, 0, 0, // For index cache, the data fiber metrics should always be zero
+        cacheHitCount.get(), // indexFiberHitCount
+        cacheMissCount.get(), // indexFiberMissCount
+        cacheHitCount.get(), // indexFiberLoadCount
+        cacheTotalGetTime.get(), // indexTotalLoadTime
+        cacheEvictCount.get() // indexEvictionCount
+      )
+    } else {
+      CacheStats(
+        cacheTotalCount.get(),
+        cacheTotalSize.get(),
+        0, 0,
+        cacheGuardian.pendingFiberCount, // pendingFiberCount
+        cacheGuardian.pendingFiberSize, // pendingFiberSize
+        cacheHitCount.get(), // dataFiberHitCount
+        cacheMissCount.get(), // dataFiberMissCount
+        cacheHitCount.get(), // dataFiberLoadCount
+        cacheTotalGetTime.get(), // dataTotalLoadTime
+        cacheEvictCount.get(), // dataEvictionCount
+        0, 0, 0, 0, 0) // For data cache, the index fiber metrics should always be zero
+    }
+  }
+
+  override def pendingFiberCount: Int = {
+    cacheGuardian.pendingFiberCount
+  }
+
+  override def dataCacheCount: Long = 0
+
+  override def pendingFiberSize: Long = cacheGuardian.pendingFiberSize
+
+  override def pendingFiberOccupiedSize: Long = cacheGuardian.pendingFiberOccupiedSize
+
+  override def getCacheGuardian: CacheGuardian = cacheGuardian
+
+  override def cleanUp(): Unit = {
+    invalidateAll(getFibers)
+    dataFiberSize.set(0L)
+    dataFiberCount.set(0L)
+    indexFiberSize.set(0L)
+    indexFiberCount.set(0L)
   }
 }

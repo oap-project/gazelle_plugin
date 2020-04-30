@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -17,52 +15,22 @@
 # limitations under the License.
 #
 
-set -eu
-# detect OS
-OS="`uname -s`"
-case ${OS} in
-  'Linux' )
-    OS='linux'
-    ;;
-  'Darwin')
-    OS='mac'
-    ;;
-  *)
-    echo "The platform: ${OS} is not supported."
-    exit -1
-    ;;
-esac
+# TODO maybe need to check the version of Memkind
 
-# detect Arch
-ARCH="`uname -m`"
-case ${ARCH} in
-   "x86_64")
-     ARCH="64"
-     ;;
-   "i686")
-     ARCH="32"
-     ;;
-   *)
-     echo "The arch: ${ARCH} is not supported."
-     exit -2
-     ;;
-esac
+CMAKE_MINIMUM_REQUIRED (VERSION 2.6)
 
-CURRENT_DIR="$(dirname "$0")"
-RESOURCES_DIR=${CURRENT_DIR}/../resources/${OS}/${ARCH}
+PROJECT(OAP)
 
-if [ ! -d ${RESOURCES_DIR} ]; then
-    mkdir -p ${RESOURCES_DIR}
-fi
+FIND_PACKAGE(JNI REQUIRED)
 
-cd ${CURRENT_DIR}
-if [ -d build ]; then
-    rm -r build
-fi
-mkdir build
-cd build
-cmake -DCMAKE_INSTALL_PREFIX=${RESOURCES_DIR} ../
-make
-make install
+INCLUDE_DIRECTORIES(${JNI_INCLUDE_DIRS})
 
-set +eu
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
+SET(SOURCE_FILES com_intel_oap_common_unsafe_PersistentMemoryPlatform.cpp)
+
+ADD_LIBRARY(pmplatform SHARED ${SOURCE_FILES})
+
+INSTALL(TARGETS pmplatform LIBRARY DESTINATION lib)
+
+TARGET_LINK_LIBRARIES(pmplatform memkind)

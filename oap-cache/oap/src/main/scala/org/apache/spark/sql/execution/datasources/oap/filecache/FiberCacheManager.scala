@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.oap.filecache
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, Executors, LinkedBlockingQueue, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 
@@ -42,6 +42,7 @@ private[sql] class FiberCacheManager(
   private val NO_EVICT_CACHE = "noevict"
   private val VMEM_CACHE = "vmem"
   private val MIX_CACHE = "mix"
+  private val EXTERNAL_CACHE = "external"
   private val DEFAULT_CACHE_STRATEGY = GUAVA_CACHE
 
   private var _dataCacheCompressEnable = sparkEnv.conf.get(
@@ -79,9 +80,11 @@ private[sql] class FiberCacheManager(
     } else if (cacheName.equals(SIMPLE_CACHE)) {
       new SimpleOapCache()
     } else if (cacheName.equals(NO_EVICT_CACHE)) {
-      new NonEvictPMCache(dataCacheMemorySize, dataCacheGuardianMemorySize, FiberType.DATA)
+      new NoEvictPMCache(dataCacheMemorySize, dataCacheGuardianMemorySize, FiberType.DATA)
     } else if (cacheName.equals(VMEM_CACHE)) {
       new VMemCache(FiberType.DATA)
+    } else if (cacheName.equals(EXTERNAL_CACHE)) {
+      new ExternalCache(FiberType.DATA)
     } else if (cacheName.equals(MIX_CACHE)) {
       val separateCache = sparkEnv.conf.getBoolean(
         OapConf.OAP_INDEX_DATA_SEPARATION_ENABLE.key,

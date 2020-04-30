@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.util;
+package com.intel.oap.common.util;
 
 import java.io.*;
 import java.util.HashMap;

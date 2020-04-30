@@ -426,6 +426,13 @@ object OapConf {
       .stringConf
       .createWithDefault("")
 
+  val OAP_EXTERNAL_CACHE_CLIENT_POOL_SIZE =
+    SqlConfAdapter.buildConf("spark.sql.oap.cache.external.client.pool.size")
+      .internal()
+      .doc("client pool for external cache")
+      .intConf
+      .createWithDefault(1)
+
   val OAP_CACHE_GUARDIAN_FREE_THREAD_NUM =
     SqlConfAdapter.buildConf("spark.sql.oap.cache.guardian.free.thread.nums")
       .internal()

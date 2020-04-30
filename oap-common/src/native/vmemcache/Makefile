@@ -65,7 +65,7 @@ $(TARGET) : $(SRCS)
 			$(foreach D,$(LIB_DIRS),-L$D) \
 			$(foreach L,$(LIBS),-l$L) \
 			-o $@
-	$(ECHO)cp $(TARGET) ../../resources/lib/linux64
+	$(ECHO)cp $(TARGET) ../../resources/linux/64/lib
 
 clean:
 	$(ECHO)rm -rf *.so *.o
