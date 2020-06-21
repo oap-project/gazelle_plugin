@@ -52,6 +52,10 @@ class OapSparkSqlParser(session: SparkSession, delegate: ParserInterface) extend
       case _ => delegate.parsePlan(sqlText)
     }
   }
+
+  override def parseMultipartIdentifier(sqlText: String): Seq[String] =
+    delegate.parseMultipartIdentifier(sqlText)
+
   // scalastyle:off line.size.limit
   /**
    * Fork from `org.apache.spark.sql.catalyst.parser.AbstractSqlParser#parse(java.lang.String, scala.Function1)`.
@@ -108,6 +112,9 @@ class OapSparkSqlParser(session: SparkSession, delegate: ParserInterface) extend
   override def parseTableSchema(sqlText: String): StructType = delegate.parseTableSchema(sqlText)
 
   override def parseDataType(sqlText: String): DataType = delegate.parseDataType(sqlText)
+
+  /** Similar to `parseDataType`, but without CHAR/VARCHAR replacement. */
+  override def parseRawDataType(sqlText: String): DataType = delegate.parseRawDataType(sqlText)
 
 }
 
@@ -308,7 +315,6 @@ case object PostProcessor extends OapSqlBaseBaseListener {
   override def exitNonReserved(ctx: NonReservedContext): Unit = {
     replaceTokenByIdentifier(ctx, 0)(identity)
   }
-
   private def replaceTokenByIdentifier(
       ctx: ParserRuleContext,
       stripMargins: Int)(
@@ -323,5 +329,6 @@ case object PostProcessor extends OapSqlBaseBaseListener {
       token.getStartIndex + stripMargins,
       token.getStopIndex - stripMargins)
     parent.addChild(new TerminalNodeImpl(f(newToken)))
+
   }
 }

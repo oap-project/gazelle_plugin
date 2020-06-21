@@ -35,18 +35,18 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <maven.compiler.useIncrementalCompilation>false</maven.compiler.useIncrementalCompilation>
     <basedir>./</basedir>
-    <spark.internal.version>2.4.4</spark.internal.version>
-    <scala.version>2.11.12</scala.version>
-    <scala.binary.version>2.11</scala.binary.version>
+    <spark.internal.version>3.0.1-Hive1.2-SNAPSHOT</spark.internal.version>
+    <scala.version>2.12.10</scala.version>
+    <scala.binary.version>2.12</scala.binary.version>
     <java.version>1.8</java.version>
     <antlr.version>4.7</antlr.version>
     <scalatest.version>3.0.3</scalatest.version>
-    <scalacheck.version>1.13.5</scalacheck.version>
+    <scalacheck.version>1.14.2</scalacheck.version>
     <parquet.version>1.10.1</parquet.version>
     <jetty.version>9.3.24.v20180605</jetty.version>
     <maven-antrun-plugin.version>1.8</maven-antrun-plugin.version>
     <!--diff: Spark-2.4.4 use orc 1.5.5 -->
-    <orc.version>1.5.5</orc.version>
+    <orc.version>1.5.9</orc.version>
     <exec.maven.version>1.6.0</exec.maven.version>
   </properties>
 
@@ -96,6 +96,10 @@
       <snapshots>
         <enabled>false</enabled>
       </snapshots>
+    </repository>
+    <repository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
     </repository>
   </repositories>
 
@@ -191,80 +195,74 @@
     <dependency>
       <groupId>com.fasterxml.jackson.module</groupId>
       <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
-      <version>2.6.7.1</version>
+      <version>2.10.0</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-mllib_${scala.binary.version}</artifactId>
-      <version>${spark.internal.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-hive_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-hive_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-hive-thriftserver_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-unsafe_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.spark</groupId>
+      <groupId>com.intel.spark</groupId>
       <artifactId>spark-unsafe_${scala.binary.version}</artifactId>
       <version>${spark.internal.version}</version>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>
-
     <dependency>
       <groupId>com.intel.arrow</groupId>
       <artifactId>arrow-plasma</artifactId>
@@ -278,7 +276,7 @@
     <dependency>
       <groupId>org.json4s</groupId>
       <artifactId>json4s-core_${scala.binary.version}</artifactId>
-      <version>3.5.3</version>
+      <version>3.6.6</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -463,7 +461,7 @@
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <sourceDirectories>
             <directory>src/main/scala</directory>
-            <directory>src/main/spark2.4.4/scala</directory>
+            <directory>src/main/spark3.0.0/scala</directory>
           </sourceDirectories>
           <testSourceDirectories>
             <directory>src/test/scala</directory>
@@ -485,7 +483,7 @@
       <plugin>
           <groupId>net.alchim31.maven</groupId>
           <artifactId>scala-maven-plugin</artifactId>
-          <version>3.2.2</version>
+          <version>4.3.0</version>
           <executions>
             <execution>
               <id>eclipse-add-source</id>
@@ -582,7 +580,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.3</version>
+        <version>3.8.1</version>
         <configuration>
           <source>${java.version}</source>
           <target>${java.version}</target>
@@ -640,11 +638,11 @@
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <sourceDirectories>
             <directory>src/main/java</directory>
-            <directory>src/spark2.4.4/scala</directory>
+            <directory>src/spark3.0.0/scala</directory>
           </sourceDirectories>
           <testSourceDirectories>
             <directory>src/test/java</directory>
-            <directory>src/test/spark2.4.4/java</directory>
+            <directory>src/test/spark3.0.0/java</directory>
           </testSourceDirectories>
           <configLocation>${basedir}/checkstyle.xml</configLocation>
           <outputFile>${basedir}/target/checkstyle-output.xml</outputFile>
@@ -689,10 +687,10 @@
             </goals>
             <configuration>
               <sources>
-                <source>src/main/spark2.4.4/java</source>
-                <source>src/main/spark2.4.4/scala</source>
+                <source>src/main/spark3.0.0/java</source>
+                <source>src/main/spark3.0.0/scala</source>
                 <source>src/main/parquet1.10.1/java</source>
-                <source>src/main/orc-1.5.5-nohive/java</source>
+                <source>src/main/orc-1.5.9-nohive/java</source>
               </sources>
             </configuration>
           </execution>

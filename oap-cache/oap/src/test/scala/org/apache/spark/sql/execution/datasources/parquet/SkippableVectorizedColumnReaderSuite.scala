@@ -18,7 +18,9 @@
 package org.apache.spark.sql.execution.datasources.parquet
 
 import java.io.File
-import java.util.{Random, TimeZone}
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Random
 
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_1_0
@@ -513,8 +515,8 @@ class SkippableVectorizedColumnReaderSuite extends SparkFunSuite with SharedOapC
     // skip and read data to ColumnVector by TimestampType
     val columnVector = skipAndReadToVector(parquetSchema, TimestampType)
 
-    val fromZone = TimeZone.getDefault
-    val toZone = DateTimeUtils.TimeZoneUTC
+    val fromZone = ZoneId.systemDefault
+    val toZone: ZoneId = ZoneOffset.UTC
 
     // assert result
     (0 until unitSize).foreach { i =>
@@ -900,9 +902,9 @@ class SkippableVectorizedColumnReaderSuite extends SparkFunSuite with SharedOapC
       val descriptor = parquetSchema.getColumns.get(0)
       val originalType = parquetSchema.asGroupType().getFields.get(0).getOriginalType
       val pageReader = rowGroup.getPageReader(descriptor)
-      val timeZone = TimeZone.getDefault
+      val timeZone = ZoneId.systemDefault
       val columnReader =
-        new SkippableVectorizedColumnReader(descriptor, originalType, pageReader, timeZone)
+        new SkippableVectorizedColumnReader(descriptor, originalType, pageReader, timeZone, true)
       val columnVector = new OnHeapColumnVector(unitSize, dataType)
       columnReader.skipBatch(unitSize, columnVector.dataType)
       columnVector.reset()
@@ -928,9 +930,9 @@ class SkippableVectorizedColumnReaderSuite extends SparkFunSuite with SharedOapC
       val descriptor = parquetSchema.getColumns.get(0)
       val originalType = parquetSchema.asGroupType().getFields.get(0).getOriginalType
       val pageReader = rowGroup.getPageReader(descriptor)
-      val timeZone = TimeZone.getDefault
+      val timeZone = ZoneId.systemDefault
       val columnReader =
-        new SkippableVectorizedColumnReader(descriptor, originalType, pageReader, timeZone)
+        new SkippableVectorizedColumnReader(descriptor, originalType, pageReader, timeZone, true)
       columnReader.skipBatch(unitSize, dataType)
     } finally {
       if (reader != null) reader.close()
