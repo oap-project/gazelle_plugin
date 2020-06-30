@@ -55,3 +55,9 @@ jobs:
       - mvn clean -q package -DskipTests #skip core tests
       - cd ${TRAVIS_BUILD_DIR}/oap-data-source/arrow
       - mvn clean -q test
+    - name: oap-shuffle-remote-shuffle
+      install:
+      - #empty install step
+      script:
+      - cd ${TRAVIS_BUILD_DIR}/oap-shuffle/remote-shuffle/
+      - mvn -q test
