@@ -67,6 +67,7 @@ class ColumnarHashAggregateExec(
       resultExpressions,
       child) {
 
+  val sparkConf = sparkContext.getConf
   override def supportsColumnar = true
 
   // Disable code generation
@@ -77,7 +78,8 @@ class ColumnarHashAggregateExec(
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of Input batches"),
     "aggTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in aggregation process"),
-    "elapseTime" -> SQLMetrics.createTimingMetric(sparkContext, "elapse time from very begin to this process"))
+    "elapseTime" -> SQLMetrics
+      .createTimingMetric(sparkContext, "elapse time from very begin to this process"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     val numOutputRows = longMetric("numOutputRows")
@@ -108,10 +110,13 @@ class ColumnarHashAggregateExec(
           numOutputBatches,
           numOutputRows,
           aggTime,
-          elapseTime)
-        TaskContext.get().addTaskCompletionListener[Unit](_ => {
-          aggregation.close()
-        })
+          elapseTime,
+          sparkConf)
+        TaskContext
+          .get()
+          .addTaskCompletionListener[Unit](_ => {
+            aggregation.close()
+          })
         new CloseableColumnBatchIterator(aggregation.createIterator(iter))
       }
       res

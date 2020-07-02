@@ -73,10 +73,7 @@ class ColumnarProjection (
     case (expr, i) => {
       ColumnarExpressionConverter.reset()
       var columnarExpr: Expression =
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr, originalInputAttributes)
-      if (columnarExpr.isInstanceOf[AttributeReference]) {
-        columnarExpr = new ColumnarBoundReference(i, columnarExpr.dataType, columnarExpr.nullable)
-      }
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr, originalInputAttributes, i)
       if (ColumnarExpressionConverter.ifNoCalculation == false) {
         check_if_no_calculation = false     
       }
@@ -87,7 +84,8 @@ class ColumnarProjection (
     }
   }
 
-  val (ordinalList, arrowSchema) = if (projPrepareList.size > 0 && check_if_no_calculation == false) {
+  val (ordinalList, arrowSchema) = if (projPrepareList.size > 0 &&
+    (!check_if_no_calculation || projPrepareList.size != inputList.size)) {
     val inputFieldList = inputList.asScala.toList.distinct
     val schema = new Schema(inputFieldList.asJava)
     projector = Projector.make(schema, projPrepareList.toList.asJava)

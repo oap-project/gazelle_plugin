@@ -30,16 +30,8 @@ object CodeGeneration {
   val timeZoneId = SQLConf.get.sessionLocalTimeZone
 
   def getResultType(left: ArrowType, right: ArrowType): ArrowType = {
-    if (left.equals(right)) {
-      left
-    } else {
-      val left_precise_level = getPreciseLevel(left)
-      val right_precise_level = getPreciseLevel(right)
-      if (left_precise_level > right_precise_level)
-        left
-      else
-        right
-    }
+    //TODO(): remove this API
+    left
   }
 
   def getResultType(dataType: DataType): ArrowType = {

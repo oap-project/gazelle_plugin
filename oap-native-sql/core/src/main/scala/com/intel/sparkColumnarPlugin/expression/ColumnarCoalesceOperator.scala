@@ -37,9 +37,9 @@ import scala.collection.mutable.ListBuffer
  *   coalesce(1, 2) => 1
  *   coalesce(null, 1, 2) => 1
  *   coalesce(null, null, 2) => 2
+ *   coalesce(null, null, null) => null
  * }}}
 **/
-//TODO(): coalesce(null, null, null) => null
 
 class ColumnarCoalesce(exps: Seq[Expression], original: Expression)
     extends Coalesce(exps: Seq[Expression])
@@ -47,7 +47,7 @@ class ColumnarCoalesce(exps: Seq[Expression], original: Expression)
     with Logging {
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val iter: Iterator[Expression] = exps.iterator
-    val exp = exps.head
+    val exp = iter.next()
 
     val (exp_node, expType): (TreeNode, ArrowType) =
       exp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -63,10 +63,7 @@ class ColumnarCoalesce(exps: Seq[Expression], original: Expression)
       // Return the last element no matter if it is null
       val (exp_node, expType): (TreeNode, ArrowType) =
         exps.last.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      val isnotnullNode =
-        TreeBuilder.makeFunction("isnotnull", Lists.newArrayList(exp_node), new ArrowType.Bool())
-      val funcNode = TreeBuilder.makeIf(isnotnullNode, exp_node, exp_node, expType)
-      funcNode
+      exp_node
     } else {
       val exp = iter.next()
       val (exp_node, expType): (TreeNode, ArrowType) =

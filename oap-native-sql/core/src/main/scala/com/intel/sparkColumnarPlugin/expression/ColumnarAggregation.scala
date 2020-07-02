@@ -23,6 +23,7 @@ import java.util.Collections
 import java.util.concurrent.TimeUnit._
 import util.control.Breaks._
 
+import com.intel.sparkColumnarPlugin.ColumnarPluginConfig
 import com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector
 import org.apache.spark.sql.util.ArrowUtils
 import com.intel.sparkColumnarPlugin.vectorized.ExpressionEvaluator
@@ -30,6 +31,7 @@ import com.intel.sparkColumnarPlugin.vectorized.BatchIterator
 
 import com.google.common.collect.Lists
 import org.apache.hadoop.mapreduce.TaskAttemptID
+import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -68,9 +70,11 @@ class ColumnarAggregation(
     numOutputBatches: SQLMetric,
     numOutputRows: SQLMetric,
     aggrTime: SQLMetric,
-    elapseTime: SQLMetric)
+    elapseTime: SQLMetric,
+    sparkConf: SparkConf)
     extends Logging {
   // build gandiva projection here.
+  ColumnarPluginConfig.getConf(sparkConf)
   var elapseTime_make: Long = 0
   var rowId: Int = 0
   var processedNumRows: Int = 0
@@ -103,12 +107,12 @@ class ColumnarAggregation(
 
   // 3. map original input to aggregate input
   var beforeAggregateProjector: ColumnarProjection = _
-  var projectOrdinalList : List[Int] = _
-  var aggregateInputAttributes : List[AttributeReference] = _
+  var projectOrdinalList: List[Int] = _
+  var aggregateInputAttributes: List[AttributeReference] = _
 
   if (mode == null) {
     projectOrdinalList = List[Int]()
-    aggregateInputAttributes =  List[AttributeReference]()
+    aggregateInputAttributes = List[AttributeReference]()
   } else {
     mode match {
       case Partial => { 
@@ -119,7 +123,7 @@ class ColumnarAggregation(
         projectOrdinalList = beforeAggregateProjector.getOrdinalList
         aggregateInputAttributes = beforeAggregateProjector.output
       }
-      case Final => {
+      case Final | PartialMerge => {
         val ordinal_attr_list = originalInputAttributes.toList.zipWithIndex
           .filter{case(expr, i) => !groupingOrdinalList.contains(i)}
           .map{case(expr, i) => {
@@ -160,7 +164,14 @@ class ColumnarAggregation(
   // 5. create nativeAggregate evaluator
   val allNativeExpressions = groupingNativeExpression ::: aggregateNativeExpressions
   val allAggregateInputFieldList = groupingFieldList ::: aggregateFieldList
-  val allAggregateResultAttributes = groupingAttributes ::: aggregateAttributes.toList
+  var allAggregateResultAttributes : List[Attribute] = _
+  mode match {
+    case Partial | PartialMerge =>
+      val aggregateResultAttributes = getAttrForAggregateExpr(aggregateExpressions)
+      allAggregateResultAttributes = groupingAttributes ::: aggregateResultAttributes
+    case _ =>
+      allAggregateResultAttributes = groupingAttributes ::: aggregateAttributes.toList
+  }
   val aggregateResultFieldList = allAggregateResultAttributes.map(attr => {
     Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
   })
@@ -169,7 +180,7 @@ class ColumnarAggregation(
   val resultType = CodeGeneration.getResultType()
   val resultField = Field.nullable(s"dummy_res", resultType)
 
-  val expressionTree: List[ExpressionTree] = allNativeExpressions.map( expr => {
+  val expressionTree: List[ExpressionTree] = allNativeExpressions.map(expr => {
     val node =
       expr.doColumnarCodeGen_ext((groupingFieldList, allAggregateInputFieldList, resultType, resultField))
     TreeBuilder.makeExpression(node, resultField)
@@ -199,6 +210,47 @@ class ColumnarAggregation(
       result_iterator.close()
       result_iterator = null
     }
+  }
+
+  def getAttrForAggregateExpr(aggregateExpressions: Seq[AggregateExpression]): List[Attribute] = {
+    var aggregateAttr = new ListBuffer[Attribute]()
+    val size = aggregateExpressions.size
+    for (expIdx <- 0 until size) {
+      val exp: AggregateExpression = aggregateExpressions(expIdx)
+      val aggregateFunc = exp.aggregateFunction
+      aggregateFunc match {
+        case Average(_) =>
+          val avg = aggregateFunc.asInstanceOf[Average]
+          val aggBufferAttr = avg.inputAggBufferAttributes
+          for (index <- 0 until aggBufferAttr.size) {
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+            aggregateAttr += attr
+          }
+        case Sum(_) =>
+          val sum = aggregateFunc.asInstanceOf[Sum]
+          val aggBufferAttr = sum.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+          aggregateAttr += attr
+        case Count(_) =>
+          val count = aggregateFunc.asInstanceOf[Count]
+          val aggBufferAttr = count.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+          aggregateAttr += attr
+        case Max(_) =>
+          val max = aggregateFunc.asInstanceOf[Max]
+          val aggBufferAttr = max.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+          aggregateAttr += attr
+        case Min(_) =>
+          val min = aggregateFunc.asInstanceOf[Min]
+          val aggBufferAttr = min.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+          aggregateAttr += attr
+        case other =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
+    }
+    aggregateAttr.toList
   }
 
   def updateAggregationResult(columnarBatch: ColumnarBatch): Unit = {
@@ -290,7 +342,7 @@ class ColumnarAggregation(
         if (nextCalled == false && resultColumnarBatch != null) {
           return true
         }
-        if ( !nextBatch ) {
+        if (!nextBatch) {
           return false
         }
 
@@ -358,7 +410,8 @@ object ColumnarAggregation {
       numOutputBatches: SQLMetric,
       numOutputRows: SQLMetric,
       aggrTime: SQLMetric,
-      elapseTime: SQLMetric): ColumnarAggregation = synchronized {
+      elapseTime: SQLMetric,
+      sparkConf: SparkConf): ColumnarAggregation = synchronized {
     columnarAggregation = new ColumnarAggregation(
       partIndex,
       groupingExpressions,
@@ -371,7 +424,8 @@ object ColumnarAggregation {
       numOutputBatches,
       numOutputRows,
       aggrTime,
-      elapseTime)
+      elapseTime,
+      sparkConf)
     columnarAggregation
   }
 

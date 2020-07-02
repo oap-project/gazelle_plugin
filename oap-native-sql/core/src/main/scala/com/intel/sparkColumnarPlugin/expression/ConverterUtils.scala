@@ -17,24 +17,19 @@
 
 package com.intel.sparkColumnarPlugin.expression
 
-import java.util.concurrent.atomic.AtomicLong
-import io.netty.buffer.ArrowBuf
-
 import com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector
-
+import io.netty.buffer.ArrowBuf
+import org.apache.arrow.vector._
+import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch}
+import org.apache.arrow.vector.types.pojo.Schema
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.optimizer._
-import org.apache.spark.sql.util.ArrowUtils
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-import org.apache.arrow.vector._
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
-import org.apache.arrow.vector.types.pojo.Schema
-import org.apache.arrow.vector.types.pojo.Field
-import org.apache.arrow.vector.types.pojo.ArrowType
-import org.apache.spark.internal.Logging
+import org.apache.spark.sql.util.ArrowUtils
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -75,7 +70,9 @@ object ConverterUtils extends Logging {
     new ArrowRecordBatch(numRowsInBatch, fieldNodes.toList.asJava, inputData.toList.asJava)
   }
 
-  def fromArrowRecordBatch(recordBatchSchema: Schema, recordBatch: ArrowRecordBatch): Array[ArrowWritableColumnVector] = {
+  def fromArrowRecordBatch(
+      recordBatchSchema: Schema,
+      recordBatch: ArrowRecordBatch): Array[ArrowWritableColumnVector] = {
     val numRows = recordBatch.getLength()
     ArrowWritableColumnVector.loadColumns(numRows, recordBatchSchema, recordBatch)
   }
@@ -115,15 +112,24 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(c.children(0))
       case i: IsNull =>
         getAttrFromExpr(i.child)
+      case a: Add =>
+        getAttrFromExpr(a.left)
+      case s: Subtract =>
+        getAttrFromExpr(s.left)
+      case u: Upper =>
+        getAttrFromExpr(u.child)
+      case ss: Substring =>
+        getAttrFromExpr(ss.children(0))
       case other =>
-        throw new UnsupportedOperationException(s"makeStructField is unable to parse from $other (${other.getClass}).")
+        throw new UnsupportedOperationException(
+          s"makeStructField is unable to parse from $other (${other.getClass}).")
     }
   }
 
-  def getResultAttrFromExpr(fieldExpr: Expression, name: String = "None"): AttributeReference = {
+  def getResultAttrFromExpr(fieldExpr: Expression, name: String = "None", dataType: Option[DataType]=None): AttributeReference = {
     fieldExpr match {
       case a: Cast =>
-        getResultAttrFromExpr(a.child, name)
+        getResultAttrFromExpr(a.child, name, Some(a.dataType))
       case a: AttributeReference =>
         if (name != "None") {
           new AttributeReference(name, a.dataType, a.nullable)()
@@ -134,9 +140,15 @@ object ConverterUtils extends Logging {
         //TODO: a walkaround since we didn't support cast yet
         if (a.child.isInstanceOf[Cast]) {
           val tmp = if (name != "None") {
-            new Alias(a.child.asInstanceOf[Cast].child, name)(a.exprId, a.qualifier, a.explicitMetadata)
+            new Alias(a.child.asInstanceOf[Cast].child, name)(
+              a.exprId,
+              a.qualifier,
+              a.explicitMetadata)
           } else {
-            new Alias(a.child.asInstanceOf[Cast].child, a.name)(a.exprId, a.qualifier, a.explicitMetadata)
+            new Alias(a.child.asInstanceOf[Cast].child, a.name)(
+              a.exprId,
+              a.qualifier,
+              a.explicitMetadata)
           }
           tmp.toAttribute.asInstanceOf[AttributeReference]
         } else {
@@ -147,13 +159,22 @@ object ConverterUtils extends Logging {
             a.toAttribute.asInstanceOf[AttributeReference]
           }
         }
+      case d: ColumnarDivide =>
+        new AttributeReference(name, DoubleType, d.nullable)()
+      case m: ColumnarMultiply =>
+        new AttributeReference(name, m.dataType, m.nullable)()
       case other =>
         val a = if (name != "None") {
           new Alias(other, name)()
         } else {
           new Alias(other, "res")()
         }
-        a.toAttribute.asInstanceOf[AttributeReference]
+        val tmpAttr = a.toAttribute.asInstanceOf[AttributeReference]
+        if (dataType.isDefined) {
+           new AttributeReference(tmpAttr.name, dataType.getOrElse(null), tmpAttr.nullable)()
+        } else {
+           tmpAttr
+        }
     }
   }
 
@@ -166,15 +187,21 @@ object ConverterUtils extends Logging {
   }
 
   def combineArrowRecordBatch(rb1: ArrowRecordBatch, rb2: ArrowRecordBatch): ArrowRecordBatch = {
-     val numRows = rb1.getLength()
-     val rb1_nodes = rb1.getNodes()
-     val rb2_nodes = rb2.getNodes()
-     val rb1_bufferlist = rb1.getBuffers()
-     val rb2_bufferlist = rb2.getBuffers()
+    val numRows = rb1.getLength()
+    val rb1_nodes = rb1.getNodes()
+    val rb2_nodes = rb2.getNodes()
+    val rb1_bufferlist = rb1.getBuffers()
+    val rb2_bufferlist = rb2.getBuffers()
 
-     val combined_nodes = rb1_nodes.addAll(rb2_nodes)
-     val combined_bufferlist = rb1_bufferlist.addAll(rb2_bufferlist)
-     new ArrowRecordBatch(numRows, rb1_nodes, rb1_bufferlist)
+    val combined_nodes = rb1_nodes.addAll(rb2_nodes)
+    val combined_bufferlist = rb1_bufferlist.addAll(rb2_bufferlist)
+    new ArrowRecordBatch(numRows, rb1_nodes, rb1_bufferlist)
+  }
+
+  def toArrowSchema(attributes: Seq[Attribute]): Schema = {
+    def fromAttributes(attributes: Seq[Attribute]): StructType =
+      StructType(attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+    ArrowUtils.toArrowSchema(fromAttributes(attributes), SQLConf.get.sessionLocalTimeZone)
   }
 
   override def toString(): String = {
@@ -182,4 +209,3 @@ object ConverterUtils extends Logging {
   }
 
 }
-

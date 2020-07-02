@@ -40,6 +40,8 @@ class ColumnarSortExec(
     child: SparkPlan,
     testSpillFrequency: Int = 0)
     extends SortExec(sortOrder, global, child, testSpillFrequency) {
+
+  val sparkConf = sparkContext.getConf
   override def supportsColumnar = true
 
   // Disable code generation
@@ -72,7 +74,8 @@ class ColumnarSortExec(
           numOutputBatches,
           numOutputRows,
           shuffleTime,
-          elapse)
+          elapse,
+          sparkConf)
         TaskContext
           .get()
           .addTaskCompletionListener[Unit](_ => {

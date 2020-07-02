@@ -226,15 +226,6 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     std::vector<std::shared_ptr<arrow::Field>> left_field_list,
     std::vector<std::shared_ptr<arrow::Field>> right_field_list,
     std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p) {
-  if (func_name.compare("conditionedShuffleArrayList") == 0) {
-    std::shared_ptr<gandiva::Node> child_node;
-    if (func_node->children().size() > 0) {
-      child_node = func_node->children()[0];
-    }
-    RETURN_NOT_OK(ConditionedShuffleArrayListVisitorImpl::Make(
-        child_node, left_field_list, right_field_list, ret_fields, p, &impl_));
-    goto finish;
-  }
   if (func_name.compare("conditionedProbeArraysInner") == 0 ||
       func_name.compare("conditionedProbeArraysOuter") == 0 ||
       func_name.compare("conditionedProbeArraysAnti") == 0 ||
@@ -272,7 +263,7 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     }
     RETURN_NOT_OK(ConditionedProbeArraysVisitorImpl::Make(
         left_key_list, right_key_list, condition_node, join_type, left_field_list,
-        right_field_list, p, &impl_));
+        right_field_list, ret_fields, p, &impl_));
     goto finish;
   }
 finish:

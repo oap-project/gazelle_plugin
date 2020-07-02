@@ -22,13 +22,11 @@ import com.intel.sparkColumnarPlugin.vectorized.JniUtils;
 
 import java.io.IOException;
 
-
 /** Wrapper for Parquet Reader native API. */
 public class ParquetReaderJniWrapper {
-
   /** Construct a Jni Instance. */
-  ParquetReaderJniWrapper() throws IOException {
-    JniUtils.getInstance();
+  ParquetReaderJniWrapper(String tmp_dir) throws IOException {
+    JniUtils.getInstance(tmp_dir);
   }
 
   /**
@@ -39,7 +37,8 @@ public class ParquetReaderJniWrapper {
    * @return long id of the parquet reader instance
    * @throws IOException throws exception in case of any io exception in native codes
    */
-  public native long nativeOpenParquetReader(String path, long batchSize) throws IOException;
+  public native long nativeOpenParquetReader(String path, long batchSize)
+      throws IOException;
 
   /**
    * Init a parquet file reader by specifying columns and rowgroups.
@@ -49,8 +48,8 @@ public class ParquetReaderJniWrapper {
    * @param rowGroupIndices a array of indexes indicate which row groups to be read
    * @throws IOException throws exception in case of any io exception in native codes
    */
-  public native void nativeInitParquetReader(long id, int[] columnIndices, int[] rowGroupIndices)
-      throws IOException;
+  public native void nativeInitParquetReader(
+      long id, int[] columnIndices, int[] rowGroupIndices) throws IOException;
 
   /**
    * Init a parquet file reader by specifying columns and rowgroups.

@@ -17,13 +17,11 @@
 
 package com.intel.sparkColumnarPlugin.vectorized;
 
+import io.netty.buffer.ArrowBuf;
 import java.io.IOException;
-import java.lang.UnsupportedOperationException;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.OwnershipTransferResult;
-import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.*;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
@@ -31,8 +29,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A simple reference manager implementation for memory allocated by native
- * code. The underlying memory will be released when reference count reach zero.
+ * A simple reference manager implementation for memory allocated by native code. The underlying
+ * memory will be released when reference count reach zero.
  */
 public class AdaptorReferenceManager implements ReferenceManager {
   private native void nativeRelease(long nativeMemoryHolder);
@@ -42,10 +40,14 @@ public class AdaptorReferenceManager implements ReferenceManager {
   private long nativeMemoryHolder;
   private int size = 0;
 
+  // Required by netty dependencies, but is never used.
+  private BaseAllocator allocator;
+
   AdaptorReferenceManager(long nativeMemoryHolder, int size) throws IOException {
     JniUtils.getInstance();
     this.nativeMemoryHolder = nativeMemoryHolder;
     this.size = size;
+    this.allocator = new RootAllocator(0);
   }
 
   @Override
@@ -60,7 +62,8 @@ public class AdaptorReferenceManager implements ReferenceManager {
 
   @Override
   public boolean release(int decrement) {
-    Preconditions.checkState(decrement >= 1, "ref count decrement should be greater than or equal to 1");
+    Preconditions.checkState(
+        decrement >= 1, "ref count decrement should be greater than or equal to 1");
     // decrement the ref count
     final int refCnt;
     synchronized (this) {
@@ -104,13 +107,14 @@ public class AdaptorReferenceManager implements ReferenceManager {
   }
 
   @Override
-  public OwnershipTransferResult transferOwnership(ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
-    throw new UnsupportedOperationException();
+  public OwnershipTransferResult transferOwnership(
+      ArrowBuf sourceBuffer, BufferAllocator targetAllocator) {
+    return NO_OP.transferOwnership(sourceBuffer, targetAllocator);
   }
 
   @Override
   public BufferAllocator getAllocator() {
-    return null;
+    return allocator;
   }
 
   @Override

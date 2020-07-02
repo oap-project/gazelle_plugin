@@ -46,7 +46,6 @@ import org.junit.rules.TemporaryFolder;
 import io.netty.buffer.ArrowBuf;
 
 public class ParquetReadTest {
-
   @Rule public TemporaryFolder testFolder = new TemporaryFolder();
 
   private BufferAllocator allocator;
@@ -63,29 +62,26 @@ public class ParquetReadTest {
 
   @Test
   public void testParquetRead() throws Exception {
-
     File testFile = testFolder.newFile("_tmpfile_ParquetReadTest");
-    //String path = testFile.getAbsolutePath();
-    String path = "hdfs://sr602:9000/part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet?user=root&replication=1";
+    // String path = testFile.getAbsolutePath();
+    String path =
+        "hdfs://sr602:9000/part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet?user=root&replication=1";
 
     int numColumns = 0;
     int[] rowGroupIndices = {0};
     int[] columnIndices = new int[numColumns];
 
-    Schema schema =
-        new Schema(
-            asList(
-                field("n_nationkey", new Int(64, true)),
-                field("n_name", new Utf8()),
-                field("n_regionkey", new Int(64, true)),
-                field("n_comment", new Utf8())
-                ));
+    Schema schema = new Schema(
+        asList(field("n_nationkey", new Int(64, true)), field("n_name", new Utf8()),
+            field("n_regionkey", new Int(64, true)), field("n_comment", new Utf8())));
 
-    ParquetReader reader = new ParquetReader(path, rowGroupIndices, columnIndices, 16, allocator);
+    ParquetReader reader =
+        new ParquetReader(path, rowGroupIndices, columnIndices, 16, allocator, "");
 
     Schema readedSchema = reader.getSchema();
     for (int i = 0; i < readedSchema.getFields().size(); i++) {
-      assertEquals(schema.getFields().get(i).getName(), readedSchema.getFields().get(i).getName());
+      assertEquals(
+          schema.getFields().get(i).getName(), readedSchema.getFields().get(i).getName());
     }
 
     VectorSchemaRoot actualSchemaRoot = VectorSchemaRoot.create(readedSchema, allocator);
@@ -103,7 +99,8 @@ public class ParquetReadTest {
     testFile.delete();
   }
 
-  private static Field field(String name, boolean nullable, ArrowType type, Field... children) {
+  private static Field field(
+      String name, boolean nullable, ArrowType type, Field... children) {
     return new Field(name, new FieldType(nullable, type, null, null), asList(children));
   }
 

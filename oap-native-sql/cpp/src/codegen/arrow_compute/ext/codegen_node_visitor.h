@@ -28,11 +28,14 @@ class CodeGenNodeVisitor : public VisitorBase {
  public:
   CodeGenNodeVisitor(std::shared_ptr<gandiva::Node> func,
                      std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
-                     int* func_count, std::stringstream* codes_ss)
+                     int* func_count, std::stringstream* codes_ss,
+                     std::vector<int>* left_indices, std::vector<int>* right_indices)
       : func_(func),
         field_list_v_(field_list_v),
         func_count_(func_count),
-        codes_ss_(codes_ss) {}
+        codes_ss_(codes_ss),
+        left_indices_(left_indices),
+        right_indices_(right_indices) {}
 
   arrow::Status Eval() {
     RETURN_NOT_OK(func_->Accept(*this));
@@ -57,13 +60,17 @@ class CodeGenNodeVisitor : public VisitorBase {
   std::stringstream* codes_ss_;
   std::string codes_str_;
   std::string check_str_;
+  std::vector<int>* left_indices_;
+  std::vector<int>* right_indices_;
+  arrow::Status InsertToIndices(int index, int arg_id);
 };
 static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,
     std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v, int* func_count,
-    std::stringstream* codes_ss, std::shared_ptr<CodeGenNodeVisitor>* out) {
-  auto visitor =
-      std::make_shared<CodeGenNodeVisitor>(func, field_list_v, func_count, codes_ss);
+    std::stringstream* codes_ss, std::vector<int>* left_indices,
+    std::vector<int>* right_indices, std::shared_ptr<CodeGenNodeVisitor>* out) {
+  auto visitor = std::make_shared<CodeGenNodeVisitor>(
+      func, field_list_v, func_count, codes_ss, left_indices, right_indices);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;
   return arrow::Status::OK();

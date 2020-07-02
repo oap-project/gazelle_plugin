@@ -61,15 +61,10 @@ class ColumnarShuffledHashJoinExec(
     buildSide: BuildSide,
     condition: Option[Expression],
     left: SparkPlan,
-    right: SparkPlan) extends ShuffledHashJoinExec(
-    leftKeys,
-    rightKeys,
-    joinType,
-    buildSide,
-    condition,
-    left,
-    right) {
+    right: SparkPlan)
+    extends ShuffledHashJoinExec(leftKeys, rightKeys, joinType, buildSide, condition, left, right) {
 
+  val sparkConf = sparkContext.getConf
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"),
@@ -85,15 +80,30 @@ class ColumnarShuffledHashJoinExec(
     val joinTime = longMetric("joinTime")
     val buildTime = longMetric("buildTime")
     val resultSchema = this.schema
-    streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) { (streamIter, buildIter) =>
-      //val hashed = buildHashedRelation(buildIter)
-      //join(streamIter, hashed, numOutputRows)
-      val vjoin = ColumnarShuffledHashJoin.create(leftKeys, rightKeys, resultSchema, joinType, buildSide, condition, left, right, buildTime, joinTime, numOutputRows)
-      val vjoinResult = vjoin.columnarInnerJoin(streamIter, buildIter)
-      TaskContext.get().addTaskCompletionListener[Unit](_ => {
-        vjoin.close()
-      })
-      new CloseableColumnBatchIterator(vjoinResult)
+    streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
+      (streamIter, buildIter) =>
+        //val hashed = buildHashedRelation(buildIter)
+        //join(streamIter, hashed, numOutputRows)
+        val vjoin = ColumnarShuffledHashJoin.create(
+          leftKeys,
+          rightKeys,
+          resultSchema,
+          joinType,
+          buildSide,
+          condition,
+          left,
+          right,
+          buildTime,
+          joinTime,
+          numOutputRows,
+          sparkConf)
+        val vjoinResult = vjoin.columnarInnerJoin(streamIter, buildIter)
+        TaskContext
+          .get()
+          .addTaskCompletionListener[Unit](_ => {
+            vjoin.close()
+          })
+        new CloseableColumnBatchIterator(vjoinResult)
     }
   }
 }

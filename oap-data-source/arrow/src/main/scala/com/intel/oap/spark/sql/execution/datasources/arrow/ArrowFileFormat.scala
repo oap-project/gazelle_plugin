@@ -17,12 +17,15 @@
 
 package com.intel.oap.spark.sql.execution.datasources.arrow
 
+import java.net.URLDecoder
+
 import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat.UnsafeItr
-import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions}
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ExecutionMemoryAllocationListener}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import org.apache.arrow.dataset.scanner.ScanOptions
+import org.apache.arrow.memory.AllocationListener
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileStatus
 import org.apache.hadoop.mapreduce.Job
@@ -71,10 +74,12 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 
       val sqlConf = sparkSession.sessionState.conf;
       val enableFilterPushDown = sqlConf.arrowFilterPushDown
+      val taskMemoryManager = ArrowUtils.getTaskMemoryManager()
       val factory = ArrowUtils.makeArrowDiscovery(
-        file.filePath, new ArrowOptions(
+        URLDecoder.decode(file.filePath, "UTF-8"), new ArrowOptions(
           new CaseInsensitiveStringMap(
-            options.asJava).asScala.toMap))
+            options.asJava).asScala.toMap),
+        new ExecutionMemoryAllocationListener(taskMemoryManager))
 
       // todo predicate validation / pushdown
       val dataset = factory.finish();
@@ -98,7 +103,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
       val itr = itrList
         .toIterator
         .flatMap(itr => itr.asScala)
-        .map(vsr => ArrowUtils.loadVsr(vsr, file.partitionValues, partitionSchema, dataSchema))
+        .map(vsr => ArrowUtils.loadVectors(vsr, file.partitionValues, partitionSchema, dataSchema))
       new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
     }
   }

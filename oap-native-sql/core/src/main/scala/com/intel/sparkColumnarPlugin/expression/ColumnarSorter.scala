@@ -21,11 +21,13 @@ import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit._
 import com.google.common.collect.Lists
 
+import com.intel.sparkColumnarPlugin.ColumnarPluginConfig
 import com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector
 import com.intel.sparkColumnarPlugin.vectorized.ExpressionEvaluator
 import com.intel.sparkColumnarPlugin.vectorized.BatchIterator
 
 import org.apache.spark.internal.Logging
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
@@ -57,10 +59,12 @@ class ColumnarSorter(
     outputBatches: SQLMetric,
     outputRows: SQLMetric,
     shuffleTime: SQLMetric,
-    elapse: SQLMetric)
+    elapse: SQLMetric,
+    sparkConf: SparkConf)
     extends Logging {
 
   logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
+  ColumnarPluginConfig.getConf(sparkConf)
   /////////////// Prepare ColumnarSorter //////////////
   var processedNumRows: Long = 0
   var sort_elapse: Long = 0
@@ -216,7 +220,8 @@ object ColumnarSorter {
       outputBatches: SQLMetric,
       outputRows: SQLMetric,
       shuffleTime: SQLMetric,
-      elapse: SQLMetric): ColumnarSorter = synchronized {
+      elapse: SQLMetric,
+      sparkConf: SparkConf): ColumnarSorter = synchronized {
     new ColumnarSorter(
       sortOrder,
       outputAsColumnar,
@@ -225,7 +230,8 @@ object ColumnarSorter {
       outputBatches,
       outputRows,
       shuffleTime,
-      elapse)
+      elapse,
+      sparkConf)
   }
 
 }

@@ -39,13 +39,23 @@ class ColumnarLiteral(lit: Literal)
     val resultType = CodeGeneration.getResultType(dataType)
     dataType match {
       case t: StringType =>
-        (TreeBuilder.makeStringLiteral(value.toString().asInstanceOf[String]), resultType)
+        value match {
+          case null =>
+            (TreeBuilder.makeStringLiteral("null": java.lang.String), resultType)
+          case _ =>
+            (TreeBuilder.makeStringLiteral(value.toString().asInstanceOf[String]), resultType)
+        }
       case t: IntegerType =>
         (TreeBuilder.makeLiteral(value.asInstanceOf[Integer]), resultType)
       case t: LongType =>
         (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Long]), resultType)
       case t: DoubleType =>
-        (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Double]), resultType)
+        value match {
+          case null =>
+            (TreeBuilder.makeLiteral(0.0: java.lang.Double), resultType)
+          case _ =>
+            (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Double]), resultType)
+        }
       case d: DecimalType =>
         val v = value.asInstanceOf[Decimal]
         (TreeBuilder.makeDecimalLiteral(v.toString, v.precision, v.scale), resultType)

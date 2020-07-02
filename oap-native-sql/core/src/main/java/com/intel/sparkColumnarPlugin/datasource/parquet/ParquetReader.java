@@ -36,7 +36,6 @@ import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
 /** Parquet Reader Class. */
 public class ParquetReader implements AutoCloseable {
-
   /** reference to native reader instance. */
   private long nativeInstanceId;
 
@@ -56,14 +55,9 @@ public class ParquetReader implements AutoCloseable {
    * @param allocator A BufferAllocator reference.
    * @throws IOException throws io exception in case of native failure.
    */
-  public ParquetReader(
-      String path,
-      int[] rowGroupIndices,
-      int[] columnIndices,
-      long batchSize,
-      BufferAllocator allocator)
-      throws IOException {
-    this.jniWrapper = new ParquetReaderJniWrapper();
+  public ParquetReader(String path, int[] rowGroupIndices, int[] columnIndices,
+      long batchSize, BufferAllocator allocator, String tmp_dir) throws IOException {
+    this.jniWrapper = new ParquetReaderJniWrapper(tmp_dir);
     this.allocator = allocator;
     this.nativeInstanceId = jniWrapper.nativeOpenParquetReader(path, batchSize);
     jniWrapper.nativeInitParquetReader(nativeInstanceId, columnIndices, rowGroupIndices);
@@ -80,18 +74,13 @@ public class ParquetReader implements AutoCloseable {
    * @param allocator A BufferAllocator reference.
    * @throws IOException throws io exception in case of native failure.
    */
-  public ParquetReader(
-      String path,
-      long startPos,
-      long endPos,
-      int[] columnIndices,
-      long batchSize,
-      BufferAllocator allocator)
-      throws IOException {
-    this.jniWrapper = new ParquetReaderJniWrapper();
+  public ParquetReader(String path, long startPos, long endPos, int[] columnIndices,
+      long batchSize, BufferAllocator allocator, String tmp_dir) throws IOException {
+    this.jniWrapper = new ParquetReaderJniWrapper(tmp_dir);
     this.allocator = allocator;
     this.nativeInstanceId = jniWrapper.nativeOpenParquetReader(path, batchSize);
-    jniWrapper.nativeInitParquetReader2(nativeInstanceId, columnIndices, startPos, endPos);
+    jniWrapper.nativeInitParquetReader2(
+        nativeInstanceId, columnIndices, startPos, endPos);
   }
 
   /**
@@ -103,10 +92,9 @@ public class ParquetReader implements AutoCloseable {
   public Schema getSchema() throws IOException {
     byte[] schemaBytes = jniWrapper.nativeGetSchema(nativeInstanceId);
 
-    try (MessageChannelReader schemaReader =
-        new MessageChannelReader(
-            new ReadChannel(new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator)) {
-
+    try (MessageChannelReader schemaReader = new MessageChannelReader(
+             new ReadChannel(new ByteArrayReadableSeekableByteChannel(schemaBytes)),
+             allocator)) {
       MessageResult result = schemaReader.readNext();
       if (result == null) {
         throw new IOException("Unexpected end of input. Missing schema.");
@@ -123,7 +111,8 @@ public class ParquetReader implements AutoCloseable {
    * @throws IOException throws io exception in case of native failure
    */
   public ArrowRecordBatch readNext() throws IOException {
-    ArrowRecordBatchBuilder recordBatchBuilder = jniWrapper.nativeReadNext(nativeInstanceId);
+    ArrowRecordBatchBuilder recordBatchBuilder =
+        jniWrapper.nativeReadNext(nativeInstanceId);
     if (recordBatchBuilder == null) {
       return null;
     }

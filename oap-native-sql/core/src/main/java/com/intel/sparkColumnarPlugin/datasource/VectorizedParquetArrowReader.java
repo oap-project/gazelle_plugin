@@ -47,8 +47,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader {
-
-  private static final Logger LOG = LoggerFactory.getLogger(VectorizedParquetArrowReader.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(VectorizedParquetArrowReader.class);
   private ParquetReader reader = null;
   private String path;
   private long capacity;
@@ -58,45 +58,40 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
   private int numLoaded = 0;
   private int numReaded = 0;
   private long totalLength;
+  private String tmp_dir;
 
   private ArrowRecordBatch next_batch;
-  //private ColumnarBatch last_columnar_batch;
+  // private ColumnarBatch last_columnar_batch;
 
   private StructType sourceSchema;
   private StructType readDataSchema;
 
   private Schema schema = null;
 
-  public VectorizedParquetArrowReader(
-    String path,
-    ZoneId convertTz,
-    boolean useOffHeap,
-    int capacity,
-    StructType sourceSchema,
-    StructType readDataSchema
-  ) {
+  public VectorizedParquetArrowReader(String path, ZoneId convertTz, boolean useOffHeap,
+      int capacity, StructType sourceSchema, StructType readDataSchema, String tmp_dir) {
     super(convertTz, useOffHeap, capacity);
     this.capacity = capacity;
     this.path = path;
+    this.tmp_dir = tmp_dir;
 
     this.sourceSchema = sourceSchema;
     this.readDataSchema = readDataSchema;
   }
 
   @Override
-  public void initBatch(StructType partitionColumns, InternalRow partitionValues) {
-  }
+  public void initBatch(StructType partitionColumns, InternalRow partitionValues) {}
 
   @Override
   public void initialize(InputSplit inputSplit, TaskAttemptContext taskAttemptContext)
-    throws IOException, InterruptedException, UnsupportedOperationException {
+      throws IOException, InterruptedException, UnsupportedOperationException {
     final ParquetInputSplit parquetInputSplit = toParquetSplit(inputSplit);
     final Configuration configuration = ContextUtil.getConfiguration(taskAttemptContext);
     initialize(parquetInputSplit, configuration);
   }
 
   public void initialize(ParquetInputSplit inputSplit, Configuration configuration)
-    throws IOException, InterruptedException, UnsupportedOperationException {
+      throws IOException, InterruptedException, UnsupportedOperationException {
     this.totalLength = inputSplit.getLength();
 
     int ordinal = 0;
@@ -104,7 +99,7 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
 
     int[] column_indices = new int[readDataSchema.size()];
     List<String> targetSchema = Arrays.asList(readDataSchema.names());
-    for (String fieldName: sourceSchema.names()) {
+    for (String fieldName : sourceSchema.names()) {
       if (targetSchema.contains(fieldName)) {
         column_indices[cur_index++] = ordinal;
       }
@@ -116,16 +111,17 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
     if (uriPath.contains("hdfs")) {
       uriPath = this.path + "?user=root&replication=1";
     }
-    ParquetInputSplit split = (ParquetInputSplit)inputSplit;
-    LOG.info("ParquetReader uri path is " + uriPath + ", rowGroupIndices is " + Arrays.toString(rowGroupIndices) + ", column_indices is " + Arrays.toString(column_indices));
-    this.reader = new ParquetReader(uriPath,
-      split.getStart(), split.getEnd(), column_indices, capacity, ArrowWritableColumnVector.getNewAllocator());
+    ParquetInputSplit split = (ParquetInputSplit) inputSplit;
+    LOG.info("ParquetReader uri path is " + uriPath + ", rowGroupIndices is "
+        + Arrays.toString(rowGroupIndices) + ", column_indices is "
+        + Arrays.toString(column_indices));
+    this.reader = new ParquetReader(uriPath, split.getStart(), split.getEnd(),
+        column_indices, capacity, ArrowWritableColumnVector.getNewAllocator(), tmp_dir);
   }
 
   @Override
-  public void initialize(String path, List<String> columns) throws IOException,
-    UnsupportedOperationException {
-  }
+  public void initialize(String path, List<String> columns)
+      throws IOException, UnsupportedOperationException {}
 
   @Override
   public boolean nextKeyValue() throws IOException {
@@ -155,7 +151,7 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
     }
     numReaded += lastReadLength;
     ArrowWritableColumnVector[] columnVectors =
-      ArrowWritableColumnVector.loadColumns(next_batch.getLength(), schema, next_batch);
+        ArrowWritableColumnVector.loadColumns(next_batch.getLength(), schema, next_batch);
     next_batch.close();
     return new ColumnarBatch(columnVectors, next_batch.getLength());
   }
@@ -170,10 +166,11 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
 
   @Override
   public float getProgress() {
-    return (float) (numReaded/totalLength);
+    return (float) (numReaded / totalLength);
   }
 
-  private int[] filterRowGroups(ParquetInputSplit parquetInputSplit, Configuration configuration) throws IOException {
+  private int[] filterRowGroups(ParquetInputSplit parquetInputSplit,
+      Configuration configuration) throws IOException {
     final long[] rowGroupOffsets = parquetInputSplit.getRowGroupOffsets();
     if (rowGroupOffsets != null) {
       throw new UnsupportedOperationException();
@@ -184,30 +181,34 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
     final List<BlockMetaData> filteredRowGroups;
     final List<BlockMetaData> unfilteredRowGroups;
 
-    try (ParquetFileReader reader = ParquetFileReader.open(
-      HadoopInputFile.fromPath(path, configuration), createOptions(parquetInputSplit, configuration))) {
+    try (ParquetFileReader reader =
+             ParquetFileReader.open(HadoopInputFile.fromPath(path, configuration),
+                 createOptions(parquetInputSplit, configuration))) {
       unfilteredRowGroups = reader.getFooter().getBlocks();
       filteredRowGroups = reader.getRowGroups();
     }
 
     final int[] acc = {0};
-    final Map<BlockMetaDataWrapper, Integer> dict = unfilteredRowGroups.stream()
-      .collect(Collectors.toMap(BlockMetaDataWrapper::wrap, b -> acc[0]++));
+    final Map<BlockMetaDataWrapper, Integer> dict = unfilteredRowGroups.stream().collect(
+        Collectors.toMap(BlockMetaDataWrapper::wrap, b -> acc[0]++));
     return filteredRowGroups.stream()
-      .map(BlockMetaDataWrapper::wrap)
-      .map(b -> {
-        if (!dict.containsKey(b)) {
-          // This should not happen
-          throw new IllegalStateException("Unrecognizable filtered row group: " + b);
-        }
-        return dict.get(b);
-      }).mapToInt(n -> n).toArray();
+        .map(BlockMetaDataWrapper::wrap)
+        .map(b -> {
+          if (!dict.containsKey(b)) {
+            // This should not happen
+            throw new IllegalStateException("Unrecognizable filtered row group: " + b);
+          }
+          return dict.get(b);
+        })
+        .mapToInt(n -> n)
+        .toArray();
   }
 
-  private ParquetReadOptions createOptions(ParquetInputSplit split, Configuration configuration) {
+  private ParquetReadOptions createOptions(
+      ParquetInputSplit split, Configuration configuration) {
     return HadoopReadOptions.builder(configuration)
-      .withRange(split.getStart(), split.getEnd())
-      .build();
+        .withRange(split.getStart(), split.getEnd())
+        .build();
   }
 
   private ParquetInputSplit toParquetSplit(InputSplit split) throws IOException {
@@ -215,11 +216,12 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
       return (ParquetInputSplit) split;
     } else {
       throw new IllegalArgumentException(
-        "Invalid split (not a ParquetInputSplit): " + split);
+          "Invalid split (not a ParquetInputSplit): " + split);
     }
   }
 
-  // ID for BlockMetaData, to prevent from resulting in mutable BlockMetaData instances after being filtered
+  // ID for BlockMetaData, to prevent from resulting in mutable BlockMetaData instances
+  // after being filtered
   private static class BlockMetaDataWrapper {
     private BlockMetaData m;
 
@@ -233,8 +235,10 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
 
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
       BlockMetaDataWrapper that = (BlockMetaDataWrapper) o;
       return equals(m, that.m);
     }
@@ -252,6 +256,4 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
       return Objects.hash(m.getStartingPos());
     }
   }
-
 }
-

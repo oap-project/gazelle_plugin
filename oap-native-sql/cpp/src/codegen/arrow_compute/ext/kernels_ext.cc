@@ -38,7 +38,6 @@
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
-#include "third_party/arrow/utils/hashing.h"
 
 #include <chrono>
 #include <cstring>
@@ -48,9 +47,9 @@
 
 #include "codegen/arrow_compute/ext/actions_impl.h"
 #include "codegen/arrow_compute/ext/array_item_index.h"
+#include "codegen/arrow_compute/ext/codegen_common.h"
 #include "codegen/arrow_compute/ext/codegen_node_visitor.h"
-#include "codegen/arrow_compute/ext/item_iterator.h"
-#include "codegen/arrow_compute/ext/shuffle_v2_action.h"
+#include "third_party/arrow/utils/hashing.h"
 #include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
@@ -58,7 +57,6 @@ namespace codegen {
 namespace arrowcompute {
 namespace extra {
 
-#define MAXBATCHNUMROWS 10000
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 
 ///////////////  SplitArrayListWithAction  ////////////////
@@ -217,7 +215,9 @@ class SplitArrayListWithActionKernel::Impl {
         *out = nullptr;
         return arrow::Status::OK();
       }
-      auto length = (total_length_ - offset_) > 4096 ? 4096 : (total_length_ - offset_);
+      auto length = (total_length_ - offset_) > GetBatchSize()
+                        ? GetBatchSize()
+                        : (total_length_ - offset_);
       TIME_MICRO_OR_RAISE(elapse_time_, eval_func_(offset_, length, out));
       offset_ += length;
       // arrow::PrettyPrint(*(*out).get(), 2, &std::cout);
@@ -922,22 +922,22 @@ class HashAggrArrayKernel::Impl {
       field_list.push_back(field);
       auto field_node = gandiva::TreeExprBuilder::MakeField(field);
       auto func_node =
-          gandiva::TreeExprBuilder::MakeFunction("hash64", {field_node}, arrow::int64());
+          gandiva::TreeExprBuilder::MakeFunction("hash32", {field_node}, arrow::int32());
       func_node_list.push_back(func_node);
       if (func_node_list.size() == 2) {
         auto shift_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "multiply",
-            {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
-            arrow::int64());
+            {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int32_t)10)},
+            arrow::int32());
         auto tmp_func_node = gandiva::TreeExprBuilder::MakeFunction(
-            "add", {shift_func_node, func_node_list[1]}, arrow::int64());
+            "add", {shift_func_node, func_node_list[1]}, arrow::int32());
         func_node_list.clear();
         func_node_list.push_back(tmp_func_node);
       }
       index++;
     }
     expr = gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
-                                                    arrow::field("res", arrow::int64()));
+                                                    arrow::field("res", arrow::int32()));
     std::cout << expr->ToString() << std::endl;
     schema_ = arrow::schema(field_list);
     auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();

@@ -132,6 +132,47 @@ class ColumnarUpper(child: Expression, original: Expression)
   }
 }
 
+class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[String], original: Expression)
+  extends Cast(child: Expression, datatype: DataType, timeZoneId: Option[String])
+    with ColumnarExpression
+    with Logging {
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = CodeGeneration.getResultType(dataType)
+    if (dataType == StringType) {
+      //TODO: fix cast uft8
+      (child_node, childType)
+    } else if (dataType == IntegerType) {
+      val funcNode =
+        TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node), resultType)
+      (funcNode, resultType)
+    } else if (dataType == LongType) {
+      val funcNode =
+        TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node), resultType)
+      (funcNode, resultType)
+      //(child_node, childType)
+    } else if (dataType == FloatType) {
+      val funcNode =
+        TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node), resultType)
+      (funcNode, resultType)
+    } else if (dataType == DoubleType) {
+      val funcNode =
+        TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node), resultType)
+      (funcNode, resultType)
+    } else if (dataType == DateType) {
+      val funcNode =
+        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node), resultType)
+      (funcNode, resultType)
+    }  else if (dataType == DecimalType) {
+      throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
+    } else {
+      throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
+    }
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -148,7 +189,7 @@ object ColumnarUnaryOperator {
     case u: Upper =>
       new ColumnarUpper(child, u)
     case c: Cast =>
-      child
+      new ColumnarCast(child, c.dataType, c.timeZoneId, c)
     case a: KnownFloatingPointNormalized =>
       child
     case a: NormalizeNaNAndZero =>
