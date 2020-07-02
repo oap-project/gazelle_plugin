@@ -18,7 +18,7 @@
 package org.apache.orc.impl;
 
 import org.apache.orc.*;
-import org.apache.orc.storage.common.io.DiskRangeList;
+import org.apache.hadoop.hive.common.io.DiskRangeList;
 
 import java.io.IOException;
 import java.util.HashMap;

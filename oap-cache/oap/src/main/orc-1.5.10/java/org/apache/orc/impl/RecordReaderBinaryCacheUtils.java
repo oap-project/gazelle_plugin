@@ -21,7 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.orc.DataReader;
-import org.apache.orc.storage.common.io.DiskRangeList;
+import org.apache.hadoop.hive.common.io.DiskRangeList;
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCache;
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberCacheManager;
 import org.apache.spark.sql.execution.datasources.oap.filecache.OrcBinaryFiberId;

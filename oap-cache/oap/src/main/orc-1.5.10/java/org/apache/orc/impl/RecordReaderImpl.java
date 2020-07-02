@@ -53,17 +53,17 @@ import org.apache.orc.TypeDescription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.fs.Path;
-import org.apache.orc.storage.common.io.DiskRange;
-import org.apache.orc.storage.common.io.DiskRangeList;
-import org.apache.orc.storage.common.io.DiskRangeList.CreateHelper;
-import org.apache.orc.storage.common.type.HiveDecimal;
-import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
-import org.apache.orc.storage.ql.io.sarg.PredicateLeaf;
-import org.apache.orc.storage.ql.io.sarg.SearchArgument;
-import org.apache.orc.storage.ql.io.sarg.SearchArgument.TruthValue;
-import org.apache.orc.storage.serde2.io.DateWritable;
-import org.apache.orc.storage.serde2.io.HiveDecimalWritable;
-import org.apache.orc.storage.ql.util.TimestampUtils;
+import org.apache.hadoop.hive.common.io.DiskRange;
+import org.apache.hadoop.hive.common.io.DiskRangeList;
+import org.apache.hadoop.hive.common.io.DiskRangeList.CreateHelper;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
+import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
+import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument.TruthValue;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
+import org.apache.hadoop.hive.ql.util.TimestampUtils;
 import org.apache.hadoop.io.Text;
 
 public class RecordReaderImpl implements RecordReader {
@@ -307,6 +307,13 @@ public class RecordReaderImpl implements RecordReader {
     @Override
     public long getNext() {
       return entry.getPositions(index++);
+    }
+  }
+
+  public static final class ZeroPositionProvider implements PositionProvider {
+    @Override
+    public long getNext() {
+      return 0;
     }
   }
 
@@ -1419,7 +1426,13 @@ public class RecordReaderImpl implements RecordReader {
     PositionProvider[] index = new PositionProvider[indexes.length];
     for (int i = 0; i < indexes.length; ++i) {
       if (indexes[i] != null) {
-        index[i] = new PositionProviderImpl(indexes[i].getEntry(rowEntry));
+        OrcProto.RowIndexEntry entry = indexes[i].getEntry(rowEntry);
+        // This is effectively a test for pre-ORC-569 files.
+        if (rowEntry == 0 && entry.getPositionsCount() == 0) {
+          index[i] = new ZeroPositionProvider();
+        } else {
+          index[i] = new PositionProviderImpl(entry);
+        }
       }
     }
     reader.seek(index);
