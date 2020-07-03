@@ -22,7 +22,7 @@ import java.lang.management.ManagementFactory
 
 import com.intel.oap.spark.sql.DataFrameReaderImplicits._
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
-import com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector
+import com.intel.oap.vectorized.ArrowWritableColumnVector
 import com.sun.management.UnixOperatingSystemMXBean
 import org.apache.commons.io.FileUtils
 

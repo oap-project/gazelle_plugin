@@ -299,8 +299,7 @@ class EncodeVisitorImpl : public ExprVisitorImpl {
 
     // create a new kernel to memcpy all keys as one binary array
     if (type_list.size() > 1) {
-      RETURN_NOT_OK(
-          extra::HashAggrArrayKernel::Make(&p_->ctx_, type_list, &concat_kernel_));
+      RETURN_NOT_OK(extra::HashArrayKernel::Make(&p_->ctx_, type_list, &concat_kernel_));
     }
 
     auto result_field = field("res", arrow::uint32());
@@ -499,6 +498,76 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
   std::vector<std::shared_ptr<arrow::Field>> right_key_list_;
   std::vector<std::shared_ptr<arrow::Field>> left_field_list_;
   std::vector<std::shared_ptr<arrow::Field>> right_field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
+};
+////////////////////////// HashAggregateArraysVisitorImpl ///////////////////////
+class HashAggregateArraysVisitorImpl : public ExprVisitorImpl {
+ public:
+  HashAggregateArraysVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                                 std::vector<std::shared_ptr<gandiva::Node>> action_list,
+                                 std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                                 ExprVisitor* p)
+      : action_list_(action_list),
+        field_list_(field_list),
+        ret_fields_(ret_fields),
+        ExprVisitorImpl(p) {}
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                            std::vector<std::shared_ptr<gandiva::Node>> action_list,
+                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl = std::make_shared<HashAggregateArraysVisitorImpl>(field_list, action_list,
+                                                                 ret_fields, p);
+    *out = impl;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Init() override {
+    if (initialized_) {
+      return arrow::Status::OK();
+    }
+    RETURN_NOT_OK(extra::HashAggregateKernel::Make(&p_->ctx_, field_list_, action_list_,
+                                                   arrow::schema(ret_fields_), &kernel_));
+    initialized_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Eval() override {
+    switch (p_->dependency_result_type_) {
+      case ArrowComputeResultType::None: {
+        ArrayList in;
+        for (int i = 0; i < p_->in_record_batch_->num_columns(); i++) {
+          in.push_back(p_->in_record_batch_->column(i));
+        }
+        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(in));
+        finish_return_type_ = ArrowComputeResultType::BatchIterator;
+      } break;
+      default:
+        return arrow::Status::NotImplemented(
+            "HashAggregateArraysVisitorImpl: Does not support this type of "
+            "input.");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+    switch (finish_return_type_) {
+      case ArrowComputeResultType::BatchIterator: {
+        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
+        p_->return_type_ = ArrowComputeResultType::Batch;
+      } break;
+      default:
+        return arrow::Status::Invalid(
+            "HashAggregateArraysVisitorImpl MakeResultIterator does not support "
+            "dependency type other than Batch.");
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  std::vector<std::shared_ptr<gandiva::Node>> action_list_;
+  std::vector<std::shared_ptr<arrow::Field>> field_list_;
   std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
 };
 }  // namespace arrowcompute

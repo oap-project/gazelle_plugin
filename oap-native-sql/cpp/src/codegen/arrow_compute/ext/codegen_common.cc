@@ -114,8 +114,7 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
     case arrow::DoubleType::type_id:
       return "double";
     case arrow::Date32Type::type_id:
-      std::cout << "Can't handle Data32Type yet" << std::endl;
-      throw;
+      return "int32_t";
     case arrow::StringType::type_id:
       return "std::string";
     default:
@@ -153,6 +152,43 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
       throw;
   }
+}
+
+std::string GetTypedArrayDefineString(std::shared_ptr<arrow::DataType> type,
+                                      std::string name) {
+  return "std::vector<std::shared_ptr<arrow::" + GetTypeString(type, "Array") + ">> " +
+         name + ";\n";
+}
+
+arrow::Status GetIndexList(const std::vector<std::shared_ptr<arrow::Field>>& target_list,
+                           const std::vector<std::shared_ptr<arrow::Field>>& source_list,
+                           std::vector<int>* out) {
+  for (auto key_field : target_list) {
+    int i = 0;
+    for (auto field : source_list) {
+      if (key_field->name() == field->name()) {
+        break;
+      }
+      i++;
+    }
+    (*out).push_back(i);
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status GetIndexListFromSchema(
+    const std::shared_ptr<arrow::Schema>& result_schema,
+    const std::vector<std::shared_ptr<arrow::Field>>& field_list,
+    std::vector<int>* index_list) {
+  int i = 0;
+  for (auto field : field_list) {
+    auto indices = result_schema->GetAllFieldIndices(field->name());
+    if (indices.size() == 1) {
+      (*index_list).push_back(i);
+    }
+    i++;
+  }
+  return arrow::Status::OK();
 }
 
 std::string GetTempPath() {
@@ -231,6 +267,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   std::string arrow_header;
   std::string arrow_lib, arrow_lib2;
   std::string nativesql_header = " -I" + GetTempPath() + "/nativesql_include/ ";
+  std::string nativesql_header_2 = " -I" + GetTempPath() + "/include/ ";
   std::string nativesql_lib = " -L" + GetTempPath() + " ";
   if (env_arrow_dir != nullptr) {
     arrow_header = " -I" + std::string(env_arrow_dir) + "/include ";
@@ -240,8 +277,9 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
   // compile the code
   std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
-                    arrow_lib + arrow_lib2 + nativesql_header + nativesql_lib + cppfile + " -o " +
-                    libfile + " -O3 -march=native -shared -fPIC -larrow -lspark_columnar_jni 2> " +
+                    arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
+                    nativesql_lib + cppfile + " -o " + libfile +
+                    " -O3 -march=native -shared -fPIC -larrow -lspark_columnar_jni 2> " +
                     logfile;
   //#ifdef DEBUG
   std::cout << cmd << std::endl;

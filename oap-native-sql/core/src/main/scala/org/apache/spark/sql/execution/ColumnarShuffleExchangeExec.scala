@@ -19,8 +19,8 @@ package org.apache.spark.sql.execution
 
 import java.util.Random
 
-import com.intel.sparkColumnarPlugin.expression.ConverterUtils
-import com.intel.sparkColumnarPlugin.vectorized.{
+import com.intel.oap.expression.ConverterUtils
+import com.intel.oap.vectorized.{
   ArrowColumnarBatchSerializer,
   ArrowWritableColumnVector
 }

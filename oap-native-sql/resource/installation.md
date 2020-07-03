@@ -15,7 +15,7 @@ yes | rm assembly/target/scala-2.12/jars/arrow-vector-0.15.1.jar
 yes | rm assembly/target/scala-2.12/jars/arrow-memory-0.15.1.jar
 ```
 
-#### install arrow 0.17.0
+#### install arrow 0.17.0 dependencies
 
 ```
 git clone https://github.com/apache/arrow && cd arrow & git checkout arrow-0.17.0
@@ -118,8 +118,8 @@ spark.sql.join.preferSortMergeJoin false
 spark.sql.extensions com.intel.sparkColumnarPlugin.ColumnarPlugin
 spark.shuffle.manager org.apache.spark.shuffle.sort.ColumnarShuffleManager
 
-spark.driver.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-1.0-jar-with-dependencies.jar
-spark.executor.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-1.0-jar-with-dependencies.jar
+spark.driver.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-0.9.0-jar-with-dependencies.jar
+spark.executor.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-0.9.0-jar-with-dependencies.jar
 
 ######
 ```

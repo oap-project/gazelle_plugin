@@ -183,24 +183,24 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       CreateGlobalClassReference(env, "Ljava/lang/IllegalArgumentException;");
 
   arrow_record_batch_builder_class = CreateGlobalClassReference(
-      env, "Lcom/intel/sparkColumnarPlugin/vectorized/ArrowRecordBatchBuilder;");
+      env, "Lcom/intel/oap/vectorized/ArrowRecordBatchBuilder;");
   arrow_record_batch_builder_constructor =
       GetMethodID(env, arrow_record_batch_builder_class, "<init>",
-                  "(I[Lcom/intel/sparkColumnarPlugin/vectorized/ArrowFieldNodeBuilder;"
-                  "[Lcom/intel/sparkColumnarPlugin/vectorized/ArrowBufBuilder;)V");
+                  "(I[Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;"
+                  "[Lcom/intel/oap/vectorized/ArrowBufBuilder;)V");
 
   arrow_field_node_builder_class = CreateGlobalClassReference(
-      env, "Lcom/intel/sparkColumnarPlugin/vectorized/ArrowFieldNodeBuilder;");
+      env, "Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;");
   arrow_field_node_builder_constructor =
       GetMethodID(env, arrow_field_node_builder_class, "<init>", "(II)V");
 
   arrowbuf_builder_class = CreateGlobalClassReference(
-      env, "Lcom/intel/sparkColumnarPlugin/vectorized/ArrowBufBuilder;");
+      env, "Lcom/intel/oap/vectorized/ArrowBufBuilder;");
   arrowbuf_builder_constructor =
       GetMethodID(env, arrowbuf_builder_class, "<init>", "(JJIJ)V");
 
   partition_file_info_class = CreateGlobalClassReference(
-      env, "Lcom/intel/sparkColumnarPlugin/vectorized/PartitionFileInfo;");
+      env, "Lcom/intel/oap/vectorized/PartitionFileInfo;");
   partition_file_info_constructor =
       GetMethodID(env, partition_file_info_class, "<init>", "(ILjava/lang/String;)V");
 
@@ -229,7 +229,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeSetJavaTmpDir(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetJavaTmpDir(
     JNIEnv* env, jobject obj, jstring pathObj) {
   jboolean ifCopy;
   auto path = env->GetStringUTFChars(pathObj, &ifCopy);
@@ -238,13 +238,13 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeSetBatchSize(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetBatchSize(
     JNIEnv* env, jobject obj, jint batch_size) {
   setenv("NATIVESQL_BATCH_SIZE", std::to_string(batch_size).c_str(), 1);
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
     JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
     jbyteArray res_schema_arr, jboolean return_when_finish = false) {
   arrow::Status status;
@@ -302,7 +302,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinish(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinish(
     JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
     jbyteArray finish_exprs_arr) {
   arrow::Status status;
@@ -344,7 +344,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeSetReturnFields(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetReturnFields(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr) {
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
@@ -362,7 +362,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(
     JNIEnv* env, jobject obj, jlong id) {
   auto handler = GetCodeGenerator(env, id);
   if (handler.use_count() > 2) {
@@ -381,7 +381,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes) {
   arrow::Status status;
@@ -429,7 +429,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSelection(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSelection(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes, jint selection_vector_count, jlong selection_vector_buf_addr,
     jlong selection_vector_buf_size) {
@@ -486,7 +486,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMember(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMember(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes) {
   arrow::Status status;
@@ -521,7 +521,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(
     JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
@@ -549,7 +549,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeFinishByIterator(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinishByIterator(
     JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
@@ -565,7 +565,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nativeSetDependency(
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetDependency(
     JNIEnv* env, jobject obj, jlong id, jlong iter_id, int index) {
   arrow::Status status;
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
@@ -579,7 +579,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ExpressionEvaluatorJniWrapper_nati
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeNext(JNIEnv* env,
+Java_com_intel_oap_vectorized_BatchIterator_nativeNext(JNIEnv* env,
                                                                        jobject obj,
                                                                        jlong id) {
   arrow::Status status;
@@ -597,7 +597,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeNext(JNIEnv* e
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcess(
+Java_com_intel_oap_vectorized_BatchIterator_nativeProcess(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes) {
   arrow::Status status;
@@ -644,7 +644,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcess(
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcessWithSelection(
+Java_com_intel_oap_vectorized_BatchIterator_nativeProcessWithSelection(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes, jint selection_vector_count,
     jlong selection_vector_buf_addr, jlong selection_vector_buf_size) {
@@ -700,7 +700,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcessWithSel
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcessAndCacheOne(
+Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes) {
   arrow::Status status;
@@ -744,7 +744,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcessAndCach
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelection(
+Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelection(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes, jint selection_vector_count,
     jlong selection_vector_buf_addr, jlong selection_vector_buf_size) {
@@ -796,7 +796,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeProcessAndCach
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeClose(JNIEnv* env,
+Java_com_intel_oap_vectorized_BatchIterator_nativeClose(JNIEnv* env,
                                                                         jobject this_obj,
                                                                         jlong id) {
 #ifdef DEBUG
@@ -809,7 +809,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_BatchIterator_nativeClose(JNIEnv* 
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_AdaptorReferenceManager_nativeRelease(
+Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(
     JNIEnv* env, jobject this_obj, jlong id) {
 #ifdef DEBUG
   auto it = buffer_holder_.Lookup(id);
@@ -822,7 +822,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_AdaptorReferenceManager_nativeRele
 
 ///////////// Parquet Reader and Writer /////////////
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_nativeOpenParquetReader(
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeOpenParquetReader(
     JNIEnv* env, jobject obj, jstring path, jlong batch_size) {
   arrow::Status status;
   std::string cpath = JStringToCString(env, path);
@@ -857,7 +857,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_na
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_nativeInitParquetReader(
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeInitParquetReader(
     JNIEnv* env, jobject obj, jlong id, jintArray column_indices,
     jintArray row_group_indices) {
   // Prepare column_indices and row_group_indices from java array.
@@ -899,7 +899,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_na
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_nativeInitParquetReader2(
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeInitParquetReader2(
     JNIEnv* env, jobject obj, jlong id, jintArray column_indices, jlong start_pos,
     jlong end_pos) {
   // Prepare column_indices and row_group_indices from java array.
@@ -926,7 +926,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_na
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_nativeCloseParquetReader(
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeCloseParquetReader(
     JNIEnv* env, jobject obj, jlong id) {
   reader_holder_.Erase(id);
 #ifdef DEBUG
@@ -941,7 +941,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_na
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_nativeReadNext(
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeReadNext(
     JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   auto reader = GetFileReader(env, id);
@@ -961,7 +961,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_na
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_nativeGetSchema(
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeGetSchema(
     JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   auto reader = GetFileReader(env, id);
@@ -983,7 +983,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetReaderJniWrapper_na
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetWriterJniWrapper_nativeOpenParquetWriter(
+Java_com_intel_oap_datasource_parquet_ParquetWriterJniWrapper_nativeOpenParquetWriter(
     JNIEnv* env, jobject obj, jstring path, jbyteArray schemaBytes) {
   arrow::Status status;
   std::shared_ptr<arrow::Schema> schema;
@@ -1026,7 +1026,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetWriterJniWrapper_na
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetWriterJniWrapper_nativeCloseParquetWriter(
+Java_com_intel_oap_datasource_parquet_ParquetWriterJniWrapper_nativeCloseParquetWriter(
     JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   auto writer = GetFileWriter(env, id);
@@ -1040,7 +1040,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetWriterJniWrapper_na
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetWriterJniWrapper_nativeWriteNext(
+Java_com_intel_oap_datasource_parquet_ParquetWriterJniWrapper_nativeWriteNext(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray bufAddrs,
     jlongArray bufSizes) {
   // convert input data to record batch
@@ -1086,7 +1086,7 @@ Java_com_intel_sparkColumnarPlugin_datasource_parquet_ParquetWriterJniWrapper_na
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_make(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_make(
     JNIEnv* env, jobject, jbyteArray schema_arr, jlong buffer_size, jstring pathObj) {
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status status;
@@ -1115,7 +1115,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_make(
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_split(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
     JNIEnv* env, jobject, jlong splitter_id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
@@ -1150,7 +1150,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_split(
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_stop(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
     JNIEnv* env, jobject, jlong splitter_id) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
   auto status = splitter->Stop();
@@ -1164,7 +1164,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_stop(
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_setPartitionBufferSize(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setPartitionBufferSize(
     JNIEnv* env, jobject, jlong splitter_id, jlong buffer_size) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
 
@@ -1172,7 +1172,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_setParti
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_setCompressionCodec(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressionCodec(
     JNIEnv* env, jobject, jlong splitter_id, jstring codec_jstr) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
 
@@ -1201,7 +1201,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_setCompr
 }
 
 JNIEXPORT jobjectArray JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_getPartitionFileInfo(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_getPartitionFileInfo(
     JNIEnv* env, jobject, jlong splitter_id) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
 
@@ -1222,7 +1222,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_getParti
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_getTotalBytesWritten(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_getTotalBytesWritten(
     JNIEnv* env, jobject, jlong splitter_id) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
   auto result = splitter->TotalBytesWritten();
@@ -1236,13 +1236,13 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_getTotal
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleSplitterJniWrapper_close(
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_close(
     JNIEnv* env, jobject, jlong splitter_id) {
   shuffle_splitter_holder_.Erase(splitter_id);
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleDecompressionJniWrapper_make(
+Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_make(
     JNIEnv* env, jobject, jbyteArray schema_arr) {
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status status;
@@ -1258,7 +1258,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleDecompressionJniWrapper_mak
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleDecompressionJniWrapper_decompress(
+Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
     JNIEnv* env, jobject obj, jlong schema_holder_id, jstring codec_jstr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes, jlongArray buf_mask) {
   auto schema = decompression_schema_holder_.Lookup(schema_holder_id);
@@ -1362,7 +1362,7 @@ Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleDecompressionJniWrapper_dec
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_sparkColumnarPlugin_vectorized_ShuffleDecompressionJniWrapper_close(
+Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(
     JNIEnv* env, jobject, jlong schema_holder_id) {
   decompression_schema_holder_.Erase(schema_holder_id);
 }

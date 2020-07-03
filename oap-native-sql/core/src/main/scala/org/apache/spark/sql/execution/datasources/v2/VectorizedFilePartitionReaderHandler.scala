@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql.execution.datasources.v2
 
-import com.intel.sparkColumnarPlugin.datasource.VectorizedParquetArrowReader
+import com.intel.oap.datasource.VectorizedParquetArrowReader
 
 import java.net.URI
 import java.time.ZoneId

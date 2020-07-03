@@ -18,6 +18,8 @@
 #pragma once
 
 #include <sstream>
+
+#include "codegen/arrow_compute/ext/typed_action_codegen_impl.h"
 #include "codegen/common/visitor_base.h"
 
 namespace sparkcolumnarplugin {
@@ -36,11 +38,36 @@ class CodeGenNodeVisitor : public VisitorBase {
         codes_ss_(codes_ss),
         left_indices_(left_indices),
         right_indices_(right_indices) {}
+  CodeGenNodeVisitor(std::shared_ptr<gandiva::Node> func,
+                     std::vector<std::shared_ptr<arrow::Field>> field_list)
+      : func_(func), field_list_v_({field_list}) {
+    action_impl_ = std::make_shared<TypedActionCodeGenImpl>();
+    func_count_ = action_impl_->GetFuncCountRef();
+    codes_ss_ = action_impl_->GetCodeStreamRef();
+    left_indices_ = action_impl_->GetInputIndexListRef();
+    left_field_ = action_impl_->GetInputFieldsListRef();
+  }
+  CodeGenNodeVisitor(std::shared_ptr<gandiva::Node> func,
+                     std::vector<std::shared_ptr<arrow::Field>> field_list,
+                     std::shared_ptr<TypedActionCodeGenImpl> action_impl)
+      : func_(func), field_list_v_({field_list}), action_impl_(action_impl) {
+    func_count_ = action_impl_->GetFuncCountRef();
+    codes_ss_ = action_impl_->GetCodeStreamRef();
+    left_indices_ = action_impl_->GetInputIndexListRef();
+    left_field_ = action_impl_->GetInputFieldsListRef();
+  }
 
   arrow::Status Eval() {
     RETURN_NOT_OK(func_->Accept(*this));
     return arrow::Status::OK();
   }
+
+  arrow::Status ProduceCodes(std::shared_ptr<ActionCodeGen>* action_codegen) {
+    action_impl_->ProduceCodes(action_codegen);
+    return arrow::Status::OK();
+  }
+
+  std::string GetInput();
   std::string GetResult();
   std::string GetPreCheck();
   arrow::Status Visit(const gandiva::FunctionNode& node) override;
@@ -57,13 +84,39 @@ class CodeGenNodeVisitor : public VisitorBase {
   std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v_;
   int* func_count_;
   // output
+  std::shared_ptr<TypedActionCodeGenImpl> action_impl_;
   std::stringstream* codes_ss_;
   std::string codes_str_;
+  std::string input_codes_str_;
   std::string check_str_;
-  std::vector<int>* left_indices_;
-  std::vector<int>* right_indices_;
-  arrow::Status InsertToIndices(int index, int arg_id);
+  std::vector<int>* left_indices_ = nullptr;
+  std::vector<std::shared_ptr<arrow::Field>>* left_field_ = nullptr;
+  std::vector<int>* right_indices_ = nullptr;
+  std::vector<std::shared_ptr<arrow::Field>>* right_field_ = nullptr;
+  arrow::Status InsertToIndices(int index, int arg_id,
+                                std::shared_ptr<arrow::Field> field);
 };
+static arrow::Status MakeCodeGenNodeVisitor(
+    std::shared_ptr<gandiva::Node> func,
+    std::vector<std::shared_ptr<arrow::Field>> field_list,
+    std::shared_ptr<TypedActionCodeGenImpl> action_impl,
+    std::shared_ptr<CodeGenNodeVisitor>* out) {
+  auto visitor = std::make_shared<CodeGenNodeVisitor>(func, field_list, action_impl);
+  RETURN_NOT_OK(visitor->Eval());
+  *out = visitor;
+  return arrow::Status::OK();
+}
+static arrow::Status MakeCodeGenNodeVisitor(
+    std::shared_ptr<gandiva::Node> func,
+    std::vector<std::shared_ptr<arrow::Field>> field_list,
+    std::shared_ptr<ActionCodeGen>* out_action_impl,
+    std::shared_ptr<CodeGenNodeVisitor>* out) {
+  auto visitor = std::make_shared<CodeGenNodeVisitor>(func, field_list);
+  RETURN_NOT_OK(visitor->Eval());
+  RETURN_NOT_OK(visitor->ProduceCodes(out_action_impl));
+  *out = visitor;
+  return arrow::Status::OK();
+}
 static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,
     std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v, int* func_count,

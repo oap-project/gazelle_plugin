@@ -18,10 +18,11 @@
 #pragma once
 #include <arrow/array.h>
 #include <arrow/type.h>
-#include "codegen/common/result_iterator.h"
 
 #include <memory>
 #include <vector>
+
+#include "codegen/common/result_iterator.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -31,6 +32,11 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 class CodeGenBase {
  public:
   virtual arrow::Status Evaluate(const ArrayList& in) {
+    return arrow::Status::NotImplemented(
+        "CodeGenBase Evaluate is an abstract interface.");
+  }
+  virtual arrow::Status Evaluate(
+      const ArrayList& in, const std::shared_ptr<arrow::RecordBatch>& projected_batch) {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }

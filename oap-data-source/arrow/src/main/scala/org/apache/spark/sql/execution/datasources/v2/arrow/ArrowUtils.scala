@@ -22,7 +22,7 @@ import java.util.{TimeZone, UUID}
 import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
-import com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector
+import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.file.{FileSystem, SingleFileDatasetFactory}
 import org.apache.arrow.dataset.scanner.ScanTask
 import org.apache.arrow.memory.{AllocationListener, BaseAllocator}

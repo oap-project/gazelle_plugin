@@ -40,6 +40,8 @@
     <modules>
         <module>oap-common</module>
         <module>oap-cache/oap</module>
+        <module>oap-native-sql/core</module>
+        <module>oap-data-source/arrow</module>
     </modules>
 
 </project>

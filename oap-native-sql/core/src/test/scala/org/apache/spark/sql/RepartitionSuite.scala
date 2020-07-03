@@ -35,7 +35,7 @@ class RepartitionSuite extends QueryTest with SharedSparkSession {
       .setAppName("test repartition")
       .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
       .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.sparkColumnarPlugin.ColumnarPlugin")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
 

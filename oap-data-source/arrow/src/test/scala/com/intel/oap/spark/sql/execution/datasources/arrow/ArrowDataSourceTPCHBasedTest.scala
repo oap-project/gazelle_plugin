@@ -277,8 +277,8 @@ class ArrowDataSourceTPCHBasedTest extends QueryTest with SharedSparkSession {
     Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(() => {
       println("[org.apache.spark.sql.util.ArrowUtils.rootAllocator]                           " +
         "Allocated memory amount: " + ArrowUtils.defaultAllocator().getAllocatedMemory)
-      println("[com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector.allocator] " +
-        "Allocated memory amount: " + com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector.allocator.getAllocatedMemory)
+      println("[com.intel.oap.vectorized.ArrowWritableColumnVector.allocator] " +
+        "Allocated memory amount: " + com.intel.oap.vectorized.ArrowWritableColumnVector.allocator.getAllocatedMemory)
     }, 0L, 100L, TimeUnit.MILLISECONDS)
     Thread.sleep(60 * 60 * 1000L)
   }

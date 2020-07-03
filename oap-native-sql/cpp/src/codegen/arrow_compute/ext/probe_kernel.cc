@@ -1,41 +1,40 @@
 /*
-* Licensed to the Apache Software Foundation (ASF) under one or more
-* contributor license agreements.  See the NOTICE file distributed with
-* this work for additional information regarding copyright ownership.
-* The ASF licenses this file to You under the Apache License, Version 2.0
-* (the "License"); you may not use this file except in compliance with
-* the License.  You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include <arrow/compute/context.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
+#include <dlfcn.h>
+#include <fcntl.h>
 #include <gandiva/configuration.h>
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
+#include <sys/file.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <chrono>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
-
-#include <dlfcn.h>
-#include <fcntl.h>
-#include <sys/file.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/arrow_compute/ext/code_generator_base.h"
@@ -103,38 +102,7 @@ class ConditionedProbeArraysKernel::Impl {
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<CodeGenBase> prober_;
 
-  arrow::Status GetIndexList(
-      const std::vector<std::shared_ptr<arrow::Field>>& target_list,
-      const std::vector<std::shared_ptr<arrow::Field>>& source_list,
-      std::vector<int>* out) {
-    for (auto key_field : target_list) {
-      int i = 0;
-      for (auto field : source_list) {
-        if (key_field->name() == field->name()) {
-          break;
-        }
-        i++;
-      }
-      (*out).push_back(i);
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status GetIndexListFromSchema(
-      const std::shared_ptr<arrow::Schema>& result_schema,
-      const std::vector<std::shared_ptr<arrow::Field>>& field_list,
-      std::vector<int>* index_list) {
-    int i = 0;
-    for (auto field : field_list) {
-      auto indices = result_schema->GetAllFieldIndices(field->name());
-      if (indices.size() == 1) {
-        (*index_list).push_back(i);
-      }
-      i++;
-    }
-    return arrow::Status::OK();
-  }
-
+  
   arrow::Status GetResultIndexList(
       const std::shared_ptr<arrow::Schema>& result_schema,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
@@ -802,7 +770,7 @@ class TypedProberImpl : public CodeGenBase {
     // Create Hash Kernel
     auto type_list = {)" + join_key_type_list_define_str +
                                 R"(};
-    HashAggrArrayKernel::Make(ctx_, type_list, &hash_kernel_);)"
+    HashArrayKernel::Make(ctx_, type_list, &hash_kernel_);)"
                           : "") +
            R"(
   }

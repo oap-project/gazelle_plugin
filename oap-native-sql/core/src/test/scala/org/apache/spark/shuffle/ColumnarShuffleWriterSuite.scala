@@ -20,7 +20,7 @@ package org.apache.spark.shuffle
 import java.io.File
 import java.nio.file.Files
 
-import com.intel.sparkColumnarPlugin.vectorized.ArrowWritableColumnVector
+import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.ipc.ArrowStreamReader
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}

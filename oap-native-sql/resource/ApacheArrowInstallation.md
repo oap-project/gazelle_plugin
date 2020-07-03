@@ -11,7 +11,7 @@ mv cfe-7.0.1.src clang
 cd ..
 mkdir build
 cd build
-cmake ..
+cmake .. -DCMAKE_BUILD_TYPE=Release
 cmake --build . -j
 cmake --build . --target install
 # check if clang has also been compiled, if no

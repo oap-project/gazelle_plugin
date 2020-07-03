@@ -22,7 +22,7 @@ import java.nio.ByteBuffer
 
 import com.google.common.annotations.VisibleForTesting
 import com.google.common.io.Closeables
-import com.intel.sparkColumnarPlugin.vectorized.{
+import com.intel.oap.vectorized.{
   ArrowWritableColumnVector,
   ShuffleSplitterJniWrapper
 }

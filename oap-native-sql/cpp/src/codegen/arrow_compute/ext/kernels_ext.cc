@@ -48,7 +48,7 @@
 #include "codegen/arrow_compute/ext/actions_impl.h"
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/arrow_compute/ext/codegen_common.h"
-#include "codegen/arrow_compute/ext/codegen_node_visitor.h"
+//#include "codegen/arrow_compute/ext/codegen_node_visitor.h"
 #include "third_party/arrow/utils/hashing.h"
 #include "utils/macros.h"
 
@@ -906,7 +906,7 @@ arrow::Status EncodeArrayKernel::Evaluate(const std::shared_ptr<arrow::Array>& i
 #undef PROCESS_SUPPORTED_TYPES
 
 ///////////////  HashAggrArray  ////////////////
-class HashAggrArrayKernel::Impl {
+class HashArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx,
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
@@ -967,23 +967,23 @@ class HashAggrArrayKernel::Impl {
   arrow::MemoryPool* pool_;
 };
 
-arrow::Status HashAggrArrayKernel::Make(
+arrow::Status HashArrayKernel::Make(
     arrow::compute::FunctionContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<KernalBase>* out) {
-  *out = std::make_shared<HashAggrArrayKernel>(ctx, type_list);
+  *out = std::make_shared<HashArrayKernel>(ctx, type_list);
   return arrow::Status::OK();
 }
 
-HashAggrArrayKernel::HashAggrArrayKernel(
+HashArrayKernel::HashArrayKernel(
     arrow::compute::FunctionContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
-  kernel_name_ = "HashAggrArrayKernel";
+  kernel_name_ = "HashArrayKernel";
 }
 
-arrow::Status HashAggrArrayKernel::Evaluate(const ArrayList& in,
-                                            std::shared_ptr<arrow::Array>* out) {
+arrow::Status HashArrayKernel::Evaluate(const ArrayList& in,
+                                        std::shared_ptr<arrow::Array>* out) {
   return impl_->Evaluate(in, out);
 }
 

@@ -112,13 +112,13 @@ class EncodeArrayKernel : public KernalBase {
   arrow::compute::FunctionContext* ctx_;
 };
 
-class HashAggrArrayKernel : public KernalBase {
+class HashArrayKernel : public KernalBase {
  public:
   static arrow::Status Make(arrow::compute::FunctionContext* ctx,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out);
-  HashAggrArrayKernel(arrow::compute::FunctionContext* ctx,
-                      std::vector<std::shared_ptr<arrow::DataType>> type_list);
+  HashArrayKernel(arrow::compute::FunctionContext* ctx,
+                  std::vector<std::shared_ptr<arrow::DataType>> type_list);
   arrow::Status Evaluate(const ArrayList& in,
                          std::shared_ptr<arrow::Array>* out) override;
 
@@ -234,6 +234,29 @@ class SortArraysToIndicesKernel : public KernalBase {
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::shared_ptr<arrow::Schema> result_schema,
                             bool nulls_first, bool asc);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+
+class HashAggregateKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::vector<std::shared_ptr<arrow::Field>> input_field_list,
+                            std::vector<std::shared_ptr<gandiva::Node>> action_list,
+                            std::shared_ptr<arrow::Schema> result_schema,
+                            std::shared_ptr<KernalBase>* out);
+  HashAggregateKernel(arrow::compute::FunctionContext* ctx,
+                      std::vector<std::shared_ptr<arrow::Field>> input_field_list,
+                      std::vector<std::shared_ptr<gandiva::Node>> action_list,
+                      std::shared_ptr<arrow::Schema> result_schema);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
