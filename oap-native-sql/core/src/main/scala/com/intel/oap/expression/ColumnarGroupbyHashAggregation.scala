@@ -379,6 +379,8 @@ class ColumnarGroupbyHashAggregation(
       var resultColumnarBatch: ColumnarBatch = null
       var data_loaded = false
       var nextBatch = true
+      var eval_elapse: Long = 0
+      var beforeAgg: Long = 0
 
       override def hasNext: Boolean = {
         if (nextCalled == false && resultColumnarBatch != null) {
@@ -390,27 +392,31 @@ class ColumnarGroupbyHashAggregation(
 
         nextCalled = false
         if (data_loaded == false) {
-          val beforeAgg = System.nanoTime()
+          beforeAgg = System.nanoTime()
           while (cbIterator.hasNext) {
             cb = cbIterator.next()
 
             if (cb.numRows > 0) {
+              val beforeEval = System.nanoTime()
               updateAggregationResult(cb)
+              eval_elapse += System.nanoTime() - beforeEval
               processedNumRows += cb.numRows
             }
             numInputBatches += 1
           }
-          val elapse = System.nanoTime() - beforeAgg
-          elapseTime += NANOSECONDS.toMillis(elapse)
+          val beforeFinish = System.nanoTime()
           aggregator_iterator = aggregator.finishByIterator()
+          eval_elapse += System.nanoTime() - beforeFinish
           data_loaded = true
+          aggrTime += NANOSECONDS.toMillis(eval_elapse)
         }
-        val beforeEval = System.nanoTime()
+        val beforeResultFetch = System.nanoTime()
         resultColumnarBatch = getAggregationResult(aggregator_iterator)
-        val eval_elapse = System.nanoTime() - beforeEval
-        aggrTime += NANOSECONDS.toMillis(eval_elapse)
+        aggrTime += NANOSECONDS.toMillis(System.nanoTime() - beforeResultFetch)
         if (resultColumnarBatch.numRows == 0) {
           resultColumnarBatch.close()
+          val elapse = System.nanoTime - beforeAgg
+          elapseTime += NANOSECONDS.toMillis(elapse)
           logInfo(
             s"Aggregation completed, total output ${numOutputRows} rows, ${numOutputBatches} batches")
           return false

@@ -257,14 +257,16 @@ class HashAggregateKernel::Impl {
 
     bool multiple_cols = (key_list_.size() > 1);
     std::string concat_kernel;
-    // std::string hash_map_type_str = "SparseHashMap";
-    std::string hash_map_type_str = "arrow::internal::ScalarMemoTable";
+    std::string hash_map_type_str = "typename arrow::internal::HashTraits<arrow::" +
+                                    GetTypeString(arrow::int32(), "Type") +
+                                    ">::MemoTableType";
+    ;
     std::string evaluate_get_typed_key_array_str;
     std::string evaluate_get_typed_key_method_str;
-    std::string key_ctype_str =
-        "int64_t";  // multiple col will use gandiva hash to get int64_t
     if (!multiple_cols) {
-      key_ctype_str = GetCTypeString(key_list_[0].first->type());
+      hash_map_type_str = "typename arrow::internal::HashTraits<arrow::" +
+                          GetTypeString(key_list_[0].first->type(), "Type") +
+                          ">::MemoTableType";
       evaluate_get_typed_key_array_str =
           "auto typed_array = std::dynamic_pointer_cast<arrow::" +
           GetTypeString(key_list_[0].first->type(), "Array") + ">(" +
@@ -272,7 +274,6 @@ class HashAggregateKernel::Impl {
       if (key_list_[0].first->type()->id() != arrow::Type::STRING) {
         evaluate_get_typed_key_method_str = "GetView";
       } else {
-        hash_map_type_str = "arrow::internal::ScalarMemoTable";
         evaluate_get_typed_key_method_str = "GetString";
       }
     } else {
@@ -285,11 +286,11 @@ class HashAggregateKernel::Impl {
 
     return BaseCodes() + R"(
 using HashMap = )" +
-           hash_map_type_str + R"(<)" + key_ctype_str + R"(>;
+           hash_map_type_str + R"(;
 
-class TypedSorterImpl : public CodeGenBase {
+class TypedGroupbyHashAggregateImpl : public CodeGenBase {
  public:
-  TypedSorterImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  TypedGroupbyHashAggregateImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
     hash_table_ = std::make_shared<HashMap>(ctx_->memory_pool());
   }
 
@@ -406,7 +407,7 @@ class TypedSorterImpl : public CodeGenBase {
 
 extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
                             std::shared_ptr<CodeGenBase>* out) {
-  *out = std::make_shared<TypedSorterImpl>(ctx);
+  *out = std::make_shared<TypedGroupbyHashAggregateImpl>(ctx);
 }
 
     )";
