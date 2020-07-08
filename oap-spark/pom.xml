@@ -18,6 +18,7 @@
     <properties>
     <scala.version>2.12.10</scala.version>
     <scala.binary.version>2.12</scala.binary.version>
+    <spark.internal.version>3.0.0</spark.internal.version>
     <maven-patch-plugin.version>1.2</maven-patch-plugin.version>
     <maven-resource-plugin.version>2.6</maven-resource-plugin.version>
     <jetty.version>9.3.24.v20180605</jetty.version>
@@ -25,7 +26,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.intel.spark</groupId>
+            <groupId>org.apache.spark</groupId>
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <version>${spark.internal.version}</version>
         </dependency>

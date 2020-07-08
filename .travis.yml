@@ -103,3 +103,17 @@ jobs:
       - cd ${TRAVIS_BUILD_DIR}/oap-shuffle/RPMem-shuffle
       # skip tests, do tests locally 
       - sudo mvn install -DskipTests -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+
+    - name: oap-spark
+      before_install:
+        - sudo apt-get install libpthread-stubs0-dev
+        - sudo apt-get install libnuma-dev
+        - sudo apt-get install cmake
+      install:
+        - #empty install step
+      before_script:
+        - cd ${TRAVIS_BUILD_DIR}/dev
+        - ./install_memkind.sh
+      script:
+        - cd ${TRAVIS_BUILD_DIR}
+        - mvn clean package -pl oap-spark -q -Ppersistent-memory -am
