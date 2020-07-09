@@ -6,6 +6,7 @@ MAVEN_TARGET_VERSION=3.6.3
 CMAKE_TARGET_VERSION=3.11.1
 CMAKE_MIN_VERSION=3.11
 TARGET_CMAKE_SOURCE_URL=https://cmake.org/files/v3.11/cmake-3.11.1.tar.gz
+GCC_MIN_VERSION=7.0
 
 if [ -z "$DEV_PATH" ]; then
   cd $(dirname $BASH_SOURCE)
@@ -26,6 +27,20 @@ fi
 function version_lt() { test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" != "$1"; }
 
 function version_ge() { test "$(echo "$@" | tr " " "\n" | sort -rV | head -n 1)" == "$1"; }
+
+function check_gcc() {
+  CURRENT_GCC_VERSION_STR="$(gcc --version)"
+  array=(${CURRENT_GCC_VERSION_STR//,/ })
+  CURRENT_GCC_VERSION=${array[2]}
+  if version_lt $CURRENT_GCC_VERSION $GCC_MIN_VERSION; then
+    if [ ! -f "$DEV_PATH/thirdparty/gcc7/bin/gcc" ]; then
+      source $DEV_PATH/prepare_oap_env.sh
+      install_gcc7
+    fi
+    export CXX=$DEV_PATH/thirdparty/gcc7/bin/g++
+    export CC=$DEV_PATH/thirdparty/gcc7/bin/gcc
+  fi
+}
 
 function prepare_maven() {
   echo "Check maven version......"
@@ -206,7 +221,10 @@ function prepare_llvm() {
 
 function prepare_intel_arrow() {
   prepare_cmake
-#  prepare_llvm
+  prepare_llvm
+  $INSTALL_TOOL -y install libgsasl
+  $INSTALL_TOOL -y install libidn-devel.x86_64
+  $INSTALL_TOOL -y install libntlm.x86_64
   cd $DEV_PATH
   mkdir -p $DEV_PATH/thirdparty/
   cd $DEV_PATH/thirdparty/
@@ -220,11 +238,7 @@ function prepare_intel_arrow() {
   fi
   current_arrow_path=$(pwd)
   mkdir -p cpp/release-build
-
-  if [ ! -d "$DEV_PATH/thirdparty/gcc7" ]; then
-    install_gcc7
-  fi
-  export DEV_PATH=/home/qyao/gitspace/myoap/master/OAP/dev
+  check_gcc
   export CXX=$DEV_PATH/thirdparty/gcc7/bin/g++
   export CC=$DEV_PATH/thirdparty/gcc7/bin/gcc
 
@@ -232,37 +246,11 @@ function prepare_intel_arrow() {
   cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-g -O3" -DCMAKE_CXX_FLAGS="-g -O3"  -DARROW_PLASMA_JAVA_CLIENT=on -DARROW_PLASMA=on -DARROW_DEPENDENCY_SOURCE=BUNDLED -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_BOOST_USE_SHARED=ON -DARROW_JNI=ON -DARROW_WITH_SNAPPY=ON -DARROW_FILESYSTEM=ON -DARROW_JSON=ON -DARROW_WITH_PROTOBUF=ON -DARROW_DATASET=ON ..
   make -j
   make install
+  cd ../../java
+  mvn clean install -q -P arrow-jni -am -Darrow.cpp.build.dir=../cpp/release-build/release/ -DskipTests -Dcheckstyle.skip
 }
 
 
-
-function prepare_native_sql_cpp() {
-
-  #for native-sql
-  $INSTALL_TOOL -y install libgsasl
-  $INSTALL_TOOL -y install libidn-devel.x86_64
-  $INSTALL_TOOL -y install libntlm.x86_64
-
-  intel_spark_repo="https://github.com/Intel-bigdata/spark.git"
-  intel_arrow_repo="https://github.com/Intel-bigdata/arrow.git"
-  cd $DEV_PATH/thirdparty
-
-  prepare_ns_arrow
-
-  cd $DEV_PATH
-  cd ../oap-native-sql/cpp
-  mkdir -p build
-  cd build/
-  if [ ! -d "$DEV_PATH/thirdparty/gcc7" ]; then
-    install_gcc7
-  fi
-  export CXX=$DEV_PATH/thirdparty/gcc7/bin/g++
-  export CC=$DEV_PATH/thirdparty/gcc7/bin/gcc
-  cmake .. -DTESTS=OFF
-  make -j
-  make install
-
-}
 
 function prepare_libfabric() {
   mkdir -p $DEV_PATH/thirdparty
@@ -378,7 +366,7 @@ function oap_build_help() {
     echo " prepare_maven           = function to install Maven"
     echo " prepare_memkind         = function to install Memkind"
     echo " prepare_cmake           = function to install Cmake"
-    echo " prepare_gcc7            = function to install GCC 7.3.0"
+    echo " install_gcc7            = function to install GCC 7.3.0"
     echo " prepare_vmemcache       = function to install Vmemcache"
     echo " prepare_intel_arrow     = function to install intel Arrow"
     echo " prepare_HPNL            = function to install intel HPNL"
