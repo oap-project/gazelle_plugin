@@ -74,13 +74,14 @@ class ConditionedProbeArraysKernel::Impl {
                                         &right_shuffle_index_list));
 
     std::vector<std::pair<int, int>> result_schema_index_list;
-    THROW_NOT_OK(GetResultIndexList(result_schema, left_field_list, right_field_list,
+    int exist_index = -1;
+    THROW_NOT_OK(GetResultIndexList(result_schema, left_field_list, right_field_list, join_type, exist_index,
                                     &result_schema_index_list));
 
     THROW_NOT_OK(LoadJITFunction(func_node, join_type, left_key_index_list,
                                  right_key_index_list, left_shuffle_index_list,
                                  right_shuffle_index_list, left_field_list,
-                                 right_field_list, result_schema_index_list, &prober_));
+                                 right_field_list, result_schema_index_list, exist_index, &prober_));
   }
 
   arrow::Status Evaluate(const ArrayList& in_arr_list) {
@@ -107,10 +108,14 @@ class ConditionedProbeArraysKernel::Impl {
       const std::shared_ptr<arrow::Schema>& result_schema,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
+      const int join_type, int &exist_index,
       std::vector<std::pair<int, int>>* result_schema_index_list) {
     int i = 0;
     bool found = false;
+    int target_index = -1;
+    int right_found = 0;
     for (auto target_field : result_schema->fields()) {
+      target_index++;
       i = 0;
       found = false;
       for (auto field : left_field_list) {
@@ -126,10 +131,18 @@ class ConditionedProbeArraysKernel::Impl {
       for (auto field : right_field_list) {
         if (target_field->name() == field->name()) {
           (*result_schema_index_list).push_back(std::make_pair(1, i));
+          found = true;
+          right_found++;
           break;
         }
         i++;
       }
+      if (found == true) continue;
+      if (join_type == 4) exist_index = target_index;
+    }
+    // Add one more col if join_type is ExistenceJoin
+    if (join_type == 4) {
+      (*result_schema_index_list).push_back(std::make_pair(1, right_found));
     }
     return arrow::Status::OK();
   }
@@ -141,7 +154,7 @@ class ConditionedProbeArraysKernel::Impl {
       const std::vector<int>& right_shuffle_index_list,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      const std::vector<std::pair<int, int>>& result_schema_index_list,
+      const std::vector<std::pair<int, int>>& result_schema_index_list, int exist_index,
       std::shared_ptr<CodeGenBase>* out) {
     // generate ddl signature
     std::stringstream func_args_ss;
@@ -186,7 +199,7 @@ class ConditionedProbeArraysKernel::Impl {
       auto codes =
           ProduceCodes(func_node, join_type, left_key_index_list, right_key_index_list,
                        left_shuffle_index_list, right_shuffle_index_list, left_field_list,
-                       right_field_list, result_schema_index_list);
+                       right_field_list, result_schema_index_list, exist_index);
       // compile codes
       RETURN_NOT_OK(CompileCodes(codes, signature));
       RETURN_NOT_OK(LoadLibrary(signature, ctx_, out));
@@ -590,6 +603,57 @@ class ConditionedProbeArraysKernel::Impl {
         }
   )";
   }
+  std::string GetExistenceJoin(bool cond_check,
+                           const std::vector<int>& left_shuffle_index_list,
+                           const std::vector<int>& right_shuffle_index_list) {
+    std::stringstream right_exist_ss;
+    std::stringstream right_not_exist_ss;
+    std::stringstream left_valid_ss;
+    std::stringstream right_valid_ss;
+    auto right_size = right_shuffle_index_list.size();
+
+    right_exist_ss << "const bool exist = true; RETURN_NOT_OK(builder_1_exists_->Append(exist));"
+                    << std::endl;
+    right_not_exist_ss << "const bool not_exist = false; RETURN_NOT_OK(builder_1_exists_->Append(not_exist));"
+                    << std::endl;
+
+    for (auto i : right_shuffle_index_list) {
+      right_valid_ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+                     << "_->GetView(i)));" << std::endl;
+    }
+    std::string shuffle_str;
+    if (cond_check) {
+      shuffle_str = R"(
+              if (ConditionCheck(tmp, i)) {
+                )" + right_valid_ss.str() +
+                    right_exist_ss.str() + R"(
+                out_length += 1;
+              }
+      )";
+    } else {
+      shuffle_str = R"(
+              )" + right_valid_ss.str() +
+                    right_exist_ss.str() + R"(
+              out_length += 1;
+      )";
+    }
+    return R"(
+        int32_t index;
+        if (!typed_array->IsNull(i)) {
+          index = hash_table_->Get(typed_array->GetView(i));
+        } else {
+          index = hash_table_->GetNull();
+        }
+        if (index == -1) {
+          )" +
+           right_valid_ss.str() + right_not_exist_ss.str() + R"(
+          out_length += 1;
+        } else {
+            )" +
+           shuffle_str + R"(
+        }
+  )";
+  }
   std::string GetProcessProbe(int join_type, bool cond_check,
                               const std::vector<int>& left_shuffle_index_list,
                               const std::vector<int>& right_shuffle_index_list) {
@@ -607,6 +671,10 @@ class ConditionedProbeArraysKernel::Impl {
       } break;
       case 3: { /*Semi Join*/
         return GetSemiJoin(cond_check, left_shuffle_index_list, right_shuffle_index_list);
+      } break;
+      case 4: { /*Existence Join*/
+        return GetExistenceJoin(cond_check, left_shuffle_index_list,
+                            right_shuffle_index_list);
       } break;
       default:
         std::cout << "ConditionedProbeArraysTypedImpl only support join type: InnerJoin, "
@@ -640,14 +708,19 @@ class ConditionedProbeArraysKernel::Impl {
   }
   arrow::Status GetTypedProberCodeGen(
       std::string prefix, bool left, const std::vector<int>& index_list,
-      const std::vector<std::shared_ptr<arrow::Field>>& field_list,
-      std::vector<std::shared_ptr<TypedProberCodeGenImpl>>* out_list) {
+      const std::vector<std::shared_ptr<arrow::Field>>& field_list, int exist_index, 
+      std::vector<std::shared_ptr<TypedProberCodeGenImpl>>* out_list, int join_type = -1) {
     for (auto i : index_list) {
       auto field = field_list[i];
       auto codegen = std::make_shared<TypedProberCodeGenImpl>(
           prefix + std::to_string(i), GetTypeString(field->type()), left);
       (*out_list).push_back(codegen);
     }
+    if (join_type == 4 && exist_index != -1) {
+      auto codegen = std::make_shared<TypedProberCodeGenImpl>(
+        prefix + "exists", "BooleanType", left);
+      (*out_list).insert((*out_list).begin() + exist_index, codegen);
+    } 
     return arrow::Status::OK();
   }
   std::vector<int> MergeKeyIndexList(const std::vector<int>& left_index_list,
@@ -693,7 +766,7 @@ class ConditionedProbeArraysKernel::Impl {
       const std::vector<int>& right_shuffle_index_list,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      const std::vector<std::pair<int, int>>& result_schema_index_list) {
+      const std::vector<std::pair<int, int>>& result_schema_index_list, int exist_index) {
     std::vector<int> left_cond_index_list;
     std::vector<int> right_cond_index_list;
     bool cond_check = false;
@@ -720,12 +793,12 @@ class ConditionedProbeArraysKernel::Impl {
     std::vector<std::shared_ptr<TypedProberCodeGenImpl>> left_cache_codegen_list;
     std::vector<std::shared_ptr<TypedProberCodeGenImpl>> left_shuffle_codegen_list;
     std::vector<std::shared_ptr<TypedProberCodeGenImpl>> right_shuffle_codegen_list;
-    GetTypedProberCodeGen("0_", true, left_cache_index_list, left_field_list,
+    GetTypedProberCodeGen("0_", true, left_cache_index_list, left_field_list, exist_index,
                           &left_cache_codegen_list);
-    GetTypedProberCodeGen("0_", true, left_shuffle_index_list, left_field_list,
+    GetTypedProberCodeGen("0_", true, left_shuffle_index_list, left_field_list, exist_index,
                           &left_shuffle_codegen_list);
-    GetTypedProberCodeGen("1_", false, right_shuffle_index_list, right_field_list,
-                          &right_shuffle_codegen_list);
+    GetTypedProberCodeGen("1_", false, right_shuffle_index_list, right_field_list, exist_index,
+                          &right_shuffle_codegen_list, join_type);
     auto join_key_type_list_define_str =
         GetJoinKeyTypeListDefine(left_key_index_list, left_field_list);
     auto evaluate_cache_insert_str = GetEvaluateCacheInsert(left_cache_index_list);

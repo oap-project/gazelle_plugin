@@ -139,6 +139,8 @@ class ColumnarShuffledHashJoin(
 
   }
 
+  var existsField : Field = null
+  var existsIndex : Int = -1
   val (probe_func_name, build_output_field_list, stream_output_field_list) = joinType match {
     case _: InnerLike =>
       ("conditionedProbeArraysInner", build_input_field_list, stream_input_field_list)
@@ -150,6 +152,15 @@ class ColumnarShuffledHashJoin(
       ("conditionedProbeArraysOuter", build_input_field_list, stream_input_field_list)
     case LeftAnti =>
       ("conditionedProbeArraysAnti", List[Field](), stream_input_field_list)
+    case j : ExistenceJoin =>
+      val existsSchema = j.exists
+      existsField = Field.nullable(s"${existsSchema.name}",
+        CodeGeneration.getResultType(existsSchema.dataType))
+      // Use the last index for we cannot distinguish between two "exists" StructType
+      existsIndex = resultFieldList.lastIndexOf(existsField)
+      existsField = Field.nullable(s"${existsSchema.name}#${existsSchema.exprId.id}",
+        CodeGeneration.getResultType(existsSchema.dataType))
+      ("conditionedProbeArraysExistence", build_input_field_list, stream_input_field_list)
     case _ =>
       throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
   }
@@ -180,9 +191,21 @@ class ColumnarShuffledHashJoin(
   }
   val (conditionInputFieldList, conditionOutputFieldList) = buildSide match {
     case BuildLeft =>
-      (build_input_field_list, build_output_field_list ::: stream_output_field_list)
+      joinType match {
+        case ExistenceJoin(_) =>
+          throw new UnsupportedOperationException(s"BuildLeft for ${joinType} is not supported yet.")
+        case _ =>
+          (build_input_field_list, build_output_field_list ::: stream_output_field_list)
+      }
     case BuildRight =>
-      (build_input_field_list, stream_output_field_list ::: build_output_field_list)
+      joinType match {
+        case ExistenceJoin(_) =>
+          val (front, back) = stream_output_field_list.splitAt(existsIndex)
+          val existsOutputFieldList = (front :+ existsField) ::: back
+          (build_input_field_list, existsOutputFieldList)
+        case _ =>
+          (build_input_field_list, stream_output_field_list ::: build_output_field_list)
+      }
   }
   val conditionArrowSchema = new Schema(conditionInputFieldList.asJava)
   output_arrow_schema = new Schema(conditionOutputFieldList.asJava)

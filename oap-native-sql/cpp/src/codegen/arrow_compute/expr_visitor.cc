@@ -264,7 +264,8 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
   if (func_name.compare("conditionedProbeArraysInner") == 0 ||
       func_name.compare("conditionedProbeArraysOuter") == 0 ||
       func_name.compare("conditionedProbeArraysAnti") == 0 ||
-      func_name.compare("conditionedProbeArraysSemi") == 0) {
+      func_name.compare("conditionedProbeArraysSemi") == 0 ||
+      func_name.compare("conditionedProbeArraysExistence") == 0) {
     // first child is left_key_schema
     std::vector<std::shared_ptr<arrow::Field>> left_key_list;
     auto left_func_node =
@@ -295,6 +296,8 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
       join_type = 2;
     } else if (func_name.compare("conditionedProbeArraysSemi") == 0) {
       join_type = 3;
+    } else if (func_name.compare("conditionedProbeArraysExistence") == 0) {
+      join_type = 4;
     }
     RETURN_NOT_OK(ConditionedProbeArraysVisitorImpl::Make(
         left_key_list, right_key_list, condition_node, join_type, left_field_list,

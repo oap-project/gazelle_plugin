@@ -86,8 +86,10 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
       return "date32()";
     case arrow::StringType::type_id:
       return "utf8()";
+    case arrow::BooleanType::type_id:
+      return "boolean()";  
     default:
-      std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
+      std::cout << "GetArrowTypeString can't convert " << type->ToString() << std::endl;
       throw;
   }
 }
@@ -117,8 +119,10 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
       return "int32_t";
     case arrow::StringType::type_id:
       return "std::string";
+    case arrow::BooleanType::type_id:
+      return "bool";    
     default:
-      std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
+      std::cout << "GetCTypeString can't convert " << type->ToString() << std::endl;
       throw;
   }
 }
@@ -148,6 +152,8 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       return "Date32" + tail;
     case arrow::StringType::type_id:
       return "String" + tail;
+    case arrow::BooleanType::type_id:
+      return "Boolean" + tail;    
     default:
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
       throw;
