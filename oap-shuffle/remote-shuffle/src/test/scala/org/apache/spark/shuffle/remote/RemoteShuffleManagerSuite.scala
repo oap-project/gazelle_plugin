@@ -17,14 +17,19 @@
 
 package org.apache.spark.shuffle.remote
 
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.locks.ReentrantLock
+
 import org.mockserver.integration.ClientAndServer.startClientAndServer
 import org.mockserver.model.{HttpRequest, HttpResponse}
-
 import org.apache.spark._
 import org.apache.spark.internal.config
+import org.apache.spark.sql.{Dataset, Row, SparkSession}
 import org.apache.spark.util.Utils
 
 class RemoteShuffleManagerSuite extends SparkFunSuite with LocalSparkContext {
+
+  private val initialPartitionNum = 1000
 
   testWithMultiplePath("repartition")(repartition(100, 10, 20))
   testWithMultiplePath("re-large-partition")(repartition(1000000, 3, 2))
@@ -34,6 +39,10 @@ class RemoteShuffleManagerSuite extends SparkFunSuite with LocalSparkContext {
 
   testWithMultiplePath("sort")(sort(500, 13, true))
   testWithMultiplePath("sort large partition")(sort(500000, 2))
+
+  // Some ShuffleBlocks, even reduce partitions(initial) may be empty
+  testWithIndexCacheOnOff("Adaptive Query Execution on, small data set")(groupBySum(200))
+  testWithIndexCacheOnOff("Adaptive Query Execution on, large data set")(groupBySum(1000000))
 
   test("disable bypass-merge-sort shuffle writer by default") {
     sc = new SparkContext("local", "test", new SparkConf(true))
@@ -88,7 +97,7 @@ class RemoteShuffleManagerSuite extends SparkFunSuite with LocalSparkContext {
     manager.getHadoopConf
   }
 
-  // Optimized shuffle writer & non-optimized shuffle writer
+  // Going through different shuffle write/read path
   private def testWithMultiplePath(name: String, loadDefaults: Boolean = true)
       (body: (SparkConf => Unit)): Unit = {
     test(name + " with general shuffle path") {
@@ -121,6 +130,16 @@ class RemoteShuffleManagerSuite extends SparkFunSuite with LocalSparkContext {
     {
       body(createSparkConf(loadDefaults, indexCache = true)
         .set(RemoteShuffleConf.DATA_FETCH_EAGER_REQUIREMENT.key, testWith.toString))
+    }
+  }
+
+  private def testWithIndexCacheOnOff(name: String, loadDefaults: Boolean = true)
+    (body: (SparkConf => Unit)): Unit = {
+    test(name + " index cache") {
+      body(createSparkConf(loadDefaults, indexCache = true))
+    }
+    test(name) {
+      body(createSparkConf(loadDefaults, indexCache = false))
     }
   }
 
@@ -157,9 +176,23 @@ class RemoteShuffleManagerSuite extends SparkFunSuite with LocalSparkContext {
     assert(newRdd.collect() === data)
   }
 
+  // a SQL test that triggers AE's coalescing shuffle partitions feature
+  private def groupBySum(dataSize: Int)(conf: SparkConf): Unit = {
+    sc = new SparkContext("local[*]", "test", conf)
+    val spark = SparkSession.builder().sparkContext(sc).getOrCreate()
+    import spark.implicits._
+    val originalData = 0 until dataSize
+    val dataSet = spark.createDataset(originalData).groupBy("value").sum("value")
+    assert(dataSet.collect().sortBy(_(0).asInstanceOf[Int]) === originalData.map(i => Row(i, i)))
+    println(dataSet.queryExecution.toRdd.partitions.length)
+    // Ensuring AQE has coalesced reduce stage partitions to a smaller number, so this UT went
+    // through a different path
+    assert(dataSet.queryExecution.toRdd.partitions.length != initialPartitionNum)
+  }
+
   private def createSparkConf(
       loadDefaults: Boolean, bypassMergeSort: Boolean = false, unsafeOptimized: Boolean = true,
-      indexCache: Boolean = false, setMaxBlocksPerAdress: Boolean = false): SparkConf = {
+      indexCache: Boolean = false, setMaxBlocksPerAdress: Boolean = false, aqe: Boolean = false): SparkConf = {
     val smallThreshold = 1
     val largeThreshold = 50
     val conf = createDefaultConf(loadDefaults)
@@ -176,6 +209,11 @@ class RemoteShuffleManagerSuite extends SparkFunSuite with LocalSparkContext {
     }
     if (setMaxBlocksPerAdress) {
       conf.set(config.REDUCER_MAX_BLOCKS_IN_FLIGHT_PER_ADDRESS.key, "1")
+    }
+    if (aqe) {
+      conf.set("spark.sql.adaptive.enabled", "true")
+      conf.set("spark.sql.adaptive.advisoryPartitionSizeInBytes", "50000")
+      conf.set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", initialPartitionNum.toString)
     }
     conf
   }

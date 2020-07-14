@@ -20,14 +20,12 @@ package org.apache.spark.shuffle.remote
 import java.io.{IOException, InputStream}
 
 import scala.collection.mutable.ArrayBuffer
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.{doNothing, mock, when}
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-
 import org.apache.spark._
 import org.apache.spark.internal.config
 import org.apache.spark.network.BlockTransferService
@@ -94,6 +92,7 @@ class RemoteShuffleBlockIteratorSuite extends SparkFunSuite with LocalSparkConte
       48 * 1024 * 1024,
       Int.MaxValue,
       Int.MaxValue,
+      true,
       true,
       metrics,
       false)
@@ -220,6 +219,7 @@ class RemoteShuffleBlockIteratorSuite extends SparkFunSuite with LocalSparkConte
       Int.MaxValue,
       Int.MaxValue,
       true,
+      false,
       metrics,
       false)
 
