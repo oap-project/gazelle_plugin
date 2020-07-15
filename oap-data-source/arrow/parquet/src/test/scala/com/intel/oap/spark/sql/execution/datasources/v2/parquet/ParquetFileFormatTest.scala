@@ -22,7 +22,9 @@ import com.intel.oap.vectorized.ArrowWritableColumnVector
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.execution.datasources.parquet.ParquetSQLConf
 import org.apache.spark.sql.execution.datasources.v2.arrow.ArrowUtils
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
 class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
@@ -38,6 +40,26 @@ class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
   def closeAllocators(): Unit = {
     ArrowUtils.defaultAllocator().close()
     ArrowWritableColumnVector.allocator.close()
+  }
+
+  test("no overwriting") {
+    import testImplicits._
+    withSQLConf(ParquetSQLConf.OVERWRITE_PARQUET_DATASOURCE.key -> "false",
+      SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      ServiceLoaderUtil.ensureParquetFileFormatOverwritten()
+      spark.read
+        .json(Seq("{\"col\": -1}", "{\"col\": 0}", "{\"col\": 1}", "{\"col\": 2}",
+          "{\"col\": null}")
+          .toDS())
+        .repartition(1)
+        .write
+        .mode("overwrite")
+        .parquet(ParquetFileFormatTest.locateResourcePath(parquetFile1))
+      val path = ParquetFileFormatTest.locateResourcePath(parquetFile1)
+      val frame = spark.read.parquet(path)
+      assert(frame.queryExecution.executedPlan.toString
+        .contains("Batched: true"))
+    }
   }
 
   test("read and write") {
