@@ -128,8 +128,9 @@ public final class LibLoader {
         File tempSubDirectory = new File(System.getProperty("java.io.tmpdir") + "/" + tempSubDirName + LIBRARY_PATH_IN_JAR);
 
         if (!tempSubDirectory.exists()) {
-            boolean createdDirectory = tempSubDirectory.mkdirs();
-            if (!createdDirectory) {
+            tempSubDirectory.mkdirs();
+            // Check existance again, don't use return bool of mkdirs
+            if (!tempSubDirectory.exists()) {
                 throw new IOException("Error: Can`t create folder for temp file.");
             }
         }

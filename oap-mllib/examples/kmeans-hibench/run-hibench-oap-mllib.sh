@@ -9,16 +9,20 @@ export HADOOP_HOME=/path/to/your/hadoop/home
 export HDFS_ROOT=hdfs://your_hostname:8020
 # Set user Intel MLlib Root directory
 export OAP_MLLIB_ROOT=/path/to/your/OAP/oap-mllib
-# Set IP_Port to one of the worker nodes for oneCCL
-# If you have multiple IPs for nodes, use first IP returned from `hostname -I`
+# Set IP and Port for oneCCL KVS, you can select any one of the worker nodes and set CCL_KVS_IP_PORT to its IP and Port
+# IP can be got with `hostname -I`, if multiple IPs are returned, the first IP should be used. Port can be any available port.
+# For example, if one of the worker IP is 192.168.0.1 and an available port is 51234. 
+# CCL_KVS_IP_PORT can be set in the format of 192.168.0.1_51234
+# Incorrectly setting this value will result in hanging when oneCCL initialize
 export CCL_KVS_IP_PORT=192.168.0.1_51234
 
 # == User to customize Spark executor cores and memory == #
 
+# User should check the requested resources are acturally allocated by cluster manager or Intel MLlib will behave incorrectly
 SPARK_MASTER=yarn
 SPARK_DRIVER_MEMORY=8G
-SPARK_NUM_EXECUTORS=18
-SPARK_EXECUTOR_CORES=5
+SPARK_NUM_EXECUTORS=6
+SPARK_EXECUTOR_CORES=15
 SPARK_EXECUTOR_MEMORY_OVERHEAD=25G
 SPARK_EXECUTOR_MEMORY=50G
 
@@ -85,6 +89,7 @@ INPUT_HDFS=$HDFS_ROOT/HiBench/Kmeans/Input/samples
     --conf "spark.driver.extraClassPath=$SPARK_DRIVER_CLASSPATH" \
     --conf "spark.executor.extraClassPath=$SPARK_EXECUTOR_CLASSPATH" \
     --conf "spark.executorEnv.CCL_KVS_IP_PORT=$CCL_KVS_IP_PORT" \
+    --conf "spark.shuffle.reduceLocality.enabled=false" \
     --conf "spark.executor.memoryOverhead=$SPARK_EXECUTOR_MEMORY_OVERHEAD" \
     --conf "spark.memory.fraction=0.8" \
     --conf "spark.network.timeout=1200s" \

@@ -137,7 +137,7 @@
                         <configuration>
                             <target name="build-natives" description="Build native code">
                                 <echo>Building native code</echo>                                
-                                <exec dir="${project.basedir}/src/main/native" executable="./build.sh">
+                                <exec dir="${project.basedir}/src/main/native" executable="./build.sh" failonerror="true">
                                 </exec>
                             </target>
                         </configuration>
