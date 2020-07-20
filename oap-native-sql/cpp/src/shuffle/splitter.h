@@ -60,6 +60,8 @@ class Splitter {
 
   arrow::Result<int64_t> TotalBytesWritten();
 
+  uint64_t TotalWriteTime();
+
   // writer must be called after Split.
   std::shared_ptr<PartitionWriter> writer(int32_t pid);
 

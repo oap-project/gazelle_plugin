@@ -18,6 +18,7 @@
 package org.apache.spark.sql
 
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.{
@@ -127,7 +128,7 @@ class TPCHTableRepartitionSuite extends RepartitionSuite {
   }
 }
 
-class DisableColumnarShuffle extends SmallDataRepartitionSuite {
+class DisableColumnarShuffleSuite extends SmallDataRepartitionSuite {
   override def sparkConf: SparkConf = {
     super.sparkConf
       .set("spark.shuffle.manager", "sort")
@@ -138,11 +139,50 @@ class DisableColumnarShuffle extends SmallDataRepartitionSuite {
     val found = data.queryExecution.executedPlan
       .collect {
         case c2r: ColumnarToRowExec => 1
-        case exc: ColumnarShuffleExchangeExec => 10
-        case exc: ShuffleExchangeExec => 100
+        case col: ColumnarShuffleExchangeExec => 10
+        case row: ShuffleExchangeExec => 100
       }
       .distinct
       .sum
     assert(found == 101)
   }
+}
+
+class AdaptiveQueryExecRepartitionSuite extends TPCHTableRepartitionSuite {
+  override def sparkConf: SparkConf = {
+    super.sparkConf
+      .set("spark.sql.adaptive.enabled", "true")
+  }
+
+  def checkBefore(data: DataFrame) = {
+    val planBefore = data.queryExecution.executedPlan
+    assert(planBefore.toString.startsWith("AdaptiveSparkPlan isFinalPlan=false"))
+  }
+
+  def checkAfter(data: DataFrame) = {
+    val planAfter = data.queryExecution.executedPlan
+    assert(planAfter.toString.startsWith("AdaptiveSparkPlan isFinalPlan=true"))
+    val adaptivePlan = planAfter.asInstanceOf[AdaptiveSparkPlanExec].executedPlan
+
+    val found = adaptivePlan
+      .collect {
+        case c2r: ColumnarToRowExec => 1
+        case row: ShuffleExchangeExec => 10
+        case col: ColumnarShuffleExchangeExec => 100
+      }
+      .distinct
+      .sum
+    assert(found == 1, "The final plan should not contain any Exchange node.")
+  }
+
+  override def withInput(input: DataFrame)(
+      transformation: Option[DataFrame => DataFrame],
+      repartition: DataFrame => DataFrame): Unit = {
+    val expected = transformation.getOrElse(identity[DataFrame](_))(input)
+    val data = repartition(expected)
+    checkBefore(data)
+    checkAnswer(data, expected)
+    checkAfter(data)
+  }
+
 }

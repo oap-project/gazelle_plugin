@@ -26,6 +26,7 @@ import com.intel.oap.vectorized.{
   ArrowWritableColumnVector,
   ShuffleSplitterJniWrapper
 }
+
 import org.apache.arrow.util.SchemaUtils
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.spark._

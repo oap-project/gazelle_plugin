@@ -268,6 +268,14 @@ class Splitter::Impl {
     return res;
   }
 
+  uint64_t TotalWriteTime() {
+    uint64_t res = 0;
+    for (const auto& writer : pid_writer_) {
+      res += writer->write_time();
+    }
+    return res;
+  }
+
   static arrow::Result<std::string> CreateAttemptSubDir(const std::string& root_dir) {
     auto attempt_sub_dir = arrow::fs::internal::ConcatAbstractPath(root_dir, "columnar-shuffle-" + GenerateUUID());
     ARROW_ASSIGN_OR_RAISE(auto created, arrow::internal::CreateDirTree(
@@ -382,6 +390,10 @@ void Splitter::set_compression_codec(arrow::Compression::type compression_codec)
 
 arrow::Result<int64_t> Splitter::TotalBytesWritten() {
   return impl_->TotalBytesWritten();
+}
+
+uint64_t Splitter::TotalWriteTime() {
+  return impl_->TotalWriteTime();
 }
 
 Splitter::~Splitter() = default;

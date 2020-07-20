@@ -23,8 +23,10 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/status.h>
 #include <arrow/util/compression.h>
+#include <chrono>
 #include <vector>
 #include "shuffle/type.h"
+#include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
@@ -118,7 +120,8 @@ class PartitionWriter {
         write_offset_(Type::typeId::NUM_TYPES),
         file_footer_(0),
         file_writer_opened_(false),
-        file_writer_(nullptr) {}
+        file_writer_(nullptr),
+        write_time_(0) {}
 
   static arrow::Result<std::shared_ptr<PartitionWriter>> Create(
       int32_t pid, int64_t capacity, Type::typeId last_type,
@@ -140,6 +143,8 @@ class PartitionWriter {
 
   int64_t file_footer() const { return file_footer_; }
 
+  uint64_t write_time() const { return write_time_; }
+
   arrow::Status WriteArrowRecordBatch();
 
   arrow::Result<int64_t> BytesWritten() {
@@ -152,7 +157,7 @@ class PartitionWriter {
   arrow::Result<bool> inline CheckTypeWriteEnds(const Type::typeId& type_id) {
     if (write_offset_[type_id] == capacity_) {
       if (type_id == last_type_) {
-        RETURN_NOT_OK(WriteArrowRecordBatch());
+        TIME_MICRO_OR_RAISE(write_time_, WriteArrowRecordBatch());
         std::fill(std::begin(write_offset_), std::end(write_offset_), 0);
       }
       return true;
@@ -273,6 +278,8 @@ class PartitionWriter {
   int64_t file_footer_;
   bool file_writer_opened_;
   std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer_;
+
+  uint64_t write_time_;
 };
 
 }  // namespace shuffle

@@ -134,15 +134,40 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
         blocksByAddress,
         context,
         metrics,
-        new SerializerManager(
-          SparkEnv.get.serializer,
-          SparkEnv.get.conf,
-          SparkEnv.get.securityManager.getIOEncryptionKey()) {
-          // Bypass the shuffle read compression
-          override def wrapStream(blockId: BlockId, s: InputStream): InputStream = {
-            wrapForEncryption(s)
-          }
-        })
+        serializerManager = bypassDecompressionSerializerManger,
+        shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
+    } else {
+      new BlockStoreShuffleReader(
+        handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
+        blocksByAddress,
+        context,
+        metrics,
+        shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
+    }
+  }
+
+  override def getReaderForRange[K, C](
+      handle: ShuffleHandle,
+      startMapIndex: Int,
+      endMapIndex: Int,
+      startPartition: Int,
+      endPartition: Int,
+      context: TaskContext,
+      metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
+    val blocksByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByRange(
+      handle.shuffleId,
+      startMapIndex,
+      endMapIndex,
+      startPartition,
+      endPartition)
+    if (handle.isInstanceOf[ColumnarShuffleHandle[K, _]]) {
+      new BlockStoreShuffleReader(
+        handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
+        blocksByAddress,
+        context,
+        metrics,
+        serializerManager = bypassDecompressionSerializerManger,
+        shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
     } else {
       new BlockStoreShuffleReader(
         handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
@@ -167,28 +192,6 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
   override def stop(): Unit = {
     shuffleBlockResolver.stop()
   }
-
-  override def getReaderForRange[K, C](
-      handle: ShuffleHandle,
-      startMapIndex: Int,
-      endMapIndex: Int,
-      startPartition: Int,
-      endPartition: Int,
-      context: TaskContext,
-      metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
-    val blocksByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByRange(
-      handle.shuffleId,
-      startMapIndex,
-      endMapIndex,
-      startPartition,
-      endPartition)
-    new BlockStoreShuffleReader(
-      handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
-      blocksByAddress,
-      context,
-      metrics)
-  }
-
 }
 
 object ColumnarShuffleManager extends Logging {
@@ -201,6 +204,17 @@ object ColumnarShuffleManager extends Logging {
       extraConfigs.asJava)
     executorComponents
   }
+
+  private def bypassDecompressionSerializerManger =
+    new SerializerManager(
+      SparkEnv.get.serializer,
+      SparkEnv.get.conf,
+      SparkEnv.get.securityManager.getIOEncryptionKey()) {
+      // Bypass the shuffle read decompression
+      override def wrapStream(blockId: BlockId, s: InputStream): InputStream = {
+        wrapForEncryption(s)
+      }
+    }
 }
 
 private[spark] class ColumnarShuffleHandle[K, V](
