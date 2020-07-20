@@ -33,8 +33,6 @@ SPARK_DEFAULT_PARALLELISM=$(expr $SPARK_NUM_EXECUTORS '*' $SPARK_EXECUTOR_CORES 
 # for log suffix
 SUFFIX=$( basename -s .sh "${BASH_SOURCE[0]}" )
 
-export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
-
 # Check envs
 if [[ -z $SPARK_HOME ]]; then
     echo SPARK_HOME not defined!
@@ -46,20 +44,7 @@ if [[ -z $HADOOP_HOME ]]; then
     exit 1
 fi
 
-if [[ -z $DAALROOT ]]; then
-    echo DAALROOT not defined!
-    exit 1
-fi
-
-if [[ -z $TBBROOT ]]; then
-    echo TBBROOT not defined!
-    exit 1
-fi
-
-if [[ -z $CCL_ROOT ]]; then
-    echo CCL_ROOT not defined!
-    exit 1
-fi
+export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 
 # Target jar built
 OAP_MLLIB_JAR_NAME=oap-mllib-0.9.0-with-spark-3.0.0.jar

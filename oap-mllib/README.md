@@ -2,7 +2,7 @@
 
 ## Overview
 
-Intel MLlib is an optimized package to accelerate machine learning algorithms in  [Apache Spark MLlib](https://spark.apache.org/mllib).  It is compatible with Spark MLlib and leverages open source [Intel® oneAPI Data Analytics Library (oneDAL)](https://github.com/oneapi-src/oneDAL)  to provide highly optimized algorithms and get most out of CPU and GPU capabilities. It also take advantage of open source [Intel® oneAPI Collective Communications Library (oneCCL)](https://github.com/oneapi-src/oneCCL) to provide efficient communication patterns in multi-node multi-GPU clusters.
+Intel MLlib is an optimized package to accelerate machine learning algorithms in  [Apache Spark MLlib](https://spark.apache.org/mllib).  It is compatible with Spark MLlib and leverages open source [Intel® oneAPI Data Analytics Library (oneDAL)](https://github.com/oneapi-src/oneDAL) to provide highly optimized algorithms and get most out of CPU and GPU capabilities. It also take advantage of open source [Intel® oneAPI Collective Communications Library (oneCCL)](https://github.com/oneapi-src/oneCCL) to provide efficient communication patterns in multi-node multi-GPU clusters.
 
 ## Compatibility
 
@@ -11,7 +11,7 @@ For those algorithms that are not accelerated by Intel MLlib, the original Spark
 
 ## Getting Started
 
-You can use a pre-built package to get started, it can be downloaded from [here](https://github.com/Intel-bigdata/OAP/releases/download/v0.9.0-spark-3.0.0/oap-mllib-0.9.0-with-spark-3.0.0.jar).
+You can use a pre-built JAR package to get started, it can be downloaded from [here](https://github.com/Intel-bigdata/OAP/releases/download/v0.9.0-spark-3.0.0/oap-mllib-0.9.0-with-spark-3.0.0.jar).
 
 After downloaded, you can refer to the following [Running](#Running) section to try out.
 
@@ -22,32 +22,21 @@ You can also build the package from source code, please refer to [Building](#Bui
 ### Prerequisites
 
 * CentOS 7.0+, Ubuntu 18.04 LTS+
-* Java 8.0+
+* Java JRE 8.0+ Runtime
 * Apache Spark 3.0.0+
-* Intel® oneAPI Toolkits (Beta) 2021.1-beta07+ Components: 
-    - Data Analytics Library (oneDAL)
-    - Threading Building Blocks (oneTBB)
-    - Collective Communications Library (oneCCL)
 
 Generally, our common system requirements are the same with Intel® oneAPI Toolkit, please refer to [here](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-base-toolkit-system-requirements.html) for details.
 
-Intel® oneAPI Toolkits (Beta) and its components can be downloaded and install from [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html). Installation process for oneAPI using Package Managers (YUM (DNF), APT, and ZYPPER) is also available from [here](https://software.intel.com/content/www/us/en/develop/articles/oneapi-repo-instructions.html). Generally you only need to install __oneAPI Base Toolkit for Linux__ with all or selected components. 
-
-We suggest you to install oneAPI Toolkits in __all cluster nodes__ and also add oneAPI Toolkits' `setvars.sh` script to shell startup script in __all nodes__ so that the oneAPI library dependencies will be automatically resolved. Add the following line in `~/.bashrc` to setup oneAPI and switch oneCCL to `cpu_icc` configuration for CPU only libraries:
-```
-source /opt/intel/inteloneapi/setvars.sh &> /dev/null
-source $CCL_ROOT/env/vars.sh --ccl-configuration=cpu_icc
-```
-
-Don't forget to restart your YARN cluster manager to apply this change!
+Intel® oneAPI Toolkits (Beta) components used by the project are already included into JAR package mentioned above.  There is no extra installs for cluster nodes.
 
 ### Spark Configuration
 
-Except oneAPI components, all other dependencies are packaged into jar, you only need to set extra class path for Spark to point to this jar and `spark-submit` script will take care of the rest. 
+You only need to set extra class path for Spark to point to this jar and `spark-submit` script will take care of the rest. 
 ```
 spark.driver.extraClassPath=/path/to/oap-mllib-jar
 spark.executor.extraClassPath=/path/to/oap-mllib-jar
 ```
+You can also choose to set those in `spark-defaults.conf`, then Intel MLlib will be default to run all MLlib applications.
 
 ### Sanity Check
 
@@ -82,22 +71,37 @@ We use [Apache Maven](https://maven.apache.org/) to manage and build source code
 * Intel® oneAPI Toolkits (Beta) 2021.1-beta07+ Components: 
     - Data Analytics Library (oneDAL)
     - Threading Building Blocks (oneTBB)
-    - Collective Communications Library (oneCCL)
+* [Open Source Intel® oneAPI Collective Communications Library (oneCCL)](https://github.com/oneapi-src/oneCCL)
 
-Please refer to the [Running](#Running) section for how to install oneAPI Toolkits. More details abount oneAPI can be found [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html).
+Intel® oneAPI Toolkits (Beta) and its components can be downloaded and install from [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html). Installation process for oneAPI using Package Managers (YUM (DNF), APT, and ZYPPER) is also available from here. Generally you only need to install oneAPI Base Toolkit for Linux with all or selected components. Instead of using oneCCL included in Intel® oneAPI Toolkits (Beta), we prefer to build latest code from open source oneCCL.
+
+More details abount oneAPI can be found [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html).
 
 Scala and Java dependency descriptions are already included in Maven POM file. 
 
 ### Build
 
+####  Building oneCCL
+
+To clone and build latest code from open source oneCCL, run the following commands:
+```
+	$ git clone https://github.com/oneapi-src/oneCCL
+	$ mkdir build && cd build
+	$ cmake ..
+	$ make -j install
+```
+
+The generated files will be placed in `/your/oneCCL_source_code/build/_install`
+
+#### Building Intel MLlib
+
 To clone and checkout source code, run the following commands:
 ```
     $ git clone https://github.com/Intel-bigdata/OAP
-    $ git checkout -b branch-intelmllib-spark-3.0.0 origin/branch-intelmllib-spark-3.0.0
+    $ git checkout -b branch-0.9-spark-3.x origin/branch-0.9-spark-3.x (Optional to checkout specific release branch)
 ```
 
-We rely on `JAVA_HOME` and oneAPI environments to find required toolchains and libraries. 
-After installed the above Prerequisites, please make sure the following environment variables are set for building:
+We rely on environment variables to find required toolchains and libraries. Please make sure the following environment variables are set for building:
 
 Environment | Description
 ------------| -----------
@@ -106,9 +110,16 @@ DAALROOT    | Path to oneDAL home directory
 TBB_ROOT    | Path to oneTBB home directory
 CCL_ROOT    | Path to oneCCL home directory
 
-`DAALROOT`, `TBB_ROOT`, `CCL_ROOT` can be set by oneAPI Toolkits with `/opt/intel/inteloneapi/setvars.sh` script.  
+We suggest you to source `setvars.sh` script into current shell to setup building environments as following:
 
-If you prefer to buid your own open source [oneDAL](https://github.com/oneapi-src/oneDAL), [oneTBB](https://github.com/oneapi-src/oneTBB) or [oneCCL](https://github.com/oneapi-src/oneCCL) versions rather than use the ones included in oneAPI TookKits, you can refer to the related build instructions and manually set the paths accordingly.
+```
+	$ source /opt/intel/inteloneapi/setvars.sh
+	$ source /your/oneCCL_source_code/build/_install/env/setvars.sh
+```
+
+__Be noticed we are using our own built oneCCL instead, we should source oneCCL's `setvars.sh` to overwrite oneAPI one.__
+
+If you prefer to buid your own open source [oneDAL](https://github.com/oneapi-src/oneDAL), [oneTBB](https://github.com/oneapi-src/oneTBB) versions rather than use the ones included in oneAPI TookKits, you can refer to the related build instructions and manually source `setvars.sh` accordingly.
 
 To build, run the following commands: 
 ```
@@ -129,4 +140,3 @@ kmeans-hibench  |  Use HiBench-generated input dataset to benchmark K-means perf
 ## List of Accelerated Algorithms
 
 * K-Means (CPU, Experimental)
-

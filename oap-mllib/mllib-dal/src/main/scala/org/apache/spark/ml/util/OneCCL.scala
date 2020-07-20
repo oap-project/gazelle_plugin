@@ -49,9 +49,12 @@ object OneCCL {
 
     setEnv("CCL_PM_TYPE", "resizable")
     setEnv("CCL_ATL_TRANSPORT","ofi")
+    setEnv("CCL_ATL_TRANSPORT_PATH", LibLoader.getTempSubDir())
     setEnv("CCL_KVS_IP_EXCHANGE","env")
     setEnv("CCL_KVS_IP_PORT", ccl_kvs_ip_port)
     setEnv("CCL_WORLD_SIZE", s"${executor_num}")
+    // Uncomment this if you whant to debug oneCCL
+    // setEnv("CCL_LOG_LEVEL", "2")
   }
 
   def init(executor_num: Int, ip: String, port: Int) = {

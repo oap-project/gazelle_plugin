@@ -23,6 +23,17 @@ SPARK_DEFAULT_PARALLELISM=$(expr $SPARK_NUM_EXECUTORS '*' $SPARK_EXECUTOR_CORES 
 # for log suffix
 SUFFIX=$( basename -s .sh "${BASH_SOURCE[0]}" )
 
+# Check envs
+if [[ -z $SPARK_HOME ]]; then
+    echo SPARK_HOME not defined!
+    exit 1
+fi
+
+if [[ -z $HADOOP_HOME ]]; then
+    echo HADOOP_HOME not defined!
+    exit 1
+fi
+
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 
 APP_JAR=target/oap-mllib-examples-0.9.0-with-spark-3.0.0.jar

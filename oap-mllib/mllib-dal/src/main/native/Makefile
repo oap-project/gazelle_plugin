@@ -17,16 +17,22 @@ CXX := g++
 RM := rm -rf
 
 CFLAGS := -g -Wall -fPIC -std=c++11
+
+# The following paths setting works for self-built libs from source code
+# https://github.com/oneapi-src/oneCCL. If oneCCL package in oneAPI Toolkit is used,
+# Should change paths to ${CCL_ROOT}/{include,lib}/cpu_icc instead
+
 INCS := -I $(JAVA_HOME)/include \
         -I $(JAVA_HOME)/include/linux \
-        -I $(CCL_ROOT)/include/cpu_icc \
+        -I ${CCL_ROOT}/include \
         -I $(DAALROOT)/include \
         -I ./javah \
         -I ./
 
 # Use static link if possible, TBB is only available as dynamic libs
-LIBS := -L$(CCL_ROOT)/lib/cpu_icc -lccl \
-        -L$(DAALROOT)/lib/intel64 -ldaal_core -ldaal_thread \
+
+LIBS := -L${CCL_ROOT}/lib -l:libccl.a \
+        -L$(DAALROOT)/lib/intel64 -l:libdaal_core.a -l:libdaal_thread.a \
         -L$(TBBROOT)/lib -ltbb -ltbbmalloc
 
 CPP_SRCS += \

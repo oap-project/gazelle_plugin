@@ -44,20 +44,7 @@ if [[ -z $HADOOP_HOME ]]; then
     exit 1
 fi
 
-if [[ -z $DAALROOT ]]; then
-    echo DAALROOT not defined!
-    exit 1
-fi
-
-if [[ -z $TBBROOT ]]; then
-    echo TBBROOT not defined!
-    exit 1
-fi
-
-if [[ -z $CCLROOT ]]; then
-    echo CCLROOT not defined!
-    exit 1
-fi
+export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 
 # Target jar built
 OAP_MLLIB_JAR_NAME=oap-mllib-0.9.0-with-spark-3.0.0.jar

@@ -25,18 +25,33 @@ import java.util.logging.Logger;
 
 public final class LibLoader {
     private static final String LIBRARY_PATH_IN_JAR = "/lib";
-    private final static String MLLIB_DAL_LIB = "MLlibDAL";
     private final static String subDir = "MLlibDAL_" + new Date().getTime();
 
     private static final Logger logger = Logger.getLogger(LibLoader.class.getName());
     private static final Level logLevel = Level.INFO;
 
     /**
+     * Get temp dir for exacting lib files
+     * @return path of temp dir
+     */
+    public static String getTempSubDir() {
+        String tempSubDirectory = System.getProperty("java.io.tmpdir") + "/" + subDir + LIBRARY_PATH_IN_JAR;
+        return tempSubDirectory;
+    }
+
+    /**
      * Load MLlibDAL lib, it depends TBB libs that are loaded by oneDAL,
      * so this function should be called after oneDAL loadLibrary
      */
     public static void loadLibrary() throws IOException {
-        loadFromJar(subDir, MLLIB_DAL_LIB);
+        // Load oneCCL libs in dependency order
+        loadFromJar(subDir, "libpmi.so.1");
+        loadFromJar(subDir, "libresizable_pmi.so.1");
+        loadFromJar(subDir, "libfabric.so.1");
+        loadFromJar(subDir, "libsockets-fi.so");
+        loadFromJar(subDir, "libccl_atl_ofi.so");
+        // Load for JNI
+        loadFromJar(subDir, "libMLlibDAL.so");
     }
 
     /**
@@ -45,16 +60,14 @@ public final class LibLoader {
      * @param path sub folder (in temporary folder) name
      * @param name library name
      */
-    private static void loadFromJar(String path, String name) throws IOException {
-        String FullName = createLibraryFileName(name);
-
-        File fileOut = createTempFile(path, FullName);
+    private static void loadFromJar(String path, String fullName) throws IOException {
+        File fileOut = createTempFile(path, fullName);
         if (fileOut == null) {
             logger.log(logLevel, "DONE: Loading library as resource.");
             return;
         }
 
-        InputStream streamIn = LibLoader.class.getResourceAsStream(LIBRARY_PATH_IN_JAR + "/" + FullName);
+        InputStream streamIn = LibLoader.class.getResourceAsStream(LIBRARY_PATH_IN_JAR + "/" + fullName);
         if (streamIn == null) {
             throw new IOException("Error: No resource found.");
         }
@@ -81,40 +94,6 @@ public final class LibLoader {
         logger.log(logLevel, fileOut.toString());
         System.load(fileOut.toString());
         logger.log(logLevel, "DONE: Loading library as resource.");
-    }
-
-    /**
-     * Construct library file name
-     *
-     * @param name library name
-     * @return constructed file name
-     */
-    public static String createLibraryFileName(String name) throws IOException {
-        String fullName;
-
-        String OSname = System.getProperty("os.name");
-        OSname = OSname.toLowerCase();
-
-        if (OSname.startsWith("windows")) {
-            fullName = name + ".dll";
-            return fullName;
-        }
-
-        if (OSname.startsWith("linux")) {
-            if (name.contains("tbb")) {
-                fullName = "lib" + name + ".so.2";
-            } else {
-                fullName = "lib" + name + ".so";
-            }
-            return fullName;
-        }
-
-        if (OSname.startsWith("mac os")) {
-            fullName = "lib" + name + ".dylib";
-            return fullName;
-        }
-
-        throw new IOException("Error: Unknown OS " + OSname);
     }
 
     /**

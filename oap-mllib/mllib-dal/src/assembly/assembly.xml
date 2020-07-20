@@ -53,4 +53,29 @@
             </includes>
         </fileSet>
     </fileSets>
+    <!-- Include oneCCL libraries into JAR  -->
+    <files>
+        <file>
+            <source>${env.CCL_ROOT}/lib/libpmi.so.1</source>
+            <outputDirectory>lib</outputDirectory>
+        </file>
+        <file>
+            <source>${env.CCL_ROOT}/lib/libresizable_pmi.so.1</source>
+            <outputDirectory>lib</outputDirectory>
+        </file>
+        <file>
+            <source>${env.CCL_ROOT}/lib//libfabric.so.1</source>
+            <outputDirectory>lib</outputDirectory>
+        </file>
+        <file>
+            <source>${env.CCL_ROOT}/lib/prov/libsockets-fi.so</source>
+            <outputDirectory>lib</outputDirectory>
+        </file>
+        <file>
+            <!-- Should rename to XXX.so for ATL to load -->
+            <source>${env.CCL_ROOT}/lib/libccl_atl_ofi.so.1</source>
+            <outputDirectory>lib</outputDirectory>
+            <destName>libccl_atl_ofi.so</destName>
+        </file>
+    </files>
 </assembly>
