@@ -45,8 +45,8 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
-    "concatTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "concat batch time total"),
-    "collectTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "collect batch time total"),
+    "concatTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "concat batch time"),
+    "collectTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "collect batch time"),
     "avgCoalescedNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg coalesced batch num rows"))
   // TODO: peak device memory total
