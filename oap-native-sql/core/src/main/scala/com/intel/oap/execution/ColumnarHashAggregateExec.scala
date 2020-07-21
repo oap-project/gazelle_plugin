@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit._
 import org.apache.spark.TaskContext
 import org.apache.spark.memory.{SparkOutOfMemoryError, TaskMemoryManager}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.{Utils, UserAddedJarUtils}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.errors._
 import org.apache.spark.sql.catalyst.expressions._
@@ -82,16 +83,49 @@ class ColumnarHashAggregateExec(
     "elapseTime" -> SQLMetrics
       .createTimingMetric(sparkContext, "elapse time from very begin to this process"))
 
-  override def doExecuteColumnar(): RDD[ColumnarBatch] = {
-    val numOutputRows = longMetric("numOutputRows")
-    val numOutputBatches = longMetric("numOutputBatches")
-    val numInputBatches = longMetric("numInputBatches")
-    val aggTime = longMetric("aggTime")
-    val elapseTime = longMetric("elapseTime")
-    numOutputRows.set(0)
-    numOutputBatches.set(0)
-    numInputBatches.set(0)
+  val numOutputRows = longMetric("numOutputRows")
+  val numOutputBatches = longMetric("numOutputBatches")
+  val numInputBatches = longMetric("numInputBatches")
+  val aggTime = longMetric("aggTime")
+  val elapseTime = longMetric("elapseTime")
+  numOutputRows.set(0)
+  numOutputBatches.set(0)
+  numInputBatches.set(0)
 
+  val (listJars, signature): (Seq[String], String) =
+    if (ColumnarPluginConfig
+          .getConf(sparkConf)
+          .enableCodegenHashAggregate && groupingExpressions.nonEmpty) {
+      val signature = ColumnarGroupbyHashAggregation.prebuild(
+        groupingExpressions,
+        child.output,
+        aggregateExpressions,
+        aggregateAttributes,
+        resultExpressions,
+        output,
+        numInputBatches,
+        numOutputBatches,
+        numOutputRows,
+        aggTime,
+        elapseTime,
+        sparkConf)
+      if (signature != "") {
+        if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
+          val tempDir = ColumnarPluginConfig.getTempFile
+          val jarFileName =
+            s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+          sparkContext.addJar(jarFileName)
+        }
+        (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")), signature)
+      } else {
+        (List(), "")
+      }
+    } else {
+      (List(), "")
+    }
+  listJars.foreach(jar => logWarning(s"Uploaded ${jar}"))
+
+  override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>
       val hasInput = iter.hasNext
       val res = if (!hasInput) {
@@ -102,21 +136,31 @@ class ColumnarHashAggregateExec(
         if (ColumnarPluginConfig
               .getConf(sparkConf)
               .enableCodegenHashAggregate && groupingExpressions.nonEmpty) {
-          val aggregation =
-            ColumnarGroupbyHashAggregation.create(
-              partIndex,
-              groupingExpressions,
-              child.output,
-              aggregateExpressions,
-              aggregateAttributes,
-              resultExpressions,
-              output,
-              numInputBatches,
-              numOutputBatches,
-              numOutputRows,
-              aggTime,
-              elapseTime,
-              sparkConf)
+          val execTempDir = ColumnarPluginConfig.getTempFile
+          val jarList = listJars
+            .map(jarUrl => {
+              logWarning(s"Get Codegened library Jar ${jarUrl}")
+              UserAddedJarUtils.fetchJarFromSpark(
+                jarUrl,
+                execTempDir,
+                s"spark-columnar-plugin-codegen-precompile-${signature}.jar",
+                sparkConf)
+              s"${execTempDir}/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+            })
+          val aggregation = ColumnarGroupbyHashAggregation.create(
+            groupingExpressions,
+            child.output,
+            aggregateExpressions,
+            aggregateAttributes,
+            resultExpressions,
+            output,
+            jarList,
+            numInputBatches,
+            numOutputBatches,
+            numOutputRows,
+            aggTime,
+            elapseTime,
+            sparkConf)
           TaskContext
             .get()
             .addTaskCompletionListener[Unit](_ => {
@@ -124,21 +168,20 @@ class ColumnarHashAggregateExec(
             })
           new CloseableColumnBatchIterator(aggregation.createIterator(iter))
         } else {
-          val aggregation =
-            ColumnarAggregation.create(
-              partIndex,
-              groupingExpressions,
-              child.output,
-              aggregateExpressions,
-              aggregateAttributes,
-              resultExpressions,
-              output,
-              numInputBatches,
-              numOutputBatches,
-              numOutputRows,
-              aggTime,
-              elapseTime,
-              sparkConf)
+          var aggregation = ColumnarAggregation.create(
+            partIndex,
+            groupingExpressions,
+            child.output,
+            aggregateExpressions,
+            aggregateAttributes,
+            resultExpressions,
+            output,
+            numInputBatches,
+            numOutputBatches,
+            numOutputRows,
+            aggTime,
+            elapseTime,
+            sparkConf)
           TaskContext
             .get()
             .addTaskCompletionListener[Unit](_ => {

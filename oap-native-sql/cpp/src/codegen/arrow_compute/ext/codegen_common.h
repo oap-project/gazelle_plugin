@@ -18,6 +18,8 @@
 #pragma once
 #include <arrow/compute/context.h>
 #include <arrow/type.h>
+#include <gandiva/node.h>
+#include <gandiva/tree_expr_builder.h>
 
 #include <sstream>
 #include <string>
@@ -40,8 +42,8 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type);
 std::string GetCTypeString(std::shared_ptr<arrow::DataType> type);
 std::string GetTypeString(std::shared_ptr<arrow::DataType> type,
                           std::string tail = "Type");
-std::string GetTypedArrayDefineString(std::shared_ptr<arrow::DataType> type,
-                                      std::string name);
+gandiva::ExpressionPtr GetConcatedKernel(
+    std::vector<std::shared_ptr<arrow::Field>> key_list);
 template <typename T>
 std::string GetStringFromList(std::vector<T> list) {
   std::stringstream ss;

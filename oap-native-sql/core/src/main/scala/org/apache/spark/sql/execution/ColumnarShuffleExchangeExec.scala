@@ -296,9 +296,7 @@ object ColumnarShuffleExchangeExec extends Logging {
     val pidVec = new IntVector("pid", vectors(0).getAllocator)
 
     pidVec.allocateNew(length)
-    (0 until length).foreach { i =>
-      pidVec.set(i, partitionIds(i))
-    }
+    (0 until length).foreach { i => pidVec.set(i, partitionIds(i)) }
     pidVec.setValueCount(length)
 
     val newVectors = ArrowWritableColumnVector.loadColumns(length, (pidVec +: vectors).asJava)
@@ -312,9 +310,7 @@ case class CloseablePairedColumnarBatchIterator(iter: Iterator[(Int, ColumnarBat
 
   private var cur: (Int, ColumnarBatch) = _
 
-  TaskContext.get().addTaskCompletionListener[Unit] { _ =>
-    closeAppendedVector()
-  }
+  TaskContext.get().addTaskCompletionListener[Unit] { _ => closeAppendedVector() }
 
   private def closeAppendedVector(): Unit = {
     if (cur != null) {

@@ -189,18 +189,18 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
                   "(I[Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;"
                   "[Lcom/intel/oap/vectorized/ArrowBufBuilder;)V");
 
-  arrow_field_node_builder_class = CreateGlobalClassReference(
-      env, "Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;");
+  arrow_field_node_builder_class =
+      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;");
   arrow_field_node_builder_constructor =
       GetMethodID(env, arrow_field_node_builder_class, "<init>", "(II)V");
 
-  arrowbuf_builder_class = CreateGlobalClassReference(
-      env, "Lcom/intel/oap/vectorized/ArrowBufBuilder;");
+  arrowbuf_builder_class =
+      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/ArrowBufBuilder;");
   arrowbuf_builder_constructor =
       GetMethodID(env, arrowbuf_builder_class, "<init>", "(JJIJ)V");
 
-  partition_file_info_class = CreateGlobalClassReference(
-      env, "Lcom/intel/oap/vectorized/PartitionFileInfo;");
+  partition_file_info_class =
+      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/PartitionFileInfo;");
   partition_file_info_constructor =
       GetMethodID(env, partition_file_info_class, "<init>", "(ILjava/lang/String;)V");
 
@@ -276,7 +276,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
   }
 
   for (auto expr : expr_vector) {
-    std::cout << expr->ToString() << std::endl;
+    std::cerr << expr->ToString() << std::endl;
   }
 
   std::shared_ptr<CodeGenerator> handler;
@@ -362,8 +362,9 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetReturnField
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(
-    JNIEnv* env, jobject obj, jlong id) {
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(JNIEnv* env,
+                                                                        jobject obj,
+                                                                        jlong id) {
   auto handler = GetCodeGenerator(env, id);
   if (handler.use_count() > 2) {
     std::cout << "evaluator ptr use count is " << handler.use_count() - 1 << std::endl;
@@ -426,6 +427,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 
   return record_batch_builder_array;
+}
+
+JNIEXPORT jstring JNICALL
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeGetSignature(
+    JNIEnv* env, jobject obj, jlong id) {
+  arrow::Status status;
+  std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
+  return env->NewStringUTF((handler->GetSignature()).c_str());
 }
 
 JNIEXPORT jobject JNICALL
@@ -521,8 +530,9 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMember(
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(
-    JNIEnv* env, jobject obj, jlong id) {
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(JNIEnv* env,
+                                                                         jobject obj,
+                                                                         jlong id) {
   arrow::Status status;
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
@@ -578,10 +588,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetDependency(
   }
 }
 
-JNIEXPORT jobject JNICALL
-Java_com_intel_oap_vectorized_BatchIterator_nativeNext(JNIEnv* env,
-                                                                       jobject obj,
-                                                                       jlong id) {
+JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeNext(
+    JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   auto iter = GetBatchIterator(env, id);
   std::shared_ptr<arrow::RecordBatch> out;
@@ -596,8 +604,7 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeNext(JNIEnv* env,
   return MakeRecordBatchBuilder(env, out->schema(), out);
 }
 
-JNIEXPORT jobject JNICALL
-Java_com_intel_oap_vectorized_BatchIterator_nativeProcess(
+JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeProcess(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes) {
   arrow::Status status;
@@ -795,10 +802,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_BatchIterator_nativeClose(JNIEnv* env,
-                                                                        jobject this_obj,
-                                                                        jlong id) {
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeClose(
+    JNIEnv* env, jobject this_obj, jlong id) {
 #ifdef DEBUG
   auto it = batch_iterator_holder_.Lookup(id);
   if (it.use_count() > 2) {
@@ -809,8 +814,9 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeClose(JNIEnv* env,
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(
-    JNIEnv* env, jobject this_obj, jlong id) {
+Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(JNIEnv* env,
+                                                                    jobject this_obj,
+                                                                    jlong id) {
 #ifdef DEBUG
   auto it = buffer_holder_.Lookup(id);
   if (it.use_count() > 2) {
@@ -941,8 +947,9 @@ Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeCloseParquet
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeReadNext(
-    JNIEnv* env, jobject obj, jlong id) {
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeReadNext(JNIEnv* env,
+                                                                             jobject obj,
+                                                                             jlong id) {
   arrow::Status status;
   auto reader = GetFileReader(env, id);
 
@@ -961,8 +968,9 @@ Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeReadNext(
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeGetSchema(
-    JNIEnv* env, jobject obj, jlong id) {
+Java_com_intel_oap_datasource_parquet_ParquetReaderJniWrapper_nativeGetSchema(JNIEnv* env,
+                                                                              jobject obj,
+                                                                              jlong id) {
   arrow::Status status;
   auto reader = GetFileReader(env, id);
   std::shared_ptr<arrow::Schema> schema;
@@ -1085,8 +1093,7 @@ Java_com_intel_oap_datasource_parquet_ParquetWriterJniWrapper_nativeWriteNext(
   env->ReleaseLongArrayElements(bufSizes, in_buf_sizes, JNI_ABORT);
 }
 
-JNIEXPORT jlong JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_make(
+JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_make(
     JNIEnv* env, jobject, jbyteArray schema_arr, jlong buffer_size, jstring pathObj) {
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status status;
@@ -1114,8 +1121,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_make(
   return shuffle_splitter_holder_.Insert(std::shared_ptr<Splitter>(*result));
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
     JNIEnv* env, jobject, jlong splitter_id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
@@ -1149,8 +1155,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
   }
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
     JNIEnv* env, jobject, jlong splitter_id) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
   auto status = splitter->Stop();
@@ -1235,14 +1240,12 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_getTotalBytesWritten(
   return (jlong)*result;
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_close(
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_close(
     JNIEnv* env, jobject, jlong splitter_id) {
   shuffle_splitter_holder_.Erase(splitter_id);
 }
 
-JNIEXPORT jlong JNICALL
-Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_make(
+JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_make(
     JNIEnv* env, jobject, jbyteArray schema_arr) {
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status status;
@@ -1361,8 +1364,7 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
       env, schema, arrow::RecordBatch::Make(schema, num_rows, std::move(arrays)));
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(
     JNIEnv* env, jobject, jlong schema_holder_id) {
   decompression_schema_holder_.Erase(schema_holder_id);
 }

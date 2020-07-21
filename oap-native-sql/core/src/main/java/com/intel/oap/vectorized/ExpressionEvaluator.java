@@ -38,71 +38,75 @@ public class ExpressionEvaluator implements AutoCloseable {
   private ExpressionEvaluatorJniWrapper jniWrapper;
 
   /** Wrapper for native API. */
-  public ExpressionEvaluator() throws IOException {
+  public ExpressionEvaluator() throws IOException, IllegalAccessException, IllegalStateException {
+    this(java.util.Collections.emptyList());
+  }
+
+  public ExpressionEvaluator(List<String> listJars) throws IOException, IllegalAccessException, IllegalStateException {
     String tmp_dir = ColumnarPluginConfig.getTempFile();
     if (tmp_dir == null) {
       tmp_dir = System.getProperty("java.io.tmpdir");
     }
-    jniWrapper = new ExpressionEvaluatorJniWrapper(tmp_dir);
+    jniWrapper = new ExpressionEvaluatorJniWrapper(tmp_dir, listJars);
     jniWrapper.nativeSetJavaTmpDir(tmp_dir);
     jniWrapper.nativeSetBatchSize(ColumnarPluginConfig.getBatchSize());
   }
 
   /** Convert ExpressionTree into native function. */
-  public void build(Schema schema, List<ExpressionTree> exprs)
+  public String build(Schema schema, List<ExpressionTree> exprs)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(
-        getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), null, false);
+    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), null, false);
+    return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
-  public void build(Schema schema, List<ExpressionTree> exprs, boolean finishReturn)
+  public String build(Schema schema, List<ExpressionTree> exprs, boolean finishReturn)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(
-        getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), null, finishReturn);
+    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), null, finishReturn);
+    return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
-  public void build(Schema schema, List<ExpressionTree> exprs, Schema resSchema)
+  public String build(Schema schema, List<ExpressionTree> exprs, Schema resSchema)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema),
-        getExprListBytesBuf(exprs), getSchemaBytesBuf(resSchema), false);
+    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs),
+        getSchemaBytesBuf(resSchema), false);
+    return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
-  public void build(Schema schema, List<ExpressionTree> exprs, Schema resSchema,
-      boolean finishReturn) throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema),
-        getExprListBytesBuf(exprs), getSchemaBytesBuf(resSchema), finishReturn);
+  public String build(Schema schema, List<ExpressionTree> exprs, Schema resSchema, boolean finishReturn)
+      throws RuntimeException, IOException, GandivaException {
+    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs),
+        getSchemaBytesBuf(resSchema), finishReturn);
+    return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
-  public void build(
-      Schema schema, List<ExpressionTree> exprs, List<ExpressionTree> finish_exprs)
+  public String build(Schema schema, List<ExpressionTree> exprs, List<ExpressionTree> finish_exprs)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuildWithFinish(getSchemaBytesBuf(schema),
-        getExprListBytesBuf(exprs), getExprListBytesBuf(finish_exprs));
+    nativeHandler = jniWrapper.nativeBuildWithFinish(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs),
+        getExprListBytesBuf(finish_exprs));
+    return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Set result Schema in some special cases */
-  public void setReturnFields(Schema schema)
-      throws RuntimeException, IOException, GandivaException {
+  public void setReturnFields(Schema schema) throws RuntimeException, IOException, GandivaException {
     jniWrapper.nativeSetReturnFields(nativeHandler, getSchemaBytesBuf(schema));
   }
 
   /**
    * Evaluate input data using builded native function, and output as recordBatch.
    */
-  public ArrowRecordBatch[] evaluate(ArrowRecordBatch recordBatch)
-      throws RuntimeException, IOException {
+  public ArrowRecordBatch[] evaluate(ArrowRecordBatch recordBatch) throws RuntimeException, IOException {
     return evaluate(recordBatch, null);
   }
 
   /**
    * Evaluate input data using builded native function, and output as recordBatch.
    */
-  public ArrowRecordBatch[] evaluate(ArrowRecordBatch recordBatch,
-      SelectionVectorInt16 selectionVector) throws RuntimeException, IOException {
+  public ArrowRecordBatch[] evaluate(ArrowRecordBatch recordBatch, SelectionVectorInt16 selectionVector)
+      throws RuntimeException, IOException {
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
     long[] bufAddrs = new long[buffers.size()];
@@ -122,22 +126,19 @@ public class ExpressionEvaluator implements AutoCloseable {
       int selectionVectorRecordCount = selectionVector.getRecordCount();
       long selectionVectorAddr = selectionVector.getBuffer().memoryAddress();
       long selectionVectorSize = selectionVector.getBuffer().capacity();
-      resRecordBatchBuilderList = jniWrapper.nativeEvaluateWithSelection(nativeHandler,
-          recordBatch.getLength(), bufAddrs, bufSizes, selectionVectorRecordCount,
-          selectionVectorAddr, selectionVectorSize);
+      resRecordBatchBuilderList = jniWrapper.nativeEvaluateWithSelection(nativeHandler, recordBatch.getLength(),
+          bufAddrs, bufSizes, selectionVectorRecordCount, selectionVectorAddr, selectionVectorSize);
     } else {
-      resRecordBatchBuilderList = jniWrapper.nativeEvaluate(
-          nativeHandler, recordBatch.getLength(), bufAddrs, bufSizes);
+      resRecordBatchBuilderList = jniWrapper.nativeEvaluate(nativeHandler, recordBatch.getLength(), bufAddrs, bufSizes);
     }
-    ArrowRecordBatch[] recordBatchList =
-        new ArrowRecordBatch[resRecordBatchBuilderList.length];
+    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[resRecordBatchBuilderList.length];
     for (int i = 0; i < resRecordBatchBuilderList.length; i++) {
       if (resRecordBatchBuilderList[i] == null) {
         recordBatchList[i] = null;
         break;
       }
-      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl =
-          new ArrowRecordBatchBuilderImpl(resRecordBatchBuilderList[i]);
+      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl = new ArrowRecordBatchBuilderImpl(
+          resRecordBatchBuilderList[i]);
       recordBatchList[i] = resRecordBatchBuilderImpl.build();
     }
     return recordBatchList;
@@ -146,8 +147,7 @@ public class ExpressionEvaluator implements AutoCloseable {
   /**
    * Evaluate input data using builded native function, and output as recordBatch.
    */
-  public void SetMember(ArrowRecordBatch recordBatch)
-      throws RuntimeException, IOException {
+  public void SetMember(ArrowRecordBatch recordBatch) throws RuntimeException, IOException {
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
     long[] bufAddrs = new long[buffers.size()];
@@ -162,22 +162,19 @@ public class ExpressionEvaluator implements AutoCloseable {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
-    jniWrapper.nativeSetMember(
-        nativeHandler, recordBatch.getLength(), bufAddrs, bufSizes);
+    jniWrapper.nativeSetMember(nativeHandler, recordBatch.getLength(), bufAddrs, bufSizes);
   }
 
   public ArrowRecordBatch[] finish() throws RuntimeException, IOException {
-    ArrowRecordBatchBuilder[] resRecordBatchBuilderList =
-        jniWrapper.nativeFinish(nativeHandler);
-    ArrowRecordBatch[] recordBatchList =
-        new ArrowRecordBatch[resRecordBatchBuilderList.length];
+    ArrowRecordBatchBuilder[] resRecordBatchBuilderList = jniWrapper.nativeFinish(nativeHandler);
+    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[resRecordBatchBuilderList.length];
     for (int i = 0; i < resRecordBatchBuilderList.length; i++) {
       if (resRecordBatchBuilderList[i] == null) {
         recordBatchList[i] = null;
         break;
       }
-      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl =
-          new ArrowRecordBatchBuilderImpl(resRecordBatchBuilderList[i]);
+      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl = new ArrowRecordBatchBuilderImpl(
+          resRecordBatchBuilderList[i]);
       recordBatchList[i] = resRecordBatchBuilderImpl.build();
     }
     return recordBatchList;
@@ -192,8 +189,7 @@ public class ExpressionEvaluator implements AutoCloseable {
     jniWrapper.nativeSetDependency(nativeHandler, child.getInstanceId(), -1);
   }
 
-  public void setDependency(BatchIterator child, int index)
-      throws RuntimeException, IOException {
+  public void setDependency(BatchIterator child, int index) throws RuntimeException, IOException {
     jniWrapper.nativeSetDependency(nativeHandler, child.getInstanceId(), index);
   }
 
@@ -209,8 +205,7 @@ public class ExpressionEvaluator implements AutoCloseable {
   }
 
   byte[] getExprListBytesBuf(List<ExpressionTree> exprs) throws GandivaException {
-    GandivaTypes.ExpressionList.Builder builder =
-        GandivaTypes.ExpressionList.newBuilder();
+    GandivaTypes.ExpressionList.Builder builder = GandivaTypes.ExpressionList.newBuilder();
     for (ExpressionTree expr : exprs) {
       builder.addExprs(expr.toProtobuf());
     }

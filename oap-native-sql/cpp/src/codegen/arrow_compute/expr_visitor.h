@@ -130,6 +130,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
                      const std::shared_ptr<arrow::RecordBatch>& in);
   arrow::Status Eval(const std::shared_ptr<arrow::RecordBatch>& in);
   arrow::Status Eval();
+  std::string GetSignature() { return signature_; }
   arrow::Status SetMember(const std::shared_ptr<arrow::RecordBatch>& ms);
   arrow::Status SetDependency(
       const std::shared_ptr<ResultIterator<arrow::RecordBatch>>& dependency_iter,
@@ -161,6 +162,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   // Input data holder.
   std::shared_ptr<arrow::Schema> schema_;
   std::string func_name_;
+  std::string signature_;
   std::shared_ptr<ExprVisitor> dependency_;
   std::shared_ptr<arrow::Array> in_selection_array_;
   std::shared_ptr<arrow::RecordBatch> in_record_batch_;

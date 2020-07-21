@@ -61,9 +61,11 @@ class TypedActionCodeGenImpl {
     auto name = "projection_" + signature_ss.str();
     auto res_field = arrow::field(name, func_node->return_type());
     named_projector_ = gandiva::TreeExprBuilder::MakeExpression(func_node, res_field);
+#ifdef DEBUG
     std::cout << "MakeGandivaProjection: " << named_projector_->ToString()
               << ", result_field is " << named_projector_->result()->ToString()
               << std::endl;
+#endif
     return arrow::Status::OK();
   }
 
@@ -91,9 +93,11 @@ class TypedActionCodeGenImpl {
       if (action_name_.size() > 14) {
         keep = false;
       }
-      *action_codegen = std::make_shared<GroupByActionCodeGen>(
-          name, keep, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+      if (input_fields_list_.size() != 0) {
+        *action_codegen = std::make_shared<GroupByActionCodeGen>(
+            name, keep, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
+            named_projector_);
+      }
 
     } else if (action_name_.compare("action_sum") == 0) {
       std::string name;

@@ -20,7 +20,9 @@
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
+
 #include <chrono>
+
 #include "codegen/arrow_compute/expr_visitor.h"
 #include "codegen/code_generator.h"
 #include "codegen/common/result_iterator.h"
@@ -191,6 +193,14 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     return status;
   }
 
+  std::string GetSignature() override {
+    std::stringstream ss;
+    for (auto visitor : visitor_list_) {
+      ss << visitor->GetSignature();
+    }
+    return ss.str();
+  }
+
   arrow::Status finish(std::vector<std::shared_ptr<arrow::RecordBatch>>* out) {
     arrow::Status status = arrow::Status::OK();
     std::vector<ArrayList> batch_array;
@@ -206,8 +216,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
       } else {
         RETURN_NOT_OK(GetResult(visitor, &batch_array, &batch_size_array, &fields));
       }
-      visitor->PrintMetrics();
-      std::cout << std::endl;
+      // visitor->PrintMetrics();
+      // std::cout << std::endl;
     }
 
     res_schema_ = arrow::schema(ret_types_);
@@ -227,8 +237,6 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
       RETURN_NOT_OK(visitor->Reset());
     }
 
-    std::cout << "Evaluate took " << TIME_TO_STRING(eval_elapse_time_) << ", Finish took "
-              << TIME_TO_STRING(finish_elapse_time_) << std::endl;
     return status;
   }
 

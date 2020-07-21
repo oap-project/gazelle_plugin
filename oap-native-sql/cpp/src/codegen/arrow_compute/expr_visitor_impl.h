@@ -371,6 +371,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
     }
     RETURN_NOT_OK(extra::SortArraysToIndicesKernel::Make(
         &p_->ctx_, field_list, p_->schema_, &kernel_, nulls_first_, asc_));
+    p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     return arrow::Status::OK();
   }
@@ -383,7 +384,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
           col_list.push_back(col);
         }
         RETURN_NOT_OK(kernel_->Evaluate(col_list));
-        finish_return_type_ = ArrowComputeResultType::Batch;
+        finish_return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -396,7 +397,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
     switch (finish_return_type_) {
-      case ArrowComputeResultType::Batch: {
+      case ArrowComputeResultType::BatchIterator: {
         TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
         p_->return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
@@ -452,6 +453,7 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
     RETURN_NOT_OK(extra::ConditionedProbeArraysKernel::Make(
         &p_->ctx_, left_key_list_, right_key_list_, func_node_, join_type_,
         left_field_list_, right_field_list_, arrow::schema(ret_fields_), &kernel_));
+    p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     return arrow::Status::OK();
   }
@@ -527,6 +529,7 @@ class HashAggregateArraysVisitorImpl : public ExprVisitorImpl {
     }
     RETURN_NOT_OK(extra::HashAggregateKernel::Make(&p_->ctx_, field_list_, action_list_,
                                                    arrow::schema(ret_fields_), &kernel_));
+    p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     return arrow::Status::OK();
   }

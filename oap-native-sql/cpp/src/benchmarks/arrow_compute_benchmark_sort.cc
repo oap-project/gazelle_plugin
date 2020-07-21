@@ -96,7 +96,7 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
       TIME_MICRO_OR_THROW(elapse_shuffle, sort_result_iterator->Next(&result_batch));
       num_output_batches++;
     }
-    arrow::PrettyPrint(*result_batch.get(), 2, &std::cout);
+    // arrow::PrettyPrint(*result_batch.get(), 2, &std::cout);
 
     std::cout << "==================== Summary ====================\n"
               << "BenchmarkArrowComputeJoin processed " << num_batches
@@ -145,6 +145,39 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmark) {
   }
   auto n_sort_to_indices =
       TreeExprBuilder::MakeFunction("sortArraysToIndicesNullsFirstAsc",
+                                    {gandiva_field_list[primary_key_index]}, uint64());
+  std::shared_ptr<arrow::Schema> schema;
+  schema = arrow::schema(field_list);
+  std::cout << schema->ToString() << std::endl;
+
+  ::gandiva::ExpressionPtr sortArrays_expr;
+  sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort_to_indices, f_res);
+
+  std::shared_ptr<CodeGenerator> sort_expr;
+  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(schema, {sortArrays_expr},
+                                                      ret_field_list, &sort_expr, true));
+
+  ///////////////////// Calculation //////////////////
+  StartWithIterator(sort_expr);
+}
+
+TEST_F(BenchmarkArrowComputeSort, SortBenchmarkDesc) {
+  elapse_gen = 0;
+  elapse_read = 0;
+  elapse_eval = 0;
+  elapse_sort = 0;
+  elapse_shuffle = 0;
+  num_batches = 0;
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
+  f_res = field("res", arrow::uint64());
+
+  std::vector<std::shared_ptr<::gandiva::Node>> gandiva_field_list;
+  for (auto field : field_list) {
+    gandiva_field_list.push_back(TreeExprBuilder::MakeField(field));
+  }
+  auto n_sort_to_indices =
+      TreeExprBuilder::MakeFunction("sortArraysToIndicesNullsFirstDesc",
                                     {gandiva_field_list[primary_key_index]}, uint64());
   std::shared_ptr<arrow::Schema> schema;
   schema = arrow::schema(field_list);

@@ -20,9 +20,11 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit._
 
 import com.intel.oap.vectorized._
+import com.intel.oap.ColumnarPluginConfig
 
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.{Utils, UserAddedJarUtils}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.codegen._
@@ -33,6 +35,8 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 
 import scala.collection.JavaConverters._
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.catalyst.expressions.BoundReference
+import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReference
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import scala.collection.mutable.ListBuffer
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode
@@ -72,18 +76,68 @@ class ColumnarShuffledHashJoinExec(
 
   override def supportsColumnar = true
 
+  val numOutputRows = longMetric("numOutputRows")
+  val joinTime = longMetric("joinTime")
+  val buildTime = longMetric("buildTime")
+  val resultSchema = this.schema
+
   //TODO() Disable code generation
   //override def supportCodegen: Boolean = false
 
+  val signature =
+    if (resultSchema.size > 0 && !leftKeys
+          .filter(expr => bindReference(expr, left.output, true).isInstanceOf[BoundReference])
+          .isEmpty && !rightKeys
+          .filter(expr => bindReference(expr, right.output, true).isInstanceOf[BoundReference])
+          .isEmpty) {
+
+      ColumnarShuffledHashJoin.prebuild(
+        leftKeys,
+        rightKeys,
+        resultSchema,
+        joinType,
+        buildSide,
+        condition,
+        left,
+        right,
+        buildTime,
+        joinTime,
+        numOutputRows,
+        sparkConf)
+    } else {
+      ""
+    }
+  val listJars = if (signature != "") {
+    if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
+      val tempDir = ColumnarPluginConfig.getTempFile
+      val jarFileName =
+        s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+      sparkContext.addJar(jarFileName)
+    }
+    sparkContext.listJars.filter(path => path.contains(s"${signature}.jar"))
+  } else {
+    List()
+  }
+  listJars.foreach(jar => logWarning(s"Uploaded ${jar}"))
+
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
-    val numOutputRows = longMetric("numOutputRows")
-    val joinTime = longMetric("joinTime")
-    val buildTime = longMetric("buildTime")
-    val resultSchema = this.schema
     streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
       (streamIter, buildIter) =>
         //val hashed = buildHashedRelation(buildIter)
         //join(streamIter, hashed, numOutputRows)
+        ColumnarPluginConfig.getConf(sparkConf)
+        val execTempDir = ColumnarPluginConfig.getTempFile
+        val jarList = listJars
+          .map(jarUrl => {
+            logWarning(s"Get Codegened library Jar ${jarUrl}")
+            UserAddedJarUtils.fetchJarFromSpark(
+              jarUrl,
+              execTempDir,
+              s"spark-columnar-plugin-codegen-precompile-${signature}.jar",
+              sparkConf)
+            s"${execTempDir}/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+          })
+
         val vjoin = ColumnarShuffledHashJoin.create(
           leftKeys,
           rightKeys,
@@ -93,16 +147,17 @@ class ColumnarShuffledHashJoinExec(
           condition,
           left,
           right,
+          jarList,
           buildTime,
           joinTime,
           numOutputRows,
           sparkConf)
-        val vjoinResult = vjoin.columnarInnerJoin(streamIter, buildIter)
         TaskContext
           .get()
           .addTaskCompletionListener[Unit](_ => {
             vjoin.close()
           })
+        val vjoinResult = vjoin.columnarJoin(streamIter, buildIter)
         new CloseableColumnBatchIterator(vjoinResult)
     }
   }

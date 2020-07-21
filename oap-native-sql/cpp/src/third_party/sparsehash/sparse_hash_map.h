@@ -1,5 +1,6 @@
 #include <arrow/compute/context.h>
 #include <arrow/status.h>
+
 #include "sparsehash/dense_hash_map"
 
 using google::dense_hash_map;
@@ -10,7 +11,9 @@ template <typename Scalar>
 class SparseHashMap {
  public:
   SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) { dense_map_.set_empty_key(0); }
+  SparseHashMap(arrow::MemoryPool* pool) {
+    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
+  }
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {

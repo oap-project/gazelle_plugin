@@ -15,7 +15,14 @@
  * limitations under the License.
  */
 
+#include <arrow/builder.h>
 #include <arrow/pretty_print.h>
+#include <arrow/record_batch.h>
+#include <arrow/status.h>
+#include <arrow/type.h>
+#include <gandiva/arrow.h>
+#include <gandiva/gandiva_aliases.h>
+#include <gandiva/tree_expr_builder.h>
 #include <google/protobuf/io/coded_stream.h>
 
 #include <map>
@@ -26,14 +33,7 @@
 #include <utility>
 #include <vector>
 
-#include <arrow/builder.h>
-#include <arrow/record_batch.h>
-#include <arrow/status.h>
-#include <arrow/type.h>
-
-#include <gandiva/arrow.h>
-#include <gandiva/gandiva_aliases.h>
-#include <gandiva/tree_expr_builder.h>
+#include "proto/protobuf_utils.h"
 
 static jclass io_exception_class;
 static jclass illegal_access_exception_class;

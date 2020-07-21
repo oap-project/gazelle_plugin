@@ -17,6 +17,10 @@
 
 package com.intel.oap
 
+import java.util.Locale
+
+import java.io.{File, BufferedReader, InputStreamReader};
+import java.nio.file.Files;
 import com.intel.oap.execution._
 
 import org.apache.spark.SparkConf
@@ -34,6 +38,7 @@ import org.apache.spark.sql.execution.exchange.{ReusedExchangeExec, ShuffleExcha
 import org.apache.spark.sql.execution.joins.ShuffledHashJoinExec
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
+import java.io.IOException
 
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getConf(conf)
@@ -169,6 +174,7 @@ case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   def apply(plan: SparkPlan): SparkPlan = {
     replaceWithColumnarPlan(plan)
   }
+
 }
 
 case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule with Logging {
@@ -193,6 +199,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
       plan
     }
   }
+
 }
 
 /**

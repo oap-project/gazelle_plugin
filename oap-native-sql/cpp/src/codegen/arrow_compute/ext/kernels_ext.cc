@@ -196,10 +196,7 @@ class SplitArrayListWithActionKernel::Impl {
                                     std::shared_ptr<arrow::RecordBatch>* out)>
             eval_func)
         : ctx_(ctx), total_length_(total_length), eval_func_(eval_func) {}
-    ~SplitArrayWithActionResultIterator() {
-      std::cout << "SplitArrayWithActionResultIterator total took " << elapse_time_
-                << " us." << std::endl;
-    }
+    ~SplitArrayWithActionResultIterator() {}
 
     std::string ToString() override { return "SplitArrayWithActionResultIterator"; }
 
@@ -938,7 +935,9 @@ class HashArrayKernel::Impl {
     }
     expr = gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
                                                     arrow::field("res", arrow::int32()));
+#ifdef DEBUG
     std::cout << expr->ToString() << std::endl;
+#endif
     schema_ = arrow::schema(field_list);
     auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
     auto status = gandiva::Projector::Make(schema_, {expr}, configuration, &projector);

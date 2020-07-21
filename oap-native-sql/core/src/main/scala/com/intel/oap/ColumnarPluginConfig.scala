@@ -58,7 +58,7 @@ object ColumnarPluginConfig {
     }
   }
   def getTempFile: String = synchronized {
-    if (ins != null) {
+    if (ins != null && ins.tmpFile != null) {
       ins.tmpFile
     } else {
       System.getProperty("java.io.tmpdir")
