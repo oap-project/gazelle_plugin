@@ -13,6 +13,7 @@ Please refer to the corresponding documents below for the introduction and how t
 * [RDD Cache PMem Extension](./oap-spark/README.md)
 * [Shuffle Remote PMem Extension](./oap-shuffle/RPMem-shuffle/README.md)
 * [Remote Shuffle](./oap-shuffle/remote-shuffle/README.md)
+* [Intel MLlib](./oap-mllib/README.md)
 
 ## Developer Guide
 Please follow the below link for the guide for developers.

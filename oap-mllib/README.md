@@ -86,7 +86,7 @@ Scala and Java dependency descriptions are already included in Maven POM file.
 To clone and build latest code from open source oneCCL, run the following commands:
 ```
 	$ git clone https://github.com/oneapi-src/oneCCL
-	$ mkdir build && cd build
+	$ cd oneCCL && mkdir build && cd build
 	$ cmake ..
 	$ make -j install
 ```
@@ -97,8 +97,11 @@ The generated files will be placed in `/your/oneCCL_source_code/build/_install`
 
 To clone and checkout source code, run the following commands:
 ```
-    $ git clone https://github.com/Intel-bigdata/OAP
-    $ git checkout -b branch-0.9-spark-3.x origin/branch-0.9-spark-3.x (Optional to checkout specific release branch)
+    $ git clone https://github.com/Intel-bigdata/OAP    
+```
+__Optional__ to checkout specific release branch:
+```
+    $ git checkout -b branch-0.9-spark-3.x origin/branch-0.9-spark-3.x
 ```
 
 We rely on environment variables to find required toolchains and libraries. Please make sure the following environment variables are set for building:
