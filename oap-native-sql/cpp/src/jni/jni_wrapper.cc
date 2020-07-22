@@ -25,15 +25,16 @@
 #include <arrow/record_batch.h>
 #include <arrow/util/compression.h>
 #include <jni.h>
+
 #include <iostream>
 #include <string>
-#include "data_source/parquet/adapter.h"
-#include "proto/protobuf_utils.h"
 
 #include "codegen/code_generator_factory.h"
 #include "codegen/common/result_iterator.h"
+#include "data_source/parquet/adapter.h"
 #include "jni/concurrent_map.h"
 #include "jni/jni_common.h"
+#include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
 
 namespace types {
@@ -275,9 +276,11 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
     ret_types = resSchema->fields();
   }
 
+#ifdef DEBUG
   for (auto expr : expr_vector) {
     std::cerr << expr->ToString() << std::endl;
   }
+#endif
 
   std::shared_ptr<CodeGenerator> handler;
   msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(schema, expr_vector, ret_types,

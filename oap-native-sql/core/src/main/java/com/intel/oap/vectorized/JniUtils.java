@@ -26,6 +26,8 @@ import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -62,8 +64,15 @@ public class JniUtils {
     return INSTANCE;
   }
 
-  private JniUtils(String tmp_dir) throws IOException, IllegalAccessException, IllegalStateException {
+  private JniUtils(String _tmp_dir) throws IOException, IllegalAccessException, IllegalStateException {
     if (!isLoaded) {
+      if (_tmp_dir.contains("nativesql")) {
+        tmp_dir = _tmp_dir;
+      } else {
+        Path folder = Paths.get(_tmp_dir);
+        Path path = Files.createTempDirectory(folder, "spark_columnar_plugin_");
+        tmp_dir = path.toAbsolutePath().toString();
+      }
       try {
         loadLibraryFromJar(tmp_dir);
       } catch (IOException ex) {
@@ -73,12 +82,15 @@ public class JniUtils {
     }
   }
 
-  public void setTempDir(String _tmp_dir) throws IOException, IllegalAccessException {
+  public void setTempDir() throws IOException, IllegalAccessException {
     if (isCodegenDependencyLoaded == false) {
-      tmp_dir = _tmp_dir;
       loadIncludeFromJar(tmp_dir);
       isCodegenDependencyLoaded = true;
     }
+  }
+
+  public String getTempDir() {
+    return tmp_dir;
   }
 
   public void setJars(List<String> list_jars) throws IOException, IllegalAccessException {
@@ -94,7 +106,6 @@ public class JniUtils {
     synchronized (JniUtils.class) {
       if (tmp_dir == null) {
         tmp_dir = System.getProperty("java.io.tmpdir");
-        System.out.println("loadLibraryFromJar " + tmp_dir);
       }
       final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
       final File libraryFile = moveFileFromJarToTemp(tmp_dir, libraryToLoad);
@@ -106,7 +117,6 @@ public class JniUtils {
     synchronized (JniUtils.class) {
       if (tmp_dir == null) {
         tmp_dir = System.getProperty("java.io.tmpdir");
-        System.out.println("loadLibraryFromJar " + tmp_dir);
       }
       final String folderToLoad = "";
       URL url = new URL("jar:file:" + source_jar + "!/");
@@ -134,7 +144,6 @@ public class JniUtils {
     synchronized (JniUtils.class) {
       if (tmp_dir == null) {
         tmp_dir = System.getProperty("java.io.tmpdir");
-        System.out.println("loadIncludeFromJar " + tmp_dir);
       }
       final String folderToLoad = "include";
       final URLConnection urlConnection = JniUtils.class.getClassLoader().getResource("include").openConnection();
@@ -149,6 +158,10 @@ public class JniUtils {
 
   private static File moveFileFromJarToTemp(String tmpDir, String libraryToLoad) throws IOException {
     // final File temp = File.createTempFile(tmpDir, libraryToLoad);
+    Path lib_path = Paths.get(tmpDir + "/" + libraryToLoad);
+    if (Files.exists(lib_path)) {
+      return new File(tmpDir + "/" + libraryToLoad);
+    }
     final File temp = new File(tmpDir + "/" + libraryToLoad);
     try (final InputStream is = JniUtils.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
       if (is == null) {
@@ -172,6 +185,10 @@ public class JniUtils {
       if (((jarDir == "" && !entry.getName().contains("META-INF")) || (entry.getName().startsWith(jarDir + "/")))
           && !entry.isDirectory()) {
         int rm_length = jarDir.length() == 0 ? 0 : jarDir.length() + 1;
+        Path dest_path = Paths.get(destDir + "/" + entry.getName().substring(rm_length));
+        if (Files.exists(dest_path)) {
+          continue;
+        }
         File dest = new File(destDir + "/" + entry.getName().substring(rm_length));
         File parent = dest.getParentFile();
         if (parent != null) {

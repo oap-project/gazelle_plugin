@@ -48,8 +48,9 @@ public class ExpressionEvaluator implements AutoCloseable {
       tmp_dir = System.getProperty("java.io.tmpdir");
     }
     jniWrapper = new ExpressionEvaluatorJniWrapper(tmp_dir, listJars);
-    jniWrapper.nativeSetJavaTmpDir(tmp_dir);
+    jniWrapper.nativeSetJavaTmpDir(jniWrapper.tmp_dir_path);
     jniWrapper.nativeSetBatchSize(ColumnarPluginConfig.getBatchSize());
+    ColumnarPluginConfig.setRandomTempDir(jniWrapper.tmp_dir_path);
   }
 
   /** Convert ExpressionTree into native function. */

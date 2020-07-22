@@ -204,7 +204,7 @@ object ColumnarShuffledHashJoin extends Logging {
       })
       .toList
 
-    logWarning(s"leftKeyExpression is ${leftKeys}, rightKeyExpression is ${rightKeys}")
+    logInfo(s"leftKeyExpression is ${leftKeys}, rightKeyExpression is ${rightKeys}")
     val lkeyFieldList: List[Field] = leftKeys.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr)
       Field

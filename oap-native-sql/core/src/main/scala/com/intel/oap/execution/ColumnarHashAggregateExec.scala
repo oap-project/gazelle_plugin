@@ -111,7 +111,7 @@ class ColumnarHashAggregateExec(
         sparkConf)
       if (signature != "") {
         if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
-          val tempDir = ColumnarPluginConfig.getTempFile
+          val tempDir = ColumnarPluginConfig.getRandomTempDir
           val jarFileName =
             s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
           sparkContext.addJar(jarFileName)
@@ -123,7 +123,7 @@ class ColumnarHashAggregateExec(
     } else {
       (List(), "")
     }
-  listJars.foreach(jar => logWarning(s"Uploaded ${jar}"))
+  listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>

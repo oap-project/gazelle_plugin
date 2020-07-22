@@ -35,6 +35,7 @@ class ColumnarPluginConfig(conf: SparkConf) {
 
 object ColumnarPluginConfig {
   var ins: ColumnarPluginConfig = null
+  var random_temp_dir_path: String = null
   def getConf(conf: SparkConf): ColumnarPluginConfig = synchronized {
     if (ins == null) {
       ins = new ColumnarPluginConfig(conf)
@@ -63,5 +64,11 @@ object ColumnarPluginConfig {
     } else {
       System.getProperty("java.io.tmpdir")
     }
+  }
+  def setRandomTempDir(path: String) = synchronized {
+    random_temp_dir_path = path
+  }
+  def getRandomTempDir = synchronized {
+    random_temp_dir_path
   }
 }
