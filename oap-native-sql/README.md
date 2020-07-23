@@ -36,7 +36,7 @@ We implemented columnar shuffle to improve the shuffle performance. With the col
 
 ## Testing
 
-Check out the detailed installation/testing guide(/oap-native-sql/resource/installation.md) for quick testing
+Check out the detailed [installation/testing guide](/oap-native-sql/resource/installation.md) for quick testing
 
 ## Contact
 

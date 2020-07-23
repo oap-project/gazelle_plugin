@@ -1,21 +1,18 @@
-## Installation
+# Spark Native SQL Engine Installation
 
 For detailed testing scripts, please refer to [solution guide](https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql)
 
-### Installation option 1: For evaluation, simple and fast
+## Install spark 3.0.0 or above
 
-#### install spark 3.0.0 or above
+Download Spark from [download](https://spark.apache.org/downloads.html)
 
-[spark download](https://spark.apache.org/downloads.html)
-
-Remove original Arrow Jars inside Spark assemply folder
-``` shell
-yes | rm assembly/target/scala-2.12/jars/arrow-format-0.15.1.jar
-yes | rm assembly/target/scala-2.12/jars/arrow-vector-0.15.1.jar
-yes | rm assembly/target/scala-2.12/jars/arrow-memory-0.15.1.jar
+```
+wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
+tar -xf ./spark-3.0.0-bin-hadoop2.7.tgz
+export SPARK_HOME=`pwd`/spark-3.0.0-bin-hadoop2.7
 ```
 
-#### install arrow 0.17.0 dependencies
+## Install arrow 0.17.0 dependencies
 
 ```
 git clone https://github.com/apache/arrow && cd arrow & git checkout arrow-0.17.0
@@ -34,55 +31,21 @@ conda create -y -n pyarrow-dev -c conda-forge \
 conda activate pyarrow-dev
 ```
 
-#### Build native-sql cpp
+## Install arrow 0.17.0
 
-``` shell
-git clone https://github.com/Intel-bigdata/OAP.git
-cd OAP && git checkout branch-nativesql-spark-3.0.0
-cd oap-native-sql
-cp cpp/src/resources/libhdfs.so ${HADOOP_HOME}/lib/native/ 
-cp cpp/src/resources/libprotobuf.so.13 /usr/lib64/
-```
-
-Download spark-columnar-core-1.0-jar-with-dependencies.jar to local, add classPath to spark.driver.extraClassPath and spark.executor.extraClassPath
-``` shell
-Internal Location: vsr602://mnt/nvme2/chendi/000000/spark-columnar-core-1.0-jar-with-dependencies.jar
-```
-
-Download spark-sql_2.12-3.1.0-SNAPSHOT.jar to ${SPARK_HOME}/assembly/target/scala-2.12/jars/spark-sql_2.12-3.1.0-SNAPSHOT.jar
-``` shell
-Internal Location: vsr602://mnt/nvme2/chendi/000000/spark-sql_2.12-3.1.0-SNAPSHOT.jar
-```
-
-### Installation option 2: For contribution, Patch and build
-
-#### install spark 3.0.0 or above
-
-Please refer this link to install Spark.
-[Apache Spark Installation](/oap-native-sql/resource/SparkInstallation.md)
-
-Remove original Arrow Jars inside Spark assemply folder
-``` shell
-yes | rm assembly/target/scala-2.12/jars/arrow-format-0.15.1.jar
-yes | rm assembly/target/scala-2.12/jars/arrow-vector-0.15.1.jar
-yes | rm assembly/target/scala-2.12/jars/arrow-memory-0.15.1.jar
-```
-
-#### install arrow 0.17.0
-
-Please refer this markdown to install Apache Arrow and Gandiva.
+Please refer this doc to install Apache Arrow and Gandiva.
 [Apache Arrow Installation](/oap-native-sql/resource/ApacheArrowInstallation.md)
 
-#### compile and install oap-native-sql
+## compile and install oap-native-sql
 
-##### Install Googletest and Googlemock
+### Install Googletest and Googlemock
 
 ``` shell
 yum install gtest-devel
 yum install gmock
 ```
 
-##### Build this project
+### Build Native SQL Engine
 
 ``` shell
 git clone https://github.com/Intel-bigdata/OAP.git
@@ -93,37 +56,44 @@ mkdir build/
 cd build/
 cmake .. -DTESTS=ON
 make -j
-make install
 #when deploying on multiple node, make sure all nodes copied libhdfs.so and libprotobuf.so.13
 ```
 
 ``` shell
-cd SparkColumnarPlugin/core/
+cd ../../core/
 mvn clean package -DskipTests
 ```
+
 ### Additonal Notes
 [Notes for Installation Issues](/oap-native-sql/resource/InstallationNotes.md)
   
 
-## Spark Configuration
+### Spark Configurations for Native SQL Engine
 
 Add below configuration to spark-defaults.conf
 
 ```
 ##### Columnar Process Configuration
 
-spark.sql.parquet.columnarReaderBatchSize 4096
 spark.sql.sources.useV1SourceList avro
 spark.sql.join.preferSortMergeJoin false
-spark.sql.extensions com.intel.sparkColumnarPlugin.ColumnarPlugin
+spark.sql.extensions com.intel.oap.ColumnarPlugin
 spark.shuffle.manager org.apache.spark.shuffle.sort.ColumnarShuffleManager
 
-spark.driver.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-0.9.0-jar-with-dependencies.jar
-spark.executor.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-0.9.0-jar-with-dependencies.jar
+# note native sql engine depends on arrow data source
+spark.driver.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-0.9.0-jar-with-dependencies.jar:${PATH_TO_OAP_DATA_SOURCE}/arrow/target/spark-arrow-datasource-0.9.0-SNAPSHOT-jar-with-dependencies.jar
+spark.executor.extraClassPath ${PATH_TO_OAP_NATIVE_SQL}/core/target/spark-columnar-core-0.9.0-jar-with-dependencies.jar:${PATH_TO_OAP_DATA_SOURCE}/arrow/target/spark-arrow-datasource-0.9.0-SNAPSHOT-jar-with-dependencies.jar
 
 ######
 ```
-## Benchmark
+Verify if native sql engine works with scala script or jupyter notebook:
+```
+val orders = spark.read.format("arrow").load("hdfs:////user/root/date_tpch_10/orders")
+orders.createOrReplaceTempView("orders")
+spark.sql("select o_orderdate from orders").show
+```
+
+## Performance data
 
 For initial microbenchmark performance, we add 10 fields up with spark, data size is 200G data
 
