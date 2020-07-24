@@ -80,14 +80,14 @@ class ColumnarHashAggregateExec(
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of Input batches"),
     "aggTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in aggregation process"),
-    "elapseTime" -> SQLMetrics
-      .createTimingMetric(sparkContext, "elapse time from very begin to this process"))
+    "totalTime" -> SQLMetrics
+      .createTimingMetric(sparkContext, "totaltime_hashagg"))
 
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
   val numInputBatches = longMetric("numInputBatches")
   val aggTime = longMetric("aggTime")
-  val elapseTime = longMetric("elapseTime")
+  val totalTime = longMetric("totalTime")
   numOutputRows.set(0)
   numOutputBatches.set(0)
   numInputBatches.set(0)
@@ -107,7 +107,7 @@ class ColumnarHashAggregateExec(
         numOutputBatches,
         numOutputRows,
         aggTime,
-        elapseTime,
+        totalTime,
         sparkConf)
       if (signature != "") {
         if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
@@ -159,7 +159,7 @@ class ColumnarHashAggregateExec(
             numOutputBatches,
             numOutputRows,
             aggTime,
-            elapseTime,
+            totalTime,
             sparkConf)
           TaskContext
             .get()
@@ -180,7 +180,7 @@ class ColumnarHashAggregateExec(
             numOutputBatches,
             numOutputRows,
             aggTime,
-            elapseTime,
+            totalTime,
             sparkConf)
           TaskContext
             .get()
