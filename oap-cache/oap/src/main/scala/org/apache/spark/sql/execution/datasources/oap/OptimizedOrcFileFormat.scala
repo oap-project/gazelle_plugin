@@ -35,6 +35,14 @@ import org.apache.spark.util.SerializableConfiguration
 
 private[sql] class OptimizedOrcFileFormat extends OapFileFormat {
 
+  override def shortName(): String = "OAP_ORC"
+
+  override def toString: String = "OAP_ORC"
+
+  override def hashCode(): Int = getClass.hashCode()
+
+  override def equals(other: Any): Boolean = other.isInstanceOf[OptimizedOrcFileFormat]
+
   override def prepareWrite(
       sparkSession: SparkSession,
       job: Job,
