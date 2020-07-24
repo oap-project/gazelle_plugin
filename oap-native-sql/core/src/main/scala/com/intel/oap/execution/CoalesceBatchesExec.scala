@@ -45,11 +45,9 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
-    "concatTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "concat batch time"),
-    "collectTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "collect batch time"),
+    "concatTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_coalescebatch"),
     "avgCoalescedNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg coalesced batch num rows"))
-  // TODO: peak device memory total
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     import CoalesceBatchesExec._
@@ -59,7 +57,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
     val numInputBatches = longMetric("numInputBatches")
     val numOutputBatches = longMetric("numOutputBatches")
     val concatTime = longMetric("concatTime")
-    val collectTime = longMetric("collectTime")
     val avgCoalescedNumRows = longMetric("avgCoalescedNumRows")
 
     child.executeColumnar().mapPartitions { iter =>
@@ -92,7 +89,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
             var rowCount = 0
             val batchesToAppend = ListBuffer[ColumnarBatch]()
 
-            val beforeCollect = System.nanoTime
             target = iter.next()
             target.retain()
             rowCount += target.numRows
@@ -105,8 +101,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
             }
 
             val beforeConcat = System.nanoTime
-            collectTime += beforeConcat - beforeCollect
-
             coalesce(target, batchesToAppend.toList)
             target.setNumRows(rowCount)
 

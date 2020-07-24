@@ -53,6 +53,9 @@ static jmethodID arrowbuf_builder_constructor;
 static jclass partition_file_info_class;
 static jmethodID partition_file_info_constructor;
 
+static jclass split_result_class;
+static jmethodID split_result_constructor;
+
 using arrow::jni::ConcurrentMap;
 static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 
@@ -205,6 +208,12 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   partition_file_info_constructor =
       GetMethodID(env, partition_file_info_class, "<init>", "(ILjava/lang/String;)V");
 
+  split_result_class =
+      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/SplitResult;");
+  split_result_constructor =
+      GetMethodID(env, split_result_class, "<init>",
+                  "(JJ[Lcom/intel/oap/vectorized/PartitionFileInfo;)V");
+
   return JNI_VERSION;
 }
 
@@ -221,6 +230,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(arrowbuf_builder_class);
   env->DeleteGlobalRef(arrow_record_batch_builder_class);
   env->DeleteGlobalRef(partition_file_info_class);
+  env->DeleteGlobalRef(split_result_class);
 
   buffer_holder_.Clear();
   handler_holder_.Clear();
@@ -1158,19 +1168,6 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_s
   }
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
-    JNIEnv* env, jobject, jlong splitter_id) {
-  auto splitter = GetShuffleSplitter(env, splitter_id);
-  auto status = splitter->Stop();
-
-  if (!status.ok()) {
-    env->ThrowNew(io_exception_class,
-                  std::string("native split: splitter stop failed, error message is " +
-                              status.message())
-                      .c_str());
-  }
-}
-
 JNIEXPORT void JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setPartitionBufferSize(
     JNIEnv* env, jobject, jlong splitter_id, jlong buffer_size) {
@@ -1208,11 +1205,31 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressionCodec(
   splitter->set_compression_codec(compression_codec);
 }
 
-JNIEXPORT jobjectArray JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_getPartitionFileInfo(
+JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
     JNIEnv* env, jobject, jlong splitter_id) {
   auto splitter = GetShuffleSplitter(env, splitter_id);
+  auto stop_status = splitter->Stop();
 
+  if (!stop_status.ok()) {
+    env->ThrowNew(io_exception_class,
+                  std::string("native split: splitter stop failed, error message is " +
+                              stop_status.message())
+                      .c_str());
+  }
+
+  // TotalWriteTime
+  auto write_time = static_cast<jlong>(splitter->TotalWriteTime());
+
+  // TotalBytesWritten
+  auto bytes_written_result = splitter->TotalBytesWritten();
+
+  if (!bytes_written_result.ok()) {
+    env->ThrowNew(io_exception_class,
+                  std::string("native split: get total bytes written failed").c_str());
+  }
+  auto bytes_written = static_cast<jlong>(*bytes_written_result);
+
+  // GetPartitionFileInfo
   const auto& partition_file_info = splitter->GetPartitionFileInfo();
   auto num_partitions = partition_file_info.size();
 
@@ -1226,21 +1243,13 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_getPartitionFileInfo(
                        env->NewStringUTF(partition_file_info[i].second.c_str()));
     env->SetObjectArrayElement(partition_file_info_array, i, file_info_obj);
   }
-  return partition_file_info_array;
-}
 
-JNIEXPORT jlong JNICALL
-Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_getTotalBytesWritten(
-    JNIEnv* env, jobject, jlong splitter_id) {
-  auto splitter = GetShuffleSplitter(env, splitter_id);
-  auto result = splitter->TotalBytesWritten();
+  // build SplitResult
+  jobject split_result =
+      env->NewObject(split_result_class, split_result_constructor, write_time,
+                     bytes_written, partition_file_info_array);
 
-  if (!result.ok()) {
-    env->ThrowNew(io_exception_class,
-                  std::string("native split: get total bytes written failed").c_str());
-  }
-
-  return (jlong)*result;
+  return split_result;
 }
 
 JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_close(

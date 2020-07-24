@@ -50,11 +50,11 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
   override def registerShuffle[K, V, C](
       shuffleId: Int,
       dependency: ShuffleDependency[K, V, C]): ShuffleHandle = {
-    if (dependency.isInstanceOf[ColumnarShuffleDependency[K, V, V]]) {
+    if (dependency.isInstanceOf[ColumnarShuffleDependency[_, _, _]]) {
       logInfo(s"Registering ColumnarShuffle shuffleId: ${shuffleId}")
       new ColumnarShuffleHandle[K, V](
         shuffleId,
-        dependency.asInstanceOf[ShuffleDependency[K, V, V]])
+        dependency.asInstanceOf[ColumnarShuffleDependency[K, V, V]])
     } else if (SortShuffleWriter.shouldBypassMergeSort(conf, dependency)) {
       // If there are fewer than spark.shuffle.sort.bypassMergeThreshold partitions and we don't
       // need map-side aggregation, then write numPartitions files directly and just concatenate

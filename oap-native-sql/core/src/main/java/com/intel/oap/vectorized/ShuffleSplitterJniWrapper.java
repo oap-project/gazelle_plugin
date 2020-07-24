@@ -55,9 +55,10 @@ public class ShuffleSplitterJniWrapper {
    * file. And stop processing splitting
    *
    * @param splitterId
+   * @return SplitResult
    * @throws RuntimeException
    */
-  public native void stop(long splitterId) throws RuntimeException;
+  public native SplitResult stop(long splitterId) throws RuntimeException;
 
   /**
    * Set the output buffer for each partition. Splitter will maintain one buffer for each partition
@@ -76,24 +77,6 @@ public class ShuffleSplitterJniWrapper {
    * @param codec "lz4", "zstd", "uncompressed"
    */
   public native void setCompressionCodec(long splitterId, String codec);
-
-  /**
-   * Get all files information created by the splitter. Used by the {@link
-   * org.apache.spark.shuffle.ColumnarShuffleWriter} These files are temporarily existed and will be
-   * deleted after the combination.
-   *
-   * @param splitterId
-   * @return an array of all files information
-   */
-  public native PartitionFileInfo[] getPartitionFileInfo(long splitterId);
-
-  /**
-   * Get the total bytes written to disk.
-   *
-   * @param splitterId
-   * @return
-   */
-  public native long getTotalBytesWritten(long splitterId);
 
   /**
    * Release resources associated with designated splitter instance.

@@ -17,11 +17,10 @@
 
 package org.apache.spark.sql.execution
 
-import com.intel.oap.expression.ConverterUtils
-import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector}
-
 import java.util.Random
 
+import com.intel.oap.expression.ConverterUtils
+import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector}
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.vector.{FieldVector, IntVector}
 import org.apache.spark._
@@ -69,6 +68,8 @@ class ColumnarShuffleExchangeExec(
   override lazy val metrics: Map[String, SQLMetric] = Map(
     "dataSize" -> SQLMetrics.createSizeMetric(sparkContext, "data size"),
     "splitTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "split time"),
+    "computePidTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "compute pid time"),
+    "totalTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_shufflewrite"),
     "avgReadBatchNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg read batch num rows")) ++ readMetrics ++ writeMetrics
 
@@ -104,7 +105,9 @@ class ColumnarShuffleExchangeExec(
       serializer,
       writeMetrics,
       longMetric("dataSize"),
-      longMetric("splitTime"))
+      longMetric("splitTime"),
+      longMetric("computePidTime"),
+      longMetric("totalTime"))
   }
 
   private var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
@@ -155,7 +158,9 @@ object ColumnarShuffleExchangeExec extends Logging {
       serializer: Serializer,
       writeMetrics: Map[String, SQLMetric],
       dataSize: SQLMetric,
-      splitTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
+      splitTime: SQLMetric,
+      computePidTime: SQLMetric,
+      totalTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
 
     val arrowSchema: Schema =
       ConverterUtils.toArrowSchema(
@@ -216,7 +221,8 @@ object ColumnarShuffleExchangeExec extends Logging {
 
       rdd.mapPartitionsWithIndexInternal(
         (_, cbIterator) => {
-          newPartitioning match {
+
+          val newIter = newPartitioning match {
             case SinglePartition =>
               CloseablePairedColumnarBatchIterator(
                 cbIterator
@@ -245,10 +251,13 @@ object ColumnarShuffleExchangeExec extends Logging {
                 cbIterator
                   .filter(cb => cb.numRows != 0 && cb.numCols != 0)
                   .map(cb => {
+                    val startTime = System.nanoTime()
                     val pids = cb.rowIterator.asScala.map { row =>
                       part.getPartition(projection(row).getInt(0))
                     }.toArray
-                    (0, pushFrontPartitionIds(pids, cb))
+                    val newCb = pushFrontPartitionIds(pids, cb)
+                    computePidTime.add(System.nanoTime() - startTime)
+                    (0, newCb)
                   }))
             case RangePartitioning(sortingExpressions, _) =>
               val projection =
@@ -257,13 +266,23 @@ object ColumnarShuffleExchangeExec extends Logging {
                 cbIterator
                   .filter(cb => cb.numRows != 0 && cb.numCols != 0)
                   .map(cb => {
+                    val startTime = System.nanoTime()
                     val pids = cb.rowIterator.asScala.map { row =>
                       part.getPartition(projection(row))
                     }.toArray
-                    (0, pushFrontPartitionIds(pids, cb))
+                    val newCb = pushFrontPartitionIds(pids, cb)
+                    computePidTime.add(System.nanoTime() - startTime)
+                    (0, newCb)
                   }))
             case _ => sys.error(s"Exchange not implemented for $newPartitioning")
           }
+
+          TaskContext.get().addTaskCompletionListener[Unit] { _ =>
+            newIter.closeAppendedVector()
+            totalTime.merge(computePidTime)
+          }
+
+          newIter
         },
         isOrderSensitive = isOrderSensitive)
     }
@@ -276,7 +295,8 @@ object ColumnarShuffleExchangeExec extends Logging {
         shuffleWriterProcessor = createShuffleWriteProcessor(writeMetrics),
         serializedSchema = arrowSchema.toByteArray,
         dataSize = dataSize,
-        splitTime = splitTime)
+        splitTime = splitTime,
+        totalTime = totalTime)
 
     dependency
   }
@@ -296,7 +316,9 @@ object ColumnarShuffleExchangeExec extends Logging {
     val pidVec = new IntVector("pid", vectors(0).getAllocator)
 
     pidVec.allocateNew(length)
-    (0 until length).foreach { i => pidVec.set(i, partitionIds(i)) }
+    (0 until length).foreach { i =>
+      pidVec.set(i, partitionIds(i))
+    }
     pidVec.setValueCount(length)
 
     val newVectors = ArrowWritableColumnVector.loadColumns(length, (pidVec +: vectors).asJava)
@@ -310,9 +332,7 @@ case class CloseablePairedColumnarBatchIterator(iter: Iterator[(Int, ColumnarBat
 
   private var cur: (Int, ColumnarBatch) = _
 
-  TaskContext.get().addTaskCompletionListener[Unit] { _ => closeAppendedVector() }
-
-  private def closeAppendedVector(): Unit = {
+  def closeAppendedVector(): Unit = {
     if (cur != null) {
       logDebug("Close appended partition id vector")
       cur match {
