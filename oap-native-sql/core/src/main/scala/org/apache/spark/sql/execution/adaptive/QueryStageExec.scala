@@ -237,6 +237,13 @@ case class BroadcastQueryStageExec(override val id: Int, override val plan: Spar
   }
 }
 
+class ColumnarBroadcastQueryStageExec(override val id: Int, override val plan: SparkPlan)
+    extends BroadcastQueryStageExec(id, plan) {
+
+  override def supportsColumnar = true
+
+}
+
 object BroadcastQueryStageExec {
   private val scheduledExecutor =
     ThreadUtils.newDaemonSingleThreadScheduledExecutor("BroadcastStageTimeout")

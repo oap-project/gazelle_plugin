@@ -1,5 +1,6 @@
 #pragma once
 #include <arrow/type_fwd.h>
+#include <arrow/util/string_view.h>
 
 namespace sparkcolumnarplugin {
 namespace precompile {
@@ -25,7 +26,7 @@ TYPED_HASH_MAP_DEFINE(UInt64HashMap, uint64_t)
 TYPED_HASH_MAP_DEFINE(FloatHashMap, float)
 TYPED_HASH_MAP_DEFINE(DoubleHashMap, double)
 TYPED_HASH_MAP_DEFINE(Date32HashMap, int32_t)
-TYPED_HASH_MAP_DEFINE(StringHashMap, std::string)
+TYPED_HASH_MAP_DEFINE(StringHashMap, arrow::util::string_view)
 #undef TYPED_HASH_MAP_DEFINE
 }  // namespace precompile
 }  // namespace sparkcolumnarplugin

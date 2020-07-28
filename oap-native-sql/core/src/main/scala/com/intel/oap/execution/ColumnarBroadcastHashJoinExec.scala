@@ -17,6 +17,7 @@
 
 package com.intel.oap.execution
 
+import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit._
 
 import com.intel.oap.vectorized._
@@ -48,17 +49,18 @@ import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
 
 import io.netty.buffer.ArrowBuf
+import io.netty.buffer.ByteBuf
 import com.google.common.collect.Lists;
 
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.ExpressionEvaluator
-import org.apache.spark.sql.execution.joins.ShuffledHashJoinExec
+import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
 import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide}
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
  */
-class ColumnarShuffledHashJoinExec(
+class ColumnarBroadcastHashJoinExec(
     leftKeys: Seq[Expression],
     rightKeys: Seq[Expression],
     joinType: JoinType,
@@ -66,17 +68,25 @@ class ColumnarShuffledHashJoinExec(
     condition: Option[Expression],
     left: SparkPlan,
     right: SparkPlan)
-    extends ShuffledHashJoinExec(leftKeys, rightKeys, joinType, buildSide, condition, left, right) {
+    extends BroadcastHashJoinExec(
+      leftKeys,
+      rightKeys,
+      joinType,
+      buildSide,
+      condition,
+      left,
+      right) {
 
   val sparkConf = sparkContext.getConf
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
-    "totalTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_hashjoin"),
-    "fetchTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to fetch batches"),
+    "totalTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_broadcastHasedJoin"),
+    "fetchTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to fetch buildSide batch"),
     "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to build hash map"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
   override def supportsColumnar = true
+  override def supportCodegen: Boolean = false
 
   val numOutputRows = longMetric("numOutputRows")
   val totalTime = longMetric("totalTime")
@@ -122,45 +132,48 @@ class ColumnarShuffledHashJoinExec(
   listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
-    streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
-      (streamIter, buildIter) =>
-        //val hashed = buildHashedRelation(buildIter)
-        //join(streamIter, hashed, numOutputRows)
-        ColumnarPluginConfig.getConf(sparkConf)
-        val execTempDir = ColumnarPluginConfig.getTempFile
-        val jarList = listJars
-          .map(jarUrl => {
-            logWarning(s"Get Codegened library Jar ${jarUrl}")
-            UserAddedJarUtils.fetchJarFromSpark(
-              jarUrl,
-              execTempDir,
-              s"spark-columnar-plugin-codegen-precompile-${signature}.jar",
-              sparkConf)
-            s"${execTempDir}/spark-columnar-plugin-codegen-precompile-${signature}.jar"
-          })
+    val buildInputByteBuf = buildPlan.executeBroadcast[Array[Array[Byte]]]()
+    streamedPlan.executeColumnar().mapPartitions { streamIter =>
+      ColumnarPluginConfig.getConf(sparkConf)
+      val execTempDir = ColumnarPluginConfig.getTempFile
+      val jarList = listJars
+        .map(jarUrl => {
+          logWarning(s"Get Codegened library Jar ${jarUrl}")
+          UserAddedJarUtils.fetchJarFromSpark(
+            jarUrl,
+            execTempDir,
+            s"spark-columnar-plugin-codegen-precompile-${signature}.jar",
+            sparkConf)
+          s"${execTempDir}/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+        })
 
-        val vjoin = ColumnarShuffledHashJoin.create(
-          leftKeys,
-          rightKeys,
-          resultSchema,
-          joinType,
-          buildSide,
-          condition,
-          left,
-          right,
-          jarList,
-          buildTime,
-          joinTime,
-          totalTime,
-          numOutputRows,
-          sparkConf)
-        TaskContext
-          .get()
-          .addTaskCompletionListener[Unit](_ => {
-            vjoin.close()
-          })
-        val vjoinResult = vjoin.columnarJoin(streamIter, buildIter)
-        new CloseableColumnBatchIterator(vjoinResult)
+      val vjoin = ColumnarShuffledHashJoin.create(
+        leftKeys,
+        rightKeys,
+        resultSchema,
+        joinType,
+        buildSide,
+        condition,
+        left,
+        right,
+        jarList,
+        buildTime,
+        joinTime,
+        totalTime,
+        numOutputRows,
+        sparkConf)
+      TaskContext
+        .get()
+        .addTaskCompletionListener[Unit](_ => {
+          vjoin.close()
+          totalTime.merge(fetchTime)
+        })
+      val beforeFetch = System.nanoTime()
+      val buildIter =
+        new CloseableColumnBatchIterator(ConverterUtils.convertFromNetty(buildInputByteBuf.value))
+      fetchTime += NANOSECONDS.toMillis(System.nanoTime() - beforeFetch)
+      val vjoinResult = vjoin.columnarJoin(streamIter, buildIter)
+      new CloseableColumnBatchIterator(vjoinResult)
     }
   }
 }

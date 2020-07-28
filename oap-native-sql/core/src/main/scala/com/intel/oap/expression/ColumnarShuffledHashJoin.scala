@@ -77,6 +77,7 @@ class ColumnarShuffledHashJoin(
       streamIter: Iterator[ColumnarBatch],
       buildIter: Iterator[ColumnarBatch]): Iterator[ColumnarBatch] = {
 
+    var _buildTime: Long = 0
 
     while (buildIter.hasNext) {
       if (build_cb != null) {
@@ -89,7 +90,7 @@ class ColumnarShuffledHashJoin(
         build_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
       inputBatchHolder += build_cb
       prober.evaluate(build_rb)
-      buildTime += NANOSECONDS.toMillis(System.nanoTime() - beforeBuild)
+      _buildTime += NANOSECONDS.toMillis(System.nanoTime() - beforeBuild)
       ConverterUtils.releaseArrowRecordBatch(build_rb)
     }
     if (build_cb != null) {
@@ -111,7 +112,10 @@ class ColumnarShuffledHashJoin(
     }
 
     // there will be different when condition is null or not null
+    val beforeBuild = System.nanoTime()
     probe_iterator = prober.finishByIterator()
+    _buildTime += NANOSECONDS.toMillis(System.nanoTime() - beforeBuild)
+    buildTime += _buildTime
 
     new Iterator[ColumnarBatch] {
       override def hasNext: Boolean = {
@@ -177,15 +181,7 @@ object ColumnarShuffledHashJoin extends Logging {
       conditionOption: Option[Expression],
       left: SparkPlan,
       right: SparkPlan,
-      _buildTime: SQLMetric,
-      _joinTime: SQLMetric,
-      _totalTime: SQLMetric,
-      _numOutputRows: SQLMetric,
       _sparkConf: SparkConf): Unit = {
-    val buildTime = _buildTime
-    val joinTime = _joinTime
-    val totalTime = _totalTime
-    val numOutputRows = _numOutputRows
     val sparkConf = _sparkConf
     ColumnarPluginConfig.getConf(sparkConf)
     // TODO
@@ -368,10 +364,6 @@ object ColumnarShuffledHashJoin extends Logging {
       condition: Option[Expression],
       left: SparkPlan,
       right: SparkPlan,
-      buildTime: SQLMetric,
-      joinTime: SQLMetric,
-      totalTime: SQLMetric,
-      numOutputRows: SQLMetric,
       sparkConf: SparkConf): String = synchronized {
     init(
       leftKeys,
@@ -382,10 +374,6 @@ object ColumnarShuffledHashJoin extends Logging {
       condition,
       left,
       right,
-      buildTime,
-      joinTime,
-      totalTime,
-      numOutputRows,
       sparkConf)
 
     prober = new ExpressionEvaluator()
@@ -422,10 +410,6 @@ object ColumnarShuffledHashJoin extends Logging {
       condition,
       left,
       right,
-      buildTime,
-      joinTime,
-      totalTime,
-      numOutputRows,
       sparkConf)
 
     prober = new ExpressionEvaluator(listJars.toList.asJava)

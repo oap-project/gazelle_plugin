@@ -17,10 +17,19 @@
 
 package com.intel.oap.expression
 
+import java.io.ByteArrayInputStream
+import java.nio.ByteBuffer
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import io.netty.buffer.ArrowBuf
+import org.apache.spark.rdd.RDD
 import org.apache.arrow.vector._
-import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch}
+import org.apache.arrow.vector.ipc.{ArrowStreamReader, ArrowStreamWriter, WriteChannel}
+import org.apache.arrow.vector.ipc.message.{
+  ArrowFieldNode,
+  ArrowRecordBatch,
+  MessageSerializer,
+  IpcOption
+}
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
@@ -29,16 +38,22 @@ import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
+import java.nio.channels.{Channels, WritableByteChannel}
 
 object ConverterUtils extends Logging {
   def createArrowRecordBatch(columnarBatch: ColumnarBatch): ArrowRecordBatch = {
-    val fieldNodes = new ListBuffer[ArrowFieldNode]()
-    val inputData = new ListBuffer[ArrowBuf]()
     val numRowsInBatch = columnarBatch.numRows()
+    val cols = (0 until columnarBatch.numCols).toList.map(i =>
+      columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
+    createArrowRecordBatch(numRowsInBatch, cols)
+
+    /*val fieldNodes = new ListBuffer[ArrowFieldNode]()
+    val inputData = new ListBuffer[ArrowBuf]()
     for (i <- 0 until columnarBatch.numCols()) {
       val inputVector =
         columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector()
@@ -53,21 +68,101 @@ object ConverterUtils extends Logging {
       //FIXME for projection + in test
       //inputData += inputVector.getValidityBuffer()
     }
-    new ArrowRecordBatch(numRowsInBatch, fieldNodes.toList.asJava, inputData.toList.asJava)
+    new ArrowRecordBatch(numRowsInBatch, fieldNodes.toList.asJava, inputData.toList.asJava)*/
   }
 
   def createArrowRecordBatch(numRowsInBatch: Int, cols: List[ValueVector]): ArrowRecordBatch = {
-    val fieldNodes = new ListBuffer[ArrowFieldNode]()
-    val inputData = new ListBuffer[ArrowBuf]()
-    cols.foreach(inputVector => {
-      fieldNodes += new ArrowFieldNode(numRowsInBatch, inputVector.getNullCount())
-      inputData += inputVector.getValidityBuffer()
-      if (inputVector.isInstanceOf[VarCharVector]) {
-        inputData += inputVector.getOffsetBuffer()
-      }
-      inputData += inputVector.getDataBuffer()
+    val nodes = new java.util.ArrayList[ArrowFieldNode]()
+    val buffers = new java.util.ArrayList[ArrowBuf]()
+    cols.foreach(vector => {
+      appendNodes(vector.asInstanceOf[FieldVector], nodes, buffers);
     })
-    new ArrowRecordBatch(numRowsInBatch, fieldNodes.toList.asJava, inputData.toList.asJava)
+    new ArrowRecordBatch(numRowsInBatch, nodes, buffers);
+  }
+
+  def appendNodes(
+      vector: FieldVector,
+      nodes: java.util.List[ArrowFieldNode],
+      buffers: java.util.List[ArrowBuf]): Unit = {
+    nodes.add(new ArrowFieldNode(vector.getValueCount, vector.getNullCount))
+    val fieldBuffers = vector.getFieldBuffers
+    val expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType())
+    if (fieldBuffers.size != expectedBufferCount) {
+      throw new IllegalArgumentException(
+        s"wrong number of buffers for field ${vector.getField} in vector ${vector.getClass.getSimpleName}. found: ${fieldBuffers}")
+    }
+    buffers.addAll(fieldBuffers)
+    vector.getChildrenFromFields.asScala.foreach(child => appendNodes(child, nodes, buffers))
+  }
+
+  def convertToNetty(iter: Array[ColumnarBatch]): Array[Byte] = {
+    val out = new ByteBufOutputStream(ByteBufAllocator.DEFAULT.buffer());
+    val channel = new WriteChannel(Channels.newChannel(out))
+    var schema: Schema = null
+    val option = new IpcOption
+
+    iter.foreach { columnarBatch =>
+      val vectors = (0 until columnarBatch.numCols)
+        .map(i => columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector])
+        .toList
+      if (schema == null) {
+        schema = new Schema(vectors.map(_.getValueVector().getField).asJava)
+        MessageSerializer.serialize(channel, schema, option)
+      }
+      MessageSerializer.serialize(
+        channel,
+        ConverterUtils
+          .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector)),
+        option)
+    }
+    val buf = out.buffer
+    val bytes = new Array[Byte](buf.readableBytes);
+    buf.getBytes(buf.readerIndex, bytes);
+    bytes
+  }
+
+  def convertFromNetty(data: Array[Array[Byte]]): Iterator[ColumnarBatch] = {
+    new Iterator[ColumnarBatch] {
+      var array_id = 0
+      var incorrectInput = false
+      var input = new ByteArrayInputStream(data(array_id))
+      var reader = new ArrowStreamReader(input, ArrowWritableColumnVector.getNewAllocator)
+      var root = reader.getVectorSchemaRoot()
+
+      override def hasNext: Boolean =
+        (array_id < (data.size - 1) || input.available > 0) && (!incorrectInput)
+      override def next(): ColumnarBatch = {
+        try {
+          if (input.available == 0) {
+            array_id += 1
+            input = new ByteArrayInputStream(data(array_id))
+            reader = new ArrowStreamReader(input, ArrowWritableColumnVector.getNewAllocator)
+            root = reader.getVectorSchemaRoot()
+          }
+          reader.loadNextBatch();
+          val length = root.getRowCount
+          val vectors = root
+            .getFieldVectors()
+            .asScala
+            .zipWithIndex
+            .map {
+              case (vector, i) => {
+                new ArrowWritableColumnVector(vector, i, length, false)
+              }
+            }
+            .toArray[ColumnVector]
+          val numCols = vectors.size
+          /*logWarning(s"numRows is $length, data is ${(0 until length).map(i =>
+          (0 until numCols).map(j =>
+            vectors(j).asInstanceOf[ArrowWritableColumnVector].getUTF8String(i)))}")*/
+          new ColumnarBatch(vectors, length)
+        } catch {
+          case e: java.io.IOException =>
+            incorrectInput = true
+            null
+        }
+      }
+    }
   }
 
   def fromArrowRecordBatch(
@@ -126,7 +221,10 @@ object ConverterUtils extends Logging {
     }
   }
 
-  def getResultAttrFromExpr(fieldExpr: Expression, name: String = "None", dataType: Option[DataType]=None): AttributeReference = {
+  def getResultAttrFromExpr(
+      fieldExpr: Expression,
+      name: String = "None",
+      dataType: Option[DataType] = None): AttributeReference = {
     fieldExpr match {
       case a: Cast =>
         getResultAttrFromExpr(a.child, name, Some(a.dataType))
@@ -171,9 +269,9 @@ object ConverterUtils extends Logging {
         }
         val tmpAttr = a.toAttribute.asInstanceOf[AttributeReference]
         if (dataType.isDefined) {
-           new AttributeReference(tmpAttr.name, dataType.getOrElse(null), tmpAttr.nullable)()
+          new AttributeReference(tmpAttr.name, dataType.getOrElse(null), tmpAttr.nullable)()
         } else {
-           tmpAttr
+          tmpAttr
         }
     }
   }
