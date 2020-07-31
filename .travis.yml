@@ -104,25 +104,6 @@ jobs:
       # skip tests, do tests locally 
       - sudo mvn install -DskipTests -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
 
-    - name: oap-mllib
-      dist: bionic
-      jdk:
-      - openjdk8
-      before_install:
-      - echo ${TRAVIS_COMMIT_MESSAGE}
-      - ${TRAVIS_BUILD_DIR}/oap-mllib/dev/install-build-deps-bionic.sh
-      install:
-      - # Download spark 3.0
-      - "[ -f spark ] || mkdir spark && cd spark && wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz && cd .."
-      - "tar -xf ./spark/spark-3.0.0-bin-hadoop2.7.tgz"
-      - "export SPARK_HOME=`pwd`/spark-3.0.0-bin-hadoop2.7"
-      before_script:
-      script:
-      - cd ${TRAVIS_BUILD_DIR}/oap-mllib/mllib-dal
-      - source /opt/intel/inteloneapi/setvars.sh
-      - source /tmp/oneCCL/build/_install/env/setvars.sh
-      - ./build.sh
-
     - name: oap-spark
       before_install:
         - sudo apt-get install libpthread-stubs0-dev
