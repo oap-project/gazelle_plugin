@@ -77,8 +77,8 @@ class ColumnarHashAggregateExec(
 
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
-    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
-    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of Input batches"),
+    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
+    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
     "aggTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in aggregation process"),
     "totalTime" -> SQLMetrics
       .createTimingMetric(sparkContext, "totaltime_hashagg"))

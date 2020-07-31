@@ -86,8 +86,8 @@ case class ColumnarConditionProjectExec(condition: Expression, projectList: Seq[
 
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
-    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
-    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of Input batches"),
+    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
+    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_condproject"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {

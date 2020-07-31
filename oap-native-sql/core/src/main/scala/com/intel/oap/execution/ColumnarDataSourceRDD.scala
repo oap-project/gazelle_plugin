@@ -43,6 +43,7 @@ class ColumnarDataSourceRDD(
     partitionReaderFactory: PartitionReaderFactory,
     columnarReads: Boolean,
     scanTime: SQLMetric,
+    numInputBatches: SQLMetric,
     tmp_dir: String)
     extends RDD[ColumnarBatch](sc, Nil) {
 
@@ -79,6 +80,7 @@ class ColumnarDataSourceRDD(
           try {
             val beforeScan = System.nanoTime()
             valuePrepared = reader.next()
+            numInputBatches += 1
             scanTime += (System.nanoTime() - beforeScan) / (1000 * 1000)
           } catch {
             case e =>

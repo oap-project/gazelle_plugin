@@ -57,7 +57,7 @@ class ColumnarSortExec(
     "sortTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in sort process"),
     "shuffleTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in shuffle process"),
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
-    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"))
+    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"))
 
   val elapse = longMetric("totalSortTime")
   val sortTime = longMetric("sortTime")
