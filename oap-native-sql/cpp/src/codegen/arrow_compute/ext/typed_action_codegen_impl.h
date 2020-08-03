@@ -59,6 +59,9 @@ class TypedActionCodeGenImpl {
     RETURN_NOT_OK(MakeCodeGenRegister(func_node, &node_tmp));
     signature_ss << std::hex << std::hash<std::string>{}(node_tmp->GetFingerprint());
     auto name = "projection_" + signature_ss.str();
+    for (auto index : input_index_list_) {
+      name += "_" + std::to_string(index);
+    }
     auto res_field = arrow::field(name, func_node->return_type());
     named_projector_ = gandiva::TreeExprBuilder::MakeExpression(func_node, res_field);
 #ifdef DEBUG
