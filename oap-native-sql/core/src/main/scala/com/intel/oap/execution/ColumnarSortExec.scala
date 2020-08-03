@@ -135,4 +135,14 @@ class ColumnarSortExec(
       res
     }
   }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarSortExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarSortExec =>
+      (that canEqual this) && (that eq this)
+    case _ => false
+  }
+
+  override def hashCode(): Int = System.identityHashCode(this)
 }

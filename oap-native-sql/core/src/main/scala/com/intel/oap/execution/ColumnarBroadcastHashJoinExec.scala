@@ -176,4 +176,14 @@ class ColumnarBroadcastHashJoinExec(
       new CloseableColumnBatchIterator(vjoinResult)
     }
   }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBroadcastHashJoinExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarBroadcastHashJoinExec =>
+      (that canEqual this) && (that eq this)
+    case _ => false
+  }
+
+  override def hashCode(): Int = System.identityHashCode(this)
 }

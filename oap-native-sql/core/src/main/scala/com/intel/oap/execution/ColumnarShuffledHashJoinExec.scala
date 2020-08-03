@@ -163,4 +163,14 @@ class ColumnarShuffledHashJoinExec(
         new CloseableColumnBatchIterator(vjoinResult)
     }
   }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffledHashJoinExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarShuffledHashJoinExec =>
+      (that canEqual this) && (that eq this)
+    case _ => false
+  }
+
+  override def hashCode(): Int = System.identityHashCode(this)
 }

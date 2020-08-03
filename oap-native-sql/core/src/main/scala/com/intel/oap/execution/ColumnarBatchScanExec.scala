@@ -47,4 +47,14 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
       r
     }
   }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBatchScanExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarBatchScanExec =>
+      (that canEqual this) && (that eq this)
+    case _ => false
+  }
+
+  override def hashCode(): Int = System.identityHashCode(this)
 }
