@@ -19,11 +19,13 @@ package org.apache.spark.sql.execution.datasources.oap
 
 import org.scalatest.BeforeAndAfterEach
 
-import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, ProjectExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.orc.OrcFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.test.oap.{SharedOapContext, TestIndex}
 import org.apache.spark.util.Utils
@@ -175,6 +177,33 @@ class OapFileSourceStrategyForParquetSuite extends OapFileSourceStrategySuite {
       (plan1, plan2) => plan1.sameResult(plan2)
     )
   }
+
+  test("simple inner join triggers DPP with mock-up tables") {
+    withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
+      SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true",
+      SQLConf.EXCHANGE_REUSE_ENABLED.key -> "true") {
+      withTable("df1", "df2") {
+        spark.range(1000)
+          .select(col("id"), col("id").as("k"))
+          .write
+          .partitionBy("k")
+          .format(fileFormat)
+          .mode("overwrite")
+          .saveAsTable("df1")
+
+        spark.range(100)
+          .select(col("id"), col("id").as("k"))
+          .write
+          .partitionBy("k")
+          .format(fileFormat)
+          .mode("overwrite")
+          .saveAsTable("df2")
+
+        val df = sql("SELECT df1.id, df2.k FROM df1 JOIN df2 ON df1.k = df2.k AND df2.id < 2")
+        checkAnswer(df, Row(0, 0) :: Row(1, 1) :: Nil)
+      }
+    }
+  }
 }
 
 class OapFileSourceStrategyForOrcSuite extends OapFileSourceStrategySuite {
@@ -203,6 +232,33 @@ class OapFileSourceStrategyForOrcSuite extends OapFileSourceStrategySuite {
       format => format.isInstanceOf[OrcFileFormat],
       (plan1, plan2) => plan1.sameResult(plan2)
     )
+  }
+
+  test("simple inner join triggers DPP with mock-up tables") {
+    withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
+      SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true",
+      SQLConf.EXCHANGE_REUSE_ENABLED.key -> "true") {
+      withTable("df1", "df2") {
+        spark.range(1000)
+          .select(col("id"), col("id").as("k"))
+          .write
+          .partitionBy("k")
+          .format(fileFormat)
+          .mode("overwrite")
+          .saveAsTable("df1")
+
+        spark.range(100)
+          .select(col("id"), col("id").as("k"))
+          .write
+          .partitionBy("k")
+          .format(fileFormat)
+          .mode("overwrite")
+          .saveAsTable("df2")
+
+        val df = sql("SELECT df1.id, df2.k FROM df1 JOIN df2 ON df1.k = df2.k AND df2.id < 2")
+        checkAnswer(df, Row(0, 0) :: Row(1, 1) :: Nil)
+      }
+    }
   }
 }
 

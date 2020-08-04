@@ -18,7 +18,7 @@
 package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{DynamicPruningSubquery, Expression}
 import org.apache.spark.sql.execution.datasources.oap.{OapFileFormat, OptimizedOrcFileFormat, OptimizedParquetFileFormat}
 import org.apache.spark.sql.execution.datasources.orc.ReadOnlyNativeOrcFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ReadOnlyParquetFileFormat}
@@ -40,8 +40,10 @@ object HadoopFsRelationOptimizer extends Logging {
       dataFilters: Seq[Expression],
       outputSchema: StructType): (HadoopFsRelation, Boolean) = {
 
-    def selectedPartitions: Seq[PartitionDirectory] =
-      relation.location.listFiles(partitionKeyFilters, Nil)
+    def selectedPartitions: Seq[PartitionDirectory] = {
+      relation.location.listFiles(
+        partitionKeyFilters.filterNot(p => p.isInstanceOf[DynamicPruningSubquery]), Nil)
+    }
 
     relation.fileFormat match {
       case _: ReadOnlyParquetFileFormat =>
