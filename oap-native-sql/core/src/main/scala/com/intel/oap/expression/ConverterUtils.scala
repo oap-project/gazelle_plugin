@@ -227,7 +227,8 @@ object ConverterUtils extends Logging {
       dataType: Option[DataType] = None): AttributeReference = {
     fieldExpr match {
       case a: Cast =>
-        getResultAttrFromExpr(a.child, name, Some(a.dataType))
+        val c = getResultAttrFromExpr(a.child, name, Some(a.dataType))
+        AttributeReference(c.name, a.dataType, c.nullable, c.metadata)(c.exprId, c.qualifier)
       case a: AttributeReference =>
         if (name != "None") {
           new AttributeReference(name, a.dataType, a.nullable)()
@@ -235,27 +236,10 @@ object ConverterUtils extends Logging {
           a
         }
       case a: Alias =>
-        //TODO: a walkaround since we didn't support cast yet
-        if (a.child.isInstanceOf[Cast]) {
-          val tmp = if (name != "None") {
-            new Alias(a.child.asInstanceOf[Cast].child, name)(
-              a.exprId,
-              a.qualifier,
-              a.explicitMetadata)
-          } else {
-            new Alias(a.child.asInstanceOf[Cast].child, a.name)(
-              a.exprId,
-              a.qualifier,
-              a.explicitMetadata)
-          }
-          tmp.toAttribute.asInstanceOf[AttributeReference]
+        if (name != "None") {
+          a.toAttribute.asInstanceOf[AttributeReference].withName(name)
         } else {
-          if (name != "None") {
-            val tmp = a.toAttribute.asInstanceOf[AttributeReference]
-            new AttributeReference(name, tmp.dataType, tmp.nullable)()
-          } else {
-            a.toAttribute.asInstanceOf[AttributeReference]
-          }
+          a.toAttribute.asInstanceOf[AttributeReference]
         }
       case d: ColumnarDivide =>
         new AttributeReference(name, DoubleType, d.nullable)()

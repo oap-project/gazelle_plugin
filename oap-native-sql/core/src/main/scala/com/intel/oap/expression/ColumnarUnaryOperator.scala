@@ -142,8 +142,26 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
 
     val resultType = CodeGeneration.getResultType(dataType)
     if (dataType == StringType) {
-      //TODO: fix cast uft8
-      (child_node, childType)
+      val limitLen: java.lang.Long = childType match {
+        case int: ArrowType.Int if int.getBitWidth == 8 => 4
+        case int: ArrowType.Int if int.getBitWidth == 16 => 6
+        case int: ArrowType.Int if int.getBitWidth == 32 => 11
+        case int: ArrowType.Int if int.getBitWidth == 64 => 20
+        case float: ArrowType.FloatingPoint
+          if float.getPrecision() == FloatingPointPrecision.SINGLE => 12
+        case float: ArrowType.FloatingPoint
+          if float.getPrecision() == FloatingPointPrecision.DOUBLE => 21
+        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10
+        case _ => 
+          throw new UnsupportedOperationException(s"ColumnarCast to String doesn't support ${childType}")
+      }
+      val limitLenNode = TreeBuilder.makeLiteral(limitLen)
+      val funcNode =  TreeBuilder.makeFunction("castVARCHAR", Lists.newArrayList(child_node, limitLenNode), resultType)
+      (funcNode, resultType)
+    } else if (dataType == ByteType) {
+      val funcNode =
+        TreeBuilder.makeFunction("castBYTE", Lists.newArrayList(child_node), resultType)
+      (funcNode, resultType)
     } else if (dataType == IntegerType) {
       val funcNode =
         TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node), resultType)
