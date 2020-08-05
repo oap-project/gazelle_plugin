@@ -21,3 +21,11 @@ git checkout -b 2021.1-beta07-1 origin/2021.1-beta07-1
 cd oneCCL && mkdir build && cd build
 cmake ..
 make -j 2 install
+
+#
+# Setup building environments by manually source scripts
+#
+# source /opt/intel/inteloneapi/daal/2021.1-beta07/env/vars.sh
+# source /opt/intel/inteloneapi/tbb/2021.1-beta07/env/vars.sh
+# source /tmp/oneCCL/build/_install/env/setvars.sh
+#

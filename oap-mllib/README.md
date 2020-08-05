@@ -68,14 +68,16 @@ We use [Apache Maven](https://maven.apache.org/) to manage and build source code
 * JDK 8.0+
 * Apache Maven 3.6.2+
 * GNU GCC 4.8.5+
-* Intel® oneAPI Toolkits (Beta) 2021.1-beta07+ Components: 
+* Intel® oneAPI Toolkits (Beta) 2021.1-beta07 Components: 
     - Data Analytics Library (oneDAL)
     - Threading Building Blocks (oneTBB)
 * [Open Source Intel® oneAPI Collective Communications Library (oneCCL)](https://github.com/oneapi-src/oneCCL)
 
-Intel® oneAPI Toolkits (Beta) and its components can be downloaded and install from [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html). Installation process for oneAPI using Package Managers (YUM (DNF), APT, and ZYPPER) is also available from here. Generally you only need to install oneAPI Base Toolkit for Linux with all or selected components. Instead of using oneCCL included in Intel® oneAPI Toolkits (Beta), we prefer to build latest code from open source oneCCL.
+Intel® oneAPI Toolkits (Beta) and its components can be downloaded and install from [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html). Installation process for oneAPI using Package Managers (YUM (DNF), APT, and ZYPPER) is also available from here. Generally you only need to install oneAPI Base Toolkit for Linux with all or selected components. Instead of using oneCCL included in Intel® oneAPI Toolkits (Beta), we prefer to build from open source oneCCL to resolve some bugs.
 
 More details abount oneAPI can be found [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html).
+
+__Note: We have verified the building process based on oneAPI 2021.1-beta07. Due to default installation path change in 2021.1-beta08+, it will not work for 2021.1-beta08+. We will fix it soon. You can also refer to [this script](https://github.com/Intel-bigdata/OAP/blob/master/oap-mllib/dev/install-build-deps-centos.sh) to install correct oneAPI version and manually source the environments.__
 
 Scala and Java dependency descriptions are already included in Maven POM file. 
 
@@ -83,9 +85,10 @@ Scala and Java dependency descriptions are already included in Maven POM file.
 
 ####  Building oneCCL
 
-To clone and build latest code from open source oneCCL, run the following commands:
+To clone and build from open source oneCCL, run the following commands:
 ```
 	$ git clone https://github.com/oneapi-src/oneCCL
+        $ git checkout -b 2021.1-beta07-1 origin/2021.1-beta07-1
 	$ cd oneCCL && mkdir build && cd build
 	$ cmake ..
 	$ make -j install
