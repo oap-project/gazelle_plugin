@@ -62,7 +62,6 @@ JNIEXPORT void JNICALL Java_org_apache_spark_ml_util_OneDAL_00024_cSetDoubleIter
 		 
 		 jdouble* values = env->GetDoubleArrayElements(jvalue, 0);
 
-         long numValues = env->GetArrayLength(jvalue);
          for (int i = 0; i < numRows; i ++){
               jlong curRow = rowOffset[i] + totalRows;
             for(int j = 0; j < jcols; j ++) {
@@ -82,3 +81,11 @@ JNIEXPORT void JNICALL Java_org_apache_spark_ml_util_OneDAL_00024_cSetDoubleIter
 
   }
 
+JNIEXPORT void JNICALL Java_org_apache_spark_ml_util_OneDAL_00024_cAddNumericTable
+  (JNIEnv *, jobject,  jlong rowMergedNumericTableAddr, jlong numericTableAddr) {
+    
+    data_management::RowMergedNumericTablePtr pRowMergedNumericTable = (*(data_management::RowMergedNumericTablePtr *)rowMergedNumericTableAddr); 
+    data_management::NumericTablePtr pNumericTable = (*(data_management::NumericTablePtr *)numericTableAddr);
+    pRowMergedNumericTable->addNumericTable(pNumericTable);
+
+  }
