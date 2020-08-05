@@ -95,11 +95,7 @@ object DenseKMeansDS {
       var vector: Array[Double] = new Array[Double](v.get().size)
       for (i <- 0 until v.get().size) vector(i) = v.get().get(i)
       Tuple1(Vectors.dense(vector))
-    }.toDF("features")
-
-    val numExamples = dataset.count()
-
-    println(s"numExamples = $numExamples.")
+    }.toDF("features")    
 
     val initMode = params.initializationMode match {
       case Random => "random"
@@ -111,11 +107,7 @@ object DenseKMeansDS {
       .setK(params.k)
       .setMaxIter(params.numIterations)
       .setSeed(1L)
-      .fit(dataset)
-
-    val cost = model.summary.trainingCost
-
-    println(s"Total cost = $cost.")
+      .fit(dataset)    
 
     spark.stop()
   }
