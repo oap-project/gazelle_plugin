@@ -26,7 +26,6 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.OneDAL._
 import org.apache.spark.mllib.linalg.{Vector => OldVector, Vectors => OldVectors}
 import org.apache.spark.rdd.{ExecutorInProcessCoalescePartitioner, RDD}
-
 import scala.collection.mutable.ArrayBuffer
 
 class KMeansDALImpl (
@@ -68,21 +67,28 @@ class KMeansDALImpl (
       // oneDAL libs should be loaded by now, extract libMLlibDAL.so to temp file and load
       LibLoader.loadLibrary()
 
-      println(s"KMeansDALImpl: Start data conversion")
 
       import scala.collection.JavaConverters._
-
-      val start = System.nanoTime
-      val iter = it.map{
-              curVector => curVector.toArray
+      
+      val dataArray = new ArrayBuffer[Array[Double]]()
+      val batchSize = 8 << 10
+      var i = 0
+      var count = 0
+	
+      it.foreach { curVector =>
+        dataArray += curVector.toArray
+        i += 1
+		
+        if (i == batchSize || (!it.hasNext)) {
+          val batchIter = new DataBatch.BatchIterator(dataArray.toIterator.asJava, batchSize)
+          OneDAL.cSetDoubleIterator(matrix.getCNumericTable, batchIter, count * batchSize)
+		  
+          i = 0
+          dataArray.clear()
+          count += 1
+        }
       }
-      val batchSize = 8 << 10;
-      val batchIter = new DataBatch.BatchIterator(iter.asJava, batchSize)
-      OneDAL.cSetDoubleIterator(matrix.getCNumericTable, batchIter)
 
-      val duration = (System.nanoTime - start) / 1E9
-
-      println(s"KMeansDALImpl: Data conversion takes $duration seconds")
       tables += matrix
       matrix.pack()
  
@@ -97,7 +103,7 @@ class KMeansDALImpl (
           table.getCNumericTable}
     }).cache()
     
-   // inputRDD.foreachPartition(() => _)
+    inputRDD.foreachPartition(() => _)
     inputRDD.count()
 	
     val coalescedrdd = inputRDD.coalesce(1,
