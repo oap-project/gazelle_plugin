@@ -69,13 +69,6 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
-      <groupId>com.intel.daal</groupId>
-      <artifactId>daal</artifactId>
-      <version>2021.1-beta</version>
-      <scope>system</scope>
-      <systemPath>${env.ONEAPI_ROOT}/daal/latest/lib/daal.jar</systemPath>
-    </dependency>
   </dependencies>
 
   <build>

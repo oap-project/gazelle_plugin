@@ -28,14 +28,6 @@ import org.apache.spark.sql._
 import scopt.OptionParser
 import org.apache.spark.sql.SparkSession
 
-/**
-  *
-  * An example k-means app. Run with
-  * {{{
-  * ./bin/run-example org.apache.spark.examples.mllib.DenseKMeans [options] <input>
-  * }}}
-  * If you use it as a template to create your own app, please use `spark-submit` to submit your app.
-  */
 object DenseKMeansDS {
 
   object InitializationMode extends Enumeration {
@@ -48,7 +40,7 @@ object DenseKMeansDS {
   case class Params(input: String = null,
                     k: Int = -1,
                     numIterations: Int = 10,
-                    initializationMode: InitializationMode = Parallel)
+                    initializationMode: InitializationMode = Random)
 
   def main(args: Array[String]) {
     val defaultParams = Params()
@@ -112,3 +104,4 @@ object DenseKMeansDS {
     spark.stop()
   }
 }
+
