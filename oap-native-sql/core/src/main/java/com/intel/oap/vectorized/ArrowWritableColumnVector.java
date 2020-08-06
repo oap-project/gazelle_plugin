@@ -852,6 +852,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     final boolean getBoolean(int rowId) {
       return accessor.get(rowId) == 1;
     }
+
+    @Override
+    final UTF8String getUTF8String(int rowId) {
+      return UTF8String.fromString(Boolean.toString(getBoolean(rowId)));
+    }
   }
 
   private static class ByteAccessor extends ArrowVectorAccessor {
@@ -866,6 +871,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     @Override
     final byte getByte(int rowId) {
       return accessor.get(rowId);
+    }
+
+    @Override
+    final UTF8String getUTF8String(int rowId) {
+      return UTF8String.fromString(Byte.toString(accessor.get(rowId)));
     }
   }
 

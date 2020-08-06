@@ -96,19 +96,28 @@ class ColumnarHashAggregateExec(
     if (ColumnarPluginConfig
           .getConf(sparkConf)
           .enableCodegenHashAggregate && groupingExpressions.nonEmpty) {
-      val signature = ColumnarGroupbyHashAggregation.prebuild(
-        groupingExpressions,
-        child.output,
-        aggregateExpressions,
-        aggregateAttributes,
-        resultExpressions,
-        output,
-        numInputBatches,
-        numOutputBatches,
-        numOutputRows,
-        aggTime,
-        totalTime,
-        sparkConf)
+      var signature: String = ""
+      try {
+        signature = ColumnarGroupbyHashAggregation.prebuild(
+          groupingExpressions,
+          child.output,
+          aggregateExpressions,
+          aggregateAttributes,
+          resultExpressions,
+          output,
+          numInputBatches,
+          numOutputBatches,
+          numOutputRows,
+          aggTime,
+          totalTime,
+          sparkConf)
+      } catch {
+        case e: UnsupportedOperationException
+            if e.getMessage == "Unsupport to generate native expression from replaceable expression." =>
+          logWarning(e.getMessage())
+        case e =>
+          throw e
+      }
       if (signature != "") {
         if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
           val tempDir = ColumnarPluginConfig.getRandomTempDir
@@ -128,6 +137,8 @@ class ColumnarHashAggregateExec(
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>
       val hasInput = iter.hasNext
+      logInfo(
+        s"\ngroupingExpressions: $groupingExpressions,\noriginalInputAttributes: ${child.output},\naggregateExpressions: $aggregateExpressions,\naggregateAttributes: $aggregateAttributes,\nresultExpressions: $resultExpressions, \noutput: $output")
       val res = if (!hasInput) {
         // This is a grouped aggregate and the input iterator is empty,
         // so return an empty iterator.

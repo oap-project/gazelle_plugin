@@ -54,29 +54,55 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: ProjectExec =>
       //new ColumnarProjectExec(plan.projectList, replaceWithColumnarPlan(plan.child))
       val columnarPlan = replaceWithColumnarPlan(plan.child)
-      val res = if (!columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
-        new ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
-      } else {
-        val cur_plan = columnarPlan.asInstanceOf[ColumnarConditionProjectExec]
-        new ColumnarConditionProjectExec(cur_plan.condition, plan.projectList, cur_plan.child)
-      }
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      res
+      var newPlan: SparkPlan = null
+      try {
+        // If some expression is not supported, we will use RowBased HashAggr here.
+        val newColumnarPlan = if (!columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
+          new ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
+        } else {
+          val cur_plan = columnarPlan.asInstanceOf[ColumnarConditionProjectExec]
+          new ColumnarConditionProjectExec(cur_plan.condition, plan.projectList, cur_plan.child)
+        }
+        newPlan = newColumnarPlan
+      } catch {
+        case e: UnsupportedOperationException =>
+          logWarning(s"Fall back to use RowBased Filter and Project Exec")
+      }
+      if (newPlan == null) {
+        if (columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
+          val planBeforeFilter = columnarPlan.children.map(replaceWithColumnarPlan)
+          plan.child.withNewChildren(planBeforeFilter)
+        } else {
+          plan.withNewChildren(List(columnarPlan))
+        }
+      } else {
+        newPlan
+      }
     case plan: FilterExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarConditionProjectExec(plan.condition, null, child)
     case plan: HashAggregateExec =>
-      val child = replaceWithColumnarPlan(plan.child)
+      val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarHashAggregateExec(
-        plan.requiredChildDistributionExpressions,
-        plan.groupingExpressions,
-        plan.aggregateExpressions,
-        plan.aggregateAttributes,
-        plan.initialInputBufferOffset,
-        plan.resultExpressions,
-        child)
+      // If some expression is not supported, we will use RowBased HashAggr here.
+      var newPlan: SparkPlan = plan.withNewChildren(children)
+      try {
+        val columnarPlan = new ColumnarHashAggregateExec(
+          plan.requiredChildDistributionExpressions,
+          plan.groupingExpressions,
+          plan.aggregateExpressions,
+          plan.aggregateAttributes,
+          plan.initialInputBufferOffset,
+          plan.resultExpressions,
+          children(0))
+        newPlan = columnarPlan
+      } catch {
+        case e: UnsupportedOperationException =>
+          logWarning(s"Fall back to use HashAggregateExec")
+      }
+      newPlan
     case plan: SortExec =>
       if (columnarConf.enableColumnarSort) {
         val child = replaceWithColumnarPlan(plan.child)

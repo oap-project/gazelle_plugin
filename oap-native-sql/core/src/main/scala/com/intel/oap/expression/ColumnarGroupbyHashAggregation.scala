@@ -235,14 +235,13 @@ object ColumnarGroupbyHashAggregation extends Logging {
     // build gandiva projection here.
     ColumnarPluginConfig.getConf(sparkConf)
 
-    logInfo(
-      s"\ngroupingExpressions: $groupingExpressions,\noriginalInputAttributes: $originalInputAttributes,\naggregateExpressions: $aggregateExpressions,\naggregateAttributes: $aggregateAttributes,\nresultExpressions: $resultExpressions, \noutput: $output")
-
     val mode = if (aggregateExpressions.size > 0) {
       aggregateExpressions(0).mode
     } else {
-      null
+      throw new UnsupportedOperationException(
+        s"Unable to handle Aggregation with no aggregate expressions.")
     }
+
     val originalInputFieldList = originalInputAttributes.toList.map(attr => {
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
@@ -329,9 +328,14 @@ object ColumnarGroupbyHashAggregation extends Logging {
   }
 
   def getColumnarFuncNode(expr: Expression): TreeNode = {
+    if (expr.isInstanceOf[AttributeReference] && expr
+          .asInstanceOf[AttributeReference]
+          .name == "none") {
+      throw new UnsupportedOperationException(
+        s"Unsupport to generate native expression from replaceable expression.")
+    }
     var columnarExpr: Expression =
       ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-    //logInfo(s"columnarExpr is ${columnarExpr}")
     var inputList: java.util.List[Field] = Lists.newArrayList()
     val (node, _resultType) =
       columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(inputList)
