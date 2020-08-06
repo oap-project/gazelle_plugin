@@ -73,11 +73,11 @@ We use [Apache Maven](https://maven.apache.org/) to manage and build source code
     - Threading Building Blocks (oneTBB)
 * [Open Source Intel® oneAPI Collective Communications Library (oneCCL)](https://github.com/oneapi-src/oneCCL)
 
-Intel® oneAPI Toolkits (Beta) and its components can be downloaded and install from [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html). Installation process for oneAPI using Package Managers (YUM (DNF), APT, and ZYPPER) is also available from here. Generally you only need to install oneAPI Base Toolkit for Linux with all or selected components. Instead of using oneCCL included in Intel® oneAPI Toolkits (Beta), we prefer to build from open source oneCCL to resolve some bugs.
+Intel® oneAPI Toolkits (Beta) and its components can be downloaded and install from [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html). Installation process for oneAPI using Package Managers (YUM (DNF), APT, and ZYPPER) is also available. Generally you only need to install oneAPI Base Toolkit for Linux with all or selected components mentioned above. Instead of using oneCCL included in Intel® oneAPI Toolkits (Beta), we prefer to build from open source oneCCL to resolve some bugs.
 
 More details abount oneAPI can be found [here](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html).
 
-__Note: We have verified the building process based on oneAPI 2021.1-beta07. Due to default installation path change in 2021.1-beta08+, it will not work for 2021.1-beta08+. We will fix it soon. You can also refer to [this script](https://github.com/Intel-bigdata/OAP/blob/master/oap-mllib/dev/install-build-deps-centos.sh) to install correct oneAPI version and manually source the environments.__
+__Note: We have verified the building process based on oneAPI 2021.1-beta07. Due to default installation path change in 2021.1-beta08+, it will not work for 2021.1-beta08+. We will fix it soon. You can also refer to [this script and comments in it](https://github.com/Intel-bigdata/OAP/blob/master/oap-mllib/dev/install-build-deps-centos.sh) to install correct oneAPI version and manually setup the environments.__
 
 Scala and Java dependency descriptions are already included in Maven POM file. 
 

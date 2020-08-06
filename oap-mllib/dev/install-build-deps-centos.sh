@@ -23,8 +23,9 @@ cmake ..
 make -j 2 install
 
 #
-# Setup building environments by manually source scripts
+# Setup building environments manually:
 #
+# export ONEAPI_ROOT=/opt/intel/inteloneapi
 # source /opt/intel/inteloneapi/daal/2021.1-beta07/env/vars.sh
 # source /opt/intel/inteloneapi/tbb/2021.1-beta07/env/vars.sh
 # source /tmp/oneCCL/build/_install/env/setvars.sh
