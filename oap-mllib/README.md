@@ -31,12 +31,16 @@ Intel® oneAPI Toolkits (Beta) components used by the project are already includ
 
 ### Spark Configuration
 
-You only need to set extra class path for Spark to point to this jar and `spark-submit` script will take care of the rest. 
+Users usually run Spark application on __YARN__ with __client__ mode. In that case, you only need to add the following configurations in `spark-defaults.conf` or in `spark-submit` command line before running. 
+
 ```
-spark.driver.extraClassPath=/path/to/oap-mllib-jar
-spark.executor.extraClassPath=/path/to/oap-mllib-jar
+# absolute path of the jar for uploading
+spark.files                       /path/to/oap-mllib-x.x.x-with-spark-x.x.x.jar
+# absolute path of the jar for driver class path
+spark.driver.extraClassPath       /path/to/oap-mllib-x.x.x-with-spark-x.x.x.jar
+# relative path of the jar for executor class path
+spark.executor.extraClassPath     ./oap-mllib-x.x.x-with-spark-x.x.x.jar
 ```
-You can also choose to set those in `spark-defaults.conf`, then Intel MLlib will be default to run all MLlib applications.
 
 ### Sanity Check
 
