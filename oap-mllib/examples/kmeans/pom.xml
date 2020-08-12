@@ -26,22 +26,9 @@
     </dependency>
 
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.12</version>
-    </dependency>    
-
-     <dependency>
       <groupId>com.github.scopt</groupId>
       <artifactId>scopt_2.12</artifactId>
       <version>3.7.0</version>      
-    </dependency>
-
-    <dependency>
-      <groupId>com.github.fommil.netlib</groupId>
-      <artifactId>all</artifactId>
-      <version>1.1.2</version>      
-      <type>pom</type>
     </dependency>
 
     <dependency>
@@ -58,17 +45,6 @@
       <scope>provided</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.apache.mahout</groupId>
-      <artifactId>mahout-core</artifactId>
-      <version>0.9</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-core</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
   </dependencies>
 
   <build>
