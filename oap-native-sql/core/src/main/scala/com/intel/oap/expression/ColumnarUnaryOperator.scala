@@ -132,6 +132,22 @@ class ColumnarUpper(child: Expression, original: Expression)
   }
 }
 
+class ColumnarBitwiseNot(child: Expression, original: Expression)
+    extends BitwiseNot(child: Expression)
+        with ColumnarExpression
+        with Logging {
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val funcNode = TreeBuilder.makeFunction(
+      "bitwise_not",
+      Lists.newArrayList(child_node),
+      childType)
+    (funcNode, childType)
+  }
+}
+
 class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[String], original: Expression)
   extends Cast(child: Expression, datatype: DataType, timeZoneId: Option[String])
     with ColumnarExpression
@@ -208,6 +224,8 @@ object ColumnarUnaryOperator {
       new ColumnarUpper(child, u)
     case c: Cast =>
       new ColumnarCast(child, c.dataType, c.timeZoneId, c)
+    case n: BitwiseNot =>
+      new ColumnarBitwiseNot(child, n)
     case a: KnownFloatingPointNormalized =>
       child
     case a: NormalizeNaNAndZero =>
