@@ -20,7 +20,8 @@ package org.apache.spark.shuffle
 import java.io.File
 import java.nio.file.Files
 
-import com.intel.oap.vectorized.ArrowWritableColumnVector
+import com.intel.oap.expression.ConverterUtils
+import com.intel.oap.vectorized.{ArrowWritableColumnVector, NativePartitioning}
 import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.ipc.ArrowStreamReader
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
@@ -62,11 +63,11 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
   private var shuffleHandle: ColumnarShuffleHandle[Int, ColumnarBatch] = _
   private val schema = new Schema(
     List(
-      Field.nullable("pid", new ArrowType.Int(32, true)),
       Field.nullable("f_1", new ArrowType.Int(32, true)),
       Field.nullable("f_2", new ArrowType.Int(32, true)),
     ).asJava)
   private val allocator = new RootAllocator(Long.MaxValue)
+  private val numPartitions = 11
 
   override def beforeEach() = {
     super.beforeEach()
@@ -80,13 +81,16 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
     shuffleHandle =
       new ColumnarShuffleHandle[Int, ColumnarBatch](shuffleId = 0, dependency = dependency)
 
-    when(dependency.partitioner).thenReturn(new HashPartitioner(11))
+    when(dependency.partitioner).thenReturn(new HashPartitioner(numPartitions))
     when(dependency.serializer).thenReturn(new JavaSerializer(sparkConf))
-    when(dependency.serializedSchema).thenReturn(schema.toByteArray)
+    when(dependency.nativePartitioning).thenReturn(
+      new NativePartitioning("rr", numPartitions, ConverterUtils.getSchemaBytesBuf(schema)))
     when(dependency.dataSize)
       .thenReturn(SQLMetrics.createSizeMetric(spark.sparkContext, "data size"))
     when(dependency.splitTime)
-      .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "split time"))
+      .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_split"))
+    when(dependency.computePidTime)
+      .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_computepid"))
     when(taskContext.taskMetrics()).thenReturn(taskMetrics)
     when(blockResolver.getDataFile(0, 0)).thenReturn(outputFile)
 
@@ -168,15 +172,12 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
   }
 
   test("write with some empty partitions") {
-    val vectorPid = new IntVector("pid", allocator)
+    val numRows = 4
     val vector1 = new IntVector("v1", allocator)
     val vector2 = new IntVector("v2", allocator)
-    ColumnarShuffleWriterSuite.setIntVector(vectorPid, 1, 2, 1, 10)
     ColumnarShuffleWriterSuite.setIntVector(vector1, null, null, null, null)
     ColumnarShuffleWriterSuite.setIntVector(vector2, 100, 100, null, null)
-    val cb = ColumnarShuffleWriterSuite.makeColumnarBatch(
-      vectorPid.getValueCount,
-      List(vectorPid, vector1, vector2))
+    val cb = ColumnarShuffleWriterSuite.makeColumnarBatch(numRows, List(vector1, vector2))
 
     def records: Iterator[(Int, ColumnarBatch)] = Iterator((0, cb), (0, cb))
 
@@ -190,7 +191,7 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
     writer.stop(success = true)
 
     assert(writer.getPartitionLengths.sum === outputFile.length())
-    assert(writer.getPartitionLengths.count(_ == 0L) === 8) // should be (11 - 3) zero length files
+    assert(writer.getPartitionLengths.count(_ == 0L) === 3) // should be (numPartitions - 2 * numRows) zero length files
 
     val shuffleWriteMetrics = taskContext.taskMetrics().shuffleWriteMetrics
     assert(shuffleWriteMetrics.bytesWritten === outputFile.length())
@@ -203,7 +204,7 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
     val reader = new ArrowStreamReader(new ByteArrayReadableSeekableByteChannel(bytes), allocator)
     try {
       val schema = reader.getVectorSchemaRoot.getSchema
-      assert(schema.getFields == this.schema.getFields.subList(1, this.schema.getFields.size()))
+      assert(schema.getFields == this.schema.getFields)
     } finally {
       reader.close()
       cb.close()

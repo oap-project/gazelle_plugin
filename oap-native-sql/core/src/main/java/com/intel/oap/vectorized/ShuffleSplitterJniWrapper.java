@@ -28,12 +28,33 @@ public class ShuffleSplitterJniWrapper {
   /**
    * Construct native splitter for shuffled RecordBatch over
    *
-   * @param schemaBuf serialized arrow schema
+   * @param part contains the partitioning parameter needed by native splitter
    * @param bufferSize size of native buffers hold by each partition writer
+   * @param localDirs configured local directories where Spark can write files
+   * @param codec compression codec
    * @return native splitter instance id if created successfully.
    * @throws RuntimeException
    */
-  public native long make(byte[] schemaBuf, long bufferSize, String localDirs)
+  public long make(NativePartitioning part, int bufferSize, String localDirs, String codec)
+      throws RuntimeException {
+    return nativeMake(
+        part.getShortName(),
+        part.getNumPartitions(),
+        part.getSchema(),
+        part.getExprList(),
+        bufferSize,
+        localDirs,
+        codec);
+  }
+
+  public native long nativeMake(
+      String shortName,
+      int numPartitions,
+      byte[] schema,
+      byte[] exprList,
+      int bufferSize,
+      String localDirs,
+      String codec)
       throws RuntimeException;
 
   /**
@@ -41,7 +62,7 @@ public class ShuffleSplitterJniWrapper {
    * split according to the first column as partition id. During splitting, the data in native
    * buffers will be write to disk when the buffers are full.
    *
-   * @param splitterId
+   * @param splitterId splitter instance id
    * @param numRows Rows per batch
    * @param bufAddrs Addresses of buffers
    * @param bufSizes Sizes of buffers
@@ -54,34 +75,16 @@ public class ShuffleSplitterJniWrapper {
    * Write the data remained in the buffers hold by native splitter to each partition's temporary
    * file. And stop processing splitting
    *
-   * @param splitterId
+   * @param splitterId splitter instance id
    * @return SplitResult
    * @throws RuntimeException
    */
   public native SplitResult stop(long splitterId) throws RuntimeException;
 
   /**
-   * Set the output buffer for each partition. Splitter will maintain one buffer for each partition
-   * id occurred, and write data to file when buffer is full. Default buffer size will be set to
-   * 4096 rows.
-   *
-   * @param splitterId
-   * @param bufferSize In row, not bytes. Default buffer size will be set to 4096 rows.
-   */
-  public native void setPartitionBufferSize(long splitterId, long bufferSize);
-
-  /**
-   * Set compression codec for splitter's output. Default will be uncompressed.
-   *
-   * @param splitterId
-   * @param codec "lz4", "zstd", "uncompressed"
-   */
-  public native void setCompressionCodec(long splitterId, String codec);
-
-  /**
    * Release resources associated with designated splitter instance.
    *
-   * @param splitterId of the splitter instance.
+   * @param splitterId splitter instance id
    */
   public native void close(long splitterId);
 }

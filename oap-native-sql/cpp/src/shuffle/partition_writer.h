@@ -35,7 +35,7 @@ namespace detail {
 
 template <typename T>
 arrow::Status inline Write(const SrcBuffers& src, int64_t src_offset,
-                           const BufferMessages& dst, int64_t dst_offset) {
+                           const BufferInfos& dst, int64_t dst_offset) {
   for (size_t i = 0; i < src.size(); ++i) {
     dst[i]->validity_addr[dst_offset / 8] |=
         (((src[i].validity_addr)[src_offset / 8] >> (src_offset % 8)) & 1)
@@ -48,7 +48,7 @@ arrow::Status inline Write(const SrcBuffers& src, int64_t src_offset,
 
 template <>
 arrow::Status inline Write<bool>(const SrcBuffers& src, int64_t src_offset,
-                                 const BufferMessages& dst, int64_t dst_offset) {
+                                 const BufferInfos& dst, int64_t dst_offset) {
   for (size_t i = 0; i < src.size(); ++i) {
     dst[i]->validity_addr[dst_offset / 8] |=
         (((src[i].validity_addr)[src_offset / 8] >> (src_offset % 8)) & 1)
@@ -101,9 +101,8 @@ class PartitionWriter {
   explicit PartitionWriter(int32_t pid, int64_t capacity, Type::typeId last_type,
                            const std::vector<Type::typeId>& column_type_id,
                            const std::shared_ptr<arrow::Schema>& schema,
-                           std::string file_path,
-                           std::shared_ptr<arrow::io::FileOutputStream> file,
-                           TypeBufferMessages buffers, BinaryBuilders binary_builders,
+                           std::shared_ptr<arrow::io::FileOutputStream> file_os,
+                           TypeBufferInfos buffers, BinaryBuilders binary_builders,
                            LargeBinaryBuilders large_binary_builders,
                            arrow::Compression::type compression_codec)
       : pid_(pid),
@@ -111,12 +110,11 @@ class PartitionWriter {
         last_type_(last_type),
         column_type_id_(column_type_id),
         schema_(schema),
-        file_path_(std::move(file_path)),
-        file_(std::move(file)),
+        file_os_(std::move(file_os)),
         buffers_(std::move(buffers)),
         binary_builders_(std::move(binary_builders)),
         large_binary_builders_(std::move(large_binary_builders)),
-        compression_codec_(compression_codec),
+        compression_type_(compression_codec),
         write_offset_(Type::typeId::NUM_TYPES),
         file_footer_(0),
         file_writer_opened_(false),
@@ -127,29 +125,17 @@ class PartitionWriter {
       int32_t pid, int64_t capacity, Type::typeId last_type,
       const std::vector<Type::typeId>& column_type_id,
       const std::shared_ptr<arrow::Schema>& schema, const std::string& temp_file_path,
-      arrow::Compression::type compression_codec);
+      arrow::Compression::type compression_type);
 
   arrow::Status Stop();
 
-  int32_t pid() { return pid_; }
-
-  int64_t capacity() { return capacity_; }
-
-  int64_t write_offset() { return write_offset_[last_type_]; }
-
-  Type::typeId last_type() { return last_type_; }
-
-  const std::string& file_path() const { return file_path_; }
-
-  int64_t file_footer() const { return file_footer_; }
-
-  uint64_t write_time() const { return write_time_; }
-
   arrow::Status WriteArrowRecordBatch();
 
-  arrow::Result<int64_t> BytesWritten() {
-    if (!file_->closed()) {
-      ARROW_ASSIGN_OR_RAISE(file_footer_, file_->Tell());
+  uint64_t GetWriteTime() const { return write_time_; }
+
+  arrow::Result<int64_t> GetBytesWritten() {
+    if (!file_os_->closed()) {
+      ARROW_ASSIGN_OR_RAISE(file_footer_, file_os_->Tell());
     }
     return file_footer_;
   }
@@ -266,13 +252,13 @@ class PartitionWriter {
   const Type::typeId last_type_;
   const std::vector<Type::typeId>& column_type_id_;
   const std::shared_ptr<arrow::Schema>& schema_;
-  const std::string file_path_;
+  std::shared_ptr<arrow::io::FileOutputStream> file_os_;
 
-  std::shared_ptr<arrow::io::FileOutputStream> file_;
-  TypeBufferMessages buffers_;
+  TypeBufferInfos buffers_;
   BinaryBuilders binary_builders_;
   LargeBinaryBuilders large_binary_builders_;
-  arrow::Compression::type compression_codec_;
+
+  arrow::Compression::type compression_type_;
 
   std::vector<int64_t> write_offset_;
   int64_t file_footer_;

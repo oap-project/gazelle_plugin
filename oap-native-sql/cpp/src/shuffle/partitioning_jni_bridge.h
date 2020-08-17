@@ -15,25 +15,14 @@
  * limitations under the License.
  */
 
-package com.intel.oap.vectorized;
+#pragma once
 
-/**
- * POJO to hold the output file path of the designated partition id
- */
-public class PartitionFileInfo {
-  private final int partitionId;
-  private final String filePath;
+#include <gandiva/gandiva_aliases.h>
+#include <gandiva/arrow.h>
 
-  public PartitionFileInfo(int partitionId, String filePath) {
-    this.partitionId = partitionId;
-    this.filePath = filePath;
-  }
-
-  public int getPartitionId() {
-    return partitionId;
-  }
-
-  public String getFilePath() {
-    return filePath;
-  }
-}
+struct PartitioningJniBridge {
+  std::string name;
+  int32_t num_partitions;
+  gandiva::ExpressionVector expr_vec;
+  gandiva::FieldVector field_vec;
+};

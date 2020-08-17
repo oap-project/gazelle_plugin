@@ -20,18 +20,13 @@ package com.intel.oap.vectorized
 import java.io._
 import java.nio.ByteBuffer
 
+import com.intel.oap.expression.ConverterUtils
 import org.apache.arrow.memory.BufferAllocator
-import org.apache.arrow.util.SchemaUtils
 import org.apache.arrow.vector.ipc.ArrowStreamReader
 import org.apache.arrow.vector.{VectorLoader, VectorSchemaRoot}
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
-import org.apache.spark.serializer.{
-  DeserializationStream,
-  SerializationStream,
-  Serializer,
-  SerializerInstance
-}
+import org.apache.spark.serializer.{DeserializationStream, SerializationStream, Serializer, SerializerInstance}
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.util.ArrowUtils
@@ -164,7 +159,7 @@ private class ArrowColumnarBatchSerializerInstance(readBatchNumRows: SQLMetric)
       private def decompressVectors(): Unit = {
         if (jniWrapper == null) {
           jniWrapper = new ShuffleDecompressionJniWrapper
-          schemaHolderId = jniWrapper.make(SchemaUtils.get.serialize(root.getSchema))
+          schemaHolderId = jniWrapper.make(ConverterUtils.getSchemaBytesBuf(root.getSchema))
         }
         if (vectorLoader == null) {
           vectorLoader = new VectorLoader(root)

@@ -24,234 +24,188 @@
 #include <gtest/gtest.h>
 #include <iostream>
 #include "shuffle/splitter.h"
-#include "shuffle/type.h"
 #include "tests/test_utils.h"
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
 
-class ShuffleTest : public ::testing::Test {
+class SplitterTest : public ::testing::Test {
  protected:
   void SetUp() {
-
-    auto f_pid = field("f_pid", arrow::int32());
     auto f_na = field("f_na", arrow::null());
-    auto f_int8 = field("f_int8", arrow::int8());
-    auto f_int16 = field("f_int16", arrow::int16());
+    auto f_int8_a = field("f_int8_a", arrow::int8());
+    auto f_int8_b = field("f_int8_b", arrow::int8());
     auto f_uint64 = field("f_uint64", arrow::uint64());
     auto f_bool = field("f_bool", arrow::boolean());
     auto f_string = field("f_string", arrow::utf8());
 
     std::shared_ptr<arrow::internal::TemporaryDir> tmp_dir1;
     std::shared_ptr<arrow::internal::TemporaryDir> tmp_dir2;
-    ARROW_ASSIGN_OR_THROW(tmp_dir1, std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
-    ARROW_ASSIGN_OR_THROW(tmp_dir2, std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
+    ARROW_ASSIGN_OR_THROW(tmp_dir1,
+                          std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
+    ARROW_ASSIGN_OR_THROW(tmp_dir2,
+                          std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
     auto config_dirs = tmp_dir1->path().ToString() + "," + tmp_dir2->path().ToString();
 
     setenv("NATIVESQL_SPARK_LOCAL_DIRS", config_dirs.c_str(), 1);
 
-    schema_ = arrow::schema({f_pid, f_na, f_int8, f_int16, f_uint64, f_bool, f_string});
-    ARROW_ASSIGN_OR_THROW(writer_schema_, schema_->RemoveField(0))
-
-    ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make(schema_));
+    schema_ = arrow::schema({f_na, f_int8_a, f_int8_b, f_uint64, f_bool, f_string});
   }
 
-  void TearDown() { ASSERT_NOT_OK(splitter_->Stop()); }
-
-  std::string tmp_dir_prefix = "columnar-shuffle-test";
-
-  std::string c_pid_ = "[1, 2, 1, 10]";
-  std::vector<std::string> input_data_ = {c_pid_,
-                                          "[null, null, null, null]",
-                                          "[1, 2, 3, null]",
-                                          "[1, -1, null, null]",
-                                          "[null, null, null, null]",
-                                          "[null, 1, 0, null]",
-                                          R"(["alice", "bob", null, null])"};
+  static const std::string tmp_dir_prefix;
+  static const std::vector<std::string> input_data;
 
   std::shared_ptr<arrow::Schema> schema_;
-  std::shared_ptr<arrow::Schema> writer_schema_;
   std::shared_ptr<Splitter> splitter_;
 };
 
-TEST_F(ShuffleTest, TestSplitterSchema) { ASSERT_EQ(*schema_, *splitter_->schema()); }
+const std::string SplitterTest::tmp_dir_prefix = "columnar-shuffle-test";
+const std::vector<std::string> SplitterTest::input_data = {
+    "[null, null, null, null]", "[1, 2, 3, null]",    "[1, -1, null, null]",
+    "[null, null, null, null]", "[null, 1, 0, null]", R"(["alice", "bob", null, null])"};
 
-TEST_F(ShuffleTest, TestSplitterTypeId) {
-  ASSERT_EQ(splitter_->column_type_id(0), Type::SHUFFLE_NULL);
-  ASSERT_EQ(splitter_->column_type_id(1), Type::SHUFFLE_1BYTE);
-  ASSERT_EQ(splitter_->column_type_id(2), Type::SHUFFLE_2BYTE);
-  ASSERT_EQ(splitter_->column_type_id(3), Type::SHUFFLE_8BYTE);
-  ASSERT_EQ(splitter_->column_type_id(4), Type::SHUFFLE_BIT);
-}
-
-TEST_F(ShuffleTest, TestWriterAfterSplit) {
-  std::shared_ptr<arrow::RecordBatch> input_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-
-  ASSERT_NE(splitter_->writer(1), nullptr);
-  ASSERT_NE(splitter_->writer(2), nullptr);
-  ASSERT_NE(splitter_->writer(10), nullptr);
-  ASSERT_EQ(splitter_->writer(100), nullptr);
-
-  ASSERT_EQ(splitter_->writer(1)->pid(), 1);
-  ASSERT_EQ(splitter_->writer(2)->pid(), 2);
-  ASSERT_EQ(splitter_->writer(10)->pid(), 10);
-
-  ASSERT_EQ(splitter_->writer(1)->capacity(), kDefaultSplitterBufferSize);
-
-  ASSERT_EQ(splitter_->writer(1)->write_offset(), 2);
-  ASSERT_EQ(splitter_->writer(2)->write_offset(), 1);
-  ASSERT_EQ(splitter_->writer(10)->write_offset(), 1);
-}
-
-TEST_F(ShuffleTest, TestLastType) {
-  std::shared_ptr<arrow::RecordBatch> input_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->writer(1)->last_type(), Type::SHUFFLE_BINARY);
-  ASSERT_EQ(splitter_->writer(2)->last_type(), Type::SHUFFLE_BINARY);
-  ASSERT_EQ(splitter_->writer(10)->last_type(), Type::SHUFFLE_BINARY);
-}
-
-TEST_F(ShuffleTest, TestMultipleInput) {
-  std::shared_ptr<arrow::RecordBatch> input_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->writer(1)->write_offset(), 2);
-  ASSERT_EQ(splitter_->writer(2)->write_offset(), 1);
-  ASSERT_EQ(splitter_->writer(10)->write_offset(), 1);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-
-  ASSERT_EQ(splitter_->writer(1)->write_offset(), 6);
-  ASSERT_EQ(splitter_->writer(2)->write_offset(), 3);
-  ASSERT_EQ(splitter_->writer(10)->write_offset(), 3);
-}
-
-TEST_F(ShuffleTest, TestCustomBufferSize) {
-  int64_t buffer_size = 2;
+TEST_F(SplitterTest, TestRoundRobinSplitter) {
+  int32_t num_partitions = 3;
+  int32_t buffer_size = 3;
+  ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make("rr", schema_, num_partitions))
   splitter_->set_buffer_size(buffer_size);
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
+  MakeInputBatch(input_data, schema_, &input_batch);
 
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->writer(1)->write_offset(), 2);
-  ASSERT_EQ(splitter_->writer(2)->write_offset(), 1);
-  ASSERT_EQ(splitter_->writer(10)->write_offset(), 1);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->writer(1)->write_offset(), 2);
-  ASSERT_EQ(splitter_->writer(2)->write_offset(), 2);
-  ASSERT_EQ(splitter_->writer(10)->write_offset(), 2);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->writer(1)->write_offset(), 2);
-  ASSERT_EQ(splitter_->writer(2)->write_offset(), 1);
-  ASSERT_EQ(splitter_->writer(10)->write_offset(), 1);
-}
-
-TEST_F(ShuffleTest, TestCreateTempFile) {
-  std::shared_ptr<arrow::RecordBatch> input_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->GetPartitionFileInfo().size(), 3);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->GetPartitionFileInfo().size(), 3);
-
-  MakeInputBatch({"[100]", "[null]", "[null]", "[null]", "[null]", "[null]", "[null]"},
-                 schema_, &input_batch);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_EQ(splitter_->GetPartitionFileInfo().size(), 4);
-
-  auto pfn0 = splitter_->GetPartitionFileInfo()[0].second;
-  auto pfn1 = splitter_->GetPartitionFileInfo()[1].second;
-  auto pfn2 = splitter_->GetPartitionFileInfo()[2].second;
-  auto pfn3 = splitter_->GetPartitionFileInfo()[3].second;
-  ASSERT_EQ(*arrow::internal::FileExists(*arrow::internal::PlatformFilename::FromString(pfn0)), true);
-  ASSERT_EQ(*arrow::internal::FileExists(*arrow::internal::PlatformFilename::FromString(pfn1)), true);
-  ASSERT_EQ(*arrow::internal::FileExists(*arrow::internal::PlatformFilename::FromString(pfn2)), true);
-  ASSERT_EQ(*arrow::internal::FileExists(*arrow::internal::PlatformFilename::FromString(pfn3)), true);
-
-  ASSERT_NE(pfn0.find(tmp_dir_prefix), std::string::npos);
-  ASSERT_NE(pfn1.find(tmp_dir_prefix), std::string::npos);
-  ASSERT_NE(pfn2.find(tmp_dir_prefix), std::string::npos);
-  ASSERT_NE(pfn3.find(tmp_dir_prefix), std::string::npos);
-}
-
-TEST_F(ShuffleTest, TestWriterMakeArrowRecordBatch) {
-  int64_t buffer_size = 2;
-  splitter_->set_buffer_size(buffer_size);
-
-  std::vector<std::string> output_data = {"[null, null]", "[1, 3]",
-                                          "[1, null]",    "[null, null]",
-                                          "[null, 0]",    R"(["alice", null])"};
-
-  std::shared_ptr<arrow::RecordBatch> input_batch;
-  std::shared_ptr<arrow::RecordBatch> output_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
-  MakeInputBatch(output_data, writer_schema_, &output_batch);
-
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-  ASSERT_NOT_OK(splitter_->Split(*input_batch));
-
+  int split_times = 3;
+  for (int i = 0; i < split_times; ++i) {
+    ASSERT_NOT_OK(splitter_->Split(*input_batch))
+  }
   ASSERT_NOT_OK(splitter_->Stop());
 
-  std::shared_ptr<arrow::io::ReadableFile> file_in;
-  std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
-  ARROW_ASSIGN_OR_THROW(file_in,
-                        arrow::io::ReadableFile::Open(splitter_->writer(1)->file_path()))
+  auto file_info = splitter_->GetPartitionFileInfo();
 
-  ARROW_ASSIGN_OR_THROW(file_reader, arrow::ipc::RecordBatchStreamReader::Open(file_in))
-  ASSERT_EQ(*file_reader->schema(), *writer_schema_);
+  for (auto& info : file_info) {
+    auto file_name = info.second;
+    ASSERT_EQ(*arrow::internal::FileExists(
+                  *arrow::internal::PlatformFilename::FromString(file_name)),
+              true);
+    ASSERT_NE(file_name.find(tmp_dir_prefix), std::string::npos);
 
-  int num_rb = 3;
-  for (int i = 0; i < num_rb; ++i) {
+    std::shared_ptr<arrow::io::ReadableFile> file_in;
+    std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+    ARROW_ASSIGN_OR_THROW(file_in, arrow::io::ReadableFile::Open(file_name))
+
+    ARROW_ASSIGN_OR_THROW(file_reader, arrow::ipc::RecordBatchStreamReader::Open(file_in))
+    ASSERT_EQ(*file_reader->schema(), *splitter_->schema());
+
     std::shared_ptr<arrow::RecordBatch> rb;
     ASSERT_NOT_OK(file_reader->ReadNext(&rb));
-    ASSERT_NOT_OK(Equals(*output_batch, *rb));
+    ASSERT_EQ(rb->num_rows(), buffer_size);
+
+    if (!file_in->closed()) {
+      ASSERT_NOT_OK(file_in->Close());
+    }
   }
-  ASSERT_NOT_OK(file_in->Close())
 }
 
-TEST_F(ShuffleTest, TestCustomCompressionCodec) {
-  auto compression_codec = arrow::Compression::LZ4_FRAME;
-  splitter_->set_compression_codec(compression_codec);
+TEST_F(SplitterTest, TestHashSplitter) {
+  int32_t num_partitions = 3;
+  int32_t buffer_size = 3;
 
-  std::vector<std::string> output_data = {"[null, null]", "[1, 3]",
-                                          "[1, null]",    "[null, null]",
-                                          "[null, 0]",    R"(["alice", null])"};
+  auto f_0 = TreeExprBuilder::MakeField(schema_->field(1));
+  auto f_1 = TreeExprBuilder::MakeField(schema_->field(2));
+  auto f_2 = TreeExprBuilder::MakeField(schema_->field(3));
+
+  auto node_0 = TreeExprBuilder::MakeFunction("add", {f_0, f_1}, int8());
+  auto expr_0 = TreeExprBuilder::MakeExpression(node_0, field("res0", int8()));
+  auto expr_1 = TreeExprBuilder::MakeExpression(f_2, field("f_uint64", uint64()));
+
+  ARROW_ASSIGN_OR_THROW(
+      splitter_, Splitter::Make("hash", schema_, num_partitions, {expr_0, expr_1}))
+  splitter_->set_buffer_size(buffer_size);
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  std::shared_ptr<arrow::RecordBatch> output_batch;
-  MakeInputBatch(input_data_, schema_, &input_batch);
-  MakeInputBatch(output_data, writer_schema_, &output_batch);
+  MakeInputBatch(input_data, schema_, &input_batch);
 
-  ASSERT_NOT_OK(splitter_->Split(*input_batch))
-  ASSERT_NOT_OK(splitter_->Stop())
+  int split_times = 3;
+  for (int i = 0; i < split_times; ++i) {
+    ASSERT_NOT_OK(splitter_->Split(*input_batch))
+  }
+  ASSERT_NOT_OK(splitter_->Stop());
 
-  std::shared_ptr<arrow::io::ReadableFile> file_in;
-  std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
-  ARROW_ASSIGN_OR_THROW(file_in,
-                        arrow::io::ReadableFile::Open(splitter_->writer(1)->file_path()))
+  auto file_info = splitter_->GetPartitionFileInfo();
 
-  ARROW_ASSIGN_OR_THROW(file_reader, arrow::ipc::RecordBatchStreamReader::Open(file_in))
-  ASSERT_EQ(*file_reader->schema(), *writer_schema_);
+  for (auto& info : file_info) {
+    auto file_name = info.second;
+    ASSERT_EQ(*arrow::internal::FileExists(
+                  *arrow::internal::PlatformFilename::FromString(file_name)),
+              true);
+    ASSERT_NE(file_name.find(tmp_dir_prefix), std::string::npos);
 
-  std::shared_ptr<arrow::RecordBatch> rb;
-  ASSERT_NOT_OK(file_reader->ReadNext(&rb));
-  ASSERT_NOT_OK(Equals(*rb, *output_batch));
+    std::shared_ptr<arrow::io::ReadableFile> file_in;
+    std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+    ARROW_ASSIGN_OR_THROW(file_in, arrow::io::ReadableFile::Open(file_name))
 
-  ASSERT_NOT_OK(file_in->Close())
+    ARROW_ASSIGN_OR_THROW(file_reader, arrow::ipc::RecordBatchStreamReader::Open(file_in))
+    ASSERT_EQ(*file_reader->schema(), *splitter_->schema());
+
+    std::shared_ptr<arrow::RecordBatch> rb;
+    ASSERT_NOT_OK(file_reader->ReadNext(&rb));
+    ASSERT_EQ(rb->num_rows(), buffer_size);
+
+    if (!file_in->closed()) {
+      ASSERT_NOT_OK(file_in->Close());
+    }
+  }
+}
+
+TEST_F(SplitterTest, TestFallbackRangeSplitter) {
+  int32_t num_partitions = 3;
+  int32_t buffer_size = 3;
+
+  std::shared_ptr<arrow::RecordBatch> input_batch_wo_pid;
+  MakeInputBatch(input_data, schema_, &input_batch_wo_pid);
+
+  std::shared_ptr<arrow::Array> pid_arr;
+  ASSERT_NOT_OK(arrow::ipc::internal::json::ArrayFromJSON(arrow::int32(), "[0, 1, 0, 2]",
+                                                          &pid_arr));
+
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  ARROW_ASSIGN_OR_THROW(input_batch, input_batch_wo_pid->AddColumn(0, "pid", pid_arr));
+  auto new_schema = input_batch->schema();
+
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("range", std::move(new_schema), num_partitions))
+
+  splitter_->set_buffer_size(buffer_size);
+
+  int split_times = 3;
+  for (int i = 0; i < split_times; ++i) {
+    ASSERT_NOT_OK(splitter_->Split(*input_batch));
+  }
+  ASSERT_NOT_OK(splitter_->Stop());
+
+  auto file_info = splitter_->GetPartitionFileInfo();
+
+  for (auto& info : file_info) {
+    auto file_name = info.second;
+    ASSERT_EQ(*arrow::internal::FileExists(
+                  *arrow::internal::PlatformFilename::FromString(file_name)),
+              true);
+    ASSERT_NE(file_name.find(tmp_dir_prefix), std::string::npos);
+
+    std::shared_ptr<arrow::io::ReadableFile> file_in;
+    std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+    ARROW_ASSIGN_OR_THROW(file_in, arrow::io::ReadableFile::Open(file_name))
+
+    ARROW_ASSIGN_OR_THROW(file_reader, arrow::ipc::RecordBatchStreamReader::Open(file_in))
+    ASSERT_EQ(*file_reader->schema(), **splitter_->schema()->RemoveField(0));
+
+    std::shared_ptr<arrow::RecordBatch> rb;
+    ASSERT_NOT_OK(file_reader->ReadNext(&rb));
+    ASSERT_EQ(rb->num_rows(), buffer_size);
+
+    if (!file_in->closed()) {
+      ASSERT_NOT_OK(file_in->Close());
+    }
+  }
 }
 
 }  // namespace shuffle

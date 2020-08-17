@@ -27,7 +27,7 @@ namespace shuffle {
 
 static constexpr int64_t kDefaultSplitterBufferSize = 4096;
 
-struct BufferMessage {
+struct BufferInfo {
   std::shared_ptr<arrow::Buffer> validity_buffer;
   std::shared_ptr<arrow::Buffer> value_buffer;
   uint8_t* validity_addr;
@@ -103,8 +103,8 @@ static const typeId all[] = {
 
 }  // namespace Type
 
-using BufferMessages = std::deque<std::unique_ptr<BufferMessage>>;
-using TypeBufferMessages = std::vector<BufferMessages>;
+using BufferInfos = std::deque<std::unique_ptr<BufferInfo>>;
+using TypeBufferInfos = std::vector<BufferInfos>;
 using BinaryBuilders = std::deque<std::unique_ptr<arrow::BinaryBuilder>>;
 using LargeBinaryBuilders = std::deque<std::unique_ptr<arrow::LargeBinaryBuilder>>;
 using BufferPtr = std::shared_ptr<arrow::Buffer>;
