@@ -84,6 +84,21 @@ class ColumnarShuffledHashJoin(
         build_cb = null
       }
       build_cb = buildIter.next()
+      if (build_cb == null) {
+        val res = new Iterator[ColumnarBatch] {
+          override def hasNext: Boolean = {
+            false
+          }
+
+          override def next(): ColumnarBatch = {
+            val resultColumnVectors = ArrowWritableColumnVector
+              .allocateColumns(0, resultSchema)
+              .toArray
+            new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+          }
+        }
+        return res
+      }
       val beforeBuild = System.nanoTime()
       val build_rb = ConverterUtils.createArrowRecordBatch(build_cb)
       (0 until build_cb.numCols).toList.foreach(i =>

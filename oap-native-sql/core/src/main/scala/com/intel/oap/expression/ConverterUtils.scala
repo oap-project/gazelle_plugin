@@ -118,6 +118,7 @@ object ConverterUtils extends Logging {
     val buf = out.buffer
     val bytes = new Array[Byte](buf.readableBytes);
     buf.getBytes(buf.readerIndex, bytes);
+    out.close()
     bytes
   }
 
@@ -127,7 +128,7 @@ object ConverterUtils extends Logging {
       var incorrectInput = false
       var input = new ByteArrayInputStream(data(array_id))
       var reader = new ArrowStreamReader(input, ArrowWritableColumnVector.getNewAllocator)
-      var root = reader.getVectorSchemaRoot()
+      var root :VectorSchemaRoot = null
 
       override def hasNext: Boolean =
         (array_id < (data.size - 1) || input.available > 0) && (!incorrectInput)
@@ -140,6 +141,9 @@ object ConverterUtils extends Logging {
             root = reader.getVectorSchemaRoot()
           }
           reader.loadNextBatch();
+          if (root == null) {
+            root = reader.getVectorSchemaRoot()
+          }
           val length = root.getRowCount
           val vectors = root
             .getFieldVectors()
