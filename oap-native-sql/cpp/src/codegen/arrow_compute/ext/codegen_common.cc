@@ -103,6 +103,7 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
       return "int32_t";
     case arrow::StringType::type_id:
       return "std::string";
+      //return "arrow::util::string_view";
     case arrow::BooleanType::type_id:
       return "bool";
     default:

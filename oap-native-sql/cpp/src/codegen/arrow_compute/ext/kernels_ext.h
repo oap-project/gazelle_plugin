@@ -316,6 +316,36 @@ class ConditionedProbeArraysKernel : public KernalBase {
   std::unique_ptr<Impl> impl_;
   arrow::compute::FunctionContext* ctx_;
 };
+class ConditionedJoinArraysKernel : public KernalBase {
+ public:
+  static arrow::Status Make(
+      arrow::compute::FunctionContext* ctx,
+      const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
+      const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
+      const std::shared_ptr<gandiva::Node>& func_node, int join_type,
+      const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
+      const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
+      const std::shared_ptr<arrow::Schema>& result_schema,
+      std::shared_ptr<KernalBase>* out);
+  ConditionedJoinArraysKernel(
+      arrow::compute::FunctionContext* ctx,
+      const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
+      const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
+      const std::shared_ptr<gandiva::Node>& func_node, int join_type,
+      const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
+      const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
+      const std::shared_ptr<arrow::Schema>& result_schema);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  std::string GetSignature() override;
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

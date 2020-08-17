@@ -40,6 +40,7 @@ import org.apache.spark.sql.execution.exchange.{
   ShuffleExchangeExec
 }
 import org.apache.spark.sql.execution.joins.{BroadcastHashJoinExec, ShuffledHashJoinExec}
+import org.apache.spark.sql.execution.joins.SortMergeJoinExec
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import java.io.IOException
@@ -177,6 +178,26 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           plan.condition,
           left,
           right)
+        res
+      } else {
+        val children = plan.children.map(replaceWithColumnarPlan)
+        logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
+        plan.withNewChildren(children)
+      }
+
+    case plan: SortMergeJoinExec =>
+      if (columnarConf.enableColumnarSortMergeJoin && plan.condition == None) {
+        val left = replaceWithColumnarPlan(plan.left)
+        val right = replaceWithColumnarPlan(plan.right)
+        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+        val res = new ColumnarSortMergeJoinExec(
+          plan.leftKeys,
+          plan.rightKeys,
+          plan.joinType,
+          plan.condition,
+          left,
+          right,
+          plan.isSkewJoin)
         res
       } else {
         val children = plan.children.map(replaceWithColumnarPlan)

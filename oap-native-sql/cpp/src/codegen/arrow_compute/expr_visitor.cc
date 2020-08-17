@@ -304,13 +304,54 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
         right_field_list, ret_fields, p, &impl_));
     goto finish;
   }
-finish:
-  return arrow::Status::OK();
+    if (func_name.compare("conditionedJoinArraysInner") == 0 ||
+        func_name.compare("conditionedJoinArraysOuter") == 0 ||
+        func_name.compare("conditionedJoinArraysAnti") == 0 ||
+        func_name.compare("conditionedJoinArraysSemi") == 0) {
+      // first child is left_key_schema
+      std::vector<std::shared_ptr<arrow::Field>> left_key_list;
+      auto left_func_node =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(func_node->children()[0]);
+      for (auto field : left_func_node->children()) {
+        auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(field);
+        left_key_list.push_back(field_node->field());
+      }
+      // second child is right_key_schema
+      std::vector<std::shared_ptr<arrow::Field>> right_key_list;
+      auto right_func_node =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(func_node->children()[1]);
+      for (auto field : right_func_node->children()) {
+        auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(field);
+        right_key_list.push_back(field_node->field());
+      }
+      // if there is third child, it should be condition
+      std::shared_ptr<gandiva::Node> condition_node;
+      if (func_node->children().size() > 2) {
+        condition_node = func_node->children()[2];
+      }
+      int join_type = 0;
+      if (func_name.compare("conditionedJoinArraysInner") == 0) {
+        join_type = 0;
+      } else if (func_name.compare("conditionedJoinArraysOuter") == 0) {
+        join_type = 1;
+      } else if (func_name.compare("conditionedJoinArraysAnti") == 0) {
+        join_type = 2;
+      } else if (func_name.compare("conditionedJoinArraysSemi") == 0) {
+        join_type = 3;
+      }
+      RETURN_NOT_OK(ConditionedJoinArraysVisitorImpl::Make(
+          left_key_list, right_key_list, condition_node, join_type, left_field_list,
+          right_field_list, ret_fields, p, &impl_));
+      goto finish;
+    }
+  
+  finish:
+    return arrow::Status::OK();
 
-unrecognizedFail:
-  return arrow::Status::NotImplemented("Function name ", func_name,
-                                       " is not implemented yet.");
-}
+  unrecognizedFail:
+    return arrow::Status::NotImplemented("Function name ", func_name,
+                                        " is not implemented yet.");
+  }
 
 arrow::Status ExprVisitor::MakeExprVisitorImpl(const std::string& func_name,
                                                ExprVisitor* p) {
