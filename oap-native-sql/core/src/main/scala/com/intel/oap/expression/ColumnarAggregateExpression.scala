@@ -90,12 +90,14 @@ class ColumnarAggregateExpression(
             ("count", 1, 1)
           }
         }
+        case "stddev_samp" => ("stddev_samp_partial", 1, 3)
         case other => (aggregateFunction.prettyName, 1, 1)
       }
     case Final =>
       aggregateFunction.prettyName match {
         case "count" => ("sum", 1, 1)
         case "avg" => ("avgByCount", 2, 1)
+        case "stddev_samp" => ("stddev_samp_final", 3, 1)
         case other => (aggregateFunction.prettyName, 1, 1)
       }
     case _ =>

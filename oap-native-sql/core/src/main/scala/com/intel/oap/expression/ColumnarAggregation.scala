@@ -248,6 +248,13 @@ class ColumnarAggregation(
           val aggBufferAttr = min.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
           aggregateAttr += attr
+        case StddevSamp(_) =>
+          val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
+          val aggBufferAttr = stddevSamp.inputAggBufferAttributes
+          for (index <- 0 until aggBufferAttr.size) {
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+            aggregateAttr += attr
+          }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }

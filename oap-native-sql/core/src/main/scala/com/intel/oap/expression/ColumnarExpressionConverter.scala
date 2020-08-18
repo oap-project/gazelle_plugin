@@ -156,6 +156,7 @@ object ColumnarExpressionConverter extends Logging {
         replaceWithColumnarExpression(ss.len),
         expr)
     case u: UnaryExpression =>
+      check_if_no_calculation = false
       logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
       ColumnarUnaryOperator.create(replaceWithColumnarExpression(u.child, attributeSeq), expr)
     case s: org.apache.spark.sql.execution.ScalarSubquery =>

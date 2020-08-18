@@ -225,6 +225,38 @@ class MaxArrayKernel : public KernalBase {
   arrow::compute::FunctionContext* ctx_;
 };
 
+class StddevSampPartialArrayKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::shared_ptr<arrow::DataType> data_type,
+                            std::shared_ptr<KernalBase>* out);
+  StddevSampPartialArrayKernel(arrow::compute::FunctionContext* ctx,
+                 std::shared_ptr<arrow::DataType> data_type);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status Finish(ArrayList* out) override;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+
+class StddevSampFinalArrayKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::shared_ptr<arrow::DataType> data_type,
+                            std::shared_ptr<KernalBase>* out);
+  StddevSampFinalArrayKernel(arrow::compute::FunctionContext* ctx,
+                 std::shared_ptr<arrow::DataType> data_type);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status Finish(ArrayList* out) override;
+
+ private:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+
 class SortArraysToIndicesKernel : public KernalBase {
  public:
   static arrow::Status Make(arrow::compute::FunctionContext* ctx,
