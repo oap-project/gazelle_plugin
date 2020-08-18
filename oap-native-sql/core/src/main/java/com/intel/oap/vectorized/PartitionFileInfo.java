@@ -17,9 +17,7 @@
 
 package com.intel.oap.vectorized;
 
-/**
- * POJO to hold the output file path of the designated partition id
- */
+/** POJO to hold the output file path of the designated partition id */
 public class PartitionFileInfo {
   private final int partitionId;
   private final String filePath;

@@ -131,7 +131,7 @@ class PartitionWriter {
 
   arrow::Status WriteArrowRecordBatch();
 
-  uint64_t GetWriteTime() const { return write_time_; }
+  int64_t GetWriteTime() const { return write_time_; }
 
   arrow::Result<int64_t> GetBytesWritten() {
     if (!file_os_->closed()) {
@@ -143,7 +143,7 @@ class PartitionWriter {
   arrow::Result<bool> inline CheckTypeWriteEnds(const Type::typeId& type_id) {
     if (write_offset_[type_id] == capacity_) {
       if (type_id == last_type_) {
-        TIME_MICRO_OR_RAISE(write_time_, WriteArrowRecordBatch());
+        TIME_NANO_OR_RAISE(write_time_, WriteArrowRecordBatch());
         std::fill(std::begin(write_offset_), std::end(write_offset_), 0);
       }
       return true;
@@ -265,7 +265,7 @@ class PartitionWriter {
   bool file_writer_opened_;
   std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer_;
 
-  uint64_t write_time_;
+  int64_t write_time_;
 };
 
 }  // namespace shuffle

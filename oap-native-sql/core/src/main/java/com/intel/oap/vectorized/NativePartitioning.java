@@ -36,8 +36,7 @@ public class NativePartitioning implements Serializable {
    * @param schema Serialized arrow schema
    * @param exprList Serialized gandiva expressions
    */
-  public NativePartitioning(
-          String shortName, int numPartitions, byte[] schema, byte[] exprList) {
+  public NativePartitioning(String shortName, int numPartitions, byte[] schema, byte[] exprList) {
     this.shortName = shortName;
     this.numPartitions = numPartitions;
     this.schema = schema;

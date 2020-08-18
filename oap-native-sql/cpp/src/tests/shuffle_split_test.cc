@@ -39,21 +39,33 @@ class SplitterTest : public ::testing::Test {
     auto f_bool = field("f_bool", arrow::boolean());
     auto f_string = field("f_string", arrow::utf8());
 
-    std::shared_ptr<arrow::internal::TemporaryDir> tmp_dir1;
-    std::shared_ptr<arrow::internal::TemporaryDir> tmp_dir2;
-    ARROW_ASSIGN_OR_THROW(tmp_dir1,
+    ARROW_ASSIGN_OR_THROW(tmp_dir1_,
                           std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
-    ARROW_ASSIGN_OR_THROW(tmp_dir2,
+    ARROW_ASSIGN_OR_THROW(tmp_dir2_,
                           std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
-    auto config_dirs = tmp_dir1->path().ToString() + "," + tmp_dir2->path().ToString();
+    auto config_dirs = tmp_dir1_->path().ToString() + "," + tmp_dir2_->path().ToString();
 
     setenv("NATIVESQL_SPARK_LOCAL_DIRS", config_dirs.c_str(), 1);
 
     schema_ = arrow::schema({f_na, f_int8_a, f_int8_b, f_uint64, f_bool, f_string});
   }
 
+  void TearDown() override {
+    auto& file_infos = splitter_->GetPartitionFileInfo();
+    std::vector<std::string> file_names;
+    for (const auto& file_info : file_infos) {
+      arrow::internal::DeleteFile(
+          *arrow::internal::PlatformFilename::FromString(file_info.second));
+    }
+    arrow::internal::DeleteDirTree(tmp_dir1_->path());
+    arrow::internal::DeleteDirTree(tmp_dir2_->path());
+  }
+
   static const std::string tmp_dir_prefix;
   static const std::vector<std::string> input_data;
+
+  std::shared_ptr<arrow::internal::TemporaryDir> tmp_dir1_;
+  std::shared_ptr<arrow::internal::TemporaryDir> tmp_dir2_;
 
   std::shared_ptr<arrow::Schema> schema_;
   std::shared_ptr<Splitter> splitter_;
@@ -117,8 +129,8 @@ TEST_F(SplitterTest, TestHashSplitter) {
   auto expr_0 = TreeExprBuilder::MakeExpression(node_0, field("res0", int8()));
   auto expr_1 = TreeExprBuilder::MakeExpression(f_2, field("f_uint64", uint64()));
 
-  ARROW_ASSIGN_OR_THROW(
-      splitter_, Splitter::Make("hash", schema_, num_partitions, {expr_0, expr_1}))
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("hash", schema_, num_partitions, {expr_0, expr_1}))
   splitter_->set_buffer_size(buffer_size);
 
   std::shared_ptr<arrow::RecordBatch> input_batch;

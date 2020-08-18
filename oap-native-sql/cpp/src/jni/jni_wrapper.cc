@@ -36,7 +36,6 @@
 #include "jni/concurrent_map.h"
 #include "jni/jni_common.h"
 #include "proto/protobuf_utils.h"
-#include "shuffle/partitioning_jni_bridge.h"
 #include "shuffle/splitter.h"
 
 namespace types {
@@ -1110,7 +1109,7 @@ Java_com_intel_oap_datasource_parquet_ParquetWriterJniWrapper_nativeWriteNext(
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
-    jbyteArray schema_arr, jbyteArray expr_arr, jint buffer_size, jstring local_dirs_jstr,
+    jbyteArray schema_arr, jbyteArray expr_arr, jint buffer_size, jint num_sub_dirs, jstring local_dirs_jstr,
     jstring codec_jstr) {
   std::shared_ptr<arrow::Schema> schema;
 
@@ -1180,6 +1179,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   auto splitter = std::move(*make_result);
   splitter->set_compression_type(compression_type);
   splitter->set_buffer_size((int32_t)buffer_size);
+  splitter->set_num_sub_dirs((int32_t)num_sub_dirs);
 
   env->ReleaseStringUTFChars(partitioning_name_jstr, partitioning_name_c);
 

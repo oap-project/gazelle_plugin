@@ -17,10 +17,14 @@
 
 #pragma once
 
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
 #include <arrow/filesystem/path_util.h>
 #include <arrow/util/io_util.h>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <iomanip>
+#include <sstream>
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
@@ -30,16 +34,27 @@ static std::string GenerateUUID() {
   return boost::uuids::to_string(generator());
 }
 
-static arrow::Result<std::string> CreateRandomSubDir(const std::string& base_dir) {
-  bool created = false;
-  std::string random_dir;
-  while (!created) {
-    random_dir = arrow::fs::internal::ConcatAbstractPath(base_dir, GenerateUUID());
-    ARROW_ASSIGN_OR_RAISE(
-        created, arrow::internal::CreateDirTree(
-                     *arrow::internal::PlatformFilename::FromString(random_dir)));
+static arrow::Result<std::string> CreateTempShuffleFile(
+    const std::shared_ptr<arrow::fs::LocalFileSystem>& fs,
+    const std::string& configured_dir, int32_t sub_dir_id) {
+  std::stringstream ss;
+  ss << std::setfill('0') << std::setw(2) << std::hex << sub_dir_id;
+  auto dir = arrow::fs::internal::ConcatAbstractPath(configured_dir, ss.str());
+  RETURN_NOT_OK(fs->CreateDir(dir));
+
+  bool exist = true;
+  std::string file_path;
+  while (exist) {
+    file_path =
+        arrow::fs::internal::ConcatAbstractPath(dir, "temp_shuffle_" + GenerateUUID());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(file_path));
+    if (file_info.type() == arrow::fs::FileType::NotFound) {
+      exist = false;
+      ARROW_ASSIGN_OR_RAISE(auto s, fs->OpenOutputStream(file_path));
+      RETURN_NOT_OK(s->Close());
+    }
   }
-  return random_dir;
+  return file_path;
 }
 
 static arrow::Result<std::vector<std::string>> GetConfiguredLocalDirs() {
@@ -47,21 +62,20 @@ static arrow::Result<std::vector<std::string>> GetConfiguredLocalDirs() {
   if (joined_dirs_c != nullptr && strcmp(joined_dirs_c, "") > 0) {
     auto joined_dirs = std::string(joined_dirs_c);
     std::string delimiter = ",";
-    std::vector<std::string> dirs;
 
     size_t pos;
-    std::string root_dir;
+    std::vector<std::string> res;
     while ((pos = joined_dirs.find(delimiter)) != std::string::npos) {
-      root_dir = joined_dirs.substr(0, pos);
-      if (root_dir.length() > 0) {
-        dirs.push_back(root_dir);
+      auto dir = joined_dirs.substr(0, pos);
+      if (dir.length() > 0) {
+        res.push_back(std::move(dir));
       }
       joined_dirs.erase(0, pos + delimiter.length());
     }
     if (joined_dirs.length() > 0) {
-      dirs.push_back(joined_dirs);
+      res.push_back(std::move(joined_dirs));
     }
-    return dirs;
+    return res;
   } else {
     ARROW_ASSIGN_OR_RAISE(auto arrow_tmp_dir,
                           arrow::internal::TemporaryDir::Make("columnar-shuffle-"));
