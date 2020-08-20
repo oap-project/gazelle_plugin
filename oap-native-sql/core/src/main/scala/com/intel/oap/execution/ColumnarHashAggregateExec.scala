@@ -209,10 +209,7 @@ class ColumnarHashAggregateExec(
 
   override def equals(other: Any): Boolean = other match {
     case that: ColumnarHashAggregateExec =>
-      (that canEqual this) && (that eq this)
+      (that canEqual this) && super.equals(that)
     case _ => false
   }
-
-  override def hashCode(): Int = System.identityHashCode(this)
-
 }

@@ -52,9 +52,7 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
 
   override def equals(other: Any): Boolean = other match {
     case that: ColumnarBatchScanExec =>
-      (that canEqual this) && (that eq this)
+      (that canEqual this) && super.equals(that)
     case _ => false
   }
-
-  override def hashCode(): Int = System.identityHashCode(this)
 }

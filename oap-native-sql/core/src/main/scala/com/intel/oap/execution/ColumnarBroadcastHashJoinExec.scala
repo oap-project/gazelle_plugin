@@ -181,9 +181,7 @@ class ColumnarBroadcastHashJoinExec(
 
   override def equals(other: Any): Boolean = other match {
     case that: ColumnarBroadcastHashJoinExec =>
-      (that canEqual this) && (that eq this)
+      (that canEqual this) && super.equals(that)
     case _ => false
   }
-
-  override def hashCode(): Int = System.identityHashCode(this)
 }

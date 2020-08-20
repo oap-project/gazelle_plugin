@@ -133,6 +133,14 @@ class ColumnarShuffleExchangeExec(
 
       override val shuffleHandle: ShuffleHandle = columnarShuffleDependency.shuffleHandle
     }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarShuffleExchangeExec =>
+      (that canEqual this) && super.equals(that)
+    case _ => false
+  }
 }
 
 object ColumnarShuffleExchangeExec extends Logging {

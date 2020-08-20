@@ -17,7 +17,9 @@
 
 package org.apache.spark.sql
 
+import com.intel.oap.execution.ColumnarHashAggregateExec
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.catalyst.plans.physical.UnknownPartitioning
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
@@ -74,19 +76,19 @@ class RepartitionSuite extends QueryTest with SharedSparkSession {
 class SmallDataRepartitionSuite extends RepartitionSuite {
   import testImplicits._
 
-  test("test round robin partitioning") {
+  test("round robin partitioning") {
     withRepartition(df => df.repartition(2))
   }
 
-  test("test hash partitioning") {
+  test("hash partitioning") {
     withRepartition(df => df.repartition('id))
   }
 
-  test("test range partitioning") {
+  test("range partitioning") {
     withRepartition(df => df.repartitionByRange('id))
   }
 
-  ignore("test cached repartiiton") {
+  ignore("cached repartiiton") {
     val data = input.cache.repartition(2)
 
     val found = data.queryExecution.executedPlan.collect {
@@ -109,23 +111,23 @@ class TPCHTableRepartitionSuite extends RepartitionSuite {
 
   override lazy val input = spark.read.parquet(filePath)
 
-  test("test tpch round robin partitioning") {
+  test("tpch table round robin partitioning") {
     withRepartition(df => df.repartition(2))
   }
 
-  test("test tpch hash partitioning") {
+  test("tpch table hash partitioning") {
     withRepartition(df => df.repartition('n_nationkey))
   }
 
-  test("test tpch range partitioning") {
+  test("tpch table range partitioning") {
     withRepartition(df => df.repartitionByRange('n_name))
   }
 
-  test("test tpch hash partitioning with expression") {
+  test("tpch table hash partitioning with expression") {
     withRepartition(df => df.repartition('n_nationkey + 'n_regionkey))
   }
 
-  test("test tpch sum after repartition") {
+  test("tpch table sum after repartition") {
     withTransformationAndRepartition(
       df => df.groupBy("n_regionkey").agg(Map("n_nationkey" -> "sum")),
       df => df.repartition(2))
@@ -189,4 +191,30 @@ class AdaptiveQueryExecRepartitionSuite extends TPCHTableRepartitionSuite {
     checkAfter(data)
   }
 
+}
+
+class ReuseExchangeSuite extends RepartitionSuite {
+  val filePath = getClass.getClassLoader
+    .getResource("part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet")
+    .getFile
+
+  override lazy val input = spark.read.parquet(filePath)
+
+  test("columnar exchange same result") {
+    val df1 = input.groupBy("n_regionkey").agg(Map("n_nationkey" -> "sum"))
+    val hashAgg1 = df1.queryExecution.executedPlan.collectFirst {
+      case agg: ColumnarHashAggregateExec => agg
+    }.get
+
+    val df2 = input.groupBy("n_regionkey").agg(Map("n_nationkey" -> "sum"))
+    val hashAgg2 = df2.queryExecution.executedPlan.collectFirst {
+      case agg: ColumnarHashAggregateExec => agg
+    }.get
+
+    assert(hashAgg1.sameResult(hashAgg2))
+
+    val exchange1 = new ColumnarShuffleExchangeExec(UnknownPartitioning(1), hashAgg1)
+    val exchange2 = new ColumnarShuffleExchangeExec(UnknownPartitioning(1), hashAgg2)
+    assert(exchange1.sameResult(exchange2))
+  }
 }

@@ -17,8 +17,6 @@
 
 package com.intel.oap.execution
 
-import java.util.concurrent.TimeUnit
-
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.vector.util.VectorBatchAppender
 import org.apache.spark.TaskContext
