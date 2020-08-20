@@ -55,12 +55,18 @@ class TypedActionCodeGenImpl {
       std::shared_ptr<gandiva::Node> func_node,
       std::vector<std::shared_ptr<arrow::Field>> original_fields_list) {
     std::stringstream signature_ss;
-    std::shared_ptr<CodeGenRegister> node_tmp;
-    RETURN_NOT_OK(MakeCodeGenRegister(func_node, &node_tmp));
-    signature_ss << std::hex << std::hash<std::string>{}(node_tmp->GetFingerprint());
-    auto name = "projection_" + signature_ss.str();
-    for (auto index : input_index_list_) {
-      name += "_" + std::to_string(index);
+    std::string name;
+    if (input_index_list_.size() == 0) {
+      signature_ss << std::hex << std::hash<std::string>{}(func_node->ToString());
+      name = "projection_" + signature_ss.str();
+    } else {
+      std::shared_ptr<CodeGenRegister> node_tmp;
+      RETURN_NOT_OK(MakeCodeGenRegister(func_node, &node_tmp));
+      signature_ss << std::hex << std::hash<std::string>{}(node_tmp->GetFingerprint());
+      name = "projection_" + signature_ss.str();
+      for (auto index : input_index_list_) {
+        name += "_" + std::to_string(index);
+      }
     }
     auto res_field = arrow::field(name, func_node->return_type());
     named_projector_ = gandiva::TreeExprBuilder::MakeExpression(func_node, res_field);
@@ -160,6 +166,33 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<MaxActionCodeGen>(
+          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
+          named_projector_);
+    } else if (action_name_.compare("action_sum_count_merge") == 0) {
+      std::string name;
+      if (input_index_list_.size() == 2) {
+        name = std::to_string(input_index_list_[0]) + "_" +
+               std::to_string(input_index_list_[1]);
+      }
+      *action_codegen = std::make_shared<SumCountMergeActionCodeGen>(
+          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
+          named_projector_);
+    } else if (action_name_.compare("action_stddev_samp_partial") == 0) {
+      std::string name;
+      if (!input_index_list_.empty()) {
+        name = std::to_string(input_index_list_[0]);
+      }
+      *action_codegen = std::make_shared<StddevSampPartialActionCodeGen>(
+          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
+          named_projector_);
+    } else if (action_name_.compare("action_stddev_samp_final") == 0) {
+      std::string name;
+      if (input_index_list_.size() == 3) {
+        name = std::to_string(input_index_list_[0]) + "_" +
+               std::to_string(input_index_list_[1]) + "_" +
+               std::to_string(input_index_list_[2]);
+      }
+      *action_codegen = std::make_shared<StddevSampFinalActionCodeGen>(
           name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
           named_projector_);
     } else {

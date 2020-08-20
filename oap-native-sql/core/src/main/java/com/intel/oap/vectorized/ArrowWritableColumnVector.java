@@ -168,6 +168,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     return vector;
   }
 
+  public void setValueCount(int numRows) {
+    vector.setValueCount(numRows);
+  }
+
+
   private void createVectorAccessor(ValueVector vector, ValueVector dictionary) {
     if (dictionary != null) {
       if (!(vector instanceof IntVector)) {
@@ -422,11 +427,13 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   @Override
   public void putNull(int rowId) {
+    numNulls += 1;
     writer.setNull(rowId);
   }
 
   @Override
   public void putNulls(int rowId, int count) {
+    numNulls += count;
     writer.setNulls(rowId, count);
   }
 
@@ -486,7 +493,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   public void appendString(byte[] value, int srcIndex, int count) {
-    writer.appendBytes(value, srcIndex, count);
+    writer.setBytes(elementsAppended, count, value, srcIndex);
+    elementsAppended++;
   }
 
   @Override
@@ -1654,6 +1662,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     final void setInt(int rowId, int value) {
       BigDecimal v = new BigDecimal(value);
       writer.setSafe(rowId, v.setScale(writer.getScale()));
+    }
+    @Override
+    final void setArray(int rowId, int offset, int length) {
+      ArrowBuf buffer = allocator.buffer(16 * rowId + 16L);
+      writer.setSafe(rowId, offset, buffer);
     }
   }
 

@@ -106,72 +106,105 @@ class ColumnarAggregation(
   })
 
   // 3. map original input to aggregate input
-  var beforeAggregateProjector: ColumnarProjection = _
-  var projectOrdinalList: List[Int] = _
-  var aggregateInputAttributes: List[AttributeReference] = _
-
-  if (mode == null) {
-    projectOrdinalList = List[Int]()
-    aggregateInputAttributes = List[AttributeReference]()
-  } else {
-    mode match {
-      case Partial => { 
-        beforeAggregateProjector =
-          ColumnarProjection.create(
-            originalInputAttributes,
-            aggregateExpressions.flatMap(_.aggregateFunction.children), skipLiteral = true, renameResult = true)
-        projectOrdinalList = beforeAggregateProjector.getOrdinalList
-        aggregateInputAttributes = beforeAggregateProjector.output
-      }
-      case Final | PartialMerge => {
-        val ordinal_attr_list = originalInputAttributes.toList.zipWithIndex
-          .filter{case(expr, i) => !groupingOrdinalList.contains(i)}
-          .map{case(expr, i) => {
-            (i, ConverterUtils.getAttrFromExpr(expr))
-          }}
-        projectOrdinalList = ordinal_attr_list.map(_._1)
-        aggregateInputAttributes = ordinal_attr_list.map(_._2)
-      }
-      case _ =>
-        throw new UnsupportedOperationException("doesn't support this mode")
+  val beforeAggregateExprListBuffer = ListBuffer[Expression]()
+  val projectOrdinalListBuffer = ListBuffer[Int]()
+  val aggregateFieldListBuffer = ListBuffer[Field]()
+  var aggregateResultAttributesBuffer = ListBuffer[Attribute]()
+  // we need to remove ordinal used in partial mode expression
+  val nonPartialProjectOrdinalList = (0 until originalInputAttributes.size).toList.filter(i => !groupingOrdinalList.contains(i)).to[ListBuffer]
+  aggregateExpressions.zipWithIndex.foreach{case(expr, index) => expr.mode match {
+    case Partial => {
+      val internalExpressionList = expr.aggregateFunction.children
+      val ordinalList = ColumnarProjection.binding(originalInputAttributes, internalExpressionList, index, skipLiteral = true)
+      ordinalList.foreach{i => {
+        nonPartialProjectOrdinalList -= i
+      }}
     }
+    case _ => {}
+  }}
+  var non_partial_field_id = 0
+  var res_field_id = 0
+  val (aggregateNativeExpressions, beforeAggregateProjector) = if (mode == null) {
+    (List[ColumnarAggregateExpressionBase](), null)
+  } else {
+    // we need to filter all Partial mode aggregation
+    val columnarExprList = aggregateExpressions.toList.zipWithIndex.map{case(expr, index) => expr.mode match {
+      case Partial => {
+        val res = new ColumnarAggregateExpression(
+          expr.aggregateFunction,
+          expr.mode,
+          expr.isDistinct,
+          expr.resultId)
+        val arg_size = res.requiredColNum
+        val res_size = res.expectedResColNum
+        val internalExpressionList = expr.aggregateFunction.children
+        val ordinalList = ColumnarProjection.binding(originalInputAttributes, internalExpressionList, index, skipLiteral = true)
+        val fieldList = if (arg_size > 0) {
+          internalExpressionList.map(projectExpr => {
+            val attr = ConverterUtils.getResultAttrFromExpr(projectExpr, s"res_$index")
+            if (attr.dataType.isInstanceOf[DecimalType])
+              throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarAggregation.")
+            Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+          })
+        } else {
+          List[Field]()
+        }
+        ordinalList.foreach{i => {
+          nonPartialProjectOrdinalList -= i
+          projectOrdinalListBuffer += i
+        }}
+        fieldList.foreach{field => {
+          aggregateFieldListBuffer += field
+        }}
+        getAttrForAggregateExpr(expr).foreach(e => aggregateResultAttributesBuffer += e)
+        expr.aggregateFunction.children.foreach(e => beforeAggregateExprListBuffer += e)
+        res_field_id += res_size
+        res.setInputFields(fieldList.toList)
+        res
+      }
+      case _ => {
+        val res = new ColumnarAggregateExpression(
+          expr.aggregateFunction,
+          expr.mode,
+          expr.isDistinct,
+          expr.resultId)
+        val arg_size = res.requiredColNum
+        val res_size = res.expectedResColNum
+        val ordinalList = (non_partial_field_id until (non_partial_field_id + arg_size)).map(i => nonPartialProjectOrdinalList(i))
+        non_partial_field_id += arg_size
+        val fieldList = ordinalList.map(i => {
+          val attr = originalInputAttributes(i)
+          if (attr.dataType.isInstanceOf[DecimalType])
+            throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarAggregation.")
+          Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+        })
+        ordinalList.foreach{i => {
+          beforeAggregateExprListBuffer += originalInputAttributes(i)
+          projectOrdinalListBuffer += i
+        }}
+        fieldList.foreach{field => {
+          aggregateFieldListBuffer += field
+        }}
+        (res_field_id until (res_field_id + res_size)).foreach(i => aggregateResultAttributesBuffer += aggregateAttributes(i))
+        res_field_id += res_size
+        res.setInputFields(fieldList.toList)
+        res
+      }
+    }}
+    val projector = ColumnarProjection.create(
+        originalInputAttributes, beforeAggregateExprListBuffer.toList, skipLiteral = true, renameResult = true)
+    (columnarExprList, projector)
   }
-  logInfo(s"aggregateProjectorOutputAttributes is ${aggregateInputAttributes},\nprojectOrdinalList is ${projectOrdinalList}")
 
   // 4. create aggregate native Expression
-  val aggregateFieldList = aggregateInputAttributes.map(attr => {
-    Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-  })
-  var field_id = 0
-  val aggregateNativeExpressions: List[ColumnarAggregateExpressionBase] =
-    aggregateExpressions.toList.map(expr => {
-      val res = new ColumnarAggregateExpression(
-        expr.aggregateFunction,
-        expr.mode,
-        expr.isDistinct,
-        expr.resultId)
-      val arg_size = res.requiredColNum
-      val res_size = res.expectedResColNum
-      val fieldList = ListBuffer[Field]()
-      for (i <- 0 until arg_size) {
-        fieldList += aggregateFieldList(field_id)
-        field_id += 1
-      }
-      res.setInputFields(fieldList.toList)
-      res
-    })
+
+  var projectOrdinalList = projectOrdinalListBuffer.toList
+  val aggregateFieldList = aggregateFieldListBuffer.toList
 
   // 5. create nativeAggregate evaluator
   val allNativeExpressions = groupingNativeExpression ::: aggregateNativeExpressions
   val allAggregateInputFieldList = groupingFieldList ::: aggregateFieldList
-  var allAggregateResultAttributes : List[Attribute] = _
-  mode match {
-    case Partial | PartialMerge =>
-      val aggregateResultAttributes = getAttrForAggregateExpr(aggregateExpressions)
-      allAggregateResultAttributes = groupingAttributes ::: aggregateResultAttributes
-    case _ =>
-      allAggregateResultAttributes = groupingAttributes ::: aggregateAttributes.toList
-  }
+  val allAggregateResultAttributes = groupingAttributes ::: aggregateResultAttributesBuffer.toList
   val aggregateResultFieldList = allAggregateResultAttributes.map(attr => {
     Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
   })
@@ -187,11 +220,16 @@ class ColumnarAggregation(
   })
   val aggregateInputSchema = new Schema(allAggregateInputFieldList.asJava)
   val aggregateResultSchema = new Schema(aggregateResultFieldList.asJava)
-  var aggregator = new ExpressionEvaluator()
-  aggregator.build(aggregateInputSchema, expressionTree.asJava, true)
-  aggregator.setReturnFields(aggregateResultSchema)
-  logInfo(s"native aggregate input is $aggregateInputSchema,\noutput is $aggregateResultSchema")
 
+  var aggregator: ExpressionEvaluator = _
+  if (allAggregateInputFieldList.size > 0) {
+    aggregator = new ExpressionEvaluator()
+    aggregator.build(aggregateInputSchema, expressionTree.asJava, true)
+    aggregator.setReturnFields(aggregateResultSchema)
+    logInfo(s"native aggregate input is $aggregateInputSchema,\noutput is $aggregateResultSchema")
+  } else {
+    null
+  }
   // 6. map grouping and aggregate result to FinalResult
   var aggregateToResultProjector = ColumnarProjection.create(allAggregateResultAttributes, resultExpressions, skipLiteral = false, renameResult = true)
   val aggregateToResultOrdinalList = aggregateToResultProjector.getOrdinalList
@@ -214,11 +252,8 @@ class ColumnarAggregation(
     elapseTime.merge(aggrTime)
   }
 
-  def getAttrForAggregateExpr(aggregateExpressions: Seq[AggregateExpression]): List[Attribute] = {
+  def getAttrForAggregateExpr(exp: AggregateExpression): List[Attribute] = {
     var aggregateAttr = new ListBuffer[Attribute]()
-    val size = aggregateExpressions.size
-    for (expIdx <- 0 until size) {
-      val exp: AggregateExpression = aggregateExpressions(expIdx)
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {
         case Average(_) =>
@@ -258,7 +293,6 @@ class ColumnarAggregation(
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }
-    }
     aggregateAttr.toList
   }
 
@@ -304,6 +338,27 @@ class ColumnarAggregation(
       val resultColumnVectors =
         ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
       return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+    } else if (aggregator == null){
+      //TODO: add an special case when this hash aggr is doing countLiteral only
+      val doCountLiteral: Boolean = expressionTree.map(expr => s"${expr.toProtobuf}").filter(_.contains("countLiteral")).size == 1
+      if (doCountLiteral) {
+        val resultColumnVectors =
+          ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+        (resultColumnVectors zip resultAttributes).foreach{case(v, attr) => {
+          val numRows = attr.dataType match {
+            case t: IntegerType =>
+              processedNumRows.asInstanceOf[Number].intValue
+            case t: LongType =>
+              processedNumRows.asInstanceOf[Number].longValue
+          }
+          v.put(0, numRows)
+        }}
+        return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+      } else {
+        val resultColumnVectors =
+          ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+        return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+      }
     } else {
       val finalResultRecordBatch = if (resultIter != null) {
         resultIter.next()
@@ -334,7 +389,6 @@ class ColumnarAggregation(
         resultInputCols
       }
       aggrExprResultColumnVectorList.foreach(_.close())
-      //logInfo(s"AggregationResult first row is ${resultColumnVectorList.map(v => v.getUTF8String(0))}")
       new ColumnarBatch(resultColumnVectorList.map(v => v.asInstanceOf[ColumnVector]).toArray, resultLength)
     }
   }
@@ -363,7 +417,9 @@ class ColumnarAggregation(
   
             if (cb.numRows > 0) {
               val beforeEval = System.nanoTime()
-              updateAggregationResult(cb)
+              if (aggregator != null) {
+                updateAggregationResult(cb)
+              }
               eval_elapse += System.nanoTime() - beforeEval
               processedNumRows += cb.numRows
             }

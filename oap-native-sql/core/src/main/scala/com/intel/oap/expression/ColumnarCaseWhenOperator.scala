@@ -67,17 +67,16 @@ class ColumnarCaseWhen(
     val (ret_node, retType): (TreeNode, ArrowType) =
       colRetExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    var else_node :TreeNode= null
-    if (elseValue.isDefined) {
+    val (else_node, elseType): (TreeNode, ArrowType) = if (elseValue.isDefined) {
       val elseValueExpr = elseValue.getOrElse(null)
       var colElseValueExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(elseValueExpr)
       if (rename && colElseValueExpr.isInstanceOf[AttributeReference]) {
         colElseValueExpr = new ColumnarBoundReference(inputAttributes.indexOf(colElseValueExpr),
-                                                      colElseValueExpr.dataType, colElseValueExpr.nullable)
+                                                    colElseValueExpr.dataType, colElseValueExpr.nullable)
       }
-      val (else_node_, elseType): (TreeNode, ArrowType) =
-        colElseValueExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      else_node = else_node_
+      colElseValueExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    } else {
+      (TreeBuilder.makeNull(retType), retType)
     }
 
     val funcNode = TreeBuilder.makeIf(cond_node, ret_node, else_node, retType)

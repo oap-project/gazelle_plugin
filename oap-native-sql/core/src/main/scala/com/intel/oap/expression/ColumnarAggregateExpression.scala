@@ -80,7 +80,7 @@ class ColumnarAggregateExpression(
 
   var aggrFieldList: List[Field] = _
   val (funcName, argSize, resSize) = mode match {
-    case Partial | PartialMerge =>
+    case Partial =>
       aggregateFunction.prettyName match {
         case "avg" => ("sum_count", 1, 2)
         case "count" => {
@@ -91,6 +91,12 @@ class ColumnarAggregateExpression(
           }
         }
         case "stddev_samp" => ("stddev_samp_partial", 1, 3)
+        case other => (aggregateFunction.prettyName, 1, 1)
+      }
+    case PartialMerge =>
+      aggregateFunction.prettyName match {
+        case "avg" => ("sum_count_merge", 2, 2)
+        case "count" => ("sum", 1, 1)
         case other => (aggregateFunction.prettyName, 1, 1)
       }
     case Final =>

@@ -68,6 +68,10 @@ class HashAggregateKernel::Impl {
     for (auto field : input_field_list_) {
       func_args_ss << field->type()->ToString() << "|";
     }
+    func_args_ss << "[ordinal]";
+    for (auto ordinal : input_ordinal_list_) {
+      func_args_ss << ordinal << "|";
+    }
     func_args_ss << "[actions]";
     for (auto action : action_list_) {
       std::shared_ptr<CodeGenRegister> node_tmp;
@@ -143,11 +147,13 @@ class HashAggregateKernel::Impl {
   std::vector<std::shared_ptr<arrow::Field>> field_list_;
   std::shared_ptr<gandiva::Projector> projector_;
   std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list_;
-  std::vector<std::pair<std::shared_ptr<arrow::Field>, std::string>> key_list_;
+  std::vector<std::pair<gandiva::NodePtr, std::string>> key_list_;
+  std::vector<std::string> input_ordinal_list_;
 
   arrow::Status PrepareActionCodegen() {
     std::vector<gandiva::ExpressionPtr> expr_list;
     std::vector<gandiva::FieldPtr> output_field_list;
+    int index = 0;
     for (auto func_node : action_list_) {
       std::shared_ptr<CodeGenNodeVisitor> codegen_visitor;
       std::shared_ptr<ActionCodeGen> action_codegen;
@@ -162,16 +168,19 @@ class HashAggregateKernel::Impl {
       if (action_codegen->IsPreProjected()) {
         auto expr = action_codegen->GetProjectorExpr();
         output_field_list.push_back(expr->result());
+        // chendi: We need to use index in project output to replace project name
+        action_codegen->WithProjectIndex(index++);
         expr_list.push_back(expr);
       }
     }
+    RETURN_NOT_OK(GetInputOrdinalList(action_impl_list_, &input_ordinal_list_));
     RETURN_NOT_OK(GetGroupKey(action_impl_list_, &key_list_));
     if (key_list_.size() > 1) {
-      std::vector<std::shared_ptr<arrow::Field>> field_list;
+      std::vector<gandiva::NodePtr> key_expr_list;
       for (auto key : key_list_) {
-        field_list.push_back(key.first);
+        key_expr_list.push_back(key.first);
       }
-      auto expr = GetConcatedKernel(field_list);
+      auto expr = GetConcatedKernel(key_expr_list);
       output_field_list.push_back(expr->result());
       expr_list.push_back(expr);
     }
@@ -179,8 +188,8 @@ class HashAggregateKernel::Impl {
       original_input_schema_ = arrow::schema(input_field_list_);
       projected_input_schema_ = arrow::schema(output_field_list);
       auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-      RETURN_NOT_OK(gandiva::Projector::Make(original_input_schema_, expr_list,
-                                             configuration, &projector_));
+      THROW_NOT_OK(gandiva::Projector::Make(original_input_schema_, expr_list,
+                                            configuration, &projector_));
     }
     return arrow::Status::OK();
   }
@@ -190,6 +199,7 @@ class HashAggregateKernel::Impl {
 
     std::vector<std::string> cached_list;
     std::vector<std::string> typed_input_list;
+    std::vector<std::string> typed_group_input_list;
     std::vector<std::string> result_cached_list;
 
     std::stringstream evaluate_get_typed_array_ss;
@@ -216,13 +226,21 @@ class HashAggregateKernel::Impl {
       for (auto sig : func_sig_list) {
         if (std::find(cached_list.begin(), cached_list.end(), sig) == cached_list.end()) {
           cached_list.push_back(sig);
-          if (evaluate_get_typed_array_list[i].first != "" &&
+          auto tmp_typed_name = evaluate_get_typed_array_list[i].first;
+          if (tmp_typed_name != "" &&
               std::find(typed_input_list.begin(), typed_input_list.end(),
-                        evaluate_get_typed_array_list[i].first) ==
-                  typed_input_list.end()) {
-            typed_input_list.push_back(evaluate_get_typed_array_list[i].first);
-            evaluate_get_typed_array_ss << evaluate_get_typed_array_list[i].second
-                                        << std::endl;
+                        tmp_typed_name) == typed_input_list.end()) {
+            if (std::find(typed_group_input_list.begin(), typed_group_input_list.end(),
+                          tmp_typed_name) == typed_group_input_list.end()) {
+              evaluate_get_typed_array_ss << evaluate_get_typed_array_list[i].second
+                                          << std::endl;
+            }
+
+            if (!action->IsGroupBy()) {
+              typed_input_list.push_back(tmp_typed_name);
+            } else {
+              typed_group_input_list.push_back(tmp_typed_name);
+            }
             compute_on_exists_ss << compute_on_exists_prepare_list[i] << std::endl;
             compute_on_new_ss << compute_on_new_prepare_list[i] << std::endl;
           }
@@ -257,6 +275,11 @@ class HashAggregateKernel::Impl {
       }
     }
     auto evaluate_get_typed_array_str = evaluate_get_typed_array_ss.str();
+    for (auto input : typed_group_input_list) {
+      if (std::find(typed_input_list.begin(), typed_input_list.end(), input) ==
+          typed_input_list.end())
+        typed_input_list.push_back(input);
+    }
     auto typed_input_parameter_str = GetParameterList(typed_input_list);
     auto compute_on_exists_str = compute_on_exists_ss.str();
     auto compute_on_new_str = compute_on_new_ss.str();
@@ -275,26 +298,25 @@ class HashAggregateKernel::Impl {
     std::string concat_kernel;
     std::string hash_map_include_str = R"(#include "precompile/sparse_hash_map.h")";
     std::string hash_map_type_str =
-        "SparseHashMap<" + GetCTypeString(arrow::int32()) + ">";
+        "SparseHashMap<" + GetCTypeString(arrow::int64()) + ">";
     std::string hash_map_define_str =
         "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
     std::string evaluate_get_typed_key_array_str;
     std::string evaluate_get_typed_key_method_str;
     if (!multiple_cols) {
-      if (key_list_[0].first->type()->id() == arrow::Type::STRING) {
-        hash_map_type_str = GetTypeString(key_list_[0].first->type(), "") + "HashMap";
+      auto key_type = key_list_[0].first->return_type();
+      if (key_type->id() == arrow::Type::STRING) {
+        hash_map_type_str = GetTypeString(arrow::utf8(), "") + "HashMap";
         hash_map_include_str = R"(#include "precompile/hash_map.h")";
       } else {
-        hash_map_type_str =
-            "SparseHashMap<" + GetCTypeString(key_list_[0].first->type()) + ">";
+        hash_map_type_str = "SparseHashMap<" + GetCTypeString(key_type) + ">";
       }
       hash_map_define_str =
           "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
-      evaluate_get_typed_key_array_str =
-          "auto typed_array = std::make_shared<" +
-          GetTypeString(key_list_[0].first->type(), "Array") + ">(" +
-          key_list_[0].second + ");";
-      if (key_list_[0].first->type()->id() != arrow::Type::STRING) {
+      evaluate_get_typed_key_array_str = "auto typed_array = std::make_shared<" +
+                                         GetTypeString(key_type, "Array") + ">(" +
+                                         key_list_[0].second + ");\n";
+      if (key_type->id() != arrow::Type::STRING) {
         evaluate_get_typed_key_method_str = "GetView";
       } else {
         evaluate_get_typed_key_method_str = "GetString";
@@ -302,8 +324,8 @@ class HashAggregateKernel::Impl {
     } else {
       evaluate_get_typed_key_array_str =
           "auto typed_array = "
-          "std::make_shared<Int32Array>(projected_batch->GetColumnByName("
-          "\"projection_key\"));";
+          "std::make_shared<Int64Array>(projected_batch->GetColumnByName("
+          "\"projection_key\"));\n";
       evaluate_get_typed_key_method_str = "GetView";
     }
 
@@ -321,8 +343,8 @@ class TypedGroupbyHashAggregateImpl : public CodeGenBase {
   }
 
   arrow::Status Evaluate(const ArrayList& in, const std::shared_ptr<arrow::RecordBatch>& projected_batch) override {
-    )" + evaluate_get_typed_key_array_str +
-           evaluate_get_typed_array_str +
+    )" + evaluate_get_typed_array_str +
+           evaluate_get_typed_key_array_str +
            R"(
     auto insert_on_found = [this)" +
            typed_input_parameter_str + R"(](int32_t i) {
@@ -448,10 +470,19 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     )";
   }
 
+  arrow::Status GetInputOrdinalList(
+      std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list,
+      std::vector<std::string>* input_ordinal_list) {
+    for (auto action : action_impl_list) {
+      for (auto name : action->GetInputDataNameList()) {
+        input_ordinal_list->push_back(name);
+      }
+    }
+    return arrow::Status::OK();
+  }
   arrow::Status GetGroupKey(
       std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list,
-      std::vector<std::pair<std::shared_ptr<arrow::Field>, std::string>>*
-          key_index_list) {
+      std::vector<std::pair<gandiva::NodePtr, std::string>>* key_index_list) {
     for (auto action : action_impl_list) {
       if (action->IsGroupBy()) {
         key_index_list->push_back(std::make_pair(action->GetInputFieldList()[0],
@@ -462,8 +493,15 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     return arrow::Status::OK();
   }
 
-  std::string GetParameterList(const std::vector<std::string>& cached_list,
+  std::string GetParameterList(const std::vector<std::string>& cached_list_in,
                                bool pre_comma = true) {
+    // filter not-empty cached_list
+    std::vector<std::string> cached_list;
+    for (auto s : cached_list_in) {
+      if (s != "") {
+        cached_list.push_back(s);
+      }
+    }
     std::stringstream ss;
     for (int i = 0; i < cached_list.size(); i++) {
       if (i != (cached_list.size() - 1)) {
@@ -482,7 +520,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
       return ", " + ret;
     }
   }
-};
+};  // namespace extra
 
 arrow::Status HashAggregateKernel::Make(
     arrow::compute::FunctionContext* ctx,

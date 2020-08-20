@@ -168,7 +168,11 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
         case float: ArrowType.FloatingPoint
           if float.getPrecision() == FloatingPointPrecision.DOUBLE => 21
         case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10
-        case _ => 
+        case decimal : ArrowType.Decimal =>
+          val precision = decimal.getPrecision()
+          val scale  = decimal.getScale()
+          precision
+        case _ =>
           throw new UnsupportedOperationException(s"ColumnarCast to String doesn't support ${childType}")
       }
       val limitLenNode = TreeBuilder.makeLiteral(limitLen)
@@ -199,8 +203,14 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
       val funcNode =
         TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node), resultType)
       (funcNode, resultType)
-    }  else if (dataType == DecimalType) {
-      throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
+    }  else if (dataType.isInstanceOf[DecimalType]) {
+      dataType match {
+        case d: DecimalType =>
+          val dType = CodeGeneration.getResultType(d)
+          val funcNode =
+            TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node), dType)
+          (funcNode, dType)
+      }
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
     }
@@ -229,6 +239,10 @@ object ColumnarUnaryOperator {
     case a: KnownFloatingPointNormalized =>
       child
     case a: NormalizeNaNAndZero =>
+      child
+    case a: PromotePrecision =>
+      child
+    case a: CheckOverflow =>
       child
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")

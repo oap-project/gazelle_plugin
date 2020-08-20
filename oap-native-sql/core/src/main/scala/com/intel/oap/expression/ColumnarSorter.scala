@@ -199,6 +199,8 @@ object ColumnarSorter extends Logging {
     /////////////// Prepare ColumnarSorter //////////////
     val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
       val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarSorter.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     });

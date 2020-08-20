@@ -42,8 +42,7 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type);
 std::string GetCTypeString(std::shared_ptr<arrow::DataType> type);
 std::string GetTypeString(std::shared_ptr<arrow::DataType> type,
                           std::string tail = "Type");
-gandiva::ExpressionPtr GetConcatedKernel(
-    std::vector<std::shared_ptr<arrow::Field>> key_list);
+gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list);
 template <typename T>
 std::string GetStringFromList(std::vector<T> list) {
   std::stringstream ss;

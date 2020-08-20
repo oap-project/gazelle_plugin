@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit._
 
 import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.vectorized.ArrowWritableColumnVector
-
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
@@ -36,7 +35,8 @@ import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide}
 import scala.collection.JavaConverters._
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
+
 import scala.collection.mutable.ListBuffer
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
@@ -45,11 +45,9 @@ import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
-
 import io.netty.buffer.ArrowBuf
-import com.google.common.collect.Lists;
-
-import org.apache.spark.sql.types.{DataType, StructType}
+import com.google.common.collect.Lists
+import org.apache.spark.sql.types.{DataType, DecimalType, StructType}
 import com.intel.oap.vectorized.ExpressionEvaluator
 import com.intel.oap.vectorized.BatchIterator
 
@@ -206,10 +204,14 @@ object ColumnarShuffledHashJoin extends Logging {
       s"\nleft_schema is ${l_input_schema}, right_schema is ${r_input_schema}, \nleftKeys is ${leftKeys}, rightKeys is ${rightKeys}, \nresultSchema is ${resultSchema}, \njoinType is ${joinType}, buildSide is ${buildSide}, condition is ${conditionOption}")
 
     val l_input_field_list: List[Field] = l_input_schema.toList.map(attr => {
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
     val r_input_field_list: List[Field] = r_input_schema.toList.map(attr => {
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
@@ -222,12 +224,22 @@ object ColumnarShuffledHashJoin extends Logging {
 
     logInfo(s"leftKeyExpression is ${leftKeys}, rightKeyExpression is ${rightKeys}")
     val lkeyFieldList: List[Field] = leftKeys.toList.map(expr => {
+      val nativeNode = ConverterUtils.getColumnarFuncNode(expr)
+      if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+        throw new UnsupportedOperationException(
+          s"expression inside key is not currently supported.")
+      }
       val attr = ConverterUtils.getAttrFromExpr(expr)
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
 
     val rkeyFieldList: List[Field] = rightKeys.toList.map(expr => {
+      val nativeNode = ConverterUtils.getColumnarFuncNode(expr)
+      if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+        throw new UnsupportedOperationException(
+          s"expression inside key is not currently supported.")
+      }
       val attr = ConverterUtils.getAttrFromExpr(expr)
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))

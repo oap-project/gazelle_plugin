@@ -99,12 +99,8 @@ class ColumnarBroadcastHashJoinExec(
   //override def supportCodegen: Boolean = false
 
   val signature =
-    if (resultSchema.size > 0 && !leftKeys
-          .filter(expr => bindReference(expr, left.output, true).isInstanceOf[BoundReference])
-          .isEmpty && !rightKeys
-          .filter(expr => bindReference(expr, right.output, true).isInstanceOf[BoundReference])
-          .isEmpty) {
-
+    if (resultSchema.size > 0 ) {
+      try {
       ColumnarShuffledHashJoin.prebuild(
         leftKeys,
         rightKeys,
@@ -115,6 +111,14 @@ class ColumnarBroadcastHashJoinExec(
         left,
         right,
         sparkConf)
+      } catch {
+        case e: UnsupportedOperationException
+            if e.getMessage == "Unsupport to generate native expression from replaceable expression." =>
+          logWarning(e.getMessage())
+          ""
+        case e =>
+          throw e
+      }
     } else {
       ""
     }

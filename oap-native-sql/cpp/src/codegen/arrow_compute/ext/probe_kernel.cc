@@ -190,6 +190,10 @@ class ConditionedProbeArraysKernel::Impl {
     for (auto i : right_shuffle_index_list) {
       func_args_ss << i << ",";
     }
+    func_args_ss << "[ResultOrdinal]";
+    for (auto pair : result_schema_index_list) {
+      func_args_ss << pair.first << "_" << pair.second << ",";
+    }
 
 #ifdef DEBUG
     std::cout << "signature original line is " << func_args_ss.str() << std::endl;
@@ -423,14 +427,20 @@ class ConditionedProbeArraysKernel::Impl {
                            const std::vector<int>& right_shuffle_index_list) {
     std::stringstream ss;
     for (auto i : left_shuffle_index_list) {
-      ss << "RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
-         << "_[tmp.array_id]->GetView(tmp."
-            "id)));"
-         << std::endl;
+      ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
+      ss << "} else {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
+         << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
+      ss << "}" << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+      ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
+      ss << "} else {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
+      ss << "}" << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -467,15 +477,24 @@ class ConditionedProbeArraysKernel::Impl {
     std::stringstream left_valid_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_valid_ss << "RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
-                    << "_[tmp.array_id]->GetView(tmp."
-                       "id)));"
+      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
                     << std::endl;
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
+                    << std::endl;
+      left_valid_ss << "} else {" << std::endl;
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
+                    << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
+      left_valid_ss << "}" << std::endl;
       left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+      right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
+                     << std::endl;
+      right_valid_ss << "} else {" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
                      << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -521,8 +540,13 @@ class ConditionedProbeArraysKernel::Impl {
       left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+      right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
+                     << std::endl;
+      right_valid_ss << "} else {" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
                      << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -566,8 +590,12 @@ class ConditionedProbeArraysKernel::Impl {
       ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+      ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
+      ss << "} else {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
+      ss << "}" << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -615,8 +643,13 @@ class ConditionedProbeArraysKernel::Impl {
                        << std::endl;
 
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+      right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
+                     << std::endl;
+      right_valid_ss << "} else {" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
                      << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -748,7 +781,7 @@ class ConditionedProbeArraysKernel::Impl {
       ss << "std::shared_ptr<arrow::Array> hash_in;" << std::endl;
       ss << "RETURN_NOT_OK(hash_kernel_->Evaluate(concat_kernel_arr_list, &hash_in));"
          << std::endl;
-      ss << "auto typed_array = std::make_shared<Int32Array>(hash_in);" << std::endl;
+      ss << "auto typed_array = std::make_shared<Int64Array>(hash_in);" << std::endl;
     } else {
       ss << "auto typed_array = std::make_shared<" << data_type << ">(in[" << i << "]);"
          << std::endl;
@@ -770,7 +803,7 @@ class ConditionedProbeArraysKernel::Impl {
     bool multiple_cols = (left_key_index_list.size() > 1);
     std::string hash_map_include_str = R"(#include "precompile/sparse_hash_map.h")";
     std::string hash_map_type_str =
-        "SparseHashMap<" + GetCTypeString(arrow::int32()) + ">";
+        "SparseHashMap<" + GetCTypeString(arrow::int64()) + ">";
     std::string hash_map_define_str =
         "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
     if (!multiple_cols) {
