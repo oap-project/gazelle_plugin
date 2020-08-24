@@ -335,7 +335,7 @@ object ColumnarConditionProjector extends Logging {
 
     var projectInputList: java.util.List[Field] = Lists.newArrayList()
     val (projPrepareList, skip_project): (Seq[(ExpressionTree, ArrowType)], Boolean) =
-      if (projectList != null) {
+      if (projectList != null && projectList.size != 0) {
         val columnarProjExprs: Seq[Expression] = projectList.map(expr => {
           ColumnarExpressionConverter.replaceWithColumnarExpression(expr, originalInputAttributes)
         })

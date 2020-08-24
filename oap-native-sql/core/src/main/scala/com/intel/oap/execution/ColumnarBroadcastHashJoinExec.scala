@@ -99,18 +99,18 @@ class ColumnarBroadcastHashJoinExec(
   //override def supportCodegen: Boolean = false
 
   val signature =
-    if (resultSchema.size > 0 ) {
+    if (resultSchema.size > 0) {
       try {
-      ColumnarShuffledHashJoin.prebuild(
-        leftKeys,
-        rightKeys,
-        resultSchema,
-        joinType,
-        buildSide,
-        condition,
-        left,
-        right,
-        sparkConf)
+        ColumnarShuffledHashJoin.prebuild(
+          leftKeys,
+          rightKeys,
+          resultSchema,
+          joinType,
+          buildSide,
+          condition,
+          left,
+          right,
+          sparkConf)
       } catch {
         case e: UnsupportedOperationException
             if e.getMessage == "Unsupport to generate native expression from replaceable expression." =>
@@ -173,8 +173,15 @@ class ColumnarBroadcastHashJoinExec(
           totalTime.merge(fetchTime)
         })
       val beforeFetch = System.nanoTime()
+      val buildAttributes = buildSide match {
+        case BuildLeft =>
+          left.output
+        case BuildRight =>
+          right.output
+      }
       val buildIter =
-        new CloseableColumnBatchIterator(ConverterUtils.convertFromNetty(buildInputByteBuf.value))
+        new CloseableColumnBatchIterator(
+          ConverterUtils.convertFromNetty(buildAttributes, buildInputByteBuf.value))
       fetchTime += NANOSECONDS.toMillis(System.nanoTime() - beforeFetch)
       val vjoinResult = vjoin.columnarJoin(streamIter, buildIter)
       new CloseableColumnBatchIterator(vjoinResult)

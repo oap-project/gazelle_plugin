@@ -97,10 +97,10 @@ TEST(TestArrowCompute, GroupByHashAggregateTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, 6, 7, 8 ,9, 10]",        "[8, 10, 9, 20, 45, 42, 28, 32, 54, 70]",
-      "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]",         "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
-      "[8, 10, 9, 20, 45, 42, 28, 32, 54, 70]", "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]",
-      "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",        "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]"};
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",        "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",         "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]", "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",        "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]"};
   auto res_sch =
       arrow::schema({f_unique, f_sum, f_count, f_avg, f_sum, f_count, f_min, f_max});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
@@ -178,10 +178,10 @@ TEST(TestArrowCompute, GroupByHashAggregateTest2) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, 6, 7, 8 ,9, 10]", "[8, 10, 9, 20, 45, 42, 28, 32, 54, 70]",
-      "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]",  "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
-      "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]", "[8, 10, 9, 20, 45, 42, 28, 32, 54, 70]",
-      "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]"};
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]", "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",  "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]", "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
@@ -263,9 +263,9 @@ TEST(TestArrowCompute, GroupByHashAggregateTest3) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, 6, 7, 8 ,9, 10]", "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
-      "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]", "[8, 10, 9, 20, 45, 42, 28, 32, 54, 70]",
-      "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]"};
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]", "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]", "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
@@ -814,13 +814,13 @@ TEST(TestArrowCompute, GroupByStddevSampPartialHashAggregateTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, 6, 7, 8 ,9, 10]",
-      "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]",
-      "[17.875, 20.2, 28.6667, 19.8, 33.7778, 33.5714, 42, 48 ,17.5, 21]",
-      "[596.875, 588.8, 1320.67, 1028.8, 8587.56, 3729.71, 2430, 3134, 995.5, 1540]",
-      "[8, 5, 3, 5, 9, 7, 4, 4, 6, 7]",
-      "[17.875, 20.2, 28.6667, 19.8, 33.7778, 33.5714, 42, 48 ,17.5, 21]",
-      "[596.875, 588.8, 1320.67, 1028.8, 8587.56, 3729.71, 2430, 3134, 995.5, 1540]"};
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
+      "[17.875, 20.2, 28.6667, 19.8, 33.7778, 5.5, 33.5714, 42, 48 ,17.5, 21]",
+      "[596.875, 588.8, 1320.67, 1028.8, 8587.56, 24.5, 3729.71, 2430, 3134, 995.5, 1540]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
+      "[17.875, 20.2, 28.6667, 19.8, 33.7778, 5.5, 33.5714, 42, 48 ,17.5, 21]",
+      "[596.875, 588.8, 1320.67, 1028.8, 8587.56, 24.5, 3729.71, 2430, 3134, 995.5, 1540]"};
   auto res_sch = arrow::schema({f_unique, f_n, f_avg, f_m2, f_n, f_avg, f_m2});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
@@ -893,9 +893,9 @@ TEST(TestArrowCompute, GroupByStddevSampFinalHashAggregateTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, 6, 7, 8 ,9, 10]",
-      "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 8.52779, 6.23633, 5.58903, 12.535, "
-      "24.3544]"};
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",
+      "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 1.41421, 8.52779, 6.23633, "
+      "5.58903, 12.535, 24.3544]"};
   auto res_sch = arrow::schema({f_unique, f_stddev});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

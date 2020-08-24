@@ -119,7 +119,16 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   public static ArrowWritableColumnVector[] loadColumns(int capacity, Schema arrowSchema,
                                                         ArrowRecordBatch recordBatch) {
-    VectorSchemaRoot root = VectorSchemaRoot.create(arrowSchema, allocator); 
+    return loadColumns(capacity, arrowSchema, recordBatch, null);
+  }
+
+  public static ArrowWritableColumnVector[] loadColumns(int capacity, Schema arrowSchema,
+                                                        ArrowRecordBatch recordBatch, 
+                                                        BufferAllocator _allocator) {
+    if (_allocator == null) {
+      _allocator = allocator;
+    }
+    VectorSchemaRoot root = VectorSchemaRoot.create(arrowSchema, _allocator); 
     VectorLoader loader = new VectorLoader(root);
     loader.load(recordBatch);
     return loadColumns(capacity, root.getFieldVectors());

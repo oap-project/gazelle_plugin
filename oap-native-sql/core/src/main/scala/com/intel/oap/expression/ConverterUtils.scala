@@ -23,17 +23,21 @@ import java.nio.ByteBuffer
 import java.util.ArrayList
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import io.netty.buffer.{ArrowBuf, ByteBufAllocator, ByteBufOutputStream}
+import org.apache.arrow.flatbuf.MessageHeader
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression.ExpressionTree
 import org.apache.arrow.gandiva.ipc.GandivaTypes
 import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
+import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
-import org.apache.arrow.vector.ipc.{ArrowStreamReader, WriteChannel}
+import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
 import org.apache.arrow.vector.ipc.message.{
   ArrowFieldNode,
   ArrowRecordBatch,
   IpcOption,
-  MessageSerializer
+  MessageResult,
+  MessageSerializer,
+  MessageChannelReader
 }
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
@@ -131,48 +135,82 @@ object ConverterUtils extends Logging {
     bytes
   }
 
-  def convertFromNetty(data: Array[Array[Byte]]): Iterator[ColumnarBatch] = {
+  def convertFromNetty(
+      attributes: Seq[Attribute],
+      data: Array[Array[Byte]]): Iterator[ColumnarBatch] = {
     new Iterator[ColumnarBatch] {
       var array_id = 0
-      var incorrectInput = false
+      val allocator = ArrowWritableColumnVector.getNewAllocator
       var input = new ByteArrayInputStream(data(array_id))
-      var reader = new ArrowStreamReader(input, ArrowWritableColumnVector.getNewAllocator)
-      var root :VectorSchemaRoot = null
+      var messageReader =
+        new MessageChannelReader(new ReadChannel(Channels.newChannel(input)), allocator)
+      var schema: Schema = null
+      var result: MessageResult = null
 
       override def hasNext: Boolean =
-        (array_id < (data.size - 1) || input.available > 0) && (!incorrectInput)
+        if (array_id < (data.size - 1) || input.available > 0) {
+          return true
+        } else {
+          messageReader.close
+          return false
+        }
       override def next(): ColumnarBatch = {
+        if (input.available == 0) {
+          messageReader.close
+          array_id += 1
+          input = new ByteArrayInputStream(data(array_id))
+          messageReader =
+            new MessageChannelReader(new ReadChannel(Channels.newChannel(input)), allocator)
+        }
+        if (input.available == 0) {
+          val resultStructType = StructType(
+            attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+          return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+        }
         try {
-          if (input.available == 0) {
-            array_id += 1
-            input = new ByteArrayInputStream(data(array_id))
-            reader = new ArrowStreamReader(input, ArrowWritableColumnVector.getNewAllocator)
-            root = reader.getVectorSchemaRoot()
-          }
-          reader.loadNextBatch();
-          if (root == null) {
-            root = reader.getVectorSchemaRoot()
-          }
-          val length = root.getRowCount
-          val vectors = root
-            .getFieldVectors()
-            .asScala
-            .zipWithIndex
-            .map {
-              case (vector, i) => {
-                new ArrowWritableColumnVector(vector, i, length, false)
-              }
+          if (schema == null) {
+            result = messageReader.readNext();
+
+            if (result == null) {
+              throw new IOException("Unexpected end of input. Missing schema.");
             }
-            .toArray[ColumnVector]
-          val numCols = vectors.size
-          /*logWarning(s"numRows is $length, data is ${(0 until length).map(i =>
-          (0 until numCols).map(j =>
-            vectors(j).asInstanceOf[ArrowWritableColumnVector].getUTF8String(i)))}")*/
-          new ColumnarBatch(vectors, length)
+
+            if (result.getMessage().headerType() != MessageHeader.Schema) {
+              throw new IOException(
+                "Expected schema but header was " + result.getMessage().headerType());
+            }
+
+            schema = MessageSerializer.deserializeSchema(result.getMessage());
+
+          }
+
+          result = messageReader.readNext();
+          if (result.getMessage().headerType() == MessageHeader.Schema) {
+            result = messageReader.readNext();
+          }
+
+          if (result.getMessage().headerType() != MessageHeader.RecordBatch) {
+            throw new IOException(
+              "Expected recordbatch but header was " + result.getMessage().headerType());
+          }
+          var bodyBuffer = result.getBodyBuffer();
+
+          // For zero-length batches, need an empty buffer to deserialize the batch
+          if (bodyBuffer == null) {
+            bodyBuffer = allocator.getEmpty();
+          }
+
+          val batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
+          val vectors = fromArrowRecordBatch(schema, batch, allocator)
+          val length = batch.getLength
+          batch.close
+          new ColumnarBatch(vectors.map(_.asInstanceOf[ColumnVector]), length)
         } catch {
-          case e: java.io.IOException =>
-            incorrectInput = true
-            null
+          case e =>
+            messageReader.close
+            throw e
         }
       }
     }
@@ -180,9 +218,10 @@ object ConverterUtils extends Logging {
 
   def fromArrowRecordBatch(
       recordBatchSchema: Schema,
-      recordBatch: ArrowRecordBatch): Array[ArrowWritableColumnVector] = {
+      recordBatch: ArrowRecordBatch,
+      allocator: BufferAllocator = null): Array[ArrowWritableColumnVector] = {
     val numRows = recordBatch.getLength()
-    ArrowWritableColumnVector.loadColumns(numRows, recordBatchSchema, recordBatch)
+    ArrowWritableColumnVector.loadColumns(numRows, recordBatchSchema, recordBatch, allocator)
   }
 
   def releaseArrowRecordBatch(recordBatch: ArrowRecordBatch): Unit = {
@@ -328,9 +367,7 @@ object ConverterUtils extends Logging {
   @throws[GandivaException]
   def getExprListBytesBuf(exprs: List[ExpressionTree]): Array[Byte] = {
     val builder: ExpressionList.Builder = GandivaTypes.ExpressionList.newBuilder
-    exprs.foreach { expr =>
-      builder.addExprs(expr.toProtobuf)
-    }
+    exprs.foreach { expr => builder.addExprs(expr.toProtobuf) }
     builder.build.toByteArray
   }
 }

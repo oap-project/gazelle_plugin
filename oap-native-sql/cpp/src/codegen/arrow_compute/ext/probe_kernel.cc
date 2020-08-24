@@ -721,14 +721,14 @@ class ConditionedProbeArraysKernel::Impl {
       std::vector<int>* left_out_index_list, std::vector<int>* right_out_index_list) {
     std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
     int func_count = 0;
-    std::stringstream codes_ss;
+    std::vector<std::string> input_list;
     MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list}, &func_count,
-                           &codes_ss, left_out_index_list, right_out_index_list,
+                           &input_list, left_out_index_list, right_out_index_list,
                            &func_node_visitor);
 
     return R"(
     inline bool ConditionCheck(ArrayItemIndex x, int y) {
-      )" + codes_ss.str() +
+      )" + func_node_visitor->GetPrepare() +
            R"(
         return )" +
            func_node_visitor->GetResult() +

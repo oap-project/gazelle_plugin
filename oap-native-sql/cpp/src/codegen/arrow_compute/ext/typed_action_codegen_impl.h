@@ -32,7 +32,6 @@ class TypedActionCodeGenImpl {
  public:
   TypedActionCodeGenImpl() {}
   int* GetFuncCountRef() { return &func_count_; }
-  std::stringstream* GetCodeStreamRef() { return &codes_ss_; }
   std::vector<int>* GetInputIndexListRef() { return &input_index_list_; }
   std::vector<std::shared_ptr<arrow::Field>>* GetInputFieldsListRef() {
     return &input_fields_list_;
@@ -90,8 +89,7 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<SumCountActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.find("action_groupby") != std::string::npos) {
       std::string name;
@@ -104,8 +102,7 @@ class TypedActionCodeGenImpl {
       }
       if (input_fields_list_.size() != 0) {
         *action_codegen = std::make_shared<GroupByActionCodeGen>(
-            name, keep, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-            named_projector_);
+            name, keep, child_list_, input_list_, input_fields_list_, named_projector_);
       }
 
     } else if (action_name_.compare("action_sum") == 0) {
@@ -114,8 +111,7 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<SumActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.compare("action_count") == 0) {
       std::string name;
@@ -123,14 +119,13 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<CountActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.compare(0, 20, "action_countLiteral_") == 0) {
       auto lit = std::stoi(action_name_.substr(20));
       *action_codegen = std::make_shared<CountLiteralActionCodeGen>(
           "count_literal_" + std::to_string(lit), lit, child_list_, input_list_,
-          input_fields_list_, codes_ss_.str(), named_projector_);
+          input_fields_list_, named_projector_);
 
     } else if (action_name_.compare("action_avg") == 0) {
       std::string name;
@@ -138,8 +133,7 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<AvgActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.compare("action_avgByCount") == 0) {
       std::string name;
@@ -148,8 +142,7 @@ class TypedActionCodeGenImpl {
                std::to_string(input_index_list_[1]);
       }
       *action_codegen = std::make_shared<AvgByCountActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.compare("action_min") == 0) {
       std::string name;
@@ -157,8 +150,7 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<MinActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.compare("action_max") == 0) {
       std::string name;
@@ -166,8 +158,7 @@ class TypedActionCodeGenImpl {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<MaxActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
     } else if (action_name_.compare("action_sum_count_merge") == 0) {
       std::string name;
       if (input_index_list_.size() == 2) {
@@ -175,16 +166,14 @@ class TypedActionCodeGenImpl {
                std::to_string(input_index_list_[1]);
       }
       *action_codegen = std::make_shared<SumCountMergeActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
     } else if (action_name_.compare("action_stddev_samp_partial") == 0) {
       std::string name;
       if (!input_index_list_.empty()) {
         name = std::to_string(input_index_list_[0]);
       }
       *action_codegen = std::make_shared<StddevSampPartialActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
     } else if (action_name_.compare("action_stddev_samp_final") == 0) {
       std::string name;
       if (input_index_list_.size() == 3) {
@@ -193,8 +182,7 @@ class TypedActionCodeGenImpl {
                std::to_string(input_index_list_[2]);
       }
       *action_codegen = std::make_shared<StddevSampFinalActionCodeGen>(
-          name, child_list_, input_list_, input_fields_list_, codes_ss_.str(),
-          named_projector_);
+          name, child_list_, input_list_, input_fields_list_, named_projector_);
     } else {
       std::cout << "action_name " << action_name_ << " is unrecognized" << std::endl;
       return arrow::Status::Invalid("Invalid action_name ", action_name_);
@@ -204,7 +192,6 @@ class TypedActionCodeGenImpl {
 
  private:
   int func_count_ = 0;
-  std::stringstream codes_ss_;
   std::vector<int> input_index_list_;
   std::vector<std::shared_ptr<arrow::Field>> input_fields_list_;
   std::vector<std::string> input_list_;

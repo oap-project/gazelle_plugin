@@ -38,6 +38,8 @@ int FileSpinLock();
 void FileSpinUnLock(int fd);
 
 int GetBatchSize();
+std::string exec(const char* cmd);
+std::string GetTempPath();
 std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type);
 std::string GetCTypeString(std::shared_ptr<arrow::DataType> type);
 std::string GetTypeString(std::shared_ptr<arrow::DataType> type,

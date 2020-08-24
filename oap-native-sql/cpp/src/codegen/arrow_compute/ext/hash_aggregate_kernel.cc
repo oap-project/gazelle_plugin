@@ -374,7 +374,12 @@ class TypedGroupbyHashAggregateImpl : public CodeGenBase {
     } else {
       for (; cur_id_ < typed_array->length(); cur_id_++) {
         if (typed_array->IsNull(cur_id_)) {
-          //hash_table_->GetOrInsertNull(insert_on_found, insert_on_not_found);
+          memo_index = hash_table_->GetOrInsertNull([](int32_t){}, [](int32_t){});
+          if (memo_index < num_groups_) {
+            insert_on_found(memo_index);
+          } else {
+            insert_on_not_found(memo_index);
+          }
         } else {
           hash_table_->GetOrInsert(typed_array->)" +
            evaluate_get_typed_key_method_str + R"((cur_id_),

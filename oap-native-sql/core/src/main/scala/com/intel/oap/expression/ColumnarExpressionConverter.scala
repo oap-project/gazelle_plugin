@@ -158,6 +158,8 @@ object ColumnarExpressionConverter extends Logging {
     case u: UnaryExpression =>
       logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
       ColumnarUnaryOperator.create(replaceWithColumnarExpression(u.child, attributeSeq), expr)
+    case oaps: com.intel.oap.expression.ColumnarScalarSubquery =>
+      oaps
     case s: org.apache.spark.sql.execution.ScalarSubquery =>
       logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
       new ColumnarScalarSubquery(s)
@@ -178,7 +180,7 @@ object ColumnarExpressionConverter extends Logging {
         replaceWithColumnarExpression(r.scale),
         expr)
     case expr =>
-      throw new UnsupportedOperationException(s"${expr.getClass} ${expr} is not currently supported.")
+      throw new UnsupportedOperationException(s" --> ${expr.getClass} | ${expr} is not currently supported.")
   }
 
   def ifNoCalculation = check_if_no_calculation
