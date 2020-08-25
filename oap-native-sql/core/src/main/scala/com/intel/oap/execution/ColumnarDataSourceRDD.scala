@@ -44,6 +44,7 @@ class ColumnarDataSourceRDD(
     columnarReads: Boolean,
     scanTime: SQLMetric,
     numInputBatches: SQLMetric,
+    inputSize: SQLMetric,
     tmp_dir: String)
     extends RDD[ColumnarBatch](sc, Nil) {
 
@@ -60,6 +61,13 @@ class ColumnarDataSourceRDD(
 
   override def compute(split: Partition, context: TaskContext): Iterator[ColumnarBatch] = {
     val inputPartition = castPartition(split).inputPartition
+    inputPartition match {
+      case p: FilePartition =>
+        p.files.foreach {
+          f => inputSize += f.length
+        }
+      case _ =>
+    }
     val reader = if (columnarReads) {
       partitionReaderFactory match {
         case factory: ParquetPartitionReaderFactory =>
