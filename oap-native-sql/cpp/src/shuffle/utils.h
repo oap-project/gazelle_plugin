@@ -131,6 +131,8 @@ static arrow::Result<std::vector<Type::typeId>> ToSplitterTypeId(
                      case arrow::LargeBinaryType::type_id:
                      case arrow::LargeStringType::type_id:
                        return Type::SHUFFLE_LARGE_BINARY;
+                     case arrow::Decimal128Type::type_id:
+                       return Type::SHUFFLE_DECIMAL128;
                      case arrow::NullType::type_id:
                        return Type::SHUFFLE_NULL;
                      default:

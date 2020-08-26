@@ -136,6 +136,18 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
     }                                                                                \
   }
 
+#define WRITE_DECIMAL                                                         \
+  if (!src_addr[Type::SHUFFLE_DECIMAL128].empty()) {                          \
+    for (i = read_offset; i < num_rows; ++i) {                                \
+      ARROW_ASSIGN_OR_RAISE(auto result,                                      \
+                            partition_writer_[writer_idx[i]]->WriteDecimal128( \
+                                src_addr[Type::SHUFFLE_DECIMAL128], i))       \
+      if (!result) {                                                          \
+        break;                                                                \
+      }                                                                       \
+    }                                                                         \
+  }
+
 #define WRITE_BINARY(func, T, src_arr)                                          \
   if (!src_arr.empty()) {                                                       \
     for (i = read_offset; i < num_rows; ++i) {                                  \
@@ -154,6 +166,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
     WRITE_FIXEDWIDTH(Type::SHUFFLE_4BYTE, uint32_t);
     WRITE_FIXEDWIDTH(Type::SHUFFLE_8BYTE, uint64_t);
     WRITE_FIXEDWIDTH(Type::SHUFFLE_BIT, bool);
+    WRITE_DECIMAL
     WRITE_BINARY(WriteBinary, arrow::BinaryType, src_binary_arr);
     WRITE_BINARY(WriteLargeBinary, arrow::LargeBinaryType, src_large_binary_arr);
     WRITE_BINARY(WriteNullableBinary, arrow::BinaryType, src_nullable_binary_arr);
@@ -163,6 +176,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
   }
 
 #undef WRITE_FIXEDWIDTH
+#undef WRITE_DECIMAL
 #undef WRITE_BINARY
 
   return arrow::Status::OK();

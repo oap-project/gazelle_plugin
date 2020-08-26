@@ -95,6 +95,20 @@ arrow::enable_if_binary_like<T, arrow::Status> inline WriteNullableBinary(
   return arrow::Status::OK();
 }
 
+arrow::Status inline WriteDecimal128(const SrcBuffers& src, int64_t src_offset,
+                                     const BufferInfos& dst, int64_t dst_offset) {
+  for (size_t i = 0; i < src.size(); ++i) {
+    dst[i]->validity_addr[dst_offset / 8] |=
+        (((src[i].validity_addr)[src_offset / 8] >> (src_offset % 8)) & 1)
+        << (dst_offset % 8);
+    reinterpret_cast<uint64_t*>(dst[i]->value_addr)[dst_offset << 1] =
+        reinterpret_cast<uint64_t*>(src[i].value_addr)[src_offset << 1];
+    reinterpret_cast<uint64_t*>(dst[i]->value_addr)[dst_offset << 1 | 1] =
+        reinterpret_cast<uint64_t*>(src[i].value_addr)[src_offset << 1 | 1];
+  }
+  return arrow::Status::OK();
+}
+
 }  // namespace detail
 class PartitionWriter {
  public:
@@ -243,6 +257,25 @@ class PartitionWriter {
         src, offset, large_binary_builders_));
 
     ++write_offset_[Type::SHUFFLE_LARGE_BINARY];
+    return true;
+  }
+
+  /// Do memory copy for decimal
+  /// \param src source buffers
+  /// \param offset index of the element in source buffers
+  /// \return true if write performed, else false
+  arrow::Result<bool> inline WriteDecimal128(const SrcBuffers& src, int64_t offset) {
+    // for the type_id, check if write ends. For the last type reset write_offset and
+    // spill
+    ARROW_ASSIGN_OR_RAISE(auto write_ends, CheckTypeWriteEnds(Type::SHUFFLE_DECIMAL128))
+    if (write_ends) {
+      return false;
+    }
+
+    RETURN_NOT_OK(
+        detail::WriteDecimal128(src, offset, buffers_[Type::SHUFFLE_DECIMAL128], write_offset_[Type::SHUFFLE_DECIMAL128]));
+
+    ++write_offset_[Type::SHUFFLE_DECIMAL128];
     return true;
   }
 

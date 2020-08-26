@@ -38,6 +38,7 @@ class SplitterTest : public ::testing::Test {
     auto f_uint64 = field("f_uint64", arrow::uint64());
     auto f_bool = field("f_bool", arrow::boolean());
     auto f_string = field("f_string", arrow::utf8());
+    auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
 
     ARROW_ASSIGN_OR_THROW(tmp_dir1_,
                           std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
@@ -47,7 +48,8 @@ class SplitterTest : public ::testing::Test {
 
     setenv("NATIVESQL_SPARK_LOCAL_DIRS", config_dirs.c_str(), 1);
 
-    schema_ = arrow::schema({f_na, f_int8_a, f_int8_b, f_uint64, f_bool, f_string});
+    schema_ =
+        arrow::schema({f_na, f_int8_a, f_int8_b, f_uint64, f_bool, f_string, f_decimal});
   }
 
   void TearDown() override {
@@ -73,8 +75,13 @@ class SplitterTest : public ::testing::Test {
 
 const std::string SplitterTest::tmp_dir_prefix = "columnar-shuffle-test";
 const std::vector<std::string> SplitterTest::input_data = {
-    "[null, null, null, null]", "[1, 2, 3, null]",    "[1, -1, null, null]",
-    "[null, null, null, null]", "[null, 1, 0, null]", R"(["alice", "bob", null, null])"};
+    "[null, null, null, null]",
+    "[1, 2, 3, null]",
+    "[1, -1, null, null]",
+    "[null, null, null, null]",
+    "[null, 1, 0, null]",
+    R"(["alice", "bob", null, null])",
+    R"(["1.01", "2.01", "3.01", null])"};
 
 TEST_F(SplitterTest, TestRoundRobinSplitter) {
   int32_t num_partitions = 3;
