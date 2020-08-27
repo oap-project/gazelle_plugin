@@ -506,6 +506,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     elementsAppended++;
   }
 
+  public void appendDecimal(BigDecimal value) {
+    writer.setBytes(elementsAppended, value);
+    elementsAppended++;
+  }
+
   @Override
   public byte getByte(int rowId) {
     return accessor.getByte(rowId);
@@ -1324,6 +1329,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     void appendBytes(byte[] value, int offset, int length) {
       throw new UnsupportedOperationException();
     }
+
+    void setBytes(int rowId, BigDecimal value) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private static class BooleanWriter extends ArrowVectorWriter {
@@ -1672,10 +1681,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       BigDecimal v = new BigDecimal(value);
       writer.setSafe(rowId, v.setScale(writer.getScale()));
     }
+
     @Override
-    final void setArray(int rowId, int offset, int length) {
-      ArrowBuf buffer = allocator.buffer(16 * rowId + 16L);
-      writer.setSafe(rowId, offset, buffer);
+    final void setBytes(int rowId, BigDecimal value) {
+      writer.setSafe(rowId, value);
     }
   }
 

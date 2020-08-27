@@ -191,9 +191,8 @@ object RowToColumnConverter {
       } else if (dt.precision <= Decimal.MAX_LONG_DIGITS) {
         cv.appendLong(d.toUnscaledLong)
       } else {
-        val integer = d.toJavaBigDecimal.unscaledValue
-        val bytes = integer.toByteArray
-        cv.appendByteArray(bytes, 0, bytes.length)
+        val value = d.toJavaBigDecimal
+        cv.asInstanceOf[ArrowWritableColumnVector].appendDecimal(value)
       }
     }
   }

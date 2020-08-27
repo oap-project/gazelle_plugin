@@ -169,9 +169,8 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
           if float.getPrecision() == FloatingPointPrecision.DOUBLE => 21
         case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10
         case decimal : ArrowType.Decimal =>
-          val precision = decimal.getPrecision()
-          val scale  = decimal.getScale()
-          precision
+          // Add two to precision for decimal point and negative sign
+          (decimal.getPrecision() + 2)
         case _ =>
           throw new UnsupportedOperationException(s"ColumnarCast to String doesn't support ${childType}")
       }
