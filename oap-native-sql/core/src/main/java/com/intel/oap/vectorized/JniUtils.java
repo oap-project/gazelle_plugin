@@ -128,7 +128,7 @@ public class JniUtils {
 
       if (urlConnection instanceof JarURLConnection) {
         final JarFile jarFile = ((JarURLConnection) urlConnection).getJarFile();
-        copyResourcesToDirectory(jarFile, folderToLoad, tmp_dir + "/tmp/");
+        extractResourcesToDirectory(jarFile, folderToLoad, tmp_dir + "/tmp/");
       } else {
         throw new IOException(urlConnection.toString() + " is not JarUrlConnection");
       }
@@ -149,7 +149,7 @@ public class JniUtils {
       final URLConnection urlConnection = JniUtils.class.getClassLoader().getResource("include").openConnection();
       if (urlConnection instanceof JarURLConnection) {
         final JarFile jarFile = ((JarURLConnection) urlConnection).getJarFile();
-        copyResourcesToDirectory(jarFile, folderToLoad, tmp_dir + "/" + "nativesql_include");
+        extractResourcesToDirectory(jarFile, folderToLoad, tmp_dir + "/" + "nativesql_include");
       } else {
         throw new IOException(urlConnection.toString() + " is not JarUrlConnection");
       }
@@ -176,44 +176,41 @@ public class JniUtils {
     return temp;
   }
 
-  /**
-   * Copies a directory from a jar file to an external directory.
-   */
-  public static void copyResourcesToDirectory(JarFile fromJar, String jarDir, String destDir) throws IOException {
-    for (Enumeration<JarEntry> entries = fromJar.entries(); entries.hasMoreElements();) {
-      JarEntry entry = entries.nextElement();
-      if (((jarDir == "" && !entry.getName().contains("META-INF")) || (entry.getName().startsWith(jarDir + "/")))
-          && !entry.isDirectory()) {
-        int rm_length = jarDir.length() == 0 ? 0 : jarDir.length() + 1;
-        Path dest_path = Paths.get(destDir + "/" + entry.getName().substring(rm_length));
+  public static void extractResourcesToDirectory(JarFile origJar, String jarPath, String destPath) throws IOException {
+    for (Enumeration<JarEntry> entries = origJar.entries(); entries.hasMoreElements();) {
+      JarEntry oneEntry = entries.nextElement();
+      if (((jarPath == "" && !oneEntry.getName().contains("META-INF")) || (oneEntry.getName().startsWith(jarPath + "/")))
+          && !oneEntry.isDirectory()) {
+        int rm_length = jarPath.length() == 0 ? 0 : jarPath.length() + 1;
+        Path dest_path = Paths.get(destPath + "/" + oneEntry.getName().substring(rm_length));
         if (Files.exists(dest_path)) {
           continue;
         }
-        File dest = new File(destDir + "/" + entry.getName().substring(rm_length));
-        File parent = dest.getParentFile();
-        if (parent != null) {
-          parent.mkdirs();
+        File destFile = new File(destPath + "/" + oneEntry.getName().substring(rm_length));
+        File parentFile = destFile.getParentFile();
+        if (parentFile != null) {
+          parentFile.mkdirs();
         }
 
-        FileOutputStream out = new FileOutputStream(dest);
-        InputStream in = fromJar.getInputStream(entry);
+        FileOutputStream outFile = new FileOutputStream(destFile);
+        InputStream inFile = origJar.getInputStream(oneEntry);
 
         try {
-          byte[] buffer = new byte[8 * 1024];
+          byte[] buffer = new byte[4 * 1024];
 
           int s = 0;
-          while ((s = in.read(buffer)) > 0) {
-            out.write(buffer, 0, s);
+          while ((s = inFile.read(buffer)) > 0) {
+            outFile.write(buffer, 0, s);
           }
         } catch (IOException e) {
-          throw new IOException("Could not copy asset from jar file", e);
+          throw new IOException("Could not extract resource from jar", e);
         } finally {
           try {
-            in.close();
+            inFile.close();
           } catch (IOException ignored) {
           }
           try {
-            out.close();
+            outFile.close();
           } catch (IOException ignored) {
           }
         }
