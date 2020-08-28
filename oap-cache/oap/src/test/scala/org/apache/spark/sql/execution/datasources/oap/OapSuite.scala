@@ -49,7 +49,7 @@ class OapSuite extends QueryTest with SharedOapContext with BeforeAndAfter {
       .map(i => (i, i + 100, s"this is row $i"))
       .toDF("a", "b", "c")
 
-    df.write.format("oap").mode(SaveMode.Overwrite).save(path.getAbsolutePath)
+    df.write.format("orc").mode(SaveMode.Overwrite).save(path.getAbsolutePath)
     df.write.format("parquet").mode(SaveMode.Overwrite).save(parquetPath.getAbsolutePath)
   }
 
@@ -65,8 +65,8 @@ class OapSuite extends QueryTest with SharedOapContext with BeforeAndAfter {
   override def beforeEach(): Unit = {}
   override def afterEach(): Unit = {}
 
-  test("reading oap file") {
-    verifyFrame(sqlContext.read.format("oap").load(path.getAbsolutePath))
+  test("reading orc file") {
+    verifyFrame(sqlContext.read.format("orc").load(path.getAbsolutePath))
   }
 
   test("No Lease Exception on Parquet File Format in Index Building (#243)") {
@@ -84,61 +84,45 @@ class OapSuite extends QueryTest with SharedOapContext with BeforeAndAfter {
     }
   }
 
-  test("Add the corresponding compression type for the OAP data file name if any") {
-    // Case insensitive.
-    Seq(
-      "GZIP",
-      "Gzip",
-      "SNAPPY",
-      "snappy",
-      "LZO",
-      "lZo",
-      "UNCOMPRESSED",
-      "UnCompressed").foreach { codec =>
-      sqlContext.conf.setConfString(OapConf.OAP_COMPRESSION.key, codec)
-      val df = sqlContext.read.format("oap").load(path.getAbsolutePath)
-      Utils.deleteRecursively(path)
-      df.write.format("oap").mode(SaveMode.Overwrite).save(path.getAbsolutePath)
-      val compressionType =
-        sqlContext.conf.getConfString(OapConf.OAP_COMPRESSION.key).toLowerCase
-      val fileNameIterator = path.listFiles()
-      for (fileName <- fileNameIterator) {
-        if (fileName.toString.endsWith(OapFileFormat.OAP_DATA_EXTENSION)) {
-          // If the OAP data file is uncompressed, keep the original file name.
-          if (!codec.toUpperCase.matches("UNCOMPRESSED")) {
-            assert(fileName.toString.contains(compressionType))
-          } else {
-            assert(!fileName.toString.contains(compressionType))
-          }
-        }
-      }
-    }
-    // Restore compression type back to default.
-    sqlContext.conf.setConfString(
-      OapConf.OAP_COMPRESSION.key, OapConf.OAP_COMPRESSION.defaultValueString)
-  }
-
   test("Enable/disable using OAP index after the index is created already") {
     val dir = Utils.createTempDir()
     dir.delete()
     val data = sparkContext.parallelize(1 to 100, 1)
       .map(i => (i, s"this is row $i"))
-    data.toDF("a", "b").write.format("oap").mode(SaveMode.Overwrite).save(dir.getAbsolutePath)
+    data.toDF("a", "b").write.format("parquet").mode(SaveMode.Overwrite).save(dir.getAbsolutePath)
+
+    val df = sqlContext.read.format("parquet").load(dir.getAbsolutePath)
+    df.createOrReplaceTempView("parquet_table")
+    withIndex(TestIndex("parquet_table", "parquet_idx")) {
+      sql("create oindex parquet_idx on parquet_table (a)")
+    }
+
+
     val files = dir.listFiles
     var oapDataFile: File = null
     var oapMetaFile: File = null
     files.foreach { fileName =>
-      if (fileName.toString.endsWith(OapFileFormat.OAP_DATA_EXTENSION)) {
+      if (fileName.toString.endsWith(".parquet")) {
         oapDataFile = fileName
       }
       if (fileName.toString.endsWith(OapFileFormat.OAP_META_FILE)) {
         oapMetaFile = fileName
       }
     }
-    val df = sqlContext.read.format("oap").load(dir.getAbsolutePath)
-    df.createOrReplaceTempView("oap_table")
-    withIndex(TestIndex("oap_table", "oap_idx")) {
-      sql("create oindex oap_idx on oap_table (a)")
+
+    configuration.set(
+      SQLConf.SESSION_LOCAL_TIMEZONE.key,
+      spark.sessionState.conf.sessionLocalTimeZone)
+    // Sets flags for `ParquetToSparkSchemaConverter`
+    configuration.setBoolean(
+      SQLConf.PARQUET_BINARY_AS_STRING.key,
+      spark.sessionState.conf.isParquetBinaryAsString)
+    configuration.setBoolean(
+      SQLConf.PARQUET_INT96_AS_TIMESTAMP.key,
+      spark.sessionState.conf.isParquetINT96AsTimestamp)
+
+    withIndex(TestIndex("parquet_table", "parquet_idx")) {
+      sql("create oindex parquet_idx on parquet_table (a)")
       val conf = configuration
       val filePath = oapDataFile.toString
       val metaPath = new Path(oapMetaFile.toString)

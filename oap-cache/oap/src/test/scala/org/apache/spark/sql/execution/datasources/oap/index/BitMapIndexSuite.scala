@@ -32,40 +32,24 @@ class BitMapIndexSuite extends QueryTest with SharedOapContext with BeforeAndAft
 
   override def beforeEach(): Unit = {
     val path = Utils.createTempDir().getAbsolutePath
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-            | USING oap
-            | OPTIONS (path '$path')""".stripMargin)
     sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
             | USING parquet
             | OPTIONS (path '$path')""".stripMargin)
-    sql(s"""CREATE TEMPORARY VIEW parquet_test_date (a INT, b DATE)
-            | USING parquet
-            | OPTIONS (path '$path')""".stripMargin)
-    sql(s"""CREATE TABLE t_refresh (a int, b int)
-            | USING oap
-            | PARTITIONED by (b)""".stripMargin)
-    sql(s"""CREATE TABLE t_refresh_parquet (a int, b int)
-            | USING parquet
-            | PARTITIONED by (b)""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
     sqlContext.dropTempTable("parquet_test")
-    sqlContext.dropTempTable("parquet_test_date")
-    sql("DROP TABLE IF EXISTS t_refresh")
-    sql("DROP TABLE IF EXISTS t_refresh_parquet")
   }
 
   test("filtering without index") { // not passed for RangeInterval must be built with an index
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a = 1"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a = 1"),
       Row(1, "this is test 1") :: Nil)
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a > 1 AND a <= 3"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a > 1 AND a <= 3"),
       Row(2, "this is test 2") :: Row(3, "this is test 3") :: Nil)
   }
 
@@ -73,91 +57,91 @@ class BitMapIndexSuite extends QueryTest with SharedOapContext with BeforeAndAft
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
     // sql("select * from t").show(500, false)
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (a) USING BITMAP")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a = 10"),
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (a) USING BITMAP")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a = 10"),
       Row(10, "this is test 10") :: Nil)
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a = 20"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a = 20"),
       Row(20, "this is test 20") :: Nil)
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a = 100"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a = 100"),
       Row(100, "this is test 100") :: Nil)
-    assert(sql(s"SELECT * FROM oap_test WHERE a = 301").count() == 0)
-    assert(sql(s"SELECT * FROM oap_test WHERE a = 310").count() == 0)
-    assert(sql(s"SELECT * FROM oap_test WHERE a = 10301").count() == 0)
-    assert(sql(s"SELECT * FROM oap_test WHERE a = 801").count() == 0)
-    sql("drop oindex index_bf on oap_test")
+    assert(sql(s"SELECT * FROM parquet_test WHERE a = 301").count() == 0)
+    assert(sql(s"SELECT * FROM parquet_test WHERE a = 310").count() == 0)
+    assert(sql(s"SELECT * FROM parquet_test WHERE a = 10301").count() == 0)
+    assert(sql(s"SELECT * FROM parquet_test WHERE a = 801").count() == 0)
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("Single BitMap index multiple equal value test") {
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (a) USING BITMAP")
-    assert(sql(s"SELECT * FROM oap_test WHERE a = 10 AND a = 11").count() == 0)
-    checkAnswer(sql(s"SELECT * FROM oap_test WHERE a = 20 OR a = 21"),
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (a) USING BITMAP")
+    assert(sql(s"SELECT * FROM parquet_test WHERE a = 10 AND a = 11").count() == 0)
+    checkAnswer(sql(s"SELECT * FROM parquet_test WHERE a = 20 OR a = 21"),
       Row(20, "this is test 20") :: Row(21, "this is test 21") :: Nil)
-    assert(sql(s"SELECT * FROM oap_test WHERE a = 10 AND a = 11").count() == 0)
-    sql("drop oindex index_bf on oap_test")
+    assert(sql(s"SELECT * FROM parquet_test WHERE a = 10 AND a = 11").count() == 0)
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index for range predicate which over multi partitions") {
     val data: Seq[(Int, String)] = (1 to 200).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (a) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (a) USING BITMAP")
     val result: Seq[(Int, String)] = (46 to 150).map { i => (i, s"this is test $i") }
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a >= 3 AND a <= 150 AND a > 45"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a >= 3 AND a <= 150 AND a > 45"),
       result.toDF("key", "value"))
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index for or(like,like) bug") {
     val data: Seq[(Int, String)] = (1 to 200).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (a) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (a) USING BITMAP")
     val result: Seq[(Int, String)] = (180 to 199).map { i => (i, s"this is test $i") }
     val emptyResult : Seq[(Int, String)] = Seq.empty
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a >= 180 and a < 200 " +
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a >= 180 and a < 200 " +
       "AND (b like '%22%' or b like '%21%')"),
       emptyResult.toDF("key", "value"))
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a >= 180 and a < 200 " +
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a >= 180 and a < 200 " +
       "AND (b like '%18%' or b like '%19%')"),
       result.toDF("key", "value"))
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index for range predicate involving boundaries") {
     val data: Seq[(Int, String)] = (1 to 200).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (a) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (a) USING BITMAP")
     val greatThanResult: Seq[(Int, String)] = (45 to 200).map { i => (i, s"this is test $i") }
     val littleThanResult: Seq[(Int, String)] = (1 to 44).map { i => (i, s"this is test $i") }
     val emptyResult : Seq[(Int, String)] = Seq.empty
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a >= 45"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a >= 45"),
       greatThanResult.toDF("key", "value"))
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a < 45"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a < 45"),
       littleThanResult.toDF("key", "value"))
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a <= 1"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a <= 1"),
       Row(1, "this is test 1") :: Nil)
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a >= 200"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a >= 200"),
       Row(200, "this is test 200") :: Nil)
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a < 1"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a < 1"),
       emptyResult.toDF("key", "value"))
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a > 200"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a > 200"),
       emptyResult.toDF("key", "value"))
 
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index for null value") {
@@ -166,53 +150,53 @@ class BitMapIndexSuite extends QueryTest with SharedOapContext with BeforeAndAft
       case j => (j, null)
     }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (b) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (b) USING BITMAP")
 
     val nullResult: Seq[(Int, String)] = (0, null) :: (100, null) :: (200, null) :: Nil
-    checkAnswer(sql("SELECT * FROM oap_test WHERE b is null"), nullResult.toDF("key", "value"))
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE b is null"), nullResult.toDF("key", "value"))
 
     val nonNullResult: Seq[(Int, String)] = (99, "this is test 99") :: Nil
-    checkAnswer(sql("SELECT * FROM oap_test WHERE b is not null and a = 99"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE b is not null and a = 99"),
       nonNullResult.toDF("key", "value"))
 
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index for no null value") {
     val data: Seq[(Int, String)] = (0 to 200).map {i => (i, s"this is test $i")}
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (b) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (b) USING BITMAP")
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE b is null"), Nil)
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE b is null"), Nil)
 
     val nonNullResult: Seq[(Int, String)] = (99, "this is test 99") :: Nil
-    checkAnswer(sql("SELECT * FROM oap_test WHERE b is not null and a = 99"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE b is not null and a = 99"),
       nonNullResult.toDF("key", "value"))
 
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index for full null value") {
     val data: Seq[(Int, String)] = (0 to 200).map {i => (i, null)}
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (b) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (b) USING BITMAP")
 
     val nullResult: Seq[(Int, String)] = (99, null) :: Nil
-    checkAnswer(sql("SELECT * FROM oap_test WHERE b is null and a = 99"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE b is null and a = 99"),
       nullResult.toDF("key", "value"))
 
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 
   test("BitMap index supports the column with one single field") {
     val data: Seq[(Int, String)] = (0 to 200).map {i => (i, null)}
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
     val message = intercept[OapException] {
-      sql("create oindex index_bf on oap_test (a, b) USING BITMAP")
+      sql("create oindex index_bf on parquet_test (a, b) USING BITMAP")
     }.getMessage
     assert(message.contains("BitMapIndexType only supports one single column"))
   }
@@ -233,13 +217,13 @@ class BitMapIndexSuite extends QueryTest with SharedOapContext with BeforeAndAft
   test("OAP#1037: BitMap index for full null value on oap data file") {
     val data: Seq[(Int, String)] = (0 to 200).map {i => (i, null)}
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index_bf on oap_test (b) USING BITMAP")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index_bf on parquet_test (b) USING BITMAP")
 
     val nullResult: Seq[(Int, String)] = Nil
-    checkAnswer(sql("SELECT * FROM oap_test WHERE b = 'hello'"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE b = 'hello'"),
       nullResult.toDF("key", "value"))
 
-    sql("drop oindex index_bf on oap_test")
+    sql("drop oindex index_bf on parquet_test")
   }
 }

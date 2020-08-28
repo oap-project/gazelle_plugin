@@ -27,7 +27,7 @@ class DropIndexCommandSuite extends SharedOapContext with BeforeAndAfterEach {
 
   import testImplicits._
 
-  private val tableFormats = Seq("oap", "parquet")
+  private val tableFormats = Seq("orc", "parquet")
 
   // afterEach don't assertNoOpenStreams because OapDataFile has no method to close meta cache.
   protected override def afterEach(): Unit = DebugFilesystem.clearOpenStreams()

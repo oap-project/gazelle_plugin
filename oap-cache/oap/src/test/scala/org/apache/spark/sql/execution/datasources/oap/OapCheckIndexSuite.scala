@@ -36,34 +36,33 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
     val path1 = Utils.createTempDir().getAbsolutePath
     val path2 = Utils.createTempDir().getAbsolutePath
 
-    sql(s"""CREATE TEMPORARY VIEW oap_test_1 (a INT, b STRING)
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
           | USING parquet
           | OPTIONS (path '$path1')""".stripMargin)
-    sql(s"""CREATE TEMPORARY VIEW oap_test_2 (a INT, b STRING)
-          | USING oap
-          | OPTIONS (path '$path2')""".stripMargin)
-    sql(s"""CREATE TABLE oap_partition_table (a int, b int, c STRING)
+    sql(s"""CREATE TABLE parquet_partition_table (a int, b int, c STRING)
           | USING parquet
           | PARTITIONED by (b, c)""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test_1")
-    sqlContext.dropTempTable("oap_test_2")
-    sqlContext.sql("drop table oap_partition_table")
+    sqlContext.dropTempTable("parquet_test")
+    sqlContext.sql("drop table parquet_partition_table")
   }
 
   test("check index on empty table") {
-    checkAnswer(sql("check oindex on oap_test_2"), Nil)
+    checkAnswer(sql("check oindex on parquet_test"), Nil)
   }
 
   test("check existent meta file") {
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     val df = data.toDF("key", "value")
     val path = Utils.createTempDir().toString
-    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
-    val oapDf = spark.read.format("oap").load(path)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("parquet").load(path)
     oapDf.createOrReplaceTempView("t")
+    withIndex(TestIndex("t", "index1")) {
+      sql("create oindex index1 on t (key)")
+    }
     checkAnswer(sql("check oindex on t"), Nil)
   }
 
@@ -71,9 +70,12 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     val df = data.toDF("key", "value")
     val path = Utils.createTempDir().toString
-    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
-    val oapDf = spark.read.format("oap").load(path)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("parquet").load(path)
     oapDf.createOrReplaceTempView("t")
+    withIndex(TestIndex("t", "index1")) {
+      sql("create oindex index1 on t (key)")
+    }
     checkAnswer(sql("check oindex on t"), Nil)
     Utils.deleteRecursively(new File(path, OapFileFormat.OAP_META_FILE))
     checkAnswer(sql("check oindex on t"),
@@ -86,28 +88,28 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value == 4
       """.stripMargin)
 
-    withIndex(TestIndex("oap_partition_table", "idx1")) {
-      sql("create oindex idx1 on oap_partition_table(a)")
+    withIndex(TestIndex("parquet_partition_table", "idx1")) {
+      sql("create oindex idx1 on parquet_partition_table(a)")
 
-      checkAnswer(sql("check oindex on oap_partition_table"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table"), Nil)
 
       val partitionPath =
-        new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+        new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
       Utils.deleteRecursively(new File(partitionPath.toUri.getPath, OapFileFormat.OAP_META_FILE))
 
-      checkAnswer(sql("check oindex on oap_partition_table"),
+      checkAnswer(sql("check oindex on parquet_partition_table"),
         Row(s"Meta file not found in partition: ${partitionPath.toUri.getPath}"))
     }
   }
@@ -115,13 +117,17 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
   test("check index on table") {
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_2 select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    checkAnswer(sql("check oindex on oap_test_2"), Nil)
+    withIndex(TestIndex("parquet_test", "index1")) {
+      sql("create oindex index1 on parquet_test (a)")
+    }
 
-    withIndex(TestIndex("oap_test_2", "index1")) {
-      sql("create oindex index1 on oap_test_2 (a)")
-      checkAnswer(sql("check oindex on oap_test_2"), Nil)
+    checkAnswer(sql("check oindex on parquet_test"), Nil)
+
+    withIndex(TestIndex("parquet_test", "index1")) {
+      sql("create oindex index1 on parquet_test (a)")
+      checkAnswer(sql("check oindex on parquet_test"), Nil)
     }
   }
 
@@ -129,9 +135,14 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
     val data = sparkContext.parallelize(1 to 300, 1).map { i => (i, s"this is test $i") }
     val df = data.toDF("key", "value")
     val path = Utils.createTempDir().toString
-    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
-    val oapDf = spark.read.format("oap").load(path)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("parquet").load(path)
     oapDf.createOrReplaceTempView("t")
+
+    withIndex(TestIndex("t", "index1")) {
+      sql("create oindex index1 on t (key)")
+    }
+
     checkAnswer(sql("check oindex on t"), Nil)
 
     // Delete a data file
@@ -150,9 +161,14 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     val df = data.toDF("key", "value")
     val path = Utils.createTempDir().toString
-    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
-    val oapDf = spark.read.format("oap").load(path)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("parquet").load(path)
     oapDf.createOrReplaceTempView("t")
+
+    withIndex(TestIndex("t", "index1")) {
+      sql("create oindex index1 on t (key)")
+    }
+
     checkAnswer(sql("check oindex on t"), Nil)
 
     withIndex(TestIndex("t", "idx1")) {
@@ -191,28 +207,28 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value == 4
       """.stripMargin)
 
-    val path1 = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=1/c=c1")
-    val path2 = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+    val path1 = new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=1/c=c1")
+    val path2 = new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
 
-    checkAnswer(sql("check oindex on oap_partition_table"),
+    checkAnswer(sql("check oindex on parquet_partition_table"),
       Seq(Row(s"Meta file not found in partition: ${path1.toUri.getPath}"),
         Row(s"Meta file not found in partition: ${path2.toUri.getPath}")))
 
-    withIndex(TestIndex("oap_partition_table", "idx1")) {
-      sql("create oindex idx1 on oap_partition_table(a)")
-      checkAnswer(sql("check oindex on oap_partition_table"), Nil)
+    withIndex(TestIndex("parquet_partition_table", "idx1")) {
+      sql("create oindex idx1 on parquet_partition_table(a)")
+      checkAnswer(sql("check oindex on parquet_partition_table"), Nil)
     }
   }
 
@@ -222,25 +238,25 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value = 104
       """.stripMargin)
 
-    withIndex(TestIndex("oap_partition_table", "idx1")) {
-      sql("create oindex idx1 on oap_partition_table(a)")
+    withIndex(TestIndex("parquet_partition_table", "idx1")) {
+      sql("create oindex idx1 on parquet_partition_table(a)")
 
-      checkAnswer(sql("check oindex on oap_partition_table"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table"), Nil)
 
       // Delete a data file
-      val partitionPath = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+      val partitionPath = new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
       val metaOpt = OapUtils.getMeta(sparkContext.hadoopConfiguration, partitionPath)
       assert(metaOpt.nonEmpty)
       assert(metaOpt.get.fileMetas.nonEmpty)
@@ -248,7 +264,7 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
       Utils.deleteRecursively(new File(new Path(partitionPath, dataFileName).toUri.getPath))
 
       // Check again
-      checkAnswer(sql("check oindex on oap_partition_table"),
+      checkAnswer(sql("check oindex on parquet_partition_table"),
         Seq(Row(s"Data file: ${partitionPath.toUri.getPath}/$dataFileName not found!")))
     }
   }
@@ -259,26 +275,26 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value == 104
       """.stripMargin)
 
-    withIndex(TestIndex("oap_partition_table", "idx1")) {
+    withIndex(TestIndex("parquet_partition_table", "idx1")) {
       // Create a B+ tree index on Column("a")
-      sql("create oindex idx1 on oap_partition_table(a)")
+      sql("create oindex idx1 on parquet_partition_table(a)")
 
-      checkAnswer(sql("check oindex on oap_partition_table"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table"), Nil)
 
       // Delete an index file
-      val partitionPath = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+      val partitionPath = new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
       val metaOpt = OapUtils.getMeta(sparkContext.hadoopConfiguration, partitionPath)
       assert(metaOpt.nonEmpty)
       assert(metaOpt.get.fileMetas.nonEmpty)
@@ -295,12 +311,12 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
       Utils.deleteRecursively(new File(indexFileName))
 
       // Check again
-      checkAnswer(sql("check oindex on oap_partition_table"),
+      checkAnswer(sql("check oindex on parquet_partition_table"),
         Row(
           s"""Missing index:idx1,
              |indexColumn(s): a, indexType: BTree
              |for Data File: ${partitionPath.toUri.getPath}/$dataFileName
-             |of table: oap_partition_table""".stripMargin))
+             |of table: parquet_partition_table""".stripMargin))
     }
   }
 
@@ -310,38 +326,38 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value == 104
       """.stripMargin)
 
-    val path1 = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=1/c=c1")
-    val path2 = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+    val path1 = new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=1/c=c1")
+    val path2 = new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
 
-    checkAnswer(sql("check oindex on oap_partition_table"),
+    checkAnswer(sql("check oindex on parquet_partition_table"),
       Seq(Row(s"Meta file not found in partition: ${path1.toUri.getPath}"),
         Row(s"Meta file not found in partition: ${path2.toUri.getPath}")))
 
     withIndex(
-      TestIndex("oap_partition_table", "idx1", TestPartition("b", "1"), TestPartition("c", "c1")),
-      TestIndex("oap_partition_table", "idx1", TestPartition("b", "2"), TestPartition("c", "c2"))) {
+      TestIndex("parquet_partition_table", "idx1", TestPartition("b", "1"), TestPartition("c", "c1")),
+      TestIndex("parquet_partition_table", "idx1", TestPartition("b", "2"), TestPartition("c", "c2"))) {
       // Create a B+ tree index on Column("a")
-      sql("create oindex idx1 on oap_partition_table(a) partition(b=1, c='c1')")
+      sql("create oindex idx1 on parquet_partition_table(a) partition(b=1, c='c1')")
 
-      checkAnswer(sql("check oindex on oap_partition_table"),
+      checkAnswer(sql("check oindex on parquet_partition_table"),
         Row(s"Meta file not found in partition: ${path2.toUri.getPath}"))
 
-      sql("create oindex idx1 on oap_partition_table(a) using bitmap partition(b=2, c='c2')")
+      sql("create oindex idx1 on parquet_partition_table(a) using bitmap partition(b=2, c='c2')")
 
       val exception = intercept[AnalysisException]{
-        sql("check oindex on oap_partition_table")
+        sql("check oindex on parquet_partition_table")
       }
       assert(exception.message.startsWith(
         "\nAmbiguous Index(different indices have the same name):\nindex name:idx1"))
@@ -354,32 +370,32 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value == 4
       """.stripMargin)
 
     val partitionPath =
-      new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+      new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
     checkAnswer(
-      sql("check oindex on oap_partition_table partition(b=2, c='c2')"),
+      sql("check oindex on parquet_partition_table partition(b=2, c='c2')"),
       Row(s"Meta file not found in partition: ${partitionPath.toUri.getPath}"))
 
-      sql("create oindex idx1 on oap_partition_table(a) partition(b=2, c='c2')")
+      sql("create oindex idx1 on parquet_partition_table(a) partition(b=2, c='c2')")
 
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=2, c='c2')"), Nil)
 
       Utils.deleteRecursively(new File(partitionPath.toUri.getPath, OapFileFormat.OAP_META_FILE))
 
       checkAnswer(
-        sql("check oindex on oap_partition_table partition(b=2, c='c2')"),
+        sql("check oindex on parquet_partition_table partition(b=2, c='c2')"),
         Row(s"Meta file not found in partition: ${partitionPath.toUri.getPath}"))
 
       // meta file not exists, clean index file.
@@ -394,26 +410,26 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value >= 104
       """.stripMargin)
 
-    withIndex(TestIndex("oap_partition_table", "idx1")) {
-      sql("create oindex idx1 on oap_partition_table(a)")
+    withIndex(TestIndex("parquet_partition_table", "idx1")) {
+      sql("create oindex idx1 on parquet_partition_table(a)")
 
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=1, c='c1')"), Nil)
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=1, c='c1')"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=2, c='c2')"), Nil)
 
       val partitionPath =
-        new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+        new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
       // Delete a data file
       val metaOpt = OapUtils.getMeta(sparkContext.hadoopConfiguration, partitionPath)
       assert(metaOpt.nonEmpty)
@@ -422,8 +438,8 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
       Utils.deleteRecursively(new File(new Path(partitionPath, dataFileName).toUri.getPath))
 
       // Check again
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=1, c='c1')"), Nil)
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"),
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=1, c='c1')"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=2, c='c2')"),
         Seq(Row(s"Data file: ${partitionPath.toUri.getPath}/$dataFileName not found!")))
     }
   }
@@ -434,26 +450,27 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
 
     sql(
       """
-        |INSERT OVERWRITE TABLE oap_partition_table
+        |INSERT OVERWRITE TABLE parquet_partition_table
         |partition (b=1, c='c1')
         |SELECT key from t where value < 4
       """.stripMargin)
 
     sql(
       """
-        |INSERT INTO TABLE oap_partition_table
+        |INSERT INTO TABLE parquet_partition_table
         |partition (b=2, c='c2')
         |SELECT key from t where value == 104
       """.stripMargin)
 
-    withIndex(TestIndex("oap_partition_table", "idx1")) {
+    withIndex(TestIndex("parquet_partition_table", "idx1")) {
       // Create a B+ tree index on Column("a")
-      sql("create oindex idx1 on oap_partition_table(a)")
+      sql("create oindex idx1 on parquet_partition_table(a)")
 
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"), Nil)
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=2, c='c2')"), Nil)
 
       // Delete an index file
-      val partitionPath = new Path(sqlContext.conf.warehousePath + "/oap_partition_table/b=2/c=c2")
+      val partitionPath =
+        new Path(sqlContext.conf.warehousePath + "/parquet_partition_table/b=2/c=c2")
       val metaOpt = OapUtils.getMeta(sparkContext.hadoopConfiguration, partitionPath)
       assert(metaOpt.nonEmpty)
       assert(metaOpt.get.fileMetas.nonEmpty)
@@ -470,12 +487,12 @@ class OapCheckIndexSuite extends QueryTest with SharedOapContext with BeforeAndA
       Utils.deleteRecursively(new File(indexFileName))
 
       // Check again
-      checkAnswer(sql("check oindex on oap_partition_table partition(b=2, c='c2')"),
+      checkAnswer(sql("check oindex on parquet_partition_table partition(b=2, c='c2')"),
         Row(
           s"""Missing index:idx1,
              |indexColumn(s): a, indexType: BTree
              |for Data File: ${partitionPath.toUri.getPath}/$dataFileName
-             |of table: oap_partition_table""".stripMargin))
+             |of table: parquet_partition_table""".stripMargin))
     }
   }
 }

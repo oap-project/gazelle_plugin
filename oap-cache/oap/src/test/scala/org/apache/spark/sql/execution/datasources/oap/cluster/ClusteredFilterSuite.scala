@@ -33,34 +33,34 @@ class ClusteredFilterSuite
   override def beforeEach(): Unit = {
     val path = Utils.createTempDir().getAbsolutePath
     currentPath = path
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-           | USING oap
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
+           | USING parquet
            | OPTIONS (path '$path')""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
   }
 
   test("filtering") {
     val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index1 on oap_test (a)")
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex index1 on parquet_test (a)")
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a = 1"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a = 1"),
       Row(1, "this is test 1") :: Nil)
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a > 1 AND a <= 3"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a > 1 AND a <= 3"),
       Row(2, "this is test 2") :: Row(3, "this is test 3") :: Nil)
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a <= 2"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a <= 2"),
       Row(1, "this is test 1") :: Row(2, "this is test 2") :: Nil)
 
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a >= 300"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a >= 300"),
       Row(300, "this is test 300") :: Nil)
 
-    sql("drop oindex index1 on oap_test")
+    sql("drop oindex index1 on parquet_test")
   }
 
 }

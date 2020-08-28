@@ -33,15 +33,15 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
   override def beforeEach(): Unit = {
     val path = Utils.createTempDir().getAbsolutePath
 
-    sql(s"""CREATE TEMPORARY VIEW oap_test
+    sql(s"""CREATE TEMPORARY VIEW parquet_test
            | (attr_int INT, attr_str STRING, attr_double DOUBLE,
            |     attr_float FLOAT, attr_date DATE)
-           | USING oap
+           | USING parquet
            | OPTIONS (path '$path')""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
   }
 
   def rowGen(i: Int): (Int, String, Double, Float, Date) =
@@ -52,8 +52,8 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int = 1"),
+    sql("insert overwrite table parquet_test select * from t")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int = 1"),
       Row.fromTuple(rowGen(1)) :: Nil)
   }
 
@@ -62,16 +62,16 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index1 on oap_test (attr_int)")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int = 1"),
+    sql("create oindex index1 on parquet_test (attr_int)")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int = 1"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int >= 249 AND attr_int < 261"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int >= 249 AND attr_int < 261"),
       (249 until 261).map(i => Row.fromTuple(rowGen(i))))
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int > 495 AND attr_int < 510"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int > 495 AND attr_int < 510"),
       (496 to 500).map(i => Row.fromTuple(rowGen(i))))
-    sql("drop oindex index1 on oap_test")
+    sql("drop oindex index1 on parquet_test")
   }
 
   test("btree with statistics, data type string") {
@@ -79,12 +79,12 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index2 on oap_test (attr_str)")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_str = \"test#1\""),
+    sql("create oindex index2 on parquet_test (attr_str)")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_str = \"test#1\""),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index2 on oap_test")
+    sql("drop oindex index2 on parquet_test")
   }
 
   test("btree with statistics, data type double") {
@@ -92,13 +92,13 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
 
-    sql("create oindex index3 on oap_test (attr_double)")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_double = 1.0"),
+    sql("create oindex index3 on parquet_test (attr_double)")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_double = 1.0"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index3 on oap_test")
+    sql("drop oindex index3 on parquet_test")
   }
 
   test("btree with statistics, data type float") {
@@ -106,12 +106,12 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index4 on oap_test (attr_float)")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_float = 1.0"),
+    sql("create oindex index4 on parquet_test (attr_float)")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_float = 1.0"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index4 on oap_test")
+    sql("drop oindex index4 on parquet_test")
   }
 
   // TODO enable writer support for date and timestamp
@@ -120,13 +120,13 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index5 on oap_test (attr_date)")
-    checkAnswer(sql(s"SELECT * FROM oap_test " +
+    sql("create oindex index5 on parquet_test (attr_date)")
+    checkAnswer(sql(s"SELECT * FROM parquet_test " +
       s"WHERE attr_date = '${DateTimeUtils.toJavaDate(1).toString}'"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index5 on oap_test")
+    sql("drop oindex index5 on parquet_test")
   }
 
   test("bitmap with statistics, data type int") {
@@ -134,17 +134,17 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
 
-    sql("create oindex index1 on oap_test (attr_int) USING BITMAP")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int = 1"),
+    sql("create oindex index1 on parquet_test (attr_int) USING BITMAP")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int = 1"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int >= 249 AND attr_int < 261"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int >= 249 AND attr_int < 261"),
       (249 until 261).map(i => Row.fromTuple(rowGen(i))))
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_int > 495 AND attr_int < 510"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_int > 495 AND attr_int < 510"),
       (496 to 500).map(i => Row.fromTuple(rowGen(i))))
-    sql("drop oindex index1 on oap_test")
+    sql("drop oindex index1 on parquet_test")
   }
 
   test("bitmap with statistics, data type string") {
@@ -152,12 +152,12 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index2 on oap_test (attr_str) USING BITMAP")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_str = \"test#1\""),
+    sql("create oindex index2 on parquet_test (attr_str) USING BITMAP")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_str = \"test#1\""),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index2 on oap_test")
+    sql("drop oindex index2 on parquet_test")
   }
 
   test("bitmap with statistics, data type double") {
@@ -165,13 +165,13 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
 
-    sql("create oindex index3 on oap_test (attr_double) USING BITMAP")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_double = 1.0"),
+    sql("create oindex index3 on parquet_test (attr_double) USING BITMAP")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_double = 1.0"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index3 on oap_test")
+    sql("drop oindex index3 on parquet_test")
   }
 
   test("bitmap with statistics, data type float") {
@@ -179,12 +179,12 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index4 on oap_test (attr_float) USING BITMAP")
-    checkAnswer(sql("SELECT * FROM oap_test WHERE attr_float = 1.0"),
+    sql("create oindex index4 on parquet_test (attr_float) USING BITMAP")
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE attr_float = 1.0"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index4 on oap_test")
+    sql("drop oindex index4 on parquet_test")
   }
 
   ignore("bitmap with statistics, data type date") {
@@ -192,12 +192,12 @@ class StatisticsManagerSuite extends QueryTest with SharedOapContext with Before
       (1 to 500).map(i => rowGen(i))
     data.toDF("attr_int", "attr_str", "attr_double", "attr_float", "attr_date")
       .createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
 
-    sql("create oindex index5 on oap_test (attr_date) USING BITMAP")
-    checkAnswer(sql(s"SELECT * FROM oap_test " +
+    sql("create oindex index5 on parquet_test (attr_date) USING BITMAP")
+    checkAnswer(sql(s"SELECT * FROM parquet_test " +
       s"WHERE attr_date = '${DateTimeUtils.toJavaDate(1).toString}'"),
       Row.fromTuple(rowGen(1)) :: Nil)
-    sql("drop oindex index5 on oap_test")
+    sql("drop oindex index5 on parquet_test")
   }
 }

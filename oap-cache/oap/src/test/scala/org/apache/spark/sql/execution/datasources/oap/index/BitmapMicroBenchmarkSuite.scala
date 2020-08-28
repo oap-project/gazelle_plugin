@@ -47,8 +47,8 @@ class BitmapMicroBenchmarkSuite extends QueryTest with SharedOapContext with Bef
   override def beforeEach(): Unit = {
     dir = Utils.createTempDir()
     path = dir.getAbsolutePath
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-            | USING oap
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
+            | USING parquet
             | OPTIONS (path '$path')""".stripMargin)
 
     intArray.foreach(sparkBs.set)
@@ -58,7 +58,7 @@ class BitmapMicroBenchmarkSuite extends QueryTest with SharedOapContext with Bef
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
     dir.delete()
   }
 
@@ -233,9 +233,9 @@ class BitmapMicroBenchmarkSuite extends QueryTest with SharedOapContext with Bef
   test("test bitmap index performance with BitSet and RoaringBitmap") {
     val data: Seq[(Int, String)] = (1 to 30000).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
+    sql("insert overwrite table parquet_test select * from t")
     val createIdxStartTime = System.nanoTime
-    sql("create oindex index_bm on oap_test (a) USING BITMAP")
+    sql("create oindex index_bm on parquet_test (a) USING BITMAP")
     val createIdxEndTime = System.nanoTime
     // The unit is ms.
     val createIdxElapsedTime = (createIdxEndTime - createIdxStartTime) / 1000000
@@ -247,12 +247,12 @@ class BitmapMicroBenchmarkSuite extends QueryTest with SharedOapContext with Bef
       }
     }
     val queryStartTime = System.nanoTime
-    checkAnswer(sql("SELECT * FROM oap_test WHERE a = 15000"),
+    checkAnswer(sql("SELECT * FROM parquet_test WHERE a = 15000"),
       Row(15000, "this is test 15000") :: Nil)
     val queryEndTime = System.nanoTime
     // The unit is ms.
     val queryElapsedTime = (queryEndTime - queryStartTime) / 1000000
-    sql("drop oindex index_bm on oap_test")
+    sql("drop oindex index_bm on parquet_test")
     /* Below result is tested on my local dev machine(Core i7 3.47GHZ with 12 cores, 12GB memory).
      *                                  record numbers   30000    300000              3000000
      *               bitmap index file size before(MB)   0.87     2.84GB              OOM

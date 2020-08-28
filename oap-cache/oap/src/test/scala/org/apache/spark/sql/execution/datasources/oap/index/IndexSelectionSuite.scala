@@ -24,11 +24,11 @@ import scala.collection.mutable.ArrayBuffer
 import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterEach
 
-import org.apache.spark.sql.{Row, SaveMode}
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.execution.datasources.oap.{DataSourceMeta, OapFileFormat}
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.sources._
-import org.apache.spark.sql.test.oap.SharedOapContext
+import org.apache.spark.sql.test.oap.{SharedOapContext, TestIndex}
 import org.apache.spark.util.Utils
 
 class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
@@ -40,13 +40,13 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   override def beforeEach(): Unit = {
     val data = (1 to 300).map(i => (i, i + 100, i + 200, i + 300, s"this is row $i"))
     val df = sparkContext.parallelize(data, 3).toDF("a", "b", "c", "d", "e")
-    df.write.format("oap").mode(SaveMode.Overwrite).save(tempDir.getAbsolutePath)
-    val oapDf = sqlContext.read.format("oap").load(tempDir.getAbsolutePath)
-    oapDf.createOrReplaceTempView("oap_test")
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(tempDir.getAbsolutePath)
+    val oapDf = sqlContext.read.format("parquet").load(tempDir.getAbsolutePath)
+    oapDf.createOrReplaceTempView("parquet_test")
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
     unsetCertainSparkConfs()
   }
 
@@ -88,6 +88,9 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Non-Index Test") {
+    withIndex(TestIndex("parquet_test", "index1")) {
+      sql("create oindex index1 on parquet_test (a)")
+    }
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -99,7 +102,7 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Single Column Index Test") {
-    sql("create oindex idxa on oap_test(a)")
+    sql("create oindex idxa on parquet_test(a)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -111,8 +114,8 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test1") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -124,9 +127,9 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test2") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
-    sql("create oindex idxe on oap_test(e)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
+    sql("create oindex idxe on parquet_test(e)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(EqualTo("e", "this is row 3"))
@@ -135,10 +138,10 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test3") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
-    sql("create oindex idxe on oap_test(e)")
-    sql("create oindex idxABC on oap_test(a, b, c)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
+    sql("create oindex idxe on parquet_test(e)")
+    sql("create oindex idxABC on parquet_test(a, b, c)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -150,10 +153,10 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test4") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
-    sql("create oindex idxe on oap_test(e)")
-    sql("create oindex idxABC on oap_test(a, b, c)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
+    sql("create oindex idxe on parquet_test(e)")
+    sql("create oindex idxABC on parquet_test(a, b, c)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(EqualTo("a", 8), GreaterThanOrEqual("b", 10))
@@ -193,11 +196,11 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test5") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
-    sql("create oindex idxe on oap_test(e)")
-    sql("create oindex idxABC on oap_test(a, b, c)")
-    sql("create oindex idxACD on oap_test(a, c, d)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
+    sql("create oindex idxe on parquet_test(e)")
+    sql("create oindex idxABC on parquet_test(a, b, c)")
+    sql("create oindex idxACD on parquet_test(a, c, d)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -207,11 +210,11 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test6") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
-    sql("create oindex idxe on oap_test(e)")
-    sql("create oindex idxABC on oap_test(a, b, c)")
-    sql("create oindex idxACD on oap_test(a, c, d)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
+    sql("create oindex idxe on parquet_test(e)")
+    sql("create oindex idxABC on parquet_test(a, b, c)")
+    sql("create oindex idxACD on parquet_test(a, c, d)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -221,7 +224,7 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Bitmap Scanner only supports equal query.") {
-    sql("create oindex idxa on oap_test(a) USING BITMAP")
+    sql("create oindex idxa on parquet_test(a) USING BITMAP")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val nonEqualFilters: Array[Filter] = Array(
@@ -237,11 +240,11 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Multiple Indexes Test7") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
-    sql("create oindex idxe on oap_test(e)")
-    sql("create oindex idxABC on oap_test(a, b, c)")
-    sql("create oindex idxACD on oap_test(a, c, d)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
+    sql("create oindex idxe on parquet_test(e)")
+    sql("create oindex idxABC on parquet_test(a, b, c)")
+    sql("create oindex idxACD on parquet_test(a, c, d)")
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
     val filters: Array[Filter] = Array(
@@ -258,8 +261,8 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Allow to disable specific indices") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
 
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
@@ -273,8 +276,8 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Allow to disable specific index by DDL") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
 
     val oapMeta = DataSourceMeta.initialize(path, configuration)
     val ic = new IndexContext(oapMeta)
@@ -297,12 +300,12 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Show disabled indices") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
 
     sql("disable oindex idxa")
     assert(spark.conf.get(OapConf.OAP_INDEX_DISABLE_LIST.key) == "idxa")
-    sql("show sindex from oap_test").collect().foreach(row => {
+    sql("show sindex from parquet_test").collect().foreach(row => {
       if (row.getString(1).equals("idxa")) {
         assert(row.getBoolean(6) == false)
       } else {
@@ -312,7 +315,7 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
 
     sql("disable oindex idxb")
     assert(spark.conf.get(OapConf.OAP_INDEX_DISABLE_LIST.key) == "idxa, idxb")
-    sql("show sindex from oap_test").collect().foreach(row => {
+    sql("show sindex from parquet_test").collect().foreach(row => {
       if (Seq("idxa", "idxb").contains(row.getString(1))) {
         assert(row.getBoolean(6) == false)
       } else {
@@ -322,8 +325,8 @@ class IndexSelectionSuite extends SharedOapContext with BeforeAndAfterEach{
   }
 
   test("Enable disabled index") {
-    sql("create oindex idxa on oap_test(a)")
-    sql("create oindex idxb on oap_test(b)")
+    sql("create oindex idxa on parquet_test(a)")
+    sql("create oindex idxb on parquet_test(b)")
 
     sql("disable oindex idxa")
     assert(spark.conf.get(OapConf.OAP_INDEX_DISABLE_LIST.key) == "idxa")

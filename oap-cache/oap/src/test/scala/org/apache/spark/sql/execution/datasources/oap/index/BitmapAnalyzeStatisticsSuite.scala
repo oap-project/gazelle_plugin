@@ -43,22 +43,22 @@ class BitmapAnalyzeStatisticsSuite extends QueryTest with SharedOapContextWithRa
   override def beforeEach(): Unit = {
     val tempDir = Utils.createTempDir()
     val path = tempDir.getAbsolutePath
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-            | USING oap
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
+            | USING parquet
             | OPTIONS (path '$path')""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
   }
 
   test("Bitmap index typical equal test") {
     val data: Seq[(Int, String)] = (1 to 200).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex idxa on oap_test (a) USING BITMAP")
-    checkAnswer(sql(s"SELECT * FROM oap_test WHERE a = 20 OR a = 21"),
+    sql("insert overwrite table parquet_test select * from t")
+    sql("create oindex idxa on parquet_test (a) USING BITMAP")
+    checkAnswer(sql(s"SELECT * FROM parquet_test WHERE a = 20 OR a = 21"),
       Row(20, "this is test 20") :: Row(21, "this is test 21") :: Nil)
-    sql("drop oindex idxa on oap_test")
+    sql("drop oindex idxa on parquet_test")
   }
 }

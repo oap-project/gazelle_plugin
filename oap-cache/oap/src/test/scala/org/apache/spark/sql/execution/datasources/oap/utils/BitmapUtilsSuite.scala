@@ -59,13 +59,13 @@ class BitmapUtilsSuite extends QueryTest with SharedOapContext with BeforeAndAft
   override def beforeEach(): Unit = {
     dir = Utils.createTempDir()
     val path = dir.getAbsolutePath
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-            | USING oap
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
+            | USING parquet
             | OPTIONS (path '$path')""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
     dir.delete()
   }
 
@@ -104,8 +104,8 @@ class BitmapUtilsSuite extends QueryTest with SharedOapContext with BeforeAndAft
   test("test how to directly get the row ID list from single fiber cache without roaring bitmap") {
     dataSourceArray.foreach(dataSourceElement => {
       dataSourceElement._1.toDF("key", "value").createOrReplaceTempView("t")
-      sql("insert overwrite table oap_test select * from t")
-      sql("create oindex index_bm on oap_test (a) USING BITMAP")
+      sql("insert overwrite table parquet_test select * from t")
+      sql("create oindex index_bm on parquet_test (a) USING BITMAP")
       var actualRowIdSeq = Seq.empty[Int]
       var accumulatorRowId = 0
       dir.listFiles.foreach(fileName => {
@@ -139,15 +139,15 @@ class BitmapUtilsSuite extends QueryTest with SharedOapContext with BeforeAndAft
       })
       actualRowIdSeq.foreach(rowId => assert(dataSourceElement._2.contains(rowId)))
       dataSourceElement._2.foreach(rowId => assert(actualRowIdSeq.contains(rowId)))
-      sql("drop oindex index_bm on oap_test")
+      sql("drop oindex index_bm on parquet_test")
     })
   }
 
   test("test how to directly get the row Id list after bitwise OR among multi fiber caches") {
     dataSourceArray.foreach(dataSourceElement => {
       dataSourceElement._1.toDF("key", "value").createOrReplaceTempView("t")
-      sql("insert overwrite table oap_test select * from t")
-      sql("create oindex index_bm on oap_test (a) USING BITMAP")
+      sql("insert overwrite table parquet_test select * from t")
+      sql("create oindex index_bm on parquet_test (a) USING BITMAP")
       var actualRowIdSeq = Seq.empty[Int]
       var accumulatorRowId = 0
       dir.listFiles.foreach(fileName => {
@@ -179,7 +179,7 @@ class BitmapUtilsSuite extends QueryTest with SharedOapContext with BeforeAndAft
       })
       actualRowIdSeq.foreach(rowId => assert(dataSourceElement._2.contains(rowId)))
       dataSourceElement._2.foreach(rowId => assert(actualRowIdSeq.contains(rowId)))
-      sql("drop oindex index_bm on oap_test")
+      sql("drop oindex index_bm on parquet_test")
     })
   }
 }

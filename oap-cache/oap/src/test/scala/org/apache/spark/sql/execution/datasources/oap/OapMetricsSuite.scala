@@ -32,8 +32,8 @@ class OapMetricsSuite extends QueryTest with SharedOapContext with BeforeAndAfte
   override def beforeEach(): Unit = {
     val path = Utils.createTempDir().getAbsolutePath
     currentPath = path
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-           | USING oap
+    sql(s"""CREATE TEMPORARY VIEW orc_test (a INT, b STRING)
+           | USING orc
            | OPTIONS (path '$path')""".stripMargin)
     sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
            | USING parquet
@@ -41,7 +41,7 @@ class OapMetricsSuite extends QueryTest with SharedOapContext with BeforeAndAfte
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("orc_test")
     sqlContext.dropTempTable("parquet_test")
   }
 
@@ -112,14 +112,14 @@ class OapMetricsSuite extends QueryTest with SharedOapContext with BeforeAndAfte
 
   def buildParquetData(rowNum: Int = 100): Unit = buildData("parquet_test", rowNum)
 
-  def buildOapData(rowNum: Int = 100): Unit = buildData("oap_test", rowNum)
+  def buildOrcData(rowNum: Int = 100): Unit = buildData("orc_test", rowNum)
 
-  test("test OAP accumulator on OapFileFormat") {
-    buildOapData()
-    sql("create oindex idx1 on oap_test (a)")
+  ignore("test OAP accumulator on OrcFileFormat") {
+    buildOrcData()
+    sql("create oindex idx1 on orc_test (a)")
 
     // SQL 1: skipped task for statistic, OapFileFormat
-    val df = sql("SELECT * FROM oap_test where a = 10000")
+    val df = sql("SELECT * FROM orc_test where a = 10000")
     checkAnswer(df, Nil)
 
     // rowsSkippedForStatistic = 100 && taskSkippedForStatistic = 3
@@ -128,7 +128,7 @@ class OapMetricsSuite extends QueryTest with SharedOapContext with BeforeAndAfte
       Some(RowMetrics(100L, 100L, 0L, 0L, 0L, 0L)),
       Some(TaskMetrics(3L, 3L, 0L, 0L, 0L)))
 
-    sql("drop oindex idx1 on oap_test")
+    sql("drop oindex idx1 on orc_test")
   }
 
   test("test OAP accumulators on Parquet when hit index") {
@@ -194,11 +194,11 @@ class OapMetricsSuite extends QueryTest with SharedOapContext with BeforeAndAfte
     sqlContext.conf.setConfString(OapConf.OAP_EXECUTOR_INDEX_SELECTION_FILE_POLICY.key, "false")
   }
 
-  test("test OAP accumulators on Oap when miss index") {
-    buildOapData(99)
+  ignore("test OAP accumulators on Orc when miss index") {
+    buildOrcData(99)
 
     // SQL 5: miss index
-    val df = sql("SELECT * FROM oap_test where a = 1")
+    val df = sql("SELECT * FROM orc_test where a = 1")
     checkAnswer(df, Row(1, "this is row 1") :: Nil)
 
     val fileFormats = getOapFileFormat(df.queryExecution.sparkPlan)

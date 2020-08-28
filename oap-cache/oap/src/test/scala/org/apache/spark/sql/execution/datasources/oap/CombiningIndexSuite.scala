@@ -33,9 +33,6 @@ class CombiningIndexSuite extends QueryTest with SharedOapContext with BeforeAnd
     spark.conf.set(OapConf.OAP_INDEX_FILE_SIZE_MAX_RATIO.key, "1000")
     val path = Utils.createTempDir().getAbsolutePath
     currentPath = path
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b INT, c INT)
-           | USING oap
-           | OPTIONS (path '$path')""".stripMargin)
 
     sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b INT, c INT)
            | USING parquet
@@ -47,7 +44,6 @@ class CombiningIndexSuite extends QueryTest with SharedOapContext with BeforeAnd
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
     sqlContext.dropTempTable("parquet_test")
     sqlContext.dropTempTable("orc_test")
     spark.conf.unset(OapConf.OAP_INDEXER_CHOICE_MAX_SIZE.key)
@@ -85,38 +81,6 @@ class CombiningIndexSuite extends QueryTest with SharedOapContext with BeforeAnd
 
     sql("drop oindex index1 on parquet_test")
     sql("drop oindex index2 on parquet_test")
-  }
-
-  test("filtering oap") {
-    val data: Seq[(Int, Int, Int)] = (1 to 200).map { i => (i % 13, (300 - i) % 17, i) }
-    data.toDF("a", "b", "c").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test select * from t")
-    sql("create oindex index1 on oap_test (a)")
-    sql("create oindex index2 on oap_test (b)  USING BITMAP")
-
-    checkAnswer(sql("SELECT c FROM oap_test WHERE a = 1 and b = 10"),
-      Row(1) :: Nil)
-
-    checkAnswer(sql("SELECT c FROM oap_test WHERE a > 3 and a < 5 and b = 14"),
-      Row(82) :: Nil)
-
-    checkAnswer(sql("SELECT c FROM oap_test WHERE a > 3 and a < 5 and b = 14 and c > 30"),
-      Row(82) :: Nil)
-
-    sql("drop oindex index1 on oap_test")
-    sql("drop oindex index2 on oap_test ")
-
-
-    sql("create oindex index1 on oap_test (a,b)")
-    sql("create oindex index2 on oap_test (c)")
-
-    checkAnswer(sql("SELECT c FROM oap_test WHERE a = 3 and b > 14 and c > 30"),
-      Row(81) :: Nil)
-
-    checkAnswer(sql("SELECT c FROM oap_test WHERE a = 3 and b > 14 and c > 300"), Nil)
-
-    sql("drop oindex index1 on oap_test")
-    sql("drop oindex index2 on oap_test")
   }
 
   test("filtering orc") {

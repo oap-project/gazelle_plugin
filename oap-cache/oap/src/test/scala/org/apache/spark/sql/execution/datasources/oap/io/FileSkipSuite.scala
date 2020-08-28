@@ -29,21 +29,21 @@ class FileSkipSuite extends QueryTest with SharedOapContext with BeforeAndAfterE
   override def beforeEach(): Unit = {
     val path1 = Utils.createTempDir().getAbsolutePath
 
-    sql(s"""CREATE TEMPORARY VIEW oap_test_1 (a INT, b STRING)
-           | USING oap
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
+           | USING parquet
            | OPTIONS (path '$path1')""".stripMargin)
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test_1")
+    sqlContext.dropTempTable("parquet_test")
   }
 
   test("skip all file (is not null)") {
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 300).map(i => (i, null)).toSeq
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    val result = sql("SELECT * FROM oap_test_1 WHERE b is not null")
+    sql("insert overwrite table parquet_test select * from t")
+    val result = sql("SELECT * FROM parquet_test WHERE b is not null")
     assert(result.count == 0)
   }
 
@@ -51,10 +51,10 @@ class FileSkipSuite extends QueryTest with SharedOapContext with BeforeAndAfterE
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 300).map(i => (i, s"this is test $i")).toSeq
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    val result1 = sql("SELECT * FROM oap_test_1 WHERE a = 1")
+    sql("insert overwrite table parquet_test select * from t")
+    val result1 = sql("SELECT * FROM parquet_test WHERE a = 1")
     assert(result1.count == 1)
-    val result2 = sql("SELECT * FROM oap_test_1 WHERE a = 500")
+    val result2 = sql("SELECT * FROM parquet_test WHERE a = 500")
     assert(result2.count == 0)
   }
 
@@ -62,10 +62,10 @@ class FileSkipSuite extends QueryTest with SharedOapContext with BeforeAndAfterE
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 300).map(i => (i, s"this is test $i")).toSeq
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    val result1 = sql("SELECT * FROM oap_test_1 WHERE a < 1")
+    sql("insert overwrite table parquet_test select * from t")
+    val result1 = sql("SELECT * FROM parquet_test WHERE a < 1")
     assert(result1.count == 0)
-    val result2 = sql("SELECT * FROM oap_test_1 WHERE a < 2")
+    val result2 = sql("SELECT * FROM parquet_test WHERE a < 2")
     assert(result2.count == 1)
   }
 
@@ -73,10 +73,10 @@ class FileSkipSuite extends QueryTest with SharedOapContext with BeforeAndAfterE
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 300).map(i => (i, s"this is test $i")).toSeq
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    val result1 = sql("SELECT * FROM oap_test_1 WHERE a <= 0")
+    sql("insert overwrite table parquet_test select * from t")
+    val result1 = sql("SELECT * FROM parquet_test WHERE a <= 0")
     assert(result1.count == 0)
-    val result2 = sql("SELECT * FROM oap_test_1 WHERE a <= 1")
+    val result2 = sql("SELECT * FROM parquet_test WHERE a <= 1")
     assert(result2.count == 1)
   }
 
@@ -84,10 +84,10 @@ class FileSkipSuite extends QueryTest with SharedOapContext with BeforeAndAfterE
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 300).map(i => (i, s"this is test $i")).toSeq
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    val result1 = sql("SELECT * FROM oap_test_1 WHERE a > 300")
+    sql("insert overwrite table parquet_test select * from t")
+    val result1 = sql("SELECT * FROM parquet_test WHERE a > 300")
     assert(result1.count == 0)
-    val result2 = sql("SELECT * FROM oap_test_1 WHERE a > 2")
+    val result2 = sql("SELECT * FROM parquet_test WHERE a > 2")
     assert(result2.count == 298)
   }
 
@@ -95,10 +95,10 @@ class FileSkipSuite extends QueryTest with SharedOapContext with BeforeAndAfterE
     val data: Seq[(Int, String)] =
       scala.util.Random.shuffle(1 to 300).map(i => (i, s"this is test $i")).toSeq
     data.toDF("key", "value").createOrReplaceTempView("t")
-    sql("insert overwrite table oap_test_1 select * from t")
-    val result1 = sql("SELECT * FROM oap_test_1 WHERE a >= 300")
+    sql("insert overwrite table parquet_test select * from t")
+    val result1 = sql("SELECT * FROM parquet_test WHERE a >= 300")
     assert(result1.count == 1)
-    val result2 = sql("SELECT * FROM oap_test_1 WHERE a >= 500")
+    val result2 = sql("SELECT * FROM parquet_test WHERE a >= 500")
     assert(result2.count == 0)
   }
 }

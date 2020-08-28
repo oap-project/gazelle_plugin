@@ -58,15 +58,15 @@ class FiberSensorSuite extends QueryTest with SharedOapContext with BeforeAndAft
     val path = Utils.createTempDir().getAbsolutePath
     currentPath = path
 
-    sql(s"""CREATE TEMPORARY VIEW oap_test (a INT, b STRING)
-           | USING oap
+    sql(s"""CREATE TEMPORARY VIEW parquet_test (a INT, b STRING)
+           | USING parquet
            | OPTIONS (path '$path')""".stripMargin)
     OapRuntime.getOrCreate.fiberCacheManager.clearAllFibers()
     fiberSensor.executorToCacheManager.clear()
   }
 
   override def afterEach(): Unit = {
-    sqlContext.dropTempTable("oap_test")
+    sqlContext.dropTempTable("parquet_test")
   }
 
   test("FiberSensor with sql") {
@@ -84,11 +84,11 @@ class FiberSensorSuite extends QueryTest with SharedOapContext with BeforeAndAft
     // row groups are cached.
     val data: Seq[(Int, String)] = (1 to 3000).map { i => (i, s"this is test $i") }
     data.toDF("key", "value").createOrReplaceTempView("t")
-    checkAnswer(sql("SELECT * FROM oap_test"), Seq.empty[Row])
-    sql("insert overwrite table oap_test select * from t")
-    withIndex(TestIndex("oap_test", "index1")) {
-      sql("create oindex index1 on oap_test (a) using btree")
-      checkAnswer(sql("SELECT * FROM oap_test WHERE a > 500 AND a < 2500"),
+    checkAnswer(sql("SELECT * FROM parquet_test"), Seq.empty[Row])
+    sql("insert overwrite table parquet_test select * from t")
+    withIndex(TestIndex("parquet_test", "index1")) {
+      sql("create oindex index1 on parquet_test (a) using btree")
+      checkAnswer(sql("SELECT * FROM parquet_test WHERE a > 500 AND a < 2500"),
         data.filter(r => r._1 > 500 && r._1 < 2500).map(r => Row(r._1, r._2)))
       CacheStats.reset
 
@@ -114,7 +114,7 @@ class FiberSensorSuite extends QueryTest with SharedOapContext with BeforeAndAft
       // all data are cached when run another sql.
       // Expect: 1.hitCount increase; 2.missCount equal
       // wait for a heartbeat period
-      checkAnswer(sql("SELECT * FROM oap_test WHERE a > 200 AND a < 2400"),
+      checkAnswer(sql("SELECT * FROM parquet_test WHERE a > 200 AND a < 2400"),
         data.filter(r => r._1 > 200 && r._1 < 2400).map(r => Row(r._1, r._2)))
       CacheStats.reset
       Thread.sleep(15 * 1000)

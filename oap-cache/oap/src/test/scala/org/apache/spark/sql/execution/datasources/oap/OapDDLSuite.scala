@@ -36,7 +36,7 @@ class OapDDLSuite extends QueryTest with SharedOapContext with BeforeAndAfterEac
            | USING parquet
            | OPTIONS (path '$path1')""".stripMargin)
     sql(s"""CREATE TEMPORARY VIEW oap_test_2 (a INT, b STRING)
-           | USING oap
+           | USING orc
            | OPTIONS (path '$path2')""".stripMargin)
     sql(s"""CREATE TABLE oap_partition_table (a int, b int, c STRING)
             | USING parquet
@@ -62,8 +62,8 @@ class OapDDLSuite extends QueryTest with SharedOapContext with BeforeAndAfterEac
     val df = data.toDF("key", "value")
     // TODO test when path starts with "hdfs:/"
     val path = Utils.createTempDir("/tmp/").toString
-    df.write.format("oap").mode(SaveMode.Overwrite).save(path)
-    val oapDf = spark.read.format("oap").load(path)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(path)
+    val oapDf = spark.read.format("parquet").load(path)
     oapDf.createOrReplaceTempView("t")
     withIndex(TestIndex("t", "index1")) {
       sql("create oindex index1 on t (key)")
@@ -199,8 +199,8 @@ class OapDDLSuite extends QueryTest with SharedOapContext with BeforeAndAfterEac
     val data: Seq[(Int, String)] = (1 to 100).map { i => (i, s"this is test $i") }
     val df = data.toDF("a", "b")
     val pathDir = Utils.createTempDir().getAbsolutePath
-    df.write.format("oap").mode(SaveMode.Overwrite).save(pathDir)
-    val oapDf = spark.read.format("oap").load(pathDir)
+    df.write.format("parquet").mode(SaveMode.Overwrite).save(pathDir)
+    val oapDf = spark.read.format("parquet").load(pathDir)
     oapDf.createOrReplaceTempView("t")
 
     withIndex(TestIndex("t", "idxa")) {
