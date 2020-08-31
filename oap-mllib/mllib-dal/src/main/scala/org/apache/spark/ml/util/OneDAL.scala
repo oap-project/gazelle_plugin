@@ -19,6 +19,7 @@ package org.apache.spark.ml.util
 
 import com.intel.daal.data_management.data.{HomogenNumericTable, NumericTable, Matrix => DALMatrix}
 import com.intel.daal.services.DaalContext
+import org.apache.spark.SparkContext
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.mllib.linalg.{Vector => OldVector}
 
@@ -79,4 +80,6 @@ object OneDAL {
   @native def cSetDoubleIterator(numTableAddr: Long, iter: java.util.Iterator[DataBatch], curRows: Int)
   
   @native def cFreeDataMemory(numTableAddr: Long)
+
+  @native def cCheckPlatformCompatibility() : Boolean
 }

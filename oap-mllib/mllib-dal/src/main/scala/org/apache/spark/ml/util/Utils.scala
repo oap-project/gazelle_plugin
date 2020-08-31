@@ -67,4 +67,22 @@ object Utils {
     val ip = InetAddress.getByName(host).getHostAddress
     ip
   }
+
+  def checkClusterPlatformCompatibility(sc: SparkContext) : Boolean = {
+    LibLoader.loadLibMLlibDAL()
+
+    // check driver platform compatibility
+    if (!OneDAL.cCheckPlatformCompatibility())
+      return false
+
+    // check workers' platform compatibility
+    val executor_num = Utils.sparkExecutorNum()
+    val data = sc.parallelize(1 to executor_num, executor_num)
+    val result = data.map { p =>
+      LibLoader.loadLibMLlibDAL()
+      OneDAL.cCheckPlatformCompatibility()
+    }.collect()
+
+    return result.forall( _ == true)
+  }
 }

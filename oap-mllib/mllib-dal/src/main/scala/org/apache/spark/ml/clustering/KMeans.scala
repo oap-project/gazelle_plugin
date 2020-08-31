@@ -337,8 +337,9 @@ class KMeans @Since("1.5.0") (
   override def fit(dataset: Dataset[_]): KMeansModel = instrumented { instr =>
     transformSchema(dataset.schema, logging = true)
 
+    val isPlatformSupported = Utils.checkClusterPlatformCompatibility(dataset.sparkSession.sparkContext)
     val handleWeight = isDefined(weightCol) && $(weightCol).nonEmpty
-    val useKMeansDAL = $(distanceMeasure) == "euclidean" && !handleWeight
+    val useKMeansDAL =  isPlatformSupported && $(distanceMeasure) == "euclidean" && !handleWeight
 
     // will handle persistence only for trainWithML
     val handlePersistence = (dataset.storageLevel == StorageLevel.NONE && !useKMeansDAL)
