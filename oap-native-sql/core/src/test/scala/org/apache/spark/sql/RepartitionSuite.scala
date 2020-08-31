@@ -41,6 +41,8 @@ class RepartitionSuite extends QueryTest with SharedSparkSession {
       .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "10m")
 
   def checkCoulumnarExec(data: DataFrame) = {
     val found = data.queryExecution.executedPlan
@@ -105,11 +107,10 @@ class SmallDataRepartitionSuite extends RepartitionSuite {
 class TPCHTableRepartitionSuite extends RepartitionSuite {
   import testImplicits._
 
-  val filePath = getClass.getClassLoader
-    .getResource("part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet")
-    .getFile
+  val filePath = getTestResourcePath(
+    "test-data/part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet")
 
-  override lazy val input = spark.read.parquet(filePath)
+  override lazy val input = spark.read.format("parquet").load(filePath)
 
   test("tpch table round robin partitioning") {
     withRepartition(df => df.repartition(2))

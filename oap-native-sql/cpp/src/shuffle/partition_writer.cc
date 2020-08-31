@@ -119,14 +119,14 @@ arrow::Status PartitionWriter::WriteArrowRecordBatch() {
       RETURN_NOT_OK(builder->Finish(&arrays[i]));
       large_binary_builders_.push_back(std::move(builder));
     } else {
-      auto buf_msg_ptr = std::move(buffers_[type_id].front());
+      auto buf_info_ptr = std::move(buffers_[type_id].front());
       buffers_[type_id].pop_front();
       auto arr = arrow::ArrayData::Make(
           schema_->field(i)->type(), write_offset_[last_type_],
-          std::vector<std::shared_ptr<arrow::Buffer>>{buf_msg_ptr->validity_buffer,
-                                                      buf_msg_ptr->value_buffer});
+          std::vector<std::shared_ptr<arrow::Buffer>>{buf_info_ptr->validity_buffer,
+                                                      buf_info_ptr->value_buffer});
       arrays[i] = arrow::MakeArray(arr);
-      buffers_[type_id].push_back(std::move(buf_msg_ptr));
+      buffers_[type_id].push_back(std::move(buf_info_ptr));
     }
   }
   auto record_batch =

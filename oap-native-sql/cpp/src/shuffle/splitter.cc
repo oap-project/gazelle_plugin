@@ -80,10 +80,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
   auto src_addr = std::vector<SrcBuffers>(Type::NUM_TYPES);
 
   auto src_binary_arr = SrcBinaryArrays();
-  auto src_nullable_binary_arr = SrcBinaryArrays();
-
   auto src_large_binary_arr = SrcLargeBinaryArrays();
-  auto src_nullable_large_binary_arr = SrcLargeBinaryArrays();
 
   arrow::TypedBufferBuilder<bool> null_bitmap_builder_;
   RETURN_NOT_OK(null_bitmap_builder_.Append(num_rows, true));
@@ -95,30 +92,22 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
   // Get the pointer of each buffer id
   for (auto i = 0; i < num_cols; ++i) {
     const auto& buffers = rb.column_data(i)->buffers;
-    if (rb.column_data(i)->GetNullCount() == 0) {
-      if (column_type_id_[i] == Type::SHUFFLE_BINARY) {
-        src_binary_arr.push_back(
-            std::static_pointer_cast<arrow::BinaryArray>(rb.column(i)));
-      } else if (column_type_id_[i] == Type::SHUFFLE_LARGE_BINARY) {
-        src_large_binary_arr.push_back(
-            std::static_pointer_cast<arrow::LargeBinaryArray>(rb.column(i)));
-      } else if (column_type_id_[i] != Type::SHUFFLE_NULL) {
+    if (column_type_id_[i] == Type::SHUFFLE_BINARY) {
+      src_binary_arr.push_back(
+          std::static_pointer_cast<arrow::BinaryArray>(rb.column(i)));
+    } else if (column_type_id_[i] == Type::SHUFFLE_LARGE_BINARY) {
+      src_large_binary_arr.push_back(
+          std::static_pointer_cast<arrow::LargeBinaryArray>(rb.column(i)));
+    } else if (column_type_id_[i] != Type::SHUFFLE_NULL) {
+      if (rb.column_data(i)->GetNullCount() == 0) {
         // null bitmap may be nullptr
         src_addr[column_type_id_[i]].push_back(
             {.validity_addr = dummy_buf_p,
-             .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
-      }
-    } else {
-      if (column_type_id_[i] == Type::SHUFFLE_BINARY) {
-        src_nullable_binary_arr.push_back(
-            std::static_pointer_cast<arrow::BinaryArray>(rb.column(i)));
-      } else if (column_type_id_[i] == Type::SHUFFLE_LARGE_BINARY) {
-        src_nullable_large_binary_arr.push_back(
-            std::static_pointer_cast<arrow::LargeBinaryArray>(rb.column(i)));
-      } else if (column_type_id_[i] != Type::SHUFFLE_NULL) {
+                .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
+      } else {
         src_addr[column_type_id_[i]].push_back(
             {.validity_addr = const_cast<uint8_t*>(buffers[0]->data()),
-             .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
+                .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
       }
     }
   }
@@ -169,9 +158,6 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
     WRITE_DECIMAL
     WRITE_BINARY(WriteBinary, arrow::BinaryType, src_binary_arr);
     WRITE_BINARY(WriteLargeBinary, arrow::LargeBinaryType, src_large_binary_arr);
-    WRITE_BINARY(WriteNullableBinary, arrow::BinaryType, src_nullable_binary_arr);
-    WRITE_BINARY(WriteNullableLargeBinary, arrow::LargeBinaryType,
-                 src_nullable_large_binary_arr);
     read_offset = i;
   }
 
