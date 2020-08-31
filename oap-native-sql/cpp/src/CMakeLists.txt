@@ -6,10 +6,8 @@ include(ExternalProject)
 include(FindPkgConfig)
 include(GNUInstallDirs)
 
-# This ensures that things like gnu++11 get passed correctly
 set(CMAKE_CXX_STANDARD 14)
 
-# We require a C++11 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_BUILD_TYPE  "Release")
@@ -18,7 +16,6 @@ option(TESTS "Build the tests" OFF)
 option(BENCHMARKS "Build the benchmarks" OFF)
 option(DEBUG "Enable Debug Info" OFF)
 
-# same as the version required in arrow/ci/conda_env_cpp.yml
 set(BOOST_MIN_VERSION "1.42.0")
 find_package(Boost REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
@@ -115,9 +112,7 @@ add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
 add_custom_target(jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
 set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
 set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
-set(GANDIVA_LINK_LIBS gandiva)
 
-#######
 if(TESTS)
   find_package(GTest)
 macro(package_add_test TESTNAME)
@@ -139,9 +134,7 @@ endif()
 if(BENCHMARKS)
   find_package(GTest)
   add_definitions(-DBENCHMARK_FILE_PATH="file://${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/source_files/")
-  #add_compile_definitions(BENCHMARK_FILE_PATH="file://${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/source_files/")
 macro(package_add_benchmark TESTNAME)
-  #configure_file(${ARGN}.in ${ARGN})
   add_executable(${TESTNAME} ${ARGN})
   target_link_libraries(${TESTNAME} gtest gmock gtest_main spark_columnar_jni parquet ${CMAKE_THREAD_LIBS_INIT})
   target_include_directories(${TESTNAME} PUBLIC ${source_root_directory})
@@ -156,10 +149,11 @@ endmacro()
   add_custom_target(benchmark ${CMAKE_CTEST_COMMAND} -R BenchmarkArrowCompute --output-on-failure)
   add_subdirectory(benchmarks)
 endif()
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
+
 if(DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -DDEBUG -DDEBUG_LEVEL_1 -DDEBUG_LEVEL_2")
 endif()
+
 find_library(ARROW_LIB arrow)
 find_library(PARQUET_LIB parquet)
 find_library(GANDIVA_LIB gandiva)
@@ -170,6 +164,10 @@ endif()
 
 if(NOT GANDIVA_LIB)
     message(FATAL_ERROR "Gandiva library not found")
+endif()
+
+if(NOT PARQUET_LIB)
+    message(FATAL_ERROR "Parquet library not found")
 endif()
 
 set(CODEGEN_HEADERS
@@ -222,39 +220,13 @@ file(MAKE_DIRECTORY ${root_directory}/releases)
 add_library(spark_columnar_jni SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS})
 add_dependencies(spark_columnar_jni jni_proto)
 
-#file(MAKE_DIRECTORY ${root_directory}/releases/lib)
-#set(PRECOMPILE_LIB
-#        precompile/hash_map.cc
-#        precompile/builder.cc
-#        precompile/array.cc
-#        precompile/type.cc
-#        precompile/sort.cc
-#        precompile/hash_arrays_kernel.cc
-#)
-#add_library(spark_columnar_precompile SHARED ${PRECOMPILE_LIB})
-#set(THIRD_PARTY_INCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/third_party)
-#include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${THIRD_PARTY_INCLUDE})
-#get_property(dirs DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-#foreach(dir ${dirs})
-#  message(STATUS "dir='${dir}'")
-#endforeach()
-#target_include_directories(spark_columnar_precompile PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${source_root_directory})
-#target_link_libraries(spark_columnar_precompile
-#                      LINK_PUBLIC ${ARROW_LIB} )
-#set_target_properties(spark_columnar_precompile PROPERTIES
-#                      LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases
-#)
-#set_target_properties(spark_columnar_precompile PROPERTIES
-#                      LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases/lib
-#                     )
-
 if(BUILD_PROTOBUF)
 target_link_libraries(spark_columnar_jni
-                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB} ${GANDIVA_LINK_LIBS}
+                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB}
                       LINK_PRIVATE protobuf::libprotobuf)
 else()
 target_link_libraries(spark_columnar_jni
-                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB} ${GANDIVA_LINK_LIBS} ${PROTOBUF_LIBRARY})
+                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB}  ${PROTOBUF_LIBRARY})
 endif()
 target_include_directories(spark_columnar_jni PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${JNI_INCLUDE_DIRS} ${source_root_directory} ${PROTO_OUTPUT_DIR} ${PROTOBUF_INCLUDE})
 set_target_properties(spark_columnar_jni PROPERTIES
