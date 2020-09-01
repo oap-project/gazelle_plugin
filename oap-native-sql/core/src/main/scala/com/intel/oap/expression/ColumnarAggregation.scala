@@ -198,7 +198,7 @@ class ColumnarAggregation(
 
   // 4. create aggregate native Expression
 
-  var projectOrdinalList = projectOrdinalListBuffer.toList
+  var projectOrdinalList = projectOrdinalListBuffer.toList.distinct
   val aggregateFieldList = aggregateFieldListBuffer.toList
 
   // 5. create nativeAggregate evaluator
