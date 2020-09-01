@@ -206,13 +206,18 @@ class ConditionedProbeArraysKernel::Impl {
     auto status = LoadLibrary(signature_, ctx_, out);
     if (!status.ok()) {
       // process
-      auto codes =
-          ProduceCodes(func_node, join_type, left_key_index_list, right_key_index_list,
-                       left_shuffle_index_list, right_shuffle_index_list, left_field_list,
-                       right_field_list, result_schema_index_list, exist_index);
-      // compile codes
-      RETURN_NOT_OK(CompileCodes(codes, signature_));
-      RETURN_NOT_OK(LoadLibrary(signature_, ctx_, out));
+      try {
+        auto codes = ProduceCodes(
+            func_node, join_type, left_key_index_list, right_key_index_list,
+            left_shuffle_index_list, right_shuffle_index_list, left_field_list,
+            right_field_list, result_schema_index_list, exist_index);
+        // compile codes
+        RETURN_NOT_OK(CompileCodes(codes, signature_));
+        RETURN_NOT_OK(LoadLibrary(signature_, ctx_, out));
+      } catch (const std::runtime_error& error) {
+        FileSpinUnLock(file_lock);
+        throw error;
+      }
     }
     FileSpinUnLock(file_lock);
     return arrow::Status::OK();
@@ -722,9 +727,9 @@ class ConditionedProbeArraysKernel::Impl {
     std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
     int func_count = 0;
     std::vector<std::string> input_list;
-    MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list}, &func_count,
-                           &input_list, left_out_index_list, right_out_index_list,
-                           &func_node_visitor);
+    THROW_NOT_OK(MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list},
+                                        &func_count, &input_list, left_out_index_list,
+                                        right_out_index_list, &func_node_visitor));
 
     return R"(
     inline bool ConditionCheck(ArrayItemIndex x, int y) {

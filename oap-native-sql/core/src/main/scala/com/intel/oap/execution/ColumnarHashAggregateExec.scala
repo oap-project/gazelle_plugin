@@ -210,4 +210,20 @@ class ColumnarHashAggregateExec(
       (that canEqual this) && super.equals(that)
     case _ => false
   }
+
+  override def verboseString(maxFields: Int): String = toString(verbose = true, maxFields)
+
+  override def simpleString(maxFields: Int): String = toString(verbose = false, maxFields)
+
+  private def toString(verbose: Boolean, maxFields: Int): String = {
+    val allAggregateExpressions = aggregateExpressions
+    val keyString = truncatedString(groupingExpressions, "[", ", ", "]", maxFields)
+    val functionString = truncatedString(allAggregateExpressions, "[", ", ", "]", maxFields)
+    val outputString = truncatedString(output, "[", ", ", "]", maxFields)
+    if (verbose) {
+      s"ColumnarHashAggregate(keys=$keyString, functions=$functionString, output=$outputString)"
+    } else {
+      s"ColumnarHashAggregate(keys=$keyString, functions=$functionString)"
+    }
+  }
 }

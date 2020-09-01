@@ -693,10 +693,7 @@ class SumCountActionCodeGen : public ActionCodeGen {
       }
       prepare_codes_ss << "}" << std::endl;
       std::stringstream on_exists_codes_ss;
-      on_exists_codes_ss << "if ( " << tmp_name << "_validity ) {" << std::endl;
       on_exists_codes_ss << sig_name << "[i] += " << tmp_name << ";" << std::endl;
-      on_exists_codes_ss << validity_name << "[i] = true;" << std::endl;
-      on_exists_codes_ss << "}" << std::endl;
       std::stringstream on_new_codes_ss;
       on_new_codes_ss << sig_name << ".push_back(" << tmp_name << ");" << std::endl;
       on_new_codes_ss << "if ( " << tmp_name << "_validity ) {" << std::endl;
@@ -728,11 +725,11 @@ class SumCountActionCodeGen : public ActionCodeGen {
           arrow::boolean(), validity_name + "_vector_tmp", true));
 
       finish_var_define_codes_list_.push_back(
-          GetTypedVectorAndBuilderDefineString(data_type, sig_name, true));
+          GetTypedVectorAndBuilderDefineString(data_type, sig_name));
       finish_var_prepare_codes_list_.push_back(
-          GetTypedVectorAndBuilderPrepareString(data_type, sig_name, true));
+          GetTypedVectorAndBuilderPrepareString(data_type, sig_name));
       finish_var_to_builder_codes_list_.push_back(
-          GetTypedVectorToBuilderString(data_type, sig_name, true));
+          GetTypedVectorToBuilderString(data_type, sig_name));
       finish_var_to_array_codes_list_.push_back(
           GetTypedResultToArrayString(data_type, sig_name));
       finish_var_array_codes_list_.push_back(
@@ -836,10 +833,7 @@ class AvgByCountActionCodeGen : public ActionCodeGen {
     prepare_codes_ss << "}" << std::endl;
 
     std::stringstream on_exists_codes_ss;
-    on_exists_codes_ss << "if ( " << tmp_name << "_validity ) {" << std::endl;
     on_exists_codes_ss << sig_name << "[i] += " << tmp_name << ";" << std::endl;
-    on_exists_codes_ss << validity_name << "[i] = true;" << std::endl;
-    on_exists_codes_ss << "}" << std::endl;
     std::stringstream on_new_codes_ss;
     on_new_codes_ss << sig_name << ".push_back(" << tmp_name << ");" << std::endl;
     on_new_codes_ss << "if ( " << tmp_name << "_validity ) {" << std::endl;
@@ -889,10 +883,7 @@ class AvgByCountActionCodeGen : public ActionCodeGen {
     prepare_codes_ss << "}" << std::endl;
 
     on_exists_codes_ss.str("");
-    on_exists_codes_ss << "if ( " << tmp_name << "_validity ) {" << std::endl;
     on_exists_codes_ss << sig_name << "[i] += " << tmp_name << ";" << std::endl;
-    on_exists_codes_ss << validity_name << "[i] = true;" << std::endl;
-    on_exists_codes_ss << "}" << std::endl;
     on_new_codes_ss.str("");
     on_new_codes_ss << sig_name << ".push_back(" << tmp_name << ");" << std::endl;
     on_new_codes_ss << "if ( " << tmp_name << "_validity ) {" << std::endl;
@@ -940,8 +931,7 @@ class AvgByCountActionCodeGen : public ActionCodeGen {
     on_new_codes_list_.push_back("");
 
     std::stringstream on_finish_codes_ss;
-    on_finish_codes_ss << "if ( " << sum_name_validity << "[i] && " << count_name_validity
-                       << "[i] ) {" << std::endl;
+    on_finish_codes_ss << "if ( " << count_name << "[i] > 0 ) {" << std::endl;
     on_finish_codes_ss << sig_name << ".push_back( " << sum_name << "[i] / " << count_name
                        << "[i]);" << std::endl;
     on_finish_codes_ss << validity_name << ".push_back(true);" << std::endl;

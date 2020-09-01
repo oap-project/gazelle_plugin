@@ -63,7 +63,11 @@ class ColumnarShuffledHashJoin(
     joinTime: SQLMetric,
     totalTime: SQLMetric,
     totalOutputNumRows: SQLMetric,
-    sparkConf: SparkConf)
+    sparkConf: SparkConf,
+    buildProjector: ColumnarProjection,
+    buildKeyProjectOrdinalList: List[Int],
+    streamProjector: ColumnarProjection,
+    streamKeyProjectOrdinalList: List[Int])
     extends Logging {
   var probe_iterator: BatchIterator = _
   var build_cb: ColumnarBatch = null
@@ -97,14 +101,32 @@ class ColumnarShuffledHashJoin(
         }
         return res
       }
-      val beforeBuild = System.nanoTime()
-      val build_rb = ConverterUtils.createArrowRecordBatch(build_cb)
-      (0 until build_cb.numCols).toList.foreach(i =>
-        build_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
-      inputBatchHolder += build_cb
-      prober.evaluate(build_rb)
-      _buildTime += NANOSECONDS.toMillis(System.nanoTime() - beforeBuild)
-      ConverterUtils.releaseArrowRecordBatch(build_rb)
+      if (build_cb.numRows > 0) {
+        val beforeBuild = System.nanoTime()
+        // handle projection
+        val projectedBuildKeyCols: List[ArrowWritableColumnVector] = if (buildProjector != null) {
+          val builderOrdinalList = buildProjector.getOrdinalList
+          val builderAttributes = buildProjector.output
+          val builderProjectCols = builderOrdinalList.map(i => {
+            build_cb.column(i).asInstanceOf[ArrowWritableColumnVector]
+          })
+          buildProjector.evaluate(build_cb.numRows, builderProjectCols.map(_.getValueVector()))
+        } else {
+          List[ArrowWritableColumnVector]()
+        }
+
+        val buildCols = (0 until build_cb.numCols).toList.map(i =>
+          build_cb.column(i).asInstanceOf[ArrowWritableColumnVector]) ::: projectedBuildKeyCols
+        val build_rb =
+          ConverterUtils.createArrowRecordBatch(build_cb.numRows, buildCols.map(_.getValueVector))
+        (0 until build_cb.numCols).toList.foreach(i =>
+          build_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
+        inputBatchHolder += build_cb
+        prober.evaluate(build_rb)
+        _buildTime += NANOSECONDS.toMillis(System.nanoTime() - beforeBuild)
+        ConverterUtils.releaseArrowRecordBatch(build_rb)
+        projectedBuildKeyCols.foreach(v => v.close)
+      }
     }
     if (build_cb != null) {
       build_cb = null
@@ -144,10 +166,31 @@ class ColumnarShuffledHashJoin(
         val cb = streamIter.next()
         last_cb = cb
         val beforeJoin = System.nanoTime()
-        val stream_rb: ArrowRecordBatch = ConverterUtils.createArrowRecordBatch(cb)
-        val output_rb = probe_iterator.process(stream_input_arrow_schema, stream_rb)
+        val output_rb = if (cb.numRows > 0) {
+          val projectedStreamKeyCols: List[ArrowWritableColumnVector] =
+            if (streamProjector != null) {
+              val streamOrdinalList = streamProjector.getOrdinalList
+              val streamAttributes = streamProjector.output
+              val streamProjectCols = streamOrdinalList.map(i => {
+                cb.column(i).asInstanceOf[ArrowWritableColumnVector]
+              })
+              streamProjector.evaluate(cb.numRows, streamProjectCols.map(_.getValueVector()))
+            } else {
+              List[ArrowWritableColumnVector]()
+            }
+          val streamCols = (0 until cb.numCols).toList.map(i =>
+            cb.column(i).asInstanceOf[ArrowWritableColumnVector]) ::: projectedStreamKeyCols
+          val stream_rb: ArrowRecordBatch =
+            ConverterUtils.createArrowRecordBatch(cb.numRows, streamCols.map(_.getValueVector))
 
-        ConverterUtils.releaseArrowRecordBatch(stream_rb)
+          val res = probe_iterator.process(stream_input_arrow_schema, stream_rb)
+
+          ConverterUtils.releaseArrowRecordBatch(stream_rb)
+          projectedStreamKeyCols.foreach(v => v.close)
+          res
+        } else {
+          null
+        }
         joinTime += NANOSECONDS.toMillis(System.nanoTime() - beforeJoin)
         if (output_rb == null) {
           val resultColumnVectors =
@@ -184,6 +227,10 @@ object ColumnarShuffledHashJoin extends Logging {
   var output_arrow_schema: Schema = _
   var condition_probe_expr: ExpressionTree = _
   var prober: ExpressionEvaluator = _
+  var buildKeyProjectOrdinalList: List[Int] = _
+  var streamKeyProjectOrdinalList: List[Int] = _
+  var buildKeyProjection = false
+  var streamKeyProjection = false
 
   def init(
       leftKeys: Seq[Expression],
@@ -205,13 +252,15 @@ object ColumnarShuffledHashJoin extends Logging {
 
     val l_input_field_list: List[Field] = l_input_schema.toList.map(attr => {
       if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarShuffledHashJoin.")
+        throw new UnsupportedOperationException(
+          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
     val r_input_field_list: List[Field] = r_input_schema.toList.map(attr => {
       if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarShuffledHashJoin.")
+        throw new UnsupportedOperationException(
+          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
@@ -223,39 +272,60 @@ object ColumnarShuffledHashJoin extends Logging {
       .toList
 
     logInfo(s"leftKeyExpression is ${leftKeys}, rightKeyExpression is ${rightKeys}")
-    val lkeyFieldList: List[Field] = leftKeys.toList.map(expr => {
-      val nativeNode = ConverterUtils.getColumnarFuncNode(expr)
-      if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
-        throw new UnsupportedOperationException(
-          s"expression inside key is not currently supported.")
+    val lkeyProjectOrdinalList = new ListBuffer[Int]()
+    val lkeyFieldList: List[Field] = leftKeys.toList.zipWithIndex.map {
+      case (expr, i) => {
+        val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
+        if (s"${nativeNode.toProtobuf}".contains("none#")) {
+          throw new UnsupportedOperationException(
+            s"Unsupport to generate native expression from replaceable expression.")
+        }
+        if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+          lkeyProjectOrdinalList += i
+          Field.nullable(s"${expr}", returnType)
+        } else {
+          val attr = ConverterUtils.getAttrFromExpr(expr)
+          Field
+            .nullable(
+              s"${attr.name}#${attr.exprId.id}",
+              CodeGeneration.getResultType(attr.dataType))
+        }
       }
-      val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
+    }
 
-    val rkeyFieldList: List[Field] = rightKeys.toList.map(expr => {
-      val nativeNode = ConverterUtils.getColumnarFuncNode(expr)
-      if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
-        throw new UnsupportedOperationException(
-          s"expression inside key is not currently supported.")
+    val rkeyProjectOrdinalList = new ListBuffer[Int]()
+    val rkeyFieldList: List[Field] = rightKeys.toList.zipWithIndex.map {
+      case (expr, i) => {
+        val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
+        if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+          rkeyProjectOrdinalList += i
+          Field.nullable(s"${expr}", returnType)
+        } else {
+          val attr = ConverterUtils.getAttrFromExpr(expr)
+          Field
+            .nullable(
+              s"${attr.name}#${attr.exprId.id}",
+              CodeGeneration.getResultType(attr.dataType))
+        }
       }
-      val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
+    }
 
-    val (
+    var (
       build_key_field_list,
       stream_key_field_list,
       build_input_field_list,
       stream_input_field_list) = buildSide match {
-      case BuildLeft =>
+      case BuildLeft => {
+        buildKeyProjectOrdinalList = lkeyProjectOrdinalList.toList
+        streamKeyProjectOrdinalList = rkeyProjectOrdinalList.toList
         (lkeyFieldList, rkeyFieldList, l_input_field_list, r_input_field_list)
+      }
 
-      case BuildRight =>
+      case BuildRight => {
+        buildKeyProjectOrdinalList = rkeyProjectOrdinalList.toList
+        streamKeyProjectOrdinalList = lkeyProjectOrdinalList.toList
         (rkeyFieldList, lkeyFieldList, r_input_field_list, l_input_field_list)
-
+      }
     }
 
     var existsField: Field = null
@@ -285,10 +355,6 @@ object ColumnarShuffledHashJoin extends Logging {
       case _ =>
         throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
     }
-
-    build_input_arrow_schema = new Schema(build_input_field_list.asJava)
-
-    stream_input_arrow_schema = new Schema(stream_input_field_list.asJava)
 
     /////////////////////////////// Create Prober /////////////////////////////
     // Prober is used to insert left table primary key into hashMap
@@ -320,6 +386,22 @@ object ColumnarShuffledHashJoin extends Logging {
             (build_input_field_list, stream_output_field_list ::: build_output_field_list)
         }
     }
+
+    // we need to add projectedKeyOutput into input_field_list here
+    if (buildKeyProjectOrdinalList.nonEmpty) {
+      build_input_field_list =
+        build_input_field_list ::: buildKeyProjectOrdinalList.map(i => build_key_field_list(i))
+    }
+
+    if (streamKeyProjectOrdinalList.nonEmpty) {
+      stream_input_field_list =
+        stream_input_field_list ::: streamKeyProjectOrdinalList.map(i => stream_key_field_list(i))
+    }
+
+    build_input_arrow_schema = new Schema(build_input_field_list.asJava)
+
+    stream_input_arrow_schema = new Schema(stream_input_field_list.asJava)
+
     val conditionArrowSchema = new Schema(conditionInputFieldList.asJava)
     output_arrow_schema = new Schema(conditionOutputFieldList.asJava)
     var conditionInputList: java.util.List[Field] = Lists.newArrayList()
@@ -364,6 +446,10 @@ object ColumnarShuffledHashJoin extends Logging {
           columnarExpression
             .asInstanceOf[ColumnarExpression]
             .doColumnarCodeGen(conditionInputList)
+        if (s"${condition_expression_node.toProtobuf}".contains("ifNode")) {
+          throw new UnsupportedOperationException(
+            s"ColumnarSHJ can't handle condition with case when")
+        }
         Lists.newArrayList(build_keys_node, stream_keys_node, condition_expression_node)
       } else {
         Lists.newArrayList(build_keys_node, stream_keys_node)
@@ -403,6 +489,9 @@ object ColumnarShuffledHashJoin extends Logging {
       right,
       sparkConf)
 
+    //System.out.println(
+    //s"\nleft_schema is ${left.output}, right_schema is ${right.output}, \nleftKeys is ${leftKeys}, rightKeys is ${rightKeys}, \nresultSchema is ${resultSchema}, \njoinType is ${joinType}, buildSide is ${buildSide}, condition is ${condition}")
+    //System.out.println(s"condition_probe_expr is ${condition_probe_expr.toProtobuf}")
     prober = new ExpressionEvaluator()
     val signature = prober.build(
       build_input_arrow_schema,
@@ -439,6 +528,32 @@ object ColumnarShuffledHashJoin extends Logging {
       right,
       sparkConf)
 
+    val (buildProjector, streamProjector) =
+      // create gandiva project to pre-process
+      buildSide match {
+        case BuildLeft =>
+          (
+            (if (buildKeyProjectOrdinalList.nonEmpty)
+               ColumnarProjection
+                 .create(left.output, buildKeyProjectOrdinalList.map(i => leftKeys(i)))
+             else null),
+            (if (streamKeyProjectOrdinalList.nonEmpty)
+               ColumnarProjection
+                 .create(right.output, streamKeyProjectOrdinalList.map(i => rightKeys(i)))
+             else null))
+
+        case BuildRight =>
+          (
+            (if (buildKeyProjectOrdinalList.nonEmpty)
+               ColumnarProjection
+                 .create(right.output, buildKeyProjectOrdinalList.map(i => rightKeys(i)))
+             else null),
+            (if (streamKeyProjectOrdinalList.nonEmpty)
+               ColumnarProjection
+                 .create(left.output, streamKeyProjectOrdinalList.map(i => leftKeys(i)))
+             else null))
+      }
+
     prober = new ExpressionEvaluator(listJars.toList.asJava)
     prober.build(
       build_input_arrow_schema,
@@ -454,7 +569,11 @@ object ColumnarShuffledHashJoin extends Logging {
       joinTime,
       totalTime,
       numOutputRows,
-      sparkConf)
+      sparkConf,
+      buildProjector,
+      buildKeyProjectOrdinalList,
+      streamProjector,
+      streamKeyProjectOrdinalList)
   }
 
 }

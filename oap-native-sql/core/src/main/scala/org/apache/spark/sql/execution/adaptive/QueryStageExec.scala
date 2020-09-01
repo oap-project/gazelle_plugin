@@ -235,13 +235,10 @@ case class BroadcastQueryStageExec(override val id: Int, override val plan: Spar
       broadcast.relationFuture.cancel(true)
     }
   }
-}
 
-class ColumnarBroadcastQueryStageExec(override val id: Int, override val plan: SparkPlan)
-    extends BroadcastQueryStageExec(id, plan) {
+  override def supportsColumnar: Boolean = plan.supportsColumnar
 
-  override def supportsColumnar = true
-
+  override def doExecuteColumnar(): RDD[ColumnarBatch] = plan.executeColumnar()
 }
 
 object BroadcastQueryStageExec {

@@ -181,6 +181,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   }
 
   io_exception_class = CreateGlobalClassReference(env, "Ljava/io/IOException;");
+  unsupportedoperation_exception_class =
+      CreateGlobalClassReference(env, "Ljava/lang/UnsupportedOperationException;");
   illegal_access_exception_class =
       CreateGlobalClassReference(env, "Ljava/lang/IllegalAccessException;");
   illegal_argument_exception_class =
@@ -223,6 +225,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
 
   env->DeleteGlobalRef(io_exception_class);
+  env->DeleteGlobalRef(unsupportedoperation_exception_class);
   env->DeleteGlobalRef(illegal_access_exception_class);
   env->DeleteGlobalRef(illegal_argument_exception_class);
 
@@ -293,8 +296,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
 #endif
 
   std::shared_ptr<CodeGenerator> handler;
-  msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(schema, expr_vector, ret_types,
-                                                          &handler, return_when_finish);
+  try {
+    msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(
+        schema, expr_vector, ret_types, &handler, return_when_finish);
+  } catch (const std::runtime_error& error) {
+    env->ThrowNew(unsupportedoperation_exception_class, error.what());
+  } catch (const std::exception& error) {
+    env->ThrowNew(io_exception_class, error.what());
+  }
   if (!msg.ok()) {
     std::string error_message =
         "nativeBuild: failed to create CodeGenerator, err msg is " + msg.message();
@@ -346,8 +355,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinis
   }
 
   std::shared_ptr<CodeGenerator> handler;
-  msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(
-      schema, expr_vector, ret_types, &handler, true, finish_expr_vector);
+  try {
+    msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(
+        schema, expr_vector, ret_types, &handler, true, finish_expr_vector);
+  } catch (const std::runtime_error& error) {
+    env->ThrowNew(unsupportedoperation_exception_class, error.what());
+  } catch (const std::exception& error) {
+    env->ThrowNew(io_exception_class, error.what());
+  }
   if (!msg.ok()) {
     std::string error_message =
         "nativeBuild: failed to create CodeGenerator, err msg is " + msg.message();

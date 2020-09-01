@@ -112,9 +112,12 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
          << child_visitor_list[1]->GetResult() << " - 1)), "
          << child_visitor_list[2]->GetResult() << ")";
       check_str_ = child_visitor_list[0]->GetPreCheck();
-    } else {
+    } else if (func_name.find("cast") != std::string::npos) {
       ss << child_visitor_list[0]->GetResult();
       check_str_ = child_visitor_list[0]->GetPreCheck();
+    } else {
+      return arrow::Status::NotImplemented(func_name +
+                                           " is not currently support inside condition.");
     }
   }
   codes_str_ = ss.str();

@@ -98,10 +98,15 @@ class HashAggregateKernel::Impl {
     auto status = LoadLibrary(signature_, ctx_, &hash_aggregater_);
     if (!status.ok()) {
       // process
-      auto codes = ProduceCodes();
-      // compile codes
-      RETURN_NOT_OK(CompileCodes(codes, signature_));
-      RETURN_NOT_OK(LoadLibrary(signature_, ctx_, &hash_aggregater_));
+      try {
+        auto codes = ProduceCodes();
+        // compile codes
+        RETURN_NOT_OK(CompileCodes(codes, signature_));
+        RETURN_NOT_OK(LoadLibrary(signature_, ctx_, &hash_aggregater_));
+      } catch (const std::runtime_error& error) {
+        FileSpinUnLock(file_lock);
+        throw error;
+      }
     }
     FileSpinUnLock(file_lock);
     return arrow::Status::OK();

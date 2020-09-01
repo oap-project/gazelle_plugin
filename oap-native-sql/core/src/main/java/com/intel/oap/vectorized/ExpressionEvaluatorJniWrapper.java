@@ -68,7 +68,7 @@ public class ExpressionEvaluatorJniWrapper {
          *         closeProjector() methods
          */
         native long nativeBuild(byte[] schemaBuf, byte[] exprListBuf, byte[] resSchemaBuf, boolean finishReturn)
-                        throws RuntimeException;
+                        throws RuntimeException, IOException;
 
         /**
          * Generates the projector module to evaluate the expressions with custom
@@ -86,7 +86,7 @@ public class ExpressionEvaluatorJniWrapper {
          *         closeProjector() methods
          */
         native long nativeBuildWithFinish(byte[] schemaBuf, byte[] exprListBuf, byte[] finishExprListBuf)
-                        throws RuntimeException;
+                        throws RuntimeException, IOException;
 
         /**
          * Set return schema for this expressionTree.

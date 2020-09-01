@@ -6,8 +6,10 @@ import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.control.NonFatal
 import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.{broadcast, SparkException}
+import org.apache.spark.rdd.RDD
 import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
+import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
 import org.apache.spark.sql.execution.{SparkPlan, SQLExecution}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
@@ -22,6 +24,7 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
     extends BroadcastExchangeExec(mode, child) {
 
   override def supportsColumnar = true
+  override def output: Seq[Attribute] = child.output
 
   override lazy val metrics = Map(
     "dataSize" -> SQLMetrics.createSizeMetric(sparkContext, "data size"),
@@ -126,6 +129,13 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
           throw e
       }
     }
+  }
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBroadcastExchangeExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarBroadcastExchangeExec =>
+      (that canEqual this) && super.equals(that)
+    case _ => false
   }
 
 }

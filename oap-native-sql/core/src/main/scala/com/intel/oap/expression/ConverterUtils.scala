@@ -39,6 +39,7 @@ import org.apache.arrow.vector.ipc.message.{
   MessageSerializer,
   MessageChannelReader
 }
+import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.gandiva.expression._
@@ -312,7 +313,7 @@ object ConverterUtils extends Logging {
     }
   }
 
-  def getColumnarFuncNode(expr: Expression): TreeNode = {
+  def getColumnarFuncNode(expr: Expression): (TreeNode, ArrowType) = {
     if (expr.isInstanceOf[AttributeReference] && expr
           .asInstanceOf[AttributeReference]
           .name == "none") {
@@ -322,9 +323,7 @@ object ConverterUtils extends Logging {
     var columnarExpr: Expression =
       ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
     var inputList: java.util.List[Field] = Lists.newArrayList()
-    val (node, _resultType) =
-      columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(inputList)
-    node
+    columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(inputList)
   }
 
   def ifEquals(left: Seq[AttributeReference], right: Seq[NamedExpression]): Boolean = {

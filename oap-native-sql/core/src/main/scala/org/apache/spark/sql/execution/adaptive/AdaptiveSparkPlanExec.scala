@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.adaptive
 
+import com.intel.oap.execution.RowToArrowColumnarExec
+
 import java.util
 import java.util.concurrent.LinkedBlockingQueue
 
@@ -404,11 +406,16 @@ case class AdaptiveSparkPlanExec(
               child.child
             case child: ColumnarToRowExec =>
               child.child
-            case _ =>
-              b.child
+            case child => {
+              if (child.supportsColumnar) {
+                b.child
+              } else {
+                RowToArrowColumnarExec(child)
+              }
+            }
           }
           val columnarExchange = new ColumnarBroadcastExchangeExec(b.mode, columnarExchangeChild)
-          new ColumnarBroadcastQueryStageExec(currentStageId, columnarExchange)
+          BroadcastQueryStageExec(currentStageId, columnarExchange)
         } else {
           BroadcastQueryStageExec(currentStageId, optimizedPlanWithExchange)
         }

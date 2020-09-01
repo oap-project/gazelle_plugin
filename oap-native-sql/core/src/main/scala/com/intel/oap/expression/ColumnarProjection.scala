@@ -53,6 +53,7 @@ class ColumnarProjection (
   skipLiteral: Boolean = false,
   renameResult: Boolean = false) extends AutoCloseable with Logging {
   // build gandiva projection here.
+  //System.out.println(s"originalInputAttributes is ${originalInputAttributes}, exprs is ${exprs.toList}")
   //////////////// Project original input to aggregate input //////////////////
   var projector : Projector = null
   var inputList : java.util.List[Field] = Lists.newArrayList()
@@ -100,7 +101,7 @@ class ColumnarProjection (
     }),
     new Schema(inputFieldList.asJava))
   }
-  logInfo(s"Project input ordinal is ${ordinalList}, Schema is ${arrowSchema}")
+  //System.out.println(s"Project input ordinal is ${ordinalList}, Schema is ${arrowSchema}")
   val outputArrowSchema = new Schema(resultAttributes.map(attr => {
     Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
   }).asJava)

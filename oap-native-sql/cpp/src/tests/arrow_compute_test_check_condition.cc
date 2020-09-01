@@ -199,9 +199,9 @@ TEST(TestArrowComputeCondition, check0) {
   std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
   int func_count = 0;
   std::vector<std::string> input_list;
-  MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
+  ASSERT_NOT_OK(MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
                          &func_count, &input_list, &left_out_index_list,
-                         &right_out_index_list, &func_node_visitor);
+                         &right_out_index_list, &func_node_visitor));
 
   auto func_str = R"(
 inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -276,9 +276,9 @@ TEST(TestArrowComputeCondition, check1) {
   std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
   int func_count = 0;
   std::vector<std::string> input_list;
-  MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
+  ASSERT_NOT_OK(MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
                          &func_count, &input_list, &left_out_index_list,
-                         &right_out_index_list, &func_node_visitor);
+                         &right_out_index_list, &func_node_visitor));
 
   auto func_str = R"(
 inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -352,9 +352,9 @@ TEST(TestArrowComputeCondition, check2) {
   std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
   int func_count = 0;
   std::vector<std::string> input_list;
-  MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
+  ASSERT_NOT_OK(MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
                          &func_count, &input_list, &left_out_index_list,
-                         &right_out_index_list, &func_node_visitor);
+                         &right_out_index_list, &func_node_visitor));
 
   auto func_str = R"(
 inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -432,9 +432,9 @@ TEST(TestArrowComputeCondition, check3) {
   std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
   int func_count = 0;
   std::vector<std::string> input_list;
-  MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
+  ASSERT_NOT_OK(MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
                          &func_count, &input_list, &left_out_index_list,
-                         &right_out_index_list, &func_node_visitor);
+                         &right_out_index_list, &func_node_visitor));
 
   auto func_str = R"(
 inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -511,9 +511,9 @@ TEST(TestArrowComputeCondition, check4) {
   std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
   int func_count = 0;
   std::vector<std::string> input_list;
-  MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
+  ASSERT_NOT_OK(MakeCodeGenNodeVisitor(func_node, {schema_table_0->fields(), schema_table_1->fields()},
                          &func_count, &input_list, &left_out_index_list,
-                         &right_out_index_list, &func_node_visitor);
+                         &right_out_index_list, &func_node_visitor));
 
   auto func_str = R"(
 inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -536,6 +536,82 @@ return )" + func_node_visitor->GetResult() +
                                     false, false, false, false, true,  true};
   ASSERT_NOT_EQUAL(expected_res, res);
 }
+
+TEST(TestArrowComputeCondition, check5) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto table0_f0 = field("table0_f0", utf8());
+  auto table0_f1 = field("table0_f1", uint32());
+  auto table0_f2 = field("table0_f2", uint32());
+  auto table1_f0 = field("table1_f0", uint32());
+  auto table1_f1 = field("table1_f1", uint64());
+
+  auto func_node_0 = TreeExprBuilder::MakeFunction(
+      "add",
+      {TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
+      arrow::uint64());
+  auto func_node_1 = TreeExprBuilder::MakeFunction(
+      "greater_than", {func_node_0, TreeExprBuilder::MakeField(table1_f1)},
+      arrow::boolean());
+  auto func_node_2 = TreeExprBuilder::MakeInExpressionString(
+      TreeExprBuilder::MakeField(table0_f0), {"BJ", "SH", "WH", "HZ"});
+  auto func_node = TreeExprBuilder::MakeAnd({func_node_1, func_node_2});
+  auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
+  auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
+  ///////////////////// Calculation //////////////////
+  std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
+  std::shared_ptr<arrow::RecordBatch> table_1;
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+
+  std::vector<std::string> input_data_string = {R"(["BJ", "SH", "SZ", "HZ", "NB", "AU"])",
+                                                "[null, 3, 8, 2, 13, 11]",
+                                                R"([1, 5, 9, 7, 0, null])"};
+  MakeInputBatch(input_data_string, schema_table_0, &input_batch);
+  table_0.push_back(input_batch);
+
+  input_data_string = {R"(["TY", "LA", "SZ", "HZ", "BJ", "HZ"])",
+                       "[6, 12, 5, 8, 16, 110]", R"([null, 3, 2, 2, 3, 1])"};
+  MakeInputBatch(input_data_string, schema_table_0, &input_batch);
+  table_0.push_back(input_batch);
+
+  std::vector<std::string> input_data_2_string = {
+      "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]",
+      "[1, 2, 3, null, 5, 6, 7, 8, 9, 10, 11, 12]"};
+  MakeInputBatch(input_data_2_string, schema_table_1, &table_1);
+
+  //////////////////////// data prepared /////////////////////////
+
+  std::vector<int> left_out_index_list;
+  std::vector<int> right_out_index_list;
+  std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
+  int func_count = 0;
+  std::vector<std::string> input_list;
+  auto status = MakeCodeGenNodeVisitor(
+      func_node, {schema_table_0->fields(), schema_table_1->fields()}, &func_count,
+      &input_list, &left_out_index_list, &right_out_index_list, &func_node_visitor);
+  assert(status != arrow::Status::OK());
+
+  /*auto func_str = R"(
+inline bool ConditionCheck(ArrayItemIndex x, int y) {
+)" + func_node_visitor->GetPrepare() +
+                  R"(
+return )" + func_node_visitor->GetResult() +
+                  R"(;
+})";
+
+  std::string prepare_str;
+  std::string define_str;
+  ProduceVars(schema_table_0, schema_table_1, &prepare_str, &define_str);
+  auto codes = ProduceCodes(func_str, define_str, prepare_str);
+  void (*Function)(std::vector<std::shared_ptr<arrow::RecordBatch>>,
+                   std::shared_ptr<arrow::RecordBatch>);
+  ASSERT_NOT_OK(CompileCodes(codes, "condition_check_5"));
+  std::vector<bool> res;
+  ASSERT_NOT_OK(ExecFunction("condition_check_5", table_0, table_1, &res));
+  std::vector<bool> expected_res = {false, true,  false, false, false, false,
+                                    false, false, false, false, true,  true};
+  ASSERT_NOT_EQUAL(expected_res, res);*/
+}
+
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen
