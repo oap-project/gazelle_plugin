@@ -43,18 +43,11 @@ class ColumnarRound(child: Expression, scale: Expression, original: Expression)
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     val (scale_node, scaleType): (TreeNode, ArrowType) =
       scale.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    //TODO(): get precision and scale from decimal
-    val precision = 8
-    val decimalScale = 2
-    val castNode = TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node),
-      new ArrowType.Decimal(precision, decimalScale))
-    val funcNode = TreeBuilder.makeFunction("round", Lists.newArrayList(castNode, scale_node),
-      new ArrowType.Decimal(precision, decimalScale))
 
     val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
-    val castFloat = TreeBuilder.makeFunction("castFLOAT8",
-      Lists.newArrayList(funcNode), resultType)
-    (castFloat, resultType)
+    val funcNode = TreeBuilder.makeFunction("round",
+      Lists.newArrayList(child_node, scale_node), resultType)
+    (funcNode, resultType)
   }
 }
 
