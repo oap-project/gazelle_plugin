@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "shuffle/splitter.h"
+
+#include <gandiva/node.h>
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
+
 #include <memory>
 #include <utility>
-
-#include "shuffle/splitter.h"
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
@@ -103,11 +105,11 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
         // null bitmap may be nullptr
         src_addr[column_type_id_[i]].push_back(
             {.validity_addr = dummy_buf_p,
-                .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
+             .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
       } else {
         src_addr[column_type_id_[i]].push_back(
             {.validity_addr = const_cast<uint8_t*>(buffers[0]->data()),
-                .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
+             .value_addr = const_cast<uint8_t*>(buffers[1]->data())});
       }
     }
   }
@@ -125,16 +127,16 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb,
     }                                                                                \
   }
 
-#define WRITE_DECIMAL                                                         \
-  if (!src_addr[Type::SHUFFLE_DECIMAL128].empty()) {                          \
-    for (i = read_offset; i < num_rows; ++i) {                                \
-      ARROW_ASSIGN_OR_RAISE(auto result,                                      \
+#define WRITE_DECIMAL                                                          \
+  if (!src_addr[Type::SHUFFLE_DECIMAL128].empty()) {                           \
+    for (i = read_offset; i < num_rows; ++i) {                                 \
+      ARROW_ASSIGN_OR_RAISE(auto result,                                       \
                             partition_writer_[writer_idx[i]]->WriteDecimal128( \
-                                src_addr[Type::SHUFFLE_DECIMAL128], i))       \
-      if (!result) {                                                          \
-        break;                                                                \
-      }                                                                       \
-    }                                                                         \
+                                src_addr[Type::SHUFFLE_DECIMAL128], i))        \
+      if (!result) {                                                           \
+        break;                                                                 \
+      }                                                                        \
+    }                                                                          \
   }
 
 #define WRITE_BINARY(func, T, src_arr)                                          \
@@ -248,9 +250,32 @@ arrow::Status HashSplitter::CreateProjector(
   // same seed as spark's
   auto hash = gandiva::TreeExprBuilder::MakeLiteral((int32_t)42);
   for (const auto& expr : expr_vector) {
-    if (!expr->result()->type()->Equals(arrow::null())) {
-      hash = gandiva::TreeExprBuilder::MakeFunction("hash32", {expr->root(), hash},
-                                                    arrow::int32());
+    switch (expr->root()->return_type()->id()) {
+      case arrow::NullType::type_id:
+        break;
+      case arrow::BooleanType::type_id:
+      case arrow::Int8Type::type_id:
+      case arrow::Int16Type::type_id:
+      case arrow::Int32Type::type_id:
+      case arrow::FloatType::type_id:
+      case arrow::Date32Type::type_id:
+        hash = gandiva::TreeExprBuilder::MakeFunction(
+            "hash32_spark", {expr->root(), hash}, arrow::int32());
+        break;
+      case arrow::Int64Type::type_id:
+      case arrow::DoubleType::type_id:
+        hash = gandiva::TreeExprBuilder::MakeFunction(
+            "hash64_spark", {expr->root(), hash}, arrow::int32());
+        break;
+      case arrow::StringType::type_id:
+        hash = gandiva::TreeExprBuilder::MakeFunction(
+            "hashbuf_spark", {expr->root(), hash}, arrow::int32());
+        break;
+      default:
+        hash = gandiva::TreeExprBuilder::MakeFunction("hash32", {expr->root(), hash},
+                                                      arrow::int32());
+        /*return arrow::Status::NotImplemented("HashSplitter::CreateProjector doesn't
+           support type ", expr->result()->type()->ToString());*/
     }
   }
   auto hash_expr =

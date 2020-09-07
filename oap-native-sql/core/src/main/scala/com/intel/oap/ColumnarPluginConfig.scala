@@ -33,7 +33,7 @@ class ColumnarPluginConfig(conf: SparkConf) {
   val enableJoinOptimizationReplace: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.joinOptimizationReplace", defaultValue = false)
   val joinOptimizationThrottle: Integer =
-    conf.getInt("spark.oap.sql.columnar.joinOptimizationLevel", defaultValue = 9)
+    conf.getInt("spark.oap.sql.columnar.joinOptimizationLevel", defaultValue = 6)
   val enableColumnarShuffle: Boolean = conf
     .get("spark.shuffle.manager", "sort")
     .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager")
