@@ -52,7 +52,6 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
   override def sparkConf: SparkConf =
     super.sparkConf
       .setAppName("test ColumnarShuffleWriter")
-      .set("spark.file.transferTo", "true")
       .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
 
@@ -87,10 +86,14 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
       new NativePartitioning("rr", numPartitions, ConverterUtils.getSchemaBytesBuf(schema)))
     when(dependency.dataSize)
       .thenReturn(SQLMetrics.createSizeMetric(spark.sparkContext, "data size"))
+    when(dependency.bytesSpilled)
+      .thenReturn(SQLMetrics.createSizeMetric(spark.sparkContext, "shuffle bytes spilled"))
     when(dependency.numInputRows)
       .thenReturn(SQLMetrics.createMetric(spark.sparkContext, "number of input rows"))
     when(dependency.splitTime)
       .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_split"))
+    when(dependency.spillTime)
+      .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_spill"))
     when(dependency.computePidTime)
       .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_computepid"))
     when(taskContext.taskMetrics()).thenReturn(taskMetrics)

@@ -75,35 +75,6 @@ class RepartitionSuite extends QueryTest with SharedSparkSession {
   def withRepartition: (DataFrame => DataFrame) => Unit = withInput(input)(None, _)
 }
 
-class SmallDataRepartitionSuite extends RepartitionSuite {
-  import testImplicits._
-
-  test("round robin partitioning") {
-    withRepartition(df => df.repartition(2))
-  }
-
-  test("hash partitioning") {
-    withRepartition(df => df.repartition('id))
-  }
-
-  test("range partitioning") {
-    withRepartition(df => df.repartitionByRange('id))
-  }
-
-  ignore("cached repartiiton") {
-    val data = input.cache.repartition(2)
-
-    val found = data.queryExecution.executedPlan.collect {
-      case cache: InMemoryTableScanExec => 1
-      case c2r: ColumnarToRowExec => 10
-      case exc: ColumnarShuffleExchangeExec => 100
-    }.sum
-    assert(found == 111)
-
-    checkAnswer(data, input)
-  }
-}
-
 class TPCHTableRepartitionSuite extends RepartitionSuite {
   import testImplicits._
 
@@ -135,7 +106,9 @@ class TPCHTableRepartitionSuite extends RepartitionSuite {
   }
 }
 
-class DisableColumnarShuffleSuite extends SmallDataRepartitionSuite {
+class DisableColumnarShuffleSuite extends RepartitionSuite {
+  import testImplicits._
+
   override def sparkConf: SparkConf = {
     super.sparkConf
       .set("spark.shuffle.manager", "sort")
@@ -144,14 +117,23 @@ class DisableColumnarShuffleSuite extends SmallDataRepartitionSuite {
 
   override def checkCoulumnarExec(data: DataFrame) = {
     val found = data.queryExecution.executedPlan
-      .collect {
-        case c2r: ColumnarToRowExec => 1
-        case col: ColumnarShuffleExchangeExec => 10
-        case row: ShuffleExchangeExec => 100
+      .collectFirst {
+        case exc: ColumnarShuffleExchangeExec => exc
       }
-      .distinct
-      .sum
-    assert(found == 101)
+    data.explain
+    assert(found.isEmpty)
+  }
+
+  test("round robin partitioning") {
+    withRepartition(df => df.repartition(2))
+  }
+
+  test("hash partitioning") {
+    withRepartition(df => df.repartition('id))
+  }
+
+  test("range partitioning") {
+    withRepartition(df => df.repartitionByRange('id))
   }
 }
 
@@ -195,9 +177,8 @@ class AdaptiveQueryExecRepartitionSuite extends TPCHTableRepartitionSuite {
 }
 
 class ReuseExchangeSuite extends RepartitionSuite {
-  val filePath = getClass.getClassLoader
-    .getResource("part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet")
-    .getFile
+  val filePath = getTestResourcePath(
+    "test-data/part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet")
 
   override lazy val input = spark.read.parquet(filePath)
 

@@ -17,14 +17,15 @@
 
 #pragma once
 
+#include <iomanip>
+#include <sstream>
+
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
 #include <arrow/filesystem/path_util.h>
 #include <arrow/util/io_util.h>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include <iomanip>
-#include <sstream>
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
@@ -34,27 +35,13 @@ static std::string GenerateUUID() {
   return boost::uuids::to_string(generator());
 }
 
-static arrow::Result<std::string> CreateTempShuffleFile(
-    const std::shared_ptr<arrow::fs::LocalFileSystem>& fs,
+static arrow::Result<std::string> GetSpilledShuffleFileDir(
     const std::string& configured_dir, int32_t sub_dir_id) {
+  auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
   std::stringstream ss;
   ss << std::setfill('0') << std::setw(2) << std::hex << sub_dir_id;
   auto dir = arrow::fs::internal::ConcatAbstractPath(configured_dir, ss.str());
-  RETURN_NOT_OK(fs->CreateDir(dir));
-
-  bool exist = true;
-  std::string file_path;
-  while (exist) {
-    file_path =
-        arrow::fs::internal::ConcatAbstractPath(dir, "temp_shuffle_" + GenerateUUID());
-    ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(file_path));
-    if (file_info.type() == arrow::fs::FileType::NotFound) {
-      exist = false;
-      ARROW_ASSIGN_OR_RAISE(auto s, fs->OpenOutputStream(file_path));
-      RETURN_NOT_OK(s->Close());
-    }
-  }
-  return file_path;
+  return dir;
 }
 
 static arrow::Result<std::vector<std::string>> GetConfiguredLocalDirs() {
@@ -83,7 +70,33 @@ static arrow::Result<std::vector<std::string>> GetConfiguredLocalDirs() {
   }
 }
 
-static arrow::ipc::IpcWriteOptions GetIpcWriteOptions(
+static arrow::Result<std::string> CreateTempShuffleFile(const std::string& dir) {
+  if (dir.length() == 0) {
+    return arrow::Status::Invalid("Failed to create spilled file, got empty path.");
+  }
+
+  auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
+  ARROW_ASSIGN_OR_RAISE(auto path_info, fs->GetFileInfo(dir));
+  if (path_info.type() == arrow::fs::FileType::NotFound) {
+    RETURN_NOT_OK(fs->CreateDir(dir, true));
+  }
+
+  bool exist = true;
+  std::string file_path;
+  while (exist) {
+    file_path =
+        arrow::fs::internal::ConcatAbstractPath(dir, "temp_shuffle_" + GenerateUUID());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(file_path));
+    if (file_info.type() == arrow::fs::FileType::NotFound) {
+      exist = false;
+      ARROW_ASSIGN_OR_RAISE(auto s, fs->OpenOutputStream(file_path));
+      RETURN_NOT_OK(s->Close());
+    }
+  }
+  return file_path;
+}
+
+static arrow::ipc::IpcWriteOptions SplitterIpcWriteOptions(
     arrow::Compression::type compression) {
   auto options = arrow::ipc::IpcWriteOptions::Defaults();
   options.compression = compression;

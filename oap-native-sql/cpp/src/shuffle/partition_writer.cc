@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-#include <arrow/array.h>
-#include <arrow/io/file.h>
-#include <arrow/ipc/options.h>
-#include <arrow/ipc/writer.h>
-#include <arrow/record_batch.h>
 #include <chrono>
 #include <memory>
 
+#include <arrow/array.h>
+#include <arrow/io/file.h>
+#include <arrow/ipc/api.h>
+#include <arrow/record_batch.h>
+
 #include "shuffle/partition_writer.h"
 #include "shuffle/utils.h"
-#include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
 
 arrow::Result<std::shared_ptr<PartitionWriter>> PartitionWriter::Create(
-    int32_t pid, int64_t capacity, Type::typeId last_type,
-    const std::vector<Type::typeId>& column_type_id,
-    const std::shared_ptr<arrow::Schema>& schema, const std::string& temp_file_path,
-    arrow::Compression::type compression_type) {
+    int32_t partition_id, int64_t capacity, arrow::Compression::type compression_type,
+    Type::typeId last_type, const std::vector<Type::typeId>& column_type_id,
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::shared_ptr<arrow::io::FileOutputStream>& data_file_os,
+    std::string spilled_file_dir) {
   auto buffers = TypeBufferInfos(Type::NUM_TYPES);
   auto binary_bulders = BinaryBuilders();
   auto large_binary_bulders = LargeBinaryBuilders();
@@ -78,33 +78,93 @@ arrow::Result<std::shared_ptr<PartitionWriter>> PartitionWriter::Create(
       } break;
     }
   }
-
-  ARROW_ASSIGN_OR_RAISE(auto file_os,
-                        arrow::io::FileOutputStream::Open(temp_file_path, true));
-
   return std::make_shared<PartitionWriter>(
-      pid, capacity, last_type, column_type_id, schema, std::move(file_os),
-      std::move(buffers), std::move(binary_bulders), std::move(large_binary_bulders),
-      compression_type);
+      partition_id, capacity, compression_type, last_type, column_type_id, schema,
+      data_file_os, std::move(spilled_file_dir), std::move(buffers),
+      std::move(binary_bulders), std::move(large_binary_bulders));
 }
 
 arrow::Status PartitionWriter::Stop() {
-  if (write_offset_[last_type_] != 0) {
-    TIME_NANO_OR_RAISE(write_time_, WriteArrowRecordBatch());
-    std::fill(std::begin(write_offset_), std::end(write_offset_), 0);
+  auto start_write = std::chrono::steady_clock::now();
+  ARROW_ASSIGN_OR_RAISE(auto before_write, data_file_os_->Tell());
+
+  if (spilled_file_.length() != 0) {
+    ARROW_ASSIGN_OR_RAISE(
+        auto spilled_file_is_,
+        arrow::io::MemoryMappedFile::Open(spilled_file_, arrow::io::FileMode::READ));
+    // copy spilled data blocks
+    ARROW_ASSIGN_OR_RAISE(auto nbytes, spilled_file_is_->GetSize());
+    ARROW_ASSIGN_OR_RAISE(auto buffer, spilled_file_is_->Read(nbytes));
+    RETURN_NOT_OK(data_file_os_->Write(buffer));
+
+    // close spilled file streams and delete the file
+    RETURN_NOT_OK(spilled_file_os_->Close());
+    RETURN_NOT_OK(spilled_file_is_->Close());
+    auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
+    RETURN_NOT_OK(fs->DeleteFile(spilled_file_));
+    bytes_spilled_ += nbytes;
+
+    // write last record batch if it's not null
+    ARROW_ASSIGN_OR_RAISE(auto batch, MakeRecordBatchAndReset());
+    if (batch != nullptr) {
+      int32_t metadata_length;
+      int64_t body_length;
+      RETURN_NOT_OK(arrow::ipc::WriteRecordBatch(
+          *batch, 0, data_file_os_.get(), &metadata_length, &body_length,
+          SplitterIpcWriteOptions(compression_type_)));
+    }
+    // write EOS
+    constexpr int32_t kZeroLength = 0;
+    RETURN_NOT_OK(data_file_os_->Write(&kIpcContinuationToken, sizeof(int32_t)));
+    RETURN_NOT_OK(data_file_os_->Write(&kZeroLength, sizeof(int32_t)));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(
+        auto data_file_writer,
+        arrow::ipc::NewStreamWriter(data_file_os_.get(), schema_,
+                                    SplitterIpcWriteOptions(compression_type_)));
+    // write last record batch, it is the only batch to write so it can't be null
+    ARROW_ASSIGN_OR_RAISE(auto batch, MakeRecordBatchAndReset());
+    if (batch == nullptr) {
+      return arrow::Status::Invalid("Partition writer got empty partition");
+    }
+    RETURN_NOT_OK(data_file_writer->WriteRecordBatch(*batch));
+    // write EOS
+    RETURN_NOT_OK(data_file_writer->Close());
   }
-  if (file_writer_opened_) {
-    RETURN_NOT_OK(file_writer_->Close());
-    file_writer_opened_ = false;
-  }
-  if (!file_os_->closed()) {
-    ARROW_ASSIGN_OR_RAISE(file_footer_, file_os_->Tell());
-    return file_os_->Close();
+
+  ARROW_ASSIGN_OR_RAISE(auto after_write, data_file_os_->Tell());
+  partition_length_ = after_write - before_write;
+
+  auto end_write = std::chrono::steady_clock::now();
+  write_time_ +=
+      std::chrono::duration_cast<std::chrono::nanoseconds>(end_write - start_write)
+          .count();
+
+  return arrow::Status::OK();
+}
+
+arrow::Status PartitionWriter::Spill() {
+  ARROW_ASSIGN_OR_RAISE(auto batch, MakeRecordBatchAndReset());
+  if (batch != nullptr) {
+    if (spilled_file_.length() == 0) {
+      ARROW_ASSIGN_OR_RAISE(spilled_file_, CreateTempShuffleFile(spilled_file_dir_));
+      ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
+                            arrow::io::FileOutputStream::Open(spilled_file_, true));
+      ARROW_ASSIGN_OR_RAISE(
+          spilled_file_writer_,
+          arrow::ipc::NewStreamWriter(spilled_file_os_.get(), schema_,
+                                      SplitterIpcWriteOptions(compression_type_)))
+    }
+    RETURN_NOT_OK(spilled_file_writer_->WriteRecordBatch(*batch));
   }
   return arrow::Status::OK();
 }
 
-arrow::Status PartitionWriter::WriteArrowRecordBatch() {
+arrow::Result<std::shared_ptr<arrow::RecordBatch>>
+PartitionWriter::MakeRecordBatchAndReset() {
+  if (write_offset_[last_type_] == 0) {
+    return nullptr;
+  }
   std::vector<std::shared_ptr<arrow::Array>> arrays(schema_->num_fields());
   for (int i = 0; i < schema_->num_fields(); ++i) {
     auto type_id = column_type_id_[i];
@@ -129,19 +189,10 @@ arrow::Status PartitionWriter::WriteArrowRecordBatch() {
       buffers_[type_id].push_back(std::move(buf_info_ptr));
     }
   }
-  auto record_batch =
-      arrow::RecordBatch::Make(schema_, write_offset_[last_type_], std::move(arrays));
-
-  if (!file_writer_opened_) {
-    auto res = arrow::ipc::NewStreamWriter(file_os_.get(), schema_,
-                                           GetIpcWriteOptions(compression_type_));
-    RETURN_NOT_OK(res.status());
-    file_writer_ = *res;
-    file_writer_opened_ = true;
-  }
-  RETURN_NOT_OK(file_writer_->WriteRecordBatch(*record_batch));
-
-  return arrow::Status::OK();
+  auto rb = std::move(
+      arrow::RecordBatch::Make(schema_, write_offset_[last_type_], std::move(arrays)));
+  std::fill(std::begin(write_offset_), std::end(write_offset_), 0);
+  return rb;
 }
 
 }  // namespace shuffle
