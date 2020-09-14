@@ -35,7 +35,7 @@ namespace extra {
 class KernalBase {
  public:
   KernalBase() {}
-  ~KernalBase() {}
+  virtual ~KernalBase() {}
   virtual arrow::Status Evaluate(const ArrayList& in) {
     return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
                                          kernel_name_, ", input is arrayList.");

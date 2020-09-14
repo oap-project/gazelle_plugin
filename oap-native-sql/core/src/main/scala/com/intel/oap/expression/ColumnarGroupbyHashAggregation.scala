@@ -470,9 +470,13 @@ object ColumnarGroupbyHashAggregation extends Logging {
             res_index += 2
           }
           case PartialMerge => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            aggregateAttr += aggregateAttributeList(res_index + 1)
-            res_index += 2
+            val avg = aggregateFunc.asInstanceOf[Average]
+            val aggBufferAttr = avg.inputAggBufferAttributes
+            for (index <- 0 until aggBufferAttr.size) {
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+              aggregateAttr += attr
+            }
+            res_index += 1
           }
           case Final => {
             aggregateAttr += aggregateAttributeList(res_index)

@@ -95,6 +95,8 @@ class SplitArrayListWithActionKernel::Impl {
         RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], &action));
       } else if (action_name_list_[action_id].compare("action_sum_count") == 0) {
         RETURN_NOT_OK(MakeSumCountAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list_[action_id].compare("action_sum_count_merge") == 0) {
+        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, type_list[type_id], &action));
       } else if (action_name_list_[action_id].compare("action_avgByCount") == 0) {
         RETURN_NOT_OK(MakeAvgByCountAction(ctx_, type_list[type_id], &action));
       } else if (action_name_list_[action_id].compare(0, 20, "action_countLiteral_") ==
@@ -1106,7 +1108,8 @@ class StddevSampFinalArrayKernel::Impl {
     std::shared_ptr<arrow::Array> stddev_samp_out;
     std::shared_ptr<arrow::Scalar> stddev_samp_scalar_out;
     if (cnt_res - 1 < 0.00001) {
-      double stddev_samp = std::numeric_limits<double>::quiet_NaN();
+      //double stddev_samp = std::numeric_limits<double>::quiet_NaN();
+      double stddev_samp = std::numeric_limits<double>::infinity();
       stddev_samp_scalar_out = arrow::MakeScalar(stddev_samp);
     } else if (cnt_res < 0.00001) {
       stddev_samp_scalar_out = MakeNullScalar(arrow::float64());
@@ -1186,7 +1189,7 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
     } else {
       for (; cur_id < typed_array->length(); cur_id++) {
         if (typed_array->IsNull(cur_id)) {
-          RETURN_NOT_OK(builder_->AppendNull());
+          hash_table_->GetOrInsertNull(insert_on_found, insert_on_not_found);
         } else {
           hash_table_->GetOrInsert(typed_array->GetView(cur_id), insert_on_found,
                                    insert_on_not_found, &memo_index);

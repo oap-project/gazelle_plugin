@@ -58,6 +58,8 @@ struct FindAccumulatorType<I, arrow::enable_if_floating_point<I>> {
 
 class ActionBase {
  public:
+  virtual ~ActionBase() {}
+
   virtual int RequiredColNum() { return 1; }
 
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
@@ -119,6 +121,7 @@ class UniqueAction : public ActionBase {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
+      null_flag_.resize(max_group_id + 1, false);
     }
 
     in_ = std::dynamic_pointer_cast<ArrayType>(in_list[0]);
@@ -128,9 +131,16 @@ class UniqueAction : public ActionBase {
     if (in_->null_count()) {
       *on_valid = [this](int dest_group_id) {
         const bool is_null = in_->IsNull(row_id_);
-        if (!is_null && cache_validity_[dest_group_id] == false) {
-          cache_validity_[dest_group_id] = true;
-          cache_.emplace(cache_.begin() + dest_group_id, in_->GetView(row_id_));
+        if (cache_validity_[dest_group_id] == false) {
+          if (!is_null) {
+            cache_validity_[dest_group_id] = true;
+            cache_.emplace(cache_.begin() + dest_group_id, in_->GetView(row_id_));
+          } else {
+            cache_validity_[dest_group_id] = true;
+            null_flag_[dest_group_id] = true;
+            CType num;
+            cache_.emplace(cache_.begin() + dest_group_id, num);
+          }
         }
         row_id_++;
         return arrow::Status::OK();
@@ -159,9 +169,11 @@ class UniqueAction : public ActionBase {
     auto length = GetResultLength();
     for (uint64_t i = 0; i < length; i++) {
       if (cache_validity_[i]) {
-        builder_->Append(cache_[i]);
-      } else {
-        builder_->AppendNull();
+        if (!null_flag_[i]) {
+          builder_->Append(cache_[i]);
+        } else {
+          builder_->AppendNull();
+        }
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -177,13 +189,14 @@ class UniqueAction : public ActionBase {
     // appendValues to builder_
     builder_->Reset();
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
-      } else {
-        builder_->AppendNull();
+      if (cache_validity_[i]) {
+        if (!null_flag_[offset + i]) {
+          builder_->Append(cache_[offset + i]);
+        } else {
+          builder_->AppendNull();
+        }
       }
     }
-
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
     return arrow::Status::OK();
@@ -200,6 +213,7 @@ class UniqueAction : public ActionBase {
   std::unique_ptr<BuilderType> builder_;
   std::vector<CType> cache_;
   std::vector<bool> cache_validity_;
+  std::vector<bool> null_flag_;
 };
 
 //////////////// CountAction ///////////////
@@ -228,8 +242,7 @@ class CountAction : public ActionBase {
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
-    if (cache_validity_.size() <= max_group_id) {
-      cache_validity_.resize(max_group_id + 1, false);
+    if (cache_.size() <= max_group_id) {
       cache_.resize(max_group_id + 1, 0);
     }
 
@@ -238,7 +251,6 @@ class CountAction : public ActionBase {
     // prepare evaluate lambda
     if (in_->null_count()) {
       *on_valid = [this](int dest_group_id) {
-        cache_validity_[dest_group_id] = true;
         const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
           cache_[dest_group_id] += 1;
@@ -248,7 +260,6 @@ class CountAction : public ActionBase {
       };
     } else {
       *on_valid = [this](int dest_group_id) {
-        cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += 1;
         row_id++;
         return arrow::Status::OK();
@@ -263,7 +274,11 @@ class CountAction : public ActionBase {
 
   arrow::Status Finish(ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
-    RETURN_NOT_OK(builder_->AppendValues(cache_, cache_validity_));
+    builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+        builder_->Append(cache_[i]);
+    }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
     return arrow::Status::OK();
@@ -275,11 +290,7 @@ class CountAction : public ActionBase {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
-      } else {
-        builder_->AppendNull();
-      }
+      builder_->Append(cache_[offset + i]);
     }
 
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -297,7 +308,6 @@ class CountAction : public ActionBase {
   // result
   using CType = typename arrow::TypeTraits<DataType>::CType;
   std::vector<CType> cache_;
-  std::vector<bool> cache_validity_;
   std::unique_ptr<ResBuilderType> builder_;
 };
 
@@ -328,14 +338,12 @@ class CountLiteralAction : public ActionBase {
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
-    if (cache_validity_.size() <= max_group_id) {
-      cache_validity_.resize(max_group_id + 1, false);
+    if (cache_.size() <= max_group_id) {
       cache_.resize(max_group_id + 1, 0);
     }
 
     // prepare evaluate lambda
     *on_valid = [this](int dest_group_id) {
-      cache_validity_[dest_group_id] = true;
       cache_[dest_group_id] += arg_;
       return arrow::Status::OK();
     };
@@ -346,7 +354,11 @@ class CountLiteralAction : public ActionBase {
 
   arrow::Status Finish(ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
-    RETURN_NOT_OK(builder_->AppendValues(cache_, cache_validity_));
+    builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+        builder_->Append(cache_[i]);
+    }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
 
@@ -359,11 +371,7 @@ class CountLiteralAction : public ActionBase {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
-      } else {
-        builder_->AppendNull();
-      }
+      builder_->Append(cache_[offset + i]);
     }
 
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -380,7 +388,6 @@ class CountLiteralAction : public ActionBase {
   // result
   using CType = typename arrow::TypeTraits<DataType>::CType;
   std::vector<CType> cache_;
-  std::vector<bool> cache_validity_;
   std::unique_ptr<ResBuilderType> builder_;
 };
 
@@ -394,9 +401,9 @@ class MinAction : public ActionBase {
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
-                       arrow::TypeTraits<ResDataType>::type_singleton(), &array_builder);
+                       arrow::TypeTraits<DataType>::type_singleton(), &array_builder);
     builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~MinAction() {
 #ifdef DEBUG
@@ -423,10 +430,10 @@ class MinAction : public ActionBase {
       *on_valid = [this](int dest_group_id) {
         if (!cache_validity_[dest_group_id]) {
           cache_[dest_group_id] = data_[row_id];
-          cache_validity_[dest_group_id] = true;
         }
         const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
+          cache_validity_[dest_group_id] = true;
           if (data_[row_id] < cache_[dest_group_id]) {
             cache_[dest_group_id] = data_[row_id];
           }
@@ -483,19 +490,17 @@ class MinAction : public ActionBase {
 
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
-  using ResDataType = typename FindAccumulatorType<DataType>::Type;
-  using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
-  using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
-  using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
+  using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+  
   // input
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
   // result
-  std::vector<ResCType> cache_;
+  std::vector<CType> cache_;
   std::vector<bool> cache_validity_;
-  std::unique_ptr<ResBuilderType> builder_;
+  std::unique_ptr<BuilderType> builder_;
 };
 
 //////////////// MaxAction ///////////////
@@ -508,9 +513,9 @@ class MaxAction : public ActionBase {
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
-                       arrow::TypeTraits<ResDataType>::type_singleton(), &array_builder);
+                       arrow::TypeTraits<DataType>::type_singleton(), &array_builder);
     builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~MaxAction() {
 #ifdef DEBUG
@@ -537,10 +542,10 @@ class MaxAction : public ActionBase {
       *on_valid = [this](int dest_group_id) {
         if (!cache_validity_[dest_group_id]) {
           cache_[dest_group_id] = data_[row_id];
-          cache_validity_[dest_group_id] = true;
         }
         const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
+          cache_validity_[dest_group_id] = true;
           if (data_[row_id] > cache_[dest_group_id]) {
             cache_[dest_group_id] = data_[row_id];
           }
@@ -597,19 +602,16 @@ class MaxAction : public ActionBase {
 
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
-  using ResDataType = typename FindAccumulatorType<DataType>::Type;
-  using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
-  using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
-  using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
+  using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
   // result
-  std::vector<ResCType> cache_;
+  std::vector<CType> cache_;
   std::vector<bool> cache_validity_;
-  std::unique_ptr<ResBuilderType> builder_;
+  std::unique_ptr<BuilderType> builder_;
 };
 
 //////////////// SumAction ///////////////
@@ -649,9 +651,9 @@ class SumAction : public ActionBase {
     row_id = 0;
     if (in_->null_count()) {
       *on_valid = [this](int dest_group_id) {
-        cache_validity_[dest_group_id] = true;
         const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
+          cache_validity_[dest_group_id] = true;
           cache_[dest_group_id] += data_[row_id];
         }
         row_id++;
@@ -845,8 +847,7 @@ class SumCountAction : public ActionBase {
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
-    if (cache_validity_.size() <= max_group_id) {
-      cache_validity_.resize(max_group_id + 1, false);
+    if (cache_sum_.size() <= max_group_id) {
       cache_sum_.resize(max_group_id + 1, 0);
       cache_count_.resize(max_group_id + 1, 0);
     }
@@ -859,7 +860,6 @@ class SumCountAction : public ActionBase {
       *on_valid = [this](int dest_group_id) {
         const bool is_null = in_->IsNull(row_id);
         if (!is_null) {
-          cache_validity_[dest_group_id] = true;
           cache_sum_[dest_group_id] += data_[row_id];
           cache_count_[dest_group_id] += 1;
         }
@@ -868,7 +868,6 @@ class SumCountAction : public ActionBase {
       };
     } else {
       *on_valid = [this](int dest_group_id) {
-        cache_validity_[dest_group_id] = true;
         cache_sum_[dest_group_id] += data_[row_id];
         cache_count_[dest_group_id] += 1;
         row_id++;
@@ -883,19 +882,20 @@ class SumCountAction : public ActionBase {
   }
 
   arrow::Status Finish(ArrayList* out) override {
-    std::shared_ptr<arrow::Array> sum_array;
+    auto length = GetResultLength();
     auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(sum_builder->AppendValues(cache_sum_, cache_validity_));
-    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
-
-    // get count
-    std::shared_ptr<arrow::Array> count_array;
     auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
-    RETURN_NOT_OK(count_builder->AppendValues(cache_count_, cache_validity_));
+    for (uint64_t i = 0; i < length; i++) {
+      RETURN_NOT_OK(sum_builder->Append(cache_sum_[i]));
+      RETURN_NOT_OK(count_builder->Append(cache_count_[i]));
+    }
+
+    std::shared_ptr<arrow::Array> sum_array;
+    std::shared_ptr<arrow::Array> count_array;
+    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
     RETURN_NOT_OK(count_builder->Finish(&count_array));
     out->push_back(sum_array);
     out->push_back(count_array);
-
     return arrow::Status::OK();
   }
 
@@ -905,13 +905,8 @@ class SumCountAction : public ActionBase {
     auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder->Append(cache_sum_[offset + i]));
-        RETURN_NOT_OK(count_builder->Append(cache_count_[offset + i]));
-      } else {
-        RETURN_NOT_OK(sum_builder->AppendNull());
-        RETURN_NOT_OK(count_builder->AppendNull());
-      }
+      RETURN_NOT_OK(sum_builder->Append(cache_sum_[offset + i]));
+      RETURN_NOT_OK(count_builder->Append(cache_count_[offset + i]));
     }
 
     std::shared_ptr<arrow::Array> sum_array;
@@ -936,7 +931,118 @@ class SumCountAction : public ActionBase {
   // result
   std::vector<double> cache_sum_;
   std::vector<int64_t> cache_count_;
-  std::vector<bool> cache_validity_;
+};
+
+//////////////// SumCountMergeAction ///////////////
+template <typename DataType>
+class SumCountMergeAction : public ActionBase {
+ public:
+  SumCountMergeAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+#ifdef DEBUG
+    std::cout << "Construct SumCountMergeAction" << std::endl;
+#endif
+  }
+  ~SumCountMergeAction() {
+#ifdef DEBUG
+    std::cout << "Destruct SumCountMergeAction" << std::endl;
+#endif
+  }
+
+  int RequiredColNum() { return 2; }
+
+  arrow::Status Submit(ArrayList in_list, int max_group_id,
+                       std::function<arrow::Status(int)>* on_valid,
+                       std::function<arrow::Status()>* on_null) override {
+    // resize result data
+    if (cache_sum_.size() <= max_group_id) {
+      cache_sum_.resize(max_group_id + 1, 0);
+      cache_count_.resize(max_group_id + 1, 0);
+    }
+
+    in_sum_ = in_list[0];
+    in_count_ = in_list[1];
+    // prepare evaluate lambda
+    data_sum_ = const_cast<double*>(in_sum_->data()->GetValues<double>(1));
+    data_count_ = const_cast<int64_t*>(in_count_->data()->GetValues<int64_t>(1));
+    row_id = 0;
+    if (in_sum_->null_count()) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_sum_->IsNull(row_id);
+        if (!is_null) {
+          cache_sum_[dest_group_id] += data_sum_[row_id];
+          cache_count_[dest_group_id] += data_count_[row_id];
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
+        cache_sum_[dest_group_id] += data_sum_[row_id];
+        cache_count_[dest_group_id] += data_count_[row_id];
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish(ArrayList* out) override {
+    auto length = GetResultLength();
+    auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
+    auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
+    for (uint64_t i = 0; i < length; i++) {
+      RETURN_NOT_OK(sum_builder->Append(cache_sum_[i]));
+      RETURN_NOT_OK(count_builder->Append(cache_count_[i]));
+    }
+
+    std::shared_ptr<arrow::Array> sum_array;
+    std::shared_ptr<arrow::Array> count_array;
+    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
+    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    out->push_back(sum_array);
+    out->push_back(count_array);
+    return arrow::Status::OK();
+  }
+
+  uint64_t GetResultLength() { return cache_sum_.size(); }
+
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
+    auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
+    for (uint64_t i = 0; i < length; i++) {
+      RETURN_NOT_OK(sum_builder->Append(cache_sum_[offset + i]));
+      RETURN_NOT_OK(count_builder->Append(cache_count_[offset + i]));
+    }
+
+    std::shared_ptr<arrow::Array> sum_array;
+    std::shared_ptr<arrow::Array> count_array;
+    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
+    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    out->push_back(sum_array);
+    out->push_back(count_array);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using CType = typename arrow::TypeTraits<DataType>::CType;
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
+  using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
+  using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  // input
+  arrow::compute::FunctionContext* ctx_;
+  double* data_sum_;
+  int64_t* data_count_;
+  int row_id;
+  std::shared_ptr<arrow::Array> in_sum_;
+  std::shared_ptr<arrow::Array> in_count_;
+  // result
+  std::vector<double> cache_sum_;
+  std::vector<int64_t> cache_count_;
 };
 
 //////////////// AvgByCountAction ///////////////
@@ -976,7 +1082,6 @@ class AvgByCountAction : public ActionBase {
       *on_valid = [this](int dest_group_id) {
         const bool is_null = in_sum_->IsNull(row_id);
         if (!is_null) {
-          cache_validity_[dest_group_id] = true;
           cache_sum_[dest_group_id] += data_sum_[row_id];
           cache_count_[dest_group_id] += data_count_[row_id];
         }
@@ -985,7 +1090,6 @@ class AvgByCountAction : public ActionBase {
       };
     } else {
       *on_valid = [this](int dest_group_id) {
-        cache_validity_[dest_group_id] = true;
         cache_sum_[dest_group_id] += data_sum_[row_id];
         cache_count_[dest_group_id] += data_count_[row_id];
         row_id++;
@@ -1002,7 +1106,12 @@ class AvgByCountAction : public ActionBase {
   arrow::Status Finish(ArrayList* out) override {
     std::shared_ptr<arrow::Array> out_arr;
     for (int i = 0; i < cache_sum_.size(); i++) {
-      cache_sum_[i] /= cache_count_[i];
+      if (cache_count_[i] == 0) {
+        cache_sum_[i] = 0;
+      } else {
+        cache_validity_[i] = true;
+        cache_sum_[i] /= cache_count_[i];
+      }
     }
     auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     RETURN_NOT_OK(builder->AppendValues(cache_sum_, cache_validity_));
@@ -1016,7 +1125,12 @@ class AvgByCountAction : public ActionBase {
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     for (int i = 0; i < length; i++) {
-      cache_sum_[i + offset] /= cache_count_[i + offset];
+      if (cache_count_[i + offset] == 0) {
+        cache_sum_[i + offset] = 0;
+      } else {
+        cache_validity_[i + offset] = true;
+        cache_sum_[i + offset] /= cache_count_[i + offset];
+      }
     }
     auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
@@ -1307,8 +1421,9 @@ class StddevSampFinalAction : public ActionBase {
     auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
       if (cache_count_[offset + i] - 1 < 0.00001) {
-        // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder->Append(std::numeric_limits<double>::quiet_NaN()));
+        // append Infinity if only one non-null value exists
+        // RETURN_NOT_OK(builder->Append(std::numeric_limits<double>::quiet_NaN()));
+        RETURN_NOT_OK(builder->Append(std::numeric_limits<double>::infinity()));
       } else if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder->Append(cache_m2_[offset + i]));
       } else {
@@ -1478,6 +1593,23 @@ arrow::Status MakeSumCountAction(arrow::compute::FunctionContext* ctx,
 #define PROCESS(InType)                                              \
   case InType::type_id: {                                            \
     auto action_ptr = std::make_shared<SumCountAction<InType>>(ctx); \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);        \
+  } break;
+    PROCESS_SUPPORTED_TYPES(PROCESS)
+#undef PROCESS
+    default:
+      break;
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status MakeSumCountMergeAction(arrow::compute::FunctionContext* ctx,
+                                 std::shared_ptr<arrow::DataType> type,
+                                 std::shared_ptr<ActionBase>* out) {
+  switch (type->id()) {
+#define PROCESS(InType)                                              \
+  case InType::type_id: {                                            \
+    auto action_ptr = std::make_shared<SumCountMergeAction<InType>>(ctx); \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);        \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)

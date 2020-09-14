@@ -106,10 +106,11 @@ class ColumnarAggregation(
   })
 
   // 3. map original input to aggregate input
+  val aggregateAttributeList : Seq[Attribute] = aggregateAttributes
   val beforeAggregateExprListBuffer = ListBuffer[Expression]()
   val projectOrdinalListBuffer = ListBuffer[Int]()
   val aggregateFieldListBuffer = ListBuffer[Field]()
-  var aggregateResultAttributesBuffer = ListBuffer[Attribute]()
+  var aggregateResultAttributesBuffer = getAttrForAggregateExpr(aggregateExpressions)
   // we need to remove ordinal used in partial mode expression
   val nonPartialProjectOrdinalList = (0 until originalInputAttributes.size).toList.filter(i => !groupingOrdinalList.contains(i)).to[ListBuffer]
   aggregateExpressions.zipWithIndex.foreach{case(expr, index) => expr.mode match {
@@ -136,7 +137,6 @@ class ColumnarAggregation(
           expr.isDistinct,
           expr.resultId)
         val arg_size = res.requiredColNum
-        val res_size = res.expectedResColNum
         val internalExpressionList = expr.aggregateFunction.children
         val ordinalList = ColumnarProjection.binding(originalInputAttributes, internalExpressionList, index, skipLiteral = true)
         val fieldList = if (arg_size > 0) {
@@ -156,9 +156,7 @@ class ColumnarAggregation(
         fieldList.foreach{field => {
           aggregateFieldListBuffer += field
         }}
-        getAttrForAggregateExpr(expr).foreach(e => aggregateResultAttributesBuffer += e)
         expr.aggregateFunction.children.foreach(e => beforeAggregateExprListBuffer += e)
-        res_field_id += res_size
         res.setInputFields(fieldList.toList)
         res
       }
@@ -169,7 +167,6 @@ class ColumnarAggregation(
           expr.isDistinct,
           expr.resultId)
         val arg_size = res.requiredColNum
-        val res_size = res.expectedResColNum
         val ordinalList = (non_partial_field_id until (non_partial_field_id + arg_size)).map(i => nonPartialProjectOrdinalList(i))
         non_partial_field_id += arg_size
         val fieldList = ordinalList.map(i => {
@@ -185,8 +182,6 @@ class ColumnarAggregation(
         fieldList.foreach{field => {
           aggregateFieldListBuffer += field
         }}
-        (res_field_id until (res_field_id + res_size)).foreach(i => aggregateResultAttributesBuffer += aggregateAttributes(i))
-        res_field_id += res_size
         res.setInputFields(fieldList.toList)
         res
       }
@@ -198,7 +193,8 @@ class ColumnarAggregation(
 
   // 4. create aggregate native Expression
 
-  var projectOrdinalList = projectOrdinalListBuffer.toList.distinct
+  val aggregateOrdinalList = projectOrdinalListBuffer.toList
+  var projectOrdinalList = aggregateOrdinalList.distinct
   val aggregateFieldList = aggregateFieldListBuffer.toList
 
   // 5. create nativeAggregate evaluator
@@ -252,48 +248,114 @@ class ColumnarAggregation(
     elapseTime.merge(aggrTime)
   }
 
-  def getAttrForAggregateExpr(exp: AggregateExpression): List[Attribute] = {
+  def getAttrForAggregateExpr(aggregateExpressions: Seq[AggregateExpression]): ListBuffer[Attribute] = {
     var aggregateAttr = new ListBuffer[Attribute]()
+    val size = aggregateExpressions.size
+    var res_index = 0
+    for (expIdx <- 0 until size) {
+      val exp: AggregateExpression = aggregateExpressions(expIdx)
+      val mode = exp.mode
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {
-        case Average(_) =>
-          val avg = aggregateFunc.asInstanceOf[Average]
-          val aggBufferAttr = avg.inputAggBufferAttributes
-          for (index <- 0 until aggBufferAttr.size) {
-            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-            aggregateAttr += attr
+        case Average(_) => mode match {
+          case Partial => {
+            val avg = aggregateFunc.asInstanceOf[Average]
+            val aggBufferAttr = avg.inputAggBufferAttributes
+            for (index <- 0 until aggBufferAttr.size) {
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+              aggregateAttr += attr
+            }
+            res_index += 2
           }
-        case Sum(_) =>
-          val sum = aggregateFunc.asInstanceOf[Sum]
-          val aggBufferAttr = sum.inputAggBufferAttributes
-          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-          aggregateAttr += attr
-        case Count(_) =>
-          val count = aggregateFunc.asInstanceOf[Count]
-          val aggBufferAttr = count.inputAggBufferAttributes
-          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-          aggregateAttr += attr
-        case Max(_) =>
-          val max = aggregateFunc.asInstanceOf[Max]
-          val aggBufferAttr = max.inputAggBufferAttributes
-          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-          aggregateAttr += attr
-        case Min(_) =>
-          val min = aggregateFunc.asInstanceOf[Min]
-          val aggBufferAttr = min.inputAggBufferAttributes
-          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-          aggregateAttr += attr
-        case StddevSamp(_) =>
-          val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
-          val aggBufferAttr = stddevSamp.inputAggBufferAttributes
-          for (index <- 0 until aggBufferAttr.size) {
-            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-            aggregateAttr += attr
+          case PartialMerge => {
+            val avg = aggregateFunc.asInstanceOf[Average]
+            val aggBufferAttr = avg.inputAggBufferAttributes
+            for (index <- 0 until aggBufferAttr.size) {
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+              aggregateAttr += attr
+            }
+            res_index += 1
           }
+          case Final => {
+            aggregateAttr += aggregateAttributeList(res_index)
+            res_index += 1
+          }
+        }
+        case Sum(_) => mode match {
+          case Partial | PartialMerge => {
+            val sum = aggregateFunc.asInstanceOf[Sum]
+            val aggBufferAttr = sum.inputAggBufferAttributes
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+            aggregateAttr += attr
+            res_index += 1
+          }
+          case _ => {
+            aggregateAttr += aggregateAttributeList(res_index)
+            res_index += 1
+          }
+        }
+        case Count(_) => mode match {
+          case Partial | PartialMerge => {
+            val count = aggregateFunc.asInstanceOf[Count]
+            val aggBufferAttr = count.inputAggBufferAttributes
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+            aggregateAttr += attr
+            res_index += 1
+          }
+          case _ => {
+            aggregateAttr += aggregateAttributeList(res_index)
+            res_index += 1
+          }
+        }
+        case Max(_) => mode match {
+          case Partial | PartialMerge => {
+            val max = aggregateFunc.asInstanceOf[Max]
+            val aggBufferAttr = max.inputAggBufferAttributes
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+            aggregateAttr += attr
+            res_index += 1
+          }
+          case _ => {
+            aggregateAttr += aggregateAttributeList(res_index)
+            res_index += 1
+          }
+        }
+        case Min(_) => mode match {
+          case Partial | PartialMerge => {
+            val min = aggregateFunc.asInstanceOf[Min]
+            val aggBufferAttr = min.inputAggBufferAttributes
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+            aggregateAttr += attr
+            res_index += 1
+          }
+          case _ => {
+            aggregateAttr += aggregateAttributeList(res_index)
+            res_index += 1
+          }
+        }
+        case StddevSamp(_) => mode match {
+          case Partial => {
+            val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
+            val aggBufferAttr = stddevSamp.inputAggBufferAttributes
+            for (index <- 0 until aggBufferAttr.size) {
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+              aggregateAttr += attr
+            }
+            res_index += 3
+          }
+          case PartialMerge => {
+            throw new UnsupportedOperationException("stddev_samp PartialMerge is not supported.")
+          }
+          case Final => {
+            aggregateAttr += aggregateAttributeList(res_index)
+            res_index += 1
+          }
+        }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }
-    aggregateAttr.toList
+    }
+    aggregateAttr
   }
 
   def updateAggregationResult(columnarBatch: ColumnarBatch): Unit = {
@@ -303,6 +365,10 @@ class ColumnarAggregation(
       columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector]
     })
     val aggregateProjectCols = projectOrdinalList.map(i => {
+      columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
+      columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector]
+    })
+    val aggregateFullCols = aggregateOrdinalList.map(i => {
       columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
       columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector]
     })
@@ -318,9 +384,11 @@ class ColumnarAggregation(
     val aggregateCols : List[ArrowWritableColumnVector]= if (beforeAggregateProjector != null && beforeAggregateProjector.needEvaluate) {
       val res = beforeAggregateProjector.evaluate(numRows, aggregateProjectCols.map(_.getValueVector()))
       aggregateProjectCols.foreach(_.close())
+      aggregateFullCols.foreach(_.close())
       res
     } else {
-      aggregateProjectCols
+      aggregateProjectCols.foreach(_.close())
+      aggregateFullCols
     }
 
     val combinedAggregateCols = groupingAggregateCols ::: aggregateCols
