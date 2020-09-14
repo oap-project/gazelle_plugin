@@ -80,28 +80,15 @@ class ColumnarShuffledHashJoin(
       buildIter: Iterator[ColumnarBatch]): Iterator[ColumnarBatch] = {
 
     var _buildTime: Long = 0
+    var htSize :Long = 0
 
     while (buildIter.hasNext) {
       if (build_cb != null) {
         build_cb = null
       }
       build_cb = buildIter.next()
-      if (build_cb == null) {
-        val res = new Iterator[ColumnarBatch] {
-          override def hasNext: Boolean = {
-            false
-          }
-
-          override def next(): ColumnarBatch = {
-            val resultColumnVectors = ArrowWritableColumnVector
-              .allocateColumns(0, resultSchema)
-              .toArray
-            new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
-          }
-        }
-        return res
-      }
       if (build_cb.numRows > 0) {
+        htSize += build_cb.numRows
         val beforeBuild = System.nanoTime()
         // handle projection
         val projectedBuildKeyCols: List[ArrowWritableColumnVector] = if (buildProjector != null) {
@@ -128,9 +115,7 @@ class ColumnarShuffledHashJoin(
         projectedBuildKeyCols.foreach(v => v.close)
       }
     }
-    if (build_cb != null) {
-      build_cb = null
-    } else {
+    if (build_cb == null || htSize == 0) {
       val res = new Iterator[ColumnarBatch] {
         override def hasNext: Boolean = {
           false
@@ -144,6 +129,8 @@ class ColumnarShuffledHashJoin(
         }
       }
       return res
+    } else {
+      build_cb = null
     }
 
     // there will be different when condition is null or not null
