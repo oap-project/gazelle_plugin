@@ -17,7 +17,7 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.vectorized.ArrowWritableColumnVector
+import com.intel.oap.vectorized._
 
 import java.util.concurrent.TimeUnit._
 import scala.collection.JavaConverters._
@@ -269,16 +269,12 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
     val localSchema = this.schema
     child.execute().mapPartitions { rowIterator =>
       if (rowIterator.hasNext) {
-        new Iterator[ColumnarBatch] {
+        val res = new Iterator[ColumnarBatch] {
           private val converters = new RowToColumnConverter(localSchema)
           private var last_cb: ColumnarBatch = null
           private var elapse: Long = 0
 
           override def hasNext: Boolean = {
-            if (last_cb != null) {
-              last_cb.close()
-              last_cb = null
-            }
             rowIterator.hasNext
           }
 
@@ -301,6 +297,7 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
             last_cb
           }
         }
+        new CloseableColumnBatchIterator(res)
       } else {
         Iterator.empty
       }

@@ -45,7 +45,6 @@ class CloseableColumnBatchIterator(itr: Iterator[ColumnarBatch])
     })
 
   override def hasNext: Boolean = {
-    closeCurrentBatch()
     itr.hasNext
   }
 

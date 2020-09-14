@@ -27,6 +27,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.TaskContext
 
 case class ColumnarConditionProjectExec(condition: Expression, projectList: Seq[Expression], child: SparkPlan)
@@ -129,4 +130,12 @@ case class ColumnarConditionProjectExec(condition: Expression, projectList: Seq[
     }
     return other.isInstanceOf[ColumnarConditionProjectExec]
   }
+}
+
+class ColumnarUnionExec(children: Seq[SparkPlan]) extends UnionExec(children) {
+  // updating nullability to make all the children consistent
+
+  override def supportsColumnar = true
+  protected override def doExecuteColumnar(): RDD[ColumnarBatch] =
+    sparkContext.union(children.map(_.executeColumnar()))
 }

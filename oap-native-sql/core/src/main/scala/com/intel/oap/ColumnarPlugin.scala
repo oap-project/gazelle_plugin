@@ -51,7 +51,7 @@ import java.io.IOException
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getConf(conf)
 
-  def replaceWithColumnarPlan(plan: SparkPlan, nc: SparkPlan = null): SparkPlan = plan match {
+  def replaceWithColumnarPlan(plan: SparkPlan, nc: Seq[SparkPlan] = null): SparkPlan = plan match {
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarBatchScanExec(plan.output, plan.scan)
@@ -64,7 +64,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       }
       //new ColumnarProjectExec(plan.projectList, replaceWithColumnarPlan(plan.child))
       val columnarPlan =
-        if (nc == null) replaceWithColumnarPlan(plan.child) else nc
+        if (nc == null) replaceWithColumnarPlan(plan.child) else nc(0)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       var newPlan: SparkPlan = null
       try {
@@ -92,11 +92,11 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       }
     case plan: FilterExec =>
       val child =
-        if (nc == null) replaceWithColumnarPlan(plan.child) else nc
+        if (nc == null) replaceWithColumnarPlan(plan.child) else nc(0)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarConditionProjectExec(plan.condition, null, child)
     case plan: HashAggregateExec =>
-      val children = Seq(if (nc == null) replaceWithColumnarPlan(plan.child) else nc)
+      val children = Seq(if (nc == null) replaceWithColumnarPlan(plan.child) else nc(0))
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       // If some expression is not supported, we will use RowBased HashAggr here.
       var newPlan: SparkPlan = plan.withNewChildren(children)
@@ -115,10 +115,20 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           System.out.println(s"Fall back to use HashAggregateExec, error is ${e.getMessage()}")
       }
       newPlan
+    case plan: UnionExec =>
+      val children =
+        if (nc == null) plan.children.map(replaceWithColumnarPlan(_)) else nc
+      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      new ColumnarUnionExec(children)
+    case plan: ExpandExec =>
+      val children =
+        if (nc == null) plan.children.map(replaceWithColumnarPlan(_)) else nc
+      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      new ColumnarExpandExec(plan.projections, plan.output, children(0))
     case plan: SortExec =>
       if (columnarConf.enableColumnarSort) {
         val child =
-          if (nc == null) replaceWithColumnarPlan(plan.child) else nc
+          if (nc == null) replaceWithColumnarPlan(plan.child) else nc(0)
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
         new ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
       } else {
@@ -478,7 +488,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           case project: ProjectExec =>
             val newChild = applyChildrenWithStrategy(project)(0)
             if (newChild.supportsColumnar) {
-              replaceWithColumnarPlan(child, newChild)
+              replaceWithColumnarPlan(child, Seq(newChild))
             } else {
               val newProject = project.withNewChildren(Seq(newChild))
               newProject
@@ -486,15 +496,33 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           case filter: FilterExec =>
             val newChild = applyChildrenWithStrategy(filter)(0)
             if (newChild.supportsColumnar) {
-              replaceWithColumnarPlan(child, newChild)
+              replaceWithColumnarPlan(child, Seq(newChild))
             } else {
               val newFilter = filter.withNewChildren(Seq(newChild))
               newFilter
             }
+          case plan: UnionExec =>
+            val children = applyChildrenWithStrategy(plan)
+            var pure_row = true
+            children.foreach{c => if(c.supportsColumnar) pure_row = false}
+            if (!pure_row) {
+              replaceWithColumnarPlan(child, children)
+            } else {
+              plan.withNewChildren(children)
+            }
+          case plan: ExpandExec =>
+            val children = applyChildrenWithStrategy(plan)
+            var pure_row = true
+            children.foreach{c => if(c.supportsColumnar) pure_row = false}
+            if (!pure_row) {
+              replaceWithColumnarPlan(child, children)
+            } else {
+              plan.withNewChildren(children)
+            }
           case aggr: HashAggregateExec =>
             val newChild = applyChildrenWithStrategy(aggr)(0)
             if (newChild.supportsColumnar) {
-              replaceWithColumnarPlan(child, newChild)
+              replaceWithColumnarPlan(child, Seq(newChild))
             } else {
               val newAggr = aggr.withNewChildren(Seq(newChild))
               newAggr
