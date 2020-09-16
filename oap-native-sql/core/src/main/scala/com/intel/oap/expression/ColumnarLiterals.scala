@@ -41,30 +41,55 @@ class ColumnarLiteral(lit: Literal)
       case t: StringType =>
         value match {
           case null =>
-            (TreeBuilder.makeStringLiteral("null": java.lang.String), resultType)
+            (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
             (TreeBuilder.makeStringLiteral(value.toString().asInstanceOf[String]), resultType)
         }
       case t: IntegerType =>
-        (TreeBuilder.makeLiteral(value.asInstanceOf[Integer]), resultType)
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case _ =>
+            (TreeBuilder.makeLiteral(value.asInstanceOf[Integer]), resultType)
+        }
       case t: LongType =>
-        (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Long]), resultType)
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case _ =>
+            (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Long]), resultType)
+        }
       case t: DoubleType =>
         value match {
           case null =>
-            (TreeBuilder.makeLiteral(0.0: java.lang.Double), resultType)
+            (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
             (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Double]), resultType)
         }
       case d: DecimalType =>
-        val v = value.asInstanceOf[Decimal]
-        (TreeBuilder.makeDecimalLiteral(v.toString, v.precision, v.scale), resultType)
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case _ =>
+            val v = value.asInstanceOf[Decimal]
+            (TreeBuilder.makeDecimalLiteral(v.toString, v.precision, v.scale), resultType)
+        }
       case d: DateType =>
-        val origIntNode = TreeBuilder.makeLiteral(value.asInstanceOf[Integer])
-        val dateNode = TreeBuilder.makeFunction("castDATE", Lists.newArrayList(origIntNode), new ArrowType.Date(DateUnit.DAY))
-        (dateNode, new ArrowType.Date(DateUnit.DAY))
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case _ =>
+            val origIntNode = TreeBuilder.makeLiteral(value.asInstanceOf[Integer])
+            val dateNode = TreeBuilder.makeFunction("castDATE", Lists.newArrayList(origIntNode), new ArrowType.Date(DateUnit.DAY))
+            (dateNode, new ArrowType.Date(DateUnit.DAY))
+        }
       case b: BooleanType =>
-        (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Boolean]), resultType)
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case _ =>
+            (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Boolean]), resultType)
+        }
     }
   }
 }
