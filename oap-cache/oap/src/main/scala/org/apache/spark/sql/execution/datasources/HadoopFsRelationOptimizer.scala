@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions.{DynamicPruningSubquery, Expression}
-import org.apache.spark.sql.execution.datasources.oap.{OapFileFormat, OptimizedOrcFileFormat, OptimizedParquetFileFormat}
+import org.apache.spark.sql.execution.datasources.oap.{OptimizedOrcFileFormat, OptimizedParquetFileFormat}
 import org.apache.spark.sql.execution.datasources.orc.ReadOnlyNativeOrcFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFileFormat, ReadOnlyParquetFileFormat}
 import org.apache.spark.sql.hive.orc.ReadOnlyOrcFileFormat
@@ -162,13 +162,6 @@ object HadoopFsRelationOptimizer extends Logging {
           logInfo("hasAvailableIndex = false, will retain OrcFileFormat.")
           (relation, false)
         }
-
-      case _: OapFileFormat =>
-        relation.fileFormat.asInstanceOf[OapFileFormat].init(
-          relation.sparkSession,
-          relation.options,
-          selectedPartitions.flatMap(p => p.files))
-        (relation, false)
 
       case _: FileFormat =>
         (relation, false)

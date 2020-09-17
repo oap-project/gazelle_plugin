@@ -18,11 +18,9 @@
 package org.apache.spark.sql.execution.datasources.oap.io
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FSDataOutputStream, Path}
+import org.apache.hadoop.fs.Path
 import org.apache.orc.mapred.OrcStruct
 import org.apache.parquet.filter2.predicate.FilterPredicate
-import org.apache.parquet.format.CompressionCodec
-import org.apache.parquet.io.api.Binary
 
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
@@ -31,141 +29,11 @@ import org.apache.spark.sql.catalyst.expressions.{Ascending, JoinedRow}
 import org.apache.spark.sql.catalyst.expressions.codegen.GenerateUnsafeProjection
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.execution.datasources.oap._
-import org.apache.spark.sql.execution.datasources.oap.filecache.DataFiberBuilder
 import org.apache.spark.sql.execution.datasources.oap.index._
 import org.apache.spark.sql.execution.datasources.oap.utils.FilterHelper
 import org.apache.spark.sql.execution.datasources.orc.OrcDeserializer
-import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types._
-
-// TODO: [linhong] Let's remove the `isCompressed` argument
-private[oap] class OapDataWriter(
-    isCompressed: Boolean,
-    out: FSDataOutputStream,
-    schema: StructType,
-    conf: Configuration) extends Logging {
-
-  private val ROW_GROUP_SIZE =
-    conf.get(OapFileFormat.ROW_GROUP_SIZE, OapFileFormat.DEFAULT_ROW_GROUP_SIZE).toInt
-  logDebug(s"${OapFileFormat.ROW_GROUP_SIZE} setting to $ROW_GROUP_SIZE")
-
-  private val COMPRESSION_CODEC = CompressionCodec.valueOf(
-    conf.get(OapFileFormat.COMPRESSION, OapFileFormat.DEFAULT_COMPRESSION).toUpperCase())
-  logDebug(s"${OapFileFormat.COMPRESSION} setting to ${COMPRESSION_CODEC.name()}")
-
-  private var rowCount: Int = 0
-  private var rowGroupCount: Int = 0
-
-  private val rowGroup: Array[DataFiberBuilder] =
-    DataFiberBuilder.initializeFromSchema(schema, ROW_GROUP_SIZE)
-
-  private val fileStatiscs = ColumnStatistics.getStatsFromSchema(schema)
-  private var rowGroupstatistics = ColumnStatistics.getStatsFromSchema(schema)
-
-  private def updateStats(
-      stats: ColumnStatistics.ParquetStatistics,
-      row: InternalRow,
-      index: Int,
-      dataType: DataType): Unit = {
-    dataType match {
-      case BooleanType => stats.updateStats(row.getBoolean(index))
-      case IntegerType => stats.updateStats(row.getInt(index))
-      case ByteType => stats.updateStats(row.getByte(index))
-      case DateType => stats.updateStats(row.getInt(index))
-      case ShortType => stats.updateStats(row.getShort(index))
-      case StringType => stats.updateStats(
-        Binary.fromConstantByteArray(row.getString(index).getBytes))
-      case BinaryType => stats.updateStats(
-        Binary.fromConstantByteArray(row.getBinary(index)))
-      case FloatType => stats.updateStats(row.getFloat(index))
-      case DoubleType => stats.updateStats(row.getDouble(index))
-      case LongType => stats.updateStats(row.getLong(index))
-      case _ => sys.error(s"Not support data type: $dataType")
-    }
-  }
-
-  private val fiberMeta = new OapDataFileMetaV1(
-    rowCountInEachGroup = ROW_GROUP_SIZE,
-    fieldCount = schema.length,
-    codec = COMPRESSION_CODEC)
-
-  private val codecFactory = new CodecFactory(conf)
-
-  def write(row: InternalRow) {
-    rowGroup.zipWithIndex.foreach { case (dataFiberBuilder, i) =>
-      dataFiberBuilder.append(row)
-      if (!row.isNullAt(i)) {
-        updateStats(fileStatiscs(i), row, i, schema(i).dataType)
-        updateStats(rowGroupstatistics(i), row, i, schema(i).dataType)
-      }
-    }
-    rowCount += 1
-    if (rowCount % ROW_GROUP_SIZE == 0) {
-      writeRowGroup()
-    }
-  }
-
-  private def writeRowGroup(): Unit = {
-    rowGroupCount += 1
-    val compressor: BytesCompressor = codecFactory.getCompressor(COMPRESSION_CODEC)
-    val fiberLens = new Array[Int](rowGroup.length)
-    val fiberUncompressedLens = new Array[Int](rowGroup.length)
-    var idx: Int = 0
-    var totalDataSize = 0L
-    val rowGroupMeta = new RowGroupMeta()
-
-    rowGroupMeta.withNewStart(out.getPos)
-      .withNewFiberLens(fiberLens)
-      .withNewUncompressedFiberLens(fiberUncompressedLens)
-      .withNewStatistics(rowGroupstatistics.map(ColumnStatistics(_)).toArray)
-
-    while (idx < rowGroup.length) {
-      val fiberByteData = rowGroup(idx).build()
-      val newUncompressedFiberData = fiberByteData.fiberData
-      val newFiberData = compressor.compress(newUncompressedFiberData)
-      totalDataSize += newFiberData.length
-      fiberLens(idx) = newFiberData.length
-      fiberUncompressedLens(idx) = newUncompressedFiberData.length
-      out.write(newFiberData)
-      rowGroup(idx).clear()
-      idx += 1
-    }
-    rowGroupstatistics = ColumnStatistics.getStatsFromSchema(schema)
-    fiberMeta.appendRowGroupMeta(rowGroupMeta.withNewEnd(out.getPos))
-  }
-
-  def close() {
-    val remainingRowCount = rowCount % ROW_GROUP_SIZE
-    if (remainingRowCount != 0) {
-      // should be end of the insertion, put the row groups into the last row group
-      writeRowGroup()
-    }
-
-    rowGroup.zipWithIndex.foreach { case (dataFiberBuilder, i) =>
-      val dictByteData = dataFiberBuilder.buildDictionary
-      val encoding = dataFiberBuilder.getEncoding
-      val dictionaryDataLength = dictByteData.length
-      val dictionaryIdSize = dataFiberBuilder.getDictionarySize
-      if (dictionaryDataLength > 0) {
-        out.write(dictByteData)
-      }
-      fiberMeta.appendColumnMeta(
-        new ColumnMeta(
-          encoding, dictionaryDataLength, dictionaryIdSize, ColumnStatistics(fileStatiscs(i))))
-    }
-
-    // and update the group count and row count in the last group
-    fiberMeta
-      .withGroupCount(rowGroupCount)
-      .withRowCountInLastGroup(
-        if (remainingRowCount != 0 || rowCount == 0) remainingRowCount else ROW_GROUP_SIZE)
-
-    fiberMeta.write(out)
-    codecFactory.release()
-    out.close()
-  }
-}
 
 private[oap] class OapDataReaderV1(
     pathStr: String,
@@ -194,23 +62,9 @@ private[oap] class OapDataReaderV1(
   private var _totalRows: Long = 0
   private val path = new Path(pathStr)
 
-  private val dataFileClassName = OapDataReader.getDataFileClassFor(meta.dataReaderClassName, this)
+  private val dataFileClassName = meta.dataReaderClassName
 
-  def isSkippedByFile: Boolean = {
-    if (meta.dataReaderClassName == OapFileFormat.OAP_DATA_FILE_CLASSNAME) {
-      val dataFile = DataFile(pathStr, meta.schema, dataFileClassName, conf)
-      val dataFileMeta = OapRuntime.getOrCreate.dataFileMetaCacheManager.get(dataFile)
-        .asInstanceOf[OapDataFileMetaV1]
-      if (filters.exists(filter => isSkippedByStatistics(
-        dataFileMeta.columnsMeta.map(_.fileStatistics).toArray, filter, meta.schema))) {
-        val tot = dataFileMeta.totalRowCount()
-        metrics.updateTotalRows(tot)
-        metrics.skipForStatistic(tot)
-        return true
-      }
-    }
-    false
-  }
+  def isSkippedByFile: Boolean = false
 
   def initialize(): OapCompletionIterator[Any] = {
     logDebug("Initializing OapDataReader...")
@@ -312,12 +166,11 @@ private[oap] class OapDataReaderV1(
         val appendPartitionColumns =
           GenerateUnsafeProjection.generate(fullSchema, fullSchema)
         meta.dataReaderClassName match {
-          case dataReader if (dataReader.equals(OapFileFormat.PARQUET_DATA_FILE_CLASSNAME) ||
-            dataReader.equals(OapFileFormat.OAP_DATA_FILE_CLASSNAME)) =>
+          case dataReader if dataReader.equals(OapFileFormat.PARQUET_DATA_FILE_CLASSNAME) =>
             iter.asInstanceOf[Iterator[InternalRow]].map(d => {
               appendPartitionColumns(joinedRow(d, file.partitionValues))
             })
-          case dataReader if (dataReader.equals(OapFileFormat.ORC_DATA_FILE_CLASSNAME)) =>
+          case dataReader if dataReader.equals(OapFileFormat.ORC_DATA_FILE_CLASSNAME) =>
             val orcDataFileContext = context.get.asInstanceOf[OrcDataFileContext]
             val deserializer = new OrcDeserializer(orcDataFileContext.dataSchema, requiredSchema,
               orcDataFileContext.requestedColIds)

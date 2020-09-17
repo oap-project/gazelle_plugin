@@ -437,7 +437,7 @@ private[oap] class DataSourceMetaBuilder {
   var schema: StructType = new StructType()
   var version: Version = Version.latestVersion()
   // This won't contain version info, refer to [[DataSourceMeta]]
-  var dataReaderClassName: String = OapFileFormat.OAP_DATA_FILE_CLASSNAME
+  var dataReaderClassName: String = OapFileFormat.PARQUET_DATA_FILE_CLASSNAME
 
   def addFileMeta(fileMeta: FileMeta): this.type = {
     fileMetas += fileMeta

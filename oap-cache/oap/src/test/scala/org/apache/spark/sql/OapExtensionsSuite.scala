@@ -37,10 +37,9 @@ class OapExtensionsSuite extends SparkFunSuite {
       .getOrCreate()
     try {
       val oapStrategies = withOapExtensionsSession.sessionState.planner.extraPlanningStrategies
-      val expected = Seq(OapSortLimitStrategy, OapSemiJoinStrategy, OapGroupAggregateStrategy,
-        OapFileSourceStrategy)
+      val expected = Seq(OapFileSourceStrategy)
       assert(oapStrategies.nonEmpty)
-      assert(oapStrategies.length == 4)
+      assert(oapStrategies.length == 1)
       assert(oapStrategies.equals(expected))
       val sqlParser = withOapExtensionsSession.sessionState.sqlParser
       assert(sqlParser.isInstanceOf[OapSparkSqlParser])

@@ -147,7 +147,7 @@ class DataSourceMetaSuite extends SharedOapContext with BeforeAndAfter {
     assert(oapMeta.fileMetas.length === 0)
     assert(oapMeta.indexMetas.length === 0)
     assert(oapMeta.schema.length === 0)
-    assert(oapMeta.dataReaderClassName === OapFileFormat.OAP_DATA_FILE_CLASSNAME)
+    assert(oapMeta.dataReaderClassName === OapFileFormat.PARQUET_DATA_FILE_CLASSNAME)
   }
 
   test("Oap Meta integration test") {

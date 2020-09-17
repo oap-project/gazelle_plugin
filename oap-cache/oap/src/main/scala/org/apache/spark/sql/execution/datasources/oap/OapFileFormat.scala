@@ -17,29 +17,21 @@
 
 package org.apache.spark.sql.execution.datasources.oap
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
-import org.apache.hadoop.mapreduce.{Job, TaskAttemptContext}
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat
-import org.apache.hadoop.util.StringUtils
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.oap.index.{IndexContext, IndexScanners, ScannerBuilder}
 import org.apache.spark.sql.execution.datasources.oap.io._
-import org.apache.spark.sql.execution.datasources.oap.io.OapDataFileProperties.DataFileVersion
-import org.apache.spark.sql.execution.datasources.oap.utils.OapUtils
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.internal.oap.OapConf
 import org.apache.spark.sql.oap.OapRuntime
 import org.apache.spark.sql.sources._
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.util.SerializableConfiguration
 
-private[sql] class OapFileFormat extends FileFormat
+abstract class OapFileFormat extends FileFormat
   with DataSourceRegister
   with Logging
   with Serializable {
@@ -110,92 +102,10 @@ private[sql] class OapFileFormat extends FileFormat
     }
   }
 
-  override def prepareWrite(
-      sparkSession: SparkSession,
-      job: Job, options: Map[String, String],
-      dataSchema: StructType): OutputWriterFactory = {
-    val conf = job.getConfiguration
-
-    // First use table option, if not, use SqlConf, else, use default value.
-    conf.set(OapFileFormat.COMPRESSION, options.getOrElse("compression",
-      sparkSession.conf.get(OapConf.OAP_COMPRESSION.key, OapFileFormat.DEFAULT_COMPRESSION)))
-
-    conf.set(OapFileFormat.ROW_GROUP_SIZE, options.getOrElse("rowgroup",
-      sparkSession.conf.get(OapConf.OAP_ROW_GROUP_SIZE.key, OapFileFormat.DEFAULT_ROW_GROUP_SIZE)))
-
-    new OapOutputWriterFactory(
-      dataSchema,
-      job,
-      options)
-  }
-
-  override def shortName(): String = "oap"
-
-  /**
-   * Returns whether the reader will return the rows as batch or not.
-   */
-  override def supportBatch(sparkSession: SparkSession, schema: StructType): Boolean = false
-
   override def isSplitable(
       sparkSession: SparkSession,
       options: Map[String, String],
       path: Path): Boolean = false
-
-  override def buildReaderWithPartitionValues(
-      sparkSession: SparkSession,
-      dataSchema: StructType,
-      partitionSchema: StructType,
-      requiredSchema: StructType,
-      filters: Seq[Filter],
-      options: Map[String, String],
-      hadoopConf: Configuration): PartitionedFile => Iterator[InternalRow] = {
-    // TODO we need to pass the extra data source meta information via the func parameter
-    meta match {
-      case Some(m) =>
-        logDebug("Building OapDataReader with "
-          + m.dataReaderClassName.substring(m.dataReaderClassName.lastIndexOf(".") + 1)
-          + " ...")
-
-        val filterScanners = indexScanners(m, filters)
-        hitIndexColumns = filterScanners match {
-          case Some(s) =>
-            s.scanners.flatMap { scanner =>
-              scanner.keyNames.map( n => n -> scanner.meta.indexType)
-            }.toMap
-          case _ => Map.empty
-        }
-
-        val requiredIds = requiredSchema.map(dataSchema.fields.indexOf(_)).toArray
-
-        val broadcastedHadoopConf =
-          sparkSession.sparkContext.broadcast(new SerializableConfiguration(hadoopConf))
-
-        (file: PartitionedFile) => {
-          assert(file.partitionValues.numFields == partitionSchema.size)
-          val conf = broadcastedHadoopConf.value.value
-
-          val path = new Path(StringUtils.unEscapeString(file.filePath))
-          val fs = path.getFileSystem(broadcastedHadoopConf.value.value)
-
-          OapDataReader.readVersion(fs.open(path), fs.getFileStatus(path).getLen) match {
-            case DataFileVersion.OAP_DATAFILE_V1 =>
-              val reader = new OapDataReaderV1(file.filePath, m, partitionSchema, requiredSchema,
-                filterScanners, requiredIds, None, oapMetrics, conf, false, options,
-                filters, None)
-              reader.read(file)
-            // Actually it shouldn't get to this line, because unsupported version will cause
-            // exception thrown in readVersion call
-            case _ =>
-              throw new OapException("Unexpected data file version")
-              Iterator.empty
-          }
-        }
-      case None => (_: PartitionedFile) => {
-        // TODO need to think about when there is no oap.meta file at all
-        Iterator.empty
-      }
-    }
-  }
 
   /**
    * Check if index satisfies strategies' requirements.
@@ -286,121 +196,9 @@ private[oap] object INDEX_STAT extends Enumeration {
   val MISS_INDEX, HIT_INDEX, IGNORE_INDEX = Value
 }
 
-/**
- * Oap Output Writer Factory
- * @param dataSchema
- * @param job
- * @param options
- */
-private[oap] class OapOutputWriterFactory(
-    dataSchema: StructType,
-    @transient protected val job: Job,
-    options: Map[String, String]) extends OutputWriterFactory {
-
-  override def newInstance(
-      path: String,
-      dataSchema: StructType,
-      context: TaskAttemptContext): OutputWriter = {
-    new OapOutputWriter(path, dataSchema, context)
-  }
-
-  override def getFileExtension(context: TaskAttemptContext): String = {
-
-    val extensionMap = Map(
-      "UNCOMPRESSED" -> "",
-      "SNAPPY" -> ".snappy",
-      "GZIP" -> ".gzip",
-      "LZO" -> ".lzo")
-
-    val compressionType =
-      context.getConfiguration.get(
-        OapFileFormat.COMPRESSION, OapFileFormat.DEFAULT_COMPRESSION).trim.toUpperCase()
-
-    extensionMap(compressionType) + OapFileFormat.OAP_DATA_EXTENSION
-  }
-
-  private def oapMetaFileExists(path: Path): Boolean = {
-    val fs = path.getFileSystem(job.getConfiguration)
-    fs.exists(new Path(path, OapFileFormat.OAP_META_FILE))
-  }
-
-  def addOldMetaToBuilder(path: Path, builder: DataSourceMetaBuilder): Unit = {
-    if (oapMetaFileExists(path)) {
-      val m = OapUtils.getMeta(job.getConfiguration, path)
-      assert(m.nonEmpty)
-      val oldMeta = m.get
-      val existsIndexes = oldMeta.indexMetas
-      val existsData = oldMeta.fileMetas
-      if (existsData != null) {
-        existsData.foreach(builder.addFileMeta(_))
-      }
-      if (existsIndexes != null) {
-        existsIndexes.foreach(builder.addIndexMeta(_))
-      }
-      builder.withNewSchema(oldMeta.schema)
-    } else {
-      builder.withNewSchema(dataSchema)
-    }
-  }
-
-  // this is called from driver side
-  override def commitJob(taskResults: Array[WriteResult]): Unit = {
-    // TODO supposedly, we put one single meta file for each partition, however,
-    // we need to thinking about how to read data from partitions
-    val outputRoot = FileOutputFormat.getOutputPath(job)
-    val path = new Path(outputRoot, OapFileFormat.OAP_META_FILE)
-
-    val builder = DataSourceMeta.newBuilder()
-      .withNewDataReaderClassName(OapFileFormat.OAP_DATA_FILE_CLASSNAME)
-    val conf = job.getConfiguration
-    val partitionMeta = taskResults.map {
-      // The file fingerprint is not used at the moment.
-      case s: OapWriteResult =>
-        builder.addFileMeta(FileMeta("", s.rowsWritten, s.fileName))
-        (s.partitionString, (s.fileName, s.rowsWritten))
-      case _ => throw new OapException("Unexpected Oap write result.")
-    }.groupBy(_._1)
-
-    if (partitionMeta.nonEmpty && partitionMeta.head._1 != "") {
-      partitionMeta.foreach(p => {
-        // we should judge if exists old meta files
-        // if exists we should load old meta info
-        // and write that to new mete files
-        val parent = new Path(outputRoot, p._1)
-        val partBuilder = DataSourceMeta.newBuilder()
-
-        addOldMetaToBuilder(parent, partBuilder)
-
-        p._2.foreach(m => partBuilder.addFileMeta(FileMeta("", m._2._2, m._2._1)))
-        val partMetaPath = new Path(parent, OapFileFormat.OAP_META_FILE)
-        DataSourceMeta.write(partMetaPath, conf, partBuilder.build())
-      })
-    } else if (partitionMeta.nonEmpty) { // normal table file without partitions
-      addOldMetaToBuilder(outputRoot, builder)
-      DataSourceMeta.write(path, conf, builder.build())
-    }
-
-    super.commitJob(taskResults)
-  }
-}
-
-
-private[oap] case class OapWriteResult(
-    fileName: String,
-    rowsWritten: Int,
-    partitionString: String)
-
 private[sql] object OapFileFormat {
-  val OAP_DATA_EXTENSION = ".data"
   val OAP_INDEX_EXTENSION = ".index"
   val OAP_META_FILE = ".oap.meta"
-  // This is used in DataSourceMeta file to indicate Parquet/OAP file format
-  // For OAP data files, the version info is written in data file header, hence various versions of
-  // OAP data file(i.e. one partition uses V1 while another uses V2) are supported in different
-  // distributed tasks
-  val OAP_DATA_FILE_CLASSNAME = classOf[OapDataFile].getCanonicalName
-  // This is used while actually reading a Parquet/OAP data file
-  val OAP_DATA_FILE_V1_CLASSNAME = classOf[OapDataFileV1].getCanonicalName
 
   val PARQUET_DATA_FILE_CLASSNAME = classOf[ParquetDataFile].getCanonicalName
   val ORC_DATA_FILE_CLASSNAME = classOf[OrcDataFile].getCanonicalName

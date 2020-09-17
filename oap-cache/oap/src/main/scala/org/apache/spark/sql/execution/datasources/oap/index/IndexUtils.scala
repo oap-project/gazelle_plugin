@@ -386,9 +386,6 @@ private[oap] object IndexUtils extends  Logging {
     : (FileIndex, StructType, String, Option[CatalogTable], LogicalPlan) = {
     val (fileCatalog, schema, readerClassName, identifier, relation) = optimized match {
       case LogicalRelation(
-          _ @ HadoopFsRelation(f, _, s, _, _: OapFileFormat, _), _, id, _) =>
-        (f, s, OapFileFormat.OAP_DATA_FILE_CLASSNAME, id, optimized)
-      case LogicalRelation(
           _fsRelation @ HadoopFsRelation(f, _, s, _, _: ParquetFileFormat, _),
           attributes, id, _) =>
         if (!sparkSession.conf.get(OapConf.OAP_PARQUET_ENABLED)) {
