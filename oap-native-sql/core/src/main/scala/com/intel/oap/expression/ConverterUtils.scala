@@ -110,7 +110,8 @@ object ConverterUtils extends Logging {
   }
 
   def convertToNetty(iter: Array[ColumnarBatch]): Array[Byte] = {
-    val out = new ByteBufOutputStream(ByteBufAllocator.DEFAULT.buffer());
+    val innerBuf = ByteBufAllocator.DEFAULT.buffer()
+    val out = new ByteBufOutputStream(innerBuf)
     val channel = new WriteChannel(Channels.newChannel(out))
     var schema: Schema = null
     val option = new IpcOption
@@ -132,6 +133,7 @@ object ConverterUtils extends Logging {
     val buf = out.buffer
     val bytes = new Array[Byte](buf.readableBytes);
     buf.getBytes(buf.readerIndex, bytes);
+    innerBuf.release()
     out.close()
     bytes
   }
