@@ -433,10 +433,6 @@ object ColumnarShuffledHashJoin extends Logging {
           columnarExpression
             .asInstanceOf[ColumnarExpression]
             .doColumnarCodeGen(conditionInputList)
-        if (s"${condition_expression_node.toProtobuf}".contains("ifNode")) {
-          throw new UnsupportedOperationException(
-            s"ColumnarSHJ can't handle condition with case when")
-        }
         Lists.newArrayList(build_keys_node, stream_keys_node, condition_expression_node)
       } else {
         Lists.newArrayList(build_keys_node, stream_keys_node)

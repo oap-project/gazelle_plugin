@@ -153,20 +153,11 @@ class ActionCodeGen {
                                             std::string name) {
     std::stringstream ss;
     auto cached_name = "typed_projected_" + name;
-    auto array_name = "projected_batch->column(" + name + ")";
+    auto array_name = "projected_batch[" + name + "]";
     ss << "auto " << cached_name << " = std::make_shared<" << GetTypeString(type, "Array")
        << ">(" << array_name << ");";
     typed_input_and_prepare_list_.push_back(std::make_pair(cached_name, ss.str()));
     input_data_list_.push_back(array_name);
-  }
-
-  void GetTypedArrayCastByNameString(std::shared_ptr<arrow::DataType> type,
-                                     std::string name) {
-    std::stringstream ss;
-    auto cached_name = "typed_" + name;
-    ss << "auto " << cached_name << " = std::make_shared<" << GetTypeString(type, "Array")
-       << ">(projected_batch->GetColumnByName(\"" << name << "\"));";
-    typed_input_and_prepare_list_.push_back(std::make_pair(cached_name, ss.str()));
   }
 
   std::string GetTypedVectorAndBuilderDefineString(std::shared_ptr<arrow::DataType> type,
@@ -464,8 +455,8 @@ class SumActionCodeGen : public ActionCodeGen {
       on_exists_codes_list_.push_back(on_exists_codes_ss.str() + "\n");
       on_new_codes_list_.push_back(on_new_codes_ss.str() + "\n");
       // round sum result to 10 decimal places
-      on_finish_codes_list_.push_back(sig_name + "[i] = round(" + sig_name 
-                                      + "[i] * 10000000000) / 10000000000;\n");
+      on_finish_codes_list_.push_back(sig_name + "[i] = round(" + sig_name +
+                                      "[i] * 10000000000) / 10000000000;\n");
       on_exists_codes_list_.push_back("");
       on_new_codes_list_.push_back("");
       on_finish_codes_list_.push_back("");

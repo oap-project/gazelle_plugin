@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <gandiva/configuration.h>
 #include <gandiva/node.h>
+#include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -61,7 +62,9 @@ class ConditionedProbeArraysKernel::Impl {
        const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
        const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
        const std::shared_ptr<arrow::Schema>& result_schema)
-      : ctx_(ctx) {
+      : ctx_(ctx),
+        left_schema_(arrow::schema(left_field_list)),
+        right_schema_(arrow::schema(right_field_list)) {
     std::vector<int> left_key_index_list;
     THROW_NOT_OK(GetIndexList(left_key_list, left_field_list, &left_key_index_list));
     std::vector<int> right_key_index_list;
@@ -85,14 +88,23 @@ class ConditionedProbeArraysKernel::Impl {
   }
 
   arrow::Status Evaluate(const ArrayList& in) {
-    RETURN_NOT_OK(prober_->Evaluate(in));
+    arrow::ArrayVector outputs;
+    if (left_projector_) {
+      auto length = in.size() > 0 ? in[0]->length() : 0;
+      auto in_batch = arrow::RecordBatch::Make(left_schema_, length, in);
+      RETURN_NOT_OK(left_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
+    }
+    RETURN_NOT_OK(prober_->Evaluate(in, outputs));
     return arrow::Status::OK();
   }
 
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
-    RETURN_NOT_OK(prober_->MakeResultIterator(schema, out));
+    std::shared_ptr<ResultIterator<arrow::RecordBatch>> prober_res_iter;
+    RETURN_NOT_OK(prober_->MakeResultIterator(schema, &prober_res_iter));
+    *out = std::make_shared<ProjectedProberResultIterator>(
+        ctx_, right_projector_, right_schema_, prober_res_iter);
     return arrow::Status::OK();
   }
 
@@ -103,7 +115,45 @@ class ConditionedProbeArraysKernel::Impl {
 
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<CodeGenBase> prober_;
+  std::shared_ptr<gandiva::Projector> left_projector_;
+  std::shared_ptr<gandiva::Projector> right_projector_;
+  std::shared_ptr<arrow::Schema> left_schema_;
+  std::shared_ptr<arrow::Schema> right_schema_;
   std::string signature_;
+
+  class ProjectedProberResultIterator : public ResultIterator<arrow::RecordBatch> {
+   public:
+    ProjectedProberResultIterator(
+        arrow::compute::FunctionContext* ctx,
+        const std::shared_ptr<gandiva::Projector>& right_projector,
+        const std::shared_ptr<arrow::Schema>& right_schema,
+        const std::shared_ptr<ResultIterator<arrow::RecordBatch>>& prober_res_iter)
+        : ctx_(ctx),
+          right_projector_(right_projector),
+          right_schema_(right_schema),
+          prober_res_iter_(prober_res_iter) {}
+    bool HasNext() override { return prober_res_iter_->HasNext(); }
+    arrow::Status Process(
+        const std::vector<std::shared_ptr<arrow::Array>>& in,
+        std::shared_ptr<arrow::RecordBatch>* out,
+        const std::shared_ptr<arrow::Array>& selection = nullptr) override {
+      arrow::ArrayVector outputs;
+      if (right_projector_) {
+        auto length = in.size() > 0 ? in[0]->length() : 0;
+        auto in_batch = arrow::RecordBatch::Make(right_schema_, length, in);
+        RETURN_NOT_OK(
+            right_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
+      }
+
+      return prober_res_iter_->Process(in, outputs, out, selection);
+    }
+
+   private:
+    arrow::compute::FunctionContext* ctx_;
+    std::shared_ptr<gandiva::Projector> right_projector_;
+    std::shared_ptr<arrow::Schema> right_schema_;
+    std::shared_ptr<ResultIterator<arrow::RecordBatch>> prober_res_iter_;
+  };
 
   arrow::Status GetResultIndexList(
       const std::shared_ptr<arrow::Schema>& result_schema,
@@ -217,6 +267,17 @@ class ConditionedProbeArraysKernel::Impl {
       } catch (const std::runtime_error& error) {
         FileSpinUnLock(file_lock);
         throw error;
+      }
+    } else {
+      std::vector<int> left_cond_index_list;
+      std::vector<int> right_cond_index_list;
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>> left_projected_batch_list;
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>>
+          right_projected_batch_list;
+      if (func_node) {
+        GetConditionCheckFunc(func_node, left_field_list, right_field_list,
+                              &left_cond_index_list, &right_cond_index_list,
+                              &left_projected_batch_list, &right_projected_batch_list);
       }
     }
     FileSpinUnLock(file_lock);
@@ -336,6 +397,26 @@ class ConditionedProbeArraysKernel::Impl {
     }
     return ss.str();
   }
+  std::string GetLeftProjectedDefine(
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>>
+          left_projected_batch_list) {
+    std::stringstream ss;
+    for (auto name : left_projected_batch_list) {
+      ss << "std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array") << ">> "
+         << name.second << ";" << std::endl;
+    }
+    return ss.str();
+  }
+  std::string GetRightProjectedDefine(
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>>
+          right_projected_batch_list) {
+    std::stringstream ss;
+    for (auto name : right_projected_batch_list) {
+      ss << "std::shared_ptr<" << GetTypeString(name.first, "Array") << "> "
+         << name.second << ";" << std::endl;
+    }
+    return ss.str();
+  }
   std::string GetResultIteratorParams(std::vector<int> key_indices) {
     std::stringstream ss;
     for (int i = 0; i < key_indices.size(); i++) {
@@ -378,6 +459,47 @@ class ConditionedProbeArraysKernel::Impl {
     for (auto i : indices) {
       ss << "cached_1_" << i << "_ = std::make_shared<ArrayType_1_" << i << ">(in[" << i
          << "]);" << std::endl;
+    }
+    return ss.str();
+  }
+  std::string GetLeftProjectedSet(
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
+    std::stringstream ss;
+    int i = 0;
+    for (auto name : name_list) {
+      ss << name.second << ".push_back(std::make_shared<"
+         << GetTypeString(name.first, "Array") << ">(projected_batch[" << i++ << "]));"
+         << std::endl;
+    }
+    return ss.str();
+  }
+  std::string GetRightProjectedSet(
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
+    std::stringstream ss;
+    int i = 0;
+    for (auto name : name_list) {
+      ss << name.second << " = std::make_shared<" << GetTypeString(name.first, "Array")
+         << ">(projected_batch[" << i++ << "]);" << std::endl;
+    }
+    return ss.str();
+  }
+  std::string GetResultIteratorProjectedParams(
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
+    std::vector<std::string> param_list;
+    for (auto name : name_list) {
+      std::stringstream ss;
+      ss << "const std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array")
+         << ">>& " << name.second.substr(0, name.second.size() - 1);
+      param_list.push_back(ss.str());
+    }
+    return GetParameterList(param_list);
+  }
+  std::string GetResultIteratorProjectedSet(
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
+    std::stringstream ss;
+    for (auto name : name_list) {
+      ss << name.second << " = " << name.second.substr(0, name.second.size() - 1) << ";"
+         << std::endl;
     }
     return ss.str();
   }
@@ -723,13 +845,46 @@ class ConditionedProbeArraysKernel::Impl {
       const std::shared_ptr<gandiva::Node>& func_node,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      std::vector<int>* left_out_index_list, std::vector<int>* right_out_index_list) {
+      std::vector<int>* left_out_index_list, std::vector<int>* right_out_index_list,
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>>*
+          left_projected_batch_list,
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>>*
+          right_projected_batch_list) {
     std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
     int func_count = 0;
     std::vector<std::string> input_list;
+    std::vector<gandiva::ExpressionPtr> project_node_list;
     THROW_NOT_OK(MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list},
                                         &func_count, &input_list, left_out_index_list,
-                                        right_out_index_list, &func_node_visitor));
+                                        right_out_index_list, &project_node_list,
+                                        &func_node_visitor));
+    std::vector<gandiva::ExpressionPtr> left_project_node_list;
+    std::vector<gandiva::ExpressionPtr> right_project_node_list;
+    for (auto project : project_node_list) {
+      auto name = project->result()->name();
+      auto data_type = project->result()->type();
+      if (name.find("left") != std::string::npos) {
+        left_project_node_list.push_back(project);
+        (*left_projected_batch_list).push_back(std::make_pair(data_type, name));
+      } else {
+        right_project_node_list.push_back(project);
+        (*right_projected_batch_list).push_back(std::make_pair(data_type, name));
+      }
+    }
+
+    if (!left_project_node_list.empty()) {
+      auto schema = arrow::schema(left_field_list);
+      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
+      auto status = gandiva::Projector::Make(schema, left_project_node_list,
+                                             configuration, &left_projector_);
+    }
+
+    if (!right_project_node_list.empty()) {
+      auto schema = arrow::schema(right_field_list);
+      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
+      auto status = gandiva::Projector::Make(schema, right_project_node_list,
+                                             configuration, &right_projector_);
+    }
 
     return R"(
     inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -826,10 +981,21 @@ class ConditionedProbeArraysKernel::Impl {
           "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
     }
     std::string condition_check_str;
+    std::string left_projected_prepare_str;
+    std::string right_projected_prepare_str;
+    std::vector<std::pair<gandiva::DataTypePtr, std::string>> left_projected_batch_list;
+    std::vector<std::pair<gandiva::DataTypePtr, std::string>> right_projected_batch_list;
+    std::vector<std::string> left_projected_batch_name_list;
     if (func_node) {
       condition_check_str =
           GetConditionCheckFunc(func_node, left_field_list, right_field_list,
-                                &left_cond_index_list, &right_cond_index_list);
+                                &left_cond_index_list, &right_cond_index_list,
+                                &left_projected_batch_list, &right_projected_batch_list);
+      left_projected_prepare_str = GetLeftProjectedSet(left_projected_batch_list);
+      right_projected_prepare_str = GetRightProjectedSet(right_projected_batch_list);
+      for (auto name : left_projected_batch_list) {
+        left_projected_batch_name_list.push_back(name.second);
+      }
       cond_check = true;
     }
     auto process_probe_str = GetProcessProbe(
@@ -852,10 +1018,18 @@ class ConditionedProbeArraysKernel::Impl {
         GetJoinKeyFieldListDefine(left_key_index_list, left_field_list);
     auto evaluate_cache_insert_str = GetEvaluateCacheInsert(left_cache_index_list);
     auto evaluate_encode_join_key_str = GetEncodeJoinKey(left_key_index_list);
-    auto finish_cached_parameter_str = GetFinishCachedParameter(left_cache_index_list);
+    auto finish_cached_parameter_str = GetFinishCachedParameter(left_cache_index_list) +
+                                       GetParameterList(left_projected_batch_name_list);
     auto impl_cached_define_str = GetImplCachedDefine(left_cache_codegen_list);
+    auto impl_projected_define_str = GetLeftProjectedDefine(left_projected_batch_list);
+    auto res_iter_projected_define_str =
+        GetRightProjectedDefine(right_projected_batch_list);
     auto result_iter_params_str = GetResultIteratorParams(left_cache_index_list);
+    auto result_iter_projected_params_str =
+        GetResultIteratorProjectedParams(left_projected_batch_list);
     auto result_iter_set_str = GetResultIteratorSet(left_cache_index_list);
+    auto result_iter_projected_set_str =
+        GetResultIteratorProjectedSet(left_projected_batch_list);
     auto result_iter_prepare_str =
         GetResultIteratorPrepare(left_shuffle_codegen_list, right_shuffle_codegen_list);
     auto process_right_set_str = GetProcessRightSet(right_cache_index_list);
@@ -900,9 +1074,9 @@ class TypedProberImpl : public CodeGenBase {
   }
   ~TypedProberImpl() {}
 
-  arrow::Status Evaluate(const ArrayList& in) override {
+  arrow::Status Evaluate(const ArrayList& in, const ArrayList& projected_batch) override {
     )" + evaluate_cache_insert_str +
-           evaluate_get_typed_array_str +
+           evaluate_get_typed_array_str + left_projected_prepare_str +
            R"(
 
     auto insert_on_found = [this](int32_t i) {
@@ -966,6 +1140,7 @@ private:
            hash_map_type_str + R"(> hash_table_;
   std::vector<std::vector<ArrayItemIndex>> memo_index_to_arrayid_;
   )" + impl_cached_define_str +
+           impl_projected_define_str +
            R"( 
 
   class ProberResultIterator : public ResultIterator<arrow::RecordBatch> {
@@ -977,22 +1152,24 @@ private:
         std::shared_ptr<)" +
            hash_map_type_str + R"(> hash_table,
         std::vector<std::vector<ArrayItemIndex>> *memo_index_to_arrayid)" +
-           result_iter_params_str + R"(
+           result_iter_params_str + result_iter_projected_params_str + R"(
         )
         : ctx_(ctx), result_schema_(schema), hash_kernel_(hash_kernel), hash_table_(hash_table),
           memo_index_to_arrayid_(memo_index_to_arrayid) {
             )" +
-           result_iter_set_str + result_iter_prepare_str + R"(
+           result_iter_set_str + result_iter_prepare_str + result_iter_projected_set_str +
+           R"(
     }
 
     std::string ToString() override { return "ProberResultIterator"; }
 
     arrow::Status
-    Process(const ArrayList &in, std::shared_ptr<arrow::RecordBatch> *out,
+    Process(const ArrayList &in, const ArrayList& projected_batch,
+            std::shared_ptr<arrow::RecordBatch> *out,
             const std::shared_ptr<arrow::Array> &selection) override {
       uint64_t out_length = 0;
       )" + process_right_set_str +
-           process_get_typed_array_str +
+           process_get_typed_array_str + right_projected_prepare_str +
            R"(
       auto length = cached_1_0_->length();
 
@@ -1017,6 +1194,7 @@ private:
            hash_map_type_str + R"(> hash_table_;
     std::vector<std::vector<ArrayItemIndex>> *memo_index_to_arrayid_;
 )" + result_iter_cached_define_str +
+           impl_projected_define_str + res_iter_projected_define_str +
            R"(
       )" + condition_check_str +
            R"(

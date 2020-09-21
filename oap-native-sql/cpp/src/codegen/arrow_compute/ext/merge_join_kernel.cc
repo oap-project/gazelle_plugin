@@ -765,9 +765,11 @@ class ConditionedJoinArraysKernel::Impl {
     std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
     int func_count = 0;
     std::vector<std::string> input_list;
+    std::vector<gandiva::ExpressionPtr> project_node_list;
     THROW_NOT_OK(MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list},
                                         &func_count, &input_list, left_out_index_list,
-                                        right_out_index_list, &func_node_visitor));
+                                        right_out_index_list, &project_node_list,
+                                        &func_node_visitor));
 
     return R"(
     inline bool ConditionCheck(ArrayItemIndex x, int y) {

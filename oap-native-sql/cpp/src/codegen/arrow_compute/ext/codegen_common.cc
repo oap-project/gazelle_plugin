@@ -38,6 +38,7 @@ std::string BaseCodes() {
 #include <arrow/compute/context.h>
 #include <arrow/record_batch.h>
 #include <math.h>
+
 #include <limits>
 
 #include "codegen/arrow_compute/ext/code_generator_base.h"
@@ -105,7 +106,6 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
       return "int32_t";
     case arrow::StringType::type_id:
       return "std::string";
-      //return "arrow::util::string_view";
     case arrow::BooleanType::type_id:
       return "bool";
     default:
@@ -144,6 +144,23 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
     default:
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
       throw;
+  }
+}
+
+std::string GetParameterList(std::vector<std::string> parameter_list) {
+  std::stringstream ss;
+  for (int i = 0; i < parameter_list.size(); i++) {
+    if (i != (parameter_list.size() - 1)) {
+      ss << parameter_list[i] << ", ";
+    } else {
+      ss << parameter_list[i] << "";
+    }
+  }
+  auto ret = ss.str();
+  if (ret.empty()) {
+    return ret;
+  } else {
+    return ", " + ret;
   }
 }
 

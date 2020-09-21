@@ -29,8 +29,7 @@ class CodeGenBase {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }
-  virtual arrow::Status Evaluate(
-      const ArrayList& in, const std::shared_ptr<arrow::RecordBatch>& projected_batch) {
+  virtual arrow::Status Evaluate(const ArrayList& in, const ArrayList& projected_batch) {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }

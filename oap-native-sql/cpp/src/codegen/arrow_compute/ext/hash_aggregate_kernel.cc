@@ -118,11 +118,10 @@ class HashAggregateKernel::Impl {
       arrow::ArrayVector outputs;
       auto in_batch = arrow::RecordBatch::Make(original_input_schema_, length, in);
       RETURN_NOT_OK(projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
-      auto out_batch = arrow::RecordBatch::Make(projected_input_schema_, length, outputs);
-      RETURN_NOT_OK(hash_aggregater_->Evaluate(in, out_batch));
+      RETURN_NOT_OK(hash_aggregater_->Evaluate(in, outputs));
     } else {
-      std::shared_ptr<arrow::RecordBatch> empty_batch;
-      RETURN_NOT_OK(hash_aggregater_->Evaluate(in, empty_batch));
+      arrow::ArrayVector dummy_outputs;
+      RETURN_NOT_OK(hash_aggregater_->Evaluate(in, dummy_outputs));
     }
     return arrow::Status::OK();
   }
@@ -144,7 +143,6 @@ class HashAggregateKernel::Impl {
   std::string signature_;
   std::vector<std::shared_ptr<arrow::Field>> input_field_list_;
   std::shared_ptr<arrow::Schema> original_input_schema_;
-  std::shared_ptr<arrow::Schema> projected_input_schema_;
   std::vector<std::shared_ptr<gandiva::Node>> action_list_;
   std::shared_ptr<arrow::Schema> result_schema_;
   std::shared_ptr<CodeGenBase> hash_aggregater_;
@@ -157,7 +155,6 @@ class HashAggregateKernel::Impl {
 
   arrow::Status PrepareActionCodegen() {
     std::vector<gandiva::ExpressionPtr> expr_list;
-    std::vector<gandiva::FieldPtr> output_field_list;
     int index = 0;
     for (auto func_node : action_list_) {
       std::shared_ptr<CodeGenNodeVisitor> codegen_visitor;
@@ -172,7 +169,6 @@ class HashAggregateKernel::Impl {
       action_impl_list_.push_back(action_codegen);
       if (action_codegen->IsPreProjected()) {
         auto expr = action_codegen->GetProjectorExpr();
-        output_field_list.push_back(expr->result());
         // chendi: We need to use index in project output to replace project name
         action_codegen->WithProjectIndex(index++);
         expr_list.push_back(expr);
@@ -186,12 +182,10 @@ class HashAggregateKernel::Impl {
         key_expr_list.push_back(key.first);
       }
       auto expr = GetConcatedKernel(key_expr_list);
-      output_field_list.push_back(expr->result());
       expr_list.push_back(expr);
     }
     if (!expr_list.empty()) {
       original_input_schema_ = arrow::schema(input_field_list_);
-      projected_input_schema_ = arrow::schema(output_field_list);
       auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
       THROW_NOT_OK(gandiva::Projector::Make(original_input_schema_, expr_list,
                                             configuration, &projector_));
@@ -329,8 +323,7 @@ class HashAggregateKernel::Impl {
     } else {
       evaluate_get_typed_key_array_str =
           "auto typed_array = "
-          "std::make_shared<Int64Array>(projected_batch->GetColumnByName("
-          "\"projection_key\"));\n";
+          "std::make_shared<Int64Array>(projected_batch.back());\n";
       evaluate_get_typed_key_method_str = "GetView";
     }
 
@@ -347,7 +340,7 @@ class TypedGroupbyHashAggregateImpl : public CodeGenBase {
            hash_map_define_str + R"(
   }
 
-  arrow::Status Evaluate(const ArrayList& in, const std::shared_ptr<arrow::RecordBatch>& projected_batch) override {
+  arrow::Status Evaluate(const ArrayList& in, const ArrayList& projected_batch) override {
     )" + evaluate_get_typed_array_str +
            evaluate_get_typed_key_array_str +
            R"(

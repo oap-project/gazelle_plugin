@@ -67,8 +67,8 @@ class ColumnarCaseWhen(
     val (ret_node, retType): (TreeNode, ArrowType) =
       colRetExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val (else_node, elseType): (TreeNode, ArrowType) = if (elseValue.isDefined) {
-      val elseValueExpr = elseValue.getOrElse(null)
+    val elseValueExpr = elseValue.getOrElse(null)
+    val (else_node, elseType): (TreeNode, ArrowType) = if (elseValueExpr != null) {
       var colElseValueExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(elseValueExpr)
       if (rename && colElseValueExpr.isInstanceOf[AttributeReference]) {
         colElseValueExpr = new ColumnarBoundReference(inputAttributes.indexOf(colElseValueExpr),

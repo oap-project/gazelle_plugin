@@ -31,7 +31,96 @@ std::string CodeGenNodeVisitor::GetPrepare() { return prepare_str_; }
 std::string CodeGenNodeVisitor::GetPreCheck() { return check_str_; }
 std::string CodeGenNodeVisitor::GetRealResult() { return real_codes_str_; }
 std::string CodeGenNodeVisitor::GetRealValidity() { return real_validity_str_; }
+gandiva::ExpressionPtr CodeGenNodeVisitor::GetProjectExpr() { return project_; }
+CodeGenNodeVisitor::FieldType CodeGenNodeVisitor::GetFieldType() { return field_type_; }
+arrow::Status CodeGenNodeVisitor::ProduceGandivaFunction() {
+  std::stringstream prepare_ss;
+  auto return_type = func_->return_type();
+  std::stringstream signature_ss;
+  signature_ss << std::hash<std::string>{}(func_->ToString());
+  auto arg_id = signature_ss.str();
+  switch (field_type_) {
+    case left: {
+      codes_str_ = "projected_batch_0_" + arg_id;
+      check_str_ = "projected_batch_validity_0_" + arg_id;
+      input_codes_str_ = "projected_batch_left_" + arg_id + "_";
+      prepare_ss << "  bool " << check_str_ << " = true;" << std::endl;
+      prepare_ss << "  " << GetCTypeString(return_type) << " " << codes_str_ << ";"
+                 << std::endl;
+      prepare_ss << "  if (" << input_codes_str_ << "[x.array_id]->IsNull(x.id)) {"
+                 << std::endl;
+      prepare_ss << "    " << check_str_ << " = false;" << std::endl;
+      prepare_ss << "  } else {" << std::endl;
+      if (return_type->id() != arrow::Type::STRING) {
+        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
+                   << "[x.array_id]->GetView(x.id);" << std::endl;
+      } else {
+        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
+                   << "[x.array_id]->GetString(x.id);" << std::endl;
+      }
+      prepare_ss << "  }" << std::endl;
+    } break;
+    case right: {
+      codes_str_ = "projected_batch_1_" + arg_id;
+      check_str_ = "projected_batch_validity_1_" + arg_id;
+      input_codes_str_ = "projected_batch_right_" + arg_id + "_";
+      prepare_ss << "  bool " << check_str_ << " = true;" << std::endl;
+      prepare_ss << "  " << GetCTypeString(return_type) << " " << codes_str_ << ";"
+                 << std::endl;
+      prepare_ss << "  if (" << input_codes_str_ << "->IsNull(y)) {" << std::endl;
+      prepare_ss << "    " << check_str_ << " = false;" << std::endl;
+      prepare_ss << "  } else {" << std::endl;
+      if (return_type->id() != arrow::Type::STRING) {
+        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_ << "->GetView(y);"
+                   << std::endl;
+      } else {
+        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
+                   << "->GetString(y);" << std::endl;
+      }
+      prepare_ss << "  }" << std::endl;
+    } break;
+    default:
+      return arrow::Status::NotImplemented(
+          "Unable to support function whose chidren both from left and right Or "
+          "Unknown.");
+  }
+  prepare_str_ = prepare_ss.str();
+  auto res_field = arrow::field(input_codes_str_, return_type);
+  project_ = gandiva::TreeExprBuilder::MakeExpression(func_, res_field);
+  return arrow::Status::OK();
+}
+arrow::Status CodeGenNodeVisitor::AppendProjectList(
+    const std::vector<std::shared_ptr<CodeGenNodeVisitor>>& child_visitor_list, int i) {
+  auto project = child_visitor_list[i]->GetProjectExpr();
+  if (project) {
+    for (auto p : *project_list_) {
+      if (p->result()->name() == project->result()->name()) return arrow::Status::OK();
+    }
+    (*project_list_).push_back(project);
+  }
+  prepare_str_ += child_visitor_list[i]->GetPrepare();
+  return arrow::Status::OK();
+}
 arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
+  std::vector<std::string> non_gandiva_func_list = {"less_than",
+                                                    "greater_than",
+                                                    "less_than_or_equal_to",
+                                                    "greater_than_or_equal_to",
+                                                    "equal",
+                                                    "not",
+                                                    "substr",
+                                                    "add",
+                                                    "subtract",
+                                                    "multiply",
+                                                    "divide",
+                                                    "isnotnull"};
+  auto func_name = node.descriptor()->name();
+  auto input_list = input_list_;
+  if (func_name.compare(0, 7, "action_") != 0 && func_name.find("cast") == std::string::npos &&
+      std::find(non_gandiva_func_list.begin(), non_gandiva_func_list.end(), func_name) ==
+          non_gandiva_func_list.end()) {
+    input_list = nullptr;
+  }
   std::vector<std::shared_ptr<CodeGenNodeVisitor>> child_visitor_list;
   auto cur_func_id = *func_count_;
   for (auto child : node.children()) {
@@ -41,15 +130,21 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
       RETURN_NOT_OK(
           MakeCodeGenNodeVisitor(child, field_list_v_[0], action_impl_, &child_visitor));
     } else {
-      RETURN_NOT_OK(MakeCodeGenNodeVisitor(child, field_list_v_, func_count_, input_list_,
-                                           left_indices_, right_indices_,
+      // When set input_list as nullptr, MakeCodeGenNodeVisitor only check its children's
+      // field_type won't add codes.
+      RETURN_NOT_OK(MakeCodeGenNodeVisitor(child, field_list_v_, func_count_, input_list,
+                                           left_indices_, right_indices_, project_list_,
                                            &child_visitor));
     }
-    prepare_str_ += child_visitor->GetPrepare();
     child_visitor_list.push_back(child_visitor);
+    if (field_type_ == unknown || field_type_ == literal) {
+      field_type_ = child_visitor->GetFieldType();
+    } else if (field_type_ != child_visitor->GetFieldType() && field_type_ != literal &&
+               child_visitor->GetFieldType() != literal) {
+      field_type_ = mixed;
+    }
   }
 
-  auto func_name = node.descriptor()->name();
   std::stringstream ss;
   if (action_impl_) {
     if (func_name.compare(0, 7, "action_") == 0) {
@@ -75,30 +170,50 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
                            child_visitor_list[1]->GetPreCheck();
       ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("greater_than") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
                         child_visitor_list[1]->GetResult() + ")";
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
                            child_visitor_list[1]->GetPreCheck();
       ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("less_than_or_equal_to") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                         " <= " + child_visitor_list[1]->GetResult() + ")";
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
                            child_visitor_list[1]->GetPreCheck();
       ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("greater_than_or_equal_to") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                         " >= " + child_visitor_list[1]->GetResult() + ")";
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
                            child_visitor_list[1]->GetPreCheck();
       ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("equal") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                         " == " + child_visitor_list[1]->GetResult() + ")";
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
                            child_visitor_list[1]->GetPreCheck();
       ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("not") == 0) {
       std::string check_validity;
       if (child_visitor_list[0]->GetPreCheck() != "") {
@@ -106,21 +221,108 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
       }
       ss << check_validity << child_visitor_list[0]->GetRealValidity() << " && !"
          << child_visitor_list[0]->GetRealResult();
+      for (int i = 0; i < 1; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
+    } else if (func_name.compare("isnotnull") == 0) {
+      for (int i = 0; i < 1; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = child_visitor_list[0]->GetPreCheck();
     } else if (func_name.compare("substr") == 0) {
       ss << child_visitor_list[0]->GetResult() << ".substr("
          << "((" << child_visitor_list[1]->GetResult() << " - 1) < 0 ? 0 : ("
          << child_visitor_list[1]->GetResult() << " - 1)), "
          << child_visitor_list[2]->GetResult() << ")";
       check_str_ = child_visitor_list[0]->GetPreCheck();
+      for (int i = 0; i < 3; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.find("cast") != std::string::npos) {
       ss << child_visitor_list[0]->GetResult();
       check_str_ = child_visitor_list[0]->GetPreCheck();
+      for (int i = 0; i < 1; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
+    } else if (func_name.compare("add") == 0) {
+      codes_str_ = "add_" + std::to_string(cur_func_id);
+      auto validity = "add_validity_" + std::to_string(cur_func_id);
+      std::stringstream prepare_ss;
+      prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+                 << std::endl;
+      prepare_ss << "bool " << validity << " = (" << child_visitor_list[0]->GetPreCheck()
+                 << " && " << child_visitor_list[1]->GetPreCheck() << ");" << std::endl;
+      prepare_ss << "if (" << validity << ") {" << std::endl;
+      prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " + "
+                 << child_visitor_list[1]->GetResult() << ";" << std::endl;
+      prepare_ss << "}" << std::endl;
+
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      prepare_str_ += prepare_ss.str();
+      check_str_ = validity;
+    } else if (func_name.compare("subtract") == 0) {
+      codes_str_ = "subtract_" + std::to_string(cur_func_id);
+      auto validity = "subtract_validity_" + std::to_string(cur_func_id);
+      std::stringstream prepare_ss;
+      prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+                 << std::endl;
+      prepare_ss << "bool " << validity << " = (" << child_visitor_list[0]->GetPreCheck()
+                 << " && " << child_visitor_list[1]->GetPreCheck() << ");" << std::endl;
+      prepare_ss << "if (" << validity << ") {" << std::endl;
+      prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " - "
+                 << child_visitor_list[1]->GetResult() << ";" << std::endl;
+      prepare_ss << "}" << std::endl;
+
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      prepare_str_ += prepare_ss.str();
+      check_str_ = validity;
+    } else if (func_name.compare("multiply")  == 0) {
+      codes_str_ = "multiply_" + std::to_string(cur_func_id);
+      auto validity = "multiply_validity_" + std::to_string(cur_func_id);
+      std::stringstream prepare_ss;
+      prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+                 << std::endl;
+      prepare_ss << "bool " << validity << " = (" << child_visitor_list[0]->GetPreCheck()
+                 << " && " << child_visitor_list[1]->GetPreCheck() << ");" << std::endl;
+      prepare_ss << "if (" << validity << ") {" << std::endl;
+      prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " * "
+                 << child_visitor_list[1]->GetResult() << ";" << std::endl;
+      prepare_ss << "}" << std::endl;
+
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      prepare_str_ += prepare_ss.str();
+      check_str_ = validity;
+    } else if (func_name.compare("divide") == 0) {
+      codes_str_ = "divide_" + std::to_string(cur_func_id);
+      auto validity = "divide_validity_" + std::to_string(cur_func_id);
+      std::stringstream prepare_ss;
+      prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+                 << std::endl;
+      prepare_ss << "bool " << validity << " = (" << child_visitor_list[0]->GetPreCheck()
+                 << " && " << child_visitor_list[1]->GetPreCheck() << ");" << std::endl;
+      prepare_ss << "if (" << validity << ") {" << std::endl;
+      prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " * 1.0 / "
+                 << child_visitor_list[1]->GetResult() << ";" << std::endl;
+      prepare_ss << "}" << std::endl;
+
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      prepare_str_ += prepare_ss.str();
+      check_str_ = validity;
     } else {
-      return arrow::Status::NotImplemented(func_name +
-                                           " is not currently support inside condition.");
+      RETURN_NOT_OK(ProduceGandivaFunction());
     }
   }
-  codes_str_ = ss.str();
   return arrow::Status::OK();
 }
 
@@ -180,6 +382,7 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FieldNode& node) {
                    << "[x.array_id]->GetString(x.id);" << std::endl;
       }
       prepare_ss << "  }" << std::endl;
+      field_type_ = left;
 
     } else {
       codes_str_ = "input_field_1_" + std::to_string(arg_id);
@@ -199,14 +402,17 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FieldNode& node) {
                    << "->GetString(y);" << std::endl;
       }
       prepare_ss << "  }" << std::endl;
+      field_type_ = right;
     }
   }
 
   check_str_ = codes_validity_str_;
-  if (std::find((*input_list_).begin(), (*input_list_).end(), codes_str_) ==
-      (*input_list_).end()) {
-    (*input_list_).push_back(codes_str_);
-    prepare_str_ = prepare_ss.str();
+  if (input_list_ != nullptr) {
+    if (std::find((*input_list_).begin(), (*input_list_).end(), codes_str_) ==
+        (*input_list_).end()) {
+      (*input_list_).push_back(codes_str_);
+      prepare_str_ = prepare_ss.str();
+    }
   }
   return arrow::Status::OK();
 }
@@ -214,6 +420,50 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FieldNode& node) {
 arrow::Status CodeGenNodeVisitor::Visit(const gandiva::IfNode& node) {
   if (action_impl_) {
     RETURN_NOT_OK(action_impl_->MakeGandivaProjection(func_, field_list_v_[0]));
+  } else {
+    std::stringstream prepare_ss;
+    auto cur_func_id = *func_count_;
+
+    std::vector<gandiva::NodePtr> children = {node.condition(), node.then_node(),
+                                              node.else_node()};
+    std::vector<std::shared_ptr<CodeGenNodeVisitor>> child_visitor_list;
+    for (auto child : children) {
+      std::shared_ptr<CodeGenNodeVisitor> child_visitor;
+      *func_count_ = *func_count_ + 1;
+      RETURN_NOT_OK(MakeCodeGenNodeVisitor(child, field_list_v_, func_count_, input_list_,
+                                           left_indices_, right_indices_, project_list_,
+                                           &child_visitor));
+      child_visitor_list.push_back(child_visitor);
+      if (field_type_ == unknown || field_type_ == literal) {
+        field_type_ = child_visitor->GetFieldType();
+      } else if (field_type_ != child_visitor->GetFieldType() && field_type_ != literal &&
+                 child_visitor->GetFieldType() != literal) {
+        field_type_ = mixed;
+      }
+    }
+    for (int i = 0; i < 3; i++) {
+      RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+    }
+    auto condition_name = "condition_" + std::to_string(cur_func_id);
+    auto condition_validity = "condition_validity_" + std::to_string(cur_func_id);
+    prepare_ss << GetCTypeString(node.return_type()) << " " << condition_name << ";"
+               << std::endl;
+    prepare_ss << "bool " << condition_validity << ";" << std::endl;
+    prepare_ss << "if (" << child_visitor_list[0]->GetResult() << ") {" << std::endl;
+    prepare_ss << condition_name << " = " << child_visitor_list[1]->GetResult() << ";"
+               << std::endl;
+    prepare_ss << condition_validity << " = " << child_visitor_list[1]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "} else {" << std::endl;
+    prepare_ss << condition_name << " = " << child_visitor_list[2]->GetResult() << ";"
+               << std::endl;
+    prepare_ss << condition_validity << " = " << child_visitor_list[2]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "}" << std::endl;
+    codes_str_ = condition_name;
+    prepare_str_ += prepare_ss.str();
+    check_str_ = condition_validity;
+    // RETURN_NOT_OK(ProduceGandivaFunction());
   }
   return arrow::Status::OK();
 }
@@ -234,7 +484,8 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::LiteralNode& node) {
   ss << "literal_" << cur_func_id;
   codes_str_ = ss.str();
   prepare_str_ = prepare_ss.str();
-  check_str_ = "true";
+  check_str_ = node.is_null() ? "false" : "true";
+  field_type_ = literal;
   return arrow::Status::OK();
 }
 
@@ -249,11 +500,17 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::BooleanNode& node) {
           MakeCodeGenNodeVisitor(child, field_list_v_[0], action_impl_, &child_visitor));
     } else {
       RETURN_NOT_OK(MakeCodeGenNodeVisitor(child, field_list_v_, func_count_, input_list_,
-                                           left_indices_, right_indices_,
+                                           left_indices_, right_indices_, project_list_,
                                            &child_visitor));
     }
     prepare_str_ += child_visitor->GetPrepare();
     child_visitor_list.push_back(child_visitor);
+    if (field_type_ == unknown || field_type_ == literal) {
+      field_type_ = child_visitor->GetFieldType();
+    } else if (field_type_ != child_visitor->GetFieldType() && field_type_ != literal &&
+               child_visitor->GetFieldType() != literal) {
+      field_type_ = mixed;
+    }
   }
 
   std::stringstream ss;
@@ -279,7 +536,7 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::InExpressionNode<int>& no
   } else {
     RETURN_NOT_OK(MakeCodeGenNodeVisitor(node.eval_expr(), field_list_v_, func_count_,
                                          input_list_, left_indices_, right_indices_,
-                                         &child_visitor));
+                                         project_list_, &child_visitor));
   }
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<int> in_list_" << cur_func_id << " = {";
@@ -300,7 +557,9 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::InExpressionNode<int>& no
      << ".end(), " << child_visitor->GetResult() << ") != "
      << "in_list_" << cur_func_id << ".end()";
   codes_str_ = ss.str();
-  prepare_str_ = child_visitor->GetPrepare() + prepare_ss.str();
+  prepare_str_ = prepare_ss.str();
+  field_type_ = child_visitor->GetFieldType();
+  RETURN_NOT_OK(AppendProjectList({child_visitor}, 0));
   return arrow::Status::OK();
 }
 
@@ -314,7 +573,7 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::InExpressionNode<long int
   } else {
     RETURN_NOT_OK(MakeCodeGenNodeVisitor(node.eval_expr(), field_list_v_, func_count_,
                                          input_list_, left_indices_, right_indices_,
-                                         &child_visitor));
+                                         project_list_, &child_visitor));
   }
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<long int> in_list_" << cur_func_id << " = {";
@@ -335,7 +594,9 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::InExpressionNode<long int
      << ".end(), " << child_visitor->GetResult() << ") != "
      << "in_list_" << cur_func_id << ".end()";
   codes_str_ = ss.str();
-  prepare_str_ = child_visitor->GetPrepare() + prepare_ss.str();
+  prepare_str_ = prepare_ss.str();
+  field_type_ = child_visitor->GetFieldType();
+  RETURN_NOT_OK(AppendProjectList({child_visitor}, 0));
   return arrow::Status::OK();
 }
 
@@ -350,7 +611,7 @@ arrow::Status CodeGenNodeVisitor::Visit(
   } else {
     RETURN_NOT_OK(MakeCodeGenNodeVisitor(node.eval_expr(), field_list_v_, func_count_,
                                          input_list_, left_indices_, right_indices_,
-                                         &child_visitor));
+                                         project_list_, &child_visitor));
   }
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<std::string> in_list_" << cur_func_id << " = {";
@@ -371,7 +632,9 @@ arrow::Status CodeGenNodeVisitor::Visit(
      << ".end(), " << child_visitor->GetResult() << ") != "
      << "in_list_" << cur_func_id << ".end()";
   codes_str_ = ss.str();
-  prepare_str_ = child_visitor->GetPrepare() + prepare_ss.str();
+  prepare_str_ = prepare_ss.str();
+  field_type_ = child_visitor->GetFieldType();
+  RETURN_NOT_OK(AppendProjectList({child_visitor}, 0));
   return arrow::Status::OK();
 }
 

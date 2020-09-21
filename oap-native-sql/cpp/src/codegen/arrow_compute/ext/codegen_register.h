@@ -35,6 +35,7 @@ class CodeGenRegister : public VisitorBase {
   }
 
   std::string GetFingerprint();
+  std::string GetFingerprintSignature();
   arrow::Status Visit(const gandiva::FunctionNode& node) override;
   arrow::Status Visit(const gandiva::FieldNode& node) override;
   arrow::Status Visit(const gandiva::IfNode& node) override;

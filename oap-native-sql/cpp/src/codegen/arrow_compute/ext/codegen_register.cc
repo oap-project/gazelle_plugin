@@ -26,6 +26,11 @@ namespace codegen {
 namespace arrowcompute {
 namespace extra {
 std::string CodeGenRegister::GetFingerprint() { return fp_; }
+std::string CodeGenRegister::GetFingerprintSignature() {
+  std::stringstream ss;
+  ss << std::hash<std::string>{}(fp_);
+  return ss.str();
+}
 arrow::Status CodeGenRegister::Visit(const gandiva::FunctionNode& node) {
   std::stringstream ss;
   ss << node.descriptor()->return_type()->ToString() << " " << node.descriptor()->name()

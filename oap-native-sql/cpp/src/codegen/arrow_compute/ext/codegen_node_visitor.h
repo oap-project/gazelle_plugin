@@ -31,13 +31,15 @@ class CodeGenNodeVisitor : public VisitorBase {
   CodeGenNodeVisitor(std::shared_ptr<gandiva::Node> func,
                      std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
                      int* func_count, std::vector<std::string>* input_list,
-                     std::vector<int>* left_indices, std::vector<int>* right_indices)
+                     std::vector<int>* left_indices, std::vector<int>* right_indices,
+                     std::vector<gandiva::ExpressionPtr>* project_list)
       : func_(func),
         field_list_v_(field_list_v),
         func_count_(func_count),
         input_list_(input_list),
         left_indices_(left_indices),
-        right_indices_(right_indices) {}
+        right_indices_(right_indices),
+        project_list_(project_list) {}
   CodeGenNodeVisitor(std::shared_ptr<gandiva::Node> func,
                      std::vector<std::shared_ptr<arrow::Field>> field_list,
                      std::vector<std::string>* input_list)
@@ -59,6 +61,7 @@ class CodeGenNodeVisitor : public VisitorBase {
     left_indices_ = action_impl_->GetInputIndexListRef();
     left_field_ = action_impl_->GetInputFieldsListRef();
   }
+  enum FieldType { left, right, literal, mixed, unknown };
 
   arrow::Status Eval() {
     RETURN_NOT_OK(func_->Accept(*this));
@@ -77,6 +80,8 @@ class CodeGenNodeVisitor : public VisitorBase {
   std::string GetPrepare();
   std::string GetRealResult();
   std::string GetRealValidity();
+  FieldType GetFieldType();
+  gandiva::ExpressionPtr GetProjectExpr();
   arrow::Status Visit(const gandiva::FunctionNode& node) override;
   arrow::Status Visit(const gandiva::FieldNode& node) override;
   arrow::Status Visit(const gandiva::IfNode& node) override;
@@ -90,6 +95,7 @@ class CodeGenNodeVisitor : public VisitorBase {
   std::shared_ptr<gandiva::Node> func_;
   std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v_;
   int* func_count_;
+  FieldType field_type_ = unknown;
   // output
   std::shared_ptr<TypedActionCodeGenImpl> action_impl_;
   std::vector<std::string>* input_list_;
@@ -100,12 +106,17 @@ class CodeGenNodeVisitor : public VisitorBase {
   std::string prepare_str_;
   std::string input_codes_str_;
   std::string check_str_;
+  gandiva::ExpressionPtr project_;
   std::vector<int>* left_indices_ = nullptr;
   std::vector<std::shared_ptr<arrow::Field>>* left_field_ = nullptr;
   std::vector<int>* right_indices_ = nullptr;
   std::vector<std::shared_ptr<arrow::Field>>* right_field_ = nullptr;
+  std::vector<gandiva::ExpressionPtr>* project_list_;
   arrow::Status InsertToIndices(int index, int arg_id,
                                 std::shared_ptr<arrow::Field> field);
+  arrow::Status ProduceGandivaFunction();
+  arrow::Status AppendProjectList(
+      const std::vector<std::shared_ptr<CodeGenNodeVisitor>>& child_visitor_list, int i);
 };
 static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,
@@ -135,9 +146,11 @@ static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,
     std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v, int* func_count,
     std::vector<std::string>* input_list, std::vector<int>* left_indices,
-    std::vector<int>* right_indices, std::shared_ptr<CodeGenNodeVisitor>* out) {
-  auto visitor = std::make_shared<CodeGenNodeVisitor>(
-      func, field_list_v, func_count, input_list, left_indices, right_indices);
+    std::vector<int>* right_indices, std::vector<gandiva::ExpressionPtr>* project_list,
+    std::shared_ptr<CodeGenNodeVisitor>* out) {
+  auto visitor =
+      std::make_shared<CodeGenNodeVisitor>(func, field_list_v, func_count, input_list,
+                                           left_indices, right_indices, project_list);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;
   return arrow::Status::OK();
