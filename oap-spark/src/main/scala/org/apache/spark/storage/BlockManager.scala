@@ -1285,6 +1285,22 @@ private[spark] class BlockManager(
   }
 
   /**
+    * A short circuited method to get a PMem writer that can write data directly to PMem.
+    * The Block will be appended to the PMem stream specified by filename. Callers should handle
+    * error cases.
+    */
+  def getPMemWriter(
+                     blockId: BlockId,
+                     file: File,
+                     serializerInstance: SerializerInstance,
+                     bufferSize: Int,
+                     writeMetrics: ShuffleWriteMetricsReporter): PMemBlockObjectWriter = {
+    val syncWrites = conf.getBoolean("spark.shuffle.sync", false)
+    new PMemBlockObjectWriter(file, serializerManager, serializerInstance, bufferSize,
+      syncWrites, writeMetrics, blockId)
+  }
+
+  /**
    * Put a new block of serialized bytes to the block manager.
    *
    * '''Important!''' Callers must not mutate or release the data buffer underlying `bytes`. Doing

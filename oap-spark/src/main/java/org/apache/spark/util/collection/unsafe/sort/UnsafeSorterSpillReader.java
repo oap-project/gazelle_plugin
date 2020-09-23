@@ -19,12 +19,15 @@ package org.apache.spark.util.collection.unsafe.sort;
 
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
+import com.intel.oap.common.storage.stream.ChunkInputStream;
+import com.intel.oap.common.storage.stream.DataStore;
 import org.apache.spark.SparkEnv;
 import org.apache.spark.TaskContext;
 import org.apache.spark.internal.config.package$;
 import org.apache.spark.internal.config.ConfigEntry;
 import org.apache.spark.io.NioBufferedFileInputStream;
 import org.apache.spark.io.ReadAheadInputStream;
+import org.apache.spark.memory.PMemManagerInitializer;
 import org.apache.spark.serializer.SerializerManager;
 import org.apache.spark.storage.BlockId;
 import org.apache.spark.unsafe.Platform;
@@ -55,7 +58,6 @@ public final class UnsafeSorterSpillReader extends UnsafeSorterIterator implemen
       SerializerManager serializerManager,
       File file,
       BlockId blockId) throws IOException {
-    assert (file.length() > 0);
     final ConfigEntry<Object> bufferSizeConfigEntry =
         package$.MODULE$.UNSAFE_SORTER_SPILL_READER_BUFFER_SIZE();
     // This value must be less than or equal to MAX_BUFFER_SIZE_BYTES. Cast to int is always safe.
@@ -67,8 +69,12 @@ public final class UnsafeSorterSpillReader extends UnsafeSorterIterator implemen
     final boolean readAheadEnabled = SparkEnv.get() != null && (boolean)SparkEnv.get().conf().get(
         package$.MODULE$.UNSAFE_SORTER_SPILL_READ_AHEAD_ENABLED());
 
-    final InputStream bs =
-        new NioBufferedFileInputStream(file, bufferSizeBytes);
+    boolean pMemSpillEnabled = SparkEnv.get() != null && (boolean) SparkEnv.get().conf().get(
+            package$.MODULE$.MEMORY_SPILL_PMEM_ENABLED());
+    final InputStream bs = pMemSpillEnabled ? ChunkInputStream.getChunkInputStreamInstance(file.toString(),
+            new DataStore(PMemManagerInitializer.getPMemManager(),
+                    PMemManagerInitializer.getProperties())) :
+            new NioBufferedFileInputStream(file, bufferSizeBytes);
     try {
       if (readAheadEnabled) {
         this.in = new ReadAheadInputStream(serializerManager.wrapStream(blockId, bs),

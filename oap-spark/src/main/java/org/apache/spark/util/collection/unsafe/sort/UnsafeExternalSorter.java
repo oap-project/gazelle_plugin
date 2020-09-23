@@ -25,13 +25,20 @@ import java.util.Queue;
 import java.util.function.Supplier;
 
 import com.google.common.annotations.VisibleForTesting;
-import org.apache.spark.memory.SparkOutOfMemoryError;
+
+import com.intel.oap.common.storage.stream.ChunkInputStream;
+import com.intel.oap.common.storage.stream.DataStore;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.spark.SparkEnv;
 import org.apache.spark.TaskContext;
 import org.apache.spark.executor.ShuffleWriteMetrics;
+import org.apache.spark.internal.config.package$;
 import org.apache.spark.memory.MemoryConsumer;
+import org.apache.spark.memory.PMemManagerInitializer;
+import org.apache.spark.memory.SparkOutOfMemoryError;
 import org.apache.spark.memory.TaskMemoryManager;
 import org.apache.spark.memory.TooLargePageException;
 import org.apache.spark.serializer.SerializerManager;
@@ -307,12 +314,35 @@ public final class UnsafeExternalSorter extends MemoryConsumer {
    * Deletes any spill files created by this sorter.
    */
   private void deleteSpillFiles() {
-    for (UnsafeSorterSpillWriter spill : spillWriters) {
-      File file = spill.getFile();
+    boolean pMemSpillEnabled = SparkEnv.get() != null && (boolean) SparkEnv.get().conf().get(
+            package$.MODULE$.MEMORY_SPILL_PMEM_ENABLED());
+    if (pMemSpillEnabled == true)
+      deletePMemSpillFiles();
+    else
+      deleteDiskSpillFiles();
+  }
+
+  private void deleteDiskSpillFiles() {
+    while (!spillWriters.isEmpty()) {
+      File file = spillWriters.removeFirst().getFile();
       if (file != null && file.exists()) {
         if (!file.delete()) {
           logger.error("Was unable to delete spill file {}", file.getAbsolutePath());
         }
+      }
+    }
+  }
+
+  private void deletePMemSpillFiles() {
+    while (!spillWriters.isEmpty()) {
+      File file = spillWriters.removeFirst().getFile();
+      try {
+        ChunkInputStream cis = ChunkInputStream.getChunkInputStreamInstance(file.toString(),
+                new DataStore(PMemManagerInitializer.getPMemManager(),
+                        PMemManagerInitializer.getProperties()));
+        cis.free();
+      } catch (IOException e) {
+        logger.debug(e.toString());
       }
     }
   }

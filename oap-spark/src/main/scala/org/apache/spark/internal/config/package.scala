@@ -356,6 +356,18 @@ package object config {
     .doubleConf
     .createWithDefault(0.6)
 
+  val MEMORY_SPILL_PMEM_ENABLED =
+    ConfigBuilder("spark.memory.spill.pmem.enabled")
+      .doc("Set memory spill to PMem instead of disk.")
+      .booleanConf
+      .createWithDefault(false)
+
+  val PMEM_PROPERTY_FILE =
+    ConfigBuilder("spark.memory.spill.pmem.config.file")
+      .doc("A config file used to config Intel PMem settings for memory extension.")
+      .stringConf
+      .createWithDefault("pmem.properties")
+
   private[spark] val STORAGE_SAFETY_FRACTION = ConfigBuilder("spark.storage.safetyFraction")
     .version("1.1.0")
     .doubleConf

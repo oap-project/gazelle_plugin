@@ -23,6 +23,7 @@ import java.io.IOException;
 import scala.Tuple2;
 
 import org.apache.spark.SparkConf;
+import org.apache.spark.SparkEnv;
 import org.apache.spark.serializer.SerializerManager;
 import org.apache.spark.executor.ShuffleWriteMetrics;
 import org.apache.spark.serializer.DummySerializerInstance;
@@ -74,8 +75,13 @@ public final class UnsafeSorterSpillWriter {
     // Our write path doesn't actually use this serializer (since we end up calling the `write()`
     // OutputStream methods), but DiskBlockObjectWriter still calls some methods on it. To work
     // around this, we pass a dummy no-op serializer.
-    writer = blockManager.getDiskWriter(
-      blockId, file, DummySerializerInstance.INSTANCE, fileBufferSize, writeMetrics);
+    boolean pMemSpillEnabled = SparkEnv.get() != null && (boolean) SparkEnv.get().conf().get(
+            package$.MODULE$.MEMORY_SPILL_PMEM_ENABLED());
+
+    writer = pMemSpillEnabled == true ? blockManager.getPMemWriter(
+            blockId, file, DummySerializerInstance.INSTANCE, fileBufferSize, writeMetrics)
+            : blockManager.getDiskWriter(
+            blockId, file, DummySerializerInstance.INSTANCE, fileBufferSize, writeMetrics);
     // Write the number of records
     writeIntToBuffer(numRecordsToWrite, 0);
     writer.write(writeBuffer, 0, 4);
