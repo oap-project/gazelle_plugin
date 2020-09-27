@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-client-headless-service
+  namespace: default
+spec:
+  selector:
+    app: spark-client
+  clusterIP: "None"
+  ports: 
+  - port: 1888
+    targetPort: 1888

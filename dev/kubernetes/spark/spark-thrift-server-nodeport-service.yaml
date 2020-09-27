@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+ name: spark-thrift-server-nodeport-service
+spec:
+ type: NodePort
+ ports:
+ - port: 10000
+   targetPort: 10000
+   nodePort: 30000
+ selector:
+   app: spark-thrift-server

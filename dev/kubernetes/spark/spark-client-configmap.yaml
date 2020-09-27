@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spark-client-configmap
+data:
+  kubernetes_svc_address: "$K8S_SVC_ADDRESS"
+  spark_kubernetes_driver_pod_name: "spark-client"
+  spark_driver_host: "spark-client-headless-service.default.svc.cluster.local"
+  spark_driver_port: "1888"
+  spark_kubernetes_container_image: "$CONTAINER_IMAGE"
