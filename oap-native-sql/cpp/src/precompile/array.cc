@@ -31,8 +31,12 @@ BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in) : cache_(in)
     raw_value_ = typed_in->raw_values();                                     \
   }
 
+TYPED_NUMERIC_ARRAY_IMPL(Int8Array, int8_t)
+TYPED_NUMERIC_ARRAY_IMPL(Int16Array, int16_t)
 TYPED_NUMERIC_ARRAY_IMPL(Int32Array, int32_t)
 TYPED_NUMERIC_ARRAY_IMPL(Int64Array, int64_t)
+TYPED_NUMERIC_ARRAY_IMPL(UInt8Array, uint8_t)
+TYPED_NUMERIC_ARRAY_IMPL(UInt16Array, uint16_t)
 TYPED_NUMERIC_ARRAY_IMPL(UInt32Array, uint32_t)
 TYPED_NUMERIC_ARRAY_IMPL(UInt64Array, uint64_t)
 TYPED_NUMERIC_ARRAY_IMPL(FloatArray, float)

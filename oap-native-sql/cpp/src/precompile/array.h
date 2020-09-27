@@ -76,8 +76,12 @@ class BooleanArray {
     uint64_t null_count_;                                      \
   };
 
+TYPED_ARRAY_DEFINE(Int8Array, int8_t)
+TYPED_ARRAY_DEFINE(Int16Array, int16_t)
 TYPED_ARRAY_DEFINE(Int32Array, int32_t)
 TYPED_ARRAY_DEFINE(Int64Array, int64_t)
+TYPED_ARRAY_DEFINE(UInt8Array, uint8_t)
+TYPED_ARRAY_DEFINE(UInt16Array, uint16_t)
 TYPED_ARRAY_DEFINE(UInt32Array, uint32_t)
 TYPED_ARRAY_DEFINE(UInt64Array, uint64_t)
 TYPED_ARRAY_DEFINE(FloatArray, float)
