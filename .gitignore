@@ -2,6 +2,10 @@
 *.class
 *.iml
 *.sh
+
+# logs
+*.log
+
 # IDEA config files
 .idea/
 *.iml

@@ -67,6 +67,10 @@ class KernalBase {
     return arrow::Status::NotImplemented("Finish is abstract interface for ",
                                          kernel_name_, ", output is arrayList");
   }
+  virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out) {
+    return arrow::Status::NotImplemented("Finish is abstract interface for ",
+                                         kernel_name_, ", output is arrayList");
+  }
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
@@ -111,6 +115,33 @@ class EncodeArrayKernel : public KernalBase {
   class Impl;
   std::unique_ptr<Impl> impl_;
   arrow::compute::FunctionContext* ctx_;
+};
+
+
+class WindowAggregateFunctionKernel : public KernalBase {
+ public:
+  class ActionFactory;
+  WindowAggregateFunctionKernel(arrow::compute::FunctionContext* ctx,
+                                std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                                std::shared_ptr<arrow::DataType> result_type,
+                                std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids,
+                                std::shared_ptr<ActionFactory> action);
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::string function_name,
+                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                            std::shared_ptr<arrow::DataType> result_type,
+                            std::shared_ptr<KernalBase>* out);
+  arrow::Status Evaluate(const ArrayList &in) override;
+  arrow::Status Finish(ArrayList* out) override;
+  template<typename ArrowType>
+  arrow::Status Finish0(ArrayList* out);
+
+ private:
+  arrow::compute::FunctionContext* ctx_;
+  std::shared_ptr<ActionFactory> action_;
+  std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids_;
+  std::vector<std::shared_ptr<arrow::DataType>> type_list_;
+  std::shared_ptr<arrow::DataType> result_type_;
 };
 
 class HashArrayKernel : public KernalBase {
@@ -280,6 +311,26 @@ class SortArraysToIndicesKernel : public KernalBase {
   arrow::compute::FunctionContext* ctx_;
 };
 
+class WindowSortKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+                            std::shared_ptr<arrow::Schema> result_schema,
+                            std::shared_ptr<KernalBase>* out, bool nulls_first, bool asc);
+  WindowSortKernel(arrow::compute::FunctionContext* ctx,
+                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+                            std::shared_ptr<arrow::Schema> result_schema,
+                            bool nulls_first, bool asc);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  std::string GetSignature() override;
+
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+
 class HashAggregateKernel : public KernalBase {
  public:
   static arrow::Status Make(arrow::compute::FunctionContext* ctx,
@@ -302,6 +353,35 @@ class HashAggregateKernel : public KernalBase {
  private:
   std::unique_ptr<Impl> impl_;
   arrow::compute::FunctionContext* ctx_;
+};
+
+class WindowRankKernel : public KernalBase {
+ public:
+  WindowRankKernel(arrow::compute::FunctionContext* ctx,
+                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                   std::shared_ptr<WindowSortKernel::Impl> sorter,
+                   bool desc);
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::string function_name,
+                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                            std::shared_ptr<KernalBase>* out,
+                            bool desc);
+  arrow::Status Evaluate(const ArrayList &in) override;
+  arrow::Status Finish(ArrayList* out) override;
+
+  arrow::Status SortToIndicesPrepare(ArrayList values);
+  arrow::Status SortToIndicesFinish(std::shared_ptr<arrow::UInt64Array> elements_to_sort,
+                              std::shared_ptr<arrow::UInt64Array>* offsets);
+
+  template<typename ArrayType>
+  arrow::Status AreTheSameValue(std::shared_ptr<arrow::Array> values, int i, int j, bool* out);
+
+ private:
+  std::shared_ptr<WindowSortKernel::Impl> sorter_;
+  arrow::compute::FunctionContext* ctx_;
+  std::vector<ArrayList> input_cache_;
+  std::vector<std::shared_ptr<arrow::DataType>> type_list_;
+  bool desc_;
 };
 
 /*class UniqueArrayKernel : public KernalBase {

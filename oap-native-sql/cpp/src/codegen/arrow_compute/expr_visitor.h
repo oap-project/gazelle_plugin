@@ -99,6 +99,10 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   static arrow::Status Make(const gandiva::FunctionNode& node,
                             std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                             std::shared_ptr<ExprVisitor>* out);
+  static arrow::Status MakeWindow(std::shared_ptr<arrow::Schema> schema_ptr,
+                                  std::shared_ptr<arrow::Field> ret_field,
+                                  const gandiva::FunctionNode& node,
+                                  std::shared_ptr<ExprVisitor>* out);
 
   ExprVisitor(std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name,
               std::vector<std::string> param_field_names,
@@ -106,6 +110,9 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
               std::shared_ptr<gandiva::Node> finish_func);
 
   ExprVisitor(std::string func_name);
+
+  ExprVisitor(std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name);
+
   ~ExprVisitor() {
 #ifdef DEBUG
     std::cout << "Destruct " << func_name_ << " ExprVisitor, ptr is " << this
@@ -123,6 +130,14 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
       std::vector<std::shared_ptr<arrow::Field>> left_field_list,
       std::vector<std::shared_ptr<arrow::Field>> right_field_list,
       std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p);
+  arrow::Status MakeExprVisitorImpl(
+      const std::string& func_name,
+      std::shared_ptr<gandiva::FunctionNode> window_function,
+      std::shared_ptr<gandiva::FunctionNode> partition_spec,
+      std::shared_ptr<gandiva::FunctionNode> order_spec,
+      std::shared_ptr<gandiva::FunctionNode> frame_spec,
+      std::shared_ptr<arrow::Field> ret_field,
+      ExprVisitor* p);
   arrow::Status AppendAction(const std::string& func_name,
                              std::vector<std::string> param_name);
   arrow::Status Init();

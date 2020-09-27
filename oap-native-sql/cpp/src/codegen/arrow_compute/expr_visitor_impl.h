@@ -79,13 +79,17 @@ class ExprVisitorImpl {
   arrow::Status GetColumnIdAndFieldByName(std::shared_ptr<arrow::Schema> schema,
                                           std::string col_name, int* id,
                                           std::shared_ptr<arrow::Field>* out_field) {
-    *id = schema->GetFieldIndex(col_name);
-    *out_field = schema->GetFieldByName(col_name);
-    if (*id < 0) {
-      return arrow::Status::Invalid("GetColumnIdAndFieldByName doesn't found col_name ",
-                                    col_name);
+    auto names = schema->field_names();
+    for (int i = 0; i < names.size(); i++) {
+      auto name = names.at(i);
+      if (name == col_name) {
+        *id = i;
+        *out_field = schema->field(i);
+        return arrow::Status::OK();
+      }
     }
-    return arrow::Status::OK();
+    return arrow::Status::Invalid("GetColumnIdAndFieldByName doesn't found col_name ",
+                                  col_name);
   }
 };
 
@@ -304,6 +308,145 @@ class AggregateVisitorImpl : public ExprVisitorImpl {
   std::vector<int> col_id_list_;
   std::string func_name_;
   std::vector<std::shared_ptr<extra::KernalBase>> kernel_list_;
+};
+
+class WindowVisitorImpl : public ExprVisitorImpl {
+ public:
+  WindowVisitorImpl(ExprVisitor* p, std::string window_function_name,
+                    std::shared_ptr<arrow::DataType> return_type,
+                    std::vector<gandiva::FieldPtr> function_param_fields,
+                    std::vector<gandiva::FieldPtr> partition_fields) : ExprVisitorImpl(p) {
+    this->window_function_name_ = window_function_name;
+    this->return_type_ = return_type,
+    this->function_param_fields_ = function_param_fields;
+    this->partition_fields_ = partition_fields;
+  }
+
+  static arrow::Status Make(ExprVisitor* p, std::string window_function_name,
+                            std::shared_ptr<arrow::DataType> return_type,
+                            std::vector<gandiva::FieldPtr> function_param_fields,
+                            std::vector<gandiva::FieldPtr> partition_fields,
+                            std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl = std::make_shared<WindowVisitorImpl>(p, window_function_name, return_type,
+        function_param_fields, partition_fields);
+    *out = impl;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Init() override {
+    if (initialized_) {
+      return arrow::Status::OK();
+    }
+    std::vector<std::shared_ptr<arrow::DataType>> partition_type_list;
+    for (auto partition_field : partition_fields_) {
+      std::shared_ptr<arrow::Field> field;
+      int col_id;
+      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, partition_field->name(), &col_id, &field));
+      partition_field_ids_.push_back(col_id);
+      partition_type_list.push_back(field->type());
+    }
+    if (partition_type_list.size() > 1) {
+      RETURN_NOT_OK(extra::HashArrayKernel::Make(&p_->ctx_, partition_type_list, &concat_kernel_));
+    }
+
+    RETURN_NOT_OK(extra::EncodeArrayKernel::Make(&p_->ctx_, &partition_kernel_));
+
+    std::vector<std::shared_ptr<arrow::DataType>> function_param_type_list;
+    for (auto function_param_field : function_param_fields_) {
+      std::shared_ptr<arrow::Field> field;
+      int col_id;
+      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, function_param_field->name(), &col_id, &field));
+      function_param_field_ids_.push_back(col_id);
+      function_param_type_list.push_back(field->type());
+    }
+
+    if (window_function_name_ == "sum" || window_function_name_ == "avg") {
+      RETURN_NOT_OK(extra::WindowAggregateFunctionKernel::Make(&p_->ctx_, window_function_name_, function_param_type_list, return_type_, &function_kernel_));
+    } else if (window_function_name_ == "rank_asc") {
+      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_, function_param_type_list, &function_kernel_, false));
+    } else if (window_function_name_ == "rank_desc") {
+      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_, function_param_type_list, &function_kernel_, true));
+    } else {
+      return arrow::Status::Invalid("window function not supported: " + window_function_name_);
+    }
+
+    initialized_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Eval() override {
+    std::shared_ptr<arrow::Array> out1;
+    std::shared_ptr<arrow::Array> out2;
+    if (partition_field_ids_.empty()) {
+      auto row_count = p_->in_record_batch_->num_rows();
+      arrow::Int32Builder single_partition_out2;
+      for (int i = 0; i < row_count; i++) {
+        // only parition 0 is generated for all rows
+        RETURN_NOT_OK(single_partition_out2.Append(0));
+      }
+      RETURN_NOT_OK(single_partition_out2.Finish(&out2));
+    } else {
+      if (!concat_kernel_) {
+        out1 = p_->in_record_batch_->column(partition_field_ids_[0]);
+      } else {
+        ArrayList in1;
+        for (auto col_id : partition_field_ids_) {
+          if (col_id >= p_->in_record_batch_->num_columns()) {
+            return arrow::Status::Invalid(
+                "WindowVisitorImpl: Partition field number overflows defined column count");
+          }
+          auto col = p_->in_record_batch_->column(col_id);
+          in1.push_back(col);
+        }
+        RETURN_NOT_OK(concat_kernel_->Evaluate(in1, &out1));
+      }
+
+      std::shared_ptr<arrow::Array> in2 = out1;
+      RETURN_NOT_OK(partition_kernel_->Evaluate(in2, &out2));
+    }
+
+    ArrayList in3;
+    for (auto col_id : function_param_field_ids_) {
+      if (col_id >= p_->in_record_batch_->num_columns()) {
+        return arrow::Status::Invalid(
+            "WindowVisitorImpl: Function parameter number overflows defined column count");
+      }
+      auto col = p_->in_record_batch_->column(col_id);
+      in3.push_back(col);
+    }
+    in3.push_back(out2);
+    RETURN_NOT_OK(function_kernel_->Evaluate(in3));
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish() override {
+    ArrayList out0;
+    RETURN_NOT_OK(function_kernel_->Finish(&out0));
+    std::vector<ArrayList> out;
+    std::vector<int> out_sizes;
+    for (auto each : out0) {
+      ArrayList temp;
+      temp.push_back(each);
+      out.push_back(temp);
+      out_sizes.push_back(each->length());
+    }
+    p_->result_batch_list_ = out;
+    p_->result_batch_size_list_ = out_sizes;
+    p_->return_type_ = ArrowComputeResultType::BatchList;
+    return ExprVisitorImpl::Finish();
+  }
+
+ private:
+  std::string window_function_name_;
+  std::shared_ptr<arrow::DataType> return_type_;
+  std::vector<gandiva::FieldPtr> function_param_fields_;
+  std::vector<gandiva::FieldPtr> partition_fields_;
+  std::vector<int> function_param_field_ids_;
+  std::vector<int> partition_field_ids_;
+  std::shared_ptr<extra::KernalBase> concat_kernel_;
+  std::shared_ptr<extra::KernalBase> partition_kernel_;
+  std::shared_ptr<extra::KernalBase> function_kernel_;
+
 };
 
 ////////////////////////// EncodeVisitorImpl ///////////////////////

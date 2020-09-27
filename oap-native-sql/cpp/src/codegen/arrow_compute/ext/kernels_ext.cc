@@ -20,6 +20,7 @@
 #include <arrow/array.h>
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/compute/context.h>
 #include <arrow/compute/kernel.h>
 #include <arrow/compute/kernels/count.h>
@@ -810,7 +811,7 @@ class StddevSampPartialArrayKernel::Impl {
   ~Impl() {}
 
   template <typename ValueType>
-  arrow::Status getM2(arrow::compute::FunctionContext* ctx, const arrow::compute::Datum& value, 
+  arrow::Status getM2(arrow::compute::FunctionContext* ctx, const arrow::compute::Datum& value,
   const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
     using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
     using MeanScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
@@ -837,7 +838,7 @@ class StddevSampPartialArrayKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status M2(arrow::compute::FunctionContext* ctx, const arrow::Array& array, 
+  arrow::Status M2(arrow::compute::FunctionContext* ctx, const arrow::Array& array,
   const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
     arrow::compute::Datum value = array.data();
     auto data_type = value.type();
@@ -926,7 +927,7 @@ class StddevSampPartialArrayKernel::Impl {
         double delta = mean_typed_scalar->value - pre_avg;
         double newN = (cnt_res + cnt_typed_scalar->value) * 1.0;
         double deltaN = newN > 0 ? delta / newN : 0.0;
-        m2_res += m2_typed_scalar->value + 
+        m2_res += m2_typed_scalar->value +
           delta * deltaN * cnt_res * cnt_typed_scalar->value;
         sum_res += sum_typed_scalar->value;
         cnt_res += cnt_typed_scalar->value  * 1.0;
@@ -937,7 +938,7 @@ class StddevSampPartialArrayKernel::Impl {
       avg = sum_res * 1.0 / cnt_res;
     } else {
       m2_res = 0;
-    } 
+    }
     std::shared_ptr<arrow::Array> cnt_out;
     std::shared_ptr<arrow::Scalar> cnt_scalar_out;
     cnt_scalar_out = arrow::MakeScalar(cnt_res);
@@ -999,8 +1000,8 @@ class StddevSampFinalArrayKernel::Impl {
       : ctx_(ctx), data_type_(data_type) {}
   ~Impl() {}
 
-  arrow::Status getAvgM2(arrow::compute::FunctionContext* ctx, const arrow::compute::Datum& cnt_value, 
-  const arrow::compute::Datum& avg_value, const arrow::compute::Datum& m2_value, 
+  arrow::Status getAvgM2(arrow::compute::FunctionContext* ctx, const arrow::compute::Datum& cnt_value,
+  const arrow::compute::Datum& avg_value, const arrow::compute::Datum& m2_value,
   arrow::compute::Datum* avg_out, arrow::compute::Datum* m2_out) {
     using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
     using MeanScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
@@ -1047,8 +1048,8 @@ class StddevSampFinalArrayKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status updateValue(arrow::compute::FunctionContext* ctx, const arrow::Array& cnt_array, 
-  const arrow::Array& avg_array, const arrow::Array& m2_array, arrow::compute::Datum* avg_out, 
+  arrow::Status updateValue(arrow::compute::FunctionContext* ctx, const arrow::Array& cnt_array,
+  const arrow::Array& avg_array, const arrow::Array& m2_array, arrow::compute::Datum* avg_out,
   arrow::compute::Datum* m2_out) {
     arrow::compute::Datum cnt_value = cnt_array.data();
     arrow::compute::Datum avg_value = avg_array.data();

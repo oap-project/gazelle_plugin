@@ -76,6 +76,8 @@ arrow::Status BuilderVisitor::Visit(const gandiva::FunctionNode& node) {
   // we don't need to create expr_visitor for its children.
   if (func_name.compare(0, 8, "codegen_") == 0) {
     RETURN_NOT_OK(ExprVisitor::Make(node, ret_fields_, &expr_visitor_));
+  } else if (func_name == "window") {
+    RETURN_NOT_OK(ExprVisitor::MakeWindow(schema_, ret_fields_[0], node, &expr_visitor_));
   } else {
     for (auto child_node : node.children()) {
       auto child_visitor = std::make_shared<BuilderVisitor>(
@@ -225,6 +227,49 @@ arrow::Status ExprVisitor::Make(const gandiva::FunctionNode& node,
   return arrow::Status::OK();
 }
 
+arrow::Status ExprVisitor::MakeWindow(std::shared_ptr<arrow::Schema> schema_ptr,
+                                      std::shared_ptr<arrow::Field> ret_field,
+                                      const gandiva::FunctionNode& node,
+                                      std::shared_ptr<ExprVisitor>* out) {
+  auto func_name = node.descriptor()->name();
+  if (func_name != "window") {
+    return arrow::Status::Invalid("window's Gandiva function name mismatch");
+  }
+  *out = std::make_shared<ExprVisitor>(schema_ptr, func_name);
+  std::shared_ptr<gandiva::FunctionNode> window_function;
+  std::shared_ptr<gandiva::FunctionNode> partition_spec;
+  std::shared_ptr<gandiva::FunctionNode> order_spec;
+  std::shared_ptr<gandiva::FunctionNode> frame_spec;
+
+  for (const auto& child : node.children()) {
+    auto child_function =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(child);
+    auto child_func_name = child_function->descriptor()->name();
+    if (child_func_name == "sum" ||
+        child_func_name == "avg" ||
+        child_func_name == "rank_asc" ||
+        child_func_name == "rank_desc") {
+      window_function = child_function;
+    } else if (child_func_name == "partitionSpec") {
+      partition_spec = child_function;
+    } else if (child_func_name == "orderSpec") {
+      order_spec = child_function;
+    } else if (child_func_name == "frameSpec") {
+      frame_spec = child_function;
+    } else {
+      return arrow::Status::Invalid("unsupported child function name in window: " + child_func_name);
+    }
+  }
+
+  if (window_function == nullptr) {
+    return arrow::Status::Invalid("no available function found in window");
+  }
+  RETURN_NOT_OK((*out)->MakeExprVisitorImpl(
+      func_name, window_function, partition_spec,
+      order_spec, frame_spec, ret_field, (*out).get()));
+  return arrow::Status::OK();
+}
+
 ExprVisitor::ExprVisitor(std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name,
                          std::vector<std::string> param_field_names,
                          std::shared_ptr<ExprVisitor> dependency,
@@ -239,6 +284,9 @@ ExprVisitor::ExprVisitor(std::shared_ptr<arrow::Schema> schema_ptr, std::string 
 }
 
 ExprVisitor::ExprVisitor(std::string func_name) : func_name_(func_name) {}
+
+ExprVisitor::ExprVisitor(std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name) :
+    schema_(schema_ptr), func_name_(func_name) {}
 
 arrow::Status ExprVisitor::MakeExprVisitorImpl(
     const std::string& func_name, std::shared_ptr<gandiva::FunctionNode> func_node,
@@ -396,6 +444,29 @@ finish:
 unrecognizedFail:
   return arrow::Status::NotImplemented("Function name ", func_name,
                                        " is not implemented yet.");
+}
+
+arrow::Status ExprVisitor::MakeExprVisitorImpl(const std::string &func_name,
+                                               std::shared_ptr<gandiva::FunctionNode> window_function,
+                                               std::shared_ptr<gandiva::FunctionNode> partition_spec,
+                                               std::shared_ptr<gandiva::FunctionNode> order_spec,
+                                               std::shared_ptr<gandiva::FunctionNode> frame_spec,
+                                               std::shared_ptr<arrow::Field> ret_field,
+                                               ExprVisitor* p) {
+  std::vector<gandiva::FieldPtr> function_param_fields;
+  for (std::shared_ptr<gandiva::Node> child : window_function->children()) {
+    std::shared_ptr<gandiva::FieldNode> field = std::dynamic_pointer_cast<gandiva::FieldNode>(child);
+    function_param_fields.push_back(field->field());
+  }
+  std::vector<gandiva::FieldPtr> partition_fields;
+  for (std::shared_ptr<gandiva::Node> child : partition_spec->children()) {
+    std::shared_ptr<gandiva::FieldNode> field = std::dynamic_pointer_cast<gandiva::FieldNode>(child);
+    partition_fields.push_back(field->field());
+  }
+  // todo order_spec frame_spec
+  std::string window_function_name = window_function->descriptor()->name();
+  RETURN_NOT_OK(WindowVisitorImpl::Make(p, window_function_name, ret_field->type(), function_param_fields, partition_fields, &impl_));
+  return arrow::Status();
 }
 
 arrow::Status ExprVisitor::AppendAction(const std::string& func_name,

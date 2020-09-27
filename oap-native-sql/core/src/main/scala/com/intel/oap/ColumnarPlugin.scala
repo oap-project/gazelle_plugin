@@ -17,36 +17,20 @@
 
 package com.intel.oap
 
-import java.util.Locale
-
-import java.io.{File, BufferedReader, InputStreamReader};
-import java.nio.file.Files;
 import com.intel.oap.execution._
-
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.execution.adaptive.{
-  BroadcastQueryStageExec,
-  ColumnarCustomShuffleReaderExec,
-  CustomShuffleReaderExec,
-  ShuffleQueryStageExec
-}
+import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
+import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, ColumnarCustomShuffleReaderExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
-import org.apache.spark.sql.execution.exchange.{
-  BroadcastExchangeExec,
-  ReusedExchangeExec,
-  ShuffleExchangeExec
-}
-import org.apache.spark.sql.execution.joins._
-import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide}
-import org.apache.spark.sql.execution.joins.SortMergeJoinExec
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ReusedExchangeExec, ShuffleExchangeExec}
+import org.apache.spark.sql.execution.joins.{BroadcastHashJoinExec, BuildLeft, BuildRight, ShuffledHashJoinExec, SortMergeJoinExec, _}
+import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
-import java.io.IOException
 
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getConf(conf)
@@ -314,6 +298,26 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         case _ =>
           plan
       }
+
+    case plan: WindowExec =>
+      if (columnarConf.enableColumnarWindow) {
+        val child = plan.child match {
+          case sort: SortExec => // remove ordering requirements
+            replaceWithColumnarPlan(sort.child)
+          case _ =>
+            replaceWithColumnarPlan(plan.child)
+        }
+        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+        try {
+          return new ColumnarWindowExec(plan.windowExpression, plan.partitionSpec, plan.orderSpec, child)
+        } catch {
+          case _: Throwable =>
+            logInfo("Columnar Window: Falling back to regular Window...")
+        }
+      }
+      logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
+      val children = plan.children.map(replaceWithColumnarPlan(_))
+      plan.withNewChildren(children)
 
     case p =>
       val children = applyChildrenWithStrategy(p)

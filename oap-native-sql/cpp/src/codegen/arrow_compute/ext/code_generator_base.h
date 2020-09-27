@@ -36,6 +36,11 @@ class CodeGenBase {
   virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out) {
     return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
   }
+
+  virtual arrow::Status Finish(const ArrayList& in, std::shared_ptr<arrow::Array>* out) {
+    return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
+  }
+
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {

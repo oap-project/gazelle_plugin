@@ -26,6 +26,8 @@ class ColumnarPluginConfig(conf: SparkConf) {
     conf.getBoolean("spark.sql.columnar.codegen.hashAggregate", defaultValue = false)
   val enableColumnarBroadcastJoin: Boolean =
     conf.getBoolean("spark.sql.columnar.sort.broadcastJoin", defaultValue = true)
+  val enableColumnarWindow: Boolean =
+    conf.getBoolean("spark.sql.columnar.window", defaultValue = true)
   val enableColumnarSortMergeJoin: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.sortmergejoin", defaultValue = false)
   val enablePreferColumnar: Boolean =
