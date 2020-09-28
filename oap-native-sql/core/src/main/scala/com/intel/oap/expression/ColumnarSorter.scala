@@ -129,6 +129,7 @@ class ColumnarSorter(
   def createColumnarIterator(cbIterator: Iterator[ColumnarBatch]): Iterator[ColumnarBatch] = {
     new Iterator[ColumnarBatch] {
       var cb: ColumnarBatch = null
+      var resultCb :ColumnarBatch = null
       var nextBatch: ArrowRecordBatch = null
       var batchIterator: BatchIterator = null
 
@@ -148,23 +149,19 @@ class ColumnarSorter(
           sort_elapse += System.nanoTime() - beforeSort
           total_elapse += System.nanoTime() - beforeSort
         }
+        return sort_iterator.hasNext()
 
-        val beforeShuffle = System.nanoTime()
-        nextBatch = sort_iterator.next()
-        shuffle_elapse += System.nanoTime() - beforeShuffle
-        total_elapse += System.nanoTime() - beforeShuffle
-
-        if (nextBatch == null) {
-          return false
-        } else {
-          return true
-        }
       }
 
       override def next(): ColumnarBatch = {
+        val beforeShuffle = System.nanoTime()
+        nextBatch = sort_iterator.next()
+        resultCb = getSorterResult(nextBatch)
+        shuffle_elapse += System.nanoTime() - beforeShuffle
+        total_elapse += System.nanoTime() - beforeShuffle
         outputBatches += 1
         outputRows += nextBatch.getLength()
-        getSorterResult(nextBatch)
+        resultCb
       }
     }
   }

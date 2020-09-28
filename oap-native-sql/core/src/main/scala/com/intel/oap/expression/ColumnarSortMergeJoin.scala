@@ -271,15 +271,13 @@ object ColumnarSortMergeJoin extends Logging {
       case _: InnerLike =>
         ("conditionedJoinArraysInner", build_input_field_list, stream_input_field_list)
       case LeftSemi =>
-        //("conditionedJoinArraysSemi", List[Field](), stream_input_field_list)
-        ("conditionedJoinArraysSemi", build_input_field_list, stream_input_field_list)
+        ("conditionedJoinArraysSemi", List[Field](), stream_input_field_list)
       case LeftOuter =>
         ("conditionedJoinArraysOuter", build_input_field_list, stream_input_field_list)
       case RightOuter =>
         ("conditionedJoinArraysOuter", build_input_field_list, stream_input_field_list)
       case LeftAnti =>
-        //("conditionedJoinArraysAnti", List[Field](), stream_input_field_list)
-        ("conditionedJoinArraysAnti", build_input_field_list, stream_input_field_list)
+        ("conditionedJoinArraysAnti", List[Field](), stream_input_field_list)
       case j: ExistenceJoin =>
         val existsSchema = j.exists
         existsField = Field.nullable(

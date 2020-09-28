@@ -139,7 +139,7 @@ class ColumnarSortMergeJoinExec(
           })
 
         val vsmj = ColumnarSortMergeJoin.create(leftKeys, rightKeys, resultSchema, joinType, 
-            condition, left, right, isSkewJoin, listJars, joinTime, prepareTime, totaltime_sortmegejoin, numOutputRows, sparkConf)
+            condition, left, right, isSkewJoin, jarList, joinTime, prepareTime, totaltime_sortmegejoin, numOutputRows, sparkConf)
         TaskContext.get().addTaskCompletionListener[Unit](_ => {
         vsmj.close() })
         val vjoinResult = vsmj.columnarJoin(streamIter, buildIter)

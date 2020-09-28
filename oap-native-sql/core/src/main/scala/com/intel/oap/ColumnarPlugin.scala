@@ -245,7 +245,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           return child
         }
       }
-      if (columnarConf.enableColumnarSortMergeJoin && plan.condition == None) {
+      if (columnarConf.enableColumnarSortMergeJoin ) {
         val left = replaceWithColumnarPlan(plan.left)
         val right = replaceWithColumnarPlan(plan.right)
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")

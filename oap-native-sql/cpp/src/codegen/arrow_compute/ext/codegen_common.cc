@@ -38,7 +38,7 @@ std::string BaseCodes() {
 #include <arrow/compute/context.h>
 #include <arrow/record_batch.h>
 #include <math.h>
-
+#include <numeric>
 #include <limits>
 
 #include "codegen/arrow_compute/ext/code_generator_base.h"

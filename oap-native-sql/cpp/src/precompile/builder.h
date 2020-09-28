@@ -11,6 +11,8 @@ namespace precompile {
     TYPENAME(arrow::MemoryPool* pool);                        \
     arrow::Status Append(TYPE val);                           \
     arrow::Status AppendNull();                               \
+    arrow::Status Reserve(int64_t);                           \
+    arrow::Status AppendNulls(int64_t);                       \
     arrow::Status Finish(std::shared_ptr<arrow::Array>* out); \
     arrow::Status Reset();                                    \
                                                               \

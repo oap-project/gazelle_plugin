@@ -597,6 +597,12 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetDependency(
   }
 }
 
+JNIEXPORT jboolean JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeHasNext(
+    JNIEnv* env, jobject obj, jlong id) {
+  auto iter = GetBatchIterator(env, id);
+  return iter->HasNext();
+}
+
 JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeNext(
     JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;

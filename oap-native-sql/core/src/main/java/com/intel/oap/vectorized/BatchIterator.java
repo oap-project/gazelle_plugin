@@ -30,6 +30,7 @@ import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 
 public class BatchIterator {
+  private native boolean nativeHasNext(long nativeHandler);
   private native ArrowRecordBatchBuilder nativeNext(long nativeHandler);
   private native ArrowRecordBatchBuilder nativeProcess(long nativeHandler, byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes);
   private native void nativeProcessAndCacheOne(long nativeHandler, byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes);
@@ -49,6 +50,10 @@ public class BatchIterator {
   public BatchIterator(long instance_id) throws IOException {
     JniUtils.getInstance();
     nativeHandler = instance_id;
+  }
+
+  public boolean hasNext() throws IOException {
+    return nativeHasNext(nativeHandler);
   }
 
   public ArrowRecordBatch next() throws IOException {

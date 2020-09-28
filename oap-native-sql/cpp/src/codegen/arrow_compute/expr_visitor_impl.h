@@ -718,6 +718,7 @@ class ConditionedJoinArraysVisitorImpl : public ExprVisitorImpl {
     RETURN_NOT_OK(extra::ConditionedJoinArraysKernel::Make(
         &p_->ctx_, left_key_list_, right_key_list_, func_node_, join_type_,
         left_field_list_, right_field_list_, arrow::schema(ret_fields_), &kernel_));
+    p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     return arrow::Status::OK();
   }
