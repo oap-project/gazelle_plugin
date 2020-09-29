@@ -181,6 +181,7 @@ private[spark] class BlockManager(
   private[spark] val externalShuffleServiceEnabled: Boolean = externalBlockStoreClient.isDefined
 
   val isDriver = executorId == SparkContext.DRIVER_IDENTIFIER
+  var memExtensionEnabled = conf.getBoolean("spark.memory.pmem.extension.enable", false)
 
   var numaNodeId = conf.getInt("spark.executor.numa.id", -1)
   val pmemInitialPaths = conf.get("spark.memory.pmem.initial.path", "").split(",")
@@ -1765,22 +1766,43 @@ private[spark] class BlockManager(
     var blockIsUpdated = false
     val level = info.level
 
-    // Drop to disk, if storage level requires
-    if (level.useDisk && !diskStore.contains(blockId)) {
-      logInfo(s"Writing block $blockId to disk")
-      data() match {
-        case Left(elements) =>
-          diskStore.put(blockId) { channel =>
-            val out = Channels.newOutputStream(channel)
-            serializerManager.dataSerializeStream(
-              blockId,
-              out,
-              elements.toIterator)(info.classTag.asInstanceOf[ClassTag[T]])
-          }
-        case Right(bytes) =>
-          diskStore.putBytes(blockId, bytes)
+    if (memExtensionEnabled) {
+      val nvmStore = new NvmStore(conf, diskBlockManager, securityManager, executorId)
+      // Drop to pmem, if storage level requires
+      if (level.useDisk && !nvmStore.contains(blockId)) {
+        logInfo(s"Writing block $blockId to pmem")
+        data() match {
+          case Left(elements) =>
+            nvmStore.put(blockId) { channel =>
+              val out = Channels.newOutputStream(channel)
+              serializerManager.dataSerializeStream(
+                blockId,
+                out,
+                elements.toIterator)(info.classTag.asInstanceOf[ClassTag[T]])
+            }
+          case Right(bytes) =>
+            nvmStore.putBytes(blockId, bytes)
+        }
+        blockIsUpdated = true
       }
-      blockIsUpdated = true
+    } else {
+      // Drop to disk, if storage level requires
+      if (level.useDisk && !diskStore.contains(blockId)) {
+        logInfo(s"Writing block $blockId to disk")
+        data() match {
+          case Left(elements) =>
+            diskStore.put(blockId) { channel =>
+              val out = Channels.newOutputStream(channel)
+              serializerManager.dataSerializeStream(
+                blockId,
+                out,
+                elements.toIterator)(info.classTag.asInstanceOf[ClassTag[T]])
+            }
+          case Right(bytes) =>
+            diskStore.putBytes(blockId, bytes)
+        }
+        blockIsUpdated = true
+      }
     }
 
     // Actually drop from memory store

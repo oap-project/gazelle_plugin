@@ -6,13 +6,16 @@ import org.slf4j.LoggerFactory;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.WritableByteChannel;
 import java.util.HashMap;
 
-public class ChunkOutputStream extends FileOutputStream {
+public class ChunkOutputStream extends FileOutputStream implements WritableByteChannel {
 
     private static final Logger logger = LoggerFactory.getLogger(ChunkOutputStream.class);
 
+    private boolean isOpen = true;
     private ChunkWriter chunkWriter;
 
     public String fileName;
@@ -80,6 +83,11 @@ public class ChunkOutputStream extends FileOutputStream {
     }
 
 
+    @Override
+    public boolean isOpen() {
+        return isOpen;
+    }
+
     /**
      * Closes this file output stream and releases any system resources
      * associated with this stream. This file output stream may no longer
@@ -95,6 +103,7 @@ public class ChunkOutputStream extends FileOutputStream {
      */
     public void close() throws IOException {
         chunkWriter.close();
+        isOpen = false;
         super.close();
     }
 
@@ -125,5 +134,14 @@ public class ChunkOutputStream extends FileOutputStream {
 
     public void truncate(long position) throws IOException {
         chunkWriter.truncate(position);
+    }
+
+    @Override
+    public int write(ByteBuffer src) throws IOException {
+        int remaining = src.remaining();
+        byte[] bytes = new byte[remaining];
+        src.get(bytes);
+        write(bytes);
+        return remaining;
     }
 }

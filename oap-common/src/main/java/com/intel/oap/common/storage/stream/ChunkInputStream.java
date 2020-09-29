@@ -6,10 +6,14 @@ import org.slf4j.LoggerFactory;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ReadableByteChannel;
 import java.util.HashMap;
 
-public class ChunkInputStream extends FileInputStream {
+public class ChunkInputStream extends FileInputStream implements ReadableByteChannel {
     private static final Logger logger = LoggerFactory.getLogger(ChunkInputStream.class);
+
+    private boolean isOpen = true;
     protected ChunkReader chunkReader;
 
     public ChunkInputStream(String name, DataStore dataStore) throws FileNotFoundException {
@@ -65,5 +69,24 @@ public class ChunkInputStream extends FileInputStream {
 
     public void free() throws IOException {
         chunkReader.freeFromPMem();
+    }
+
+    @Override
+    public int read(ByteBuffer dst) throws IOException {
+        int remaining = dst.remaining();
+        byte[] bytes = new byte[remaining];
+        read(bytes);
+        dst.put(bytes);
+        return remaining;
+    }
+
+    @Override
+    public void close() throws IOException {
+        isOpen = false;
+    }
+
+    @Override
+    public boolean isOpen() {
+        return isOpen;
     }
 }
