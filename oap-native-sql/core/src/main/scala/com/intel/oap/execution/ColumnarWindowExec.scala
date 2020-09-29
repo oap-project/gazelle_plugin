@@ -17,6 +17,8 @@
 
 package com.intel.oap.execution
 
+import java.util.concurrent.TimeUnit
+
 import com.google.common.base.Preconditions
 import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.expression.{CodeGeneration, ColumnarAggregation, ConverterUtils}
@@ -57,14 +59,12 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
-    "aggTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in aggregation process"),
     "totalTime" -> SQLMetrics
-        .createTimingMetric(sparkContext, "totaltime_hashagg"))
+        .createTimingMetric(sparkContext, "totaltime_window"))
 
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
   val numInputBatches = longMetric("numInputBatches")
-  val aggTime = longMetric("aggTime")
   val totalTime = longMetric("totalTime")
 
   val sparkConf = sparkContext.getConf
@@ -119,6 +119,7 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
       if (!iter.hasNext) {
         Iterator.empty
       } else {
+        val prev1 = System.nanoTime()
         val gWindowFunction = TreeBuilder.makeFunction(windowFunctionName,
           windowFunction.children.map(_.asInstanceOf[AttributeReference])
               .map(e => TreeBuilder.makeField(
@@ -145,24 +146,40 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           List(TreeBuilder.makeExpression(window,
             resultField)).asJava, resultSchema, true)
         val inputCache = new ListBuffer[ColumnarBatch]()
+        val buildCost = System.nanoTime() - prev1
+        totalTime += TimeUnit.NANOSECONDS.toMillis(buildCost)
         iter.foreach(c => {
+          numInputBatches += 1
+          val prev2 = System.nanoTime()
           inputCache += c
           (0 until c.numCols()).map(c.column)
               .foreach(_.asInstanceOf[ArrowWritableColumnVector].retain())
           val recordBatch = ConverterUtils.createArrowRecordBatch(c)
           evaluator.evaluate(recordBatch)
+          val evaluationCost = System.nanoTime() - prev2
+          totalTime += TimeUnit.NANOSECONDS.toMillis(evaluationCost)
         })
 
-        val itr = evaluator.finish().zipWithIndex.map {case (recordBatch, i) => {
+        val prev3 = System.nanoTime()
+        val batches = evaluator.finish()
+        val windowFinishCost = System.nanoTime() - prev3
+        totalTime += TimeUnit.NANOSECONDS.toMillis(windowFinishCost)
+        val itr = batches.zipWithIndex.map { case (recordBatch, i) => {
+          val prev4 = System.nanoTime()
           val length = recordBatch.getLength
           val vectors = ArrowWritableColumnVector.loadColumns(length, resultSchema, recordBatch)
           if (vectors.size != 1) {
             throw new IllegalStateException("illegal vector width returned by native, this should not happen")
           }
           val correspondingInputBatch = inputCache(i)
-          new ColumnarBatch(
+          val batch = new ColumnarBatch(
             (0 until correspondingInputBatch.numCols()).map(i => correspondingInputBatch.column(i)).toArray
                 ++ vectors, correspondingInputBatch.numRows())
+          val emitCost = System.nanoTime() - prev4
+          totalTime += TimeUnit.NANOSECONDS.toMillis(emitCost)
+          numOutputRows += batch.numRows()
+          numOutputBatches += 1
+          batch
         }}.toIterator
         new CloseableColumnBatchIterator(itr)
       }
