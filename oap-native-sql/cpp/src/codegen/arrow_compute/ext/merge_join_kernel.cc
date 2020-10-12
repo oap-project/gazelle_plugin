@@ -1052,6 +1052,7 @@ typedef )" + item_content_str + " item_content;";
     return BaseCodes() + R"(
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/builder.h"
+#include <numeric>
 using namespace sparkcolumnarplugin::precompile;
 )" + hash_map_include_str +
            R"(

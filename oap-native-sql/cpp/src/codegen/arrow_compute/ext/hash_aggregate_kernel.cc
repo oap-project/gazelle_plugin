@@ -328,6 +328,8 @@ class HashAggregateKernel::Impl {
     }
 
     return BaseCodes() + R"(
+#include <math.h>
+#include <limits>
 #include "precompile/builder.h"
 )" + hash_map_include_str +
            R"(  

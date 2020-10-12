@@ -513,14 +513,16 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
                     arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
                     nativesql_lib + cppfile + " -o " + libfile +
-                    " -O1 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
+                    " -O3 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
   int ret;
   int elapse_time = 0;
   TIME_MICRO(elapse_time, ret, system(cmd.c_str()));
+#ifdef DEBUG
   std::cout << "CodeGeneration took " << TIME_TO_STRING(elapse_time) << std::endl;
+#endif
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
     std::cout << "compilation failed, see " << logfile << std::endl;
     std::cout << cmd << std::endl;
