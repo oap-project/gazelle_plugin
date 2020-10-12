@@ -139,14 +139,24 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     for (int i = 0; i < 1; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
-    codes_str_ = child_visitor_list[0]->GetPreCheck();
-    check_str_ = child_visitor_list[0]->GetPreCheck();
+    codes_str_ = "isnotnull_" + std::to_string(cur_func_id);
+    check_str_ = GetValidityName(codes_str_);
+    std::stringstream prepare_ss;
+    prepare_ss << "bool " << codes_str_ << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
+    prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("isnull") == 0) {
     for (int i = 0; i < 1; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
-    codes_str_ = "!" + child_visitor_list[0]->GetPreCheck();
-    check_str_ = child_visitor_list[0]->GetPreCheck();
+    codes_str_ = "isnotnull_" + std::to_string(cur_func_id);
+    check_str_ = GetValidityName(codes_str_);
+    std::stringstream prepare_ss;
+    prepare_ss << "bool " << codes_str_ << " = !" << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
+    prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("substr") == 0) {
     ss << child_visitor_list[0]->GetResult() << ".substr("
        << "((" << child_visitor_list[1]->GetResult() << " - 1) < 0 ? 0 : ("
@@ -161,9 +171,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     auto child_name = child_visitor_list[0]->GetResult();
     codes_str_ = "upper_" + std::to_string(cur_func_id);
-    check_str_ = child_visitor_list[0]->GetPreCheck();
+    check_str_ = codes_str_ + "_validity";
     prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
     prepare_ss << codes_str_ << ".resize(" << child_name << ".size());" << std::endl;
+    prepare_ss << "bool " << check_str_ << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
     prepare_ss << "if (" << check_str_ << ") {" << std::endl;
     prepare_ss << "std::transform(" << child_name << ".begin(), " << child_name
                << ".end(), " << codes_str_ << ".begin(), ::toupper);" << std::endl;
@@ -176,9 +188,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     auto child_name = child_visitor_list[0]->GetResult();
     codes_str_ = "lower_" + std::to_string(cur_func_id);
-    check_str_ = child_visitor_list[0]->GetPreCheck();
+    check_str_ = codes_str_ + "_validity";
     prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
     prepare_ss << codes_str_ << ".resize(" << child_name << ".size());" << std::endl;
+    prepare_ss << "bool " << check_str_ << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
     prepare_ss << "if (" << check_str_ << ") {" << std::endl;
     prepare_ss << "std::transform(" << child_name << ".begin(), " << child_name
                << ".end(), " << codes_str_ << ".begin(), ::tolower);" << std::endl;
@@ -191,7 +205,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              func_name.compare("castDATE") != 0 &&
              func_name.compare("castDECIMAL") != 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
-    auto validity = func_name + "_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream fix_ss;
     if (node.return_type()->id() == arrow::Type::DOUBLE ||
         node.return_type()->id() == arrow::Type::FLOAT) {
@@ -235,7 +249,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     header_list_.push_back(R"(#include "third_party/murmurhash/murmurhash32.h")");
   } else if (func_name.compare("castDATE") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
-    auto validity = func_name + "_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -254,7 +268,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("castDECIMAL") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
-    auto validity = func_name + "_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream fix_ss;
     auto decimal_type =
         std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
@@ -282,7 +296,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("rescaleDECIMAL") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
-    auto validity = func_name + "_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream fix_ss;
     auto decimal_type =
         std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
@@ -309,7 +323,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("extractYear") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
-    auto validity = func_name + "_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -328,7 +342,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("round") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
-    auto validity = func_name + "_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream fix_ss;
     if (child_visitor_list.size() > 1) {
       fix_ss << ", " << child_visitor_list[1]->GetResult();
@@ -351,7 +365,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("add") == 0) {
     codes_str_ = "add_" + std::to_string(cur_func_id);
-    auto validity = "add_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -371,7 +385,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = validity;
   } else if (func_name.compare("subtract") == 0) {
     codes_str_ = "subtract_" + std::to_string(cur_func_id);
-    auto validity = "subtract_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -391,7 +405,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = validity;
   } else if (func_name.compare("multiply") == 0) {
     codes_str_ = "multiply_" + std::to_string(cur_func_id);
-    auto validity = "multiply_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -411,7 +425,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = validity;
   } else if (func_name.compare("divide") == 0) {
     codes_str_ = "divide_" + std::to_string(cur_func_id);
-    auto validity = "divide_validity_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -445,12 +459,12 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
 
   if (field_list_v_.size() == 1) {
     codes_str_ = input_list_[arg_id];
-    codes_validity_str_ = codes_str_ + "_validity";
+    codes_validity_str_ = GetValidityName(codes_str_);
   } else {
     if (index == 0) {
       codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
                    std::to_string(arg_id) + "_value";
-      codes_validity_str_ = codes_str_ + "_validity";
+      codes_validity_str_ = GetValidityName(codes_str_);
       input_codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
                          std::to_string(arg_id);
       prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
@@ -467,7 +481,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
 
     } else {
       codes_str_ = input_list_[arg_id];
-      codes_validity_str_ = codes_str_ + "_validity";
+      codes_validity_str_ = GetValidityName(codes_str_);
       field_type_ = right;
     }
   }
@@ -514,7 +528,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
     prepare_str_ += child_visitor_list[i]->GetPrepare();
   }
   auto condition_name = "condition_" + std::to_string(cur_func_id);
-  auto condition_validity = "condition_validity_" + std::to_string(cur_func_id);
+  auto condition_validity = condition_name + "_validity";
   prepare_ss << GetCTypeString(node.return_type()) << " " << condition_name << ";"
              << std::endl;
   prepare_ss << "bool " << condition_validity << ";" << std::endl;
@@ -732,6 +746,15 @@ std::string ExpressionCodegenVisitor::CombineValidity(
     }
   }
   return out.str();
+}
+
+std::string ExpressionCodegenVisitor::GetValidityName(std::string name) {
+  auto pos = name.find("!");
+  if (pos == std::string::npos) {
+    return (name + "_validity");
+  } else {
+    return (name.substr(pos + 1) + "_validity");
+  }
 }
 
 }  // namespace extra

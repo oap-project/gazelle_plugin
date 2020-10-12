@@ -37,7 +37,7 @@
 namespace sparkcolumnarplugin {
 namespace codegen {
 
-class BenchmarkArrowComputeJoin : public ::testing::Test {
+class BenchmarkArrowComputeWSCG : public ::testing::Test {
  public:
   void SetUp() override {
     // read input from parquet file
@@ -109,7 +109,7 @@ class BenchmarkArrowComputeJoin : public ::testing::Test {
   int right_primary_key_index = 0;
 };
 
-TEST_F(BenchmarkArrowComputeJoin, JoinBenchmark) {
+TEST_F(BenchmarkArrowComputeWSCG, JoinBenchmark) {
   // prepare expression
   std::vector<std::shared_ptr<::gandiva::Node>> left_field_node_list;
   for (auto field : left_field_list) {
@@ -152,13 +152,15 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmark) {
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner", {n_left, n_right, n_left_key, n_right_key, n_result},
       uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
+  auto n_child_probe = TreeExprBuilder::MakeFunction("child", {n_probeArrays}, uint32());
+  auto n_wscg =
+      TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child_probe}, uint32());
+  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
 
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
-
-  auto n_hash_kernel =
-      TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
+  auto n_hash_config = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+  auto n_hash_kernel = TreeExprBuilder::MakeFunction(
+      "HashRelation", {n_left_key, n_hash_config}, uint32());
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
@@ -225,7 +227,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmark) {
   std::cout << "Readed right table with " << num_batches << " batches." << std::endl;
 
   std::cout << "=========================================="
-            << "\nBenchmarkArrowComputeJoin processed " << num_batches << " batches"
+            << "\nBenchmarkArrowComputeWSCG processed " << num_batches << " batches"
             << "\noutput " << num_output_batches << " batches with " << num_rows
             << " rows"
             << "\nCodeGen took " << TIME_TO_STRING(elapse_gen)
@@ -237,7 +239,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmark) {
             << "===========================================" << std::endl;
 }
 
-TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
+TEST_F(BenchmarkArrowComputeWSCG, MultipleJoinBenchmark) {
   // prepare expression
   std::vector<std::shared_ptr<::gandiva::Node>> left_field_node_list;
   for (auto field : left_field_list) {
@@ -252,9 +254,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
 
   auto indices_type = std::make_shared<FixedSizeBinaryType>(4);
   auto f_indices = field("indices", indices_type);
-  auto greater_than_function = TreeExprBuilder::MakeFunction(
-      "greater_than", {left_field_node_list[1], right_field_node_list[1]},
-      arrow::boolean());
+
   auto n_left = TreeExprBuilder::MakeFunction("codegen_left_schema", left_field_node_list,
                                               uint32());
   auto n_right = TreeExprBuilder::MakeFunction("codegen_right_schema",
@@ -265,13 +265,6 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
       "codegen_right_schema", {right_field_node_list[right_primary_key_index]}, uint32());
   auto f_res = field("res", uint32());
 
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedProbeArraysInner", {n_left_key, n_right_key, greater_than_function},
-      indices_type);
-  auto n_codegen_probe = TreeExprBuilder::MakeFunction(
-      "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_indices);
-
   auto schema_table_0 = arrow::schema(left_field_list);
   auto schema_table_1 = arrow::schema(right_field_list);
   std::vector<std::shared_ptr<Field>> field_list(left_field_list.size() +
@@ -279,10 +272,50 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
   std::merge(left_field_list.begin(), left_field_list.end(), right_field_list.begin(),
              right_field_list.end(), field_list.begin());
   auto schema_table = arrow::schema(field_list);
-  ///////////////////// Calculation //////////////////
-  std::shared_ptr<CodeGenerator> expr_probe;
 
+  ::gandiva::NodeVector result_node_list;
+  for (auto field : field_list) {
+    result_node_list.push_back(TreeExprBuilder::MakeField(field));
+  }
+  auto n_result = TreeExprBuilder::MakeFunction("result", result_node_list, uint32());
+  auto n_condition = TreeExprBuilder::MakeFunction(
+      "greater_than", {left_field_node_list[1], right_field_node_list[1]},
+      arrow::boolean());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedProbeArraysAnti",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_condition}, uint32());
+  auto n_child_probe = TreeExprBuilder::MakeFunction("child", {n_probeArrays}, uint32());
+
+  auto n_probeArrays_1 = TreeExprBuilder::MakeFunction(
+      "conditionedProbeArraysAnti",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_condition}, uint32());
+  auto n_child_probe_1 =
+      TreeExprBuilder::MakeFunction("child", {n_probeArrays_1, n_child_probe}, uint32());
+
+  auto n_wscg =
+      TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child_probe_1}, uint32());
+  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
+
+  auto n_hash_config = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+  auto n_hash_kernel = TreeExprBuilder::MakeFunction(
+      "HashRelation", {n_left_key, n_hash_config}, uint32());
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
+  std::shared_ptr<CodeGenerator> expr_build_0;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build_0, true));
+  std::shared_ptr<CodeGenerator> expr_build_1;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build_1, true));
+  std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr}, field_list,
+                                    &expr_probe, true));
+
+  ///////////////////// Calculation //////////////////
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
+  std::shared_ptr<ResultIteratorBase> build_result_iterator_0;
+  std::shared_ptr<ResultIteratorBase> build_result_iterator_1;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
 
   ////////////////////// evaluate //////////////////////
@@ -298,25 +331,28 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
   uint64_t num_batches = 0;
   uint64_t num_rows = 0;
 
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(left_schema, {probeArrays_expr},
-                                                      field_list, &expr_probe, true));
-
   do {
     TIME_MICRO_OR_THROW(elapse_left_read,
                         left_record_batch_reader->ReadNext(&left_record_batch));
     if (left_record_batch) {
-      TIME_MICRO_OR_THROW(elapse_eval,
-                          expr_probe->evaluate(left_record_batch, &dummy_result_batches));
+      TIME_MICRO_OR_THROW(
+          elapse_eval, expr_build_0->evaluate(left_record_batch, &dummy_result_batches));
+      TIME_MICRO_OR_THROW(
+          elapse_eval, expr_build_1->evaluate(left_record_batch, &dummy_result_batches));
       num_batches += 1;
     }
   } while (left_record_batch);
   std::cout << "Readed left table with " << num_batches << " batches." << std::endl;
 
+  TIME_MICRO_OR_THROW(elapse_finish, expr_build_0->finish(&build_result_iterator_0));
+  TIME_MICRO_OR_THROW(elapse_finish, expr_build_1->finish(&build_result_iterator_1));
   TIME_MICRO_OR_THROW(elapse_finish, expr_probe->finish(&probe_result_iterator_base));
   auto probe_result_iterator =
       std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
           probe_result_iterator_base);
 
+  probe_result_iterator->SetDependencies(
+      {build_result_iterator_0, build_result_iterator_1});
   num_batches = 0;
   uint64_t num_output_batches = 0;
   std::shared_ptr<arrow::RecordBatch> out;
@@ -338,7 +374,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
   std::cout << "Readed right table with " << num_batches << " batches." << std::endl;
 
   std::cout << "=========================================="
-            << "\nBenchmarkArrowComputeJoin processed " << num_batches << " batches"
+            << "\nBenchmarkArrowComputeWSCG processed " << num_batches << " batches"
             << "\noutput " << num_output_batches << " batches with " << num_rows
             << " rows"
             << "\nCodeGen took " << TIME_TO_STRING(elapse_gen)
@@ -349,5 +385,6 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
             << "\nProbe and Shuffle took " << TIME_TO_STRING(elapse_probe_process) << "\n"
             << "===========================================" << std::endl;
 }
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin

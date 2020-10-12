@@ -83,6 +83,7 @@ class ExpressionCodegenVisitor : public VisitorBase {
   std::string check_str_;
 
   std::string CombineValidity(std::vector<std::string> validity_list);
+  std::string GetValidityName(std::string name);
 };
 
 static arrow::Status MakeExpressionCodegenVisitor(

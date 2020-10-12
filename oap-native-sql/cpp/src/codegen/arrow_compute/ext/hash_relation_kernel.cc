@@ -66,42 +66,57 @@ class HashRelationKernel::Impl {
         std::dynamic_pointer_cast<gandiva::FunctionNode>(root_node)->children();
     auto key_nodes =
         std::dynamic_pointer_cast<gandiva::FunctionNode>(children[0])->children();
-    int builder_type = 0;
+
     if (children.size() > 1) {
       auto parameter_nodes =
           std::dynamic_pointer_cast<gandiva::FunctionNode>(children[1])->children();
       auto builder_type_str = gandiva::ToString(
           std::dynamic_pointer_cast<gandiva::LiteralNode>(parameter_nodes[0])->holder());
-      builder_type = std::stoi(builder_type_str);
+      builder_type_ = std::stoi(builder_type_str);
     }
-    if (key_nodes.size() == 1) {
-      auto key_node = key_nodes[0];
-      std::shared_ptr<TypedNodeVisitor> node_visitor;
-      THROW_NOT_OK(MakeTypedNodeVisitor(key_node, &node_visitor));
-      if (node_visitor->GetResultType() == TypedNodeVisitor::FieldNode) {
-        std::shared_ptr<gandiva::FieldNode> field_node;
-        node_visitor->GetTypedNode(&field_node);
-        key_fields.push_back(field_node->field());
-        need_project = false;
+    if (builder_type_ == 0) {
+      if (key_nodes.size() == 1) {
+        auto key_node = key_nodes[0];
+        std::shared_ptr<TypedNodeVisitor> node_visitor;
+        THROW_NOT_OK(MakeTypedNodeVisitor(key_node, &node_visitor));
+        if (node_visitor->GetResultType() == TypedNodeVisitor::FieldNode) {
+          std::shared_ptr<gandiva::FieldNode> field_node;
+          node_visitor->GetTypedNode(&field_node);
+          key_fields.push_back(field_node->field());
+          need_project = false;
+        }
       }
-    }
-    if (!need_project) {
-      THROW_NOT_OK(GetIndexList(key_fields, input_field_list, &key_indices_));
-      THROW_NOT_OK(MakeHashRelation(key_fields[0]->type()->id(), ctx_, hash_relation_list,
-                                    &hash_relation_));
-    } else {
-      gandiva::ExpressionPtr project_expr;
-      if (builder_type == 0) {
-        project_expr = GetConcatedKernel(key_nodes);
+      if (!need_project) {
+        THROW_NOT_OK(GetIndexList(key_fields, input_field_list, &key_indices_));
+        THROW_NOT_OK(MakeHashRelation(key_fields[0]->type()->id(), ctx_,
+                                      hash_relation_list, &hash_relation_));
       } else {
-        project_expr = GetConcatedKernel_2(key_nodes);
+        gandiva::ExpressionPtr project_expr;
+        project_expr = GetConcatedKernel(key_nodes);
+        auto schema = arrow::schema(input_field_list);
+        auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
+        THROW_NOT_OK(gandiva::Projector::Make(schema, {project_expr}, configuration,
+                                              &key_projector_));
+        THROW_NOT_OK(MakeHashRelation(project_expr->result()->type()->id(), ctx_,
+                                      hash_relation_list, &hash_relation_));
       }
+    } else {
+      // we will use unsafe_row and new unsafe_hash_map
+      gandiva::ExpressionVector key_project_expr = GetGandivaKernel(key_nodes);
+      gandiva::ExpressionPtr key_hash_expr = GetHash32Kernel(key_nodes);
+
       auto schema = arrow::schema(input_field_list);
       auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-      THROW_NOT_OK(gandiva::Projector::Make(schema, {project_expr}, configuration,
-                                            &key_projector_));
-      THROW_NOT_OK(MakeHashRelation(project_expr->result()->type()->id(), ctx_,
-                                    hash_relation_list, &hash_relation_));
+      THROW_NOT_OK(gandiva::Projector::Make(schema, key_project_expr, configuration,
+                                            &key_prepare_projector_));
+      gandiva::FieldVector key_hash_field_list;
+      for (auto expr : key_project_expr) {
+        key_hash_field_list.push_back(expr->result());
+      }
+      hash_input_schema_ = arrow::schema(key_hash_field_list);
+      THROW_NOT_OK(gandiva::Projector::Make(hash_input_schema_, {key_hash_expr},
+                                            configuration, &key_projector_));
+      hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
     }
   }
 
@@ -110,17 +125,45 @@ class HashRelationKernel::Impl {
       RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
     }
     std::shared_ptr<arrow::Array> key_array;
-    if (key_projector_) {
-      arrow::ArrayVector outputs;
+    if (builder_type_ == 0) {
+      if (key_projector_) {
+        arrow::ArrayVector outputs;
+        auto length = in.size() > 0 ? in[0]->length() : 0;
+        auto in_batch =
+            arrow::RecordBatch::Make(arrow::schema(input_field_list_), length, in);
+        RETURN_NOT_OK(key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
+        key_array = outputs[0];
+      } else {
+        key_array = in[key_indices_[0]];
+      }
+      return hash_relation_->AppendKeyColumn(key_array);
+    } else {
+      /* Process original key projection */
+      arrow::ArrayVector project_outputs;
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch =
           arrow::RecordBatch::Make(arrow::schema(input_field_list_), length, in);
-      RETURN_NOT_OK(key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
-      key_array = outputs[0];
-    } else {
-      key_array = in[key_indices_[0]];
+      RETURN_NOT_OK(key_prepare_projector_->Evaluate(*in_batch, ctx_->memory_pool(),
+                                                     &project_outputs));
+
+      /* Process key Hash projection */
+      arrow::ArrayVector hash_outputs;
+      auto hash_in_batch =
+          arrow::RecordBatch::Make(hash_input_schema_, length, project_outputs);
+      RETURN_NOT_OK(
+          key_projector_->Evaluate(*hash_in_batch, ctx_->memory_pool(), &hash_outputs));
+      key_array = hash_outputs[0];
+
+      /* Append key array to UnsafeArray for later UnsafeRow projection */
+      std::vector<std::shared_ptr<UnsafeArray>> payloads;
+      int i = 0;
+      for (auto arr : project_outputs) {
+        std::shared_ptr<UnsafeArray> payload;
+        RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
+        payloads.push_back(payload);
+      }
+      return hash_relation_->AppendKeyColumn(key_array, payloads);
     }
-    return hash_relation_->AppendKeyColumn(key_array);
   }
 
   std::string GetSignature() { return ""; }
@@ -137,7 +180,10 @@ class HashRelationKernel::Impl {
   std::vector<std::shared_ptr<arrow::Field>> output_field_list_;
   std::vector<int> key_indices_;
   std::shared_ptr<gandiva::Projector> key_projector_;
+  std::shared_ptr<gandiva::Projector> key_prepare_projector_;
+  std::shared_ptr<arrow::Schema> hash_input_schema_;
   std::shared_ptr<HashRelation> hash_relation_;
+  int builder_type_ = 0;
 
   class HashRelationResultIterator : public ResultIterator<HashRelation> {
    public:
@@ -152,7 +198,7 @@ class HashRelationKernel::Impl {
    private:
     std::shared_ptr<HashRelation> hash_relation_;
   };
-};
+};  // namespace extra
 
 arrow::Status HashRelationKernel::Make(
     arrow::compute::FunctionContext* ctx,

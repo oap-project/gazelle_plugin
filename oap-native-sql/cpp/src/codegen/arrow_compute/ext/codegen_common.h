@@ -48,7 +48,8 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
                               std::string template_name, std::string tail = "",
                               std::string prefix = "");
 gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list);
-gandiva::ExpressionPtr GetConcatedKernel_2(std::vector<gandiva::NodePtr> key_list);
+gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list);
+gandiva::ExpressionVector GetGandivaKernel(std::vector<gandiva::NodePtr> key_list);
 template <typename T>
 std::string GetStringFromList(std::vector<T> list) {
   std::stringstream ss;

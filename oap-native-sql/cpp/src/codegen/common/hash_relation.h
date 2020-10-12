@@ -23,12 +23,15 @@
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
+#include "precompile/unsafe_array.h"
+#include "third_party/row_wise_memory/hashMap.h"
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
+using sparkcolumnarplugin::precompile::UnsafeArray;
 
 class HashRelationColumn {
  public:
@@ -108,8 +111,70 @@ class HashRelation {
     hash_relation_column_list_ = hash_relation_list;
   }
 
+  HashRelation(
+      arrow::compute::FunctionContext* ctx,
+      const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
+      : HashRelation(hash_relation_column) {
+    hash_table_ = createUnsafeHashMap(1024 * 1024 * 4, 1024 * 1024);
+  }
+
+  ~HashRelation() {
+    if (hash_table_ != nullptr) {
+      destroyHashMap(hash_table_);
+      hash_table_ = nullptr;
+    }
+  }
+
   virtual arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in) {
-    return arrow::Status::NotImplemented("HashRelation::AppendKeyColumn is abstract.");
+    return arrow::Status::NotImplemented("HashRelation AppendKeyColumn is abstract.");
+  }
+
+  arrow::Status AppendKeyColumn(
+      std::shared_ptr<arrow::Array> in,
+      const std::vector<std::shared_ptr<UnsafeArray>>& payloads) {
+    // This Key should be Hash Key
+    auto typed_array = std::make_shared<ArrayType>(in);
+    if (typed_array->null_count() == 0) {
+      for (int i = 0; i < typed_array->length(); i++) {
+        std::shared_ptr<UnsafeRow> payload = std::make_shared<UnsafeRow>();
+        initTempUnsafeRow(payload.get(), payloads.size());
+        for (auto payload_arr : payloads) {
+          payload_arr->Append(i, &payload);
+        }
+        RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+        releaseTempUnsafeRow(payload.get());
+      }
+    } else {
+      for (int i = 0; i < typed_array->length(); i++) {
+        std::shared_ptr<UnsafeRow> payload = std::make_shared<UnsafeRow>();
+        initTempUnsafeRow(payload.get(), payloads.size());
+        for (auto payload_arr : payloads) {
+          payload_arr->Append(i, &payload);
+        }
+        if (typed_array->IsNull(i)) {
+          RETURN_NOT_OK(InsertNull(num_arrays_, i));
+        } else {
+          RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+        }
+        releaseTempUnsafeRow(payload.get());
+      }
+    }
+    num_arrays_++;
+    return arrow::Status::OK();
+  }
+
+  int Get(int32_t v, std::shared_ptr<UnsafeRow> payload) {
+    assert(hash_table_ != nullptr);
+    return safeLookup(hash_table_, payload.get(), v);
+  }
+
+  int GetNull() {
+    if (!null_index_set_) {
+      return HASH_NEW_KEY;
+    } else {
+      auto ret = null_index_;
+      return ret;
+    }
   }
 
   arrow::Status AppendPayloadColumn(int idx, std::shared_ptr<arrow::Array> in) {
@@ -137,6 +202,34 @@ class HashRelation {
   uint64_t num_arrays_ = 0;
   std::vector<std::vector<ArrayItemIndex>> memo_index_to_arrayid_;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
+  arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
+                       uint32_t id) {
+    assert(hash_table_ != nullptr);
+    int i = getOrInsert(hash_table_, payload.get(), v, num_items_);
+    if (i < num_items_) {
+      memo_index_to_arrayid_[i].emplace_back(array_id, id);
+    } else {
+      num_items_++;
+      memo_index_to_arrayid_.push_back({ArrayItemIndex(array_id, id)});
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status InsertNull(uint32_t array_id, uint32_t id) {
+    if (!null_index_set_) {
+      null_index_set_ = true;
+      null_index_ = num_items_++;
+      memo_index_to_arrayid_.push_back({ArrayItemIndex(array_id, id)});
+    } else {
+      memo_index_to_arrayid_[null_index_].emplace_back(array_id, id);
+    }
+    return arrow::Status::OK();
+  }
+
+  unsafeHashMap* hash_table_ = nullptr;
+  using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
+  bool null_index_set_ = false;
+  int32_t null_index_;
 };
 
 template <typename T, typename Enable = void>

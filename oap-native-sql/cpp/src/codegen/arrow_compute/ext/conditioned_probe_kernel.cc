@@ -94,7 +94,11 @@ class ConditionedProbeKernel::Impl {
     if (pre_processed_key_) {
       right_key_project_expr_ = GetConcatedKernel(right_key_node_list);
       right_key_project_ = right_key_project_expr_->root();
-      right_key_project_codegen_ = GetConcatedKernel_2(right_key_node_list)->root();
+    }
+    right_key_project_codegen_ = GetGandivaKernel(right_key_node_list);
+    right_key_hash_codegen_ = GetHash32Kernel(right_key_node_list);
+    for (auto expr : right_key_project_codegen_) {
+      key_hash_field_list_.push_back(expr->result());
     }
 
     /////////// map result_schema to input schema /////////////
@@ -146,7 +150,6 @@ class ConditionedProbeKernel::Impl {
         R"(#include "codegen/arrow_compute/ext/array_item_index.h")");
 
     std::vector<std::string> prepare_list;
-    std::vector<int> indices_list;
     bool cond_check = false;
     if (condition_) cond_check = true;
     // 1.0 prepare hash relation columns
@@ -156,48 +159,13 @@ class ConditionedProbeKernel::Impl {
                     << "]->Next("
                     << "&hash_relation_list_[" << hash_relation_id_ << "]));"
                     << std::endl;
-    if (!pre_processed_key_) {
-      auto key_type = right_field_list_[right_key_index_list_[0]]->type();
-      if (key_type->id() == arrow::Type::STRING) {
-        codegen_ctx->header_codes.push_back(
-            R"(#include "codegen/common/hash_relation_string.h")");
-      } else {
-        codegen_ctx->header_codes.push_back(
-            R"(#include "codegen/common/hash_relation_number.h")");
-      }
-      hash_prepare_ss << "typed_hash_relation_list_" << hash_relation_id_
-                      << "_ = std::dynamic_pointer_cast<"
-                      << GetTemplateString(key_type, "TypedHashRelation", "Type",
-                                           "arrow::")
-                      << ">(hash_relation_list_[" << hash_relation_id_ << "]);"
-                      << std::endl;
-      hash_define_ss << "std::shared_ptr<"
-                     << GetTemplateString(key_type, "TypedHashRelation", "Type",
-                                          "arrow::")
-                     << "> typed_hash_relation_list_" << hash_relation_id_ << "_;"
-                     << std::endl;
+    codegen_ctx->header_codes.push_back(R"(#include "codegen/common/hash_relation.h")");
 
-    } else {
-      auto key_type = right_key_project_codegen_->return_type();
-      if (key_type->id() == arrow::Type::STRING) {
-        codegen_ctx->header_codes.push_back(
-            R"(#include "codegen/common/hash_relation_string.h")");
-      } else {
-        codegen_ctx->header_codes.push_back(
-            R"(#include "codegen/common/hash_relation_number.h")");
-      }
-      hash_prepare_ss << "typed_hash_relation_list_" << hash_relation_id_
-                      << "_ = std::dynamic_pointer_cast<"
-                      << GetTemplateString(key_type, "TypedHashRelation", "Type",
-                                           "arrow::")
-                      << ">(hash_relation_list_[" << hash_relation_id_ << "]);"
-                      << std::endl;
-      hash_define_ss << "std::shared_ptr<"
-                     << GetTemplateString(key_type, "TypedHashRelation", "Type",
-                                          "arrow::")
-                     << "> typed_hash_relation_list_" << hash_relation_id_ << "_;"
-                     << std::endl;
-    }
+    hash_prepare_ss << "hash_relation_list_" << hash_relation_id_
+                    << "_ = hash_relation_list_[" << hash_relation_id_ << "];"
+                    << std::endl;
+    hash_define_ss << "std::shared_ptr<HashRelation> hash_relation_list_"
+                   << hash_relation_id_ << "_;" << std::endl;
     for (int i = 0; i < left_field_list_.size(); i++) {
       std::stringstream hash_relation_col_name_ss;
       hash_relation_col_name_ss << "hash_relation_" << hash_relation_id_ << "_" << i;
@@ -228,31 +196,55 @@ class ConditionedProbeKernel::Impl {
     codegen_ctx->definition_codes = hash_define_ss.str();
     // 1.1 prepare probe key column, name is key_0 and key_0_validity
     std::stringstream prepare_ss;
-    if (!pre_processed_key_) {
-      prepare_ss << "auto key_" << hash_relation_id_ << " = "
-                 << input[right_key_index_list_[0]] << ";" << std::endl;
-      prepare_ss << "auto key_" << hash_relation_id_
-                 << "_validity = " << input[right_key_index_list_[0]] << "_validity;"
-                 << std::endl;
-    } else {
+
+    std::vector<std::string> input_list;
+    std::vector<std::string> project_output_list;
+    idx = 0;
+    auto unsafe_row_name = "unsafe_row_" + std::to_string(hash_relation_id_);
+    prepare_ss << "std::shared_ptr<UnsafeRow> " << unsafe_row_name
+               << " = std::make_shared<UnsafeRow>();" << std::endl;
+    prepare_ss << "initTempUnsafeRow(" << unsafe_row_name << ".get(), "
+               << right_key_project_codegen_.size() << ");" << std::endl;
+    for (auto expr : right_key_project_codegen_) {
       std::shared_ptr<ExpressionCodegenVisitor> project_node_visitor;
-      std::vector<std::string> input_list;
-      std::vector<int> indices_list;
-      RETURN_NOT_OK(MakeExpressionCodegenVisitor(right_key_project_codegen_, input,
-                                                 {right_field_list_}, -1, var_id,
-                                                 &input_list, &project_node_visitor));
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(expr->root(), input, {right_field_list_},
+                                                 -1, var_id, &input_list,
+                                                 &project_node_visitor));
       prepare_ss << project_node_visitor->GetPrepare();
       auto key_name = project_node_visitor->GetResult();
       auto validity_name = project_node_visitor->GetPreCheck();
-      prepare_ss << "auto key_" << hash_relation_id_ << " = " << key_name << ";"
+      prepare_ss << "if (" << validity_name << ") {" << std::endl;
+      prepare_ss << "appendToUnsafeRow(" << unsafe_row_name << ".get(), " << idx << ", "
+                 << key_name << ");" << std::endl;
+      prepare_ss << "} else {" << std::endl;
+      prepare_ss << "setNullAt(" << unsafe_row_name << ".get(), " << idx << ");"
                  << std::endl;
-      prepare_ss << "auto key_" << hash_relation_id_ << "_validity = " << validity_name
-                 << ";" << std::endl;
+      prepare_ss << "}" << std::endl;
+
+      project_output_list.push_back(project_node_visitor->GetResult());
       for (auto header : project_node_visitor->GetHeaders()) {
         if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                       header) == codegen_ctx->header_codes.end()) {
           codegen_ctx->header_codes.push_back(header);
         }
+      }
+      idx++;
+    }
+    std::shared_ptr<ExpressionCodegenVisitor> hash_node_visitor;
+    RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+        right_key_hash_codegen_->root(), project_output_list, {key_hash_field_list_}, -1,
+        var_id, &input_list, &hash_node_visitor));
+    prepare_ss << hash_node_visitor->GetPrepare();
+    auto key_name = hash_node_visitor->GetResult();
+    auto validity_name = hash_node_visitor->GetPreCheck();
+    prepare_ss << "auto key_" << hash_relation_id_ << " = " << key_name << ";"
+               << std::endl;
+    prepare_ss << "auto key_" << hash_relation_id_ << "_validity = " << validity_name
+               << ";" << std::endl;
+    for (auto header : hash_node_visitor->GetHeaders()) {
+      if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
+                    header) == codegen_ctx->header_codes.end()) {
+        codegen_ctx->header_codes.push_back(header);
       }
     }
     codegen_ctx->prepare_codes = prepare_ss.str();
@@ -294,7 +286,9 @@ class ConditionedProbeKernel::Impl {
   int join_type_;
   gandiva::ExpressionPtr right_key_project_expr_;
   gandiva::NodePtr right_key_project_;
-  gandiva::NodePtr right_key_project_codegen_;
+  gandiva::ExpressionPtr right_key_hash_codegen_;
+  gandiva::ExpressionVector right_key_project_codegen_;
+  gandiva::FieldVector key_hash_field_list_;
   gandiva::NodePtr condition_;
 
   bool pre_processed_key_ = false;
@@ -724,13 +718,11 @@ class ConditionedProbeKernel::Impl {
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
     codes_ss << "int32_t " << index_name << ";" << std::endl;
-    codes_ss << "if (key_" << hash_relation_id_ << "_validity) {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ");" << std::endl;
-    codes_ss << "} else {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->GetNull();"
+    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
-    codes_ss << "}" << std::endl;
+    codes_ss << "releaseTempUnsafeRow(unsafe_row_" << hash_relation_id_ << ".get());"
+             << std::endl;
     codes_ss << "if (" << index_name << " == -1) { continue; }" << std::endl;
     codes_ss << "for (auto tmp : " << hash_relation_name << "->GetItemListByIndex("
              << index_name << ")) {" << std::endl;
@@ -758,13 +750,11 @@ class ConditionedProbeKernel::Impl {
     auto matched_index_list_name =
         "hash_relation_matched_" + std::to_string(hash_relation_id_);
     codes_ss << "int32_t " << index_name << ";" << std::endl;
-    codes_ss << "if (key_" << hash_relation_id_ << "_validity) {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ");" << std::endl;
-    codes_ss << "} else {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->GetNull();"
+    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
-    codes_ss << "}" << std::endl;
+    codes_ss << "releaseTempUnsafeRow(unsafe_row_" << hash_relation_id_ << ".get());"
+             << std::endl;
     codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name << ";"
              << std::endl;
     codes_ss << "if (" << index_name << " == -1) {" << std::endl;
@@ -797,13 +787,11 @@ class ConditionedProbeKernel::Impl {
     auto matched_index_list_name =
         "hash_relation_matched_" + std::to_string(hash_relation_id_);
     codes_ss << "int32_t " << index_name << ";" << std::endl;
-    codes_ss << "if (key_" << hash_relation_id_ << "_validity) {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ");" << std::endl;
-    codes_ss << "} else {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->GetNull();"
+    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
-    codes_ss << "}" << std::endl;
+    codes_ss << "releaseTempUnsafeRow(unsafe_row_" << hash_relation_id_ << ".get());"
+             << std::endl;
     codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name << ";"
              << std::endl;
     codes_ss << "if (" << index_name << " == -1) {" << std::endl;
@@ -842,13 +830,11 @@ class ConditionedProbeKernel::Impl {
     auto matched_index_list_name =
         "hash_relation_matched_" + std::to_string(hash_relation_id_);
     codes_ss << "int32_t " << index_name << ";" << std::endl;
-    codes_ss << "if (key_" << hash_relation_id_ << "_validity) {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ");" << std::endl;
-    codes_ss << "} else {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->GetNull();"
+    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
-    codes_ss << "}" << std::endl;
+    codes_ss << "releaseTempUnsafeRow(unsafe_row_" << hash_relation_id_ << ".get());"
+             << std::endl;
     codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name << ";"
              << std::endl;
     codes_ss << "if (" << index_name << " == -1) {" << std::endl;
@@ -893,13 +879,11 @@ class ConditionedProbeKernel::Impl {
         "hash_relation_" + std::to_string(hash_relation_id_) + "_existence_value";
     auto exist_validity = exist_name + "_validity";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
-    codes_ss << "if (key_" << hash_relation_id_ << "_validity) {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ");" << std::endl;
-    codes_ss << "} else {" << std::endl;
-    codes_ss << "  " << index_name << " = " << hash_relation_name << "->GetNull();"
+    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
-    codes_ss << "}" << std::endl;
+    codes_ss << "releaseTempUnsafeRow(unsafe_row_" << hash_relation_id_ << ".get());"
+             << std::endl;
     codes_ss << "bool " << exist_name << " = false;" << std::endl;
     codes_ss << "bool " << exist_validity << " = true;" << std::endl;
     codes_ss << "if (" << index_name << " == -1) {" << std::endl;
@@ -932,7 +916,7 @@ class ConditionedProbeKernel::Impl {
                                 bool cond_check,
                                 std::shared_ptr<CodeGenContext>* output) {
     auto hash_relation_name =
-        "typed_hash_relation_list_" + std::to_string(hash_relation_id_) + "_";
+        "hash_relation_list_" + std::to_string(hash_relation_id_) + "_";
     auto index_name = "hash_relation_" + std::to_string(hash_relation_id_) + "_index";
     std::vector<std::vector<std::string>> output_name_list = {{}, {}};
     std::stringstream valid_ss;
