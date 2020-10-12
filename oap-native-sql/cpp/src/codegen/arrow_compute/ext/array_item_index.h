@@ -31,6 +31,13 @@ struct ArrayItemIndex {
   ArrayItemIndex(uint16_t array_id, uint16_t id)
       : array_id(array_id), id(id), valid(true) {}
 };
+
+struct ArrayItemIndexL {
+  uint32_t id = 0;
+  uint16_t array_id = 0;
+  ArrayItemIndexL() : array_id(0), id(0) {}
+  ArrayItemIndexL(uint16_t array_id, uint32_t id) : array_id(array_id), id(id) {}
+};
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen
