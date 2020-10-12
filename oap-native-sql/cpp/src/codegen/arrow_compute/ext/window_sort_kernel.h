@@ -135,6 +135,7 @@ class WindowSortKernel::Impl {
       key_index_list_.push_back(indices[0]);
     }
   }
+  virtual ~Impl(){}
   virtual arrow::Status LoadJITFunction(
       std::vector<std::shared_ptr<arrow::Field>> key_field_list,
       std::shared_ptr<arrow::Schema> result_schema) {

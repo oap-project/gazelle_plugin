@@ -71,6 +71,7 @@ class SortArraysToIndicesKernel::Impl {
       key_index_list_.push_back(indices[0]);
     }
   }
+  virtual ~Impl() {}
   virtual arrow::Status LoadJITFunction(
       std::vector<std::shared_ptr<arrow::Field>> key_field_list,
       std::shared_ptr<arrow::Schema> result_schema) {
@@ -733,6 +734,7 @@ class SortOnekeyKernel<DATATYPE, CTYPE, enable_if_number<CTYPE>>
       key_id_ = indices[0];
       col_num_ = result_schema->num_fields();
   }
+  ~SortOnekeyKernel(){}
 
   arrow::Status Evaluate(const ArrayList& in) override {
     num_batches_++;
@@ -893,6 +895,7 @@ class SortOnekeyKernel<DATATYPE, CTYPE, enable_if_number<CTYPE>>
     }
       batch_size_ = GetBatchSize();
     }
+    ~SorterResultIterator(){}
 
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 

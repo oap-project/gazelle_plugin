@@ -71,7 +71,7 @@ class SplitArrayListWithActionKernel::Impl {
       : ctx_(ctx), action_name_list_(action_name_list) {
     InitActionList(type_list);
   }
-  ~Impl() {}
+  virtual ~Impl() {}
 
   arrow::Status InitActionList(std::vector<std::shared_ptr<arrow::DataType>> type_list) {
     int type_id = 0;
@@ -340,7 +340,7 @@ class SumArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
     arrow::compute::Datum output;
     RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
@@ -409,7 +409,7 @@ class CountArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
     arrow::compute::Datum output;
     arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
@@ -470,7 +470,7 @@ class SumCountArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
     arrow::compute::Datum sum_out;
     arrow::compute::Datum cnt_out;
@@ -557,7 +557,7 @@ class AvgByCountArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
     arrow::compute::Datum sum_out;
     arrow::compute::Datum cnt_out;
@@ -652,7 +652,7 @@ class MinArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
     arrow::compute::Datum minMaxOut;
     arrow::compute::MinMaxOptions option;
@@ -730,7 +730,7 @@ class MaxArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
   arrow::Status Evaluate(const ArrayList& in) {
     arrow::compute::Datum minMaxOut;
     arrow::compute::MinMaxOptions option;
@@ -808,7 +808,7 @@ class StddevSampPartialArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
 
   template <typename ValueType>
   arrow::Status getM2(arrow::compute::FunctionContext* ctx, const arrow::compute::Datum& value,
@@ -998,7 +998,7 @@ class StddevSampFinalArrayKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::DataType> data_type)
       : ctx_(ctx), data_type_(data_type) {}
-  ~Impl() {}
+  virtual ~Impl() {}
 
   arrow::Status getAvgM2(arrow::compute::FunctionContext* ctx, const arrow::compute::Datum& cnt_value,
   const arrow::compute::Datum& avg_value, const arrow::compute::Datum& m2_value,
