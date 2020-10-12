@@ -99,6 +99,7 @@ case class DataToArrowColumnarExec(child: SparkPlan, numPartitions: Int) extends
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_datatoarrowcolumnar"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+    val numOutputRows = longMetric("numOutputRows")
     val numOutputBatches = longMetric("numOutputBatches")
     val inputByteBuf = child.executeBroadcast[Array[Array[Byte]]]()
     BroadcastColumnarRDD(sparkContext, metrics, numPartitions, inputByteBuf)

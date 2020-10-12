@@ -26,6 +26,7 @@ import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.catalyst.expressions.Attribute
 
 object ArrowUtils {
 
@@ -148,4 +149,7 @@ object ArrowUtils {
       conf.arrowSafeTypeConversion.toString)
     Map(timeZoneConf ++ pandasColsByName ++ arrowSafeTypeCheck: _*)
   }
+  
+  def fromAttributes(attributes: Seq[Attribute]): StructType = 
+    StructType.fromAttributes(attributes)
 }

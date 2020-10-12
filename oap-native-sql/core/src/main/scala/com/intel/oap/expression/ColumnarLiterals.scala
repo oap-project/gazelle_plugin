@@ -21,9 +21,12 @@ import com.google.common.collect.Lists
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression._
+import org.apache.arrow.vector.types.IntervalUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.DateUnit
+import org.apache.spark.unsafe.types.CalendarInterval
+import org.apache.spark.sql.types.CalendarIntervalType
 
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -36,7 +39,21 @@ class ColumnarLiteral(lit: Literal)
     with ColumnarExpression {
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    val resultType = CodeGeneration.getResultType(dataType)
+    val resultType = dataType match {
+      case CalendarIntervalType =>
+        val interval = value.asInstanceOf[CalendarInterval]
+        if (interval.microseconds == 0) {
+          if (interval.days == 0) {
+            new ArrowType.Interval(IntervalUnit.YEAR_MONTH)
+          } else {
+            new ArrowType.Interval(IntervalUnit.DAY_TIME)
+          }
+        } else {
+          throw new UnsupportedOperationException(s"can't support CalendarIntervalType with microseconds yet")
+        }
+      case _ =>
+        CodeGeneration.getResultType(dataType)
+    }
     dataType match {
       case t: StringType =>
         value match {
@@ -89,6 +106,22 @@ class ColumnarLiteral(lit: Literal)
             (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
             (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Boolean]), resultType)
+        }
+      case c: CalendarIntervalType =>
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case interval: CalendarInterval =>
+            if (interval.days == 0) {
+              (TreeBuilder.makeLiteral(interval.months.asInstanceOf[Integer]), resultType)
+            } else {
+              if (interval.months != 0) {
+                throw new UnsupportedOperationException(s"can't support Calendar Interval with both months and days.")
+              }
+              (TreeBuilder.makeLiteral(interval.days.asInstanceOf[Integer]), resultType)
+            }
+          case _ =>
+            throw new UnsupportedOperationException("can't support Literal datatype is CalendarIntervalType while real value is not.")
         }
     }
   }

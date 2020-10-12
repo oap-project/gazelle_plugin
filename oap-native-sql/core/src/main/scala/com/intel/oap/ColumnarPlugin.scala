@@ -36,7 +36,10 @@ import org.apache.spark.sql.internal.SQLConf
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getConf(conf)
 
-  def replaceWithColumnarPlan(plan: SparkPlan, nc: Seq[SparkPlan] = null): SparkPlan = plan match {
+  def replaceWithColumnarPlan(
+      plan: SparkPlan,
+      nc: Seq[SparkPlan] = null,
+      parent: SparkPlan = null): SparkPlan = plan match {
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarBatchScanExec(plan.output, plan.scan)
@@ -49,16 +52,16 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       }
       //new ColumnarProjectExec(plan.projectList, replaceWithColumnarPlan(plan.child))
       val columnarPlan =
-        if (nc == null) replaceWithColumnarPlan(plan.child) else nc(0)
+        if (nc == null) replaceWithColumnarPlan(plan.child, parent = plan) else nc(0)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       var newPlan: SparkPlan = null
       try {
         // If some expression is not supported, we will use RowBased HashAggr here.
-        val newColumnarPlan = if (!columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
-          new ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
-        } else {
+        val newColumnarPlan = if (columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
           val cur_plan = columnarPlan.asInstanceOf[ColumnarConditionProjectExec]
           new ColumnarConditionProjectExec(cur_plan.condition, plan.projectList, cur_plan.child)
+        } else {
+          new ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
         }
         newPlan = newColumnarPlan
       } catch {
@@ -163,7 +166,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       // If some expression is not supported, we will use RowBased HashAggr here.
       var newPlan: SparkPlan = plan.withNewChildren(List(left, right))
       try {
-        val columnarPlan = new ColumnarShuffledHashJoinExec(
+        val columnarPlan = ColumnarShuffledHashJoinExec(
           plan.leftKeys,
           plan.rightKeys,
           plan.joinType,
@@ -217,7 +220,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         }
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
         try {
-          val columnarPlan = new ColumnarBroadcastHashJoinExec(
+          val columnarPlan = ColumnarBroadcastHashJoinExec(
             plan.leftKeys,
             plan.rightKeys,
             plan.joinType,
@@ -511,7 +514,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           case plan: UnionExec =>
             val children = applyChildrenWithStrategy(plan)
             var pure_row = true
-            children.foreach{c => if(c.supportsColumnar) pure_row = false}
+            children.foreach { c => if (c.supportsColumnar) pure_row = false }
             if (!pure_row) {
               replaceWithColumnarPlan(child, children)
             } else {
@@ -520,7 +523,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
           case plan: ExpandExec =>
             val children = applyChildrenWithStrategy(plan)
             var pure_row = true
-            children.foreach{c => if(c.supportsColumnar) pure_row = false}
+            children.foreach { c => if (c.supportsColumnar) pure_row = false }
             if (!pure_row) {
               replaceWithColumnarPlan(child, children)
             } else {
@@ -560,6 +563,8 @@ case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       // When AQE enabled, we need to discard ColumnarToRowExec to avoid extra transactions
       // if ColumnarShuffleExchangeExec is the last plan of the query stage.
       replaceWithColumnarPlan(child)
+    case ColumnarToRowExec(child: CoalesceBatchesExec) =>
+      plan.withNewChildren(Seq(replaceWithColumnarPlan(child.child)))
     case p =>
       val children = p.children.map(replaceWithColumnarPlan)
       p.withNewChildren(children)

@@ -115,7 +115,7 @@ class ColumnarHashAggregateExec(
         case e: UnsupportedOperationException
             if e.getMessage == "Unsupport to generate native expression from replaceable expression." =>
           logWarning(e.getMessage())
-        case e =>
+        case e: Throwable =>
           throw e
       }
       if (signature != "") {

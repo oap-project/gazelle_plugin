@@ -39,6 +39,14 @@
     time += std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(); \
   } while (false);
 
+#define TIME_MICRO(time, res, expr)                                                     \
+  do {                                                                                  \
+    auto start = std::chrono::steady_clock::now();                                      \
+    res = (expr);                                                                       \
+    auto end = std::chrono::steady_clock::now();                                        \
+    time += std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(); \
+  } while (false);
+
 #define TIME_NANO_OR_RAISE(time, expr)                                                 \
   do {                                                                                 \
     auto start = std::chrono::steady_clock::now();                                     \

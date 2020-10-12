@@ -148,6 +148,28 @@ class ColumnarBitwiseNot(child: Expression, original: Expression)
   }
 }
 
+class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
+    extends CheckOverflow(child: Expression, original.dataType: DecimalType, original.nullOnOverflow: Boolean)
+        with ColumnarExpression
+        with Logging {
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    // since spark will call toPrecision in checkOverFlow and rescale from zero, we need to re-calculate result dataType here
+    val childScale: Int = childType match {
+      case d: ArrowType.Decimal => d.getScale
+      case _ => 0
+    }
+    val newDataType = DecimalType(dataType.precision, dataType.scale + childScale)
+    val resType = CodeGeneration.getResultType(newDataType)
+    val funcNode = TreeBuilder.makeFunction(
+      "castDECIMAL",
+      Lists.newArrayList(child_node),
+      resType)
+    (funcNode, resType)
+  }
+}
+
 class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[String], original: Expression)
   extends Cast(child: Expression, datatype: DataType, timeZoneId: Option[String])
     with ColumnarExpression
@@ -242,7 +264,7 @@ object ColumnarUnaryOperator {
     case a: PromotePrecision =>
       child
     case a: CheckOverflow =>
-      child
+      new ColumnarCheckOverflow(child, a)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }

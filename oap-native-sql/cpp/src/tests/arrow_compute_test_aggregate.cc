@@ -17,7 +17,9 @@
 
 #include <arrow/array.h>
 #include <gtest/gtest.h>
+
 #include <memory>
+
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
 #include "tests/test_utils.h"
@@ -43,7 +45,8 @@ TEST(TestArrowCompute, AggregatewithMultipleBatchTest) {
   auto n_avg = TreeExprBuilder::MakeFunction("avgByCount", {arg_2, arg_1}, uint64());
   auto n_min = TreeExprBuilder::MakeFunction("min", {arg_0}, uint64());
   auto n_max = TreeExprBuilder::MakeFunction("max", {arg_0}, uint64());
-  auto n_stddev_samp_partial = TreeExprBuilder::MakeFunction("stddev_samp_partial", {arg_0}, float64());
+  auto n_stddev_samp_partial =
+      TreeExprBuilder::MakeFunction("stddev_samp_partial", {arg_0}, float64());
 
   auto sum_expr = TreeExprBuilder::MakeExpression(n_sum, f_res);
   auto count_expr = TreeExprBuilder::MakeExpression(n_count, f_res);
@@ -51,13 +54,15 @@ TEST(TestArrowCompute, AggregatewithMultipleBatchTest) {
   auto avg_expr = TreeExprBuilder::MakeExpression(n_avg, f_res);
   auto min_expr = TreeExprBuilder::MakeExpression(n_min, f_res);
   auto max_expr = TreeExprBuilder::MakeExpression(n_max, f_res);
-  auto stddev_samp_partial_expr = TreeExprBuilder::MakeExpression(n_stddev_samp_partial, f_res);
+  auto stddev_samp_partial_expr =
+      TreeExprBuilder::MakeExpression(n_stddev_samp_partial, f_res);
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {
-      sum_expr, count_expr, sum_count_expr, avg_expr, min_expr, max_expr, stddev_samp_partial_expr};
+      sum_expr, count_expr, sum_count_expr,          avg_expr,
+      min_expr, max_expr,   stddev_samp_partial_expr};
   auto sch = arrow::schema({f0, f1, f2});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_sum, f_count, f_sum, f_count,
-                                                   f_float, f_res, f_res, f_float, f_float, f_float};
+  std::vector<std::shared_ptr<Field>> ret_types = {
+      f_sum, f_count, f_sum, f_count, f_float, f_res, f_res, f_float, f_float, f_float};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
   ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
@@ -76,10 +81,11 @@ TEST(TestArrowCompute, AggregatewithMultipleBatchTest) {
   ASSERT_NOT_OK(expr->finish(&result_batch));
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {"[601]",   "[19]", "[601]", "[19]", "[30.05]",
-                                                      "[8]", "[70]", "[19]", "[31.6316]", "[8080.42]"};
-  auto res_sch = arrow::schema({f_sum, f_count, f_sum, f_count, f_float, f_res, 
-                                f_res, f_float, f_float, f_float});
+  std::vector<std::string> expected_result_string = {
+      "[601]", "[19]", "[601]", "[19]",      "[30.05]",
+      "[8]",   "[70]", "[19]",  "[31.6316]", "[8080.42]"};
+  auto res_sch = arrow::schema(
+      {f_sum, f_count, f_sum, f_count, f_float, f_res, f_res, f_float, f_float, f_float});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(result_batch[0]).get()));
 }
@@ -112,8 +118,8 @@ TEST(TestArrowCompute, GroupByAggregateWithMultipleBatchTest) {
       TreeExprBuilder::MakeFunction("action_sum_count", {n_split, arg1}, uint32());
   auto n_min = TreeExprBuilder::MakeFunction("action_min", {n_split, arg1}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max", {n_split, arg1}, uint32());
-  auto n_stddev_samp_partial = TreeExprBuilder::MakeFunction("action_stddev_samp_partial", 
-                                                            {n_split, arg1}, uint32());
+  auto n_stddev_samp_partial = TreeExprBuilder::MakeFunction("action_stddev_samp_partial",
+                                                             {n_split, arg1}, uint32());
 
   auto unique_expr = TreeExprBuilder::MakeExpression(n_unique, f_res);
   auto sum_expr = TreeExprBuilder::MakeExpression(n_sum, f_res);
@@ -122,13 +128,16 @@ TEST(TestArrowCompute, GroupByAggregateWithMultipleBatchTest) {
   auto sum_count_expr = TreeExprBuilder::MakeExpression(n_sum_count, f_res);
   auto avg_min = TreeExprBuilder::MakeExpression(n_min, f_res);
   auto avg_max = TreeExprBuilder::MakeExpression(n_max, f_res);
-  auto stddev_samp_partial_expr = TreeExprBuilder::MakeExpression(n_stddev_samp_partial, f_res);
+  auto stddev_samp_partial_expr =
+      TreeExprBuilder::MakeExpression(n_stddev_samp_partial, f_res);
 
-  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {unique_expr, sum_expr, 
-        count_expr, avg_expr, sum_count_expr, avg_min, avg_max, stddev_samp_partial_expr};
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {
+      unique_expr,    sum_expr, count_expr, avg_expr,
+      sum_count_expr, avg_min,  avg_max,    stddev_samp_partial_expr};
   auto sch = arrow::schema({f0, f1});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_sum, f_count, f_avg,
-                                                   f_sum, f_count, f_res, f_res, f_count, f_avg, f_m2};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_sum,   f_count, f_avg,
+                                                   f_sum,    f_count, f_res,   f_res,
+                                                   f_count,  f_avg,   f_m2};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
@@ -161,14 +170,19 @@ TEST(TestArrowCompute, GroupByAggregateWithMultipleBatchTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",        "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
-      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",         "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
-      "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]", "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
-      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",        "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
-      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]", "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",
+      "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
+      "[8, 5, 3, 5, 9, 2, 7, 4, 4, 6, 7]",
+      "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
       "[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]"};
-  auto res_sch = arrow::schema({f_unique, f_sum, f_count, f_avg, f_sum, f_count, 
-                                f_res, f_res, f_count, f_avg, f_m2});
+  auto res_sch = arrow::schema({f_unique, f_sum, f_count, f_avg, f_sum, f_count, f_res,
+                                f_res, f_count, f_avg, f_m2});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(result_batch[0]).get()));
 }
@@ -524,7 +538,8 @@ TEST(TestArrowCompute, StddevSampFinalTest) {
   auto arg_1 = TreeExprBuilder::MakeField(f1);
   auto arg_2 = TreeExprBuilder::MakeField(f2);
 
-  auto n_stddev_samp_final = TreeExprBuilder::MakeFunction("stddev_samp_final", {arg_0, arg_1, arg_2}, float64());
+  auto n_stddev_samp_final = TreeExprBuilder::MakeFunction(
+      "stddev_samp_final", {arg_0, arg_1, arg_2}, float64());
   auto final_expr = TreeExprBuilder::MakeExpression(n_stddev_samp_final, f_res);
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {final_expr};
@@ -535,12 +550,14 @@ TEST(TestArrowCompute, StddevSampFinalTest) {
   ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> result_batch;
-  std::vector<std::string> input_data_string = {"[2, 32, 14, 16, 18, 3, 4, 7, 9, 10]", 
-  "[2, 32, 14, 16, 18, 12, 32, 11, 12, 14]", "[2, 16, 14, 16, 18, 23, 32, 45, 43, 12]"};
+  std::vector<std::string> input_data_string = {
+      "[2, 32, 14, 16, 18, 3, 4, 7, 9, 10]", "[2, 32, 14, 16, 18, 12, 32, 11, 12, 14]",
+      "[2, 16, 14, 16, 18, 23, 32, 45, 43, 12]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   ASSERT_NOT_OK(expr->evaluate(input_batch, &result_batch));
-  std::vector<std::string> input_data_2_string = {"[8, 57, 59, 12, 1, 12, 3, 5, 7, 8]", 
-  "[8, 57, 59, 12, 1, 15, 21, 13, 15, 6]", "[8, 57, 59, 12, 1, 8, 6, 3, 6, 12]"};
+  std::vector<std::string> input_data_2_string = {"[8, 57, 59, 12, 1, 12, 3, 5, 7, 8]",
+                                                  "[8, 57, 59, 12, 1, 15, 21, 13, 15, 6]",
+                                                  "[8, 57, 59, 12, 1, 8, 6, 3, 6, 12]"};
   MakeInputBatch(input_data_2_string, sch, &input_batch);
   ASSERT_NOT_OK(expr->evaluate(input_batch, &result_batch));
   ASSERT_NOT_OK(expr->finish(&result_batch));
@@ -567,17 +584,21 @@ TEST(TestArrowCompute, GroupByStddevSampPartialWithMultipleBatchTest) {
   auto n_pre = TreeExprBuilder::MakeFunction("encodeArray", {arg_0}, utf8());
   auto arg_1 = TreeExprBuilder::MakeField(f_1);
   auto arg_2 = TreeExprBuilder::MakeField(f_2);
-  auto n_split = TreeExprBuilder::MakeFunction(
-      "splitArrayListWithAction", {n_pre, arg_0, arg_1, arg_2}, uint32());
+  auto n_split = TreeExprBuilder::MakeFunction("splitArrayListWithAction",
+                                               {n_pre, arg_0, arg_1, arg_2}, uint32());
   auto arg_res = TreeExprBuilder::MakeField(f_res);
 
-  auto n_unique = TreeExprBuilder::MakeFunction("action_unique", {n_split, arg_0}, utf8());
-  auto n_stddev_samp_partial = TreeExprBuilder::MakeFunction("action_stddev_samp_partial", {n_split, arg_1}, uint32());
+  auto n_unique =
+      TreeExprBuilder::MakeFunction("action_unique", {n_split, arg_0}, utf8());
+  auto n_stddev_samp_partial = TreeExprBuilder::MakeFunction("action_stddev_samp_partial",
+                                                             {n_split, arg_1}, uint32());
 
   auto unique_expr = TreeExprBuilder::MakeExpression(n_unique, f_res);
-  auto stddev_samp_partial_expr = TreeExprBuilder::MakeExpression(n_stddev_samp_partial, f_res);
+  auto stddev_samp_partial_expr =
+      TreeExprBuilder::MakeExpression(n_stddev_samp_partial, f_res);
 
-  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {unique_expr, stddev_samp_partial_expr};
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {
+      unique_expr, stddev_samp_partial_expr};
   auto sch = arrow::schema({f0, f_1, f_2});
   std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_count, f_avg, f_m2};
 
@@ -616,7 +637,8 @@ TEST(TestArrowCompute, GroupByStddevSampPartialWithMultipleBatchTest) {
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
       R"(["BJ", "SH", "SZ", "HZ", "WH", "CD", "DL", "NY" ,"LA", "AU"])",
-      "[8, 5, 3, 5, 11, 7, 4, 4, 6, 7]", "[8.75, 7.6, 7.33333, 12.4, 28, 14.1429, 25, 31.5, 23.3333, 49.2857]",
+      "[8, 5, 3, 5, 11, 7, 4, 4, 6, 7]",
+      "[8.75, 7.6, 7.33333, 12.4, 28, 14.1429, 25, 31.5, 23.3333, 49.2857]",
       "[385.5, 41.2, 64.6667, 549.2, 3524, 806.857, 846, 1521, 4283.33, 7201.43]"};
   auto res_sch = arrow::schema({f_unique, f_count, f_avg, f_m2});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
@@ -642,14 +664,16 @@ TEST(TestArrowCompute, GroupByStddevSampFinalWithMultipleBatchTest) {
       "splitArrayListWithAction", {n_pre, arg_0, arg_1, arg_2, arg_3}, uint32());
   auto arg_res = TreeExprBuilder::MakeField(f_res);
 
-  auto n_unique = TreeExprBuilder::MakeFunction("action_unique", {n_split, arg_0}, uint32());
-  auto n_stddev = TreeExprBuilder::MakeFunction("action_stddev_samp_final", 
-    {n_split, arg_1, arg_2, arg_3}, uint32());
+  auto n_unique =
+      TreeExprBuilder::MakeFunction("action_unique", {n_split, arg_0}, uint32());
+  auto n_stddev = TreeExprBuilder::MakeFunction("action_stddev_samp_final",
+                                                {n_split, arg_1, arg_2, arg_3}, uint32());
 
   auto unique_expr = TreeExprBuilder::MakeExpression(n_unique, f_res);
   auto stddev_expr = TreeExprBuilder::MakeExpression(n_stddev, f_res);
 
-  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {unique_expr, stddev_expr};
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {unique_expr,
+                                                                     stddev_expr};
   auto sch = arrow::schema({f0, f1, f2, f3});
   std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_stddev};
 
@@ -682,8 +706,9 @@ TEST(TestArrowCompute, GroupByStddevSampFinalWithMultipleBatchTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]", 
-      "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 1.41421, 8.52779, 6.23633, 5.58903, 12.535, 24.3544]"};
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",
+      "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 1.41421, 8.52779, 6.23633, 5.58903, "
+      "12.535, 24.3544]"};
   auto res_sch = arrow::schema({f_unique, f_stddev});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(result_batch[0]).get()));
@@ -710,13 +735,14 @@ TEST(TestArrowCompute, GroupbySumCountMergeTest) {
   auto arg_res = TreeExprBuilder::MakeField(f_res);
   auto n_unique =
       TreeExprBuilder::MakeFunction("action_unique", {n_split, arg0}, uint32());
-  auto n_merge = TreeExprBuilder::MakeFunction("action_sum_count_merge", 
-                                                {n_split, arg1, arg2}, uint32());
+  auto n_merge = TreeExprBuilder::MakeFunction("action_sum_count_merge",
+                                               {n_split, arg1, arg2}, uint32());
 
   auto unique_expr = TreeExprBuilder::MakeExpression(n_unique, f_res);
   auto merge_expr = TreeExprBuilder::MakeExpression(n_merge, f_res);
 
-  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {unique_expr, merge_expr};
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {unique_expr,
+                                                                     merge_expr};
   auto sch = arrow::schema({f0, f1, f2});
   std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_sum, f_count};
 
@@ -754,7 +780,8 @@ TEST(TestArrowCompute, GroupbySumCountMergeTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",        "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
+      "[1, 2, 3, 4, 5, null, 6, 7, 8 ,9, 10]",
+      "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]",
       "[8, 10, 9, 20, 45, 10, 42, 28, 32, 54, 70]"};
   auto res_sch = arrow::schema({f_unique, f_sum, f_count});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);

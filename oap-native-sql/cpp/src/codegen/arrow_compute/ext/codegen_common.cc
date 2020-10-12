@@ -24,9 +24,12 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
+#include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -37,9 +40,6 @@ std::string BaseCodes() {
   return R"(
 #include <arrow/compute/context.h>
 #include <arrow/record_batch.h>
-#include <math.h>
-#include <numeric>
-#include <limits>
 
 #include "codegen/arrow_compute/ext/code_generator_base.h"
 #include "precompile/array.h"
@@ -71,10 +71,14 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
       return "float64()";
     case arrow::Date32Type::type_id:
       return "date32()";
+    case arrow::Date64Type::type_id:
+      return "date64()";
     case arrow::StringType::type_id:
       return "utf8()";
     case arrow::BooleanType::type_id:
       return "boolean()";
+    case arrow::Decimal128Type::type_id:
+      return type->ToString();
     default:
       std::cout << "GetArrowTypeString can't convert " << type->ToString() << std::endl;
       throw;
@@ -104,10 +108,14 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
       return "double";
     case arrow::Date32Type::type_id:
       return "int32_t";
+    case arrow::Date64Type::type_id:
+      return "int64_t";
     case arrow::StringType::type_id:
       return "std::string";
     case arrow::BooleanType::type_id:
       return "bool";
+    case arrow::Decimal128Type::type_id:
+      return "arrow::Decimal128";
     default:
       std::cout << "GetCTypeString can't convert " << type->ToString() << std::endl;
       throw;
@@ -137,17 +145,113 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       return "Double" + tail;
     case arrow::Date32Type::type_id:
       return "Date32" + tail;
+    case arrow::Date64Type::type_id:
+      return "Date64" + tail;
     case arrow::StringType::type_id:
       return "String" + tail;
     case arrow::BooleanType::type_id:
       return "Boolean" + tail;
+    case arrow::Decimal128Type::type_id:
+      return "Decimal128" + tail;
     default:
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
       throw;
   }
 }
+std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
+                              std::string template_name, std::string tail,
+                              std::string prefix) {
+  switch (type->id()) {
+    case arrow::UInt8Type::type_id:
+      if (tail.empty())
+        return template_name + "<uint8_t>";
+      else
+        return template_name + "<" + prefix + "UInt8" + tail + ">";
+    case arrow::Int8Type::type_id:
+      if (tail.empty())
+        return template_name + "<int8_t>";
+      else
+        return template_name + "<" + prefix + "Int8" + tail + ">";
+    case arrow::UInt16Type::type_id:
+      if (tail.empty())
+        return template_name + "<uint16_t>";
+      else
+        return template_name + "<" + prefix + "UInt16" + tail + ">";
+    case arrow::Int16Type::type_id:
+      if (tail.empty())
+        return template_name + "<int16_t>";
+      else
+        return template_name + "<" + prefix + "Int16" + tail + ">";
+    case arrow::UInt32Type::type_id:
+      if (tail.empty())
+        return template_name + "<uint32_t>";
+      else
+        return template_name + "<" + prefix + "UInt32" + tail + ">";
+    case arrow::Int32Type::type_id:
+      if (tail.empty())
+        return template_name + "<int32_t>";
+      else
+        return template_name + "<" + prefix + "Int32" + tail + ">";
+    case arrow::UInt64Type::type_id:
+      if (tail.empty())
+        return template_name + "<uint64_t>";
+      else
+        return template_name + "<" + prefix + "UInt64" + tail + ">";
+    case arrow::Int64Type::type_id:
+      if (tail.empty())
+        return template_name + "<int64_t>";
+      else
+        return template_name + "<" + prefix + "Int64" + tail + ">";
+    case arrow::FloatType::type_id:
+      if (tail.empty())
+        return template_name + "<float>";
+      else
+        return template_name + "<" + prefix + "Float" + tail + ">";
+    case arrow::DoubleType::type_id:
+      if (tail.empty())
+        return template_name + "<double>";
+      else
+        return template_name + "<" + prefix + "Double" + tail + ">";
+    case arrow::Date32Type::type_id:
+      if (tail.empty())
+        return template_name + "<uint32_t>";
+      else
+        return template_name + "<" + prefix + "Date32" + tail + ">";
+    case arrow::Date64Type::type_id:
+      if (tail.empty())
+        return template_name + "<uint64_t>";
+      else
+        return template_name + "<" + prefix + "Date64" + tail + ">";
+    case arrow::StringType::type_id:
+      if (tail.empty())
+        return template_name + "<std::string>";
+      else
+        return template_name + "<" + prefix + "String" + tail + ">";
+    case arrow::BooleanType::type_id:
+      if (tail.empty())
+        return template_name + "<bool>";
+      else
+        return template_name + "<" + prefix + "Boolean" + tail + ">";
+    case arrow::DecimalType::type_id:
+      if (tail.empty())
+        return template_name + "<arrow::Decimal128>";
+      else
+        return template_name + "<" + prefix + "Decimal128" + tail + ">";
+    default:
+      std::cout << "GetTemplateString can't convert " << type->ToString() << std::endl;
+      throw;
+  }
+}
 
-std::string GetParameterList(std::vector<std::string> parameter_list) {
+std::string GetParameterList(std::vector<std::string> parameter_list_in,
+                             bool comma_ahead) {
+  std::vector<std::string> parameter_list;
+  for (auto s : parameter_list_in) {
+    if (s != "") {
+      parameter_list.push_back(s);
+    }
+  }
+
   std::stringstream ss;
   for (int i = 0; i < parameter_list.size(); i++) {
     if (i != (parameter_list.size() - 1)) {
@@ -157,6 +261,9 @@ std::string GetParameterList(std::vector<std::string> parameter_list) {
     }
   }
   auto ret = ss.str();
+  if (!comma_ahead) {
+    return ret;
+  }
   if (ret.empty()) {
     return ret;
   } else {
@@ -164,42 +271,140 @@ std::string GetParameterList(std::vector<std::string> parameter_list) {
   }
 }
 
-gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list) {
+std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
+                                  std::vector<gandiva::FieldVector> field_list_v) {
+  int arg_id = 0;
   int index = 0;
-  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
-  for (auto key : key_list) {
-    auto field_node = key;
-    auto func_node =
-        gandiva::TreeExprBuilder::MakeFunction("hash64", {field_node}, arrow::int64());
-    func_node_list.push_back(func_node);
-    if (func_node_list.size() == 2) {
-      auto shift_func_node = gandiva::TreeExprBuilder::MakeFunction(
-          "multiply",
-          {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
-          arrow::int64());
-      auto tmp_func_node = gandiva::TreeExprBuilder::MakeFunction(
-          "add", {shift_func_node, func_node_list[1]}, arrow::int64());
-      func_node_list.clear();
-      func_node_list.push_back(tmp_func_node);
+  bool found = false;
+  for (auto field_list : field_list_v) {
+    arg_id = 0;
+    for (auto field : field_list) {
+      if (field->name() == target_field->name()) {
+        found = true;
+        break;
+      }
+      arg_id++;
     }
-    index++;
+    if (found) {
+      break;
+    }
+    index += 1;
+  }
+  return std::make_pair(index, arg_id);
+}
+
+gandiva::ExpressionPtr GetConcatedKernel_2(std::vector<gandiva::NodePtr> key_list) {
+  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
+  std::shared_ptr<arrow::DataType> ret_type;
+  if (key_list.size() >= 2) {
+    auto seed = gandiva::TreeExprBuilder::MakeLiteral((int32_t)0);
+    gandiva::NodePtr func_node;
+    ret_type = arrow::int32();
+    for (auto key : key_list) {
+      auto field_node = key;
+      func_node =
+          gandiva::TreeExprBuilder::MakeFunction("hash32", {field_node, seed}, ret_type);
+      seed = func_node;
+    }
+    func_node_list.push_back(func_node);
+  } else {
+    auto node = key_list[0];
+    ret_type = node->return_type();
+    func_node_list.push_back(node);
   }
   return gandiva::TreeExprBuilder::MakeExpression(
-      func_node_list[0], arrow::field("projection_key", arrow::int64()));
+      func_node_list[0], arrow::field("projection_key", ret_type));
+}
+
+gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list) {
+  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
+  std::shared_ptr<arrow::DataType> ret_type;
+  if (key_list.size() >= 2) {
+    ret_type = arrow::int64();
+    for (auto key : key_list) {
+      auto field_node = key;
+      auto func_node =
+          gandiva::TreeExprBuilder::MakeFunction("hash64", {field_node}, arrow::int64());
+      func_node_list.push_back(func_node);
+      if (func_node_list.size() == 2) {
+        auto shift_func_node = gandiva::TreeExprBuilder::MakeFunction(
+            "multiply",
+            {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
+            arrow::int64());
+        auto tmp_func_node = gandiva::TreeExprBuilder::MakeFunction(
+            "add", {shift_func_node, func_node_list[1]}, arrow::int64());
+        func_node_list.clear();
+        func_node_list.push_back(tmp_func_node);
+      }
+    }
+  } else {
+    auto node = key_list[0];
+    ret_type = node->return_type();
+    func_node_list.push_back(node);
+  }
+  return gandiva::TreeExprBuilder::MakeExpression(
+      func_node_list[0], arrow::field("projection_key", ret_type));
 }
 
 arrow::Status GetIndexList(const std::vector<std::shared_ptr<arrow::Field>>& target_list,
                            const std::vector<std::shared_ptr<arrow::Field>>& source_list,
                            std::vector<int>* out) {
+  bool found = false;
   for (auto key_field : target_list) {
     int i = 0;
+    found = false;
     for (auto field : source_list) {
       if (key_field->name() == field->name()) {
+        found = true;
         break;
       }
       i++;
     }
-    (*out).push_back(i);
+    if (found) (*out).push_back(i);
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status GetIndexList(
+    const std::vector<std::shared_ptr<arrow::Field>>& target_list,
+
+    const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
+    const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
+    const bool isExistJoin, int* exist_index,
+    std::vector<std::pair<int, int>>* result_schema_index_list) {
+  int i = 0;
+  bool found = false;
+  int target_index = -1;
+  int right_found = 0;
+  for (auto target_field : target_list) {
+    target_index++;
+    i = 0;
+    found = false;
+    for (auto field : left_field_list) {
+      if (target_field->name() == field->name()) {
+        (*result_schema_index_list).push_back(std::make_pair(0, i));
+        found = true;
+        break;
+      }
+      i++;
+    }
+    if (found == true) continue;
+    i = 0;
+    for (auto field : right_field_list) {
+      if (target_field->name() == field->name()) {
+        (*result_schema_index_list).push_back(std::make_pair(1, i));
+        found = true;
+        right_found++;
+        break;
+      }
+      i++;
+    }
+    if (found == true) continue;
+    if (isExistJoin) *exist_index = target_index;
+  }
+  // Add one more col if join_type is ExistenceJoin
+  if (isExistJoin) {
+    (*result_schema_index_list).push_back(std::make_pair(1, right_found));
   }
   return arrow::Status::OK();
 }
@@ -308,11 +513,14 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
                     arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
                     nativesql_lib + cppfile + " -o " + libfile +
-                    " -O3 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
+                    " -O1 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
-  int ret = system(cmd.c_str());
+  int ret;
+  int elapse_time = 0;
+  TIME_MICRO(elapse_time, ret, system(cmd.c_str()));
+  std::cout << "CodeGeneration took " << TIME_TO_STRING(elapse_time) << std::endl;
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
     std::cout << "compilation failed, see " << logfile << std::endl;
     std::cout << cmd << std::endl;

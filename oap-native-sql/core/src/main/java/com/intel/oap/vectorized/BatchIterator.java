@@ -38,6 +38,7 @@ public class BatchIterator {
       int selectionVectorRecordCount, long selectionVectorAddr, long selectionVectorSize);
   private native void nativeProcessAndCacheOneWithSelection(long nativeHandler, byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes,
       int selectionVectorRecordCount, long selectionVectorAddr, long selectionVectorSize);
+  private native void nativeSetDependencies(long nativeHandler, long[] dependencies);
 
   private native void nativeClose(long nativeHandler);
 
@@ -151,6 +152,15 @@ public class BatchIterator {
       nativeProcessAndCacheOne(nativeHandler, getSchemaBytesBuf(schema), num_rows, bufAddrs, bufSizes);
     }
   }
+
+  public void setDependencies(BatchIterator[] dependencies){
+    long[] instanceIdList = new long[dependencies.length];
+    for (int i = 0; i < dependencies.length; i++) {
+      instanceIdList[i] = dependencies[i].getInstanceId();
+    }
+    nativeSetDependencies(nativeHandler, instanceIdList);
+  }
+
 
   public void close() {
     if (!closed) {

@@ -24,6 +24,8 @@
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
 
+#include "codegen/arrow_compute/ext/codegen_context.h"
+#include "codegen/common/hash_relation.h"
 #include "codegen/common/result_iterator.h"
 
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
@@ -75,6 +77,18 @@ class KernalBase {
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
     return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
+                                         kernel_name_);
+  }
+  virtual arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<HashRelation>>* out) {
+    return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
+                                         kernel_name_);
+  }
+  virtual arrow::Status DoCodeGen(int level, std::vector<std::string> input,
+                                  std::shared_ptr<CodeGenContext>* codegen_ctx,
+                                  int* var_id) {
+    return arrow::Status::NotImplemented("DoCodeGen is abstract interface for ",
                                          kernel_name_);
   }
 
@@ -262,7 +276,7 @@ class StddevSampPartialArrayKernel : public KernalBase {
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
   StddevSampPartialArrayKernel(arrow::compute::FunctionContext* ctx,
-                 std::shared_ptr<arrow::DataType> data_type);
+                               std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
 
@@ -278,7 +292,7 @@ class StddevSampFinalArrayKernel : public KernalBase {
                             std::shared_ptr<arrow::DataType> data_type,
                             std::shared_ptr<KernalBase>* out);
   StddevSampFinalArrayKernel(arrow::compute::FunctionContext* ctx,
-                 std::shared_ptr<arrow::DataType> data_type);
+                             std::shared_ptr<arrow::DataType> data_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
 
@@ -451,6 +465,128 @@ class ConditionedJoinArraysKernel : public KernalBase {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  std::string GetSignature() override;
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+class WholeStageCodeGenKernel : public KernalBase {
+ public:
+  static arrow::Status Make(
+      arrow::compute::FunctionContext* ctx,
+      const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
+      std::shared_ptr<gandiva::Node> root_node,
+      const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
+      std::shared_ptr<KernalBase>* out);
+  WholeStageCodeGenKernel(
+      arrow::compute::FunctionContext* ctx,
+      const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
+      std::shared_ptr<gandiva::Node> root_node,
+      const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  std::string GetSignature() override;
+
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+class HashRelationKernel : public KernalBase {
+ public:
+  static arrow::Status Make(
+      arrow::compute::FunctionContext* ctx,
+      const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
+      std::shared_ptr<gandiva::Node> root_node,
+      const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
+      std::shared_ptr<KernalBase>* out);
+  HashRelationKernel(arrow::compute::FunctionContext* ctx,
+                     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
+                     std::shared_ptr<gandiva::Node> root_node,
+                     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<HashRelation>>* out) override;
+  std::string GetSignature() override;
+
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+class ConditionedProbeKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            const gandiva::NodeVector& left_key_list,
+                            const gandiva::NodeVector& right_key_list,
+                            const gandiva::NodeVector& left_schema_list,
+                            const gandiva::NodeVector& right_schema_list,
+                            const gandiva::NodePtr& condition, int join_type,
+                            const gandiva::NodeVector& result_schema,
+                            int hash_relation_idx, std::shared_ptr<KernalBase>* out);
+  ConditionedProbeKernel(arrow::compute::FunctionContext* ctx,
+                         const gandiva::NodeVector& left_key_list,
+                         const gandiva::NodeVector& right_key_list,
+                         const gandiva::NodeVector& left_schema_list,
+                         const gandiva::NodeVector& right_schema_list,
+                         const gandiva::NodePtr& condition, int join_type,
+                         const gandiva::NodeVector& result_schema, int hash_relation_idx);
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
+                          std::shared_ptr<CodeGenContext>* codegen_ctx_out,
+                          int* var_id) override;
+  std::string GetSignature() override;
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+class ProjectKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            const gandiva::NodeVector& input_field_node_list,
+                            const gandiva::NodeVector& project_list,
+                            std::shared_ptr<KernalBase>* out);
+  ProjectKernel(arrow::compute::FunctionContext* ctx,
+                const gandiva::NodeVector& input_field_node_list,
+                const gandiva::NodeVector& project_list);
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
+                          std::shared_ptr<CodeGenContext>* codegen_ctx,
+                          int* var_id) override;
+  std::string GetSignature() override;
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+class FilterKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            const gandiva::NodeVector& input_field_node_list,
+                            const gandiva::NodePtr& condition,
+                            std::shared_ptr<KernalBase>* out);
+  FilterKernel(arrow::compute::FunctionContext* ctx,
+               const gandiva::NodeVector& input_field_node_list,
+               const gandiva::NodePtr& condition);
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
+                          std::shared_ptr<CodeGenContext>* codegen_ctx,
+                          int* var_id) override;
   std::string GetSignature() override;
   class Impl;
 

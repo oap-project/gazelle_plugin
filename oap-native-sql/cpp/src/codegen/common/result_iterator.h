@@ -20,10 +20,16 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
-template <typename T>
-class ResultIterator {
+class ResultIteratorBase {
  public:
   virtual bool HasNext() { return false; }
+  virtual std::string ToString() { return ""; }
+};
+
+template <typename T>
+class ResultIterator : public ResultIteratorBase {
+ public:
+  virtual bool HasNext() override { return false; }
   virtual arrow::Status Next(std::shared_ptr<T>* out) {
     return arrow::Status::NotImplemented("ResultIterator abstract Next()");
   }
@@ -43,8 +49,12 @@ class ResultIterator {
       const std::shared_ptr<arrow::Array>& selection = nullptr) {
     return arrow::Status::NotImplemented("ResultIterator abstract ProcessAndCacheOne()");
   }
+  virtual arrow::Status SetDependencies(
+      const std::vector<std::shared_ptr<ResultIteratorBase>>&) {
+    return arrow::Status::NotImplemented("ResultIterator abstract SetDependencies()");
+  }
   virtual arrow::Status GetResult(std::shared_ptr<arrow::RecordBatch>* out) {
     return arrow::Status::NotImplemented("ResultIterator abstract GetResult()");
   }
-  virtual std::string ToString() { return ""; }
+  virtual std::string ToString() override { return ""; }
 };

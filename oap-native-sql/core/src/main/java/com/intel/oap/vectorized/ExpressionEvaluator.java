@@ -53,6 +53,10 @@ public class ExpressionEvaluator implements AutoCloseable {
     ColumnarPluginConfig.setRandomTempDir(jniWrapper.tmp_dir_path);
   }
 
+  long getInstanceId() {
+    return nativeHandler;
+  }
+
   /** Convert ExpressionTree into native function. */
   public String build(Schema schema, List<ExpressionTree> exprs)
       throws RuntimeException, IOException, GandivaException {

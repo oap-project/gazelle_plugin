@@ -19,7 +19,9 @@
 #include <arrow/ipc/json_simple.h>
 #include <arrow/record_batch.h>
 #include <gtest/gtest.h>
+
 #include <memory>
+
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
 #include "tests/test_utils.h"
@@ -68,13 +70,13 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[1, 3, 3, 3, 5, 7, 9, 10]", "[1, 3, 3, 3, 5, 7, 9, 10]", "[1, 3, 3, 3, 5, 7, 9, 10]"};
+  std::vector<std::string> input_data_string = {"[1, 3, 3, 3, 5, 7, 9, 10]",
+                                                "[1, 3, 3, 3, 5, 7, 9, 10]",
+                                                "[1, 3, 3, 3, 5, 7, 9, 10]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -97,9 +99,8 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 3, 3, 3, 5, 12]", "[1, 3, 3, 3, 5, 12]",
-      "[1, 3, 3, 3, 5, 12]", "[1, 3, 3, 3, 5, 12]",
-      "[1, 3, 3, 3, 5, 12]"};
+      "[1, 3, 3, 3, 5, 12]", "[1, 3, 3, 3, 5, 12]", "[1, 3, 3, 3, 5, 12]",
+      "[1, 3, 3, 3, 5, 12]", "[1, 3, 3, 3, 5, 12]"};
   auto res_sch = arrow::schema({f_res, f_res, f_res, f_res, f_res});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
@@ -113,7 +114,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < table_1.size(); i++) {
     auto right_batch = table_1[i];
@@ -171,15 +176,13 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[null, null, 2, 2, 3, 5, 7, 9, 11]",
-      "[null, null, 2, 2, 3, 5, 7, 9, 11]",
-      "[null, null, 2, 2, 3, 5, 7, 9, 11]"};
+  std::vector<std::string> input_data_string = {"[null, null, 2, 2, 3, 5, 7, 9, 11]",
+                                                "[null, null, 2, 2, 3, 5, 7, 9, 11]",
+                                                "[null, null, 2, 2, 3, 5, 7, 9, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -209,10 +212,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {"[7, null, 9, null, 11, 12]",
-                            "[7, null, 9, null, 11, 12]",
-                            "[7, null, 9, null, 11, 12]",
-                            "[7, 8, 9, 10, 11, 12]", "[7, 8, 9, 10, 11, 12]"};
+  expected_result_string = {"[7, null, 9, null, 11, 12]", "[7, null, 9, null, 11, 12]",
+                            "[7, null, 9, null, 11, 12]", "[7, 8, 9, 10, 11, 12]",
+                            "[7, 8, 9, 10, 11, 12]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -220,7 +222,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -277,7 +283,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -318,7 +323,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -375,7 +384,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -416,7 +424,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -460,8 +472,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
       "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
       "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysSemi",
-        {n_left_key, n_right_key, greater_than_function}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysSemi", {n_left_key, n_right_key, greater_than_function},
+      uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
@@ -477,7 +490,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -518,7 +530,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -582,7 +598,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -610,8 +625,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
 
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[1]", "[10]", "[10]", "[1]", "[1]"};
+  std::vector<std::string> expected_result_string = {"[1]", "[10]", "[10]", "[1]", "[1]"};
   auto res_sch = arrow::schema({f_res, f_res, f_res, f_res, f_res});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
@@ -624,7 +638,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < table_1.size(); i++) {
     auto right_batch = table_1[i];
@@ -689,7 +707,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -699,8 +716,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  input_data_string = {R"(["f", "j", "n"])", R"(["F", "J", "N"])",
-                       "[12, 5, 8]"};
+  input_data_string = {R"(["f", "j", "n"])", R"(["F", "J", "N"])", "[12, 5, 8]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -724,8 +740,8 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["j","n"])", R"(["J", "N"])", "[5, 8]",
-                            R"(["j", "n"])", R"(["J", "N"])"};
+  expected_result_string = {R"(["j","n"])", R"(["J", "N"])", "[5, 8]", R"(["j", "n"])",
+                            R"(["J", "N"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -733,10 +749,13 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
-    
     auto right_batch = table_1[i];
 
     std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -795,7 +814,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -836,7 +854,11 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];

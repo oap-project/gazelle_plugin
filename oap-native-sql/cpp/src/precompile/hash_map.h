@@ -26,6 +26,7 @@ TYPED_HASH_MAP_DEFINE(UInt64HashMap, uint64_t)
 TYPED_HASH_MAP_DEFINE(FloatHashMap, float)
 TYPED_HASH_MAP_DEFINE(DoubleHashMap, double)
 TYPED_HASH_MAP_DEFINE(Date32HashMap, int32_t)
+TYPED_HASH_MAP_DEFINE(Date64HashMap, int64_t)
 TYPED_HASH_MAP_DEFINE(StringHashMap, arrow::util::string_view)
 #undef TYPED_HASH_MAP_DEFINE
 }  // namespace precompile

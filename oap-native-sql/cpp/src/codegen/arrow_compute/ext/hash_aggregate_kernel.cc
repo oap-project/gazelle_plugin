@@ -495,35 +495,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     }
     return arrow::Status::OK();
   }
-
-  std::string GetParameterList(const std::vector<std::string>& cached_list_in,
-                               bool pre_comma = true) {
-    // filter not-empty cached_list
-    std::vector<std::string> cached_list;
-    for (auto s : cached_list_in) {
-      if (s != "") {
-        cached_list.push_back(s);
-      }
-    }
-    std::stringstream ss;
-    for (int i = 0; i < cached_list.size(); i++) {
-      if (i != (cached_list.size() - 1)) {
-        ss << cached_list[i] << ", ";
-      } else {
-        ss << cached_list[i];
-      }
-    }
-    auto ret = ss.str();
-    if (!pre_comma) {
-      return ret;
-    }
-    if (ret.empty()) {
-      return ret;
-    } else {
-      return ", " + ret;
-    }
-  }
-};  // namespace extra
+};
 
 arrow::Status HashAggregateKernel::Make(
     arrow::compute::FunctionContext* ctx,

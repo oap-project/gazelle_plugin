@@ -96,7 +96,8 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
                             std::shared_ptr<ExprVisitor> dependency,
                             std::shared_ptr<gandiva::Node> finish_func,
                             std::shared_ptr<ExprVisitor>* out);
-  static arrow::Status Make(const gandiva::FunctionNode& node,
+  static arrow::Status Make(const std::shared_ptr<gandiva::FunctionNode>& node,
+                            std::shared_ptr<arrow::Schema> schema_ptr,
                             std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                             std::shared_ptr<ExprVisitor>* out);
   static arrow::Status MakeWindow(std::shared_ptr<arrow::Schema> schema_ptr,
@@ -154,9 +155,8 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   arrow::Status Reset();
   arrow::Status ResetDependency();
   arrow::Status Finish(std::shared_ptr<ExprVisitor>* finish_visitor);
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out);
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out);
   std::string GetName() { return func_name_; }
 
   ArrowComputeResultType GetResultType();
@@ -213,8 +213,6 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::vector<int> result_batch_size_list_;
   // Return fields
   std::vector<std::shared_ptr<arrow::Field>> result_fields_;
-  // This is used when we want to output an ResultIterator<RecordBatch>
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> result_batch_iterator_;
 
   // Long live variables
   arrow::compute::FunctionContext ctx_;

@@ -63,9 +63,7 @@ class ColumnarDataSourceRDD(
     val inputPartition = castPartition(split).inputPartition
     inputPartition match {
       case p: FilePartition =>
-        p.files.foreach {
-          f => inputSize += f.length
-        }
+        p.files.foreach { f => inputSize += f.length }
       case _ =>
     }
     val reader = if (columnarReads) {
@@ -91,7 +89,7 @@ class ColumnarDataSourceRDD(
             numInputBatches += 1
             scanTime += (System.nanoTime() - beforeScan) / (1000 * 1000)
           } catch {
-            case e =>
+            case e: Throwable =>
               val errmsg = e.getStackTrace.mkString("\n")
               logError(s"hasNext got exception: $errmsg")
               valuePrepared = false

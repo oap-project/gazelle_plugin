@@ -62,6 +62,7 @@ TYPED_ARROW_HASH_MAP_IMPL(UInt64HashMap, UInt64Type, uint64_t, UInt64MemoTableTy
 TYPED_ARROW_HASH_MAP_IMPL(FloatHashMap, FloatType, float, FloatMemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(DoubleHashMap, DoubleType, double, DoubleMemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(Date32HashMap, Date32Type, int32_t, Date32MemoTableType)
+TYPED_ARROW_HASH_MAP_IMPL(Date64HashMap, Date64Type, int64_t, Date64MemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(StringHashMap, StringType, arrow::util::string_view,
                           StringMemoTableType)
 #undef TYPED_ARROW_HASH_MAP_IMPL

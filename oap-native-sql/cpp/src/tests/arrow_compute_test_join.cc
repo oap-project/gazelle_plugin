@@ -75,7 +75,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -120,7 +119,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -186,7 +189,6 @@ TEST(TestArrowComputeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -230,7 +232,11 @@ TEST(TestArrowComputeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -289,7 +295,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingOuterJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -336,7 +341,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingOuterJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -393,7 +402,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingAntiJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -434,7 +442,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingAntiJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -498,7 +510,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoinWithCondition) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -540,7 +551,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoinWithCondition) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -602,7 +617,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingAntiJoinWithCondition) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -643,7 +657,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingAntiJoinWithCondition) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -704,7 +722,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingExistenceJoin) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -749,7 +766,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingExistenceJoin) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -822,7 +843,6 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoinWithProjectedCondition) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
@@ -865,7 +885,11 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoinWithProjectedCondition) {
   for (auto batch : table_0) {
     ASSERT_NOT_OK(expr_probe->evaluate(batch, &dummy_result_batches));
   }
-  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator));
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];

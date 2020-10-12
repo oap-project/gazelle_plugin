@@ -187,14 +187,18 @@ file(COPY codegen/arrow_compute/ext/array_item_index.h DESTINATION ${root_direct
 file(COPY codegen/arrow_compute/ext/code_generator_base.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/arrow_compute/ext/kernels_ext.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/common/result_iterator.h DESTINATION ${root_directory}/releases/include/codegen/common/)
+file(COPY codegen/common/hash_relation.h DESTINATION ${root_directory}/releases/include/codegen/common/)
+file(COPY codegen/common/hash_relation_string.h DESTINATION ${root_directory}/releases/include/codegen/common/)
+file(COPY codegen/common/hash_relation_number.h DESTINATION ${root_directory}/releases/include/codegen/common/)
 
 add_definitions(-DNATIVESQL_SRC_PATH="${root_directory}/releases")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attributes")
 set(SPARK_COLUMNAR_PLUGIN_SRCS
         jni/jni_wrapper.cc
         ${PROTO_SRCS}
         data_source/parquet/adapter.cc
         proto/protobuf_utils.cc
+        codegen/common/hash_relation.cc
         codegen/expr_visitor.cc
         codegen/arrow_compute/expr_visitor.cc
         codegen/arrow_compute/ext/hash_aggregate_kernel.cc
@@ -207,6 +211,12 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/codegen_node_visitor.cc
         codegen/arrow_compute/ext/codegen_register.cc
         codegen/arrow_compute/ext/actions_impl.cc
+        codegen/arrow_compute/ext/whole_stage_codegen_kernel.cc
+        codegen/arrow_compute/ext/hash_relation_kernel.cc
+        codegen/arrow_compute/ext/conditioned_probe_kernel.cc
+        codegen/arrow_compute/ext/basic_physical_kernels.cc
+        codegen/arrow_compute/ext/expression_codegen_visitor.cc
+        codegen/arrow_compute/ext/typed_node_visitor.cc
         shuffle/partition_writer.cc
         shuffle/splitter.cc
         precompile/hash_map.cc
@@ -218,8 +228,10 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         precompile/hash_arrays_kernel.cc
         )
 
+add_subdirectory(third_party/gandiva)
+message(STATUS "thirdparty is ${THIRDPARTY_GANDIVA_SRCS}")
 file(MAKE_DIRECTORY ${root_directory}/releases)
-add_library(spark_columnar_jni SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS})
+add_library(spark_columnar_jni SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS} ${THIRDPARTY_GANDIVA_SRCS})
 add_dependencies(spark_columnar_jni jni_proto)
 
 if(BUILD_PROTOBUF)

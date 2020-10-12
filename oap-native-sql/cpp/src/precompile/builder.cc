@@ -2,6 +2,7 @@
 
 #include <arrow/builder.h>
 #include <arrow/compute/context.h>
+#include <arrow/util/decimal.h>
 
 #include <iostream>
 
@@ -18,7 +19,9 @@ namespace precompile {
   arrow::Status TYPENAME::Append(CTYPE value) { return impl_->Append(value); }          \
   arrow::Status TYPENAME::AppendNull() { return impl_->AppendNull(); }                  \
   arrow::Status TYPENAME::Reserve(int64_t length) { return impl_->Reserve(length); }    \
-  arrow::Status TYPENAME::AppendNulls(int64_t length) { return impl_->AppendNulls(length); } \
+  arrow::Status TYPENAME::AppendNulls(int64_t length) {                                 \
+    return impl_->AppendNulls(length);                                                  \
+  }                                                                                     \
   arrow::Status TYPENAME::Finish(std::shared_ptr<arrow::Array>* out) {                  \
     return impl_->Finish(out);                                                          \
   }                                                                                     \
@@ -39,8 +42,53 @@ TYPED_BUILDER_IMPL(UInt64Builder, arrow::uint64(), uint64_t)
 TYPED_BUILDER_IMPL(FloatBuilder, arrow::float32(), float)
 TYPED_BUILDER_IMPL(DoubleBuilder, arrow::float64(), double)
 TYPED_BUILDER_IMPL(Date32Builder, arrow::date32(), int32_t)
-TYPED_BUILDER_IMPL(StringBuilder, arrow::utf8(), arrow::util::string_view)
+TYPED_BUILDER_IMPL(Date64Builder, arrow::date64(), int64_t)
 #undef TYPED_BUILDER_IMPL
+
+class StringBuilder::Impl : public arrow::StringBuilder {
+ public:
+  Impl(arrow::MemoryPool* pool) : arrow::StringBuilder(arrow::utf8(), pool) {}
+};
+
+StringBuilder::StringBuilder(arrow::MemoryPool* pool) {
+  impl_ = std::make_shared<Impl>(pool);
+}
+arrow::Status StringBuilder::Append(arrow::util::string_view value) {
+  return impl_->Append(value);
+}
+arrow::Status StringBuilder::AppendString(std::string value) {
+  return impl_->Append(arrow::util::string_view(value));
+}
+arrow::Status StringBuilder::AppendNull() { return impl_->AppendNull(); }
+arrow::Status StringBuilder::Finish(std::shared_ptr<arrow::Array>* out) {
+  return impl_->Finish(out);
+}
+arrow::Status StringBuilder::Reset() {
+  impl_->Reset();
+  return arrow::Status::OK();
+}
+
+class Decimal128Builder::Impl : public arrow::Decimal128Builder {
+ public:
+  Impl(std::shared_ptr<arrow::DataType> type, arrow::MemoryPool* pool)
+      : arrow::Decimal128Builder(type, pool) {}
+};
+
+Decimal128Builder::Decimal128Builder(std::shared_ptr<arrow::DataType> type,
+                                     arrow::MemoryPool* pool) {
+  impl_ = std::make_shared<Impl>(type, pool);
+}
+arrow::Status Decimal128Builder::Append(arrow::Decimal128 value) {
+  return impl_->Append(value);
+}
+arrow::Status Decimal128Builder::AppendNull() { return impl_->AppendNull(); }
+arrow::Status Decimal128Builder::Finish(std::shared_ptr<arrow::Array>* out) {
+  return impl_->Finish(out);
+}
+arrow::Status Decimal128Builder::Reset() {
+  impl_->Reset();
+  return arrow::Status::OK();
+}
 
 }  // namespace precompile
 }  // namespace sparkcolumnarplugin

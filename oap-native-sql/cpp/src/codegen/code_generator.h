@@ -37,7 +37,7 @@ class CodeGenerator {
       std::vector<std::shared_ptr<arrow::RecordBatch>>* out) = 0;
   virtual arrow::Status finish(std::vector<std::shared_ptr<arrow::RecordBatch>>* out) = 0;
   virtual std::string GetSignature() { return ""; };
-  virtual arrow::Status finish(std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
+  virtual arrow::Status finish(std::shared_ptr<ResultIteratorBase>* out) {
     return arrow::Status::NotImplemented(
         "Finish return with ResultIterator is not Implemented");
   }

@@ -179,6 +179,12 @@ object ColumnarExpressionConverter extends Logging {
         replaceWithColumnarExpression(r.child, attributeSeq),
         replaceWithColumnarExpression(r.scale),
         expr)
+    case b: BinaryExpression =>
+      logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+      ColumnarBinaryExpression.create(
+        replaceWithColumnarExpression(b.left, attributeSeq),
+        replaceWithColumnarExpression(b.right, attributeSeq),
+        expr)
     case expr =>
       throw new UnsupportedOperationException(s" --> ${expr.getClass} | ${expr} is not currently supported.")
   }

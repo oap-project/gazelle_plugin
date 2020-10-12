@@ -211,7 +211,7 @@ object ConverterUtils extends Logging {
           batch.close
           new ColumnarBatch(vectors.map(_.asInstanceOf[ColumnVector]), length)
         } catch {
-          case e =>
+          case e: Throwable =>
             messageReader.close
             throw e
         }
@@ -349,9 +349,19 @@ object ConverterUtils extends Logging {
   }
 
   def toArrowSchema(attributes: Seq[Attribute]): Schema = {
-    def fromAttributes(attributes: Seq[Attribute]): StructType =
-      StructType(attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
-    ArrowUtils.toArrowSchema(fromAttributes(attributes), SQLConf.get.sessionLocalTimeZone)
+    val fields = attributes.map(attr => {
+      Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    })
+    new Schema(fields.toList.asJava)
+  }
+
+  def toArrowSchema(schema: StructType): Schema = {
+    val fields = schema
+      .map(field => {
+        Field.nullable(field.name, CodeGeneration.getResultType(field.dataType))
+      })
+    new Schema(fields.toList.asJava)
   }
 
   override def toString(): String = {

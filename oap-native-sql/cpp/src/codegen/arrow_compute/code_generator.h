@@ -240,8 +240,7 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     return status;
   }
 
-  arrow::Status finish(
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+  arrow::Status finish(std::shared_ptr<ResultIteratorBase>* out) override {
     for (auto visitor : visitor_list_) {
       TIME_MICRO_OR_RAISE(finish_elapse_time_,
                           visitor->MakeResultIterator(arrow::schema(ret_types_), out));

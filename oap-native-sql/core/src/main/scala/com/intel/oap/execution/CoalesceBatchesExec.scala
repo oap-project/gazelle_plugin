@@ -23,6 +23,7 @@ import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.vectorized.ColumnarBatch
@@ -36,6 +37,8 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
   override def supportsColumnar: Boolean = true
 
   override def nodeName: String = "CoalesceBatches"
+
+  override def outputPartitioning: Partitioning = child.outputPartitioning
 
   override protected def doExecute(): RDD[InternalRow] = throw new UnsupportedOperationException
 

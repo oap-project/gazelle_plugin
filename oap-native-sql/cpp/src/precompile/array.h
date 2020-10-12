@@ -19,8 +19,9 @@ class Array {
   int64_t null_count() const { return null_count_; }
   const uint8_t* value_data() const { return raw_value_; }
 
- private:
   std::shared_ptr<arrow::Array> cache_;
+
+ private:
   const uint8_t* raw_value_;
   const uint8_t* null_bitmap_data_;
   uint64_t offset_;
@@ -44,8 +45,9 @@ class BooleanArray {
   int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
 
- private:
   std::shared_ptr<arrow::Array> cache_;
+
+ private:
   const uint8_t* raw_value_;
   const uint8_t* null_bitmap_data_;
   uint64_t offset_;
@@ -67,8 +69,9 @@ class BooleanArray {
     int64_t null_count() const { return null_count_; }         \
     const TYPE* value_data() const { return raw_value_; }      \
                                                                \
-   private:                                                    \
     std::shared_ptr<arrow::Array> cache_;                      \
+                                                               \
+   private:                                                    \
     const TYPE* raw_value_;                                    \
     const uint8_t* null_bitmap_data_;                          \
     uint64_t offset_;                                          \
@@ -87,7 +90,7 @@ TYPED_ARRAY_DEFINE(UInt64Array, uint64_t)
 TYPED_ARRAY_DEFINE(FloatArray, float)
 TYPED_ARRAY_DEFINE(DoubleArray, double)
 TYPED_ARRAY_DEFINE(Date32Array, int32_t)
-TYPED_ARRAY_DEFINE(FixedSizeBinaryArray, uint8_t)
+TYPED_ARRAY_DEFINE(Date64Array, int64_t)
 #undef TYPED_ARRAY_DEFINE
 
 #define TYPED_BINARY_ARRAY_DEFINE(TYPENAME, TYPE)                                      \
@@ -109,9 +112,10 @@ TYPED_ARRAY_DEFINE(FixedSizeBinaryArray, uint8_t)
     int64_t length() const { return length_; }                                         \
     int64_t null_count() const { return null_count_; }                                 \
                                                                                        \
+    std::shared_ptr<arrow::Array> cache_;                                              \
+                                                                                       \
    private:                                                                            \
     using offset_type = int32_t;                                                       \
-    std::shared_ptr<arrow::Array> cache_;                                              \
     const uint8_t* raw_value_;                                                         \
     const int32_t* raw_value_offsets_;                                                 \
     const uint8_t* null_bitmap_data_;                                                  \
@@ -122,9 +126,49 @@ TYPED_ARRAY_DEFINE(FixedSizeBinaryArray, uint8_t)
 TYPED_BINARY_ARRAY_DEFINE(StringArray, std::string)
 #undef TYPED_BINARY_ARRAY_DEFINE
 
+class FixedSizeBinaryArray {
+ public:
+  FixedSizeBinaryArray(const std::shared_ptr<arrow::Array>&);
+  arrow::util::string_view GetView(int64_t i) const {
+    return arrow::util::string_view(reinterpret_cast<const char*>(raw_value_[i]),
+                                    byte_width_);
+  }
+  bool IsNull(int64_t i) const {
+    i += offset_;
+    return null_bitmap_data_ != NULLPTR &&
+           !((null_bitmap_data_[i >> 3] >> (i & 0x07)) & 1);
+  }
+  int64_t length() const { return length_; }
+  int64_t null_count() const { return null_count_; }
+  const uint8_t* value_data() const { return raw_value_; }
+
+  std::shared_ptr<arrow::Array> cache_;
+
+ private:
+  const uint8_t* raw_value_;
+  const uint8_t* null_bitmap_data_;
+  uint64_t offset_;
+  uint64_t length_;
+  uint64_t null_count_;
+  int32_t byte_width_;
+};
+
+class Decimal128Array : public FixedSizeBinaryArray {
+ public:
+  Decimal128Array(const std::shared_ptr<arrow::Array>& in) : FixedSizeBinaryArray(in) {}
+};
+
 arrow::Status MakeFixedSizeBinaryArray(const std::shared_ptr<arrow::FixedSizeBinaryType>&,
                                        int64_t, const std::shared_ptr<arrow::Buffer>&,
                                        std::shared_ptr<FixedSizeBinaryArray>*);
+
+/*template <typename T, typename Enable = void>
+struct TypeTraits {};
+
+template <typename T>
+struct TypeTraits<T, std::enable_if_t<std::is_same<T, uint32_t>::value>> {
+  using ArrayType = UInt32Array;
+};*/
 
 }  // namespace precompile
 }  // namespace sparkcolumnarplugin

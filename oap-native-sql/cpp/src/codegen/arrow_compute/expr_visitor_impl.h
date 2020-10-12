@@ -28,6 +28,7 @@
 #include <memory>
 
 #include "codegen/arrow_compute/ext/kernels_ext.h"
+#include "codegen/common/hash_relation.h"
 #include "codegen/common/result_iterator.h"
 #include "utils/macros.h"
 
@@ -64,9 +65,8 @@ class ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
-  virtual arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
+  virtual arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                           std::shared_ptr<ResultIteratorBase>* out) {
     return arrow::Status::NotImplemented("ExprVisitorImpl ", p_->func_name_,
                                          " MakeResultIterator is abstract.");
   }
@@ -125,6 +125,7 @@ class SplitArrayListWithActionVisitorImpl : public ExprVisitorImpl {
     RETURN_NOT_OK(extra::SplitArrayListWithActionKernel::Make(
         &p_->ctx_, p_->action_name_list_, type_list, &kernel_));
     initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::Batch;
     return arrow::Status::OK();
   }
 
@@ -142,7 +143,6 @@ class SplitArrayListWithActionVisitorImpl : public ExprVisitorImpl {
           col_list.push_back(col);
         }
         TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(col_list, p_->in_array_));
-        finish_return_type_ = ArrowComputeResultType::Batch;
         p_->dependency_result_type_ = ArrowComputeResultType::None;
       } break;
       default:
@@ -169,12 +169,14 @@ class SplitArrayListWithActionVisitorImpl : public ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
     switch (finish_return_type_) {
       case ArrowComputeResultType::Batch: {
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
         p_->return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
       default:
@@ -253,6 +255,7 @@ class AggregateVisitorImpl : public ExprVisitorImpl {
       kernel_list_.push_back(kernel_);
     }
     initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::Batch;
     return arrow::Status::OK();
   }
 
@@ -276,7 +279,6 @@ class AggregateVisitorImpl : public ExprVisitorImpl {
             RETURN_NOT_OK(kernel_list_[i]->Evaluate(in));
           }
         }
-        finish_return_type_ = ArrowComputeResultType::Batch;
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -315,7 +317,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
   WindowVisitorImpl(ExprVisitor* p, std::string window_function_name,
                     std::shared_ptr<arrow::DataType> return_type,
                     std::vector<gandiva::FieldPtr> function_param_fields,
-                    std::vector<gandiva::FieldPtr> partition_fields) : ExprVisitorImpl(p) {
+                    std::vector<gandiva::FieldPtr> partition_fields)
+      : ExprVisitorImpl(p) {
     this->window_function_name_ = window_function_name;
     this->return_type_ = return_type,
     this->function_param_fields_ = function_param_fields;
@@ -327,8 +330,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
                             std::vector<gandiva::FieldPtr> function_param_fields,
                             std::vector<gandiva::FieldPtr> partition_fields,
                             std::shared_ptr<ExprVisitorImpl>* out) {
-    auto impl = std::make_shared<WindowVisitorImpl>(p, window_function_name, return_type,
-        function_param_fields, partition_fields);
+    auto impl = std::make_shared<WindowVisitorImpl>(
+        p, window_function_name, return_type, function_param_fields, partition_fields);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -341,12 +344,14 @@ class WindowVisitorImpl : public ExprVisitorImpl {
     for (auto partition_field : partition_fields_) {
       std::shared_ptr<arrow::Field> field;
       int col_id;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, partition_field->name(), &col_id, &field));
+      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, partition_field->name(),
+                                              &col_id, &field));
       partition_field_ids_.push_back(col_id);
       partition_type_list.push_back(field->type());
     }
     if (partition_type_list.size() > 1) {
-      RETURN_NOT_OK(extra::HashArrayKernel::Make(&p_->ctx_, partition_type_list, &concat_kernel_));
+      RETURN_NOT_OK(
+          extra::HashArrayKernel::Make(&p_->ctx_, partition_type_list, &concat_kernel_));
     }
 
     RETURN_NOT_OK(extra::EncodeArrayKernel::Make(&p_->ctx_, &partition_kernel_));
@@ -355,19 +360,27 @@ class WindowVisitorImpl : public ExprVisitorImpl {
     for (auto function_param_field : function_param_fields_) {
       std::shared_ptr<arrow::Field> field;
       int col_id;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, function_param_field->name(), &col_id, &field));
+      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, function_param_field->name(),
+                                              &col_id, &field));
       function_param_field_ids_.push_back(col_id);
       function_param_type_list.push_back(field->type());
     }
 
     if (window_function_name_ == "sum" || window_function_name_ == "avg") {
-      RETURN_NOT_OK(extra::WindowAggregateFunctionKernel::Make(&p_->ctx_, window_function_name_, function_param_type_list, return_type_, &function_kernel_));
+      RETURN_NOT_OK(extra::WindowAggregateFunctionKernel::Make(
+          &p_->ctx_, window_function_name_, function_param_type_list, return_type_,
+          &function_kernel_));
     } else if (window_function_name_ == "rank_asc") {
-      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_, function_param_type_list, &function_kernel_, false));
+      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_,
+                                                  function_param_type_list,
+                                                  &function_kernel_, false));
     } else if (window_function_name_ == "rank_desc") {
-      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_, function_param_type_list, &function_kernel_, true));
+      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_,
+                                                  function_param_type_list,
+                                                  &function_kernel_, true));
     } else {
-      return arrow::Status::Invalid("window function not supported: " + window_function_name_);
+      return arrow::Status::Invalid("window function not supported: " +
+                                    window_function_name_);
     }
 
     initialized_ = true;
@@ -393,7 +406,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         for (auto col_id : partition_field_ids_) {
           if (col_id >= p_->in_record_batch_->num_columns()) {
             return arrow::Status::Invalid(
-                "WindowVisitorImpl: Partition field number overflows defined column count");
+                "WindowVisitorImpl: Partition field number overflows defined column "
+                "count");
           }
           auto col = p_->in_record_batch_->column(col_id);
           in1.push_back(col);
@@ -409,7 +423,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
     for (auto col_id : function_param_field_ids_) {
       if (col_id >= p_->in_record_batch_->num_columns()) {
         return arrow::Status::Invalid(
-            "WindowVisitorImpl: Function parameter number overflows defined column count");
+            "WindowVisitorImpl: Function parameter number overflows defined column "
+            "count");
       }
       auto col = p_->in_record_batch_->column(col_id);
       in3.push_back(col);
@@ -446,7 +461,6 @@ class WindowVisitorImpl : public ExprVisitorImpl {
   std::shared_ptr<extra::KernalBase> concat_kernel_;
   std::shared_ptr<extra::KernalBase> partition_kernel_;
   std::shared_ptr<extra::KernalBase> function_kernel_;
-
 };
 
 ////////////////////////// EncodeVisitorImpl ///////////////////////
@@ -549,6 +563,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
         &p_->ctx_, field_list, p_->schema_, &kernel_, nulls_first_, asc_));
     p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
     return arrow::Status::OK();
   }
 
@@ -560,7 +575,6 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
           col_list.push_back(col);
         }
         RETURN_NOT_OK(kernel_->Evaluate(col_list));
-        finish_return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -569,12 +583,14 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
     switch (finish_return_type_) {
       case ArrowComputeResultType::BatchIterator: {
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
         p_->return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
       default:
@@ -593,31 +609,48 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
 ////////////////////////// ConditionedProbeArraysVisitorImpl ///////////////////////
 class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
  public:
-  ConditionedProbeArraysVisitorImpl(
-      std::vector<std::shared_ptr<arrow::Field>> left_key_list,
-      std::vector<std::shared_ptr<arrow::Field>> right_key_list,
-      std::shared_ptr<gandiva::Node> func_node, int join_type,
-      std::vector<std::shared_ptr<arrow::Field>> left_field_list,
-      std::vector<std::shared_ptr<arrow::Field>> right_field_list,
-      std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p)
-      : left_key_list_(left_key_list),
-        right_key_list_(right_key_list),
-        join_type_(join_type),
-        func_node_(func_node),
-        left_field_list_(left_field_list),
-        right_field_list_(right_field_list),
+  ConditionedProbeArraysVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                                    std::shared_ptr<gandiva::FunctionNode> root_node,
+                                    std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                                    ExprVisitor* p)
+      : root_node_(root_node),
+        field_list_(field_list),
         ret_fields_(ret_fields),
-        ExprVisitorImpl(p) {}
-  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> left_key_list,
-                            std::vector<std::shared_ptr<arrow::Field>> right_key_list,
-                            std::shared_ptr<gandiva::Node> func_node, int join_type,
-                            std::vector<std::shared_ptr<arrow::Field>> left_field_list,
-                            std::vector<std::shared_ptr<arrow::Field>> right_field_list,
+        ExprVisitorImpl(p) {
+    auto func_name = root_node->descriptor()->name();
+    auto children = root_node->children();
+    if (func_name.compare("conditionedProbeArraysInner") == 0) {
+      join_type_ = 0;
+    } else if (func_name.compare("conditionedProbeArraysOuter") == 0) {
+      join_type_ = 1;
+    } else if (func_name.compare("conditionedProbeArraysAnti") == 0) {
+      join_type_ = 2;
+    } else if (func_name.compare("conditionedProbeArraysSemi") == 0) {
+      join_type_ = 3;
+    } else if (func_name.compare("conditionedProbeArraysExistence") == 0) {
+      join_type_ = 4;
+    }
+    left_field_list_ =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[0])->children();
+    right_field_list_ =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[1])->children();
+    left_key_list_ =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[2])->children();
+    right_key_list_ =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[3])->children();
+    result_field_list_ =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[4])->children();
+    if (children.size() > 5) {
+      condition_ =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(children[5])->children()[0];
+    }
+  }
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                            std::shared_ptr<gandiva::FunctionNode> root_node,
                             std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                             ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
-    auto impl = std::make_shared<ConditionedProbeArraysVisitorImpl>(
-        left_key_list, right_key_list, func_node, join_type, left_field_list,
-        right_field_list, ret_fields, p);
+    auto impl = std::make_shared<ConditionedProbeArraysVisitorImpl>(field_list, root_node,
+                                                                    ret_fields, p);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -626,11 +659,12 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
     if (initialized_) {
       return arrow::Status::OK();
     }
-    RETURN_NOT_OK(extra::ConditionedProbeArraysKernel::Make(
-        &p_->ctx_, left_key_list_, right_key_list_, func_node_, join_type_,
-        left_field_list_, right_field_list_, arrow::schema(ret_fields_), &kernel_));
+    RETURN_NOT_OK(extra::ConditionedProbeKernel::Make(
+        &p_->ctx_, left_key_list_, right_key_list_, left_field_list_, right_field_list_,
+        condition_, join_type_, result_field_list_, 0, &kernel_));
     p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
     return arrow::Status::OK();
   }
 
@@ -642,7 +676,6 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
           in.push_back(p_->in_record_batch_->column(i));
         }
         TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(in));
-        finish_return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -652,12 +685,14 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
     switch (finish_return_type_) {
       case ArrowComputeResultType::BatchIterator: {
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
         p_->return_type_ = ArrowComputeResultType::Batch;
       } break;
       default:
@@ -669,14 +704,16 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
   }
 
  private:
-  int col_id_;
   int join_type_;
-  std::shared_ptr<gandiva::Node> func_node_;
-  std::vector<std::shared_ptr<arrow::Field>> left_key_list_;
-  std::vector<std::shared_ptr<arrow::Field>> right_key_list_;
-  std::vector<std::shared_ptr<arrow::Field>> left_field_list_;
-  std::vector<std::shared_ptr<arrow::Field>> right_field_list_;
-  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
+  std::shared_ptr<gandiva::FunctionNode> root_node_;
+  gandiva::NodePtr condition_;
+  gandiva::FieldVector field_list_;
+  gandiva::FieldVector ret_fields_;
+  gandiva::NodeVector left_key_list_;
+  gandiva::NodeVector right_key_list_;
+  gandiva::NodeVector left_field_list_;
+  gandiva::NodeVector right_field_list_;
+  gandiva::NodeVector result_field_list_;
 };
 
 ////////////////////////// ConditionedJoinArraysVisitorImpl ///////////////////////
@@ -720,6 +757,7 @@ class ConditionedJoinArraysVisitorImpl : public ExprVisitorImpl {
         left_field_list_, right_field_list_, arrow::schema(ret_fields_), &kernel_));
     p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
     return arrow::Status::OK();
   }
 
@@ -731,7 +769,6 @@ class ConditionedJoinArraysVisitorImpl : public ExprVisitorImpl {
           in.push_back(p_->in_record_batch_->column(i));
         }
         TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(in));
-        finish_return_type_ = ArrowComputeResultType::BatchIterator;
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -741,12 +778,14 @@ class ConditionedJoinArraysVisitorImpl : public ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
     switch (finish_return_type_) {
       case ArrowComputeResultType::BatchIterator: {
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
         p_->return_type_ = ArrowComputeResultType::Batch;
       } break;
       default:
@@ -796,6 +835,225 @@ class HashAggregateArraysVisitorImpl : public ExprVisitorImpl {
     RETURN_NOT_OK(extra::HashAggregateKernel::Make(&p_->ctx_, field_list_, action_list_,
                                                    arrow::schema(ret_fields_), &kernel_));
     p_->signature_ = kernel_->GetSignature();
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
+    initialized_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Eval() override {
+    switch (p_->dependency_result_type_) {
+      case ArrowComputeResultType::None: {
+        ArrayList in;
+        for (int i = 0; i < p_->in_record_batch_->num_columns(); i++) {
+          in.push_back(p_->in_record_batch_->column(i));
+        }
+        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(in));
+      } break;
+      default:
+        return arrow::Status::NotImplemented(
+            "HashAggregateArraysVisitorImpl: Does not support this type of "
+            "input.");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
+    switch (finish_return_type_) {
+      case ArrowComputeResultType::BatchIterator: {
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
+        p_->return_type_ = ArrowComputeResultType::Batch;
+      } break;
+      default:
+        return arrow::Status::Invalid(
+            "HashAggregateArraysVisitorImpl MakeResultIterator does not support "
+            "dependency type other than Batch.");
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  std::vector<std::shared_ptr<gandiva::Node>> action_list_;
+  std::vector<std::shared_ptr<arrow::Field>> field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
+};
+
+////////////////////////// WholeStageCodeGenVisitorImpl ///////////////////////
+class WholeStageCodeGenVisitorImpl : public ExprVisitorImpl {
+ public:
+  WholeStageCodeGenVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                               std::shared_ptr<gandiva::Node> root_node,
+                               std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                               ExprVisitor* p)
+      : root_node_(root_node),
+        field_list_(field_list),
+        ret_fields_(ret_fields),
+        ExprVisitorImpl(p) {
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
+  }
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                            std::shared_ptr<gandiva::Node> root_node,
+                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl = std::make_shared<WholeStageCodeGenVisitorImpl>(field_list, root_node,
+                                                               ret_fields, p);
+    *out = impl;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Init() override {
+    if (initialized_) {
+      return arrow::Status::OK();
+    }
+    RETURN_NOT_OK(extra::WholeStageCodeGenKernel::Make(&p_->ctx_, field_list_, root_node_,
+                                                       ret_fields_, &kernel_));
+    p_->signature_ = kernel_->GetSignature();
+    initialized_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
+    switch (finish_return_type_) {
+      case ArrowComputeResultType::BatchIterator: {
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
+        p_->return_type_ = ArrowComputeResultType::Batch;
+      } break;
+      default:
+        return arrow::Status::Invalid(
+            "WholeStageCodeGenVisitorImpl MakeResultIterator does not support "
+            "dependency type other than Batch.");
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  std::shared_ptr<gandiva::Node> root_node_;
+  std::vector<std::shared_ptr<arrow::Field>> field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
+};
+
+////////////////////////// HashRelationVisitorImpl ///////////////////////
+class HashRelationVisitorImpl : public ExprVisitorImpl {
+ public:
+  HashRelationVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                          std::shared_ptr<gandiva::Node> root_node,
+                          std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                          ExprVisitor* p)
+      : root_node_(root_node),
+        field_list_(field_list),
+        ret_fields_(ret_fields),
+        ExprVisitorImpl(p) {
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
+  }
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                            std::shared_ptr<gandiva::Node> root_node,
+                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl =
+        std::make_shared<HashRelationVisitorImpl>(field_list, root_node, ret_fields, p);
+    *out = impl;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Init() override {
+    if (initialized_) {
+      return arrow::Status::OK();
+    }
+    RETURN_NOT_OK(extra::HashRelationKernel::Make(&p_->ctx_, field_list_, root_node_,
+                                                  ret_fields_, &kernel_));
+    p_->signature_ = kernel_->GetSignature();
+    initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Eval() override {
+    switch (p_->dependency_result_type_) {
+      case ArrowComputeResultType::None: {
+        ArrayList in;
+        for (int i = 0; i < p_->in_record_batch_->num_columns(); i++) {
+          in.push_back(p_->in_record_batch_->column(i));
+        }
+        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(in));
+      } break;
+      default:
+        return arrow::Status::NotImplemented(
+            "HashRelationVisitorImpl: Does not support this type of "
+            "input.");
+    }
+    return arrow::Status::OK();
+  }
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
+    switch (finish_return_type_) {
+      case ArrowComputeResultType::BatchIterator: {
+        std::shared_ptr<ResultIterator<HashRelation>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
+        p_->return_type_ = ArrowComputeResultType::Batch;
+      } break;
+      default:
+        return arrow::Status::Invalid(
+            "WholeStageCodeGenVisitorImpl MakeResultIterator does not support "
+            "dependency type other than Batch.");
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  std::shared_ptr<gandiva::Node> root_node_;
+  std::vector<std::shared_ptr<arrow::Field>> field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
+};
+
+////////////////////////// CodegenProbeArraysVisitorImpl ///////////////////////
+class CodegenProbeArraysVisitorImpl : public ExprVisitorImpl {
+ public:
+  CodegenProbeArraysVisitorImpl(
+      std::vector<std::shared_ptr<arrow::Field>> left_key_list,
+      std::vector<std::shared_ptr<arrow::Field>> right_key_list,
+      std::shared_ptr<gandiva::Node> func_node, int join_type,
+      std::vector<std::shared_ptr<arrow::Field>> left_field_list,
+      std::vector<std::shared_ptr<arrow::Field>> right_field_list,
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p)
+      : left_key_list_(left_key_list),
+        right_key_list_(right_key_list),
+        join_type_(join_type),
+        func_node_(func_node),
+        left_field_list_(left_field_list),
+        right_field_list_(right_field_list),
+        ret_fields_(ret_fields),
+        ExprVisitorImpl(p) {}
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> left_key_list,
+                            std::vector<std::shared_ptr<arrow::Field>> right_key_list,
+                            std::shared_ptr<gandiva::Node> func_node, int join_type,
+                            std::vector<std::shared_ptr<arrow::Field>> left_field_list,
+                            std::vector<std::shared_ptr<arrow::Field>> right_field_list,
+                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl = std::make_shared<CodegenProbeArraysVisitorImpl>(
+        left_key_list, right_key_list, func_node, join_type, left_field_list,
+        right_field_list, ret_fields, p);
+    *out = impl;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Init() override {
+    if (initialized_) {
+      return arrow::Status::OK();
+    }
+    RETURN_NOT_OK(extra::ConditionedProbeArraysKernel::Make(
+        &p_->ctx_, left_key_list_, right_key_list_, func_node_, join_type_,
+        left_field_list_, right_field_list_, arrow::schema(ret_fields_), &kernel_));
+    p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     return arrow::Status::OK();
   }
@@ -812,33 +1070,41 @@ class HashAggregateArraysVisitorImpl : public ExprVisitorImpl {
       } break;
       default:
         return arrow::Status::NotImplemented(
-            "HashAggregateArraysVisitorImpl: Does not support this type of "
+            "ConditionedProbeArraysVisitorImpl: Does not support this type of "
             "input.");
     }
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
     switch (finish_return_type_) {
       case ArrowComputeResultType::BatchIterator: {
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->MakeResultIterator(schema, out));
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
         p_->return_type_ = ArrowComputeResultType::Batch;
       } break;
       default:
         return arrow::Status::Invalid(
-            "HashAggregateArraysVisitorImpl MakeResultIterator does not support "
+            "ConditionedProbeArraysVisitorImpl MakeResultIterator does not support "
             "dependency type other than Batch.");
     }
     return arrow::Status::OK();
   }
 
  private:
-  std::vector<std::shared_ptr<gandiva::Node>> action_list_;
-  std::vector<std::shared_ptr<arrow::Field>> field_list_;
+  int col_id_;
+  int join_type_;
+  std::shared_ptr<gandiva::Node> func_node_;
+  std::vector<std::shared_ptr<arrow::Field>> left_key_list_;
+  std::vector<std::shared_ptr<arrow::Field>> right_key_list_;
+  std::vector<std::shared_ptr<arrow::Field>> left_field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> right_field_list_;
   std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
 };
+
 }  // namespace arrowcompute
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
