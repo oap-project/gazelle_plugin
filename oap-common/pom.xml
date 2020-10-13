@@ -32,12 +32,6 @@
 
     <dependencies>
         <dependency>
-            <groupId>io.pmem</groupId>
-            <artifactId>pmemkv</artifactId>
-            <version>${pmemkv.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${guava.version}</version>
@@ -67,15 +61,55 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.3</version>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <source>${java.version}</source>
+                            <target>${java.version}</target>
+                            <encoding>UTF-8</encoding>
+                            <maxmem>1024m</maxmem>
+                            <fork>true</fork>
+                            <compilerArgs>
+                                <arg>-Xlint:all,-serial,-path</arg>
+                            </compilerArgs>
+                            <excludes>
+                                <exclude>**/pmemblk/*.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                        <configuration>
+                            <source>${java.version}</source>
+                            <target>${java.version}</target>
+                            <encoding>UTF-8</encoding>
+                            <maxmem>1024m</maxmem>
+                            <fork>true</fork>
+                            <compilerArgs>
+                                <arg>-Xlint:all,-serial,-path</arg>
+                            </compilerArgs>
+                            <testExcludes>
+                                <exclude>**/PMemBlkChunkReaderWriterTest.java</exclude>
+                                <exclude>**/PMemKVDatabaseTest.java</exclude>
+                            </testExcludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.0.0-M5</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                    <encoding>UTF-8</encoding>
-                    <maxmem>1024m</maxmem>
-                    <fork>true</fork>
-                    <compilerArgs>
-                        <arg>-Xlint:all,-serial,-path</arg>
-                    </compilerArgs>
+                    <excludes>
+                        <exclude>**/PMemBlkChunkReaderWriterTest.java</exclude>
+                        <exclude>**/PMemKVDatabaseTest.java</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
         </plugins>

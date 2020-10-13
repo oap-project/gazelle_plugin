@@ -3,7 +3,6 @@ package com.intel.oap.common.storage.pmemblk;
 import com.intel.oap.common.storage.stream.MetaData;
 import com.intel.oap.common.storage.stream.PMemMetaStore;
 import com.intel.oap.common.storage.stream.PMemPhysicalAddress;
-import io.pmem.pmemkv.Database;
 
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -12,7 +11,7 @@ public class PMemBlkMetaStore implements PMemMetaStore {
 
     private AtomicInteger index = new AtomicInteger(0);
 
-    Database<String, String> pmemkvDB;
+    KVDatabase pmemkvDB;
 
     public PMemBlkMetaStore(Properties properties) {
         String pmemkvEngine = properties.getProperty("pmemkv_engine");
