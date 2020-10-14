@@ -27,6 +27,7 @@
 #include "codegen/arrow_compute/ext/codegen_context.h"
 #include "codegen/common/hash_relation.h"
 #include "codegen/common/result_iterator.h"
+#include "codegen/arrow_compute/ext/array_item_index.h"
 
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 
@@ -383,12 +384,12 @@ class WindowRankKernel : public KernalBase {
   arrow::Status Evaluate(const ArrayList &in) override;
   arrow::Status Finish(ArrayList* out) override;
 
-  arrow::Status SortToIndicesPrepare(ArrayList values);
-  arrow::Status SortToIndicesFinish(std::shared_ptr<arrow::UInt64Array> elements_to_sort,
-                              std::shared_ptr<arrow::UInt64Array>* offsets);
+  arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
+  arrow::Status SortToIndicesFinish(std::vector<std::shared_ptr<ArrayItemIndex>> elements_to_sort,
+                                    std::vector<std::shared_ptr<ArrayItemIndex>>* offsets);
 
   template<typename ArrayType>
-  arrow::Status AreTheSameValue(std::shared_ptr<arrow::Array> values, int i, int j, bool* out);
+  arrow::Status AreTheSameValue(std::vector<ArrayList> values, int column, std::shared_ptr<ArrayItemIndex> i, std::shared_ptr<ArrayItemIndex> j, bool* out);
 
  private:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;

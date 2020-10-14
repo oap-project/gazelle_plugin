@@ -247,77 +247,83 @@ arrow::Status WindowRankKernel::Evaluate(const ArrayList &in) {
 }
 
 arrow::Status WindowRankKernel::Finish(ArrayList *out) {
-  ArrayList values_concatenated;
-  std::shared_ptr<arrow::Int32Array> group_ids_concatenated;
-  for (int i = 0; i < type_list_.size() + 1; i++) {
-    ArrayList column_builder;
-    for (auto batch : input_cache_) {
+  std::vector<ArrayList> values;
+  std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
+
+  for (auto batch : input_cache_) {
+    ArrayList values_batch;
+    for (int i = 0; i < type_list_.size() + 1; i++) {
       auto column_slice = batch.at(i);
-      column_builder.push_back(column_slice);
+      if (i == type_list_.size()) {
+        // we are at the column of partition ids
+        group_ids.push_back(std::dynamic_pointer_cast<arrow::Int32Array>(column_slice));
+        continue;
+      }
+      values_batch.push_back(column_slice);
     }
-    std::shared_ptr<arrow::Array> column;
-    RETURN_NOT_OK(arrow::Concatenate(column_builder, ctx_->memory_pool(), &column));
-    if (i == type_list_.size()) {
-      // we are at the column of partition ids
-      group_ids_concatenated = std::dynamic_pointer_cast<arrow::Int32Array>(column);
-      continue;
-    }
-    values_concatenated.push_back(column);
+    values.push_back(values_batch);
   }
+
   int32_t max_group_id = 0;
-  for (int i = 0; i < group_ids_concatenated->length(); i++) {
-    if (group_ids_concatenated->IsNull(i)) {
-      continue;
-    }
-    if (group_ids_concatenated->GetView(i) > max_group_id) {
-      max_group_id = group_ids_concatenated->GetView(i);
+  for (int i = 0; i < group_ids.size(); i++) {
+    auto slice = group_ids.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      if (slice->GetView(j) > max_group_id) {
+        max_group_id = slice->GetView(j);
+      }
     }
   }
   // initialize partitions to be sorted
-  std::vector<std::shared_ptr<arrow::UInt64Builder>> partitions_to_sort;
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> partitions_to_sort;
   for (int i = 0; i <= max_group_id; i++) {
-    partitions_to_sort.push_back(std::make_shared<arrow::UInt64Builder>(ctx_->memory_pool()));
+    partitions_to_sort.emplace_back();
   }
 
-  for (int i = 0; i < group_ids_concatenated->length(); i++) {
-    if (group_ids_concatenated->IsNull(i)) {
-      continue;
+  for (int i = 0; i < group_ids.size(); i++) {
+    auto slice = group_ids.at(i);
+    for (int j = 0; j < slice->length(); j++) {
+      if (slice->IsNull(j)) {
+        continue;
+      }
+      uint64_t partition_id = slice->GetView(j);
+      partitions_to_sort.at(partition_id).push_back(std::make_shared<ArrayItemIndex>(i, j));
     }
-    uint64_t partition_id = group_ids_concatenated->GetView(i);
-    RETURN_NOT_OK(partitions_to_sort.at(partition_id)->Append(i));
   }
-
-  std::vector<std::shared_ptr<arrow::UInt64Array>> sorted_partitions;
-  RETURN_NOT_OK(SortToIndicesPrepare(values_concatenated));
+  std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> sorted_partitions;
+  RETURN_NOT_OK(SortToIndicesPrepare(values));
   for (int i = 0; i <= max_group_id; i++) {
-    std::shared_ptr<arrow::UInt64Array> partition;
-    RETURN_NOT_OK(partitions_to_sort.at(i)->Finish(&partition));
-    std::shared_ptr<arrow::UInt64Array> sorted_partition;
+    std::vector<std::shared_ptr<ArrayItemIndex>> partition = partitions_to_sort.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition;
     RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
     sorted_partitions.push_back(sorted_partition);
   }
-  int64_t length = group_ids_concatenated->length();
-  int32_t *rank_array = new int32_t[length];
+  int32_t **rank_array = new int32_t*[group_ids.size()];
+  for (int i = 0; i < group_ids.size(); i++) {
+    *(rank_array + i) = new int32_t[group_ids.at(i)->length()];
+  }
   for (int i = 0; i <= max_group_id; i++) {
-    std::shared_ptr<arrow::UInt64Array> sorted_partition = sorted_partitions.at(i);
+    std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition = sorted_partitions.at(i);
     int assumed_rank = 0;
-    for (int j = 0; j < sorted_partition->length(); j++) {
+    for (int j = 0; j < sorted_partition.size(); j++) {
       ++assumed_rank; // rank value starts from 1
-      uint64_t index = sorted_partition->GetView(j);
+      std::shared_ptr<ArrayItemIndex> index = sorted_partition.at(j);
       if (j == 0) {
-        rank_array[index] = 1; // rank value starts from 1
+        rank_array[index->array_id][index->id] = 1; // rank value starts from 1
         continue;
       }
-      uint64_t last_index = sorted_partition->GetView(j - 1);
+      std::shared_ptr<ArrayItemIndex> last_index = sorted_partition.at(j - 1);
       bool same = true;
-      for (int i = 0; i < type_list_.size(); i++) {
+      for (int column_id = 0; column_id < type_list_.size(); column_id++) {
         bool s;
-        std::shared_ptr<arrow::DataType> type = type_list_.at(i);
+        std::shared_ptr<arrow::DataType> type = type_list_.at(column_id);
         switch (type->id()) {
 #define PROCESS(InType)                                                       \
   case InType::type_id: {                                                     \
     using ArrayType = typename arrow::TypeTraits<InType>::ArrayType;                  \
-      RETURN_NOT_OK(AreTheSameValue<ArrayType>(values_concatenated.at(i), index, last_index, &s));  \
+      RETURN_NOT_OK(AreTheSameValue<ArrayType>(values, column_id, index, last_index, &s));  \
   } break;
           PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -333,49 +339,77 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
         }
       }
       if (same) {
-        rank_array[index] = rank_array[last_index];
+        rank_array[index->array_id][index->id] = rank_array[last_index->array_id][last_index->id];
         continue;
       }
-      rank_array[index] = assumed_rank;
+      rank_array[index->array_id][index->id] = assumed_rank;
     }
   }
-  int offset_in_rank_array = 0;
-  for (auto batch : input_cache_) {
+  for (int i = 0; i < input_cache_.size(); i++) {
+    auto batch = input_cache_.at(i);
     auto group_id_column_slice = batch.at(type_list_.size());
     int slice_length = group_id_column_slice->length();
     std::shared_ptr<arrow::Int32Builder> rank_builder = std::make_shared<arrow::Int32Builder>(ctx_->memory_pool());
-    for (int i = 0; i < slice_length; i++) {
-      RETURN_NOT_OK(rank_builder->Append(rank_array[offset_in_rank_array++]));
+    for (int j = 0; j < slice_length; j++) {
+      RETURN_NOT_OK(rank_builder->Append(rank_array[i][j]));
     }
     std::shared_ptr<arrow::Int32Array> rank_slice;
     RETURN_NOT_OK(rank_builder->Finish(&rank_slice));
     out->push_back(rank_slice);
   }
-  // make sure offset hits bound
-  if (offset_in_rank_array != length) {
-    return arrow::Status::Invalid("window: fatal error, this should not happen");
+  for (int i = 0; i < group_ids.size(); i++) {
+    delete *(rank_array + i);
   }
+  delete rank_array;
   return arrow::Status::OK();
 }
 
-arrow::Status WindowRankKernel::SortToIndicesPrepare(ArrayList values) {
+static arrow::Status EncodeIndices( std::vector<std::shared_ptr<ArrayItemIndex>> in, std::shared_ptr<arrow::Array> *out){
+  arrow::UInt64Builder builder;
+  for (const auto& each : in) {
+    uint64_t encoded = ((uint64_t) (each->array_id) << 16U) ^ ((uint64_t) (each->id));
+    RETURN_NOT_OK(builder.Append(encoded));
+  }
+  RETURN_NOT_OK(builder.Finish(out));
+  return arrow::Status::OK();
+}
+
+static arrow::Status DecodeIndices(std::shared_ptr<arrow::Array> in, std::vector<std::shared_ptr<ArrayItemIndex>> *out){
+  std::vector<std::shared_ptr<ArrayItemIndex>> v;
+  std::shared_ptr<arrow::UInt64Array> selected = std::dynamic_pointer_cast<arrow::UInt64Array>(in);
+  for (int i = 0; i < selected->length(); i++) {
+    uint64_t encoded = selected->GetView(i);
+    uint16_t array_id = (encoded & 0xFFFF0000U) >> 16U;
+    uint16_t id = encoded & 0xFFFFU;
+    v.push_back(std::make_shared<ArrayItemIndex>(array_id, id));
+  }
+  *out = v;
+  return arrow::Status::OK();
+}
+
+arrow::Status WindowRankKernel::SortToIndicesPrepare(std::vector<ArrayList> values) {
 #ifdef DEBUG
   std::cout << "RANK: values to sort: " << values.at(0)->ToString() << std::endl;
 #endif
-  RETURN_NOT_OK(sorter_->Evaluate(values));
+  for (auto each_batch : values) {
+    RETURN_NOT_OK(sorter_->Evaluate(each_batch));
+  }
   return arrow::Status::OK();
   // todo sort algorithm
 }
 
-arrow::Status WindowRankKernel::SortToIndicesFinish(std::shared_ptr<arrow::UInt64Array> elements_to_sort,
-                                                    std::shared_ptr<arrow::UInt64Array> *offsets) {
-  std::vector<std::shared_ptr<arrow::Array>> elements_to_sort_list = {elements_to_sort};
+arrow::Status WindowRankKernel::SortToIndicesFinish(std::vector<std::shared_ptr<ArrayItemIndex>> elements_to_sort,
+                                                    std::vector<std::shared_ptr<ArrayItemIndex>> *offsets) {
 #ifdef DEBUG
   std::cout << "RANK: partition: " << elements_to_sort->ToString() << std::endl;
 #endif
+  std::shared_ptr<arrow::Array> in;
   std::shared_ptr<arrow::Array> out;
-  RETURN_NOT_OK(sorter_->Finish(elements_to_sort_list, &out));
-  *offsets = std::dynamic_pointer_cast<arrow::UInt64Array>(out);
+  RETURN_NOT_OK(EncodeIndices(elements_to_sort, &in));
+  RETURN_NOT_OK(sorter_->Finish(in, &out));
+  std::vector<std::shared_ptr<ArrayItemIndex>> decoded_out;
+  RETURN_NOT_OK(DecodeIndices(out, &decoded_out));
+  *offsets = decoded_out;
 #ifdef DEBUG
   std::cout << "RANK: partition sorted: " << out->ToString() << std::endl;
 #endif
@@ -384,9 +418,10 @@ arrow::Status WindowRankKernel::SortToIndicesFinish(std::shared_ptr<arrow::UInt6
 }
 
 template<typename ArrayType>
-arrow::Status WindowRankKernel::AreTheSameValue(std::shared_ptr<arrow::Array> values, int i, int j, bool *out) {
-  auto typed_array = std::dynamic_pointer_cast<ArrayType>(values);
-  *out = (typed_array->GetView(i) == typed_array->GetView(j));
+arrow::Status WindowRankKernel::AreTheSameValue(std::vector<ArrayList> values, int column, std::shared_ptr<ArrayItemIndex> i, std::shared_ptr<ArrayItemIndex> j, bool* out) {
+  auto typed_array_i = std::dynamic_pointer_cast<ArrayType>(values.at(i->array_id).at(column));
+  auto typed_array_j = std::dynamic_pointer_cast<ArrayType>(values.at(j->array_id).at(column));
+  *out = (typed_array_i->GetView(i->id) == typed_array_j->GetView(j->id));
   return arrow::Status::OK();
 }
 
