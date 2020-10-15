@@ -36,7 +36,7 @@ import sun.nio.ch.DirectBuffer
 import org.apache.spark.{SparkEnv, SparkException}
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config.ConfigEntry
-import org.apache.spark.sql.execution.datasources.OapException
+import org.apache.spark.sql.execution.datasources.{CacheMetaInfoValue, ExternalDBClient, ExternalDBClientFactory, OapException, StoreCacheMetaInfo}
 import org.apache.spark.sql.execution.datasources.oap.filecache.FiberType.FiberType
 import org.apache.spark.sql.execution.datasources.oap.utils.PersistentMemoryConfigUtils
 import org.apache.spark.sql.internal.oap.OapConf
@@ -340,7 +340,8 @@ trait OapCache {
     val cache = fiber match {
       case binary: BinaryDataFiberId => binary.doCache()
       case orcChunk: OrcBinaryFiberId => orcChunk.doCache()
-      case VectorDataFiberId(file, columnIndex, rowGroupId) => file.cache(rowGroupId, columnIndex)
+      case VectorDataFiberId(file, columnIndex, rowGroupId) =>
+        file.cache(rowGroupId, columnIndex, fiber)
       case BTreeFiberId(getFiberData, _, _, _) => getFiberData.apply()
       case BitmapFiberId(getFiberData, _, _, _) => getFiberData.apply()
       case TestDataFiberId(getFiberData, _) => getFiberData.apply()
@@ -907,6 +908,12 @@ class ExternalCache(fiberType: FiberType) extends OapCache with Logging {
   private val conf = SparkEnv.get.conf
   private val externalStoreCacheSocket: String = "/tmp/plasmaStore"
   private var cacheInit: Boolean = false
+  private var externalDBClient: ExternalDBClient = null
+
+  if (SparkEnv.get.conf.get(OapConf.OAP_EXTERNAL_CACHE_METADB_ENABLE) == true) {
+    externalDBClient = ExternalDBClientFactory.getDBClientInstance(SparkEnv.get)
+  }
+
   def init(): Unit = {
     if (!cacheInit) {
       try {
@@ -1010,6 +1017,19 @@ class ExternalCache(fiberType: FiberType) extends OapCache with Logging {
     }
   }
 
+  def reportCacheMeta(fiberId: FiberId): Unit = {
+    fiberId match {
+      case binary: BinaryDataFiberId => binary
+        .doReport(SparkEnv.get.blockManager.blockManagerId.host, externalDBClient)
+      case vectorData: VectorDataFiberId => vectorData
+        .doReport(SparkEnv.get.blockManager.blockManagerId.host, externalDBClient)
+      case bitMapData: BitmapFiberId =>
+        logWarning("Index cache is not support to report cache to external DB.")
+      case bTreeData: BTreeFiberId =>
+        logWarning("Index cache is not support to report cache to external DB.")
+    }
+  }
+
   override def cache(fiberId: FiberId): FiberCache = {
     val fiber = super.cache(fiberId)
 
@@ -1025,6 +1045,9 @@ class ExternalCache(fiberType: FiberType) extends OapCache with Logging {
       } catch {
         case e: DuplicateObjectException => logWarning(e.getMessage)
       }
+    }
+    if (SparkEnv.get.conf.get(OapConf.OAP_EXTERNAL_CACHE_METADB_ENABLE) == true) {
+      reportCacheMeta(fiberId)
     }
     fiber
   }

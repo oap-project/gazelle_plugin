@@ -200,7 +200,7 @@ class FiberCacheManager(
     toFiberCache(FiberType.DATA, bytes)
   }
 
-  def getEmptyDataFiberCache(length: Long): FiberCache = {
+  def getEmptyDataFiberCache(length: Long, fiberId: FiberId = null): FiberCache = {
     FiberCache(FiberType.DATA, allocateFiberMemory(FiberType.DATA, length))
   }
 
