@@ -234,6 +234,7 @@ private class ArrowColumnarBatchSerializerInstance(
         root.clear()
         if (decompressedRecordBatch != null) {
           vectorLoader.load(decompressedRecordBatch)
+          decompressedRecordBatch.close()
         }
       }
     }
