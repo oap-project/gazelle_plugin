@@ -26,6 +26,7 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
 import scala.collection.mutable.ListBuffer
@@ -72,7 +73,7 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
           var numBatchesTotal: Long = _
           var numRowsTotal: Long = _
 
-          TaskContext.get().addTaskCompletionListener[Unit] { _ =>
+          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
             closePrevious()
             if (numBatchesTotal > 0) {
               avgCoalescedNumRows.set(numRowsTotal.toDouble / numBatchesTotal)

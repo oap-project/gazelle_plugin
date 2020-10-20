@@ -15,26 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.execution.datasources.v2.arrow
+package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import java.net.URI
 import java.util.{TimeZone, UUID}
 
 import scala.collection.JavaConverters._
 
-import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.file.{FileSystem, SingleFileDatasetFactory}
 import org.apache.arrow.dataset.scanner.ScanTask
-import org.apache.arrow.memory.{AllocationListener, BaseAllocator}
+import org.apache.arrow.memory.AllocationListener
 import org.apache.arrow.vector.FieldVector
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.hadoop.fs.FileStatus
 
-import org.apache.spark.TaskContext
-import org.apache.spark.memory.TaskMemoryManager
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
 import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -42,17 +40,12 @@ import org.apache.spark.sql.vectorized.ColumnarBatch
 
 object ArrowUtils {
 
-  def getTaskMemoryManager(): TaskMemoryManager = {
-    TaskContext.get().taskMemoryManager()
-  }
-
   def readSchema(file: FileStatus, options: CaseInsensitiveStringMap): Option[StructType] = {
     val factory: SingleFileDatasetFactory =
-      makeArrowDiscovery(file.getPath.toString, new ArrowOptions(options.asScala.toMap),
-        AllocationListener.NOOP)
+      makeArrowDiscovery(file.getPath.toString, new ArrowOptions(options.asScala.toMap))
     val schema = factory.inspect()
     try {
-      Option(org.apache.spark.sql.util.ArrowUtils.fromArrowSchema(schema))
+      Option(SparkSchemaUtils.fromArrowSchema(schema))
     } finally {
       factory.close()
     }
@@ -61,15 +54,11 @@ object ArrowUtils {
   def readSchema(files: Seq[FileStatus], options: CaseInsensitiveStringMap): Option[StructType] =
     readSchema(files.toList.head, options) // todo merge schema
 
-  def makeArrowDiscovery(file: String, options: ArrowOptions,
-                         al: AllocationListener): SingleFileDatasetFactory = {
+  def makeArrowDiscovery(file: String, options: ArrowOptions): SingleFileDatasetFactory = {
 
     val format = getFormat(options).getOrElse(throw new IllegalStateException)
     val fs = getFs(options).getOrElse(throw new IllegalStateException)
-    val parent = defaultAllocator()
-    val allocator = parent
-      .newChildAllocator("Spark Managed Allocator - " + UUID.randomUUID().toString, al,
-        0, parent.getLimit)
+    val allocator = SparkMemoryUtils.arrowAllocator()
     val factory = new SingleFileDatasetFactory(
       allocator,
       format,
@@ -94,7 +83,7 @@ object ArrowUtils {
 
   def toArrowSchema(t: StructType): Schema = {
     // fixme this might be platform dependent
-    org.apache.spark.sql.util.ArrowUtils.toArrowSchema(t, TimeZone.getDefault.getID)
+    SparkSchemaUtils.toArrowSchema(t, TimeZone.getDefault.getID)
   }
 
   def loadVectors(bundledVectors: ScanTask.ArrowBundledVectors, partitionValues: InternalRow,
@@ -113,10 +102,6 @@ object ArrowUtils {
 
     val batch = new ColumnarBatch(vectors ++ partitionColumns, rowCount)
     batch
-  }
-
-  def defaultAllocator(): BaseAllocator = {
-    org.apache.spark.sql.util.ArrowUtils.rootAllocator
   }
 
   private def getRowCount(bundledVectors: ScanTask.ArrowBundledVectors) = {

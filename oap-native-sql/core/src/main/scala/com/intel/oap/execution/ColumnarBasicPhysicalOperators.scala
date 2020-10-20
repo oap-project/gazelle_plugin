@@ -29,11 +29,10 @@ import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.TaskContext
-
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
-
-import com.google.common.collect.Lists;
+import com.google.common.collect.Lists
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 case class ColumnarConditionProjectExec(
     condition: Expression,
@@ -197,9 +196,7 @@ case class ColumnarConditionProjectExec(
         numOutputBatches,
         numOutputRows,
         procTime)
-      TaskContext
-        .get()
-        .addTaskCompletionListener[Unit]((tc: TaskContext) => {
+      SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((tc: TaskContext) => {
           condProj.close()
         })
       new CloseableColumnBatchIterator(condProj.createIterator(iter))

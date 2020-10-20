@@ -21,10 +21,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferLedger;
+import org.apache.arrow.memory.NativeUnderlingMemory;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 /** ArrowRecordBatchBuilderImpl used to wrap native returned data into an ArrowRecordBatch. */
 public class ArrowRecordBatchBuilderImpl {
@@ -58,10 +62,31 @@ public class ArrowRecordBatchBuilderImpl {
 
     List<ArrowBuf> buffers = new ArrayList<ArrowBuf>();
     for (ArrowBufBuilder tmp : recordBatchBuilder.bufferBuilders) {
-      AdaptorReferenceManager referenceManager =
-          new AdaptorReferenceManager(tmp.nativeInstanceId, tmp.size);
-      buffers.add(new ArrowBuf(referenceManager, null, tmp.size, tmp.memoryAddress, false));
+      BaseAllocator allocator = SparkMemoryUtils.arrowAllocator();
+      NativeUnderlingMemory am = new Underlying(allocator, tmp.size,
+          tmp.nativeInstanceId, tmp.memoryAddress);
+      BufferLedger ledger = am.associate(allocator);
+      buffers.add(new ArrowBuf(ledger, null, tmp.size, tmp.memoryAddress, false));
     }
-    return new ArrowRecordBatch(recordBatchBuilder.length, nodes, buffers);
+    try {
+      return new ArrowRecordBatch(recordBatchBuilder.length, nodes, buffers);
+    } finally {
+      buffers.forEach(ArrowBuf::close);
+    }
+  }
+
+  private static class Underlying extends NativeUnderlingMemory { // fixme typo
+    private final long nativeInstanceId;
+
+    public Underlying(BaseAllocator accountingAllocator, int size,
+                      long nativeInstanceId, long address) {
+      super(accountingAllocator, size, nativeInstanceId, address);
+      this.nativeInstanceId = nativeInstanceId;
+    }
+
+    @Override
+    protected void release0() {
+      AdaptorReferenceManager.DEFAULT.nativeRelease(nativeInstanceId);
+    }
   }
 }

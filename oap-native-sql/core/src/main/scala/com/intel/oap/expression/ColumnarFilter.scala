@@ -73,7 +73,7 @@ class ColumnarFilter (
   val projectSchema = ArrowUtils.fromArrowSchema(projectArrowSchema)
   logInfo(s"conditionSchema is ${conditionArrowSchema}, projectSchema is ${projectArrowSchema}")
 
-  val allocator = ArrowWritableColumnVector.getNewAllocator
+  val allocator = ArrowWritableColumnVector.getAllocator
   var selectionBuffer : ArrowBuf = null
 
   val filter = Filter.make(conditionArrowSchema, TreeBuilder.makeCondition(node))

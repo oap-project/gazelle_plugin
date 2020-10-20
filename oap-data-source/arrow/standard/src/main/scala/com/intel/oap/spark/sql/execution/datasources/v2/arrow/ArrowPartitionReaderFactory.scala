@@ -25,12 +25,10 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import org.apache.arrow.dataset.scanner.ScanOptions
 
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.memory.TaskMemoryManager
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader}
 import org.apache.spark.sql.execution.datasources.PartitionedFile
 import org.apache.spark.sql.execution.datasources.v2.FilePartitionReaderFactory
-import org.apache.spark.sql.execution.datasources.v2.arrow.ArrowUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.Filter
 import org.apache.spark.sql.types.StructType
@@ -59,9 +57,7 @@ case class ArrowPartitionReaderFactory(
   override def buildColumnarReader(
       partitionedFile: PartitionedFile): PartitionReader[ColumnarBatch] = {
     val path = partitionedFile.filePath
-    val taskMemoryManager = ArrowUtils.getTaskMemoryManager()
-    val factory = ArrowUtils.makeArrowDiscovery(URLDecoder.decode(path, "UTF-8"), options,
-      new ExecutionMemoryAllocationListener(taskMemoryManager))
+    val factory = ArrowUtils.makeArrowDiscovery(URLDecoder.decode(path, "UTF-8"), options)
     val dataset = factory.finish()
     val filter = if (enableFilterPushDown) {
       ArrowFilters.translateFilters(ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema))

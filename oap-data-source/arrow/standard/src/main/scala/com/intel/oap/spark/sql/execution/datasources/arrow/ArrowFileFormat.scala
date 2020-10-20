@@ -22,7 +22,7 @@ import java.net.URLDecoder
 import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat.UnsafeItr
-import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ExecutionMemoryAllocationListener}
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.hadoop.conf.Configuration
@@ -33,7 +33,6 @@ import org.apache.spark.TaskContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
-import org.apache.spark.sql.execution.datasources.v2.arrow.ArrowUtils
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -74,13 +73,10 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
     val enableFilterPushDown = sqlConf.arrowFilterPushDown
 
     (file: PartitionedFile) => {
-      val taskMemoryManager = ArrowUtils.getTaskMemoryManager()
-      val listener = new ExecutionMemoryAllocationListener(taskMemoryManager)
       val factory = ArrowUtils.makeArrowDiscovery(
         URLDecoder.decode(file.filePath, "UTF-8"), new ArrowOptions(
           new CaseInsensitiveStringMap(
-            options.asJava).asScala.toMap),
-        listener)
+            options.asJava).asScala.toMap))
 
       // todo predicate validation / pushdown
       val dataset = factory.finish();

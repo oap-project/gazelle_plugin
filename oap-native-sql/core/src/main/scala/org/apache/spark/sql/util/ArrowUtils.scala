@@ -30,9 +30,10 @@ import org.apache.spark.sql.catalyst.expressions.Attribute
 
 object ArrowUtils {
 
+  @Deprecated
   val rootAllocator = new RootAllocator(Long.MaxValue)
-  // todo: support more types.
 
+  // todo: support more types.
   /** Maps data type from Spark to Arrow. NOTE: timeZoneId required for TimestampTypes */
   def toArrowType(dt: DataType, timeZoneId: String): ArrowType = dt match {
     case BooleanType => ArrowType.Bool.INSTANCE

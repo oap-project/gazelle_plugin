@@ -28,7 +28,7 @@ import org.apache.commons.io.FileUtils
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, QueryTest, Row}
-import org.apache.spark.sql.execution.datasources.v2.arrow.ArrowUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
@@ -292,8 +292,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   }
 
   def closeAllocators(): Unit = {
-    ArrowUtils.defaultAllocator().close()
-    ArrowWritableColumnVector.allocator.close()
+    SparkMemoryUtils.arrowAllocator().close()
   }
 }
 

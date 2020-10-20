@@ -39,10 +39,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 public class ColumnarArithmeticWithGandiva implements AutoCloseable {
-
-  protected static BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
   protected static ArrowType int32 = new ArrowType.Int(32, true);
   protected static ArrowType float32 = new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE);
   protected static long make_time = 0;
@@ -50,7 +49,6 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
 
   @Override
   public void close() throws IOException {
-    allocator.close();
   }
 
   public static void columnarAdd(
@@ -134,6 +132,7 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
 
   public static ArrowBuf arrowBufWithAllValid(int size) {
     int bufLen = (size + 7) / 8;
+    BufferAllocator allocator = SparkMemoryUtils.arrowAllocator();
     ArrowBuf buffer = allocator.buffer(bufLen);
     for (int i = 0; i < bufLen; i++) {
       buffer.writeByte(255);
@@ -194,6 +193,7 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
       for (int i = 0; i < dataType.size(); i++) {
         // init input vector
         // IntVector inputVector = new IntVector("input_"+i, allocator);
+        BufferAllocator allocator = SparkMemoryUtils.arrowAllocator();
         Float4Vector inputVector = new Float4Vector("input_" + i, allocator);
         inputVector.allocateNew(numRowsInBatch);
         for (int j = 0; j < numRowsInBatch; j++) {
@@ -206,6 +206,7 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
 
       // init output vector
       // IntVector outputVector = new IntVector("result", allocator);
+      BufferAllocator allocator = SparkMemoryUtils.arrowAllocator();
       Float4Vector outputVector = new Float4Vector("result", allocator);
       outputVector.allocateNew(numRowsInBatch);
       outputVectors.add(outputVector);

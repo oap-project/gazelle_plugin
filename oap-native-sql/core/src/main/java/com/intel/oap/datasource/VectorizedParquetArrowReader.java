@@ -116,7 +116,7 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
         + Arrays.toString(rowGroupIndices) + ", column_indices is "
         + Arrays.toString(column_indices));
     this.reader = new ParquetReader(uriPath, split.getStart(), split.getEnd(),
-        column_indices, capacity, ArrowWritableColumnVector.getNewAllocator(), tmp_dir);
+        column_indices, capacity, ArrowWritableColumnVector.getAllocator(), tmp_dir);
   }
 
   @Override

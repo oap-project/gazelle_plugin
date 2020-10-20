@@ -32,17 +32,16 @@ import org.apache.spark.sql.execution._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.util.{Utils, UserAddedJarUtils}
-
+import org.apache.spark.util.{UserAddedJarUtils, Utils}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
-
 import com.intel.oap.vectorized.ExpressionEvaluator
 import com.intel.oap.vectorized.BatchIterator
-
 import com.google.common.collect.Lists
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+
 import scala.collection.mutable.ListBuffer
 import scala.collection.JavaConverters._
 
@@ -334,9 +333,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
         }
       }
-      TaskContext
-        .get()
-        .addTaskCompletionListener[Unit](_ => {
+      SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
           close
         })
       new CloseableColumnBatchIterator(res)

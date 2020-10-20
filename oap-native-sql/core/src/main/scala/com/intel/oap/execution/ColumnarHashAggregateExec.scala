@@ -20,13 +20,12 @@ package com.intel.oap.execution
 import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
-
 import java.util.concurrent.TimeUnit._
 
 import org.apache.spark.TaskContext
 import org.apache.spark.memory.{SparkOutOfMemoryError, TaskMemoryManager}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{Utils, UserAddedJarUtils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.errors._
 import org.apache.spark.sql.catalyst.expressions._
@@ -39,6 +38,7 @@ import org.apache.spark.sql.catalyst.util.DateTimeUtils._
 import org.apache.spark.sql.catalyst.util.truncatedString
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.vectorized.MutableColumnarRow
 import org.apache.spark.sql.internal.SQLConf
@@ -170,9 +170,7 @@ class ColumnarHashAggregateExec(
             aggTime,
             totalTime,
             sparkConf)
-          TaskContext
-            .get()
-            .addTaskCompletionListener[Unit](_ => {
+          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
               aggregation.close()
             })
           new CloseableColumnBatchIterator(aggregation.createIterator(iter))
@@ -191,9 +189,7 @@ class ColumnarHashAggregateExec(
             aggTime,
             totalTime,
             sparkConf)
-          TaskContext
-            .get()
-            .addTaskCompletionListener[Unit](_ => {
+          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
               aggregation.close()
             })
           new CloseableColumnBatchIterator(aggregation.createIterator(iter))

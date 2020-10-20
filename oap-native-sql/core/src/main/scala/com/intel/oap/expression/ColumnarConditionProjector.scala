@@ -122,7 +122,7 @@ class ColumnarConditionProjector(
   elapseTime_make = System.nanoTime() - start_make
   logInfo(s"Gandiva make total ${TimeUnit.NANOSECONDS.toMillis(elapseTime_make)} ms.")
 
-  val allocator = ArrowWritableColumnVector.getNewAllocator
+  val allocator = ArrowWritableColumnVector.getAllocator
 
   def createFilter(arrowSchema: Schema, prepareList: (TreeNode, ArrowType)): Filter =
     synchronized {
@@ -164,7 +164,6 @@ class ColumnarConditionProjector(
       selectionBuffer.close()
       selectionBuffer = null
     }
-    allocator.close()
     if (conditioner != null) {
       conditioner.close()
     }

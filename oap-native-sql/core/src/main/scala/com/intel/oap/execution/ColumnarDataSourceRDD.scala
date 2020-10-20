@@ -20,15 +20,12 @@ package com.intel.oap.execution
 import com.intel.oap.vectorized._
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.connector.read.{
-  InputPartition,
-  PartitionReaderFactory,
-  PartitionReader
-}
+import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader, PartitionReaderFactory}
 import org.apache.spark.sql.execution.datasources.{FilePartition, PartitionedFile}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.execution.datasources.v2.VectorizedFilePartitionReaderHandler
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.datasources.v2.parquet.ParquetPartitionReaderFactory
 
 class DataSourceRDDPartition(val index: Int, val inputPartition: InputPartition)
@@ -77,7 +74,7 @@ class ColumnarDataSourceRDD(
     }
 
     val rddId = this
-    context.addTaskCompletionListener[Unit](_ => reader.close())
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => reader.close())
     val iter = new Iterator[Any] {
       private[this] var valuePrepared = false
 

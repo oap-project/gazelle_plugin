@@ -60,10 +60,10 @@ jobs:
       - cd ../../java
       - mvn clean install -q -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
       script:
-      - cd ${TRAVIS_BUILD_DIR}/oap-native-sql/core
-      - mvn clean -q package -DskipTests #skip core tests
-      - cd ${TRAVIS_BUILD_DIR}/oap-data-source/arrow
-      - mvn clean -q test
+      - cd ${TRAVIS_BUILD_DIR}/
+      - mvn clean -q package -DskipTests -pl oap-native-sql/core -am  #skip core tests
+      - cd ${TRAVIS_BUILD_DIR}/
+      - mvn clean -q test -pl oap-data-source/arrow -am
     - name: oap-shuffle-remote-shuffle
       install:
       - #empty install step

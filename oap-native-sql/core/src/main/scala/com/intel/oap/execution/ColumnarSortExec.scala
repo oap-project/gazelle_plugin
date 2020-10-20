@@ -20,10 +20,9 @@ package com.intel.oap.execution
 import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
-
 import java.util.concurrent.TimeUnit._
 
-import org.apache.spark.{SparkEnv, TaskContext, SparkContext}
+import org.apache.spark.{SparkContext, SparkEnv, TaskContext}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.catalyst.expressions.SortOrder
@@ -31,7 +30,8 @@ import org.apache.spark.sql.catalyst.expressions.BoundReference
 import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReference
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{Utils, UserAddedJarUtils}
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.util.{UserAddedJarUtils, Utils}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
@@ -125,9 +125,7 @@ class ColumnarSortExec(
           shuffleTime,
           elapse,
           sparkConf)
-        TaskContext
-          .get()
-          .addTaskCompletionListener[Unit](_ => {
+        SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
             sorter.close()
           })
         new CloseableColumnBatchIterator(sorter.createColumnarIterator(iter))

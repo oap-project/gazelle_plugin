@@ -31,25 +31,29 @@ import org.slf4j.LoggerFactory;
 /**
  * A simple reference manager implementation for memory allocated by native code. The underlying
  * memory will be released when reference count reach zero.
+ *
+ * Jul/13/2020, Hongze Zhang: TO BE DEPRECATED: Only nativeRelease is being called at this time.
  */
+@Deprecated
 public class AdaptorReferenceManager implements ReferenceManager {
-  private native void nativeRelease(long nativeMemoryHolder);
+  public static final AdaptorReferenceManager DEFAULT = new AdaptorReferenceManager(-1L, -1);
+
+  public native void nativeRelease(long nativeMemoryHolder);
 
   private static final Logger LOG = LoggerFactory.getLogger(AdaptorReferenceManager.class);
   private final AtomicInteger bufRefCnt = new AtomicInteger(0);
   private long nativeMemoryHolder;
   private int size = 0;
 
-  // Required by netty dependencies, but is never used.
-  private BaseAllocator allocator;
-
-  AdaptorReferenceManager(long nativeMemoryHolder, int size) throws IOException {
-    JniUtils.getInstance();
+  AdaptorReferenceManager(long nativeMemoryHolder, int size) {
+    try {
+      JniUtils.getInstance();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
     this.nativeMemoryHolder = nativeMemoryHolder;
     this.size = size;
-    this.allocator = new RootAllocator(0);
   }
-
   @Override
   public int getRefCount() {
     return bufRefCnt.get();
@@ -114,7 +118,7 @@ public class AdaptorReferenceManager implements ReferenceManager {
 
   @Override
   public BufferAllocator getAllocator() {
-    return allocator;
+    throw new UnsupportedOperationException("No Allocator is retained");
   }
 
   @Override

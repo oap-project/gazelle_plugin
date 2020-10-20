@@ -23,7 +23,7 @@ import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.execution.datasources.parquet.ParquetSQLConf
-import org.apache.spark.sql.execution.datasources.v2.arrow.ArrowUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
@@ -38,8 +38,7 @@ class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
   }
 
   def closeAllocators(): Unit = {
-    ArrowUtils.defaultAllocator().close()
-    ArrowWritableColumnVector.allocator.close()
+    SparkMemoryUtils.arrowAllocator().close()
   }
 
   test("no overwriting") {

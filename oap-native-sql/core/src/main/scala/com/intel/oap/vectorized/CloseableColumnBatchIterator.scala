@@ -20,6 +20,7 @@ package com.intel.oap.vectorized
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.TaskContext
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 
 /**
  * An Iterator that insures that the batches [[ColumnarBatch]]s it iterates over are all closed
@@ -38,9 +39,7 @@ class CloseableColumnBatchIterator(itr: Iterator[ColumnarBatch])
     }
   }
 
-  TaskContext
-    .get()
-    .addTaskCompletionListener[Unit]((tc: TaskContext) => {
+  SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((tc: TaskContext) => {
       closeCurrentBatch()
     })
 
