@@ -19,25 +19,22 @@ package com.intel.oap.execution
 
 import java.util.concurrent.TimeUnit
 
-import com.google.common.base.Preconditions
 import com.google.flatbuffers.FlatBufferBuilder
-import com.intel.oap.expression.{CodeGeneration, ColumnarAggregation, ConverterUtils}
+import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
-import org.apache.arrow.vector.types.Types
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Descending, Expression, NamedExpression, Rank, SortOrder, WindowExpression, WindowFunction}
 import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Average, Sum}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetrics
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-import org.apache.spark.TaskContext
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{BinaryType, BooleanType, ByteType, DataType, DoubleType, FloatType, IntegerType, LongType, ShortType, StringType, StructField, StructType, VarcharType}
 import org.apache.spark.sql.util.ArrowUtils
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -155,7 +152,11 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
           (0 until c.numCols()).map(c.column)
               .foreach(_.asInstanceOf[ArrowWritableColumnVector].retain())
           val recordBatch = ConverterUtils.createArrowRecordBatch(c)
-          evaluator.evaluate(recordBatch)
+          try {
+            evaluator.evaluate(recordBatch)
+          } finally {
+            recordBatch.close()
+          }
           val evaluationCost = System.nanoTime() - prev2
           totalTime += TimeUnit.NANOSECONDS.toMillis(evaluationCost)
         })
@@ -167,7 +168,11 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         val itr = batches.zipWithIndex.map { case (recordBatch, i) => {
           val prev4 = System.nanoTime()
           val length = recordBatch.getLength
-          val vectors = ArrowWritableColumnVector.loadColumns(length, resultSchema, recordBatch)
+          val vectors = try {
+             ArrowWritableColumnVector.loadColumns(length, resultSchema, recordBatch)
+          } finally {
+            recordBatch.close()
+          }
           if (vectors.size != 1) {
             throw new IllegalStateException("illegal vector width returned by native, this should not happen")
           }
