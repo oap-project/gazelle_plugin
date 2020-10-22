@@ -91,7 +91,7 @@ object SparkMemoryUtils {
                   val allocator = taskToAllocatorMap.get(context)
                   val allocated = allocator.getAllocatedMemory
                   if (allocated == 0L) {
-                    allocator.close()
+                    close(allocator)
                     taskToAllocatorMap.remove(context)
                   } else {
                     softClose(allocator)
@@ -104,6 +104,11 @@ object SparkMemoryUtils {
       }
     }
     allocator
+  }
+
+  private def close(allocator: BufferAllocator): Unit = {
+    allocator.getChildAllocators.forEach(close(_))
+    allocator.close()
   }
 
   /**
