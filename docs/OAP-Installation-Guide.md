@@ -35,6 +35,7 @@ $ conda create -n oapenv -y python=3.7
 $ conda activate oapenv
 $ conda install -c conda-forge -c intel -y oap=0.9.0
 ```
+
 Once finished steps above, you have completed OAP dependencies installation and OAP building, and will find built OAP jars under `$HOME/miniconda2/envs/oapenv/oap_jars`
 
 #### Extra Steps for Shuffle Remote PMem Extension
