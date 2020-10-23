@@ -94,6 +94,7 @@
                                 <arg>-Xlint:all,-serial,-path</arg>
                             </compilerArgs>
                             <testExcludes>
+                                <exclude>**/PMemBlockPlatformTest.java</exclude>
                                 <exclude>**/PMemBlkChunkReaderWriterTest.java</exclude>
                                 <exclude>**/PMemKVDatabaseTest.java</exclude>
                             </testExcludes>
