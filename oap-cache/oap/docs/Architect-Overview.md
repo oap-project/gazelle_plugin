@@ -63,7 +63,7 @@ SQL Index and Data Source Cache acts as a `.jar` plug-in for Spark SQL.
 
 - OAP's two major optimization functionalities (indexing and caching) are based on unified representation and the adapter. 
    - Indices can be created on one or multiple columns of a data file. 
-   - Currently, Data Source Cache only caches decompressed and decoding data, and will support raw data in the future. Generally, the server's DRAM is used as the cache medium. [PMem](https://www.intel.com/content/www/us/en/architecture-and-technology/optane-dc-persistent-memory.html) can also be used as the cache medium as it will provide a more cost effective solution for the requirements of a high performance environment.
+   - Data Source Cache can cache both decompressed and decoded vectorized data and bianry raw data. Generally, the server's DRAM is used as the cache medium. [PMem](https://www.intel.com/content/www/us/en/architecture-and-technology/optane-dc-persistent-memory.html) can also be used as the cache medium as it will provide a more cost effective solution for the requirements of a high performance environment.
 
 - Both indexing and caching as ***Optimizer & Execution*** are transparent for users. See the [Features](#Features) section for details.
 
