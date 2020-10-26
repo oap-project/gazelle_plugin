@@ -1199,6 +1199,29 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
       return 0;
     }
   }
+
+  jclass cls = env->FindClass("java/lang/Thread");
+  jmethodID mid = env->GetStaticMethodID(cls, "currentThread", "()Ljava/lang/Thread;");
+  jobject thread = env->CallStaticObjectMethod(cls, mid);
+  if (thread == NULL) {
+    std::cout << "Thread.currentThread() return NULL" << std::endl;
+  } else {
+    jmethodID mid_getid = env->GetMethodID(cls, "getId", "()J");
+    jlong sid = env->CallLongMethod(thread, mid_getid);
+    splitOptions.thread_id = (int64_t)sid;
+  }
+
+  jclass tc_cls = env->FindClass("org/apache/spark/TaskContext");
+  jmethodID get_tc_mid = env->GetStaticMethodID(tc_cls, "get", "()Lorg/apache/spark/TaskContext;");
+  jobject tc_obj = env->CallStaticObjectMethod(tc_cls, get_tc_mid);
+  if (tc_obj == NULL) {
+    std::cout << "TaskContext.get() return NULL" << std::endl;
+  } else {
+    jmethodID get_tsk_attmpt_mid = env->GetMethodID(tc_cls, "taskAttemptId", "()J");
+    jlong attmpt_id = env->CallLongMethod(tc_obj, get_tsk_attmpt_mid);
+    splitOptions.task_attempt_id = (int64_t)attmpt_id;
+  }
+
   auto make_result = Splitter::Make(partitioning_name, std::move(schema), num_partitions,
                                     expr_vector, std::move(splitOptions));
   if (!make_result.ok()) {

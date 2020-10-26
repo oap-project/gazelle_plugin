@@ -22,26 +22,17 @@
 
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
+#include <arrow/io/api.h>
 #include <arrow/record_batch.h>
 #include <gandiva/arrow.h>
 #include <gandiva/gandiva_aliases.h>
 #include <gandiva/projector.h>
 
-#include "shuffle/partition_writer.h"
+#include "shuffle/type.h"
 #include "shuffle/utils.h"
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
-
-struct SplitOptions {
-  int32_t buffer_size = kDefaultSplitterBufferSize;
-  int32_t num_sub_dirs = kDefaultNumSubDirs;
-  arrow::Compression::type compression_type = arrow::Compression::UNCOMPRESSED;
-
-  std::string data_file;
-
-  static SplitOptions Defaults();
-};
 
 class Splitter {
  public:
@@ -90,28 +81,71 @@ class Splitter {
 
   virtual arrow::Status Init();
 
-  virtual arrow::Result<std::vector<int32_t>> GetNextBatchPartitionWriterIndex(
-      const arrow::RecordBatch& rb) = 0;
+  virtual arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) = 0;
 
-  arrow::Status DoSplit(const arrow::RecordBatch& rb,
-                        const std::vector<int32_t>& writer_idx);
+  arrow::Status DoSplit(const arrow::RecordBatch& rb);
+
+  arrow::Status SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb);
+
+#if defined(COLUMNAR_PLUGIN_USE_AVX512)
+  arrow::Status SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& rb);
+#endif
+
+  arrow::Status SpillPartition(int32_t partition_id);
+
+  arrow::Status SplitFixedWidthValidityBuffer(const arrow::RecordBatch& rb);
+
+  arrow::Status SplitBinaryArray(const arrow::RecordBatch& rb);
+
+  arrow::Status SplitLargeBinaryArray(const arrow::RecordBatch& rb);
+
+  template <typename T, typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
+            typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
+  arrow::Status AppendBinary(
+      const std::shared_ptr<ArrayType>& src_arr,
+      const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
+
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeRecordBatchAndReset(
+      int32_t partition_id);
 
   arrow::Status CreatePartitionWriter(int32_t partition_id);
+
+  arrow::Status AllocatePartitionBuffers(int32_t partition_id, int32_t new_size);
+
+  class PartitionWriter;
+
+  std::vector<int32_t> partition_buffer_size_;
+  std::vector<int32_t> partition_buffer_idx_base_;
+  std::vector<int32_t> partition_buffer_idx_offset_;
+  std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
+  std::vector<std::vector<uint8_t*>> partition_fixed_width_validity_addrs_;
+  std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
+  std::vector<std::vector<std::vector<std::shared_ptr<arrow::ResizableBuffer>>>>
+      partition_fixed_width_buffers_;
+  std::vector<std::vector<std::shared_ptr<arrow::BinaryBuilder>>>
+      partition_binary_builders_;
+  std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
+      partition_large_binary_builders_;
+
+  std::vector<int32_t> fixed_width_array_idx_;
+  std::vector<int32_t> binary_array_idx_;
+  std::vector<int32_t> large_binary_array_idx_;
+
+  // updated for each input record batch
+  std::vector<int32_t> partition_id_;
+  std::vector<int32_t> partition_id_cnt_;
 
   int32_t num_partitions_;
   std::shared_ptr<arrow::Schema> schema_;
   SplitOptions options_;
 
   int64_t total_bytes_written_ = 0;
-  int64_t total_bytes_spilled_= 0;
+  int64_t total_bytes_spilled_ = 0;
   int64_t total_write_time_ = 0;
   int64_t total_spill_time_ = 0;
   int64_t total_compute_pid_time_ = 0;
   std::vector<int64_t> partition_lengths_;
 
-  // partition writer and parameters
-  std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
-  Type::typeId last_type_id_ = Type::SHUFFLE_NOT_IMPLEMENTED;
   std::vector<Type::typeId> column_type_id_;
 
   // configured local dirs for spilled file
@@ -128,14 +162,12 @@ class RoundRobinSplitter : public Splitter {
       int32_t num_partitions, std::shared_ptr<arrow::Schema> schema,
       SplitOptions options);
 
- protected:
-  arrow::Result<std::vector<int32_t>> GetNextBatchPartitionWriterIndex(
-      const arrow::RecordBatch& rb) override;
-
  private:
   RoundRobinSplitter(int32_t num_partitions, std::shared_ptr<arrow::Schema> schema,
                      SplitOptions options)
       : Splitter(num_partitions, std::move(schema), std::move(options)) {}
+
+  arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) override;
 
   int32_t pid_selection_ = 0;
 };
@@ -153,8 +185,7 @@ class HashSplitter : public Splitter {
 
   arrow::Status CreateProjector(const gandiva::ExpressionVector& expr_vector);
 
-  arrow::Result<std::vector<int32_t>> GetNextBatchPartitionWriterIndex(
-      const arrow::RecordBatch& rb) override;
+  arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) override;
 
   std::shared_ptr<gandiva::Projector> projector_;
 };
@@ -176,8 +207,7 @@ class FallbackRangeSplitter : public Splitter {
 
   arrow::Status Init() override;
 
-  arrow::Result<std::vector<int32_t>> GetNextBatchPartitionWriterIndex(
-      const arrow::RecordBatch& rb) override;
+  arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) override;
 
   std::shared_ptr<arrow::Schema> input_schema_;
 };

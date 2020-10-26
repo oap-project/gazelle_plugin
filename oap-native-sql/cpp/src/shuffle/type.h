@@ -31,16 +31,21 @@ static constexpr int32_t kDefaultNumSubDirs = 64;
 // This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
 static constexpr int32_t kIpcContinuationToken = -1;
 
-struct BufferInfo {
-  std::shared_ptr<arrow::Buffer> validity_buffer;
-  std::shared_ptr<arrow::Buffer> value_buffer;
-  uint8_t* validity_addr;
-  uint8_t* value_addr;
-};
+const unsigned ONES[] = {1, 1, 1, 1, 1, 1, 1, 1};
 
-struct BufferAddr {
-  uint8_t* validity_addr;
-  uint8_t* value_addr;
+struct SplitOptions {
+  int32_t buffer_size = kDefaultSplitterBufferSize;
+  int32_t num_sub_dirs = kDefaultNumSubDirs;
+  arrow::Compression::type compression_type = arrow::Compression::UNCOMPRESSED;
+
+  std::string data_file;
+
+  int64_t thread_id = -1;
+  int64_t task_attempt_id = -1;
+
+  arrow::MemoryPool* memory_pool = arrow::default_memory_pool();
+
+  static SplitOptions Defaults();
 };
 
 namespace Type {
@@ -65,21 +70,10 @@ enum typeId : int {
 
 static const typeId all[] = {
     SHUFFLE_1BYTE,  SHUFFLE_2BYTE,        SHUFFLE_4BYTE,
-    SHUFFLE_8BYTE,  SHUFFLE_DECIMAL128,  SHUFFLE_BIT,
+    SHUFFLE_8BYTE,  SHUFFLE_DECIMAL128,   SHUFFLE_BIT,
     SHUFFLE_BINARY, SHUFFLE_LARGE_BINARY, SHUFFLE_NULL,
 };
 
 }  // namespace Type
-
-using BufferInfos = std::deque<std::unique_ptr<BufferInfo>>;
-using TypeBufferInfos = std::vector<BufferInfos>;
-using BinaryBuilders = std::deque<std::unique_ptr<arrow::BinaryBuilder>>;
-using LargeBinaryBuilders = std::deque<std::unique_ptr<arrow::LargeBinaryBuilder>>;
-using BufferPtr = std::shared_ptr<arrow::Buffer>;
-using SrcBuffers = std::vector<BufferAddr>;
-using SrcArrays = std::vector<std::shared_ptr<arrow::Array>>;
-using SrcBinaryArrays = std::vector<std::shared_ptr<arrow::BinaryArray>>;
-using SrcLargeBinaryArrays = std::vector<std::shared_ptr<arrow::LargeBinaryArray>>;
-
 }  // namespace shuffle
 }  // namespace sparkcolumnarplugin

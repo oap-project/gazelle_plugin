@@ -17,18 +17,35 @@
 
 #pragma once
 
+#include <chrono>
 #include <iomanip>
+#include <iostream>
 #include <sstream>
+#include <thread>
 
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
 #include <arrow/filesystem/path_util.h>
+#include <arrow/ipc/writer.h>
 #include <arrow/util/io_util.h>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
+
+#define EVAL_START(name, thread_id)                                          \
+//  auto eval_start = std::chrono::duration_cast<std::chrono::nanoseconds>(    \
+//                        std::chrono::system_clock::now().time_since_epoch()) \
+//                        .count();
+
+#define EVAL_END(name, thread_id, task_attempt_id)                      \
+//  std::cout << "xgbtck " << name << " " << eval_start << " "            \
+//            << std::chrono::duration_cast<std::chrono::nanoseconds>(    \
+//                   std::chrono::system_clock::now().time_since_epoch()) \
+//                       .count() -                                       \
+//                   eval_start                                           \
+//            << " " << thread_id << " " << task_attempt_id << std::endl;
 
 static std::string GenerateUUID() {
   boost::uuids::random_generator generator;

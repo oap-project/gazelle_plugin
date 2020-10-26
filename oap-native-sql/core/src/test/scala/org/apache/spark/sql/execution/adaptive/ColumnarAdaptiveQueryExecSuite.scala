@@ -46,6 +46,10 @@ class ColumnarAdaptiveQueryExecSuite
       .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "10m")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
 
   private def runAdaptiveAndVerifyResult(query: String): (SparkPlan, SparkPlan) = {
     var finalPlanCnt = 0
