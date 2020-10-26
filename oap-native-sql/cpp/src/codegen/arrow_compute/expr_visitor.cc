@@ -330,6 +330,9 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     } else if (child_func_name.compare("HashRelation") == 0) {
       RETURN_NOT_OK(
           HashRelationVisitorImpl::Make(field_list, func_node, ret_fields, p, &impl_));
+    } else if (child_func_name.compare("sortArraysToIndices") == 0) {
+      RETURN_NOT_OK(SortArraysToIndicesVisitorImpl::Make(field_list, func_node, 
+                                                         ret_fields, p, &impl_));
     }
     goto finish;
   }
@@ -455,22 +458,6 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(const std::string& func_name,
   }
   if (func_name.compare("encodeArray") == 0) {
     RETURN_NOT_OK(EncodeVisitorImpl::Make(p, &impl_));
-    goto finish;
-  }
-  if (func_name.compare("sortArraysToIndicesNullsFirstAsc") == 0) {
-    RETURN_NOT_OK(SortArraysToIndicesVisitorImpl::Make(p, &impl_, true, true));
-    goto finish;
-  }
-  if (func_name.compare("sortArraysToIndicesNullsLastAsc") == 0) {
-    RETURN_NOT_OK(SortArraysToIndicesVisitorImpl::Make(p, &impl_, false, true));
-    goto finish;
-  }
-  if (func_name.compare("sortArraysToIndicesNullsFirstDesc") == 0) {
-    RETURN_NOT_OK(SortArraysToIndicesVisitorImpl::Make(p, &impl_, true, false));
-    goto finish;
-  }
-  if (func_name.compare("sortArraysToIndicesNullsLastDesc") == 0) {
-    RETURN_NOT_OK(SortArraysToIndicesVisitorImpl::Make(p, &impl_, false, false));
     goto finish;
   }
   goto unrecognizedFail;

@@ -539,28 +539,61 @@ class EncodeVisitorImpl : public ExprVisitorImpl {
 ////////////////////////// SortArraysToIndicesVisitorImpl ///////////////////////
 class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
  public:
-  SortArraysToIndicesVisitorImpl(ExprVisitor* p, bool nulls_first, bool asc)
-      : ExprVisitorImpl(p), nulls_first_(nulls_first), asc_(asc) {}
-  static arrow::Status Make(ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out,
-                            bool nulls_first, bool asc) {
-    auto impl = std::make_shared<SortArraysToIndicesVisitorImpl>(p, nulls_first, asc);
+  SortArraysToIndicesVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                                 std::shared_ptr<gandiva::FunctionNode> root_node,
+                                 std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                                 ExprVisitor* p)
+      : root_node_(root_node),
+        field_list_(field_list),
+        ret_fields_(ret_fields),
+        ExprVisitorImpl(p) {
+    auto children = root_node->children();
+    // first child is key_function
+    sort_key_node_ =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[0])->children();
+    // second child is key_field
+    auto key_field_node =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[1]);
+    for (auto field : key_field_node->children()) {
+      auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(field);
+      key_field_list_.push_back(field_node->field());
+    }
+    // third child is sort_directions
+    auto sort_directions_node =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[2]);
+    for (auto direction : sort_directions_node->children()) {
+      auto dir_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(direction);
+      bool dir_val = arrow::util::get<bool>(dir_node->holder());
+      sort_directions_.push_back(dir_val);
+    }
+    // fourth child is nulls_order
+    auto nulls_order_node =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[3]);
+    for (auto order : nulls_order_node->children()) {
+      auto order_node = std::dynamic_pointer_cast<gandiva::LiteralNode>(order);
+      bool order_val = arrow::util::get<bool>(order_node->holder());
+      nulls_order_.push_back(order_val);
+    }
+    result_schema_ = arrow::schema(ret_fields);
+  }
+
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                            std::shared_ptr<gandiva::FunctionNode> root_node,
+                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
+
+    auto impl = std::make_shared<SortArraysToIndicesVisitorImpl>(field_list, root_node, 
+                                                                 ret_fields, p);
     *out = impl;
     return arrow::Status::OK();
   }
+
   arrow::Status Init() override {
     if (initialized_) {
       return arrow::Status::OK();
     }
-    std::vector<std::shared_ptr<arrow::Field>> field_list;
-    for (auto col_name : p_->param_field_names_) {
-      int col_id;
-      std::shared_ptr<arrow::Field> field;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, col_name, &col_id, &field));
-      p_->result_fields_.push_back(field);
-      field_list.push_back(field);
-    }
-    RETURN_NOT_OK(extra::SortArraysToIndicesKernel::Make(
-        &p_->ctx_, field_list, p_->schema_, &kernel_, nulls_first_, asc_));
+    RETURN_NOT_OK(extra::SortArraysToIndicesKernel::Make(&p_->ctx_, result_schema_, 
+        sort_key_node_, key_field_list_, sort_directions_, nulls_order_, &kernel_));
     p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     finish_return_type_ = ArrowComputeResultType::BatchIterator;
@@ -602,8 +635,14 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
   }
 
  private:
-  bool nulls_first_;
-  bool asc_;
+  std::shared_ptr<gandiva::FunctionNode> root_node_;
+  gandiva::FieldVector field_list_;
+  gandiva::FieldVector ret_fields_;
+  gandiva::NodeVector sort_key_node_;
+  std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
+  std::vector<bool> sort_directions_;
+  std::vector<bool> nulls_order_;
+  std::shared_ptr<arrow::Schema> result_schema_;
 };
 
 ////////////////////////// ConditionedProbeArraysVisitorImpl ///////////////////////

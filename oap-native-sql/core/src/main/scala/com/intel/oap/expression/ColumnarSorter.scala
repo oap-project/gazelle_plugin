@@ -194,31 +194,92 @@ object ColumnarSorter extends Logging {
     logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
     ColumnarPluginConfig.getConf(sparkConf)
     /////////////// Prepare ColumnarSorter //////////////
-    val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
-      val attr = ConverterUtils.getAttrFromExpr(sort.child)
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarSorter.")
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    });
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr)
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
 
-    val sortFuncName = if (sortOrder.head.isAscending) {
-      "sortArraysToIndicesNullsFirstAsc"
-    } else {
-      "sortArraysToIndicesNullsFirstDesc"
+    val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
+      val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarSorter.")
+      val field = Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      if (outputFieldList.indexOf(field) == -1) {
+        throw new UnsupportedOperationException(
+          s"ColumnarSorter not found ${attr.name}#${attr.exprId.id} in ${outputAttributes}")
+      }
+      field
+    });
+
+    /*
+    Get the sort directions and nulls order from SortOrder.
+    Directions: asc: true, desc: false
+    NullsOrder: NullsFirst: true, NullsLast: false
+    */
+    var directions = new ListBuffer[Boolean]()
+    var nullsOrder = new ListBuffer[Boolean]()
+    for (key <- sortOrder) {
+      val asc = key.isAscending
+      val nullOrdering = key.nullOrdering
+      directions += asc
+      nullsOrder += {
+        nullOrdering match {
+          case NullsFirst => true
+          case NullsLast => false
+        }
+      }
     }
+    val dirList = directions.toList
+    val nullList = nullsOrder.toList
+
+    val sortKeyFuncList: List[TreeNode] = sortOrder.toList.map(expr => {
+      val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr.child)
+      if (s"${nativeNode.toProtobuf}".contains("none#")) {
+        throw new UnsupportedOperationException(
+          s"Unsupport to generate native expression from replaceable expression.")
+      }
+      nativeNode
+    })
+
+    val sort_keys_node = TreeBuilder.makeFunction(
+      "key_function",
+      sortKeyFuncList.asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val key_args_node = TreeBuilder.makeFunction("key_field",
+      keyFieldList.map(field => {
+        TreeBuilder.makeField(field)
+      }).asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val dir_node = TreeBuilder.makeFunction(
+      "sort_directions",
+      dirList.map(dir => {
+          TreeBuilder.makeLiteral(dir.asInstanceOf[java.lang.Boolean])
+        }).asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val nulls_order_node = TreeBuilder.makeFunction(
+      "sort_nulls_order",
+      nullList.map(nullsOrder => {
+        TreeBuilder.makeLiteral(nullsOrder.asInstanceOf[java.lang.Boolean])
+      }).asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val sortFuncName = "sortArraysToIndices"
+    val sort_func_node = TreeBuilder.makeFunction(
+      sortFuncName,
+      Lists.newArrayList(sort_keys_node, key_args_node, dir_node, nulls_order_node),
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
 
     arrowSchema = new Schema(outputFieldList.asJava)
     ///////////////// prepare sort expression ////////////////
     val retType = Field.nullable("res", new ArrowType.Int(32, true))
     val sort_node = TreeBuilder.makeFunction(
-      sortFuncName,
-      keyFieldList.map(keyField => TreeBuilder.makeField(keyField)).asJava,
+      "standalone",
+      Lists.newArrayList(sort_func_node),
       new ArrowType.Int(32, true))
     sort_expr = TreeBuilder.makeExpression(sort_node, retType)
     /////////////////////////////////////////////////////

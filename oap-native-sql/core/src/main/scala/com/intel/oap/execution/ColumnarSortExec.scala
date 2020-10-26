@@ -65,11 +65,11 @@ class ColumnarSortExec(
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
 
-  var signature =
+  def getCodeGenSignature =
     if (!sortOrder
-          .filter(
-            expr => bindReference(expr.child, child.output, true).isInstanceOf[BoundReference])
-          .isEmpty) {
+      .filter(
+        expr => bindReference(expr.child, child.output, true).isInstanceOf[BoundReference])
+      .isEmpty) {
       ColumnarSorter.prebuild(
         sortOrder,
         true,
@@ -83,20 +83,24 @@ class ColumnarSortExec(
     } else {
       ""
     }
-  val listJars = if (signature != "") {
-    if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
-      val tempDir = ColumnarPluginConfig.getRandomTempDir
-      val jarFileName =
-        s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
-      sparkContext.addJar(jarFileName)
+
+  def uploadAndListJars(signature: String): Seq[String] =
+    if (signature != "") {
+      if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
+        val tempDir = ColumnarPluginConfig.getRandomTempDir
+        val jarFileName =
+          s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+        sparkContext.addJar(jarFileName)
+      }
+      sparkContext.listJars.filter(path => path.contains(s"${signature}.jar"))
+    } else {
+      List()
     }
-    sparkContext.listJars.filter(path => path.contains(s"${signature}.jar"))
-  } else {
-    List()
-  }
-  listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+    val signature = getCodeGenSignature
+    val listJars = uploadAndListJars(signature)
+    listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
     child.executeColumnar().mapPartitions { iter =>
       val hasInput = iter.hasNext
       val res = if (!hasInput) {
