@@ -20,13 +20,11 @@ package org.apache.spark.sql.execution.datasources.oap
 import org.scalatest.BeforeAndAfterEach
 
 import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, ProjectExec, SparkPlan}
+import org.apache.spark.sql.execution.{FileSourceScanExec, FilterExec, OapFileSourceScanExec, ProjectExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources._
-import org.apache.spark.sql.execution.datasources.orc.OrcFileFormat
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.oap.OapConf
-import org.apache.spark.sql.test.oap.{SharedOapContext, TestIndex}
+import org.apache.spark.sql.test.oap.{SharedOapContext}
 import org.apache.spark.util.Utils
 
 abstract class CacheHotTablesSuite extends QueryTest with SharedOapContext with
@@ -47,6 +45,40 @@ abstract class CacheHotTablesSuite extends QueryTest with SharedOapContext with
 
   override def afterEach(): Unit = {
     sql(s"DROP TABLE IF EXISTS $testTableName")
+  }
+
+  protected def verifyOapProjectFilterScan(
+      verifyFileFormat: FileFormat => Boolean,
+      verifySparkPlan: (SparkPlan, SparkPlan) => Boolean): Unit = {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql(s"insert overwrite table $testTableName select * from t")
+    val plan =
+      sql(s"SELECT b FROM $testTableName WHERE b = 'this is test 1'")
+        .queryExecution.optimizedPlan
+    val optimizedSparkPlans = OapFileSourceStrategy(plan)
+    assert(optimizedSparkPlans.size == 1)
+
+    val optimizedSparkPlan = optimizedSparkPlans.head
+    assert(optimizedSparkPlan.isInstanceOf[ProjectExec])
+    assert(optimizedSparkPlan.children.nonEmpty)
+    assert(optimizedSparkPlan.children.length == 1)
+
+    val filter = optimizedSparkPlan.children.head
+    assert(filter.isInstanceOf[FilterExec])
+    assert(filter.children.nonEmpty)
+    assert(filter.children.length == 1)
+
+    val scan = filter.children.head
+    assert(scan.isInstanceOf[OapFileSourceScanExec])
+    val relation = scan.asInstanceOf[OapFileSourceScanExec].relation
+    assert(relation.isInstanceOf[HadoopFsRelation])
+    assert(verifyFileFormat(relation.fileFormat))
+
+    val sparkPlans = FileSourceStrategy(plan)
+    assert(sparkPlans.size == 1)
+    val sparkPlan = sparkPlans.head
+    assert(verifySparkPlan(sparkPlan, optimizedSparkPlan))
   }
 
   protected def verifyProjectFilterScan(
@@ -81,7 +113,34 @@ abstract class CacheHotTablesSuite extends QueryTest with SharedOapContext with
     assert(sparkPlans.size == 1)
     val sparkPlan = sparkPlans.head
     assert(verifySparkPlan(sparkPlan, optimizedSparkPlan))
+  }
 
+  protected def verifyOapProjectScan(
+      verifyFileFormat: FileFormat => Boolean,
+      verifySparkPlan: (SparkPlan, SparkPlan) => Boolean): Unit = {
+    val data: Seq[(Int, String)] = (1 to 300).map { i => (i, s"this is test $i") }
+    data.toDF("key", "value").createOrReplaceTempView("t")
+    sql(s"insert overwrite table $testTableName select * from t")
+
+    val plan = sql(s"SELECT a FROM $testTableName").queryExecution.optimizedPlan
+    val optimizedSparkPlans = OapFileSourceStrategy(plan)
+    assert(optimizedSparkPlans.size == 1)
+
+    val optimizedSparkPlan = optimizedSparkPlans.head
+    assert(optimizedSparkPlan.isInstanceOf[ProjectExec])
+    assert(optimizedSparkPlan.children.nonEmpty)
+    assert(optimizedSparkPlan.children.length == 1)
+
+    val scan = optimizedSparkPlan.children.head
+    assert(scan.isInstanceOf[OapFileSourceScanExec])
+    val relation = scan.asInstanceOf[OapFileSourceScanExec].relation
+    assert(relation.isInstanceOf[HadoopFsRelation])
+    assert(verifyFileFormat(relation.fileFormat))
+
+    val sparkPlans = FileSourceStrategy(plan)
+    assert(sparkPlans.size == 1)
+    val sparkPlan = sparkPlans.head
+    assert(verifySparkPlan(sparkPlan, optimizedSparkPlan))
   }
 
   protected def verifyProjectScan(
@@ -123,8 +182,8 @@ abstract class CacheHotTablesSuite extends QueryTest with SharedOapContext with
     val optimizedSparkPlans = OapFileSourceStrategy(plan)
     assert(optimizedSparkPlans.size == 1)
     val optimizedSparkPlan = optimizedSparkPlans.head
-    assert(optimizedSparkPlan.isInstanceOf[FileSourceScanExec])
-    val relation = optimizedSparkPlan.asInstanceOf[FileSourceScanExec].relation
+    assert(optimizedSparkPlan.isInstanceOf[OapFileSourceScanExec])
+    val relation = optimizedSparkPlan.asInstanceOf[OapFileSourceScanExec].relation
     assert(verifyFileFormat(relation.fileFormat))
 
     val sparkPlans = FileSourceStrategy(plan)
@@ -142,7 +201,7 @@ class CacheHotTablesForParquetSuite extends CacheHotTablesSuite {
 
   test("Project-> Filter -> Scan : Optimized") {
     withSQLConf(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key -> "true") {
-      verifyProjectFilterScan(
+      verifyOapProjectFilterScan(
         format => format.isInstanceOf[OptimizedParquetFileFormat],
         (plan1, plan2) => !plan1.sameResult(plan2)
       )
@@ -163,7 +222,7 @@ class CacheHotTablesForParquetSuite extends CacheHotTablesSuite {
     withSQLConf(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key -> "true",
       OapConf.OAP_CACHE_TABLE_LISTS_ENABLED.key -> "true",
       OapConf.OAP_CACHE_TABLE_LISTS.key -> "default.parquet_test;xxx") {
-      verifyProjectFilterScan(
+      verifyOapProjectFilterScan(
         format => format.isInstanceOf[OptimizedParquetFileFormat],
         (plan1, plan2) => !plan1.sameResult(plan2)
       )
@@ -172,7 +231,7 @@ class CacheHotTablesForParquetSuite extends CacheHotTablesSuite {
 
   test("Project -> Scan : Optimized") {
     withSQLConf(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key -> "true") {
-      verifyProjectScan(
+      verifyOapProjectScan(
         format => format.isInstanceOf[OptimizedParquetFileFormat],
         (plan1, plan2) => !plan1.sameResult(plan2)
       )
@@ -193,7 +252,7 @@ class CacheHotTablesForParquetSuite extends CacheHotTablesSuite {
     withSQLConf(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key -> "true",
       OapConf.OAP_CACHE_TABLE_LISTS_ENABLED.key -> "true",
       OapConf.OAP_CACHE_TABLE_LISTS.key -> "default.parquet_test;xxx") {
-      verifyProjectScan(
+      verifyOapProjectScan(
         format => format.isInstanceOf[OptimizedParquetFileFormat],
         (plan1, plan2) => !plan1.sameResult(plan2)
       )
