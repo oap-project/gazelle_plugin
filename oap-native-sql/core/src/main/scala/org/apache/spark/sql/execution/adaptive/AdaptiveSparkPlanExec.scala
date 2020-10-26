@@ -404,7 +404,9 @@ case class AdaptiveSparkPlanExec(
         if (columnarBHJEnabled && parent.isInstanceOf[BroadcastHashJoinExec]) {
           val columnarExchangeChild = b.child match {
             case WholeStageCodegenExec(child: ColumnarToRowExec) =>
-              CoalesceBatchesExec(child.child)
+              //CoalesceBatchesExec(child.child)
+              //TODO:() enable this when fixing hashagg hasNext
+              child.child
             case child: ColumnarToRowExec =>
               CoalesceBatchesExec(child.child)
             case child => {
