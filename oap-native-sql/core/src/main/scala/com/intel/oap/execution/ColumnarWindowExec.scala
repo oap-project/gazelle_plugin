@@ -23,16 +23,17 @@ import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
-import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Descending, Expression, NamedExpression, Rank, SortOrder, WindowExpression, WindowFunction}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, NamedExpression, Rank, SortOrder, WindowExpression, WindowFunction}
 import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Average, Sum}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
@@ -67,48 +68,50 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   val sparkConf = sparkContext.getConf
 
 
-  val windowFunctions = windowExpression
+  val windowFunctions: Seq[(String, Expression)] = windowExpression
       .map(e => e.asInstanceOf[Alias])
       .map(a => a.child.asInstanceOf[WindowExpression])
       .map(w => w.windowFunction)
+      .map {
+        case a: AggregateExpression => a.aggregateFunction
+        case b: WindowFunction => b
+        case f =>
+          throw new UnsupportedOperationException("unsupported window function type: " +
+              f)
+      }
+      .map { f =>
+        val name = f match {
+          case _: Sum => "sum"
+          case _: Average => "avg"
+          case _: Rank =>
+            val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
+              (desc, s) =>
+                val currentDesc = s.direction match {
+                  case Ascending => false
+                  case Descending => true
+                  case _ => throw new IllegalStateException
+                }
+                if (desc.isEmpty) {
+                  Some(currentDesc)
+                } else if (currentDesc == desc.get) {
+                  Some(currentDesc)
+                } else {
+                  throw new UnsupportedOperationException("Rank: clashed rank order found")
+                }
+            }
+            desc match {
+              case Some(true) => "rank_desc"
+              case Some(false) => "rank_asc"
+              case None => "rank_asc"
+            }
+          case f => throw new UnsupportedOperationException("unsupported window function: " + f)
+        }
+        (name, f)
+      }
 
-  if (windowFunctions.size != 1) {
-    throw new UnsupportedOperationException("zero or more than 1 window functions" +
+  if (windowFunctions.isEmpty) {
+    throw new UnsupportedOperationException("zero window functions" +
         "specified in window")
-  }
-  val functionRoot = windowFunctions.toList.head
-  val windowFunction: Expression = functionRoot match {
-    case a: AggregateExpression => a.aggregateFunction
-    case b: WindowFunction => b
-    case _ =>
-      throw new UnsupportedOperationException("unsupported window function type: " +
-          functionRoot)
-  }
-  val windowFunctionName = windowFunction match {
-    case _: Sum => "sum"
-    case _: Average => "avg"
-    case _: Rank =>
-      val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
-        (desc, s) =>
-          val currentDesc = s.direction match {
-            case Ascending => false
-            case Descending => true
-            case _ => throw new IllegalStateException
-          }
-          if (desc.isEmpty) {
-            Some(currentDesc)
-          } else if (currentDesc == desc.get) {
-            Some(currentDesc)
-          } else {
-            throw new UnsupportedOperationException("Rank: clashed rank order found")
-          }
-      }
-      desc match {
-        case Some(true) => "rank_desc"
-        case Some(false) => "rank_asc"
-        case None => "rank_asc"
-      }
-    case _ => throw new UnsupportedOperationException("unsupported window function: " + windowFunction)
   }
 
   override protected def doExecuteColumnar(): RDD[ColumnarBatch] = {
@@ -117,12 +120,23 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         Iterator.empty
       } else {
         val prev1 = System.nanoTime()
-        val gWindowFunction = TreeBuilder.makeFunction(windowFunctionName,
-          windowFunction.children.map(_.asInstanceOf[AttributeReference])
-              .map(e => TreeBuilder.makeField(
-                Field.nullable(e.name,
-                  CodeGeneration.getResultType(e.dataType)))).toList.asJava,
-          NoneType.NONE_TYPE)
+        val gWindowFunctions = windowFunctions.map { case (n, f) =>
+          TreeBuilder.makeFunction(n,
+            f.children
+                .map(e =>
+                  e match {
+                    case a: AttributeReference =>
+                      TreeBuilder.makeField(
+                        Field.nullable(a.name,
+                          CodeGeneration.getResultType(a.dataType)))
+                    case c: Cast =>
+                      TreeBuilder.makeField(
+                        Field.nullable(c.child.asInstanceOf[AttributeReference].name,
+                          CodeGeneration.getResultType(c.dataType))
+                      )
+                  }).toList.asJava,
+            NoneType.NONE_TYPE)
+        }
         val groupingExpressions = partitionSpec.map(e => e.asInstanceOf[AttributeReference])
 
         val gPartitionSpec = TreeBuilder.makeFunction("partitionSpec",
@@ -130,14 +144,22 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             Field.nullable(e.name,
               CodeGeneration.getResultType(e.dataType)))).toList.asJava,
           NoneType.NONE_TYPE)
+        // Workaround:
+        // Gandiva doesn't support serializing Struct type so far. Use a fake Binary type instead.
+        val returnType = ArrowType.Binary.INSTANCE
+        val fieldType = new FieldType(false, returnType, null)
+        val resultField = new Field("window_res", fieldType,
+          windowFunctions.map { case (_, f) =>
+            CodeGeneration.getResultType(f.dataType)
+          }.zipWithIndex.map { case (t, i) =>
+            Field.nullable(s"window_res_" + i, t)
+          }.asJava)
 
-        val returnType = CodeGeneration.getResultType(windowFunction.dataType)
         val window = TreeBuilder.makeFunction("window",
-          List(gWindowFunction, gPartitionSpec).asJava, returnType)
+          (gWindowFunctions.toList ++ List(gPartitionSpec)).asJava, returnType)
 
         val evaluator = new ExpressionEvaluator()
-        val resultField = Field.nullable(s"window_res", returnType)
-        val resultSchema = new Schema(List(resultField).asJava)
+        val resultSchema = new Schema(resultField.getChildren)
         val arrowSchema = ArrowUtils.toArrowSchema(child.schema, SQLConf.get.sessionLocalTimeZone)
         evaluator.build(arrowSchema,
           List(TreeBuilder.makeExpression(window,
@@ -172,9 +194,6 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
              ArrowWritableColumnVector.loadColumns(length, resultSchema, recordBatch)
           } finally {
             recordBatch.close()
-          }
-          if (vectors.size != 1) {
-            throw new IllegalStateException("illegal vector width returned by native, this should not happen")
           }
           val correspondingInputBatch = inputCache(i)
           val batch = new ColumnarBatch(

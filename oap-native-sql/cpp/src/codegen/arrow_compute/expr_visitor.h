@@ -101,7 +101,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
                             std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                             std::shared_ptr<ExprVisitor>* out);
   static arrow::Status MakeWindow(std::shared_ptr<arrow::Schema> schema_ptr,
-                                  std::shared_ptr<arrow::Field> ret_field,
+                                  std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                                   const gandiva::FunctionNode& node,
                                   std::shared_ptr<ExprVisitor>* out);
 
@@ -133,11 +133,11 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
       std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p);
   arrow::Status MakeExprVisitorImpl(
       const std::string& func_name,
-      std::shared_ptr<gandiva::FunctionNode> window_function,
+      std::vector<std::shared_ptr<gandiva::FunctionNode>> window_functions,
       std::shared_ptr<gandiva::FunctionNode> partition_spec,
       std::shared_ptr<gandiva::FunctionNode> order_spec,
       std::shared_ptr<gandiva::FunctionNode> frame_spec,
-      std::shared_ptr<arrow::Field> ret_field,
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields,
       ExprVisitor* p);
   arrow::Status AppendAction(const std::string& func_name,
                              std::vector<std::string> param_name);

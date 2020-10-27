@@ -314,24 +314,24 @@ class AggregateVisitorImpl : public ExprVisitorImpl {
 
 class WindowVisitorImpl : public ExprVisitorImpl {
  public:
-  WindowVisitorImpl(ExprVisitor* p, std::string window_function_name,
-                    std::shared_ptr<arrow::DataType> return_type,
-                    std::vector<gandiva::FieldPtr> function_param_fields,
+  WindowVisitorImpl(ExprVisitor* p, std::vector<std::string> window_function_names,
+                    std::vector<std::shared_ptr<arrow::DataType>> return_types,
+                    std::vector<std::vector<gandiva::FieldPtr>> function_param_fields,
                     std::vector<gandiva::FieldPtr> partition_fields)
       : ExprVisitorImpl(p) {
-    this->window_function_name_ = window_function_name;
-    this->return_type_ = return_type,
+    this->window_function_names_ = window_function_names;
+    this->return_types_ = return_types,
     this->function_param_fields_ = function_param_fields;
     this->partition_fields_ = partition_fields;
   }
 
-  static arrow::Status Make(ExprVisitor* p, std::string window_function_name,
-                            std::shared_ptr<arrow::DataType> return_type,
-                            std::vector<gandiva::FieldPtr> function_param_fields,
+  static arrow::Status Make(ExprVisitor* p, std::vector<std::string> window_function_names,
+                            std::vector<std::shared_ptr<arrow::DataType>> return_types,
+                            std::vector<std::vector<gandiva::FieldPtr>> function_param_fields,
                             std::vector<gandiva::FieldPtr> partition_fields,
                             std::shared_ptr<ExprVisitorImpl>* out) {
     auto impl = std::make_shared<WindowVisitorImpl>(
-        p, window_function_name, return_type, function_param_fields, partition_fields);
+        p, window_function_names, return_types, function_param_fields, partition_fields);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -356,31 +356,40 @@ class WindowVisitorImpl : public ExprVisitorImpl {
 
     RETURN_NOT_OK(extra::EncodeArrayKernel::Make(&p_->ctx_, &partition_kernel_));
 
-    std::vector<std::shared_ptr<arrow::DataType>> function_param_type_list;
-    for (auto function_param_field : function_param_fields_) {
-      std::shared_ptr<arrow::Field> field;
-      int col_id;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, function_param_field->name(),
-                                              &col_id, &field));
-      function_param_field_ids_.push_back(col_id);
-      function_param_type_list.push_back(field->type());
-    }
+    for (int func_id = 0; func_id < window_function_names_.size(); func_id++) {
+      std::string window_function_name = window_function_names_.at(func_id);
+      std::shared_ptr<arrow::DataType> return_type = return_types_.at(func_id);
+      std::vector<gandiva::FieldPtr> function_param_fields_of_each = function_param_fields_.at(func_id);
+      std::shared_ptr<extra::KernalBase> function_kernel;
+      std::vector<int> function_param_field_ids_of_each;
+      std::vector<std::shared_ptr<arrow::DataType>> function_param_type_list;
+      for (auto function_param_field : function_param_fields_of_each) {
+        std::shared_ptr<arrow::Field> field;
+        int col_id;
+        RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, function_param_field->name(),
+                                                &col_id, &field));
+        function_param_field_ids_of_each.push_back(col_id);
+        function_param_type_list.push_back(field->type());
+      }
+      function_param_field_ids_.push_back(function_param_field_ids_of_each);
 
-    if (window_function_name_ == "sum" || window_function_name_ == "avg") {
-      RETURN_NOT_OK(extra::WindowAggregateFunctionKernel::Make(
-          &p_->ctx_, window_function_name_, function_param_type_list, return_type_,
-          &function_kernel_));
-    } else if (window_function_name_ == "rank_asc") {
-      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_,
-                                                  function_param_type_list,
-                                                  &function_kernel_, false));
-    } else if (window_function_name_ == "rank_desc") {
-      RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name_,
-                                                  function_param_type_list,
-                                                  &function_kernel_, true));
-    } else {
-      return arrow::Status::Invalid("window function not supported: " +
-                                    window_function_name_);
+      if (window_function_name == "sum" || window_function_name == "avg") {
+        RETURN_NOT_OK(extra::WindowAggregateFunctionKernel::Make(
+            &p_->ctx_, window_function_name, function_param_type_list, return_type,
+            &function_kernel));
+      } else if (window_function_name == "rank_asc") {
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
+                                                    function_param_type_list,
+                                                    &function_kernel, false));
+      } else if (window_function_name == "rank_desc") {
+        RETURN_NOT_OK(extra::WindowRankKernel::Make(&p_->ctx_, window_function_name,
+                                                    function_param_type_list,
+                                                    &function_kernel, true));
+      } else {
+        return arrow::Status::Invalid("window function not supported: " +
+            window_function_name);
+      }
+      function_kernels_.push_back(function_kernel);
     }
 
     initialized_ = true;
@@ -419,31 +428,60 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       RETURN_NOT_OK(partition_kernel_->Evaluate(in2, &out2));
     }
 
-    ArrayList in3;
-    for (auto col_id : function_param_field_ids_) {
-      if (col_id >= p_->in_record_batch_->num_columns()) {
-        return arrow::Status::Invalid(
-            "WindowVisitorImpl: Function parameter number overflows defined column "
-            "count");
+    for (int func_id = 0; func_id < window_function_names_.size(); func_id++) {
+      ArrayList in3;
+      for (auto col_id : function_param_field_ids_.at(func_id)) {
+        if (col_id >= p_->in_record_batch_->num_columns()) {
+          return arrow::Status::Invalid(
+              "WindowVisitorImpl: Function parameter number overflows defined column "
+              "count");
+        }
+        auto col = p_->in_record_batch_->column(col_id);
+        in3.push_back(col);
       }
-      auto col = p_->in_record_batch_->column(col_id);
-      in3.push_back(col);
+      in3.push_back(out2);
+      RETURN_NOT_OK(function_kernels_.at(func_id)->Evaluate(in3));
     }
-    in3.push_back(out2);
-    RETURN_NOT_OK(function_kernel_->Evaluate(in3));
     return arrow::Status::OK();
   }
 
   arrow::Status Finish() override {
-    ArrayList out0;
-    RETURN_NOT_OK(function_kernel_->Finish(&out0));
+    int32_t num_batches = -1;
+    std::vector<ArrayList> outs;
+    for (int func_id = 0; func_id < window_function_names_.size(); func_id++) {
+      ArrayList out0;
+      RETURN_NOT_OK(function_kernels_.at(func_id)->Finish(&out0));
+      if (num_batches == -1) {
+        num_batches = out0.size();
+      } else if (num_batches != out0.size()) {
+        return arrow::Status::Invalid("WindowVisitorImpl: Return batch counts are not the same for "
+                                      "different window functions");
+      }
+      outs.push_back(out0);
+    }
+    if (num_batches == -1) {
+      return arrow::Status::Invalid("WindowVisitorImpl: No batches returned for window functions");
+    }
     std::vector<ArrayList> out;
     std::vector<int> out_sizes;
-    for (auto each : out0) {
+    for (int batch_id = 0; batch_id < num_batches; batch_id++) {
       ArrayList temp;
-      temp.push_back(each);
+      int64_t length = -1L;
+      for (auto out0 : outs) {
+        std::shared_ptr<arrow::Array> arr = out0.at(batch_id);
+        if (length == -1L) {
+          length = arr->length();
+        } else if (length != arr->length()) {
+          return arrow::Status::Invalid("WindowVisitorImpl: Return array length in the same batch are not the same for "
+                                        "different window functions");
+        }
+        temp.push_back(arr);
+      }
+      if (length == -1) {
+        return arrow::Status::Invalid("WindowVisitorImpl: No valid batch length returned for window functions");
+      }
       out.push_back(temp);
-      out_sizes.push_back(each->length());
+      out_sizes.push_back(length);
     }
     p_->result_batch_list_ = out;
     p_->result_batch_size_list_ = out_sizes;
@@ -452,15 +490,15 @@ class WindowVisitorImpl : public ExprVisitorImpl {
   }
 
  private:
-  std::string window_function_name_;
-  std::shared_ptr<arrow::DataType> return_type_;
-  std::vector<gandiva::FieldPtr> function_param_fields_;
+  std::vector<std::string> window_function_names_;
+  std::vector<std::shared_ptr<arrow::DataType>> return_types_;
+  std::vector<std::vector<gandiva::FieldPtr>> function_param_fields_;
   std::vector<gandiva::FieldPtr> partition_fields_;
-  std::vector<int> function_param_field_ids_;
+  std::vector<std::vector<int>> function_param_field_ids_;
   std::vector<int> partition_field_ids_;
   std::shared_ptr<extra::KernalBase> concat_kernel_;
   std::shared_ptr<extra::KernalBase> partition_kernel_;
-  std::shared_ptr<extra::KernalBase> function_kernel_;
+  std::vector<std::shared_ptr<extra::KernalBase>> function_kernels_;
 };
 
 ////////////////////////// EncodeVisitorImpl ///////////////////////
