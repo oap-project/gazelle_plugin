@@ -29,4 +29,13 @@ echo CCL_ROOT=$CCL_ROOT
 echo GCC Version: $(gcc -dumpversion)
 echo =============================
 
-mvn -DskipTests clean package
+# -Dtest=None to turn off the Java tests
+
+# Enable signal chaining support for JNI
+export LD_PRELOAD=$JAVA_HOME/jre/lib/amd64/libjsig.so
+# Test all
+mvn -Dtest=none -Dmaven.test.skip=false test
+
+# Individual test
+#mvn -Dtest=none -DwildcardSuites=org.apache.spark.ml.clustering.IntelKMeansSuite test
+

@@ -124,14 +124,47 @@ static NumericTablePtr kmeans_compute(int rankId, const NumericTablePtr & pData,
     return NumericTablePtr();
 }
 
+static bool isCenterConverged(const algorithmFPType *oldCenter, const algorithmFPType *newCenter, size_t dim, double tolerance) {
+
+    algorithmFPType sums = 0.0;
+
+    for (size_t i = 0; i < dim; i++)
+        sums += (newCenter[i] - oldCenter[i]) * (newCenter[i] - oldCenter[i]);
+
+    return sums <= tolerance * tolerance;
+}
+
+static bool areAllCentersConverged(const NumericTablePtr & oldCenters, const NumericTablePtr &newCenters, double tolerance) {
+    size_t rows = oldCenters->getNumberOfRows();
+    size_t cols = oldCenters->getNumberOfColumns();
+
+    BlockDescriptor<algorithmFPType> blockOldCenters;
+    oldCenters->getBlockOfRows(0, rows, readOnly, blockOldCenters);
+    algorithmFPType *arrayOldCenters = blockOldCenters.getBlockPtr();
+
+    BlockDescriptor<algorithmFPType> blockNewCenters;
+    newCenters->getBlockOfRows(0, rows, readOnly, blockNewCenters);
+    algorithmFPType *arrayNewCenters = blockNewCenters.getBlockPtr();
+
+    for (size_t i = 0; i < rows; i++) {
+        if (!isCenterConverged(&arrayOldCenters[i*cols],
+                               &arrayNewCenters[i*cols],
+                               cols, tolerance))
+            return false;
+    }
+
+    return true;
+}
+
 /*
  * Class:     org_apache_spark_ml_clustering_KMeansDALImpl
  * Method:    cKMeansDALComputeWithInitCenters
- * Signature: (JJIIIILcom/intel/daal/algorithms/KMeansResult;)J
+ * Signature: (JJIDIIILorg/apache/spark/ml/clustering/KMeansResult;)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_spark_ml_clustering_KMeansDALImpl_cKMeansDALComputeWithInitCenters
   (JNIEnv *env, jobject obj,
-  jlong pNumTabData, jlong pNumTabCenters, jint cluster_num, jint iteration_num,
+  jlong pNumTabData, jlong pNumTabCenters,
+  jint cluster_num, jdouble tolerance, jint iteration_num,
   jint executor_num, jint executor_cores,
   jobject resultObj) {
 
@@ -149,20 +182,45 @@ JNIEXPORT jlong JNICALL Java_org_apache_spark_ml_clustering_KMeansDALImpl_cKMean
 
   algorithmFPType totalCost;
 
-  for (size_t it = 0; it < (size_t)iteration_num; it++) {
+  NumericTablePtr newCentroids;
+  bool converged = false;
+
+  int it = 0;
+  for (it = 0; it < iteration_num && !converged; it++) {
     auto t1 = std::chrono::high_resolution_clock::now();
-    centroids = kmeans_compute(rankId, pData, centroids, cluster_num, executor_num, totalCost);
+
+    newCentroids = kmeans_compute(rankId, pData, centroids, cluster_num, executor_num, totalCost);
+
+    if (rankId == ccl_root) {
+        converged = areAllCentersConverged(centroids, newCentroids, tolerance);
+    }
+
+    // Sync converged status
+    ccl_request_t request;
+    ccl_bcast(&converged, 1, ccl_dtype_char, ccl_root, NULL, NULL, NULL, &request);
+    ccl_wait(request);
+
+    centroids = newCentroids;
+
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>( t2 - t1 ).count();
     std::cout << "KMeans (native): iteration " << it << " took " << duration << " secs" << std::endl;
   }
 
   if (rankId == ccl_root) {
+    if (it == iteration_num)
+        std::cout << "KMeans (native): reached " << iteration_num << " max iterations." << std::endl;
+    else
+        std::cout << "KMeans (native): converged in " << it << " iterations." << std::endl;
+
     // Get the class of the input object
     jclass clazz = env->GetObjectClass(resultObj);
     // Get Field references
     jfieldID totalCostField = env->GetFieldID(clazz, "totalCost", "D");
+    jfieldID iterationNumField = env->GetFieldID(clazz, "iterationNum", "I");
 
+    // Set iteration num for result
+    env->SetIntField(resultObj, iterationNumField, it);
     // Set cost for result
     env->SetDoubleField(resultObj, totalCostField, totalCost);   
 

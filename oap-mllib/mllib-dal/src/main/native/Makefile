@@ -34,6 +34,8 @@ INCS := -I $(JAVA_HOME)/include \
 LIBS := -L${CCL_ROOT}/lib -l:libccl.a \
         -L$(DAALROOT)/lib/intel64 -l:libdaal_core.a -l:libdaal_thread.a \
         -L$(TBBROOT)/lib -ltbb -ltbbmalloc
+#        TODO: Add signal chaining support, should fix linking, package so and loading
+#        -L$(JAVA_HOME)/jre/lib/amd64 -ljsig
 
 CPP_SRCS += \
 ./OneCCL.cpp ./OneDAL.cpp ./KMeansDALImpl.cpp

@@ -17,28 +17,25 @@
 
 package org.apache.spark.ml.clustering
 
-import com.intel.daal.data_management.data.HomogenNumericTable
-
-import scala.collection.mutable
-
 import org.apache.hadoop.fs.Path
-
 import org.apache.spark.annotation.Since
-import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared._
-import org.apache.spark.ml.util._
 import org.apache.spark.ml.util.Instrumentation.instrumented
+import org.apache.spark.ml.util._
+import org.apache.spark.ml.{Estimator, Model, PipelineStage}
 import org.apache.spark.mllib.clustering.{DistanceMeasure, VectorWithNorm, KMeans => MLlibKMeans, KMeansModel => MLlibKMeansModel}
-import org.apache.spark.mllib.linalg.{Vector => OldVector, Vectors => OldVectors}
 import org.apache.spark.mllib.linalg.VectorImplicits._
+import org.apache.spark.mllib.linalg.{Vector => OldVector, Vectors => OldVectors}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, IntegerType, StructType}
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.VersionUtils.majorVersion
+
+import scala.collection.mutable
 
 
 /**
@@ -393,12 +390,12 @@ class KMeans @Since("1.5.0") (
 
   private def trainWithDAL(instances: RDD[(Vector, Double)]): KMeansModel = instrumented { instr =>
 
-    val executor_num = Utils.sparkExecutorNum()
+    val sc = instances.sparkContext
+
+    val executor_num = Utils.sparkExecutorNum(sc)
     val executor_cores = Utils.sparkExecutorCores()
 
     logInfo(s"KMeansDAL fit using $executor_num Executors")
-
-    val sc = instances.sparkContext
 
     val initStartTime = System.nanoTime()
 

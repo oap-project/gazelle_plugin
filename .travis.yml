@@ -119,22 +119,25 @@ jobs:
       dist: bionic
       jdk:
       - openjdk8
-      before_install:
-      - echo ${TRAVIS_COMMIT_MESSAGE}
-      - ${TRAVIS_BUILD_DIR}/oap-mllib/dev/install-build-deps-bionic.sh
+      cache:
+        directories:
+        - /opt/intel/inteloneapi
+        - $HOME/downloads
       install:
-      - # Download spark 3.0
-      - "[ -f spark ] || mkdir spark && cd spark && wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz && cd .."
-      - "tar -xf ./spark/spark-3.0.0-bin-hadoop2.7.tgz"
-      - "export SPARK_HOME=`pwd`/spark-3.0.0-bin-hadoop2.7"
-      before_script:
+      - # Install Spark 3.0
+      - "[ -d $HOME/downloads ] || mkdir $HOME/downloads"
+      - "cd $HOME/downloads && wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz"
+      - "cd $HOME && tar -xf $HOME/downloads/spark-3.0.0-bin-hadoop2.7.tgz"
+      - "export SPARK_HOME=$HOME/spark-3.0.0-bin-hadoop2.7"
+      - # Install Dependencies
+      - ${TRAVIS_BUILD_DIR}/oap-mllib/dev/install-build-deps-ubuntu.sh
       script:
       - cd ${TRAVIS_BUILD_DIR}/oap-mllib/mllib-dal      
       - export ONEAPI_ROOT=/opt/intel/inteloneapi
       - source /opt/intel/inteloneapi/daal/2021.1-beta07/env/vars.sh
       - source /opt/intel/inteloneapi/tbb/2021.1-beta07/env/vars.sh
       - source /tmp/oneCCL/build/_install/env/setvars.sh
-      - ./build.sh
+      - ./test.sh
 
     - name: oap-spark
       before_install:

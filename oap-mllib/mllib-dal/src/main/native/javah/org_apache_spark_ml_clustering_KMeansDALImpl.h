@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     org_apache_spark_ml_clustering_KMeansDALImpl
  * Method:    cKMeansDALComputeWithInitCenters
- * Signature: (JJIIIILcom/intel/daal/algorithms/KMeansResult;)J
+ * Signature: (JJIDIIILorg/apache/spark/ml/clustering/KMeansResult;)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_spark_ml_clustering_KMeansDALImpl_cKMeansDALComputeWithInitCenters
-  (JNIEnv *, jobject, jlong, jlong, jint, jint, jint, jint, jobject);
+  (JNIEnv *, jobject, jlong, jlong, jint, jdouble, jint, jint, jint, jobject);
 
 #ifdef __cplusplus
 }

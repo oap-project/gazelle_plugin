@@ -8,14 +8,6 @@ import org.apache.spark.ml.linalg.Vector
 
 object Utils {
 
-  def profile[R](title: String, block: => R): R = {
-    val start = System.nanoTime()
-    val result = block
-    val end = System.nanoTime()
-    println(s"${title} elapsed: ${end - start} ns")
-    result
-  }
-
   // Return index -> (rows, cols) map
   def getPartitionDims(data: RDD[Vector]): Map[Int, (Int, Int)] = {
     var numCols: Int = 0
@@ -40,15 +32,19 @@ object Utils {
     ret
   }
 
-  // Run on Driver
-  def sparkExecutorNum(): Int = {
-    val conf = new SparkConf()
+  def sparkExecutorNum(sc: SparkContext): Int = {
 
-    val executorNum = conf.getInt("spark.executor.instances", -1)
+    if (sc.master.contains("local"))
+      return 1
 
-    assert(executorNum != -1, message = "spark.executor.instances not set")
+    // Create empty partitions to start executors
+    sc.parallelize(Seq[Int]()).count()
 
-    executorNum
+    // Get running executors infos
+    val executorInfos = sc.statusTracker.getExecutorInfos
+
+    // Return executor number (exclude driver)
+    executorInfos.length - 1
   }
 
   def sparkExecutorCores(): Int = {
@@ -61,9 +57,16 @@ object Utils {
   }
 
   def sparkFirstExecutorIP(sc: SparkContext): String = {
+    // Create empty partitions to start executors
+    sc.parallelize(Seq[Int]()).count()
+
     val info = sc.statusTracker.getExecutorInfos
     // get first executor, info(0) is driver
-    val host = info(1).host()
+
+    val host = if (sc.master.startsWith("local"))
+      info(0).host()
+    else
+      info(1).host()
     val ip = InetAddress.getByName(host).getHostAddress
     ip
   }
@@ -76,7 +79,7 @@ object Utils {
       return false
 
     // check workers' platform compatibility
-    val executor_num = Utils.sparkExecutorNum()
+    val executor_num = Utils.sparkExecutorNum(sc)
     val data = sc.parallelize(1 to executor_num, executor_num)
     val result = data.map { p =>
       LibLoader.loadLibMLlibDAL()
