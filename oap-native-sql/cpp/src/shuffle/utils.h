@@ -34,13 +34,13 @@
 namespace sparkcolumnarplugin {
 namespace shuffle {
 
-#define EVAL_START(name, thread_id)                                          \
-//  auto eval_start = std::chrono::duration_cast<std::chrono::nanoseconds>(    \
+#define EVAL_START(name, thread_id) \
+  //  auto eval_start = std::chrono::duration_cast<std::chrono::nanoseconds>(    \
 //                        std::chrono::system_clock::now().time_since_epoch()) \
 //                        .count();
 
-#define EVAL_END(name, thread_id, task_attempt_id)                      \
-//  std::cout << "xgbtck " << name << " " << eval_start << " "            \
+#define EVAL_END(name, thread_id, task_attempt_id) \
+  //  std::cout << "xgbtck " << name << " " << eval_start << " "            \
 //            << std::chrono::duration_cast<std::chrono::nanoseconds>(    \
 //                   std::chrono::system_clock::now().time_since_epoch()) \
 //                       .count() -                                       \
@@ -52,8 +52,8 @@ static std::string GenerateUUID() {
   return boost::uuids::to_string(generator());
 }
 
-static arrow::Result<std::string> GetSpilledShuffleFileDir(
-    const std::string& configured_dir, int32_t sub_dir_id) {
+static std::string GetSpilledShuffleFileDir(const std::string& configured_dir,
+                                            int32_t sub_dir_id) {
   auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
   std::stringstream ss;
   ss << std::setfill('0') << std::setw(2) << std::hex << sub_dir_id;

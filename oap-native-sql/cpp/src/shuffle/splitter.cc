@@ -39,8 +39,7 @@ SplitOptions SplitOptions::Defaults() { return SplitOptions(); }
 
 class Splitter::PartitionWriter {
  public:
-  explicit PartitionWriter(Splitter* splitter, std::string spilled_file)
-      : splitter_(splitter), spilled_file_(std::move(spilled_file)) {}
+  explicit PartitionWriter(Splitter* splitter) : splitter_(splitter) {}
 
   arrow::Status Spill(const std::shared_ptr<arrow::RecordBatch>& batch) {
     RETURN_NOT_OK(EnsureOpened());
@@ -117,6 +116,8 @@ class Splitter::PartitionWriter {
  private:
   arrow::Status EnsureOpened() {
     if (!spilled_file_opened_) {
+      ARROW_ASSIGN_OR_RAISE(spilled_file_,
+                            CreateTempShuffleFile(splitter_->NextSpilledFileDir()));
       ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
                             arrow::io::FileOutputStream::Open(spilled_file_, true));
       ARROW_ASSIGN_OR_RAISE(
@@ -241,7 +242,7 @@ arrow::Status Splitter::Stop() {
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     if (partition_buffer_idx_base_[pid] > 0) {
       if (partition_writer_[pid] == nullptr) {
-        RETURN_NOT_OK(CreatePartitionWriter(pid));
+        partition_writer_[pid] = std::make_shared<PartitionWriter>(this);
       }
       ARROW_ASSIGN_OR_RAISE(auto batch, MakeRecordBatchAndReset(pid));
       RETURN_NOT_OK(partition_writer_[pid]->WriteLastRecordBatchAndClose(batch));
@@ -417,7 +418,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
 
 arrow::Status Splitter::SpillPartition(int32_t partition_id) {
   if (partition_writer_[partition_id] == nullptr) {
-    RETURN_NOT_OK(CreatePartitionWriter(partition_id));
+    partition_writer_[partition_id] = std::make_shared<PartitionWriter>(this);
   }
   ARROW_ASSIGN_OR_RAISE(auto batch, MakeRecordBatchAndReset(partition_id));
   return partition_writer_[partition_id]->Spill(batch);
@@ -747,17 +748,13 @@ arrow::Status Splitter::AppendBinary(
   return arrow::Status::OK();
 }
 
-arrow::Status Splitter::CreatePartitionWriter(int32_t partition_id) {
-  ARROW_ASSIGN_OR_RAISE(auto spilled_file_dir,
-                        GetSpilledShuffleFileDir(configured_dirs_[dir_selection_],
-                                                 sub_dir_selection_[dir_selection_]))
+std::string Splitter::NextSpilledFileDir() {
+  auto spilled_file_dir = GetSpilledShuffleFileDir(configured_dirs_[dir_selection_],
+                                                   sub_dir_selection_[dir_selection_]);
   sub_dir_selection_[dir_selection_] =
       (sub_dir_selection_[dir_selection_] + 1) % options_.num_sub_dirs;
   dir_selection_ = (dir_selection_ + 1) % configured_dirs_.size();
-  ARROW_ASSIGN_OR_RAISE(auto spilled_file, CreateTempShuffleFile(spilled_file_dir));
-  partition_writer_[partition_id] =
-      std::make_shared<PartitionWriter>(this, std::move(spilled_file));
-  return arrow::Status::OK();
+  return spilled_file_dir;
 }
 
 // ----------------------------------------------------------------------

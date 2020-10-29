@@ -108,7 +108,7 @@ class Splitter {
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> MakeRecordBatchAndReset(
       int32_t partition_id);
 
-  arrow::Status CreatePartitionWriter(int32_t partition_id);
+  std::string NextSpilledFileDir();
 
   arrow::Status AllocatePartitionBuffers(int32_t partition_id, int32_t new_size);
 
