@@ -30,12 +30,97 @@
 
 #if defined(COLUMNAR_PLUGIN_USE_AVX512)
 #include <immintrin.h>
+#else
+#include <xmmintrin.h>
 #endif
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
 
 SplitOptions SplitOptions::Defaults() { return SplitOptions(); }
+#if defined(COLUMNAR_PLUGIN_USE_AVX512)
+inline __m256i CountPartitionIdOccurrence(const std::vector<int32_t>& partition_id,
+                                          int32_t row) {
+  __m128i partid_cnt_low;
+  __m128i partid_cnt_high;
+  int32_t tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7;
+
+  partid_cnt_low = _mm_xor_si128(partid_cnt_low, partid_cnt_low);
+
+  tmp1 = (partition_id[row + 1] ^ partition_id[row]) == 0;
+  partid_cnt_low = _mm_insert_epi32(partid_cnt_low, tmp1, 1);
+
+  tmp2 = (partition_id[row + 2] ^ partition_id[row]) == 0;
+  tmp2 += (partition_id[row + 2] ^ partition_id[row + 1]) == 0;
+  partid_cnt_low = _mm_insert_epi32(partid_cnt_low, tmp2, 2);
+
+  tmp3 = (partition_id[row + 3] ^ partition_id[row]) == 0;
+  tmp3 += (partition_id[row + 3] ^ partition_id[row + 1]) == 0;
+  tmp3 += (partition_id[row + 3] ^ partition_id[row + 2]) == 0;
+  partid_cnt_low = _mm_insert_epi32(partid_cnt_low, tmp3, 3);
+
+  tmp4 = (partition_id[row + 4] ^ partition_id[row]) == 0;
+  tmp4 += (partition_id[row + 4] ^ partition_id[row + 1]) == 0;
+  tmp4 += (partition_id[row + 4] ^ partition_id[row + 2]) == 0;
+  tmp4 += (partition_id[row + 4] ^ partition_id[row + 3]) == 0;
+  partid_cnt_high = _mm_insert_epi32(partid_cnt_high, tmp4, 0);
+
+  tmp5 = (partition_id[row + 5] ^ partition_id[row]) == 0;
+  tmp5 += (partition_id[row + 5] ^ partition_id[row + 1]) == 0;
+  tmp5 += (partition_id[row + 5] ^ partition_id[row + 2]) == 0;
+  tmp5 += (partition_id[row + 5] ^ partition_id[row + 3]) == 0;
+  tmp5 += (partition_id[row + 5] ^ partition_id[row + 4]) == 0;
+  partid_cnt_high = _mm_insert_epi32(partid_cnt_high, tmp5, 1);
+
+  tmp6 = (partition_id[row + 6] ^ partition_id[row]) == 0;
+  tmp6 += (partition_id[row + 6] ^ partition_id[row + 1]) == 0;
+  tmp6 += (partition_id[row + 6] ^ partition_id[row + 2]) == 0;
+  tmp6 += (partition_id[row + 6] ^ partition_id[row + 3]) == 0;
+  tmp6 += (partition_id[row + 6] ^ partition_id[row + 4]) == 0;
+  tmp6 += (partition_id[row + 6] ^ partition_id[row + 5]) == 0;
+  partid_cnt_high = _mm_insert_epi32(partid_cnt_high, tmp6, 2);
+
+  tmp7 = (partition_id[row + 7] ^ partition_id[row]) == 0;
+  tmp7 += (partition_id[row + 7] ^ partition_id[row + 1]) == 0;
+  tmp7 += (partition_id[row + 7] ^ partition_id[row + 2]) == 0;
+  tmp7 += (partition_id[row + 7] ^ partition_id[row + 3]) == 0;
+  tmp7 += (partition_id[row + 7] ^ partition_id[row + 4]) == 0;
+  tmp7 += (partition_id[row + 7] ^ partition_id[row + 5]) == 0;
+  tmp7 += (partition_id[row + 7] ^ partition_id[row + 6]) == 0;
+  partid_cnt_high = _mm_insert_epi32(partid_cnt_high, tmp7, 3);
+
+  __m256i partid_cnt_8x = _mm256_castsi128_si256(partid_cnt_low);
+  partid_cnt_8x = _mm256_inserti128_si256(partid_cnt_8x, partid_cnt_high, 1);
+  return partid_cnt_8x;
+}
+
+inline void PrefetchDstAddr(__m512i dst_addr_8x, int32_t scale) {
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 0), 0) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 0), 1) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 1), 0) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 1), 1) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 2), 0) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 2), 1) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 3), 0) + scale),
+      _MM_HINT_T0);
+  _mm_prefetch(
+      (void*)(_mm_extract_epi64(_mm512_extracti64x2_epi64(dst_addr_8x, 3), 1) + scale),
+      _MM_HINT_T0);
+}
+#endif
 
 class Splitter::PartitionWriter {
  public:
@@ -433,15 +518,18 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
     auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[1]->data());
     const auto& dst_addrs = partition_fixed_width_value_addrs_[col];
     switch (column_type_id_[col_idx]) {
-#define PROCESS(SHUFFLE_TYPE, CTYPE)                                                \
-  case Type::SHUFFLE_TYPE:                                                          \
-    for (auto row = 0; row < num_rows; ++row) {                                     \
-      auto pid = partition_id_[row];                                                \
-      reinterpret_cast<CTYPE*>(dst_addrs[pid])[partition_buffer_idx_base_[pid] +    \
-                                               partition_buffer_idx_offset_[pid]] = \
-          reinterpret_cast<CTYPE*>(src_addr)[row];                                  \
-      partition_buffer_idx_offset_[pid]++;                                          \
-    }                                                                               \
+#define PROCESS(SHUFFLE_TYPE, CTYPE)                                           \
+  case Type::SHUFFLE_TYPE:                                                     \
+    for (auto row = 0; row < num_rows; ++row) {                                \
+      auto pid = partition_id_[row];                                           \
+      auto dst_offset =                                                        \
+          partition_buffer_idx_base_[pid] + partition_buffer_idx_offset_[pid]; \
+      reinterpret_cast<CTYPE*>(dst_addrs[pid])[dst_offset] =                   \
+          reinterpret_cast<CTYPE*>(src_addr)[row];                             \
+      partition_buffer_idx_offset_[pid]++;                                     \
+      _mm_prefetch(&reinterpret_cast<CTYPE*>(dst_addrs[pid])[dst_offset + 1],  \
+                   _MM_HINT_T0);                                               \
+    }                                                                          \
     break;
       PROCESS(SHUFFLE_1BYTE, uint8_t)
       PROCESS(SHUFFLE_2BYTE, uint16_t)
@@ -458,6 +546,8 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
           reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset | 1] =
               reinterpret_cast<uint64_t*>(src_addr)[row << 1 | 1];
           partition_buffer_idx_offset_[pid]++;
+          _mm_prefetch(&reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset + 2],
+                       _MM_HINT_T0);
         }
         break;
       case Type::SHUFFLE_BIT:
@@ -493,23 +583,19 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
     auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[1]->data());
     const auto& dst_addrs = partition_fixed_width_value_addrs_[col];
 
-    // prefetch
-    for (int i = 0; i < num_partitions_; i++) {
-      _mm_prefetch(&(partition_buffer_idx_base_[i]), _MM_HINT_T0);
-      _mm_prefetch(&(partition_buffer_idx_offset_[i]), _MM_HINT_T0);
-      _mm_prefetch(&(dst_addrs[i]), _MM_HINT_T0);
-    }
-
     switch (column_type_id_[col_idx]) {
-#define PROCESS(SHUFFLE_TYPE, CTYPE)                                                \
-  case Type::SHUFFLE_TYPE:                                                          \
-    for (auto row = 0; row < num_rows; ++row) {                                     \
-      auto pid = partition_id_[row];                                                \
-      reinterpret_cast<CTYPE*>(dst_addrs[pid])[partition_buffer_idx_base_[pid] +    \
-                                               partition_buffer_idx_offset_[pid]] = \
-          reinterpret_cast<CTYPE*>(src_addr)[row];                                  \
-      partition_buffer_idx_offset_[pid]++;                                          \
-    }                                                                               \
+#define PROCESS(SHUFFLE_TYPE, CTYPE)                                           \
+  case Type::SHUFFLE_TYPE:                                                     \
+    for (auto row = 0; row < num_rows; ++row) {                                \
+      auto pid = partition_id_[row];                                           \
+      auto dst_offset =                                                        \
+          partition_buffer_idx_base_[pid] + partition_buffer_idx_offset_[pid]; \
+      reinterpret_cast<CTYPE*>(dst_addrs[pid])[dst_offset] =                   \
+          reinterpret_cast<CTYPE*>(src_addr)[row];                             \
+      partition_buffer_idx_offset_[pid]++;                                     \
+      _mm_prefetch(&reinterpret_cast<CTYPE*>(dst_addrs[pid])[dst_offset + 1],  \
+                   _MM_HINT_T0);                                               \
+    }                                                                          \
     break;
       PROCESS(SHUFFLE_1BYTE, uint8_t)
       PROCESS(SHUFFLE_2BYTE, uint16_t)
@@ -518,47 +604,42 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
         auto rows = num_rows - num_rows % 8;
         auto src_addr_32 = reinterpret_cast<uint32_t*>(src_addr);
         for (auto row = 0; row < rows; row += 8) {
+          __m256i partid_cnt_8x = CountPartitionIdOccurrence(partition_id_, row);
+
           // partition id is 32 bit, 8 partition id
           __m256i partid_8x = _mm256_loadu_si256((__m256i*)(partition_id_.data() + row));
-          // dst base address is 64 bit
-          __m512i dst_addr_base_8x =
-              _mm512_i32gather_epi64(partid_8x, dst_addrs.data(), 8);
-          // dst_base and dst_offset are 32bit
+
+          // dst_base and dst_offset are 32 bit
           __m256i dst_idx_base_8x =
               _mm256_i32gather_epi32(partition_buffer_idx_base_.data(), partid_8x, 4);
           __m256i dst_idx_offset_8x =
               _mm256_i32gather_epi32(partition_buffer_idx_offset_.data(), partid_8x, 4);
-
-          partition_buffer_idx_offset_[partition_id_[row]]++;
-          std::vector<int32_t> partid_cnt(8);
-          for (auto i = 1; i < 8; ++i) {
-            for (auto j = i - 1; j >= 0; --j) {
-              if (partition_id_[row + i] == partition_id_[row + j]) {
-                partid_cnt[i] = partid_cnt[j] + 1;
-                break;
-              }
-            }
-            partition_buffer_idx_offset_[partition_id_[row + i]]++;
-          }
-          __m256i partid_cnt_8x = _mm256_loadu_si256((__m256i*)(partid_cnt.data()));
           dst_idx_offset_8x = _mm256_add_epi32(dst_idx_offset_8x, partid_cnt_8x);
           __m256i dst_idx_8x = _mm256_add_epi32(dst_idx_base_8x, dst_idx_offset_8x);
 
-          // prefetch next src block
-          _mm_prefetch((src_addr_32 + row + 128), _MM_HINT_T0);
-
-          // source value is 32 bit
-          __m256i src_val_8x = _mm256_loadu_si256((__m256i*)(src_addr_32 + row));
+          // dst base address is 64 bit
+          __m512i dst_addr_base_8x =
+              _mm512_i32gather_epi64(partid_8x, dst_addrs.data(), 8);
 
           // calculate dst address, dst_addr = dst_base_addr + dst_idx*4
-          //_mm512_cvtepu32_epi64: zero extend dst_offset 32bit*8 -> 64bit*8
+          //_mm512_cvtepu32_epi64: zero extend dst_offset 32bit -> 64bit
           //_mm512_slli_epi64(_, 2): each 64bit dst_offset << 2
           __m512i dst_addr_offset_8x =
               _mm512_slli_epi64(_mm512_cvtepu32_epi64(dst_idx_8x), 2);
           __m512i dst_addr_8x = _mm512_add_epi64(dst_addr_base_8x, dst_addr_offset_8x);
 
+          // source value is 32 bit
+          __m256i src_val_8x = _mm256_loadu_si256((__m256i*)(src_addr_32 + row));
+
           // scatter
           _mm512_i64scatter_epi32(nullptr, dst_addr_8x, src_val_8x, 1);
+
+          // update partition_buffer_idx_offset_
+          partid_cnt_8x = _mm256_add_epi32(partid_cnt_8x, inc_one);
+          _mm256_i32scatter_epi32(partition_buffer_idx_offset_.data(), partid_8x,
+                                  partid_cnt_8x, 4);
+
+          PrefetchDstAddr(dst_addr_8x, 4);
         }
         for (auto row = rows; row < num_rows; ++row) {
           auto pid = partition_id_[row];
@@ -572,48 +653,44 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
         auto rows = num_rows - num_rows % 8;
         auto src_addr_64 = reinterpret_cast<uint64_t*>(src_addr);
         for (auto row = 0; row < rows; row += 8) {
+          __m256i partid_cnt_8x = CountPartitionIdOccurrence(partition_id_, row);
+
           // partition id is 32 bit, 8 partition id
           __m256i partid_8x = _mm256_loadu_si256((__m256i*)(partition_id_.data() + row));
-          // dst base address is 64 bit
-          __m512i dst_addr_base_8x =
-              _mm512_i32gather_epi64(partid_8x, dst_addrs.data(), 8);
-          // dst_base and dst_offset are 32bit
+
+          // dst_base and dst_offset are 32 bit
           __m256i dst_idx_base_8x =
               _mm256_i32gather_epi32(partition_buffer_idx_base_.data(), partid_8x, 4);
           __m256i dst_idx_offset_8x =
               _mm256_i32gather_epi32(partition_buffer_idx_offset_.data(), partid_8x, 4);
-
-          partition_buffer_idx_offset_[partition_id_[row]]++;
-          std::vector<int32_t> partid_cnt(8);
-          for (auto i = 1; i < 8; ++i) {
-            for (auto j = i - 1; j >= 0; --j) {
-              if (partition_id_[row + i] == partition_id_[row + j]) {
-                partid_cnt[i] = partid_cnt[j] + 1;
-                break;
-              }
-            }
-            partition_buffer_idx_offset_[partition_id_[row + i]]++;
-          }
-          __m256i partid_cnt_8x = _mm256_loadu_si256((__m256i*)(partid_cnt.data()));
           dst_idx_offset_8x = _mm256_add_epi32(dst_idx_offset_8x, partid_cnt_8x);
           __m256i dst_idx_8x = _mm256_add_epi32(dst_idx_base_8x, dst_idx_offset_8x);
 
-          // prefetch next src block
-          _mm_prefetch((src_addr_64 + row + 128), _MM_HINT_T0);
-
-          // source value is 64 bit
-          __m512i src_val_8x = _mm512_loadu_si512((__m512i*)(src_addr_64 + row));
+          // dst base address is 64 bit
+          __m512i dst_addr_base_8x =
+              _mm512_i32gather_epi64(partid_8x, dst_addrs.data(), 8);
 
           // calculate dst address, dst_addr = dst_base_addr + dst_idx*8
-          //_mm512_cvtepu32_epi64: zero extend dst_offset 32bit*8 -> 64bit*8
+          //_mm512_cvtepu32_epi64: zero extend dst_offset 32bit -> 64bit
           //_mm512_slli_epi64(_, 3): each 64bit dst_offset << 3
           __m512i dst_addr_offset_8x =
               _mm512_slli_epi64(_mm512_cvtepu32_epi64(dst_idx_8x), 3);
           __m512i dst_addr_8x = _mm512_add_epi64(dst_addr_base_8x, dst_addr_offset_8x);
 
+          // source value is 64 bit
+          __m512i src_val_8x = _mm512_loadu_si512((__m512i*)(src_addr_64 + row));
+
           // scatter
           _mm512_i64scatter_epi64(nullptr, dst_addr_8x, src_val_8x, 1);
+
+          // update partition_buffer_idx_offset_
+          partid_cnt_8x = _mm256_add_epi32(partid_cnt_8x, inc_one);
+          _mm256_i32scatter_epi32(partition_buffer_idx_offset_.data(), partid_8x,
+                                  partid_cnt_8x, 4);
+
+          PrefetchDstAddr(dst_addr_8x, 8);
         }
+        // handle the rest
         for (auto row = rows; row < num_rows; ++row) {
           auto pid = partition_id_[row];
           reinterpret_cast<uint64_t*>(dst_addrs[pid])[partition_buffer_idx_base_[pid] +
@@ -632,6 +709,8 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
           reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset | 1] =
               reinterpret_cast<uint64_t*>(src_addr)[row << 1 | 1];
           partition_buffer_idx_offset_[pid]++;
+          _mm_prefetch(&reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset + 2],
+                       _MM_HINT_T0);
         }
         break;
       case Type::SHUFFLE_BIT:
