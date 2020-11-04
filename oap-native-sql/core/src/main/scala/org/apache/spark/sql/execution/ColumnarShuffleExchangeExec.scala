@@ -141,8 +141,6 @@ class ColumnarShuffleExchangeExec(
 
 object ColumnarShuffleExchangeExec extends Logging {
 
-  val exchanges = new TrieMap[ShuffleExchangeExec, ColumnarShuffleExchangeExec]()
-
   class DummyPairRDDWithPartitions(@transient private val sc: SparkContext, numPartitions: Int)
       extends RDD[Product2[Int, InternalRow]](sc, Nil) {
 
