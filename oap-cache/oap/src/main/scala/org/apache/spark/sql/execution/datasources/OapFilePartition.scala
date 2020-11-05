@@ -29,8 +29,8 @@ import org.apache.spark.sql.internal.oap.OapConf
  * A collection of file blocks that should be read as a single task
  * (possibly from multiple partitioned directories).
  */
-case class FilePartition(index: Int, files: Array[PartitionedFile])
-  extends Partition with InputPartition {
+class OapFilePartition(override val index: Int, override val files: Array[PartitionedFile])
+  extends FilePartition(index: Int, files: Array[PartitionedFile]) {
   override def preferredLocations(): Array[String] = {
     // Computes total number of bytes can be retrieved from each host.
     val hostToNumBytes = mutable.HashMap.empty[String, Long]
@@ -58,13 +58,13 @@ case class FilePartition(index: Int, files: Array[PartitionedFile])
   }
 }
 
-object FilePartition extends Logging {
+object OapFilePartition extends Logging {
 
   def getFilePartitions(
       sparkSession: SparkSession,
       partitionedFiles: Seq[PartitionedFile],
-      maxSplitBytes: Long): Seq[FilePartition] = {
-    val partitions = new ArrayBuffer[FilePartition]
+      maxSplitBytes: Long): Seq[OapFilePartition] = {
+    val partitions = new ArrayBuffer[OapFilePartition]
     val currentFiles = new ArrayBuffer[PartitionedFile]
     var currentSize = 0L
 
@@ -72,7 +72,7 @@ object FilePartition extends Logging {
     def closePartition(): Unit = {
       if (currentFiles.nonEmpty) {
         // Copy to a new Array.
-        val newPartition = FilePartition(partitions.size, currentFiles.toArray)
+        val newPartition = new OapFilePartition(partitions.size, currentFiles.toArray)
         partitions += newPartition
       }
       currentFiles.clear()
