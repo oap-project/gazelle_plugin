@@ -53,6 +53,9 @@ static jmethodID arrow_field_node_builder_constructor;
 static jclass arrowbuf_builder_class;
 static jmethodID arrowbuf_builder_constructor;
 
+static jclass serializable_obj_builder_class;
+static jmethodID serializable_obj_builder_constructor;
+
 static jclass split_result_class;
 static jmethodID split_result_constructor;
 
@@ -252,6 +255,11 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   arrowbuf_builder_constructor =
       GetMethodID(env, arrowbuf_builder_class, "<init>", "(JJIJ)V");
 
+  serializable_obj_builder_class = CreateGlobalClassReference(
+      env, "Lcom/intel/oap/vectorized/NativeSerializableObject;");
+  serializable_obj_builder_constructor =
+      GetMethodID(env, serializable_obj_builder_class, "<init>", "([J[I)V");
+
   split_result_class =
       CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/SplitResult;");
   split_result_constructor = GetMethodID(env, split_result_class, "<init>", "(JJJJJ[J)V");
@@ -289,6 +297,7 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(arrow_field_node_builder_class);
   env->DeleteGlobalRef(arrowbuf_builder_class);
   env->DeleteGlobalRef(arrow_record_batch_builder_class);
+  env->DeleteGlobalRef(serializable_obj_builder_class);
   env->DeleteGlobalRef(split_result_class);
 
   env->DeleteGlobalRef(native_memory_reservation_class);
@@ -737,6 +746,57 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeNext
   return MakeRecordBatchBuilder(env, out->schema(), out);
 }
 
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeNextHashRelation(JNIEnv* env,
+                                                                   jobject obj,
+                                                                   jlong id) {
+  arrow::Status status;
+  auto iter = GetBatchIterator<HashRelation>(env, id);
+  std::shared_ptr<HashRelation> out;
+  status = iter->Next(&out);
+  if (!status.ok()) {
+    std::string error_message =
+        "nativeNext: get Next() failed with error msg " + status.ToString();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+  }
+
+  int src_sizes[3];
+  long src_addrs[3];
+  status = out->UnsafeGetHashTableObject(src_addrs, src_sizes);
+  if (!status.ok()) {
+    auto memory_addrs = env->NewLongArray(0);
+    auto sizes = env->NewIntArray(0);
+    return env->NewObject(serializable_obj_builder_class,
+                          serializable_obj_builder_constructor, memory_addrs, sizes);
+  }
+  auto memory_addrs = env->NewLongArray(3);
+  auto sizes = env->NewIntArray(3);
+  env->SetLongArrayRegion(memory_addrs, 0, 3, src_addrs);
+  env->SetIntArrayRegion(sizes, 0, 3, src_sizes);
+  return env->NewObject(serializable_obj_builder_class,
+                        serializable_obj_builder_constructor, memory_addrs, sizes);
+}
+
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeSetHashRelation(
+    JNIEnv* env, jobject obj, jlong id, jlongArray memory_addrs, jintArray sizes) {
+  arrow::Status status;
+  auto iter = GetBatchIterator<HashRelation>(env, id);
+  std::shared_ptr<HashRelation> out;
+  status = iter->Next(&out);
+  if (!status.ok()) {
+    std::string error_message =
+        "nativeSetHashRelation: get Next() failed with error msg " + status.ToString();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+  }
+
+  int in_len = env->GetArrayLength(memory_addrs);
+  jlong* in_addrs = env->GetLongArrayElements(memory_addrs, 0);
+  jint* in_sizes = env->GetIntArrayElements(sizes, 0);
+  out->UnsafeSetHashTableObject(in_len, in_addrs, in_sizes);
+  env->ReleaseLongArrayElements(memory_addrs, in_addrs, JNI_ABORT);
+  env->ReleaseIntArrayElements(sizes, in_sizes, JNI_ABORT);
+}
+
 JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeProcess(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes) {
@@ -869,7 +929,7 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
     in.push_back(batch->column(i));
   }
 
-  auto iter = GetBatchIterator<arrow::RecordBatch>(env, id);
+  auto iter = GetBatchIterator(env, id);
   status = iter->ProcessAndCacheOne(in);
 
   if (!status.ok()) {
