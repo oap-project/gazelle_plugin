@@ -1,4 +1,4 @@
-/* file: service.h */
+/* file: error_handling.h */
 /*******************************************************************************
 * Copyright 2017-2020 Intel Corporation
 *
@@ -17,31 +17,50 @@
 
 /*
 !  Content:
-!    Auxiliary functions used in C++ samples
+!    Auxiliary error-handling functions used in C++ samples
 !******************************************************************************/
-
-#ifndef _SERVICE_H
-#define _SERVICE_H
-
-#include "daal.h"
-
-using namespace daal::data_management;
-
-#include <algorithm>
-#include <string>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <iomanip>
-#include <cstdarg>
-#include <vector>
-#include <queue>
 
 #include "error_handling.h"
 
-typedef std::vector<daal::byte> ByteBuffer;
+#ifndef _ERROR_HANDLING_H
+#define _ERROR_HANDLING_H
 
-void printNumericTable(const NumericTablePtr & dataTable, const char * message = "", size_t nPrintedRows = 0, size_t nPrintedCols = 0,
-                       size_t interval = 10);
+const int fileError = -1001;
+
+void checkAllocation(void * ptr)
+{
+    if (!ptr)
+    {
+        std::cout << "Error: Memory allocation failed" << std::endl;
+        exit(-1);
+    }
+}
+
+void checkPtr(void * ptr)
+{
+    if (!ptr)
+    {
+        std::cout << "Error: NULL pointer" << std::endl;
+        exit(-2);
+    }
+}
+
+void fileOpenError(const char * filename)
+{
+    std::cout << "Unable to open file '" << filename << "'" << std::endl;
+    exit(fileError);
+}
+
+void fileReadError()
+{
+    std::cout << "Unable to read next line" << std::endl;
+    exit(fileError);
+}
+
+void sparceFileReadError()
+{
+    std::cout << "Incorrect format of file" << std::endl;
+    exit(fileError);
+}
 
 #endif
