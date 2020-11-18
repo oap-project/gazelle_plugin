@@ -2747,7 +2747,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SPARK-21247: Allow case-insensitive type equality in Set operation") {
+  ignore("SPARK-21247: Allow case-insensitive type equality in Set operation") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "false") {
       sql("SELECT struct(1 a) UNION ALL (SELECT struct(2 A))")
       sql("SELECT struct(1 a) EXCEPT (SELECT struct(2 A))")

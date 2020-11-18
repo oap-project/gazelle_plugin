@@ -166,7 +166,7 @@ class DeprecatedAPISuite extends QueryTest with SharedSparkSession {
       Row("Jack", 20) :: Row("Marry", 18) :: Nil)
   }
 
-  test("SQLContext.parquetFile") {
+  ignore("SQLContext.parquetFile") {
     val sqlContext = spark.sqlContext
     withTempDir { dir =>
       val parquetFile = s"${dir.toString}/${System.currentTimeMillis()}"
@@ -217,7 +217,7 @@ class DeprecatedAPISuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("SQLContext.load") {
+  ignore("SQLContext.load") {
     withTempDir { dir =>
       val path = s"${dir.toString}/${System.currentTimeMillis()}"
       val expectDF = spark.range(10).toDF()
