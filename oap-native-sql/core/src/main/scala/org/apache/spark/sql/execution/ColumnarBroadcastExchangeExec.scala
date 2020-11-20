@@ -58,9 +58,7 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
     SQLExecution.withThreadLocalCaptured[broadcast.Broadcast[Any]](
       sqlContext.sparkSession,
       BroadcastExchangeExec.executionContext) {
-      var hashRelationKernel: ExpressionEvaluator = null
-      var hashRelationResultIterator: BatchIterator = null
-      val _input = new ArrayBuffer[ColumnarBatch]()
+      var relation: Any = null
       try {
         // Setup a job group here so later it may get cancelled by groupId if necessary.
         sparkContext.setJobGroup(
@@ -148,13 +146,14 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
           TreeBuilder.makeExpression(
             hash_relation_function,
             Field.nullable("result", new ArrowType.Int(32, true)))
-        hashRelationKernel = new ExpressionEvaluator()
+        val hashRelationKernel = new ExpressionEvaluator()
         hashRelationKernel.build(
           hash_relation_schema,
           Lists.newArrayList(hash_relation_expr),
           true)
         val iter = ConverterUtils.convertFromNetty(output, input)
         var numRows: Long = 0
+        val _input = new ArrayBuffer[ColumnarBatch]()
         while (iter.hasNext) {
           val batch = iter.next
           if (batch.numRows > 0) {
@@ -167,10 +166,11 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
             ConverterUtils.releaseArrowRecordBatch(dep_rb)
           }
         }
-        hashRelationResultIterator = hashRelationKernel.finishByIterator()
+        val hashRelationResultIterator = hashRelationKernel.finishByIterator()
 
         val hashRelationObj = hashRelationResultIterator.nextHashRelationObject()
-        val relation: Any = new ColumnarHashedRelation(hashRelationObj, _input.toArray, size_raw)
+        relation =
+          new ColumnarHashedRelation(hashRelationObj, _input.toArray, size_raw).asReadOnlyCopy
         val dataSize = relation.asInstanceOf[ColumnarHashedRelation].size
 
         longMetric("buildTime") += NANOSECONDS.toMillis(System.nanoTime() - beforeBuild)
@@ -224,12 +224,8 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
           promise.failure(e)
           throw e
       } finally {
-        hashRelationKernel.close
-        hashRelationResultIterator.close
-        _input.toArray.foreach(batch => {
-          (0 until batch.numCols).foreach(i =>
-            batch.column(i).asInstanceOf[ArrowWritableColumnVector].close())
-        })
+        val timeout: Int = SQLConf.get.broadcastTimeout.toInt
+        relation.asInstanceOf[ColumnarHashedRelation].countDownClose(timeout)
       }
     }
   }
