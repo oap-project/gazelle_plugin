@@ -10,11 +10,40 @@ The development of this library is still in progress. As a result some of the fu
 There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.
 
-1. java8 OpenJDK -> yum install java-1.8.0-openjdk
-2. cmake 3.2 or higher version
-3. maven 3.1.1 or higher version
-4. Hadoop 2.7.5 or higher version
-5. Spark 3.0.0 or higher version
+1. gcc 9.3 or higher version
+2. java8 OpenJDK -> yum install java-1.8.0-openjdk
+3. cmake 3.2 or higher version
+4. maven 3.1.1 or higher version
+5. Hadoop 2.7.5 or higher version
+6. Spark 3.0.0 or higher version
+
+### gcc installation
+
+// installing gcc 9.3 or higher version
+Please notes for better performance support, gcc 9.3 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE. 
+https://gcc.gnu.org/install/index.html
+Follow the above website to download gcc.
+You may have to launch ./contrib/download_prerequisites command to install all the prerequisites for gcc.
+If you are facing downloading issue in download_prerequisites command, you can try to change ftp to http.
+
+//Follow the steps to configure gcc
+https://gcc.gnu.org/install/configure.html
+If you are facing a multilib issue, you can try to add --disable-multilib parameter in ../configure
+
+//Follow the steps to build gcc
+https://gcc.gnu.org/install/build.html
+
+//Follow the steps to install gcc
+https://gcc.gnu.org/install/finalinstall.html
+
+//Set up Environment for new gcc
+export PATH=$YOUR_GCC_INSTALLATION_DIR/bin:$PATH
+export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
+Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc
+
+//Verify if gcc has been installation
+Use gcc -v command to verify if your gcc version is correct.(Must larger than 9.3)
+
 
 ### cmake installation
 
@@ -43,7 +72,7 @@ If you are facing some trouble when installing maven, please follow below steps 
 Go to https://maven.apache.org/download.cgi and download the specific version of maven
 
 // Below command use maven 3.6.3 as an example
-wget htps://ftp.wayne.edu/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
+wget https://ftp.wayne.edu/apache/maven/maven-3/3.6.3/binaries/apache-maven-3.6.3-bin.tar.gz
 tar xzf apache-maven-3.6.3-bin.tar.gz
 mkdir /usr/local/maven
 mv apache-maven-3.6.3/ /usr/local/maven/
@@ -152,8 +181,11 @@ If you are new to Apache Spark, please go though [Spark's official deploying gui
 
 To enable ArrowDataSource, the previous built jar `spark-arrow-datasource-standard-0.9.0-jar-with-dependencies.jar` should be added to Spark configuration. Typically the options are:
 
-* `spark.driver.extraClassPath`
-* `spark.executor.extraClassPath`
+* `spark.driver.extraClassPath` : Set to load jar file to driver. 
+* `spark.executor.extraClassPath` : Set to load jar file to executor.
+* `jars` : Set to copy jar file to the executors when using yarn cluster mode.
+* `spark.executorEnv.ARROW_LIBHDFS3_DIR` : Optional if you are using a custom libhdfs3.so.
+* `spark.executorEnv.LD_LIBRARY_PATH` : Optional if you are using a custom libhdfs3.so.
 
 Example to run Spark Shell with ArrowDataSource jar file
 ```
@@ -161,8 +193,8 @@ ${SPARK_HOME}/bin/spark-shell \
         --verbose \
         --master yarn \
         --driver-memory 10G \
-        --conf spark.driver.extraClassPath=$PATH_TO_DATASOURCE_DIR/spark-arrow-datasource-0.9.0-jar-with-dependencies.jar \
-        --conf spark.executor.extraClassPath=$PATH_TO_DATASOURCE_DIR/spark-arrow-datasource-0.9.0-jar-with-dependencies.jar \
+        --conf spark.driver.extraClassPath=/path-to-jar-dir/spark-arrow-datasource-standard-0.9.0-jar-with-dependencies.jar \
+        --conf spark.executor.extraClassPath=/path-to-jar-dir/spark-arrow-datasource-standard-0.9.0-jar-with-dependencies.jar \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
@@ -171,8 +203,9 @@ ${SPARK_HOME}/bin/spark-shell \
         --conf spark.task.cpus=1 \
         --conf spark.locality.wait=0s \
         --conf spark.sql.shuffle.partitions=72 \
-        --conf spark.executorEnv.ARROW_LIBHDFS3_DIR="$PATH_TO_LIBHDFS3_DIR/" \
-        --conf spark.executorEnv.LD_LIBRARY_PATH="$PATH_TO_LIBHDFS3_DEPENDENCIES_DIR"
+        --conf spark.executorEnv.ARROW_LIBHDFS3_DIR=/path-to-libhdfs3-dir/ \
+        --conf spark.executorEnv.LD_LIBRARY_PATH=/path-to-libhdfs3-dir/ \
+        --jars /path-to-jar-dir/spark-arrow-datasource-0.9.0-jar-with-dependencies.jar
 ```
 
 For more information about these options, please read the official Spark [documentation](https://spark.apache.org/docs/latest/configuration.html#runtime-environment).
