@@ -628,6 +628,21 @@ class FilterKernel : public KernalBase {
   std::unique_ptr<Impl> impl_;
   arrow::compute::FunctionContext* ctx_;
 };
+class ConcatArrayKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
+                            std::shared_ptr<KernalBase>* out);
+  ConcatArrayKernel(arrow::compute::FunctionContext* ctx,
+                    std::vector<std::shared_ptr<arrow::DataType>> type_list);
+  arrow::Status Evaluate(const ArrayList& in,
+                         std::shared_ptr<arrow::Array>* out) override;
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

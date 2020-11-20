@@ -37,7 +37,7 @@ trait ColumnarAggregateExpressionBase extends ColumnarExpression with Logging {
   }
 }
 
-class ColumnarUniqueAggregateExpression(aggrFieldList: List[Field]) extends ColumnarAggregateExpressionBase with Logging {
+class ColumnarUniqueAggregateExpression(aggrFieldList: List[Field], hashCollisionCheck: Int = 0) extends ColumnarAggregateExpressionBase with Logging {
 
   override def requiredColNum: Int = 1
   override def expectedResColNum: Int = 1
@@ -49,8 +49,9 @@ class ColumnarUniqueAggregateExpression(aggrFieldList: List[Field]) extends Colu
       // if keyList has keys, we need to do groupby by these keys.
       var inputFieldNode = 
         keyFieldList.map({field => TreeBuilder.makeField(field)}).asJava
+        val encodeArrayFuncName = if (hashCollisionCheck == 1) "encodeArraySafe" else "encodeArray"
       val encodeNode = TreeBuilder.makeFunction(
-        "encodeArray",
+        encodeArrayFuncName,
         inputFieldNode,
         resultType/*this arg won't be used*/)
       inputFieldNode = 
@@ -73,7 +74,7 @@ class ColumnarAggregateExpression(
     aggregateFunction: AggregateFunction,
     mode: AggregateMode,
     isDistinct: Boolean,
-    resultId: ExprId)
+    resultId: ExprId, hashCollisionCheck: Int = 0)
     extends AggregateExpression(aggregateFunction, mode, isDistinct, None, resultId)
     with ColumnarAggregateExpressionBase
     with Logging {
@@ -129,8 +130,9 @@ class ColumnarAggregateExpression(
       // if keyList has keys, we need to do groupby by these keys.
       var inputFieldNode = 
         keyFieldList.map({field => TreeBuilder.makeField(field)}).asJava
+        val encodeArrayFuncName = if (hashCollisionCheck == 1) "encodeArraySafe" else "encodeArray"
       val encodeNode = TreeBuilder.makeFunction(
-        "encodeArray",
+        encodeArrayFuncName,
         inputFieldNode,
         resultType/*this arg won't be used*/)
       inputFieldNode = 

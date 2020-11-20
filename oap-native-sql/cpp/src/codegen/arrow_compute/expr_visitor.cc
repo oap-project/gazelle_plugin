@@ -456,7 +456,11 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(const std::string& func_name,
     goto finish;
   }
   if (func_name.compare("encodeArray") == 0) {
-    RETURN_NOT_OK(EncodeVisitorImpl::Make(p, &impl_));
+    RETURN_NOT_OK(EncodeVisitorImpl::Make(p, 0, &impl_));
+    goto finish;
+  }
+  if (func_name.compare("encodeArraySafe") == 0) {
+    RETURN_NOT_OK(EncodeVisitorImpl::Make(p, 1, &impl_));
     goto finish;
   }
   goto unrecognizedFail;

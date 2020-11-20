@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "codegen/arrow_compute/ext/array_item_index.h"
 #include "third_party/row_wise_memory/unsafe_row.h"
 
 #define MAX_HASH_MAP_CAPACITY (1 << 29)  // must be power of 2
@@ -12,6 +13,8 @@
 #define HASH_FULL -3
 
 #define loadFactor 0.5
+
+using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 
 /** HashMap Layout
  *
@@ -392,7 +395,7 @@ static inline int safeLookup(unsafeHashMap* hashMap, std::shared_ptr<UnsafeRow> 
  */
 template <typename CType>
 static inline int safeLookup(unsafeHashMap* hashMap, CType keyRow, int hashVal,
-                             std::vector<char*>* output) {
+                             std::vector<ArrayItemIndex>* output) {
   assert(hashMap->keyArray != NULL);
   int mask = hashMap->arrayCapacity - 1;
   int pos = hashVal & mask;
@@ -415,8 +418,9 @@ static inline int safeLookup(unsafeHashMap* hashMap, CType keyRow, int hashVal,
         if (keySizeInBytes > 8) {
           if (keyRow == *(CType*)(keyArrayBase + pos * keySizeInBytes + 8)) {
             char* record = base + KeyAddressOffset;
+            (*output).clear();
             while (record != nullptr) {
-              (*output).push_back(getValueFromBytesMap(record));
+              (*output).push_back(*((ArrayItemIndex*)getValueFromBytesMap(record)));
               KeyAddressOffset = getNextOffsetFromBytesMap(record);
               record = KeyAddressOffset == 0 ? nullptr : (base + KeyAddressOffset);
             }
@@ -427,8 +431,9 @@ static inline int safeLookup(unsafeHashMap* hashMap, CType keyRow, int hashVal,
           char* record = base + KeyAddressOffset;
           if (keyRow == *((CType*)getKeyFromBytesMap(record))) {
             // there may be more than one record
+            (*output).clear();
             while (record != nullptr) {
-              (*output).push_back(getValueFromBytesMap(record));
+              (*output).push_back(*((ArrayItemIndex*)getValueFromBytesMap(record)));
               KeyAddressOffset = getNextOffsetFromBytesMap(record);
               record = KeyAddressOffset == 0 ? nullptr : (base + KeyAddressOffset);
             }
@@ -447,7 +452,7 @@ static inline int safeLookup(unsafeHashMap* hashMap, CType keyRow, int hashVal,
 }
 
 static inline int safeLookup(unsafeHashMap* hashMap, const char* keyRow, size_t keyRowLen,
-                             int hashVal, std::vector<char*>* output) {
+                             int hashVal, std::vector<ArrayItemIndex>* output) {
   assert(hashMap->keyArray != NULL);
   int mask = hashMap->arrayCapacity - 1;
   int pos = hashVal & mask;
@@ -470,8 +475,9 @@ static inline int safeLookup(unsafeHashMap* hashMap, const char* keyRow, size_t 
         char* record = base + KeyAddressOffset;
         if (memcmp(keyRow, getKeyFromBytesMap(record), keyLength)) {
           // there may be more than one record
+          (*output).clear();
           while (record != nullptr) {
-            (*output).push_back(getValueFromBytesMap(record));
+            (*output).push_back(*((ArrayItemIndex*)getValueFromBytesMap(record)));
             KeyAddressOffset = getNextOffsetFromBytesMap(record);
             record = KeyAddressOffset == 0 ? nullptr : (base + KeyAddressOffset);
           }
@@ -489,7 +495,7 @@ static inline int safeLookup(unsafeHashMap* hashMap, const char* keyRow, size_t 
 }
 
 static inline int safeLookup(unsafeHashMap* hashMap, std::shared_ptr<UnsafeRow> keyRow,
-                             int hashVal, std::vector<char*>* output) {
+                             int hashVal, std::vector<ArrayItemIndex>* output) {
   assert(hashMap->keyArray != NULL);
   int mask = hashMap->arrayCapacity - 1;
   int pos = hashVal & mask;
@@ -514,8 +520,9 @@ static inline int safeLookup(unsafeHashMap* hashMap, std::shared_ptr<UnsafeRow> 
         if ((getKeyLength(record) == keyLength) &&
             (memcmp(keyRow->data, getKeyFromBytesMap(record), keyLength) == 0)) {
           // there may be more than one record
+          (*output).clear();
           while (record != nullptr) {
-            (*output).push_back(getValueFromBytesMap(record));
+            (*output).push_back(*((ArrayItemIndex*)getValueFromBytesMap(record)));
             KeyAddressOffset = getNextOffsetFromBytesMap(record);
             record = KeyAddressOffset == 0 ? nullptr : (base + KeyAddressOffset);
           }

@@ -660,12 +660,13 @@ class ConditionedProbeKernel::Impl {
           }
         }
         uint64_t out_length = 0;
+        auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
+            unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
@@ -755,12 +756,13 @@ class ConditionedProbeKernel::Impl {
           }
         }
         uint64_t out_length = 0;
+        auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
+            unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
@@ -858,12 +860,13 @@ class ConditionedProbeKernel::Impl {
           }
         }
         uint64_t out_length = 0;
+        auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
+            unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
@@ -952,12 +955,13 @@ class ConditionedProbeKernel::Impl {
         }
 
         uint64_t out_length = 0;
+        auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
+            unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
@@ -1047,12 +1051,13 @@ class ConditionedProbeKernel::Impl {
           }
         }
         uint64_t out_length = 0;
+        auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
         for (int i = 0; i < key_array->length(); i++) {
           int index;
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
+            unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }

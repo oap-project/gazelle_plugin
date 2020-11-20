@@ -39,6 +39,11 @@ struct UnsafeRow {
     }
   }
   int sizeInBytes() { return cursor; }
+  void reset() {
+    auto validity_size = (numFields / 8) + 1;
+    cursor = validity_size;
+    memset(data, 0, validity_size);
+  }
 };
 
 static inline int calculateBitSetWidthInBytes(int numFields) {

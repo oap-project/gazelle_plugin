@@ -1356,6 +1356,70 @@ arrow::Status HashArrayKernel::Evaluate(const ArrayList& in,
   return impl_->Evaluate(in, out);
 }
 
+///////////////  ConcatArray  ////////////////
+class ConcatArrayKernel::Impl {
+ public:
+  Impl(arrow::compute::FunctionContext* ctx,
+       std::vector<std::shared_ptr<arrow::DataType>> type_list)
+      : ctx_(ctx) {
+    pool_ = ctx_->memory_pool();
+    std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::utf8(), &array_builder);
+    builder_.reset(
+        arrow::internal::checked_cast<arrow::StringBuilder*>(array_builder.release()));
+  }
+
+  arrow::Status Evaluate(const ArrayList& in, std::shared_ptr<arrow::Array>* out) {
+    auto length = in[0]->length();
+    std::vector<std::shared_ptr<UnsafeArray>> payloads;
+    int i = 0;
+    for (auto arr : in) {
+      std::shared_ptr<UnsafeArray> payload;
+      RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
+      payloads.push_back(payload);
+    }
+
+    builder_->Reset();
+    std::shared_ptr<UnsafeRow> payload = std::make_shared<UnsafeRow>(payloads.size());
+    for (int i = 0; i < length; i++) {
+      payload->reset();
+      for (auto payload_arr : payloads) {
+        RETURN_NOT_OK(payload_arr->Append(i, &payload));
+      }
+      RETURN_NOT_OK(builder_->Append(payload->data, (int64_t)payload->sizeInBytes()));
+    }
+
+    RETURN_NOT_OK(builder_->Finish(out));
+
+    return arrow::Status::OK();
+  }
+
+ private:
+  arrow::compute::FunctionContext* ctx_;
+  std::unique_ptr<arrow::StringBuilder> builder_;
+  arrow::MemoryPool* pool_;
+};
+
+arrow::Status ConcatArrayKernel::Make(
+    arrow::compute::FunctionContext* ctx,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list,
+    std::shared_ptr<KernalBase>* out) {
+  *out = std::make_shared<ConcatArrayKernel>(ctx, type_list);
+  return arrow::Status::OK();
+}
+
+ConcatArrayKernel::ConcatArrayKernel(
+    arrow::compute::FunctionContext* ctx,
+    std::vector<std::shared_ptr<arrow::DataType>> type_list) {
+  impl_.reset(new Impl(ctx, type_list));
+  kernel_name_ = "ConcatArrayKernel";
+}
+
+arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
+                                          std::shared_ptr<arrow::Array>* out) {
+  return impl_->Evaluate(in, out);
+}
+
 ///////////////  ConcatArrayList  ////////////////
 class ConcatArrayListKernel::Impl {
  public:

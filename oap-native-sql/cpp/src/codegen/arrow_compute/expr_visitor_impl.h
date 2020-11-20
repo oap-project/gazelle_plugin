@@ -511,9 +511,11 @@ class WindowVisitorImpl : public ExprVisitorImpl {
 ////////////////////////// EncodeVisitorImpl ///////////////////////
 class EncodeVisitorImpl : public ExprVisitorImpl {
  public:
-  EncodeVisitorImpl(ExprVisitor* p) : ExprVisitorImpl(p) {}
-  static arrow::Status Make(ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
-    auto impl = std::make_shared<EncodeVisitorImpl>(p);
+  EncodeVisitorImpl(ExprVisitor* p, int hash_table_type)
+      : ExprVisitorImpl(p), hash_table_type_(hash_table_type) {}
+  static arrow::Status Make(ExprVisitor* p, int hash_table_type,
+                            std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl = std::make_shared<EncodeVisitorImpl>(p, hash_table_type);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -534,7 +536,13 @@ class EncodeVisitorImpl : public ExprVisitorImpl {
 
     // create a new kernel to memcpy all keys as one binary array
     if (type_list.size() > 1) {
-      RETURN_NOT_OK(extra::HashArrayKernel::Make(&p_->ctx_, type_list, &concat_kernel_));
+      if (hash_table_type_ == 0) {
+        RETURN_NOT_OK(
+            extra::HashArrayKernel::Make(&p_->ctx_, type_list, &concat_kernel_));
+      } else {
+        RETURN_NOT_OK(
+            extra::ConcatArrayKernel::Make(&p_->ctx_, type_list, &concat_kernel_));
+      }
     }
 
     auto result_field = field("res", arrow::uint64());
@@ -575,6 +583,7 @@ class EncodeVisitorImpl : public ExprVisitorImpl {
   std::vector<int> col_id_list_;
   std::shared_ptr<extra::KernalBase> concat_kernel_;
   uint64_t concat_elapse_time = 0;
+  int hash_table_type_;
 };
 
 ////////////////////////// SortArraysToIndicesVisitorImpl ///////////////////////

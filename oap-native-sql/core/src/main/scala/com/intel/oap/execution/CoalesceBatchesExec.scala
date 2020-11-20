@@ -17,8 +17,11 @@
 
 package com.intel.oap.execution
 
+import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.ArrowWritableColumnVector
+import com.intel.oap.vectorized.CloseableColumnBatchIterator
 import org.apache.arrow.vector.util.VectorBatchAppender
+import org.apache.arrow.memory.{BufferAllocator, RootAllocator}
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -27,7 +30,8 @@ import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.types.{StructType, StructField}
 
 import scala.collection.mutable.ListBuffer
 
@@ -67,23 +71,17 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
       val beforeInput = System.nanoTime
       val hasInput = iter.hasNext
       collectTime += System.nanoTime - beforeInput
-      if (hasInput) {
+      val res = if (hasInput) {
         new Iterator[ColumnarBatch] {
-          var target: ColumnarBatch = _
           var numBatchesTotal: Long = _
           var numRowsTotal: Long = _
+          val resultStructType =
+            StructType(output.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          System.out.println(s"Coalecse schema is ${resultStructType}")
 
           SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
-            closePrevious()
             if (numBatchesTotal > 0) {
               avgCoalescedNumRows.set(numRowsTotal.toDouble / numBatchesTotal)
-            }
-          }
-
-          private def closePrevious(): Unit = {
-            if (target != null) {
-              target.close()
-              target = null
             }
           }
 
@@ -95,7 +93,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
           }
 
           override def next(): ColumnarBatch = {
-            closePrevious()
 
             if (!hasNext) {
               throw new NoSuchElementException("End of ColumnarBatch iterator")
@@ -103,10 +100,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
 
             var rowCount = 0
             val batchesToAppend = ListBuffer[ColumnarBatch]()
-
-            target = iter.next()
-            target.retain()
-            rowCount += target.numRows
 
             while (hasNext && rowCount < recordsPerBatch) {
               val delta = iter.next()
@@ -116,12 +109,16 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
             }
 
             val beforeConcat = System.nanoTime
+            val resultColumnVectors =
+              ArrowWritableColumnVector.allocateColumns(rowCount, resultStructType).toArray
+            val target =
+              new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), rowCount)
             coalesce(target, batchesToAppend.toList)
             target.setNumRows(rowCount)
 
             concatTime += System.nanoTime - beforeConcat
             numOutputRows += rowCount
-            numInputBatches += (1 + batchesToAppend.length)
+            numInputBatches += batchesToAppend.length
             numOutputBatches += 1
 
             // used for calculating avgCoalescedNumRows
@@ -136,6 +133,7 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
       } else {
         Iterator.empty
       }
+      new CloseableColumnBatchIterator(res)
     }
   }
 }
