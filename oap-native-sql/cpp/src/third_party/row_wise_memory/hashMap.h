@@ -44,7 +44,7 @@ typedef struct {
 static inline void dump(unsafeHashMap* hm) {
   printf("=================== HashMap DUMP =======================\n");
   printf("keyarray capacity is %d\n", hm->arrayCapacity);
-  printf("bytemap capacity is %d\n", hm->mapSize);
+  printf("bytemap capacity is %lu\n", hm->mapSize);
   printf("bytesInKey is %d\n", hm->bytesInKeyArray);
   printf("cursor is %d\n", hm->cursor);
   printf("numKeys is %d\n", hm->numKeys);

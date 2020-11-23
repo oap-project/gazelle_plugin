@@ -1314,6 +1314,8 @@ class HashArrayKernel::Impl {
     pool_ = ctx_->memory_pool();
   }
 
+  virtual ~Impl() {}
+
   arrow::Status Evaluate(const ArrayList& in, std::shared_ptr<arrow::Array>* out) {
     auto length = in[0]->length();
     auto num_columns = in.size();

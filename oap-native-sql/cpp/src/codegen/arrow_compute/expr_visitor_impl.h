@@ -39,6 +39,7 @@ namespace arrowcompute {
 class ExprVisitorImpl {
  public:
   ExprVisitorImpl(ExprVisitor* p) : p_(p) {}
+  virtual ~ExprVisitorImpl() {}
   virtual arrow::Status Eval() {
     return arrow::Status::NotImplemented("ExprVisitorImpl Eval is abstract.");
   }

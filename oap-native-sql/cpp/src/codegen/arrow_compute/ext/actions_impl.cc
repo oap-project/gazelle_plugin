@@ -709,6 +709,11 @@ template <typename DataType>
 class AvgAction : public ActionBase {
  public:
   AvgAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                       arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
+    builder_.reset(
+      arrow::internal::checked_cast<arrow::DoubleBuilder*>(builder.release()));
 #ifdef DEBUG
     std::cout << "Construct AvgAction" << std::endl;
 #endif
@@ -767,9 +772,8 @@ class AvgAction : public ActionBase {
       cache_sum_[i] /= cache_count_[i];
     }
     std::shared_ptr<arrow::Array> arr_out;
-    auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(builder->AppendValues(cache_sum_, cache_validity_));
-    RETURN_NOT_OK(builder->Finish(&arr_out));
+    RETURN_NOT_OK(builder_->AppendValues(cache_sum_, cache_validity_));
+    RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
 
     return arrow::Status::OK();
@@ -778,20 +782,20 @@ class AvgAction : public ActionBase {
   uint64_t GetResultLength() { return cache_sum_.size(); }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    builder_->Reset();
     for (int i = 0; i < length; i++) {
       cache_sum_[i + offset] /= cache_count_[i + offset];
     }
     std::shared_ptr<arrow::Array> arr_out;
-    auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
       if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(builder->Append(cache_sum_[offset + i]));
+        RETURN_NOT_OK(builder_->Append(cache_sum_[offset + i]));
       } else {
-        RETURN_NOT_OK(builder->AppendNull());
+        RETURN_NOT_OK(builder_->AppendNull());
       }
     }
 
-    RETURN_NOT_OK(builder->Finish(&arr_out));
+    RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
     return arrow::Status::OK();
   }
@@ -801,6 +805,7 @@ class AvgAction : public ActionBase {
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
   arrow::compute::FunctionContext* ctx_;
   CType* data_;
@@ -817,6 +822,17 @@ template <typename DataType>
 class SumCountAction : public ActionBase {
  public:
   SumCountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> sum_builder;
+    std::unique_ptr<arrow::ArrayBuilder> count_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                      arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &sum_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                      arrow::TypeTraits<arrow::Int64Type>::type_singleton(), &count_builder);                   
+    sum_builder_.reset(
+        arrow::internal::checked_cast<arrow::DoubleBuilder*>(sum_builder.release()));
+    count_builder_.reset(
+        arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
+
 #ifdef DEBUG
     std::cout << "Construct SumCountAction" << std::endl;
 #endif
@@ -869,17 +885,15 @@ class SumCountAction : public ActionBase {
 
   arrow::Status Finish(ArrayList* out) override {
     auto length = GetResultLength();
-    auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
-      RETURN_NOT_OK(sum_builder->Append(cache_sum_[i]));
-      RETURN_NOT_OK(count_builder->Append(cache_count_[i]));
+      RETURN_NOT_OK(sum_builder_->Append(cache_sum_[i]));
+      RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
     }
 
     std::shared_ptr<arrow::Array> sum_array;
     std::shared_ptr<arrow::Array> count_array;
-    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
-    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    RETURN_NOT_OK(sum_builder_->Finish(&sum_array));
+    RETURN_NOT_OK(count_builder_->Finish(&count_array));
     out->push_back(sum_array);
     out->push_back(count_array);
     return arrow::Status::OK();
@@ -888,17 +902,17 @@ class SumCountAction : public ActionBase {
   uint64_t GetResultLength() { return cache_sum_.size(); }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
-    auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
+    sum_builder_->Reset();
+    count_builder_->Reset();
     for (uint64_t i = 0; i < length; i++) {
-      RETURN_NOT_OK(sum_builder->Append(cache_sum_[offset + i]));
-      RETURN_NOT_OK(count_builder->Append(cache_count_[offset + i]));
+      RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
+      RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
     }
 
     std::shared_ptr<arrow::Array> sum_array;
     std::shared_ptr<arrow::Array> count_array;
-    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
-    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    RETURN_NOT_OK(sum_builder_->Finish(&sum_array));
+    RETURN_NOT_OK(count_builder_->Finish(&count_array));
     out->push_back(sum_array);
     out->push_back(count_array);
     return arrow::Status::OK();
@@ -909,6 +923,8 @@ class SumCountAction : public ActionBase {
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
+  std::unique_ptr<arrow::Int64Builder> count_builder_;
   // input
   arrow::compute::FunctionContext* ctx_;
   CType* data_;
@@ -924,6 +940,16 @@ template <typename DataType>
 class SumCountMergeAction : public ActionBase {
  public:
   SumCountMergeAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> sum_builder;
+    std::unique_ptr<arrow::ArrayBuilder> count_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                      arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &sum_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                      arrow::TypeTraits<arrow::Int64Type>::type_singleton(), &count_builder);                   
+    sum_builder_.reset(
+        arrow::internal::checked_cast<arrow::DoubleBuilder*>(sum_builder.release()));
+    count_builder_.reset(
+        arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
 #ifdef DEBUG
     std::cout << "Construct SumCountMergeAction" << std::endl;
 #endif
@@ -978,17 +1004,15 @@ class SumCountMergeAction : public ActionBase {
 
   arrow::Status Finish(ArrayList* out) override {
     auto length = GetResultLength();
-    auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
-      RETURN_NOT_OK(sum_builder->Append(cache_sum_[i]));
-      RETURN_NOT_OK(count_builder->Append(cache_count_[i]));
+      RETURN_NOT_OK(sum_builder_->Append(cache_sum_[i]));
+      RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
     }
 
     std::shared_ptr<arrow::Array> sum_array;
     std::shared_ptr<arrow::Array> count_array;
-    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
-    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    RETURN_NOT_OK(sum_builder_->Finish(&sum_array));
+    RETURN_NOT_OK(count_builder_->Finish(&count_array));
     out->push_back(sum_array);
     out->push_back(count_array);
     return arrow::Status::OK();
@@ -997,17 +1021,17 @@ class SumCountMergeAction : public ActionBase {
   uint64_t GetResultLength() { return cache_sum_.size(); }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
-    auto sum_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    auto count_builder = new arrow::Int64Builder(ctx_->memory_pool());
+    sum_builder_->Reset();
+    count_builder_->Reset();
     for (uint64_t i = 0; i < length; i++) {
-      RETURN_NOT_OK(sum_builder->Append(cache_sum_[offset + i]));
-      RETURN_NOT_OK(count_builder->Append(cache_count_[offset + i]));
+      RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
+      RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
     }
 
     std::shared_ptr<arrow::Array> sum_array;
     std::shared_ptr<arrow::Array> count_array;
-    RETURN_NOT_OK(sum_builder->Finish(&sum_array));
-    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    RETURN_NOT_OK(sum_builder_->Finish(&sum_array));
+    RETURN_NOT_OK(count_builder_->Finish(&count_array));
     out->push_back(sum_array);
     out->push_back(count_array);
     return arrow::Status::OK();
@@ -1019,6 +1043,8 @@ class SumCountMergeAction : public ActionBase {
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
+  std::unique_ptr<arrow::Int64Builder> count_builder_;
   // input
   arrow::compute::FunctionContext* ctx_;
   double* data_sum_;
@@ -1036,6 +1062,11 @@ template <typename DataType>
 class AvgByCountAction : public ActionBase {
  public:
   AvgByCountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), 
+        arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
+    builder_.reset(
+      arrow::internal::checked_cast<arrow::DoubleBuilder*>(builder.release()));                      
 #ifdef DEBUG
     std::cout << "Construct AvgByCountAction" << std::endl;
 #endif
@@ -1099,9 +1130,8 @@ class AvgByCountAction : public ActionBase {
         cache_sum_[i] /= cache_count_[i];
       }
     }
-    auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(builder->AppendValues(cache_sum_, cache_validity_));
-    RETURN_NOT_OK(builder->Finish(&out_arr));
+    RETURN_NOT_OK(builder_->AppendValues(cache_sum_, cache_validity_));
+    RETURN_NOT_OK(builder_->Finish(&out_arr));
     out->push_back(out_arr);
 
     return arrow::Status::OK();
@@ -1110,6 +1140,7 @@ class AvgByCountAction : public ActionBase {
   uint64_t GetResultLength() { return cache_sum_.size(); }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    builder_->Reset();
     for (int i = 0; i < length; i++) {
       if (cache_count_[i + offset] == 0) {
         cache_sum_[i + offset] = 0;
@@ -1118,17 +1149,16 @@ class AvgByCountAction : public ActionBase {
         cache_sum_[i + offset] /= cache_count_[i + offset];
       }
     }
-    auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
       if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(builder->Append(cache_sum_[offset + i]));
+        RETURN_NOT_OK(builder_->Append(cache_sum_[offset + i]));
       } else {
-        RETURN_NOT_OK(builder->AppendNull());
+        RETURN_NOT_OK(builder_->AppendNull());
       }
     }
 
     std::shared_ptr<arrow::Array> out_arr;
-    RETURN_NOT_OK(builder->Finish(&out_arr));
+    RETURN_NOT_OK(builder_->Finish(&out_arr));
     out->push_back(out_arr);
     return arrow::Status::OK();
   }
@@ -1139,6 +1169,7 @@ class AvgByCountAction : public ActionBase {
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
   arrow::compute::FunctionContext* ctx_;
   double* data_sum_;
@@ -1157,6 +1188,21 @@ template <typename DataType>
 class StddevSampPartialAction : public ActionBase {
  public:
   StddevSampPartialAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> count_builder;
+    std::unique_ptr<arrow::ArrayBuilder> avg_builder;
+    std::unique_ptr<arrow::ArrayBuilder> m2_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                       arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &count_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                       arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &avg_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                       arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &m2_builder);                  
+    count_builder_.reset(
+        arrow::internal::checked_cast<arrow::DoubleBuilder*>(count_builder.release()));
+    avg_builder_.reset(
+        arrow::internal::checked_cast<arrow::DoubleBuilder*>(avg_builder.release()));
+    m2_builder_.reset(
+        arrow::internal::checked_cast<arrow::DoubleBuilder*>(m2_builder.release()));    
 #ifdef DEBUG
     std::cout << "Construct StddevSampPartialAction" << std::endl;
 #endif
@@ -1224,9 +1270,8 @@ class StddevSampPartialAction : public ActionBase {
   arrow::Status Finish(ArrayList* out) override {
     // get count
     std::shared_ptr<arrow::Array> count_array;
-    auto count_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(count_builder->AppendValues(cache_count_, cache_validity_));
-    RETURN_NOT_OK(count_builder->Finish(&count_array));
+    RETURN_NOT_OK(count_builder_->AppendValues(cache_count_, cache_validity_));
+    RETURN_NOT_OK(count_builder_->Finish(&count_array));
     // get avg
     std::shared_ptr<arrow::Array> avg_array;
     for (uint64_t i = 0; i < cache_sum_.size(); i++) {
@@ -1236,14 +1281,12 @@ class StddevSampPartialAction : public ActionBase {
         cache_sum_[i] /= cache_count_[i] * 1.0;
       }  
     }
-    auto avg_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(avg_builder->AppendValues(cache_sum_, cache_validity_));
-    RETURN_NOT_OK(avg_builder->Finish(&avg_array));
+    RETURN_NOT_OK(avg_builder_->AppendValues(cache_sum_, cache_validity_));
+    RETURN_NOT_OK(avg_builder_->Finish(&avg_array));
     //get m2
     std::shared_ptr<arrow::Array> m2_array;
-    auto m2_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(m2_builder->AppendValues(cache_m2_, cache_validity_));
-    RETURN_NOT_OK(m2_builder->Finish(&m2_array));
+    RETURN_NOT_OK(m2_builder_->AppendValues(cache_m2_, cache_validity_));
+    RETURN_NOT_OK(m2_builder_->Finish(&m2_array));
 
     out->push_back(count_array);
     out->push_back(avg_array);
@@ -1254,6 +1297,10 @@ class StddevSampPartialAction : public ActionBase {
   uint64_t GetResultLength() { return cache_sum_.size(); }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    count_builder_->Reset();
+    avg_builder_->Reset();
+    m2_builder_->Reset();
+
     for (uint64_t i = 0; i < length; i++) {
       if (cache_count_[i + offset] < 0.00001) {
         cache_sum_[i + offset] = 0;
@@ -1261,29 +1308,26 @@ class StddevSampPartialAction : public ActionBase {
         cache_sum_[i + offset] /= cache_count_[i + offset] * 1.0;
       }
     }
-    auto count_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    auto avg_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    auto m2_builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
       if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(count_builder->Append(cache_count_[offset + i]));
-        RETURN_NOT_OK(avg_builder->Append(cache_sum_[offset + i]));
-        RETURN_NOT_OK(m2_builder->Append(cache_m2_[offset + i]));
+        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
+        RETURN_NOT_OK(avg_builder_->Append(cache_sum_[offset + i]));
+        RETURN_NOT_OK(m2_builder_->Append(cache_m2_[offset + i]));
       } else {
         // append zero to count_builder if all values in this group are null
         double zero = 0;
-        RETURN_NOT_OK(count_builder->Append(zero));
-        RETURN_NOT_OK(avg_builder->Append(zero));
-        RETURN_NOT_OK(m2_builder->Append(zero));
+        RETURN_NOT_OK(count_builder_->Append(zero));
+        RETURN_NOT_OK(avg_builder_->Append(zero));
+        RETURN_NOT_OK(m2_builder_->Append(zero));
       }
     }
 
     std::shared_ptr<arrow::Array> count_array;
     std::shared_ptr<arrow::Array> avg_array;
     std::shared_ptr<arrow::Array> m2_array;
-    RETURN_NOT_OK(count_builder->Finish(&count_array));
-    RETURN_NOT_OK(avg_builder->Finish(&avg_array));
-    RETURN_NOT_OK(m2_builder->Finish(&m2_array));
+    RETURN_NOT_OK(count_builder_->Finish(&count_array));
+    RETURN_NOT_OK(avg_builder_->Finish(&avg_array));
+    RETURN_NOT_OK(m2_builder_->Finish(&m2_array));
     out->push_back(count_array);
     out->push_back(avg_array);
     out->push_back(m2_array);
@@ -1295,6 +1339,9 @@ class StddevSampPartialAction : public ActionBase {
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  std::unique_ptr<arrow::DoubleBuilder> count_builder_;
+  std::unique_ptr<arrow::DoubleBuilder> avg_builder_;
+  std::unique_ptr<arrow::DoubleBuilder> m2_builder_;
   // input
   arrow::compute::FunctionContext* ctx_;
   CType* data_;
@@ -1312,6 +1359,11 @@ template <typename DataType>
 class StddevSampFinalAction : public ActionBase {
  public:
   StddevSampFinalAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> builder;
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                       arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
+    builder_.reset(
+      arrow::internal::checked_cast<arrow::DoubleBuilder*>(builder.release()));
 #ifdef DEBUG
     std::cout << "Construct StddevSampFinalAction" << std::endl;
 #endif
@@ -1389,9 +1441,8 @@ class StddevSampFinalAction : public ActionBase {
       cache_m2_[i] = sqrt(cache_m2_[i] / (cache_count_[i] > 1 ? 
         (cache_count_[i] - 1) : 1));
     }
-    auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
-    RETURN_NOT_OK(builder->AppendValues(cache_m2_, cache_validity_));
-    RETURN_NOT_OK(builder->Finish(&out_arr));
+    RETURN_NOT_OK(builder_->AppendValues(cache_m2_, cache_validity_));
+    RETURN_NOT_OK(builder_->Finish(&out_arr));
     out->push_back(out_arr);
 
     return arrow::Status::OK();
@@ -1400,26 +1451,26 @@ class StddevSampFinalAction : public ActionBase {
   uint64_t GetResultLength() { return cache_count_.size(); }
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    builder_->Reset();
     for (int i = 0; i < length; i++) {
       cache_m2_[i + offset] = sqrt(cache_m2_[i + offset] / 
         (cache_count_[i + offset] > 1 ? (cache_count_[i + offset] - 1) : 1));
     }
-    auto builder = new arrow::DoubleBuilder(ctx_->memory_pool());
     for (uint64_t i = 0; i < length; i++) {
       if (cache_count_[offset + i] - 1 < 0.00001) {
         // append Infinity if only one non-null value exists
         // RETURN_NOT_OK(builder->Append(std::numeric_limits<double>::quiet_NaN()));
-        RETURN_NOT_OK(builder->Append(std::numeric_limits<double>::infinity()));
+        RETURN_NOT_OK(builder_->Append(std::numeric_limits<double>::infinity()));
       } else if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(builder->Append(cache_m2_[offset + i]));
+        RETURN_NOT_OK(builder_->Append(cache_m2_[offset + i]));
       } else {
         // append null if all values are null 
-        RETURN_NOT_OK(builder->AppendNull());
+        RETURN_NOT_OK(builder_->AppendNull());
       }
     }
 
     std::shared_ptr<arrow::Array> out_array;
-    RETURN_NOT_OK(builder->Finish(&out_array));
+    RETURN_NOT_OK(builder_->Finish(&out_array));
     out->push_back(out_array);
     return arrow::Status::OK();
   }
@@ -1430,6 +1481,7 @@ class StddevSampFinalAction : public ActionBase {
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
+  std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
   arrow::compute::FunctionContext* ctx_;
   double* data_count_;
