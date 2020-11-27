@@ -18,11 +18,12 @@
 package org.apache.spark.sql.execution.datasources.oap
 
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.Job
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.execution.datasources.{OutputWriterFactory, PartitionedFile}
+import org.apache.spark.sql.execution.datasources.{OapException, OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.oap.io.{DataFileContext, OapDataReaderV1, ParquetVectorizedContext}
 import org.apache.spark.sql.execution.datasources.oap.utils.FilterHelper
 import org.apache.spark.sql.internal.SQLConf
@@ -40,6 +41,23 @@ private[sql] class OptimizedParquetFileFormat extends OapFileFormat {
   override def hashCode(): Int = getClass.hashCode()
 
   override def equals(other: Any): Boolean = other.isInstanceOf[OptimizedParquetFileFormat]
+
+  override def isSplitable(
+      sparkSession: SparkSession,
+      options: Map[String, String],
+      path: Path): Boolean = {
+    val isSplitable = sparkSession.sparkContext.conf.getBoolean(OapConf.OAP_PARQUET_SPLIT_ENABLED.key,
+      OapConf.OAP_PARQUET_SPLIT_ENABLED.defaultValue.get)
+    if (isSplitable) {
+      logWarning("Enable Parquet file splitable will conflict with OAP index!")
+      if (sparkSession.sparkContext.conf.getBoolean(OapConf.OAP_ENABLE_OINDEX.key,
+          OapConf.OAP_ENABLE_OINDEX.defaultValue.get)) {
+        throw new OapException("Please check configuration. " +
+          "Parquet file splitable conflict with OAP index!")
+      }
+    }
+    isSplitable
+  }
 
   override def prepareWrite(
       sparkSession: SparkSession,
@@ -134,7 +152,7 @@ private[sql] class OptimizedParquetFileFormat extends OapFileFormat {
       }
       val reader = new OapDataReaderV1(file.filePath, m, partitionSchema, requiredSchema,
         filterScanners, requiredIds, pushed, oapMetrics, conf, enableVectorizedReader, options,
-        filters, context)
+        filters, context, file)
       reader.read(file)
     }
   }
