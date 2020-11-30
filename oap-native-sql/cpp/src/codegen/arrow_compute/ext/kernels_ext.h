@@ -311,13 +311,15 @@ class SortArraysToIndicesKernel : public KernalBase {
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
                             std::vector<bool> nulls_order,
+                            bool NaN_check,
                             std::shared_ptr<KernalBase>* out);
   SortArraysToIndicesKernel(arrow::compute::FunctionContext* ctx,
                             std::shared_ptr<arrow::Schema> result_schema,
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order);
+                            std::vector<bool> nulls_order,
+                            bool NaN_check);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,

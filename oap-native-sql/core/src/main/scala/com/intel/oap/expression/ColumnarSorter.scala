@@ -192,7 +192,7 @@ object ColumnarSorter extends Logging {
     val sparkConf = _sparkConf
 
     logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
-    ColumnarPluginConfig.getConf(sparkConf)
+    val NaNCheck = ColumnarPluginConfig.getConf(sparkConf).enableColumnarSortNaNCheck
     /////////////// Prepare ColumnarSorter //////////////
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr)
@@ -268,10 +268,16 @@ object ColumnarSorter extends Logging {
       }).asJava,
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
 
+    val NaN_check_node = TreeBuilder.makeFunction(
+      "NaN_check",
+      Lists.newArrayList(TreeBuilder.makeLiteral(NaNCheck.asInstanceOf[java.lang.Boolean])),
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
     val sortFuncName = "sortArraysToIndices"
     val sort_func_node = TreeBuilder.makeFunction(
       sortFuncName,
-      Lists.newArrayList(sort_keys_node, key_args_node, dir_node, nulls_order_node),
+      Lists.newArrayList(sort_keys_node, key_args_node, dir_node,
+                         nulls_order_node, NaN_check_node),
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
 
     arrowSchema = new Schema(outputFieldList.asJava)

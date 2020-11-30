@@ -623,6 +623,11 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
       bool order_val = arrow::util::get<bool>(order_node->holder());
       nulls_order_.push_back(order_val);
     }
+    // fifth child specifies whether to check NaN when sorting
+    auto function_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(children[4]);
+    auto NaN_check_node = 
+        std::dynamic_pointer_cast<gandiva::LiteralNode>(function_node->children()[0]);
+    NaN_check_ = arrow::util::get<bool>(NaN_check_node->holder());
     result_schema_ = arrow::schema(ret_fields);
   }
 
@@ -642,7 +647,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
     }
     RETURN_NOT_OK(extra::SortArraysToIndicesKernel::Make(
         &p_->ctx_, result_schema_, sort_key_node_, key_field_list_, sort_directions_,
-        nulls_order_, &kernel_));
+        nulls_order_, NaN_check_, &kernel_));
     p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     finish_return_type_ = ArrowComputeResultType::BatchIterator;
@@ -691,6 +696,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
   std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
   std::vector<bool> sort_directions_;
   std::vector<bool> nulls_order_;
+  bool NaN_check_;
   std::shared_ptr<arrow::Schema> result_schema_;
 };
 

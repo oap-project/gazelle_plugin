@@ -22,6 +22,8 @@ import org.apache.spark.SparkConf
 class ColumnarPluginConfig(conf: SparkConf) {
   val enableColumnarSort: Boolean =
     conf.getBoolean("spark.sql.columnar.sort", defaultValue = false)
+  val enableColumnarSortNaNCheck: Boolean =
+    conf.getBoolean("spark.sql.columnar.sort.NaNCheck", defaultValue = false)
   val enableCodegenHashAggregate: Boolean =
     conf.getBoolean("spark.sql.columnar.codegen.hashAggregate", defaultValue = false)
   val enableColumnarBroadcastJoin: Boolean =
