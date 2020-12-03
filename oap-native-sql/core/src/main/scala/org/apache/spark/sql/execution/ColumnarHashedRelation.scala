@@ -58,7 +58,6 @@ class ColumnarHashedRelation(
       if (!closed.getAndSet(true)) {
         hashRelationObj.close
         arrowColumnarBatch.foreach(_.close)
-        System.err.println(s"ColumnarHashedRelation close called")
       }
     }
     refCnt.get

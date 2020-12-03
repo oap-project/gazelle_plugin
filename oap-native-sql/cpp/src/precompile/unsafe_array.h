@@ -47,10 +47,15 @@ class TypedUnsafeArray<DataType, enable_if_number<DataType>> : public UnsafeArra
  public:
   TypedUnsafeArray(int i, const std::shared_ptr<arrow::Array>& in) : idx_(i) {
     typed_array_ = std::make_shared<ArrayType>(in);
+    if (typed_array_->null_count() == 0) {
+      skip_null_check_ = true;
+    } else {
+      skip_null_check_ = false;
+    }
   }
   ~TypedUnsafeArray() {}
   arrow::Status Append(int i, std::shared_ptr<UnsafeRow>* unsafe_row) override {
-    if (typed_array_->IsNull(i)) {
+    if (!skip_null_check_ && typed_array_->IsNull(i)) {
       setNullAt((*unsafe_row).get(), idx_);
     } else {
       auto v = typed_array_->GetView(i);
@@ -64,6 +69,7 @@ class TypedUnsafeArray<DataType, enable_if_number<DataType>> : public UnsafeArra
   using CType = typename TypeTraits<DataType>::CType;
   std::shared_ptr<ArrayType> typed_array_;
   int idx_;
+  bool skip_null_check_ = false;
 };
 
 template <typename DataType>
@@ -71,10 +77,15 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
  public:
   TypedUnsafeArray(int i, const std::shared_ptr<arrow::Array>& in) : idx_(i) {
     typed_array_ = std::make_shared<ArrayType>(in);
+    if (typed_array_->null_count() == 0) {
+      skip_null_check_ = true;
+    } else {
+      skip_null_check_ = false;
+    }
   }
   ~TypedUnsafeArray() {}
   arrow::Status Append(int i, std::shared_ptr<UnsafeRow>* unsafe_row) override {
-    if (typed_array_->IsNull(i)) {
+    if (!skip_null_check_ && typed_array_->IsNull(i)) {
       setNullAt((*unsafe_row).get(), idx_);
     } else {
       auto v = typed_array_->GetString(i);
@@ -88,6 +99,7 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
   using CType = typename TypeTraits<DataType>::CType;
   std::shared_ptr<ArrayType> typed_array_;
   int idx_;
+  bool skip_null_check_ = false;
 };
 
 arrow::Status MakeUnsafeArray(std::shared_ptr<arrow::DataType> type, int idx,

@@ -132,6 +132,8 @@ class HashRelationKernel::Impl {
     }
   }
 
+  ~Impl() {}
+
   arrow::Status Evaluate(const ArrayList& in) {
     for (int i = 0; i < in.size(); i++) {
       RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
@@ -184,8 +186,7 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)
-      if (project_outputs.size() == 1 &&
-          project_outputs[0]->type_id() != arrow::Type::STRING) {
+      if (project_outputs.size() == 1) {
         switch (project_outputs[0]->type_id()) {
 #define PROCESS(InType)                                                   \
   case TypeTraits<InType>::type_id: {                                     \
@@ -202,6 +203,7 @@ class HashRelationKernel::Impl {
           } break;
         }
 #undef PROCESS_SUPPORTED_TYPES
+
       } else {
         /* Append key array to UnsafeArray for later UnsafeRow projection */
         std::vector<std::shared_ptr<UnsafeArray>> payloads;

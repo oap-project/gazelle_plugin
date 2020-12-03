@@ -287,7 +287,9 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
                << GetTypeString(input_field_list[i]->type(), "Array") << ">(in[" << i
                << "]);";
     }
-
+    if (codegen_ctx_list.size() > 0) {
+      codes_ss << codegen_ctx_list[0]->unsafe_row_prepare_codes << std::endl;
+    }
     codes_ss << R"(
           uint64_t out_length = 0;
           auto length = typed_in_0->length();
@@ -321,8 +323,14 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       }
     }
     // paste children's codegen
+    int codegen_ctx_idx = 0;
     for (auto codegen_ctx : codegen_ctx_list) {
+      codegen_ctx_idx++;
       codes_ss << codegen_ctx->prepare_codes << std::endl;
+      if (codegen_ctx_idx < codegen_ctx_list.size()) {
+        codes_ss << codegen_ctx_list[codegen_ctx_idx]->unsafe_row_prepare_codes
+                 << std::endl;
+      }
       codes_ss << codegen_ctx->process_codes << std::endl;
     }
 
