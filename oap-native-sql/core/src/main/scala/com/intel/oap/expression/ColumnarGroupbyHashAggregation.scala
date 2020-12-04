@@ -381,6 +381,8 @@ object ColumnarGroupbyHashAggregation extends Logging {
               "action_avgByCount",
               childrenColumnarFuncNodeList.asJava,
               resultType)
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
       case Sum(_) =>
         val childrenColumnarFuncNodeList =
@@ -389,6 +391,8 @@ object ColumnarGroupbyHashAggregation extends Logging {
               aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
             case Final | PartialMerge =>
               List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         TreeBuilder.makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
       case Count(_) =>
@@ -410,6 +414,8 @@ object ColumnarGroupbyHashAggregation extends Logging {
               List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
             TreeBuilder
               .makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
       case Max(_) =>
         val childrenColumnarFuncNodeList =
@@ -418,6 +424,8 @@ object ColumnarGroupbyHashAggregation extends Logging {
               aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
             case Final | PartialMerge =>
               List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         TreeBuilder.makeFunction("action_max", childrenColumnarFuncNodeList.asJava, resultType)
       case Min(_) =>
@@ -427,6 +435,8 @@ object ColumnarGroupbyHashAggregation extends Logging {
               aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
             case Final | PartialMerge =>
               List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         TreeBuilder.makeFunction("action_min", childrenColumnarFuncNodeList.asJava, resultType)
       case StddevSamp(_) =>
@@ -437,13 +447,15 @@ object ColumnarGroupbyHashAggregation extends Logging {
             TreeBuilder.makeFunction("action_stddev_samp_partial",
               childrenColumnarFuncNodeList.asJava, resultType)
           case PartialMerge =>
-            throw new UnsupportedOperationException("stddev_samp PartialMerge is not supported.")
+            throw new UnsupportedOperationException("not currently supported: PartialMerge.")
           case Final =>
             val childrenColumnarFuncNodeList =
               List(inputAttrQueue.dequeue, inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
                 getColumnarFuncNode(attr))
             TreeBuilder.makeFunction("action_stddev_samp_final",
               childrenColumnarFuncNodeList.asJava, resultType)
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
@@ -482,6 +494,8 @@ object ColumnarGroupbyHashAggregation extends Logging {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Sum(_) => mode match {
           case Partial | PartialMerge => {
@@ -491,10 +505,12 @@ object ColumnarGroupbyHashAggregation extends Logging {
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Count(_) => mode match {
           case Partial | PartialMerge => {
@@ -504,10 +520,12 @@ object ColumnarGroupbyHashAggregation extends Logging {
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Max(_) => mode match {
           case Partial | PartialMerge => {
@@ -517,10 +535,12 @@ object ColumnarGroupbyHashAggregation extends Logging {
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Min(_) => mode match {
           case Partial | PartialMerge => {
@@ -530,10 +550,12 @@ object ColumnarGroupbyHashAggregation extends Logging {
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case StddevSamp(_) => mode match {
           case Partial => {
@@ -546,12 +568,14 @@ object ColumnarGroupbyHashAggregation extends Logging {
             res_index += 3
           }
           case PartialMerge => {
-            throw new UnsupportedOperationException("stddev_samp PartialMerge is not supported.")
+            throw new UnsupportedOperationException("not currently supported: PartialMerge.")
           }
           case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")

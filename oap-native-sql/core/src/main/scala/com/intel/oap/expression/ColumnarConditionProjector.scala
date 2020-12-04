@@ -147,7 +147,7 @@ class ColumnarConditionProjector(
         Projector.make(arrowSchema, fieldNodesList)
       }
     } catch {
-      case e =>
+      case e : Throwable =>
         logError(
           s"\noriginalInputAttributes is ${originalInputAttributes} ${originalInputAttributes.map(
             _.dataType)}, \narrowSchema is ${arrowSchema}, \nProjection is ${prepareList.map(_._1.toProtobuf)}")

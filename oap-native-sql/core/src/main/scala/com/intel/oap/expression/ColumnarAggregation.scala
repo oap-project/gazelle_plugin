@@ -283,6 +283,8 @@ class ColumnarAggregation(
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Sum(_) => mode match {
           case Partial | PartialMerge => {
@@ -292,10 +294,12 @@ class ColumnarAggregation(
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Count(_) => mode match {
           case Partial | PartialMerge => {
@@ -305,10 +309,12 @@ class ColumnarAggregation(
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Max(_) => mode match {
           case Partial | PartialMerge => {
@@ -318,10 +324,12 @@ class ColumnarAggregation(
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case Min(_) => mode match {
           case Partial | PartialMerge => {
@@ -331,10 +339,12 @@ class ColumnarAggregation(
             aggregateAttr += attr
             res_index += 1
           }
-          case _ => {
+          case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case StddevSamp(_) => mode match {
           case Partial => {
@@ -347,12 +357,14 @@ class ColumnarAggregation(
             res_index += 3
           }
           case PartialMerge => {
-            throw new UnsupportedOperationException("stddev_samp PartialMerge is not supported.")
+            throw new UnsupportedOperationException("not currently supported: PartialMerge.")
           }
           case Final => {
             aggregateAttr += aggregateAttributeList(res_index)
             res_index += 1
           }
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")

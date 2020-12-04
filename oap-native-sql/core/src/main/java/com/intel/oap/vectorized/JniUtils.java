@@ -17,8 +17,6 @@
 
 package com.intel.oap.vectorized;
 
-import sun.net.www.protocol.file.FileURLConnection;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -153,7 +151,7 @@ public class JniUtils {
       if (urlConnection instanceof JarURLConnection) {
         final JarFile jarFile = ((JarURLConnection) urlConnection).getJarFile();
         extractResourcesToDirectory(jarFile, folderToLoad, tmp_dir + "/" + "nativesql_include");
-      } else if (urlConnection instanceof FileURLConnection) {
+      } else {
         // For Maven test only
         String path = urlConnection.getURL().toString();
         if (urlConnection.getURL().toString().startsWith("file:")) {
@@ -161,10 +159,8 @@ public class JniUtils {
           path = urlConnection.getURL().toString().substring(5);
         }
         final File folder = new File(path);
-        copyResourcesToDirectory((FileURLConnection) urlConnection,
-                          tmp_dir + "/" + "nativesql_include", folder);
-      } else {
-        throw new IOException(urlConnection.toString() + " is not JarUrlConnection or FileURLConnection");
+        copyResourcesToDirectory(urlConnection,
+                         tmp_dir + "/" + "nativesql_include", folder);
       }
     }
   }
@@ -231,7 +227,7 @@ public class JniUtils {
     }
   }
 
-  public static void copyResourcesToDirectory(FileURLConnection urlConnection,
+  public static void copyResourcesToDirectory(URLConnection urlConnection,
                                               String destPath, File folder) throws IOException {
     for (final File fileEntry : Objects.requireNonNull(folder.listFiles())) {
       String destFilePath = destPath + "/" + fileEntry.getName();
