@@ -32,7 +32,7 @@ import org.apache.spark.sql.execution._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.util.{UserAddedJarUtils, Utils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
@@ -72,7 +72,9 @@ trait ColumnarCodegenSupport extends SparkPlan {
 case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: Int)
     extends UnaryExecNode
     with ColumnarCodegenSupport {
+
   val sparkConf = sparkContext.getConf
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkConf).numaBindingInfo
 
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
@@ -214,6 +216,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildPlan = p.getBuildPlan
           val buildInputByteBuf = buildPlan.executeBroadcast[ColumnarHashedRelation]()
           curRDD.mapPartitions { iter =>
+            ExecutorManager.tryTaskSet(numaBindingInfo)
             // received broadcast value contain a hashmap and raw recordBatch
             val beforeFetch = System.nanoTime()
             val relation = buildInputByteBuf.value.asReadOnlyCopy
@@ -257,6 +260,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildTime = p.longMetric("buildTime")
           val buildPlan = p.getBuildPlan
           curRDD.zipPartitions(buildPlan.executeColumnar()) { (iter, depIter) =>
+            ExecutorManager.tryTaskSet(numaBindingInfo)
             val ctx = curHashPlan.dependentPlanCtx
             val expression =
               TreeBuilder.makeExpression(
@@ -290,6 +294,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       idx += 1
     }
     curRDD.mapPartitions { iter =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       ColumnarPluginConfig.getConf(sparkConf)
       val execTempDir = ColumnarPluginConfig.getTempFile
       val jarList = listJars

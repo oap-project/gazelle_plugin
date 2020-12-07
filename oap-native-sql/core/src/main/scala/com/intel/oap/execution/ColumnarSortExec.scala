@@ -31,7 +31,7 @@ import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReference
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.util.{UserAddedJarUtils, Utils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
@@ -46,6 +46,7 @@ class ColumnarSortExec(
     extends SortExec(sortOrder, global, child, testSpillFrequency) {
 
   val sparkConf = sparkContext.getConf
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
   override def supportsColumnar = true
 
   // Disable code generation
@@ -102,6 +103,7 @@ class ColumnarSortExec(
     val listJars = uploadAndListJars(signature)
     listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
     child.executeColumnar().mapPartitions { iter =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       val hasInput = iter.hasNext
       val res = if (!hasInput) {
         Iterator.empty

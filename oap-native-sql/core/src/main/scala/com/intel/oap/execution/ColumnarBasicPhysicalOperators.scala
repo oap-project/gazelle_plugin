@@ -17,6 +17,7 @@
 
 package com.intel.oap.execution
 
+import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
 import org.apache.spark.sql.catalyst.InternalRow
@@ -28,6 +29,7 @@ import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.util.ExecutorManager
 import org.apache.spark.TaskContext
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
@@ -43,6 +45,8 @@ case class ColumnarConditionProjectExec(
     with PredicateHelper
     with AliasAwareOutputPartitioning
     with Logging {
+
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
 
   def isNullIntolerant(expr: Expression): Boolean = expr match {
     case e: NullIntolerant => e.children.forall(isNullIntolerant)
@@ -187,6 +191,7 @@ case class ColumnarConditionProjectExec(
     numInputBatches.set(0)
 
     child.executeColumnar().mapPartitions { iter =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       val condProj = ColumnarConditionProjector.create(
         condition,
         projectList,
@@ -196,8 +201,8 @@ case class ColumnarConditionProjectExec(
         numOutputRows,
         procTime)
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((tc: TaskContext) => {
-          condProj.close()
-        })
+        condProj.close()
+      })
       new CloseableColumnBatchIterator(condProj.createIterator(iter))
     }
   }

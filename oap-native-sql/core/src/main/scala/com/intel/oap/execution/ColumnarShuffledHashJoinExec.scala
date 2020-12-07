@@ -23,7 +23,7 @@ import com.intel.oap.vectorized._
 import com.intel.oap.ColumnarPluginConfig
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{UserAddedJarUtils, Utils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
@@ -70,6 +70,7 @@ case class ColumnarShuffledHashJoinExec(
     with HashJoin {
 
   val sparkConf = sparkContext.getConf
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
@@ -196,6 +197,7 @@ case class ColumnarShuffledHashJoinExec(
     var build_elapse: Long = 0
     var eval_elapse: Long = 0
     streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) { (iter, depIter) =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       val hashRelationKernel = new ExpressionEvaluator()
       val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
       val enableHashCollisionCheck = ColumnarPluginConfig.getConf(sparkConf).hashCompare
@@ -407,6 +409,7 @@ case class ColumnarShuffledHashJoinExec(
     if (hashTableType == 1) {
       streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
         (streamIter, buildIter) =>
+          ExecutorManager.tryTaskSet(numaBindingInfo)
           ColumnarPluginConfig.getConf(sparkConf)
           val execTempDir = ColumnarPluginConfig.getTempFile
           val jarList = listJars
@@ -508,6 +511,7 @@ case class ColumnarShuffledHashJoinExec(
     } else {
       streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
         (streamIter, buildIter) =>
+          ExecutorManager.tryTaskSet(numaBindingInfo)
           ColumnarPluginConfig.getConf(sparkConf)
           val execTempDir = ColumnarPluginConfig.getTempFile
           val jarList = listJars

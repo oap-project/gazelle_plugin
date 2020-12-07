@@ -17,10 +17,16 @@
 
 package com.intel.oap.execution
 
+import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.vectorized._
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader, PartitionReaderFactory}
+import org.apache.spark.util._
+import org.apache.spark.sql.connector.read.{
+  InputPartition,
+  PartitionReader,
+  PartitionReaderFactory
+}
 import org.apache.spark.sql.execution.datasources.{FilePartition, PartitionedFile}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
@@ -44,6 +50,7 @@ class ColumnarDataSourceRDD(
     inputSize: SQLMetric,
     tmp_dir: String)
     extends RDD[ColumnarBatch](sc, Nil) {
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sc.getConf).numaBindingInfo
 
   override protected def getPartitions: Array[Partition] = {
     inputPartitions.zipWithIndex.map {
@@ -57,6 +64,7 @@ class ColumnarDataSourceRDD(
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[ColumnarBatch] = {
+    ExecutorManager.tryTaskSet(numaBindingInfo)
     val inputPartition = castPartition(split).inputPartition
     inputPartition match {
       case p: FilePartition =>

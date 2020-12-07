@@ -20,6 +20,7 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit
 
 import com.google.flatbuffers.FlatBufferBuilder
+import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
@@ -36,6 +37,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.ArrayType
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.util.ExecutorManager
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -66,7 +68,7 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   val totalTime = longMetric("totalTime")
 
   val sparkConf = sparkContext.getConf
-
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
 
   val windowFunctions: Seq[(String, Expression)] = windowExpression
       .map(e => e.asInstanceOf[Alias])
@@ -116,6 +118,7 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
 
   override protected def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       if (!iter.hasNext) {
         Iterator.empty
       } else {

@@ -25,7 +25,7 @@ import com.intel.oap.vectorized._
 import com.intel.oap.ColumnarPluginConfig
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{UserAddedJarUtils, Utils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
@@ -76,6 +76,7 @@ case class ColumnarBroadcastHashJoinExec(
     with HashJoin {
 
   val sparkConf = sparkContext.getConf
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
@@ -207,6 +208,7 @@ case class ColumnarBroadcastHashJoinExec(
     val timeout = ColumnarPluginConfig.getConf(sparkConf).broadcastCacheTimeout
 
     streamedPlan.executeColumnar().mapPartitions { iter =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       val hashRelationKernel = new ExpressionEvaluator()
       val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
       // received broadcast value contain a hashmap and raw recordBatch
@@ -407,6 +409,7 @@ case class ColumnarBroadcastHashJoinExec(
     val timeout = ColumnarPluginConfig.getConf(sparkConf).broadcastCacheTimeout
 
     streamedPlan.executeColumnar().mapPartitions { streamIter =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       ColumnarPluginConfig.getConf(sparkConf)
       val execTempDir = ColumnarPluginConfig.getTempFile
       val jarList = listJars

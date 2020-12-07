@@ -25,7 +25,7 @@ import java.util.concurrent.TimeUnit._
 import org.apache.spark.TaskContext
 import org.apache.spark.memory.{SparkOutOfMemoryError, TaskMemoryManager}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{UserAddedJarUtils, Utils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.errors._
 import org.apache.spark.sql.catalyst.expressions._
@@ -45,7 +45,6 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.{DecimalType, StringType, StructType}
 import org.apache.spark.unsafe.KVIterator
-import org.apache.spark.util.Utils
 
 import scala.collection.Iterator
 
@@ -70,6 +69,7 @@ class ColumnarHashAggregateExec(
       child) {
 
   val sparkConf = sparkContext.getConf
+  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
   override def supportsColumnar = true
 
   // Disable code generation
@@ -136,6 +136,7 @@ class ColumnarHashAggregateExec(
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>
+      ExecutorManager.tryTaskSet(numaBindingInfo)
       val hasInput = iter.hasNext
       val res = if (!hasInput) {
         // This is a grouped aggregate and the input iterator is empty,

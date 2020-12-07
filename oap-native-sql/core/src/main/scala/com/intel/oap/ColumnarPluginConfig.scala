@@ -19,6 +19,11 @@ package com.intel.oap
 
 import org.apache.spark.SparkConf
 
+case class ColumnarNumaBindingInfo(
+    enableNumaBinding: Boolean,
+    totalCoreRange: Array[String] = null,
+    numCoresPerExecutor: Int = -1) {}
+
 class ColumnarPluginConfig(conf: SparkConf) {
   val enableColumnarSort: Boolean =
     conf.getBoolean("spark.sql.columnar.sort", defaultValue = false)
@@ -51,6 +56,29 @@ class ColumnarPluginConfig(conf: SparkConf) {
     conf.getInt("spark.sql.columnar.sort.broadcast.cache.timeout", defaultValue = -1)
   val hashCompare: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.hashCompare", defaultValue = false)
+  val numaBindingInfo: ColumnarNumaBindingInfo = {
+    val enableNumaBinding: Boolean =
+      conf.getBoolean("spark.oap.sql.columnar.numaBinding", defaultValue = false)
+    if (enableNumaBinding == false) {
+      ColumnarNumaBindingInfo(false)
+    } else {
+      val tmp = conf.getOption("spark.oap.sql.columnar.coreRange").getOrElse(null)
+      if (tmp == null) {
+        ColumnarNumaBindingInfo(false)
+      } else {
+        val numCores = conf.getInt("spark.executor.cores", defaultValue = 1)
+        val coreRangeList: Array[String] = tmp.split('|').map(_.trim)
+            /*val res = range.trim.split("-")
+            res match {
+              case Array(start, end, _*) => (start.toInt, end.toInt)
+              case _ => (-1, -1)
+            }
+          }).filter(_ != (-1, -1))*/
+        ColumnarNumaBindingInfo(true, coreRangeList, numCores)
+      }
+
+    }
+  }
 }
 
 object ColumnarPluginConfig {
