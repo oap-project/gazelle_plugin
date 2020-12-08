@@ -369,6 +369,24 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
+  } else if (func_name.compare("abs") == 0) {
+    codes_str_ = "abs_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
+    std::stringstream prepare_ss;
+    prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+               << std::endl;
+    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "if (" << validity << ") {" << std::endl;
+    prepare_ss << codes_str_ << " = abs(" << child_visitor_list[0]->GetResult() << ");"
+               << std::endl;
+    prepare_ss << "}" << std::endl;
+
+    for (int i = 0; i < 1; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    prepare_str_ += prepare_ss.str();
+    check_str_ = validity;
   } else if (func_name.compare("add") == 0) {
     codes_str_ = "add_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
