@@ -18,6 +18,8 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import scala.collection.JavaConverters._
 
+import org.apache.hadoop.fs.Path
+
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.connector.read.PartitionReaderFactory
@@ -38,6 +40,11 @@ case class ArrowScan(
     partitionFilters: Seq[Expression] = Seq.empty,
     dataFilters: Seq[Expression] = Seq.empty)
     extends FileScan {
+
+  override def isSplitable(path: Path): Boolean = {
+    ArrowUtils.isOriginalFormatSplitable(
+      new ArrowOptions(new CaseInsensitiveStringMap(options).asScala.toMap))
+  }
 
   override def createReaderFactory(): PartitionReaderFactory = {
     val caseSensitiveMap = options.asCaseSensitiveMap().asScala.toMap

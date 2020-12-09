@@ -26,7 +26,7 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, Arr
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.FileStatus
+import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.Job
 
 import org.apache.spark.TaskContext
@@ -39,6 +39,13 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 import org.apache.spark.sql.vectorized.ColumnarBatch;
 
 class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializable {
+
+
+  override def isSplitable(sparkSession: SparkSession,
+                           options: Map[String, String], path: Path): Boolean = {
+    ArrowUtils.isOriginalFormatSplitable(
+      new ArrowOptions(new CaseInsensitiveStringMap(options.asJava).asScala.toMap))
+  }
 
   def convert(files: Seq[FileStatus], options: Map[String, String]): Option[StructType] = {
     ArrowUtils.readSchema(files, new CaseInsensitiveStringMap(options.asJava))
@@ -74,7 +81,8 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 
     (file: PartitionedFile) => {
       val factory = ArrowUtils.makeArrowDiscovery(
-        URLDecoder.decode(file.filePath, "UTF-8"), new ArrowOptions(
+        URLDecoder.decode(file.filePath, "UTF-8"), file.start, file.length,
+        new ArrowOptions(
           new CaseInsensitiveStringMap(
             options.asJava).asScala.toMap))
 

@@ -43,7 +43,8 @@ object ArrowUtils {
 
   def readSchema(file: FileStatus, options: CaseInsensitiveStringMap): Option[StructType] = {
     val factory: SingleFileDatasetFactory =
-      makeArrowDiscovery(file.getPath.toString, new ArrowOptions(options.asScala.toMap))
+      makeArrowDiscovery(file.getPath.toString, -1L, -1L,
+        new ArrowOptions(options.asScala.toMap))
     val schema = factory.inspect()
     try {
       Option(SparkSchemaUtils.fromArrowSchema(schema))
@@ -55,7 +56,18 @@ object ArrowUtils {
   def readSchema(files: Seq[FileStatus], options: CaseInsensitiveStringMap): Option[StructType] =
     readSchema(files.toList.head, options) // todo merge schema
 
-  def makeArrowDiscovery(file: String, options: ArrowOptions): SingleFileDatasetFactory = {
+  def isOriginalFormatSplitable(options: ArrowOptions): Boolean = {
+    val format = getFormat(options).getOrElse(throw new IllegalStateException)
+    format match {
+      case org.apache.arrow.dataset.file.FileFormat.PARQUET =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  def makeArrowDiscovery(file: String, startOffset: Long, length: Long,
+                         options: ArrowOptions): SingleFileDatasetFactory = {
 
     val format = getFormat(options).getOrElse(throw new IllegalStateException)
     val fs = getFs(options).getOrElse(throw new IllegalStateException)
@@ -64,7 +76,9 @@ object ArrowUtils {
       memoryPool(),
       format,
       fs,
-      rewriteFilePath(file))
+      rewriteFilePath(file),
+      startOffset,
+      length)
     factory
   }
 
