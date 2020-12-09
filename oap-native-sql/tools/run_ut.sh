@@ -2,12 +2,12 @@
 
 # This script is used to run native sql unit test
 # Usage: ./run_ut.sh
-# Detailed test info is logged to oap-native-sql/cpp/log-file.log
+# Detailed test info is logged to oap-native-sql/tools/log-file.log
 
 cd ../../
-mvn test -pl oap-native-sql/core -am -DfailIfNoTests=false -Dmaven.test.failure.ignore=true &> oap-native-sql/cpp/log-file.log
+mvn test -pl oap-native-sql/core -am -DfailIfNoTests=false -Dmaven.test.failure.ignore=true &> oap-native-sql/tools/log-file.log
 
-cd oap-native-sql/cpp/
+cd oap-native-sql/tools/
 tests_total=0
 module_tested=0
 module_should_test=4
