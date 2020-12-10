@@ -26,6 +26,7 @@ on:
 
 jobs:
   ram-usage-test:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'No RAM Report') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -55,6 +56,7 @@ jobs:
           MAVEN_OPTS: "-Xmx2048m"
           COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text.txt"
           COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image.png"
+          ENABLE_TPCH_TESTS: "true"
       - run: cml-publish /tmp/comment_image.png --md > /tmp/comment.md
       - run: echo "::set-output name=event_path::${GITHUB_EVENT_PATH}"
         id: output-envs

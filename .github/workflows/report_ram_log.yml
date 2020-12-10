@@ -59,4 +59,5 @@ jobs:
           COMMENT_CONTENT_PATH: "/tmp/comment.md"
           PREVIOUS_EVENT_PATH: "/tmp/event.json"
           GITHUB_TOKEN: ${{ github.token }}
+          ENABLE_TPCH_TESTS: "true"
 
