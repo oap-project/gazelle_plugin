@@ -59,6 +59,7 @@ public class ChunkStreamAPITest {
                                     boolean expectedHasDiskData) throws IOException {
         Properties p = getProperties(totalSize, chunkSize);
         PMemManager pMemManager = new PMemManager(p);
+        assert(pMemManager != null);
         dataStore = new DataStore(pMemManager, p);
         String fileName = "/tmp/test_" + new Timestamp(System.currentTimeMillis()).toString();
         byte[] readData = new byte[data.length];
@@ -84,6 +85,7 @@ public class ChunkStreamAPITest {
     public void testPMemStreamEmpty() throws IOException {
         Properties p = getProperties("1024", "10");
         PMemManager pMemManager = new PMemManager(p);
+        assert(pMemManager != null);
         dataStore = new DataStore(pMemManager, p);
         String fileName = "/tmp/test_empty.file";
         ChunkOutputStream chunkOutputStream = new ChunkOutputStream(fileName, dataStore);
@@ -152,6 +154,7 @@ public class ChunkStreamAPITest {
         assumeTrue(loadPmemLib());
         Properties p = getProperties("100", "4");
         PMemManager pMemManager = new PMemManager(p);
+        assert(pMemManager != null);
         dataStore = new DataStore(pMemManager, p);
         String fileName = "/tmp/test_truncate.file";
         byte[] data = new byte[]{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'};
@@ -189,6 +192,7 @@ public class ChunkStreamAPITest {
         assumeTrue(loadPmemLib());
         Properties p = getProperties("8", "4");
         PMemManager pMemManager = new PMemManager(p);
+        assert(pMemManager != null);
         dataStore = new DataStore(pMemManager, p);
         String fileName = "/tmp/test_truncate_file.file";
         byte[] data = new byte[]{'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'};
@@ -236,6 +240,7 @@ public class ChunkStreamAPITest {
         byte[] finalData = new byte[1];
         chunkInputStream.read(finalData);
         assert(Arrays.equals(finalData, new byte[]{'j'}));
+        chunkInputStream.close();
         File file = new File(fileName);
         if (file != null && file.exists()) {
             assert(file.delete());

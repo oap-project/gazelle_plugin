@@ -28,10 +28,10 @@ public class ChunkOutputStream extends FileOutputStream implements WritableByteC
 
     private static HashMap<String, ChunkOutputStream> chunkOutputStreamMap = new HashMap<>();
     public static ChunkOutputStream getChunkOutputStreamInstance(String name, DataStore dataStore) {
-
-        if (chunkOutputStreamMap == null || !chunkOutputStreamMap.containsKey(name)) {
+        assert(chunkOutputStreamMap != null);
+        if (!chunkOutputStreamMap.containsKey(name)) {
             synchronized (ChunkOutputStream.class) {
-                if (chunkOutputStreamMap == null || !chunkOutputStreamMap.containsKey(name)) {
+                if (!chunkOutputStreamMap.containsKey(name)) {
                     try {
                         chunkOutputStreamMap.put(name, new ChunkOutputStream(name, dataStore));
                     } catch (FileNotFoundException e) {

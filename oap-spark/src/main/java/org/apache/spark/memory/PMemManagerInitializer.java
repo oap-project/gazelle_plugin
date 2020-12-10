@@ -51,6 +51,7 @@ public class PMemManagerInitializer {
                         if (in == null) {
                             in = new BufferedInputStream(new FileInputStream(filePath));
                         }
+                        assert(in != null);
                         pps.load(in);
                         pps.setProperty("chunkSize", String.valueOf(
                                 Utils.byteStringAsBytes(pps.getProperty("chunkSize"))));

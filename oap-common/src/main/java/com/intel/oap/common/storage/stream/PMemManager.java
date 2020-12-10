@@ -35,6 +35,7 @@ public class PMemManager {
         long totalSize = Long.valueOf(properties.getProperty("totalSize"));
         String metaStore = properties.getProperty("metaStore");
         String initialPath = properties.getProperty("initialPath");
+        assert(initialPath != null);
         long initialSize = Long.valueOf(properties.getProperty("initialSize"));
         logger.info(chunkSize + " " + totalSize + " " + metaStore + " " + initialPath);
         PersistentMemoryPlatform.initialize(initialPath, initialSize , 0);

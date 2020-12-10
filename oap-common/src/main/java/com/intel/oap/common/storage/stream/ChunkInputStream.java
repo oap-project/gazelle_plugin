@@ -22,10 +22,10 @@ public class ChunkInputStream extends FileInputStream implements ReadableByteCha
     }
     private static HashMap<String, ChunkInputStream> chunkInputStreamMap = new HashMap<>();
     public static ChunkInputStream getChunkInputStreamInstance(String name, DataStore dataStore) {
-
-        if (chunkInputStreamMap == null || !chunkInputStreamMap.containsKey(name)) {
+        assert(chunkInputStreamMap != null);
+        if (!chunkInputStreamMap.containsKey(name)) {
             synchronized (ChunkInputStream.class) {
-                if (chunkInputStreamMap == null || !chunkInputStreamMap.containsKey(name)) {
+                if (!chunkInputStreamMap.containsKey(name)) {
                     try {
                         chunkInputStreamMap.put(name, new ChunkInputStream(name, dataStore));
                     } catch (FileNotFoundException e) {

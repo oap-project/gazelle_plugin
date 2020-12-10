@@ -19,7 +19,8 @@ public class DataStore {
 
     public DataStore(PMemManager pMemManager, Properties properties) {
         this.pMemManager = pMemManager;
-        storeType = StoreType.valueOf(properties.getProperty("dataStore").toUpperCase());
+        String type = properties.getProperty("dataStore");
+        storeType = StoreType.valueOf((type == null ? "memkind": type).toUpperCase());
     }
 
     public DataStore(PMemManager pMemManager, String dataStore) {
