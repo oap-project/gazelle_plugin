@@ -58,7 +58,7 @@
         <dependency>
             <groupId>com.intel.daal</groupId>
             <artifactId>daal</artifactId>
-            <version>2021.1-beta</version>
+            <version>2021.1</version>
             <scope>system</scope>
             <systemPath>${env.ONEAPI_ROOT}/dal/latest/lib/onedal.jar</systemPath>
         </dependency>

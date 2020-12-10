@@ -13,7 +13,7 @@ repo_gpgcheck=1
 gpgkey=https://yum.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
 EOF
   sudo mv /tmp/oneAPI.repo /etc/yum.repos.d
-  sudo yum install -y intel-oneapi-dal-devel-2021.1-beta10 intel-oneapi-tbb-devel-2021.1-beta10
+  sudo yum install -y intel-oneapi-dal-devel-2021.1.1 intel-oneapi-tbb-devel-2021.1.1
 else
   echo "oneAPI components already installed!"
 fi  
@@ -23,7 +23,7 @@ cd /tmp
 rm -rf oneCCL
 git clone https://github.com/oneapi-src/oneCCL
 cd oneCCL
-git checkout -b 2021.1-beta07-1 origin/2021.1-beta07-1
+git checkout beta08
 mkdir -p build && cd build
 cmake ..
 make -j 2 install
