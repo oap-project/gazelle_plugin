@@ -473,8 +473,6 @@ private[filecache] class PlasmaMemoryManager(sparkEnv: SparkEnv)
     block.client.release(block.objectId)
   }
 
-  override def isDcpmmUsed(): Boolean = true
-
   override def memorySize: Long = 0
 
   override def memoryUsed: Long = 0
