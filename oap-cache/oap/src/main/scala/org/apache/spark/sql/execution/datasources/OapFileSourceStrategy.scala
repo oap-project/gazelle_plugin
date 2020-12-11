@@ -39,6 +39,13 @@ object OapFileSourceStrategy extends Strategy with Logging {
      * Classified discussion the 4 scenarios and assemble a new [[SparkPlan]] if can optimized.
      */
     def tryOptimize(head: SparkPlan): SparkPlan = {
+      val runtimeEnable = SparkSession.getActiveSession.get.conf
+        .get(OapConf.OAP_CACHE_RUNTIME_ENABLED)
+      if (!runtimeEnable) {
+        logInfo("OAP cache is disabled in runtime," +
+          " will fall back to default Parquet/ORC file format.")
+        return head
+      }
       val tableEnable =
         if (SparkSession.getActiveSession.get.conf.contains(OapConf.OAP_CACHE_TABLE_LISTS_ENABLED.key)) {
           SparkSession.getActiveSession.get.conf.get(OapConf.OAP_CACHE_TABLE_LISTS_ENABLED)

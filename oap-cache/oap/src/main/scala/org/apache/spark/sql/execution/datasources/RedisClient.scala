@@ -58,7 +58,7 @@ class RedisClient extends ExternalDBClient with Logging {
       // zrange()'s return will be cast to scala.collection.immutable.Set automatically
       // start - 1 because zrange is (start, length]
       val cacheMetaInfoValueJavaSet: java.util.Set[String] =
-      jedisClientInstance.zrange(fileName, start - 1, length)
+        jedisClientInstance.zrange(fileName, start - 1, length)
       val cacheMetaInfoValueSet: scala.collection.mutable.Set[String] =
         cacheMetaInfoValueJavaSet.asScala
 

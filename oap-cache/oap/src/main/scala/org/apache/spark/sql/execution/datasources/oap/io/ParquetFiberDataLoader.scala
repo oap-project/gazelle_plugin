@@ -72,7 +72,7 @@ private[oap] case class ParquetFiberDataLoader(
 
     if (OapRuntime.getOrCreate.fiberCacheManager.dataCacheCompressEnable) {
       ParquetDataFiberCompressedWriter.dumpToCache(
-        columnReader, rowCount, dataType)
+        columnReader, rowCount, dataType, fiberId)
     } else {
       val column = new OapOnHeapColumnVector(rowCount, dataType)
       columnReader.readBatch(rowCount, column)

@@ -88,8 +88,10 @@ case class BinaryDataFiberId(file: DataFile, columnIndex: Int, rowGroupId: Int) 
     input.seek(offset)
     input.readFully(data)
     val fiber = OapRuntime.getOrCreate.fiberCacheManager.getEmptyDataFiberCache(length, this)
-    Platform.copyMemory(data,
-      Platform.BYTE_ARRAY_OFFSET, null, fiber.getBaseOffset, length)
+    if (!fiber.isFailedMemoryBlock()) {
+      Platform.copyMemory(data,
+        Platform.BYTE_ARRAY_OFFSET, null, fiber.getBaseOffset, length)
+    }
     fiber
   }
 }
@@ -137,8 +139,10 @@ case class OrcBinaryFiberId(file: DataFile, columnIndex: Int, rowGroupId: Int) e
     val data = new Array[Byte](length)
     input.readFully((offset), data, 0, data.length);
     val fiber = OapRuntime.getOrCreate.fiberCacheManager.getEmptyDataFiberCache(length, this)
-    Platform.copyMemory(data,
-      Platform.BYTE_ARRAY_OFFSET, null, fiber.getBaseOffset, length)
+    if (!fiber.isFailedMemoryBlock()) {
+      Platform.copyMemory(data,
+        Platform.BYTE_ARRAY_OFFSET, null, fiber.getBaseOffset, length)
+    }
     fiber
   }
 }

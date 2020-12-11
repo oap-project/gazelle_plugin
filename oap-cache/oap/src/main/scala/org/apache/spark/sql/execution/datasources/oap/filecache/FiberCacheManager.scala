@@ -201,8 +201,12 @@ class FiberCacheManager(
     toFiberCache(FiberType.DATA, bytes)
   }
 
-  def getEmptyDataFiberCache(length: Long, fiberId: FiberId = null): FiberCache = {
+  def getEmptyDataFiberCache(length: Long): FiberCache = {
     FiberCache(FiberType.DATA, allocateFiberMemory(FiberType.DATA, length))
+  }
+
+  def getEmptyDataFiberCache(length: Long, fiberId: FiberId = null): FiberCache = {
+    cacheBackend.getEmptyFiber(length, fiberId)
   }
 
   def releaseIndexCache(indexName: String): Unit = {
@@ -224,6 +228,9 @@ class FiberCacheManager(
     cacheAllocator.isDcpmmUsed()
   }
 
+  // TODO: for multithreadCacheGuardian, we need refactor releaseFiberCache method,
+  // dead lock will happen in some case. For now, we can increase dcpmmWaitingThreshold
+  // here
   def isNeedWaitForFree(): Boolean = {
     logDebug(
       s"dcpmm wait threshold: " +

@@ -46,6 +46,7 @@ abstract class DataFile {
   def totalRows(): Long
 
   def getDataFileMeta(): DataFileMeta
+  // FIXME: the first 'fiberId' should be renamed as 'columnId'
   def cache(groupId: Int, fiberId: Int, fiber: FiberId = null): FiberCache
   override def hashCode(): Int = path.hashCode
   override def equals(other: Any): Boolean = other match {

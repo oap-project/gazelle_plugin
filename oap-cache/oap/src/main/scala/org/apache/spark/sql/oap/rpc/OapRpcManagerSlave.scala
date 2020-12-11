@@ -19,7 +19,7 @@ package org.apache.spark.sql.oap.rpc
 
 import java.util.concurrent.TimeUnit
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkEnv}
 import org.apache.spark.internal.Logging
 import org.apache.spark.rpc.{RpcEndpointRef, RpcEnv, ThreadSafeRpcEndpoint}
 import org.apache.spark.sql.execution.datasources.oap.filecache.{CacheStats, FiberCacheManager}
@@ -58,6 +58,12 @@ private[spark] class OapRpcManagerSlave(
         CacheStats.status(fiberCacheManager.cacheStats, conf)))
   }
 
+  protected def metricsHeartbeatMessages: Array[() => Heartbeat] = {
+    return Array(
+      () => FiberCacheMetricsHeartbeat(executorId, blockManager.blockManagerId,
+        CacheStats.status(fiberCacheManager.cacheStats, conf)))
+  }
+
   private def initialize() = {
     RpcEndpointRefAdapter.askSync[Boolean](
       driverEndpoint, RegisterOapRpcManager(executorId, slaveEndpoint))
@@ -78,6 +84,12 @@ private[spark] class OapRpcManagerSlave(
       }
     }
 
+    def reportMetricsHeartbeat(): Unit = {
+      if (blockManager.blockManagerId != null) {
+        metricsHeartbeatMessages.map(_.apply()).foreach(send)
+      }
+    }
+
     val intervalMs = conf.getTimeAsMs(
       OapConf.OAP_HEARTBEAT_INTERVAL.key, OapConf.OAP_HEARTBEAT_INTERVAL.defaultValue.get)
 
@@ -87,8 +99,18 @@ private[spark] class OapRpcManagerSlave(
     val heartbeatTask = new Runnable() {
       override def run(): Unit = Utils.logUncaughtExceptions(reportHeartbeat())
     }
-    oapHeartbeater.scheduleAtFixedRate(
-      heartbeatTask, initialDelay, intervalMs, TimeUnit.MILLISECONDS)
+
+    val metricsHeartbeatTask = new Runnable() {
+      override def run(): Unit = Utils.logUncaughtExceptions(reportMetricsHeartbeat())
+    }
+
+    if (!SparkEnv.get.conf.get(OapConf.OAP_EXTERNAL_CACHE_METADB_ENABLED)) {
+      oapHeartbeater.scheduleAtFixedRate(
+        heartbeatTask, initialDelay, intervalMs, TimeUnit.MILLISECONDS)
+    } else {
+      oapHeartbeater.scheduleAtFixedRate(
+        metricsHeartbeatTask, initialDelay, intervalMs, TimeUnit.MILLISECONDS)
+    }
   }
 
   override private[spark] def stop(): Unit = {

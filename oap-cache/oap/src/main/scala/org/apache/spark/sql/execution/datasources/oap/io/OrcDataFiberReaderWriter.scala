@@ -105,8 +105,8 @@ object OrcDataFiberWriter extends Logging{
   /**
    * Write nulls data to data fiber.
    */
-  private def dumpNullsToFiber(
-                                nativeAddress: Long, column: OapOnHeapColumnVector, total: Int): Long = {
+  private def dumpNullsToFiber(nativeAddress: Long,
+                               column: OapOnHeapColumnVector, total: Int): Long = {
     Platform.copyMemory(column.getNulls,
       Platform.BYTE_ARRAY_OFFSET, null, nativeAddress, total)
     nativeAddress + total
@@ -117,7 +117,8 @@ object OrcDataFiberWriter extends Logging{
    * allNulls is false, need dump to cache,
    * dicLength is 0, needn't calculate dictionary part.
    */
-  private def dumpDataToFiber(nativeAddress: Long, column: OapOnHeapColumnVector, total: Int): Unit = {
+  private def dumpDataToFiber(nativeAddress: Long,
+                              column: OapOnHeapColumnVector, total: Int): Unit = {
     column.dataType match {
       case ByteType | BooleanType =>
         Platform.copyMemory(column.getByteData,
@@ -169,7 +170,7 @@ object OrcDataFiberWriter extends Logging{
    * Write dictionaryIds(int array) and Dictionary data to data fiber.
    */
   private def dumpDataAndDicToFiber(nativeAddress: Long,
-                                    column: OapOnHeapColumnVector, total: Int, dicLength: Int): Unit = {
+       column: OapOnHeapColumnVector, total: Int, dicLength: Int): Unit = {
     // dump dictionaryIds to data fiber, it's a int array.
     val dictionaryIds = column.getDictionaryIds.asInstanceOf[OapOnHeapColumnVector]
     Platform.copyMemory(dictionaryIds.getIntData,

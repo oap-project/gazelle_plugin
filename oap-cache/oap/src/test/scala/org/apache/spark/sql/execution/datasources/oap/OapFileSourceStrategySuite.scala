@@ -245,6 +245,21 @@ class OapFileSourceStrategyForParquetSuite extends OapFileSourceStrategySuite {
     )
   }
 
+  test("Disable Optimized") {
+    withSQLConf(OapConf.OAP_PARQUET_DATA_CACHE_ENABLED.key -> "true",
+      OapConf.OAP_CACHE_RUNTIME_ENABLED.key -> "false") {
+      verifyProjectScan(
+        format => format.isInstanceOf[ParquetFileFormat],
+        (plan1, plan2) => plan1.sameResult(plan2)
+      )
+      verifyProjectFilterScan(
+        indexColumn = "b",
+        format => format.isInstanceOf[ParquetFileFormat],
+        (plan1, plan2) => plan1.sameResult(plan2)
+      )
+    }
+  }
+
   test("simple inner join triggers DPP with mock-up tables") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true",
