@@ -1141,7 +1141,10 @@ class ExternalCache(fiberType: FiberType) extends OapCache with Logging {
     // Remove plasmaClient.list() since this call have a lot overhead,
     // especially in multi executor case
     cacheTotalCount = new AtomicLong(fiberSet.size)
-    fiberSet.asScala.toSet
+    val tmp = scala.collection.mutable.Set[FiberId]()
+    fiberSet.forEach(id => tmp.add(id))
+    // val tmp: Collections.synchronizedSet = fiberSet.clone()
+    tmp.toSet
   }
 
   override def invalidate(fiber: FiberId): Unit = { }
