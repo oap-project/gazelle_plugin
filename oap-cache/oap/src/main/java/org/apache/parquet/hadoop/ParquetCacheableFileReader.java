@@ -163,8 +163,17 @@ public class ParquetCacheableFileReader extends ParquetFileReader {
         fiberId = new BinaryDataFiberId(dataFile, columnIndex, rowGroupId);
         fiberId.withLoadCacheParameters(f, offset, length);
         fiberCache = cacheManager.get(fiberId);
-        long fiberOffset = fiberCache.getBaseOffset();
-        Platform.copyMemory(null, fiberOffset, data, Platform.BYTE_ARRAY_OFFSET, length);
+        if (fiberCache.isFailedMemoryBlock()) {
+          try {
+            f.seek(offset);
+            f.readFully(data);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        } else {
+          long fiberOffset = fiberCache.getBaseOffset();
+          Platform.copyMemory(null, fiberOffset, data, Platform.BYTE_ARRAY_OFFSET, length);
+        }
         return data;
       } finally {
         if (fiberCache != null) {

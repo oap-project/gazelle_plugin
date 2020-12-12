@@ -92,8 +92,17 @@ public class RecordReaderBinaryCacheUtils extends RecordReaderUtils {
         fiberId = new OrcBinaryFiberId(dataFile, columnRange.columnId, columnRange.currentStripe);
         fiberId.withLoadCacheParameters(file, base + off, len);
         fiberCache = cacheManager.get(fiberId);
-        long fiberOffset = fiberCache.getBaseOffset();
-        Platform.copyMemory(null, fiberOffset, buffer, Platform.BYTE_ARRAY_OFFSET, len);
+        if (fiberCache.isFailedMemoryBlock()) {
+          try {
+            file.seek(base + off);
+            file.readFully(buffer);
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        } else {
+          long fiberOffset = fiberCache.getBaseOffset();
+          Platform.copyMemory(null, fiberOffset, buffer, Platform.BYTE_ARRAY_OFFSET, len);
+        }
       } finally {
         if (fiberCache != null) {
           fiberCache.release();
