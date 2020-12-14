@@ -146,7 +146,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
       std::cout << "Done " << input_files[i] << std::endl;
     }
 
-    ASSERT_NOT_OK(splitter->Stop());
+    TIME_NANO_OR_THROW(split_time, splitter->Stop());
 
     std::cout << "Setting num_partitions to " << num_partitions << ", buffer_size to "
               << buffer_size << std::endl;
@@ -166,14 +166,17 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     auto compute_pid_time = splitter->TotalComputePidTime();
     auto write_time = splitter->TotalWriteTime();
     auto spill_time = splitter->TotalSpillTime();
-    split_time = split_time - spill_time - compute_pid_time;
+    auto compress_time = splitter->TotalCompressTime();
+    split_time = split_time - spill_time - compute_pid_time - compress_time - write_time;
     std::cout << "Took " << TIME_NANO_TO_STRING(elapse_read) << " to read data"
               << std::endl
               << "Took " << TIME_NANO_TO_STRING(compute_pid_time) << " to compute pid"
               << std::endl
               << "Took " << TIME_NANO_TO_STRING(split_time) << " to split" << std::endl
               << "Took " << TIME_NANO_TO_STRING(spill_time) << " to spill" << std::endl
-              << "Took " << TIME_NANO_TO_STRING(write_time) << " to write" << std::endl;
+              << "Took " << TIME_NANO_TO_STRING(write_time) << " to write" << std::endl
+              << "Took " << TIME_NANO_TO_STRING(compress_time) << " to compress"
+              << std::endl;
   }
 };
 

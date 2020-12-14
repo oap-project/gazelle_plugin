@@ -54,6 +54,7 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
       .setAppName("test ColumnarShuffleWriter")
       .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      .set("spark.oap.sql.columnar.shuffle.preferSpill", "true")
 
   private var taskMetrics: TaskMetrics = _
   private var tempDir: File = _
@@ -94,6 +95,8 @@ class ColumnarShuffleWriterSuite extends SharedSparkSession {
       .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_split"))
     when(dependency.spillTime)
       .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_spill"))
+    when(dependency.compressTime)
+      .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_compress"))
     when(dependency.computePidTime)
       .thenReturn(SQLMetrics.createNanoTimingMetric(spark.sparkContext, "totaltime_computepid"))
     when(taskContext.taskMetrics()).thenReturn(taskMetrics)

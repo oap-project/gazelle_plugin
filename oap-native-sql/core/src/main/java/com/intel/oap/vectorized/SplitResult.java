@@ -22,6 +22,7 @@ public class SplitResult {
   private final long totalComputePidTime;
   private final long totalWriteTime;
   private final long totalSpillTime;
+  private final long totalCompressTime; // overlaps with totalSpillTime and totalWriteTime
   private final long totalBytesWritten;
   private final long totalBytesSpilled;
   private final long[] partitionLengths;
@@ -30,12 +31,14 @@ public class SplitResult {
       long totalComputePidTime,
       long totalWriteTime,
       long totalSpillTime,
+      long totalCompressTime,
       long totalBytesWritten,
       long totalBytesSpilled,
       long[] partitionLengths) {
     this.totalComputePidTime = totalComputePidTime;
     this.totalWriteTime = totalWriteTime;
     this.totalSpillTime = totalSpillTime;
+    this.totalCompressTime = totalCompressTime;
     this.totalBytesWritten = totalBytesWritten;
     this.totalBytesSpilled = totalBytesSpilled;
     this.partitionLengths = partitionLengths;
@@ -51,6 +54,10 @@ public class SplitResult {
 
   public long getTotalSpillTime() {
     return totalSpillTime;
+  }
+
+  public long getTotalCompressTime() {
+    return totalCompressTime;
   }
 
   public long getTotalBytesWritten() {

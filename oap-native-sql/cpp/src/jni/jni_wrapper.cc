@@ -262,7 +262,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
   split_result_class =
       CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/SplitResult;");
-  split_result_constructor = GetMethodID(env, split_result_class, "<init>", "(JJJJJ[J)V");
+  split_result_constructor = GetMethodID(env, split_result_class, "<init>", "(JJJJJJ[J)V");
 
 
   native_memory_reservation_class =
@@ -1305,7 +1305,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
     jbyteArray schema_arr, jbyteArray expr_arr, jint buffer_size,
     jstring compression_type_jstr, jstring data_file_jstr, jint num_sub_dirs,
-    jstring local_dirs_jstr) {
+    jstring local_dirs_jstr, jboolean prefer_spill) {
   if (partitioning_name_jstr == NULL) {
     env->ThrowNew(illegal_argument_exception_class,
                   std::string("Short partitioning name can't be null").c_str());
@@ -1332,6 +1332,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   env->ReleaseStringUTFChars(partitioning_name_jstr, partitioning_name_c);
 
   auto splitOptions = SplitOptions::Defaults();
+  splitOptions.prefer_spill = prefer_spill;
   if (buffer_size > 0) {
     splitOptions.buffer_size = buffer_size;
   }
@@ -1440,7 +1441,7 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_s
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, JNI_FALSE);
 
   std::shared_ptr<arrow::RecordBatch> in;
-  auto status = MakeRecordBatch(splitter->schema(), num_rows, (int64_t*)in_buf_addrs,
+  auto status = MakeRecordBatch(splitter->input_schema(), num_rows, (int64_t*)in_buf_addrs,
                                 (int64_t*)in_buf_sizes, in_bufs_len, &in);
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
@@ -1492,7 +1493,7 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrappe
   env->SetLongArrayRegion(partition_length_arr, 0, partition_length.size(), src);
   jobject split_result = env->NewObject(
       split_result_class, split_result_constructor, splitter->TotalComputePidTime(),
-      splitter->TotalWriteTime(), splitter->TotalSpillTime(),
+      splitter->TotalWriteTime(), splitter->TotalSpillTime(), splitter->TotalCompressTime(),
       splitter->TotalBytesWritten(), splitter->TotalBytesSpilled(), partition_length_arr);
 
   return split_result;

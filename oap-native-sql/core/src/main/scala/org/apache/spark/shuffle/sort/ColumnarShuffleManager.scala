@@ -210,9 +210,9 @@ object ColumnarShuffleManager extends Logging {
       SparkEnv.get.serializer,
       SparkEnv.get.conf,
       SparkEnv.get.securityManager.getIOEncryptionKey()) {
-      // Bypass the shuffle read decompression
+      // Bypass the shuffle read decompression, decryption is not supported
       override def wrapStream(blockId: BlockId, s: InputStream): InputStream = {
-        wrapForEncryption(s)
+        s
       }
     }
 }

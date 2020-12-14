@@ -20,6 +20,7 @@ package org.apache.spark.shuffle
 import java.io.IOException
 
 import com.google.common.annotations.VisibleForTesting
+import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.vectorized.{
   ArrowWritableColumnVector,
   ShuffleSplitterJniWrapper,
@@ -62,6 +63,7 @@ class ColumnarShuffleWriter[K, V](
   } else {
     "uncompressed"
   }
+  private val preferSpill = ColumnarPluginConfig.getConf(conf).columnarShufflePreferSpill
 
   private val jniWrapper = new ShuffleSplitterJniWrapper()
 
@@ -88,7 +90,8 @@ class ColumnarShuffleWriter[K, V](
         compressionCodec,
         dataTmp.getAbsolutePath,
         blockManager.subDirsPerLocalDir,
-        localDirs)
+        localDirs,
+        preferSpill)
     }
 
     while (records.hasNext) {
@@ -121,8 +124,9 @@ class ColumnarShuffleWriter[K, V](
     splitResult = jniWrapper.stop(nativeSplitter)
 
     dep.splitTime.add(System
-      .nanoTime() - startTime - splitResult.getTotalSpillTime - splitResult.getTotalWriteTime - splitResult.getTotalComputePidTime)
+      .nanoTime() - startTime - splitResult.getTotalSpillTime - splitResult.getTotalWriteTime - splitResult.getTotalComputePidTime - splitResult.getTotalCompressTime)
     dep.spillTime.add(splitResult.getTotalSpillTime)
+    dep.compressTime.add(splitResult.getTotalCompressTime)
     dep.computePidTime.add(splitResult.getTotalComputePidTime)
     dep.bytesSpilled.add(splitResult.getTotalBytesSpilled)
     writeMetrics.incBytesWritten(splitResult.getTotalBytesWritten)

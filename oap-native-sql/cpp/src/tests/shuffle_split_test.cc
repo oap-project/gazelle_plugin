@@ -31,6 +31,45 @@
 namespace sparkcolumnarplugin {
 namespace shuffle {
 
+class MyMemoryPool : public arrow::MemoryPool {
+ public:
+  explicit MyMemoryPool(int64_t capacity) : capacity_(capacity) {}
+
+  Status Allocate(int64_t size, uint8_t** out) override {
+    if (bytes_allocated() + size > capacity_) {
+      return Status::OutOfMemory("malloc of size ", size, " failed");
+    }
+    RETURN_NOT_OK(pool_->Allocate(size, out));
+    stats_.UpdateAllocatedBytes(size);
+    return arrow::Status::OK();
+  }
+
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+    if (new_size > capacity_) {
+      return Status::OutOfMemory("malloc of size ", new_size, " failed");
+    }
+    RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
+    stats_.UpdateAllocatedBytes(new_size - old_size);
+    return arrow::Status::OK();
+  }
+
+  void Free(uint8_t* buffer, int64_t size) override {
+    pool_->Free(buffer, size);
+    stats_.UpdateAllocatedBytes(-size);
+  }
+
+  int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
+
+  int64_t max_memory() const override { return pool_->max_memory(); }
+
+  std::string backend_name() const override { return pool_->backend_name(); }
+
+ private:
+  MemoryPool* pool_ = arrow::default_memory_pool();
+  int64_t capacity_;
+  arrow::internal::MemoryPoolStats stats_;
+};
+
 class SplitterTest : public ::testing::Test {
  protected:
   void SetUp() {
@@ -368,7 +407,40 @@ TEST_F(SplitterTest, TestFallbackRangeSplitter) {
     }
     ASSERT_TRUE(rb->Equals(*expected[i]));
   }
+}
 
+TEST_F(SplitterTest, TestSpillFailWithOutOfMemory) {
+  auto pool = std::make_unique<MyMemoryPool>(0);
+
+  int32_t num_partitions = 2;
+  split_options_.buffer_size = 4;
+  split_options_.memory_pool = pool.get();
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", schema_, num_partitions, split_options_));
+
+  auto status = splitter_->Split(*input_batch_1_);
+  // should return OOM status because there's no partition buffer to spill
+  ASSERT_TRUE(status.IsOutOfMemory());
+  ASSERT_NOT_OK(splitter_->Stop());
+}
+
+TEST_F(SplitterTest, TestSpillLargestPartition) {
+  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
+//  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
+
+  int32_t num_partitions = 2;
+  split_options_.buffer_size = 4;
+  split_options_.memory_pool = pool.get();
+  split_options_.compression_type = arrow::Compression::UNCOMPRESSED;
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", schema_, num_partitions, split_options_));
+
+  for (int i = 0; i < 100; ++i) {
+    ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
+    ASSERT_NOT_OK(splitter_->Split(*input_batch_2_));
+    ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
+  }
+  ASSERT_NOT_OK(splitter_->Stop());
 }
 
 }  // namespace shuffle

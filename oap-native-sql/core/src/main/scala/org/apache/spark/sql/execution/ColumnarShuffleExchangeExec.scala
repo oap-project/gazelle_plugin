@@ -18,8 +18,17 @@
 package org.apache.spark.sql.execution
 
 import com.google.common.collect.Lists
-import com.intel.oap.expression.{CodeGeneration, ColumnarExpression, ColumnarExpressionConverter, ConverterUtils}
-import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector, NativePartitioning}
+import com.intel.oap.expression.{
+  CodeGeneration,
+  ColumnarExpression,
+  ColumnarExpressionConverter,
+  ConverterUtils
+}
+import com.intel.oap.vectorized.{
+  ArrowColumnarBatchSerializer,
+  ArrowWritableColumnVector,
+  NativePartitioning
+}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
 import org.apache.spark._
@@ -31,17 +40,22 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.LazilyGeneratedOrdering
 import org.apache.spark.sql.catalyst.expressions.{Attribute, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.catalyst.plans.physical._
+import org.apache.spark.sql.catalyst.util.truncatedString
 import org.apache.spark.sql.execution.CoalesceExec.EmptyPartition
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec.createShuffleWriteProcessor
-import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics, SQLShuffleReadMetricsReporter, SQLShuffleWriteMetricsReporter}
+import org.apache.spark.sql.execution.metric.{
+  SQLMetric,
+  SQLMetrics,
+  SQLShuffleReadMetricsReporter,
+  SQLShuffleWriteMetricsReporter
+}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{IntegerType, StructType}
 import org.apache.spark.sql.vectorized.ColumnarBatch
-import org.apache.spark.util.MutablePair
+import org.apache.spark.util.{MutablePair, Utils}
 
-import scala.collection.concurrent.TrieMap
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
@@ -61,6 +75,7 @@ class ColumnarShuffleExchangeExec(
     "computePidTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_computepid"),
     "splitTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_split"),
     "spillTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "shuffle spill time"),
+    "compressTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_compress"),
     "avgReadBatchNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg read batch num rows"),
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
@@ -70,6 +85,9 @@ class ColumnarShuffleExchangeExec(
   override def nodeName: String = "ColumnarExchange"
 
   override def supportsColumnar: Boolean = true
+
+  override def stringArgs =
+    super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   private val serializer: Serializer = new ArrowColumnarBatchSerializer(
     longMetric("avgReadBatchNumRows"),
@@ -104,7 +122,8 @@ class ColumnarShuffleExchangeExec(
       longMetric("numInputRows"),
       longMetric("computePidTime"),
       longMetric("splitTime"),
-      longMetric("spillTime"))
+      longMetric("spillTime"),
+      longMetric("compressTime"))
   }
 
   private var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
@@ -165,7 +184,8 @@ object ColumnarShuffleExchangeExec extends Logging {
       numInputRows: SQLMetric,
       computePidTime: SQLMetric,
       splitTime: SQLMetric,
-      spillTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
+      spillTime: SQLMetric,
+      compressTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
 
     val arrowFields = outputAttributes.map(attr => {
       Field
@@ -318,7 +338,8 @@ object ColumnarShuffleExchangeExec extends Logging {
         numInputRows = numInputRows,
         computePidTime = computePidTime,
         splitTime = splitTime,
-        spillTime = spillTime)
+        spillTime = spillTime,
+        compressTime = compressTime)
 
     dependency
   }

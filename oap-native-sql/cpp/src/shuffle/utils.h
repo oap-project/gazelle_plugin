@@ -113,14 +113,6 @@ static arrow::Result<std::string> CreateTempShuffleFile(const std::string& dir) 
   return file_path;
 }
 
-static arrow::ipc::IpcWriteOptions SplitterIpcWriteOptions(
-    arrow::Compression::type compression) {
-  auto options = arrow::ipc::IpcWriteOptions::Defaults();
-  options.compression = compression;
-  options.use_threads = false;
-  return options;
-}
-
 static arrow::Result<std::vector<Type::typeId>> ToSplitterTypeId(
     const std::vector<std::shared_ptr<arrow::Field>>& fields) {
   std::vector<Type::typeId> splitter_type_id;
@@ -180,6 +172,14 @@ static arrow::Result<std::vector<Type::typeId>> ToSplitterTypeId(
         "\n arrow type id: " + std::to_string(field_type_not_implemented.second)));
   }
   return splitter_type_id;
+}
+
+static int64_t GetBufferSizes(const std::shared_ptr<arrow::Array>& array) {
+  const auto& buffers = array->data()->buffers;
+  return std::accumulate(std::cbegin(buffers), std::cend(buffers), 0LL,
+                         [](int64_t sum, const std::shared_ptr<arrow::Buffer>& buf) {
+                           return buf == nullptr ? sum : sum + buf->size();
+                         });
 }
 
 }  // namespace shuffle

@@ -56,6 +56,11 @@ class ColumnarPluginConfig(conf: SparkConf) {
     conf.getInt("spark.sql.columnar.sort.broadcast.cache.timeout", defaultValue = -1)
   val hashCompare: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.hashCompare", defaultValue = false)
+  // Whether to spill the partition buffers when buffers are full.
+  // If false, the partition buffers will be cached in memory first,
+  // and the cached buffers will be spilled when reach maximum memory.
+  val columnarShufflePreferSpill: Boolean =
+    conf.getBoolean("spark.oap.sql.columnar.shuffle.preferSpill", defaultValue = true)
   val numaBindingInfo: ColumnarNumaBindingInfo = {
     val enableNumaBinding: Boolean =
       conf.getBoolean("spark.oap.sql.columnar.numaBinding", defaultValue = false)

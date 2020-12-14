@@ -20,6 +20,7 @@
 #include <arrow/extension_type.h>
 #include <arrow/type.h>
 #include <arrow/util/logging.h>
+#include <arrow/ipc/options.h>
 #include <deque>
 
 namespace sparkcolumnarplugin {
@@ -37,6 +38,7 @@ struct SplitOptions {
   int32_t buffer_size = kDefaultSplitterBufferSize;
   int32_t num_sub_dirs = kDefaultNumSubDirs;
   arrow::Compression::type compression_type = arrow::Compression::UNCOMPRESSED;
+  bool prefer_spill = true;
 
   std::string data_file;
 
@@ -44,6 +46,9 @@ struct SplitOptions {
   int64_t task_attempt_id = -1;
 
   arrow::MemoryPool* memory_pool = arrow::default_memory_pool();
+
+  arrow::ipc::IpcWriteOptions ipc_write_options =
+      arrow::ipc::IpcWriteOptions::Defaults();
 
   static SplitOptions Defaults();
 };
