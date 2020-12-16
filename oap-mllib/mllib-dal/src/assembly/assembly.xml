@@ -37,13 +37,6 @@
                 <include>*.so</include>
             </includes>
         </fileSet>
-        <fileSet>
-            <directory>${env.DAALROOT}/lib/intel64</directory>
-            <outputDirectory>lib</outputDirectory>
-            <includes>
-                <include>libJavaAPI.so</include>
-            </includes>
-        </fileSet>
     </fileSets>
     <files>
         <!-- Include TBB libraries into JAR  -->
@@ -56,6 +49,12 @@
             <source>${env.TBBROOT}/lib/intel64/gcc4.8/libtbbmalloc.so.2.1</source>
             <outputDirectory>lib</outputDirectory>
             <destName>libtbbmalloc.so.2</destName>
+        </file>
+        <!-- Include DAL libraries into JAR  -->
+        <file>
+            <source>${env.DAALROOT}/lib/intel64/libJavaAPI.so.1.0</source>
+            <outputDirectory>lib</outputDirectory>
+            <destName>libJavaAPI.so</destName>
         </file>
         <!-- Include oneCCL libraries into JAR  -->
         <file>
