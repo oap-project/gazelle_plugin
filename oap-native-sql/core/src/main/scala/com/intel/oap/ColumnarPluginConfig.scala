@@ -27,8 +27,8 @@ case class ColumnarNumaBindingInfo(
 class ColumnarPluginConfig(conf: SparkConf) {
   val enableColumnarSort: Boolean =
     conf.getBoolean("spark.sql.columnar.sort", defaultValue = false)
-  val enableColumnarSortNaNCheck: Boolean =
-    conf.getBoolean("spark.sql.columnar.sort.NaNCheck", defaultValue = false)
+  val enableColumnarNaNCheck: Boolean =
+    conf.getBoolean("spark.sql.columnar.nanCheck", defaultValue = false)
   val enableCodegenHashAggregate: Boolean =
     conf.getBoolean("spark.sql.columnar.codegen.hashAggregate", defaultValue = false)
   val enableColumnarBroadcastJoin: Boolean =

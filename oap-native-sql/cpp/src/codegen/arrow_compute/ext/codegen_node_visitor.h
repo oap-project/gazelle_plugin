@@ -117,6 +117,7 @@ class CodeGenNodeVisitor : public VisitorBase {
   arrow::Status ProduceGandivaFunction();
   arrow::Status AppendProjectList(
       const std::vector<std::shared_ptr<CodeGenNodeVisitor>>& child_visitor_list, int i);
+  std::string GetNaNCheckStr(std::string left, std::string right, std::string func);
 };
 static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,

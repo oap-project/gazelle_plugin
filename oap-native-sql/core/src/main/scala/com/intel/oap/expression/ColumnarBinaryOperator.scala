@@ -18,6 +18,7 @@
 package com.intel.oap.expression
 
 import com.google.common.collect.Lists
+import com.intel.oap.ColumnarPluginConfig
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression._
@@ -148,17 +149,25 @@ class ColumnarEqualTo(left: Expression, right: Expression, original: Expression)
     if (!left_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       left_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType)
     }
     if (!right_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       right_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType)
     }
-
+    var function = "equal"
+    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    if (nanCheck) {
+      unifiedType match {
+        case t: ArrowType.FloatingPoint =>
+          function = "equal_with_nan"
+        case _ =>
+      }
+    }
     val resultType = new ArrowType.Bool()
     val funcNode =
-      TreeBuilder.makeFunction("equal", Lists.newArrayList(left_node, right_node), resultType)
+      TreeBuilder.makeFunction(function, Lists.newArrayList(left_node, right_node), resultType)
     (funcNode, resultType)
   }
 }
@@ -177,17 +186,25 @@ class ColumnarEqualNull(left: Expression, right: Expression, original: Expressio
     if (!left_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       left_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType)
     }
     if (!right_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       right_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType)
     }
-
+    var function = "equal"
+    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    if (nanCheck) {
+      unifiedType match {
+        case t: ArrowType.FloatingPoint =>
+          function = "equal_with_nan"
+        case _ =>
+      }
+    }
     val resultType = new ArrowType.Bool()
     val funcNode =
-      TreeBuilder.makeFunction("equal", Lists.newArrayList(left_node, right_node), resultType)
+      TreeBuilder.makeFunction(function, Lists.newArrayList(left_node, right_node), resultType)
     (funcNode, resultType)
   }
 }
@@ -206,17 +223,25 @@ class ColumnarLessThan(left: Expression, right: Expression, original: Expression
     if (!left_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       left_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType)
     }
     if (!right_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       right_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType)
     }
-
+    var function = "less_than"
+    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    if (nanCheck) {
+      unifiedType match {
+        case t: ArrowType.FloatingPoint =>
+          function = "less_than_with_nan"
+        case _ =>
+      }
+    }
     val resultType = new ArrowType.Bool()
     val funcNode =
-      TreeBuilder.makeFunction("less_than", Lists.newArrayList(left_node, right_node), resultType)
+      TreeBuilder.makeFunction(function, Lists.newArrayList(left_node, right_node), resultType)
     (funcNode, resultType)
   }
 }
@@ -235,17 +260,25 @@ class ColumnarLessThanOrEqual(left: Expression, right: Expression, original: Exp
     if (!left_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       left_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType)
     }
     if (!right_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       right_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType)
     }
-
+    var function = "less_than_or_equal_to"
+    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    if (nanCheck) {
+      unifiedType match {
+        case t: ArrowType.FloatingPoint =>
+          function = "less_than_or_equal_to_with_nan"
+        case _ =>
+      }
+    }
     val resultType = new ArrowType.Bool()
     val funcNode = TreeBuilder.makeFunction(
-      "less_than_or_equal_to",
+      function,
       Lists.newArrayList(left_node, right_node),
       resultType)
     (funcNode, resultType)
@@ -266,17 +299,26 @@ class ColumnarGreaterThan(left: Expression, right: Expression, original: Express
     if (!left_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       left_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType)
     }
     if (!right_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       right_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType)
     }
 
+    var function = "greater_than"
+    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    if (nanCheck) {
+      unifiedType match {
+        case t: ArrowType.FloatingPoint =>
+          function = "greater_than_with_nan"
+        case _ =>
+      }
+    }
     val resultType = new ArrowType.Bool()
     val funcNode = TreeBuilder.makeFunction(
-      "greater_than",
+      function,
       Lists.newArrayList(left_node, right_node),
       resultType)
     (funcNode, resultType)
@@ -297,17 +339,25 @@ class ColumnarGreaterThanOrEqual(left: Expression, right: Expression, original: 
     if (!left_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       left_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(left_node), unifiedType)
     }
     if (!right_type.equals(unifiedType)) {
       val func_name = CodeGeneration.getCastFuncName(unifiedType)
       right_node =
-        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType),
+        TreeBuilder.makeFunction(func_name, Lists.newArrayList(right_node), unifiedType)
     }
-
+    var function = "greater_than_or_equal_to"
+    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    if (nanCheck) {
+      unifiedType match {
+        case t: ArrowType.FloatingPoint =>
+          function = "greater_than_or_equal_to_with_nan"
+        case _ =>
+      }
+    }
     val resultType = new ArrowType.Bool()
     val funcNode = TreeBuilder.makeFunction(
-      "greater_than_or_equal_to",
+      function,
       Lists.newArrayList(left_node, right_node),
       resultType)
     (funcNode, resultType)

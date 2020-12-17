@@ -1769,9 +1769,8 @@ class StddevSampFinalActionCodeGen : public ActionCodeGen {
     on_new_codes_list_.push_back("");
     on_finish_codes_list_.push_back(
         "if (" + count_name + "[i] - 1 < 0.00001) {\n" + validity_name +
-        ".push_back(true);\n"
-        // + sig_name + ".push_back(std::numeric_limits<double>::quiet_NaN());}\n"
-        + sig_name + ".push_back(std::numeric_limits<double>::infinity());}\n" +
+        ".push_back(true);\n" + 
+        sig_name + ".push_back(std::numeric_limits<double>::quiet_NaN());}\n" +
         "else if (" + count_name + "[i] < 0.00001) {\n" + validity_name +
         ".push_back(false);\n" + sig_name + ".push_back(0);}\n" + "else {\n" +
         validity_name + ".push_back(true);\n" + sig_name + ".push_back(" + "sqrt(" +

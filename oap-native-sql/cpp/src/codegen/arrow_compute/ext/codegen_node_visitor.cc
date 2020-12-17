@@ -103,10 +103,15 @@ arrow::Status CodeGenNodeVisitor::AppendProjectList(
 }
 arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
   std::vector<std::string> non_gandiva_func_list = {"less_than",
+                                                    "less_than_with_nan",
                                                     "greater_than",
+                                                    "greater_than_with_nan",
                                                     "less_than_or_equal_to",
+                                                    "less_than_or_equal_to_with_nan",
                                                     "greater_than_or_equal_to",
+                                                    "greater_than_or_equal_to_with_nan",
                                                     "equal",
+                                                    "equal_with_nan",
                                                     "not",
                                                     "substr",
                                                     "add",
@@ -174,7 +179,28 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
         RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
       }
       codes_str_ = ss.str();
+    } else if (func_name.compare("less_than_with_nan") == 0) {
+      // comparison for NaN is not really supported here
+      real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " < " +
+                        child_visitor_list[1]->GetResult() + ")";
+      real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
+                           child_visitor_list[1]->GetPreCheck();
+      ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("greater_than") == 0) {
+      real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
+                        child_visitor_list[1]->GetResult() + ")";
+      real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
+                           child_visitor_list[1]->GetPreCheck();
+      ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
+    } else if (func_name.compare("greater_than_with_nan") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
                         child_visitor_list[1]->GetResult() + ")";
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
@@ -194,6 +220,16 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
         RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
       }
       codes_str_ = ss.str();
+    } else if (func_name.compare("less_than_or_equal_to_with_nan") == 0) {
+      real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
+                        " <= " + child_visitor_list[1]->GetResult() + ")";
+      real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
+                           child_visitor_list[1]->GetPreCheck();
+      ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("greater_than_or_equal_to") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                         " >= " + child_visitor_list[1]->GetResult() + ")";
@@ -204,7 +240,27 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
         RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
       }
       codes_str_ = ss.str();
+    } else if (func_name.compare("greater_than_or_equal_to_with_nan") == 0) {
+      real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
+                        " >= " + child_visitor_list[1]->GetResult() + ")";
+      real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
+                           child_visitor_list[1]->GetPreCheck();
+      ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
     } else if (func_name.compare("equal") == 0) {
+      real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
+                        " == " + child_visitor_list[1]->GetResult() + ")";
+      real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
+                           child_visitor_list[1]->GetPreCheck();
+      ss << real_validity_str_ << " && " << real_codes_str_;
+      for (int i = 0; i < 2; i++) {
+        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
+      }
+      codes_str_ = ss.str();
+    } else if (func_name.compare("equal_with_nan") == 0) {
       real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                         " == " + child_visitor_list[1]->GetResult() + ")";
       real_validity_str_ = child_visitor_list[0]->GetPreCheck() + " && " +
@@ -660,6 +716,17 @@ arrow::Status CodeGenNodeVisitor::InsertToIndices(int index, int arg_id,
   }
 
   return arrow::Status::OK();
+}
+
+std::string CodeGenNodeVisitor::GetNaNCheckStr(std::string left, std::string right, 
+                                               std::string func) {
+  std::stringstream ss;
+  func = " " + func + " ";
+  ss << "((std::isnan(" << left << ") && std::isnan(" << right << ")) ? (1.0 / 0.0" << func << "1.0 / 0.0) : "
+     << "(std::isnan(" << left << ")) ? (1.0 / 0.0" << func << right << ") : "
+     << "(std::isnan(" << right << ")) ? (" << left << func << "1.0 / 0.0) : "
+     << "(" << left << func << right << "))";
+  return ss.str();
 }
 
 }  // namespace extra

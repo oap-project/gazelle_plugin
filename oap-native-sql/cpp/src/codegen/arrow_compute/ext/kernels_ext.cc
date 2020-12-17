@@ -1117,8 +1117,7 @@ class StddevSampFinalArrayKernel::Impl {
     std::shared_ptr<arrow::Array> stddev_samp_out;
     std::shared_ptr<arrow::Scalar> stddev_samp_scalar_out;
     if (cnt_res - 1 < 0.00001) {
-      // double stddev_samp = std::numeric_limits<double>::quiet_NaN();
-      double stddev_samp = std::numeric_limits<double>::infinity();
+      double stddev_samp = std::numeric_limits<double>::quiet_NaN();
       stddev_samp_scalar_out = arrow::MakeScalar(stddev_samp);
     } else if (cnt_res < 0.00001) {
       stddev_samp_scalar_out = MakeNullScalar(arrow::float64());

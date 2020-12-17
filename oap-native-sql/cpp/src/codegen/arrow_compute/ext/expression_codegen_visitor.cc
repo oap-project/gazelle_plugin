@@ -84,7 +84,27 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
+  } else if (func_name.compare("less_than_with_nan") == 0) {
+    real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " < " +
+                      child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ = CombineValidity(
+        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    ss << real_validity_str_ << " && " << real_codes_str_;
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = ss.str();
   } else if (func_name.compare("greater_than") == 0) {
+    real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
+                      child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ = CombineValidity(
+        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    ss << real_validity_str_ << " && " << real_codes_str_;
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = ss.str();
+  } else if (func_name.compare("greater_than_with_nan") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
@@ -104,6 +124,16 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
+  } else if (func_name.compare("less_than_or_equal_to_with_nan") == 0) {
+    real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
+                      " <= " + child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ = CombineValidity(
+        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    ss << real_validity_str_ << " && " << real_codes_str_;
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = ss.str();
   } else if (func_name.compare("greater_than_or_equal_to") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " >= " + child_visitor_list[1]->GetResult() + ")";
@@ -114,7 +144,27 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
+  } else if (func_name.compare("greater_than_or_equal_to_with_nan") == 0) {
+    real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
+                      " >= " + child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ = CombineValidity(
+        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    ss << real_validity_str_ << " && " << real_codes_str_;
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = ss.str();
   } else if (func_name.compare("equal") == 0) {
+    real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
+                      " == " + child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ = CombineValidity(
+        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    ss << real_validity_str_ << " && " << real_codes_str_;
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = ss.str();
+  } else if (func_name.compare("equal_with_nan") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " == " + child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
@@ -859,6 +909,17 @@ std::string ExpressionCodegenVisitor::GetValidityName(std::string name) {
   } else {
     return (name.substr(pos + 1) + "_validity");
   }
+}
+
+std::string ExpressionCodegenVisitor::GetNaNCheckStr(std::string left, std::string right, 
+                                                     std::string func) {
+  std::stringstream ss;
+  func = " " + func + " ";
+  ss << "((std::isnan(" << left << ") && std::isnan(" << right << ")) ? (1.0 / 0.0" << func << "1.0 / 0.0) : "
+     << "(std::isnan(" << left << ")) ? (1.0 / 0.0" << func << right << ") : "
+     << "(std::isnan(" << right << ")) ? (" << left << func << "1.0 / 0.0) : "
+     << "(" << left << func << right << "))";
+  return ss.str();
 }
 
 }  // namespace extra

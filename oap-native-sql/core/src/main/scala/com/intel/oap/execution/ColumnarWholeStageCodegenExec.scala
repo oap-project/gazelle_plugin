@@ -216,6 +216,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildPlan = p.getBuildPlan
           val buildInputByteBuf = buildPlan.executeBroadcast[ColumnarHashedRelation]()
           curRDD.mapPartitions { iter =>
+            ColumnarPluginConfig.getConf(sparkConf)
             ExecutorManager.tryTaskSet(numaBindingInfo)
             // received broadcast value contain a hashmap and raw recordBatch
             val beforeFetch = System.nanoTime()

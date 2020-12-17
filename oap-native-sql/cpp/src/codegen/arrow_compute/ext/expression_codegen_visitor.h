@@ -84,6 +84,7 @@ class ExpressionCodegenVisitor : public VisitorBase {
 
   std::string CombineValidity(std::vector<std::string> validity_list);
   std::string GetValidityName(std::string name);
+  std::string GetNaNCheckStr(std::string left, std::string right, std::string func);
 };
 
 static arrow::Status MakeExpressionCodegenVisitor(

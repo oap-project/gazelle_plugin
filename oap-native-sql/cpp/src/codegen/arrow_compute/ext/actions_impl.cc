@@ -1458,9 +1458,8 @@ class StddevSampFinalAction : public ActionBase {
     }
     for (uint64_t i = 0; i < length; i++) {
       if (cache_count_[offset + i] - 1 < 0.00001) {
-        // append Infinity if only one non-null value exists
-        // RETURN_NOT_OK(builder->Append(std::numeric_limits<double>::quiet_NaN()));
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<double>::infinity()));
+        // append NaN if only one non-null value exists
+        RETURN_NOT_OK(builder_->Append(std::numeric_limits<double>::quiet_NaN()));
       } else if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[offset + i]));
       } else {
