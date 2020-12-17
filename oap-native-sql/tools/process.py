@@ -45,13 +45,13 @@ def loadResultAsDict(path):
                     table_status += 1
                 if table_status == 2:
                     table_status = 0
-                if line[0] == '|' and table_status == 0:
+                if line[0] == '|' and table_status == 1:
                     if len(table_title) != 0:
                         continue
                     table_title = [i.strip() for i in line.split('|')[1:-1]]
                     for i in range(len(table_title)):
                         table.append([])
-                if line[0] == '|' and table_status == 1:
+                if line[0] == '|' and table_status == 0:
                     idx = 0
                     tmp = [process(i.strip()) for i in line.split('|')[1:-1]]
                     if tmp[0] == 'Result':
