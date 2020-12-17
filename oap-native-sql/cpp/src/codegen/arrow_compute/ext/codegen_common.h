@@ -59,7 +59,7 @@ std::string GetStringFromList(std::vector<T> list) {
   return ss.str();
 }
 std::string GetParameterList(std::vector<std::string> parameter_list,
-                             bool comma_ahead = true);
+                             bool comma_ahead = true, std::string split = ", ");
 arrow::Status GetIndexList(const std::vector<std::shared_ptr<arrow::Field>>& target_list,
                            const std::vector<std::shared_ptr<arrow::Field>>& source_list,
                            std::vector<int>* out);

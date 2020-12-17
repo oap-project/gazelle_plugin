@@ -111,12 +111,19 @@ case class ColumnarBroadcastHashJoinExec(
     case _ =>
       Seq(streamedPlan.executeColumnar())
   }
-  override def getHashBuildPlans: Seq[SparkPlan] = streamedPlan match {
+  override def getBuildPlans: Seq[SparkPlan] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
-      val childPlans = c.getHashBuildPlans
+      val childPlans = c.getBuildPlans
       childPlans :+ this
     case _ =>
       Seq(this)
+  }
+
+  override def getStreamedLeafPlan: SparkPlan = streamedPlan match {
+    case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
+      c.getStreamedLeafPlan
+    case _ =>
+      this
   }
 
   override def dependentPlanCtx: ColumnarCodegenContext = {

@@ -22,7 +22,7 @@
 
 struct CodeGenContext {
   std::vector<std::string> header_codes;
-  std::string hash_relation_prepare_codes;
+  std::string relation_prepare_codes;
   std::string prepare_codes;
   std::string unsafe_row_prepare_codes;
   std::string process_codes;

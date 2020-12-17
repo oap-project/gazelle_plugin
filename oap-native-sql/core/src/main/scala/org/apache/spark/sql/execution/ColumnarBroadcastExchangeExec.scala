@@ -81,54 +81,15 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
           .mapPartitions { iter =>
             var _numRows: Long = 0
             val _input = new ArrayBuffer[ColumnarBatch]()
-            val _input_before_concat = new ArrayBuffer[ColumnarBatch]()
-
-            val concatArrayKernel = new ExpressionEvaluator()
-            val concat_kernel = TreeBuilder.makeFunction(
-              "ConcatArrayList",
-              Lists.newArrayList(),
-              new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
-            val concat_kernel_standalone = TreeBuilder.makeFunction(
-              "standalone",
-              Lists.newArrayList(concat_kernel),
-              new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
-            val concat_expr = TreeBuilder
-              .makeExpression(
-                concat_kernel_standalone,
-                Field.nullable("result", new ArrowType.Int(32, true)))
-            concatArrayKernel.build(
-              ConverterUtils.toArrowSchema(output),
-              Lists.newArrayList(concat_expr),
-              ConverterUtils.toArrowSchema(output),
-              true)
 
             while (iter.hasNext) {
               val batch = iter.next
               (0 until batch.numCols).foreach(i =>
                 batch.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
-              _input_before_concat += batch
-
-              val input_batch = ConverterUtils.createArrowRecordBatch(batch)
-              concatArrayKernel.evaluate(input_batch)
-              ConverterUtils.releaseArrowRecordBatch(input_batch)
-            }
-            val concat_res_iterator = concatArrayKernel.finishByIterator
-            while (concat_res_iterator.hasNext()) {
-              val output_rb = concat_res_iterator.next()
-              if (output_rb != null && output_rb.getLength > 0) {
-                val output_batch = ConverterUtils.fromArrowRecordBatch(
-                  ConverterUtils.toArrowSchema(output),
-                  output_rb)
-                val batch = new ColumnarBatch(
-                  output_batch.map(v => v.asInstanceOf[ColumnVector]).toArray,
-                  output_rb.getLength())
-                ConverterUtils.releaseArrowRecordBatch(output_rb)
-                _numRows += batch.numRows
-                _input += batch
-              }
+              _numRows += batch.numRows
+              _input += batch
             }
             val bytes = ConverterUtils.convertToNetty(_input.toArray)
-            _input_before_concat.foreach(_.close)
             _input.foreach(_.close)
 
             Iterator((_numRows, bytes))

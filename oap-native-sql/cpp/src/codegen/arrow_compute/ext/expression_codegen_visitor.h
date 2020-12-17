@@ -38,7 +38,7 @@ class ExpressionCodegenVisitor : public VisitorBase {
         prepared_list_(prepared_list),
         hash_relation_id_(hash_relation_id) {}
 
-  enum FieldType { left, right, literal, mixed, unknown };
+  enum FieldType { left, right, sort_relation, literal, mixed, unknown };
 
   arrow::Status Eval() {
     RETURN_NOT_OK(func_->Accept(*this));

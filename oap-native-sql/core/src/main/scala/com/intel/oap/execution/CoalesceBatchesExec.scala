@@ -77,7 +77,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
           var numRowsTotal: Long = _
           val resultStructType =
             StructType(output.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
-          System.out.println(s"Coalecse schema is ${resultStructType}")
 
           SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
             if (numBatchesTotal > 0) {

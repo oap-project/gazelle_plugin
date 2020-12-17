@@ -72,6 +72,7 @@ class WholeStageCodeGenKernel::Impl {
   std::vector<std::shared_ptr<KernalBase>> kernel_list_;
   std::shared_ptr<CodeGenBase> wscg_kernel_;
   std::string signature_;
+  bool is_smj_ = false;
 
   arrow::Status GetArguments(std::shared_ptr<gandiva::Node> node, int i,
                              gandiva::NodeVector* node_list) {
@@ -124,6 +125,42 @@ class WholeStageCodeGenKernel::Impl {
           condition, join_type, result_list, configuration_list, cur_hash_relation_idx,
           out));
 
+    } else if (func_name.compare(0, 20, "conditionedMergeJoin") == 0) {
+      int join_type;
+      gandiva::NodeVector left_schema_list;
+      RETURN_NOT_OK(GetArguments(function_node, 0, &left_schema_list));
+      gandiva::NodeVector right_schema_list;
+      RETURN_NOT_OK(GetArguments(function_node, 1, &right_schema_list));
+      gandiva::NodeVector left_key_list;
+      RETURN_NOT_OK(GetArguments(function_node, 2, &left_key_list));
+      gandiva::NodeVector right_key_list;
+      RETURN_NOT_OK(GetArguments(function_node, 3, &right_key_list));
+      gandiva::NodeVector result_list;
+      RETURN_NOT_OK(GetArguments(function_node, 4, &result_list));
+      gandiva::NodePtr condition;
+      if (function_node->children().size() > 5) {
+        condition = function_node->children()[5];
+      }
+
+      if (func_name.compare("conditionedMergeJoinInner") == 0) {
+        join_type = 0;
+      } else if (func_name.compare("conditionedMergeJoinOuter") == 0) {
+        join_type = 1;
+      } else if (func_name.compare("conditionedMergeJoinAnti") == 0) {
+        join_type = 2;
+      } else if (func_name.compare("conditionedMergeJoinSemi") == 0) {
+        join_type = 3;
+      } else if (func_name.compare("conditionedMergeJoinExistence") == 0) {
+        join_type = 4;
+      }
+      std::vector<int> cur_hash_relation_idx = {*hash_relation_idx,
+                                                *hash_relation_idx + 1};
+      *hash_relation_idx += 2;
+      RETURN_NOT_OK(ConditionedMergeJoinKernel::Make(
+          ctx_, left_key_list, right_key_list, left_schema_list, right_schema_list,
+          condition, join_type, result_list, cur_hash_relation_idx, out));
+      is_smj_ = true;
+
     } else if (func_name.compare("project") == 0) {
       auto project_expression_list =
           std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[1])
@@ -139,6 +176,8 @@ class WholeStageCodeGenKernel::Impl {
               ->children();
       RETURN_NOT_OK(
           FilterKernel::Make(ctx_, field_node_list, function_node->children()[1], out));
+    } else {
+      return arrow::Status::NotImplemented("Not supported function name:", func_name);
     }
     return arrow::Status::OK();
   }
@@ -260,25 +299,29 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     codes_ss << R"(
     arrow::Status SetDependencies(
         const std::vector<std::shared_ptr<ResultIteratorBase>>& dependent_iter_list) {
-      std::vector<std::shared_ptr<ResultIterator<HashRelation>>> typed_dependent_iter_list;
-      for (auto iter : dependent_iter_list) {
-        typed_dependent_iter_list.push_back(
-            std::dynamic_pointer_cast<ResultIterator<HashRelation>>(iter));
-      }
-      hash_relation_list_.resize(dependent_iter_list.size());
       )";
     for (auto codegen_ctx : codegen_ctx_list) {
-      codes_ss << codegen_ctx->hash_relation_prepare_codes << std::endl;
+      codes_ss << codegen_ctx->relation_prepare_codes << std::endl;
     }
     codes_ss << R"(
       return arrow::Status::OK();
     }
+)" << std::endl;
 
-    arrow::Status Process(const std::vector<std::shared_ptr<arrow::Array>>& in,
+    if (!is_smj_) {
+      codes_ss
+          << R"(arrow::Status Process(const std::vector<std::shared_ptr<arrow::Array>>& in,
                           std::shared_ptr<arrow::RecordBatch>* out,
                           const std::shared_ptr<arrow::Array>& selection = nullptr)
         override {)"
-             << std::endl;
+          << std::endl;
+    } else {
+      codes_ss << R"(bool HasNext() override { return !should_stop_; })" << std::endl;
+      codes_ss << R"(arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out)
+        override {)"
+               << std::endl;
+      codes_ss << "  int i = 0;" << std::endl;
+    }
 
     // convert input data to typed array
     for (int i = 0; i < input_field_list.size(); i++) {
@@ -290,11 +333,16 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     if (codegen_ctx_list.size() > 0) {
       codes_ss << codegen_ctx_list[0]->unsafe_row_prepare_codes << std::endl;
     }
-    codes_ss << R"(
+    if (!is_smj_) {
+      codes_ss << R"(
           uint64_t out_length = 0;
           auto length = typed_in_0->length();
           for (int i = 0; i < length; i++) {
     )" << std::endl;
+    } else {
+      codes_ss << "uint64_t out_length = 0;" << std::endl;
+      codes_ss << "while (!should_stop_ && out_length < 10000) {" << std::endl;
+    }
     // input preparation
     for (int i = 0; i < input_field_list.size(); i++) {
       auto typed_array_name = "typed_in_" + std::to_string(i);
@@ -336,7 +384,8 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
 
     codes_ss << GetProcessMaterializeCodes(codegen_ctx_list.back()) << std::endl;
     codes_ss << "out_length += 1;" << std::endl;
-    for (auto codegen_ctx : codegen_ctx_list) {
+    for (int ctx_idx = codegen_ctx_list.size() - 1; ctx_idx >= 0; ctx_idx--) {
+      auto codegen_ctx = codegen_ctx_list[ctx_idx];
       codes_ss << codegen_ctx->finish_codes << std::endl;
     }
     codes_ss << "} // end of for loop" << std::endl;
@@ -349,8 +398,8 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
 
    private:
     arrow::compute::FunctionContext* ctx_;
-    std::shared_ptr<arrow::Schema> result_schema_;
-    std::vector<std::shared_ptr<HashRelation>> hash_relation_list_;)"
+    bool should_stop_ = false;
+    std::shared_ptr<arrow::Schema> result_schema_;)"
              << std::endl;
     codes_ss << define_ss.str();
     for (auto codegen_ctx : codegen_ctx_list) {

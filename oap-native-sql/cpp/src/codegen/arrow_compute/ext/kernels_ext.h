@@ -28,6 +28,7 @@
 #include "codegen/arrow_compute/ext/codegen_context.h"
 #include "codegen/common/hash_relation.h"
 #include "codegen/common/result_iterator.h"
+#include "codegen/common/sort_relation.h"
 
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 
@@ -83,6 +84,12 @@ class KernalBase {
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<HashRelation>>* out) {
+    return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
+                                         kernel_name_);
+  }
+  virtual arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<SortRelation>>* out) {
     return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
                                          kernel_name_);
   }
@@ -310,20 +317,22 @@ class SortArraysToIndicesKernel : public KernalBase {
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order,
-                            bool NaN_check,
-                            std::shared_ptr<KernalBase>* out);
+                            std::vector<bool> nulls_order, bool NaN_check,
+                            int result_type, std::shared_ptr<KernalBase>* out);
   SortArraysToIndicesKernel(arrow::compute::FunctionContext* ctx,
                             std::shared_ptr<arrow::Schema> result_schema,
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order,
-                            bool NaN_check);
+                            std::vector<bool> nulls_order, bool NaN_check,
+                            int result_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<SortRelation>>* out) override;
   std::string GetSignature() override;
 
   class Impl;
@@ -573,6 +582,38 @@ class ConditionedProbeKernel : public KernalBase {
                          const gandiva::NodeVector& result_schema,
                          const gandiva::NodeVector& hash_configuration_list,
                          int hash_relation_idx);
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
+                          std::shared_ptr<CodeGenContext>* codegen_ctx_out,
+                          int* var_id) override;
+  std::string GetSignature() override;
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+class ConditionedMergeJoinKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            const gandiva::NodeVector& left_key_list,
+                            const gandiva::NodeVector& right_key_list,
+                            const gandiva::NodeVector& left_schema_list,
+                            const gandiva::NodeVector& right_schema_list,
+                            const gandiva::NodePtr& condition, int join_type,
+                            const gandiva::NodeVector& result_schema,
+                            std::vector<int> hash_relation_idx,
+                            std::shared_ptr<KernalBase>* out);
+  ConditionedMergeJoinKernel(arrow::compute::FunctionContext* ctx,
+                             const gandiva::NodeVector& left_key_list,
+                             const gandiva::NodeVector& right_key_list,
+                             const gandiva::NodeVector& left_schema_list,
+                             const gandiva::NodeVector& right_schema_list,
+                             const gandiva::NodePtr& condition, int join_type,
+                             const gandiva::NodeVector& result_schema,
+                             std::vector<int> hash_relation_idx);
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;

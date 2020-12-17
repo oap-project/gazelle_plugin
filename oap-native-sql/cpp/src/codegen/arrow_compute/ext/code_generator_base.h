@@ -17,6 +17,7 @@
 
 #pragma once
 #include "codegen/common/result_iterator.h"
+class SortRelation;
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -37,13 +38,21 @@ class CodeGenBase {
     return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
   }
 
-  virtual arrow::Status Finish(std::shared_ptr<arrow::Array> in, std::shared_ptr<arrow::Array>* out) {
+  virtual arrow::Status Finish(std::shared_ptr<arrow::Array> in,
+                               std::shared_ptr<arrow::Array>* out) {
     return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
   }
 
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
+    return arrow::Status::NotImplemented(
+        "CodeGenBase MakeResultIterator is an abstract interface.");
+  }
+
+  virtual arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<SortRelation>>* out) {
     return arrow::Status::NotImplemented(
         "CodeGenBase MakeResultIterator is an abstract interface.");
   }

@@ -50,7 +50,7 @@ import org.apache.arrow.gandiva.evaluator._
 import io.netty.buffer.ArrowBuf
 import com.google.common.collect.Lists;
 
-import org.apache.spark.sql.types.{DataType, StructType}
+import org.apache.spark.sql.types.{DataType, DecimalType, StructType}
 import com.intel.oap.vectorized.ExpressionEvaluator
 import com.intel.oap.vectorized.BatchIterator
 
@@ -83,9 +83,8 @@ class ColumnarSortMergeJoin(
   val inputBatchHolder = new ListBuffer[ColumnarBatch]()
 
   def columnarJoin(
-    streamIter: Iterator[ColumnarBatch],
-    buildIter: Iterator[ColumnarBatch]): Iterator[ColumnarBatch] = {
-
+      streamIter: Iterator[ColumnarBatch],
+      buildIter: Iterator[ColumnarBatch]): Iterator[ColumnarBatch] = {
 
     val (realbuildIter, realstreamIter) = joinType match {
       case LeftSemi =>
@@ -242,7 +241,7 @@ object ColumnarSortMergeJoin extends Logging {
     })
 
     //TODO: fix join left/right
-    val buildSide :BuildSide = joinType match {
+    val buildSide: BuildSide = joinType match {
       case LeftSemi =>
         BuildRight
       case LeftOuter =>
@@ -385,6 +384,35 @@ object ColumnarSortMergeJoin extends Logging {
     condition_probe_expr = TreeBuilder.makeExpression(codegen_probe_node, retType)
   }
 
+  def precheck(
+      leftKeys: Seq[Expression],
+      rightKeys: Seq[Expression],
+      resultSchema: StructType,
+      joinType: JoinType,
+      condition: Option[Expression],
+      left: SparkPlan,
+      right: SparkPlan,
+      joinTime: SQLMetric,
+      prepareTime: SQLMetric,
+      totaltime_sortmergejoin: SQLMetric,
+      numOutputRows: SQLMetric,
+      sparkConf: SparkConf): Unit = synchronized {
+    init(
+      leftKeys,
+      rightKeys,
+      resultSchema,
+      joinType,
+      condition,
+      left,
+      right,
+      joinTime,
+      prepareTime,
+      totaltime_sortmergejoin,
+      numOutputRows,
+      sparkConf)
+
+  }
+
   def prebuild(
       leftKeys: Seq[Expression],
       rightKeys: Seq[Expression],
@@ -398,7 +426,7 @@ object ColumnarSortMergeJoin extends Logging {
       totaltime_sortmergejoin: SQLMetric,
       numOutputRows: SQLMetric,
       sparkConf: SparkConf): String = synchronized {
-    
+
     init(
       leftKeys,
       rightKeys,
@@ -485,4 +513,128 @@ object ColumnarSortMergeJoin extends Logging {
       columnarSortMergeJoin.close()
     }
   }
+
+  def prepareKernelFunction(
+      buildKeys: Seq[Expression],
+      streamedKeys: Seq[Expression],
+      buildInputAttributes: Seq[Attribute],
+      streamedInputAttributes: Seq[Attribute],
+      output: Seq[Attribute],
+      joinType: JoinType,
+      conditionOption: Option[Expression]): TreeNode = {
+    /////// Build side ///////
+    val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
+      Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    })
+    val buildKeysFunctionList: List[TreeNode] = buildKeys.toList.map(expr => {
+      val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
+      if (s"${nativeNode.toProtobuf}".contains("none#")) {
+        throw new UnsupportedOperationException(
+          s"Unsupport to generate native expression from replaceable expression.")
+      }
+      nativeNode
+    })
+    /////// Streamed side ///////
+    val streamedInputFieldList: List[Field] = streamedInputAttributes.toList.map(attr => {
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
+      Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    })
+    val streamedKeysFunctionList: List[TreeNode] = streamedKeys.toList.map(expr => {
+      val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
+      if (s"${nativeNode.toProtobuf}".contains("none#")) {
+        throw new UnsupportedOperationException(
+          s"Unsupport to generate native expression from replaceable expression.")
+      }
+      nativeNode
+    })
+    ///////////////////////////////////
+
+    val resultFunctionList: List[TreeNode] = output.toList.map(field => {
+      val field_node = Field.nullable(
+        s"${field.name}#${field.exprId.id}",
+        CodeGeneration.getResultType(field.dataType))
+      TreeBuilder.makeField(field_node)
+    })
+    ///////////////////////////////////
+
+    var existsField: Field = null
+    var existsIndex: Int = -1
+    val probeFuncName = joinType match {
+      case _: InnerLike =>
+        "conditionedMergeJoinInner"
+      case LeftSemi =>
+        "conditionedMergeJoinSemi"
+      case LeftOuter =>
+        "conditionedMergeJoinOuter"
+      case RightOuter =>
+        "conditionedMergeJoinOuter"
+      case LeftAnti =>
+        "conditionedMergeJoinAnti"
+      case j: ExistenceJoin =>
+        "conditionedMergeJoinExistence"
+      case _ =>
+        throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
+    }
+
+    val condition = conditionOption.getOrElse(null)
+    var conditionInputList: java.util.List[Field] = Lists.newArrayList()
+    val build_args_node = TreeBuilder.makeFunction(
+      "codegen_left_schema",
+      buildInputFieldList.map(field => { TreeBuilder.makeField(field) }).asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+    val stream_args_node = TreeBuilder.makeFunction(
+      "codegen_right_schema",
+      streamedInputFieldList.map(field => { TreeBuilder.makeField(field) }).asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+    val build_keys_node = TreeBuilder.makeFunction(
+      "codegen_left_key_schema",
+      buildKeysFunctionList.asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+    val stream_keys_node = TreeBuilder.makeFunction(
+      "codegen_right_key_schema",
+      streamedKeysFunctionList.asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+    val result_node = TreeBuilder.makeFunction(
+      "codegen_result_schema",
+      resultFunctionList.asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+    val condition_expression_node_list: java.util.List[TreeNode] =
+      if (condition != null) {
+        val columnarExpression: Expression =
+          ColumnarExpressionConverter.replaceWithColumnarExpression(condition)
+        val (condition_expression_node, resultType) =
+          columnarExpression
+            .asInstanceOf[ColumnarExpression]
+            .doColumnarCodeGen(conditionInputList)
+        Lists.newArrayList(
+          build_args_node,
+          stream_args_node,
+          build_keys_node,
+          stream_keys_node,
+          result_node,
+          condition_expression_node)
+      } else {
+        Lists.newArrayList(
+          build_args_node,
+          stream_args_node,
+          build_keys_node,
+          stream_keys_node,
+          result_node)
+      }
+    val retType = Field.nullable("res", new ArrowType.Int(32, true))
+
+    // Make Expresion for conditionedProbe
+    TreeBuilder.makeFunction(
+      probeFuncName,
+      condition_expression_node_list,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+  }
+
 }

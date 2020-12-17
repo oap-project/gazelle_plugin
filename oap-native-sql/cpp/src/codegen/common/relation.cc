@@ -17,6 +17,7 @@
 
 #include "codegen/common/hash_relation_number.h"
 #include "codegen/common/hash_relation_string.h"
+#include "codegen/common/relation_column.h"
 
 ///////////////////////////////////////////////////////////////////////////////////
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
@@ -46,6 +47,42 @@ arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
 #undef PROCESS
     default: {
       return arrow::Status::NotImplemented("MakeHashRelationColumn doesn't suppoty type ",
+                                           data_type_id);
+    } break;
+  }
+
+  return arrow::Status::OK();
+}
+#undef PROCESS_SUPPORTED_TYPES
+
+///////////////////////////////////////////////////////////////////////////////////
+#define PROCESS_SUPPORTED_TYPES(PROCESS) \
+  PROCESS(arrow::BooleanType)            \
+  PROCESS(arrow::UInt8Type)              \
+  PROCESS(arrow::Int8Type)               \
+  PROCESS(arrow::UInt16Type)             \
+  PROCESS(arrow::Int16Type)              \
+  PROCESS(arrow::UInt32Type)             \
+  PROCESS(arrow::Int32Type)              \
+  PROCESS(arrow::UInt64Type)             \
+  PROCESS(arrow::Int64Type)              \
+  PROCESS(arrow::FloatType)              \
+  PROCESS(arrow::DoubleType)             \
+  PROCESS(arrow::Date32Type)             \
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::StringType)
+arrow::Status MakeRelationColumn(uint32_t data_type_id,
+                                 std::shared_ptr<RelationColumn>* out) {
+  switch (data_type_id) {
+#define PROCESS(InType)                                                  \
+  case TypeTraits<InType>::type_id: {                                    \
+    auto typed_column = std::make_shared<TypedRelationColumn<InType>>(); \
+    *out = std::dynamic_pointer_cast<RelationColumn>(typed_column);      \
+  } break;
+    PROCESS_SUPPORTED_TYPES(PROCESS)
+#undef PROCESS
+    default: {
+      return arrow::Status::NotImplemented("MakeRelationColumn doesn't suppoty type ",
                                            data_type_id);
     } break;
   }

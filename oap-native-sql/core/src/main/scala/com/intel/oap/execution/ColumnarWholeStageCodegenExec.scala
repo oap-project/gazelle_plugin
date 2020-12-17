@@ -61,7 +61,9 @@ trait ColumnarCodegenSupport extends SparkPlan {
    */
   def inputRDDs: Seq[RDD[ColumnarBatch]]
 
-  def getHashBuildPlans: Seq[SparkPlan]
+  def getBuildPlans: Seq[SparkPlan]
+
+  def getStreamedLeafPlan: SparkPlan
 
   def doCodeGen: ColumnarCodegenContext
 
@@ -139,8 +141,12 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     ColumnarCodegenContext(childCtx.inputSchema, childCtx.outputSchema, wholeStageCodeGenNode)
   }
 
-  override def getHashBuildPlans: Seq[SparkPlan] = {
-    child.asInstanceOf[ColumnarCodegenSupport].getHashBuildPlans
+  override def getBuildPlans: Seq[SparkPlan] = {
+    child.asInstanceOf[ColumnarCodegenSupport].getBuildPlans
+  }
+
+  override def getStreamedLeafPlan: SparkPlan = {
+    child.asInstanceOf[ColumnarCodegenSupport].getStreamedLeafPlan
   }
 
   /**
@@ -198,18 +204,19 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     var build_elapse: Long = 0
     var eval_elapse: Long = 0
     // we should zip all dependent RDDs to current main RDD
-    val hashBuildPlans = getHashBuildPlans
+    val buildPlans = getBuildPlans
+    val streamedSortPlan = getStreamedLeafPlan
     val dependentKernels: ListBuffer[ExpressionEvaluator] = ListBuffer()
     val dependentKernelIterators: ListBuffer[BatchIterator] = ListBuffer()
-    val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
+    val buildRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
     val serializableObjectHolder: ListBuffer[SerializableObject] = ListBuffer()
     val relationHolder: ListBuffer[ColumnarHashedRelation] = ListBuffer()
     var idx = 0
     var curRDD = inputRDDs()(0)
-    while (idx < hashBuildPlans.length) {
-      val curHashPlan = hashBuildPlans(idx).asInstanceOf[ColumnarCodegenSupport]
+    while (idx < buildPlans.length) {
+      val curPlan = buildPlans(idx).asInstanceOf[ColumnarCodegenSupport]
 
-      curRDD = curHashPlan match {
+      curRDD = curPlan match {
         case p: ColumnarBroadcastHashJoinExec =>
           val fetchTime = p.longMetric("fetchTime")
           val buildTime = p.longMetric("buildTime")
@@ -228,7 +235,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             serializableObjectHolder += hashRelationObject
             val depIter =
               new CloseableColumnBatchIterator(relation.getColumnarBatchAsIter)
-            val ctx = curHashPlan.dependentPlanCtx
+            val ctx = curPlan.dependentPlanCtx
             val expression =
               TreeBuilder.makeExpression(
                 ctx.root,
@@ -244,7 +251,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
               if (dep_cb.numRows > 0) {
                 (0 until dep_cb.numCols).toList.foreach(i =>
                   dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
-                hashRelationBatchHolder += dep_cb
+                buildRelationBatchHolder += dep_cb
                 val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
                 hashRelationResultIterator.processAndCacheOne(ctx.inputSchema, dep_rb)
                 ConverterUtils.releaseArrowRecordBatch(dep_rb)
@@ -262,7 +269,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildPlan = p.getBuildPlan
           curRDD.zipPartitions(buildPlan.executeColumnar()) { (iter, depIter) =>
             ExecutorManager.tryTaskSet(numaBindingInfo)
-            val ctx = curHashPlan.dependentPlanCtx
+            val ctx = curPlan.dependentPlanCtx
             val expression =
               TreeBuilder.makeExpression(
                 ctx.root,
@@ -275,7 +282,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
               val dep_cb = depIter.next()
               (0 until dep_cb.numCols).toList.foreach(i =>
                 dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
-              hashRelationBatchHolder += dep_cb
+              buildRelationBatchHolder += dep_cb
               val beforeEval = System.nanoTime()
               val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
               hashRelationKernel.evaluate(dep_rb)
@@ -288,12 +295,77 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             dependentKernelIterators += hashRelationKernel.finishByIterator()
             iter
           }
+        case p: ColumnarSortExec =>
+          val buildTime = p.longMetric("buildTime")
+          curRDD.zipPartitions(p.executeColumnar()) { (iter, depIter) =>
+            val beforeEval = System.nanoTime()
+            ExecutorManager.tryTaskSet(numaBindingInfo)
+            // Chendi: We have an assumption here
+            // when curPlan is ColumnarSortExec,
+            // curRDD should be the other ColumnarSortExec
+            val ctx = curPlan.dependentPlanCtx
+            val expression =
+              TreeBuilder.makeExpression(
+                ctx.root,
+                Field.nullable("result", new ArrowType.Int(32, true)))
+            val sortRelationKernel = new ExpressionEvaluator()
+            sortRelationKernel
+              .build(ctx.inputSchema, Lists.newArrayList(expression), ctx.outputSchema, true)
+            while (depIter.hasNext) {
+              val dep_cb = depIter.next()
+              if (dep_cb.numRows > 0) {
+                (0 until dep_cb.numCols).toList.foreach(i =>
+                  dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
+                buildRelationBatchHolder += dep_cb
+                val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
+                sortRelationKernel.evaluate(dep_rb)
+                ConverterUtils.releaseArrowRecordBatch(dep_rb)
+              }
+            }
+            buildTime += ((System.nanoTime() - beforeEval) / 1000000)
+            dependentKernels += sortRelationKernel
+            dependentKernelIterators += sortRelationKernel.finishByIterator()
+
+            //////// handle streamed side sort /////////
+            val streamedSideBuildTime = streamedSortPlan.longMetric("buildTime")
+            val beforeStreamedEval = System.nanoTime()
+            val streamed_ctx =
+              streamedSortPlan.asInstanceOf[ColumnarCodegenSupport].dependentPlanCtx
+            val streamed_expression =
+              TreeBuilder.makeExpression(
+                streamed_ctx.root,
+                Field.nullable("result", new ArrowType.Int(32, true)))
+            val streamedSortRelationKernel = new ExpressionEvaluator()
+            streamedSortRelationKernel
+              .build(
+                streamed_ctx.inputSchema,
+                Lists.newArrayList(streamed_expression),
+                streamed_ctx.outputSchema,
+                true)
+            while (iter.hasNext) {
+              val dep_cb = iter.next()
+              if (dep_cb.numRows > 0) {
+                (0 until dep_cb.numCols).toList.foreach(i =>
+                  dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
+                buildRelationBatchHolder += dep_cb
+                val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
+                streamedSortRelationKernel.evaluate(dep_rb)
+                ConverterUtils.releaseArrowRecordBatch(dep_rb)
+              }
+            }
+            streamedSideBuildTime += ((System.nanoTime() - beforeStreamedEval) / 1000000)
+            dependentKernels += streamedSortRelationKernel
+            dependentKernelIterators += streamedSortRelationKernel.finishByIterator()
+
+            iter
+          }
         case _ =>
           throw new UnsupportedOperationException
       }
 
       idx += 1
     }
+
     curRDD.mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
       ColumnarPluginConfig.getConf(sparkConf)
@@ -320,61 +392,90 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       val nativeIterator = nativeKernel.finishByIterator()
       // we need to complete dependency RDD's firstly
       nativeIterator.setDependencies(dependentKernelIterators.toArray)
+      val resultStructType = ArrowUtils.fromArrowSchema(resCtx.outputSchema)
+      val resIter = streamedSortPlan match {
+        case p: ColumnarSortExec =>
+          new Iterator[ColumnarBatch] {
+            override def hasNext: Boolean = {
+              nativeIterator.hasNext
+            }
+
+            override def next(): ColumnarBatch = {
+              val beforeEval = System.nanoTime()
+              val output_rb = nativeIterator.next
+              if (output_rb == null) {
+                eval_elapse += System.nanoTime() - beforeEval
+                val resultColumnVectors =
+                  ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+                return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+              }
+              val outputNumRows = output_rb.getLength
+              val output = ConverterUtils.fromArrowRecordBatch(resCtx.outputSchema, output_rb)
+              ConverterUtils.releaseArrowRecordBatch(output_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+              numOutputRows += outputNumRows
+              new ColumnarBatch(
+                output.map(v => v.asInstanceOf[ColumnVector]).toArray,
+                outputNumRows)
+            }
+          }
+
+        case _ =>
+          // now we can return this wholestagecodegen iter
+          new Iterator[ColumnarBatch] {
+            override def hasNext: Boolean = {
+              iter.hasNext
+            }
+
+            override def next(): ColumnarBatch = {
+              val cb = iter.next()
+              if (cb.numRows == 0) {
+                val resultColumnVectors = ArrowWritableColumnVector
+                  .allocateColumns(0, resultStructType)
+                  .toArray
+                return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+              }
+              val beforeEval = System.nanoTime()
+              val input_rb =
+                ConverterUtils.createArrowRecordBatch(cb)
+
+              val output_rb = nativeIterator.process(resCtx.inputSchema, input_rb)
+              if (output_rb == null) {
+                ConverterUtils.releaseArrowRecordBatch(input_rb)
+                eval_elapse += System.nanoTime() - beforeEval
+                val resultColumnVectors =
+                  ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+                return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+              }
+              val outputNumRows = output_rb.getLength
+              ConverterUtils.releaseArrowRecordBatch(input_rb)
+              val output = ConverterUtils.fromArrowRecordBatch(resCtx.outputSchema, output_rb)
+              ConverterUtils.releaseArrowRecordBatch(output_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+              numOutputRows += outputNumRows
+              new ColumnarBatch(
+                output.map(v => v.asInstanceOf[ColumnVector]).toArray,
+                outputNumRows)
+            }
+          }
+      }
 
       var closed = false
       def close = {
         closed = true
         totalTime += (eval_elapse / 1000000)
         pipelineTime += (eval_elapse + build_elapse) / 1000000
-        hashRelationBatchHolder.foreach(_.close)
+        buildRelationBatchHolder.foreach(_.close)
         dependentKernels.foreach(_.close)
         dependentKernelIterators.foreach(_.close)
         nativeKernel.close
         nativeIterator.close
         relationHolder.foreach(r => r.countDownClose(timeout))
       }
-
-      // now we can return this wholestagecodegen iter
-      val resultStructType = ArrowUtils.fromArrowSchema(resCtx.outputSchema)
-      val res = new Iterator[ColumnarBatch] {
-        override def hasNext: Boolean = {
-          iter.hasNext
-        }
-
-        override def next(): ColumnarBatch = {
-          val cb = iter.next()
-          if (cb.numRows == 0) {
-            val resultColumnVectors = ArrowWritableColumnVector
-              .allocateColumns(0, resultStructType)
-              .toArray
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
-          }
-          val beforeEval = System.nanoTime()
-          val input_rb =
-            ConverterUtils.createArrowRecordBatch(cb)
-
-          val output_rb = nativeIterator.process(resCtx.inputSchema, input_rb)
-          if (output_rb == null) {
-            ConverterUtils.releaseArrowRecordBatch(input_rb)
-            eval_elapse += System.nanoTime() - beforeEval
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
-          }
-          val outputNumRows = output_rb.getLength
-          ConverterUtils.releaseArrowRecordBatch(input_rb)
-          val output = ConverterUtils.fromArrowRecordBatch(resCtx.outputSchema, output_rb)
-          ConverterUtils.releaseArrowRecordBatch(output_rb)
-          eval_elapse += System.nanoTime() - beforeEval
-          numOutputRows += outputNumRows
-          new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
-        }
-      }
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
         close
       })
-      new CloseableColumnBatchIterator(res)
+      new CloseableColumnBatchIterator(resIter)
     }
   }
-
 }

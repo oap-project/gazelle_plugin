@@ -177,17 +177,20 @@ class ConditionedProbeKernel::Impl {
     // 1.0 prepare hash relation columns
     std::stringstream hash_prepare_ss;
     std::stringstream hash_define_ss;
-    hash_prepare_ss << "RETURN_NOT_OK(typed_dependent_iter_list[" << hash_relation_id_
-                    << "]->Next("
-                    << "&hash_relation_list_[" << hash_relation_id_ << "]));"
-                    << std::endl;
+    auto relation_list_name =
+        "hash_relation_list_" + std::to_string(hash_relation_id_) + "_";
+    hash_prepare_ss << "auto typed_dependent_iter_list_" << hash_relation_id_
+                    << " = "
+                       "std::dynamic_pointer_cast<ResultIterator<HashRelation>>("
+                       "dependent_iter_list["
+                    << hash_relation_id_ << "]);" << std::endl;
+    hash_prepare_ss << "RETURN_NOT_OK(typed_dependent_iter_list_" << hash_relation_id_
+                    << "->Next("
+                    << "&" << relation_list_name << "));" << std::endl;
     codegen_ctx->header_codes.push_back(R"(#include "codegen/common/hash_relation.h")");
 
-    hash_prepare_ss << "hash_relation_list_" << hash_relation_id_
-                    << "_ = hash_relation_list_[" << hash_relation_id_ << "];"
-                    << std::endl;
-    hash_define_ss << "std::shared_ptr<HashRelation> hash_relation_list_"
-                   << hash_relation_id_ << "_;" << std::endl;
+    hash_define_ss << "std::shared_ptr<HashRelation> " << relation_list_name << ";"
+                   << std::endl;
     for (int i = 0; i < left_field_list_.size(); i++) {
       std::stringstream hash_relation_col_name_ss;
       hash_relation_col_name_ss << "hash_relation_" << hash_relation_id_ << "_" << i;
@@ -197,11 +200,10 @@ class ConditionedProbeKernel::Impl {
                      << GetTemplateString(hash_relation_col_type,
                                           "TypedHashRelationColumn", "Type", "arrow::")
                      << "> " << hash_relation_col_name << ";" << std::endl;
-      hash_prepare_ss << "RETURN_NOT_OK(hash_relation_list_[" << hash_relation_id_
-                      << "]->GetColumn(" << i << ", &" << hash_relation_col_name << "));"
-                      << std::endl;
+      hash_prepare_ss << "RETURN_NOT_OK(" << relation_list_name << "->GetColumn(" << i
+                      << ", &" << hash_relation_col_name << "));" << std::endl;
     }
-    codegen_ctx->hash_relation_prepare_codes = hash_prepare_ss.str();
+    codegen_ctx->relation_prepare_codes = hash_prepare_ss.str();
 
     // define output list here, which will also be defined in class variables definition
     int idx = 0;

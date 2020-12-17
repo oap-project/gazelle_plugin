@@ -20,15 +20,25 @@ package com.intel.oap.execution
 import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
+import com.google.common.collect.Lists
 import java.util.concurrent.TimeUnit._
+
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
+import org.apache.arrow.vector.types.pojo.ArrowType
+import org.apache.arrow.vector.types.pojo.Field
+import org.apache.arrow.vector.types.pojo.Schema
+import org.apache.arrow.gandiva.expression._
+import org.apache.arrow.gandiva.evaluator._
 
 import org.apache.spark.{SparkContext, SparkEnv, TaskContext}
 import org.apache.spark.executor.TaskMetrics
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.catalyst.expressions.SortOrder
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.BoundReference
 import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReference
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.plans.physical._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
@@ -38,23 +48,34 @@ import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 /**
  * Columnar Based SortExec.
  */
-class ColumnarSortExec(
+case class ColumnarSortExec(
     sortOrder: Seq[SortOrder],
     global: Boolean,
     child: SparkPlan,
     testSpillFrequency: Int = 0)
-    extends SortExec(sortOrder, global, child, testSpillFrequency) {
+    extends UnaryExecNode
+    with ColumnarCodegenSupport {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
   override def supportsColumnar = true
+  override protected def doExecute(): RDD[InternalRow] = {
+    throw new UnsupportedOperationException(s"ColumnarSortExec doesn't support doExecute")
+  }
 
-  // Disable code generation
-  override def supportCodegen: Boolean = false
+  override def output: Seq[Attribute] = child.output
+
+  override def outputOrdering: Seq[SortOrder] = sortOrder
+
+  override def outputPartitioning: Partitioning = child.outputPartitioning
+
+  override def requiredChildDistribution: Seq[Distribution] =
+    if (global) OrderedDistribution(sortOrder) :: Nil else UnspecifiedDistribution :: Nil
 
   override lazy val metrics = Map(
     "totalSortTime" -> SQLMetrics
       .createTimingMetric(sparkContext, "totaltime_sort"),
+    "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in cache all data"),
     "sortTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in sort process"),
     "shuffleTime" -> SQLMetrics.createTimingMetric(sparkContext, "time in shuffle process"),
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
@@ -66,14 +87,50 @@ class ColumnarSortExec(
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
 
+  /*****************  WSCG related function ******************/
+  override def inputRDDs(): Seq[RDD[ColumnarBatch]] = child match {
+    case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
+      c.inputRDDs
+    case _ =>
+      Seq(child.executeColumnar())
+  }
+
+  override def supportColumnarCodegen: Boolean = true
+
+  override def getBuildPlans: Seq[SparkPlan] = child match {
+    case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
+      val childPlans = c.getBuildPlans
+      childPlans :+ this
+    case _ =>
+      Seq(this)
+  }
+
+  override def getStreamedLeafPlan: SparkPlan = child match {
+    case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
+      c.getStreamedLeafPlan
+    case _ =>
+      this
+  }
+
+  override def dependentPlanCtx: ColumnarCodegenContext = {
+    val inputSchema = ConverterUtils.toArrowSchema(child.output)
+    val outSchema = ConverterUtils.toArrowSchema(output)
+    ColumnarCodegenContext(
+      inputSchema,
+      outSchema,
+      ColumnarSorter.prepareKernelFunction(sortOrder, child.output, sparkConf, 1))
+  }
+
+  override def doCodeGen: ColumnarCodegenContext = null
+
+  /***********************************************************/
   def getCodeGenSignature =
     if (!sortOrder
-      .filter(
-        expr => bindReference(expr.child, child.output, true).isInstanceOf[BoundReference])
-      .isEmpty) {
+          .filter(
+            expr => bindReference(expr.child, child.output, true).isInstanceOf[BoundReference])
+          .isEmpty) {
       ColumnarSorter.prebuild(
         sortOrder,
-        true,
         child.output,
         sortTime,
         numOutputBatches,
@@ -122,7 +179,6 @@ class ColumnarSortExec(
           })
         val sorter = ColumnarSorter.create(
           sortOrder,
-          true,
           child.output,
           jarList,
           sortTime,
@@ -132,8 +188,8 @@ class ColumnarSortExec(
           elapse,
           sparkConf)
         SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
-            sorter.close()
-          })
+          sorter.close()
+        })
         new CloseableColumnBatchIterator(sorter.createColumnarIterator(iter))
       }
       res

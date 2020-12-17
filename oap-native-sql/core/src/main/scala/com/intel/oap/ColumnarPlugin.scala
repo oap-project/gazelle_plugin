@@ -24,11 +24,27 @@ import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, ColumnarCustomShuffleReaderExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
+import org.apache.spark.sql.execution.adaptive.{
+  BroadcastQueryStageExec,
+  ColumnarCustomShuffleReaderExec,
+  CustomShuffleReaderExec,
+  ShuffleQueryStageExec
+}
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
-import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ReusedExchangeExec, ShuffleExchangeExec}
-import org.apache.spark.sql.execution.joins.{BroadcastHashJoinExec, BuildLeft, BuildRight, ShuffledHashJoinExec, SortMergeJoinExec, _}
+import org.apache.spark.sql.execution.exchange.{
+  BroadcastExchangeExec,
+  ReusedExchangeExec,
+  ShuffleExchangeExec
+}
+import org.apache.spark.sql.execution.joins.{
+  BroadcastHashJoinExec,
+  BuildLeft,
+  BuildRight,
+  ShuffledHashJoinExec,
+  SortMergeJoinExec,
+  _
+}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 
@@ -320,7 +336,11 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         }
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
         try {
-          return new ColumnarWindowExec(plan.windowExpression, plan.partitionSpec, plan.orderSpec, child)
+          return new ColumnarWindowExec(
+            plan.windowExpression,
+            plan.partitionSpec,
+            plan.orderSpec,
+            child)
         } catch {
           case _: Throwable =>
             logInfo("Columnar Window: Falling back to regular Window...")
@@ -544,7 +564,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
             }
           case _ =>
             replaceWithColumnarPlan(child)
-      })
+        })
     }
   }
 }

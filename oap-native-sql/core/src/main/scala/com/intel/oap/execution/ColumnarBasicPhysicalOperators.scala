@@ -92,11 +92,18 @@ case class ColumnarConditionProjectExec(
       Seq(child.executeColumnar())
   }
 
-  override def getHashBuildPlans: Seq[SparkPlan] = child match {
+  override def getBuildPlans: Seq[SparkPlan] = child match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
-      c.getHashBuildPlans
+      c.getBuildPlans
     case _ =>
       Seq()
+  }
+
+  override def getStreamedLeafPlan: SparkPlan = child match {
+    case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
+      c.getStreamedLeafPlan
+    case _ =>
+      this
   }
 
   override def supportColumnarCodegen: Boolean = true

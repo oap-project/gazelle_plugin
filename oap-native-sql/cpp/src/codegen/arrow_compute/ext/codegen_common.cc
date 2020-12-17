@@ -243,8 +243,8 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
   }
 }
 
-std::string GetParameterList(std::vector<std::string> parameter_list_in,
-                             bool comma_ahead) {
+std::string GetParameterList(std::vector<std::string> parameter_list_in, bool comma_ahead,
+                             std::string split) {
   std::vector<std::string> parameter_list;
   for (auto s : parameter_list_in) {
     if (s != "") {
@@ -255,7 +255,7 @@ std::string GetParameterList(std::vector<std::string> parameter_list_in,
   std::stringstream ss;
   for (int i = 0; i < parameter_list.size(); i++) {
     if (i != (parameter_list.size() - 1)) {
-      ss << parameter_list[i] << ", ";
+      ss << parameter_list[i] << split;
     } else {
       ss << parameter_list[i] << "";
     }
@@ -267,7 +267,7 @@ std::string GetParameterList(std::vector<std::string> parameter_list_in,
   if (ret.empty()) {
     return ret;
   } else {
-    return ", " + ret;
+    return split + ret;
   }
 }
 
@@ -535,8 +535,8 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
     std::cout << "compilation failed, see " << logfile << std::endl;
     std::cout << cmd << std::endl;
-    cmd = "ls -R -l " + GetTempPath() + "; cat " + logfile;
-    system(cmd.c_str());
+    /*cmd = "ls -R -l " + GetTempPath() + "; cat " + logfile;
+    system(cmd.c_str());*/
     exit(EXIT_FAILURE);
   }
   cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
