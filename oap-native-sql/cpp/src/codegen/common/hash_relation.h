@@ -18,6 +18,7 @@
 #pragma once
 
 #include <arrow/compute/context.h>
+#include <arrow/memory_pool.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
@@ -111,7 +112,7 @@ using is_number_alike =
 
 class HashRelation {
  public:
-  HashRelation(arrow::compute::FunctionContext* ctx) {}
+  HashRelation(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {}
 
   HashRelation(
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_list) {
@@ -123,7 +124,9 @@ class HashRelation {
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
       int key_size = -1)
       : HashRelation(hash_relation_column) {
-    hash_table_ = createUnsafeHashMap(1024 * 1024, 256 * 1024 * 1024, key_size);
+    hash_table_ =
+        createUnsafeHashMap(ctx->memory_pool(), 1024 * 1024, 256 * 1024 * 1024, key_size);
+    ctx_ = ctx;
     arrayid_list_.reserve(64);
   }
 
@@ -331,6 +334,7 @@ class HashRelation {
 
  protected:
   bool unsafe_set = false;
+  arrow::compute::FunctionContext* ctx_;
   uint64_t num_arrays_ = 0;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
   unsafeHashMap* hash_table_ = nullptr;

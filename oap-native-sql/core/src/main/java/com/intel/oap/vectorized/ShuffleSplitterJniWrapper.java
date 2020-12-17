@@ -35,6 +35,7 @@ public class ShuffleSplitterJniWrapper {
    * @param subDirsPerLocalDir SparkConf spark.diskStore.subDirectories
    * @param localDirs configured local directories where Spark can write files
    * @param preferSpill
+   * @param memoryPoolId
    * @return native splitter instance id if created successfully.
    */
   public long make(
@@ -44,7 +45,8 @@ public class ShuffleSplitterJniWrapper {
       String dataFile,
       int subDirsPerLocalDir,
       String localDirs,
-      boolean preferSpill) {
+      boolean preferSpill,
+      long memoryPoolId) {
     return nativeMake(
         part.getShortName(),
         part.getNumPartitions(),
@@ -55,7 +57,8 @@ public class ShuffleSplitterJniWrapper {
         dataFile,
         subDirsPerLocalDir,
         localDirs,
-        preferSpill);
+        preferSpill,
+        memoryPoolId);
   }
 
   public native long nativeMake(
@@ -68,7 +71,8 @@ public class ShuffleSplitterJniWrapper {
       String dataFile,
       int subDirsPerLocalDir,
       String localDirs,
-      boolean preferSpill);
+      boolean preferSpill,
+      long memoryPoolId);
 
   /**
    * Split one record batch represented by bufAddrs and bufSizes into several batches. The batch is

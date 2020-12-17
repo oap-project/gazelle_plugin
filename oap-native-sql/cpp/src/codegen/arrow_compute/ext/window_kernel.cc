@@ -360,7 +360,7 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
   for (int i = 0; i < group_ids.size(); i++) {
     delete *(rank_array + i);
   }
-  delete rank_array;
+  delete[] rank_array;
   return arrow::Status::OK();
 }
 

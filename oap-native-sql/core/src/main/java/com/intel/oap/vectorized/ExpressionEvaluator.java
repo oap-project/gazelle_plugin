@@ -23,6 +23,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.List;
+
+import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.gandiva.evaluator.SelectionVectorInt16;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
@@ -32,17 +34,27 @@ import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 public class ExpressionEvaluator implements AutoCloseable {
   private long nativeHandler = 0;
   private ExpressionEvaluatorJniWrapper jniWrapper;
+  private final NativeMemoryPool memoryPool;
 
   /** Wrapper for native API. */
   public ExpressionEvaluator() throws IOException, IllegalAccessException, IllegalStateException {
-    this(java.util.Collections.emptyList());
+    this(java.util.Collections.emptyList(), SparkMemoryUtils.contextMemoryPool());
+  }
+
+  public ExpressionEvaluator(NativeMemoryPool memoryPool) throws IOException, IllegalAccessException, IllegalStateException {
+    this(java.util.Collections.emptyList(), memoryPool);
   }
 
   public ExpressionEvaluator(List<String> listJars) throws IOException, IllegalAccessException, IllegalStateException {
+    this(listJars, SparkMemoryUtils.contextMemoryPool());
+  }
+
+  public ExpressionEvaluator(List<String> listJars, NativeMemoryPool memoryPool) throws IOException, IllegalAccessException, IllegalStateException {
     String tmp_dir = ColumnarPluginConfig.getTempFile();
     if (tmp_dir == null) {
       tmp_dir = System.getProperty("java.io.tmpdir");
@@ -51,6 +63,7 @@ public class ExpressionEvaluator implements AutoCloseable {
     jniWrapper.nativeSetJavaTmpDir(jniWrapper.tmp_dir_path);
     jniWrapper.nativeSetBatchSize(ColumnarPluginConfig.getBatchSize());
     ColumnarPluginConfig.setRandomTempDir(jniWrapper.tmp_dir_path);
+    this.memoryPool = memoryPool;
   }
 
   long getInstanceId() {
@@ -60,38 +73,40 @@ public class ExpressionEvaluator implements AutoCloseable {
   /** Convert ExpressionTree into native function. */
   public String build(Schema schema, List<ExpressionTree> exprs)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), null, false);
+    nativeHandler = jniWrapper.nativeBuild(memoryPool.getNativeInstanceId(), getSchemaBytesBuf(schema),
+        getExprListBytesBuf(exprs), null, false);
     return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
   public String build(Schema schema, List<ExpressionTree> exprs, boolean finishReturn)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), null, finishReturn);
+    nativeHandler = jniWrapper.nativeBuild(memoryPool.getNativeInstanceId(), getSchemaBytesBuf(schema),
+        getExprListBytesBuf(exprs), null, finishReturn);
     return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
   public String build(Schema schema, List<ExpressionTree> exprs, Schema resSchema)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs),
-        getSchemaBytesBuf(resSchema), false);
+    nativeHandler = jniWrapper.nativeBuild(memoryPool.getNativeInstanceId(), getSchemaBytesBuf(schema),
+        getExprListBytesBuf(exprs), getSchemaBytesBuf(resSchema), false);
     return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
   public String build(Schema schema, List<ExpressionTree> exprs, Schema resSchema, boolean finishReturn)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuild(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs),
-        getSchemaBytesBuf(resSchema), finishReturn);
+    nativeHandler = jniWrapper.nativeBuild(memoryPool.getNativeInstanceId(), getSchemaBytesBuf(schema),
+        getExprListBytesBuf(exprs), getSchemaBytesBuf(resSchema), finishReturn);
     return jniWrapper.nativeGetSignature(nativeHandler);
   }
 
   /** Convert ExpressionTree into native function. */
   public String build(Schema schema, List<ExpressionTree> exprs, List<ExpressionTree> finish_exprs)
       throws RuntimeException, IOException, GandivaException {
-    nativeHandler = jniWrapper.nativeBuildWithFinish(getSchemaBytesBuf(schema), getExprListBytesBuf(exprs),
-        getExprListBytesBuf(finish_exprs));
+    nativeHandler = jniWrapper.nativeBuildWithFinish(memoryPool.getNativeInstanceId(),
+        getSchemaBytesBuf(schema), getExprListBytesBuf(exprs), getExprListBytesBuf(finish_exprs));
     return jniWrapper.nativeGetSignature(nativeHandler);
   }
 

@@ -132,7 +132,7 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
 
   public static ArrowBuf arrowBufWithAllValid(int size) {
     int bufLen = (size + 7) / 8;
-    BufferAllocator allocator = SparkMemoryUtils.arrowAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
     ArrowBuf buffer = allocator.buffer(bufLen);
     for (int i = 0; i < bufLen; i++) {
       buffer.writeByte(255);
@@ -193,7 +193,7 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
       for (int i = 0; i < dataType.size(); i++) {
         // init input vector
         // IntVector inputVector = new IntVector("input_"+i, allocator);
-        BufferAllocator allocator = SparkMemoryUtils.arrowAllocator();
+        BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
         Float4Vector inputVector = new Float4Vector("input_" + i, allocator);
         inputVector.allocateNew(numRowsInBatch);
         for (int j = 0; j < numRowsInBatch; j++) {
@@ -206,7 +206,7 @@ public class ColumnarArithmeticWithGandiva implements AutoCloseable {
 
       // init output vector
       // IntVector outputVector = new IntVector("result", allocator);
-      BufferAllocator allocator = SparkMemoryUtils.arrowAllocator();
+      BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
       Float4Vector outputVector = new Float4Vector("result", allocator);
       outputVector.allocateNew(numRowsInBatch);
       outputVectors.add(outputVector);

@@ -62,7 +62,7 @@ public class ArrowRecordBatchBuilderImpl {
 
     List<ArrowBuf> buffers = new ArrayList<ArrowBuf>();
     for (ArrowBufBuilder tmp : recordBatchBuilder.bufferBuilders) {
-      BaseAllocator allocator = SparkMemoryUtils.arrowAllocator();
+      BaseAllocator allocator = SparkMemoryUtils.contextAllocator();
       NativeUnderlyingMemory am = new Underlying(allocator, tmp.size,
           tmp.nativeInstanceId, tmp.memoryAddress);
       BufferLedger ledger = am.associate(allocator);

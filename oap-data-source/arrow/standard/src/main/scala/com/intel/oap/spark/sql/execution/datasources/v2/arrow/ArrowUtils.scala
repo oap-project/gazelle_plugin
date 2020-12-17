@@ -71,9 +71,9 @@ object ArrowUtils {
 
     val format = getFormat(options).getOrElse(throw new IllegalStateException)
     val fs = getFs(options).getOrElse(throw new IllegalStateException)
-    val allocator = SparkMemoryUtils.arrowAllocator()
+    val allocator = SparkMemoryUtils.contextAllocator()
     val factory = new SingleFileDatasetFactory(allocator,
-      memoryPool(),
+      SparkMemoryUtils.contextMemoryPool(),
       format,
       fs,
       rewriteFilePath(file),
@@ -161,16 +161,6 @@ object ArrowUtils {
       }
     }).toList
     dictionaryVectorsWithNulls
-  }
-
-  private def memoryPool(): NativeMemoryPool = {
-    if (TaskContext.get == null) {
-      NativeMemoryPool.getDefault
-    } else {
-      val pool = NativeMemoryPool.createListenable(SparkMemoryUtils.reservationListener())
-      SparkMemoryUtils.addLeakSafeTaskCompletionListener(_ => pool.close())
-      pool
-    }
   }
 
   private def getFormat(

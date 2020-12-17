@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution.datasources.v2.arrow
 import java.util.UUID
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.SparkManagedReservationListener
+import org.apache.arrow.dataset.jni.NativeMemoryPool
 import org.apache.arrow.memory.{AllocationListener, BaseAllocator, BufferAllocator, DirectReservationListener, OutOfMemoryException, ReservationListener}
 
 import org.apache.spark.TaskContext
@@ -28,8 +29,8 @@ import org.apache.spark.util.TaskCompletionListener
 
 object SparkMemoryUtils {
   private val taskToAllocatorMap = new java.util.IdentityHashMap[TaskContext, BufferAllocator]()
-  private val taskToReservationListenerMap =
-    new java.util.IdentityHashMap[TaskContext, SparkManagedReservationListener]()
+  private val taskToMemoryPoolMap =
+    new java.util.IdentityHashMap[TaskContext, NativeMemoryPool]()
 
   private class ExecutionMemoryAllocationListener(mm: TaskMemoryManager)
     extends MemoryConsumer(mm, mm.pageSizeBytes(), MemoryMode.OFF_HEAP) with AllocationListener {
@@ -68,13 +69,19 @@ object SparkMemoryUtils {
   }
 
   def addLeakSafeTaskCompletionListener[U](f: TaskContext => U): TaskContext = {
-    arrowAllocator()
+    contextMemoryPool()
+    contextAllocator()
     getLocalTaskContext.addTaskCompletionListener(f)
   }
 
-  def arrowAllocator(): BaseAllocator = {
+  def globalAllocator(): BaseAllocator = {
+    org.apache.spark.sql.util.ArrowUtils.rootAllocator
+  }
+
+  def contextAllocator(): BaseAllocator = {
+    val globalAlloc = globalAllocator()
     if (!inSparkTask()) {
-      return org.apache.spark.sql.util.ArrowUtils.rootAllocator
+      return globalAlloc
     }
     val tc = getLocalTaskContext
     val allocator = taskToAllocatorMap.synchronized {
@@ -82,7 +89,7 @@ object SparkMemoryUtils {
         taskToAllocatorMap.get(tc).asInstanceOf[BaseAllocator]
       } else {
         val al = new ExecutionMemoryAllocationListener(getTaskMemoryManager())
-        val parent = org.apache.spark.sql.util.ArrowUtils.rootAllocator
+        val parent = globalAlloc
         val newInstance = parent.newChildAllocator("Spark Managed Allocator - " +
           UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BaseAllocator]
         taskToAllocatorMap.put(tc, newInstance)
@@ -128,26 +135,31 @@ object SparkMemoryUtils {
     // do nothing
   }
 
-  def reservationListener(): ReservationListener = {
+  def globalMemoryPool(): NativeMemoryPool = {
+    NativeMemoryPool.getDefault
+  }
+
+  def contextMemoryPool(): NativeMemoryPool = {
     if (!inSparkTask()) {
-      return DirectReservationListener.instance()
+      return globalMemoryPool()
     }
     val tc = getLocalTaskContext
-    val listener = taskToReservationListenerMap.synchronized {
-      if (taskToReservationListenerMap.containsKey(tc)) {
-        taskToReservationListenerMap.get(tc)
+    val pool = taskToMemoryPoolMap.synchronized {
+      if (taskToMemoryPoolMap.containsKey(tc)) {
+        taskToMemoryPoolMap.get(tc)
       } else {
         val rl = new SparkManagedReservationListener(getTaskMemoryManager())
-        taskToReservationListenerMap.put(tc, rl)
+        val pool = NativeMemoryPool.createListenable(rl)
+        taskToMemoryPoolMap.put(tc, pool)
         getLocalTaskContext.addTaskCompletionListener(
           new TaskCompletionListener {
             override def onTaskCompletion(context: TaskContext): Unit = {
-              taskToReservationListenerMap.synchronized {
-                if (taskToReservationListenerMap.containsKey(context)) {
-                  val rl = taskToReservationListenerMap.get(context)
-                  val allocated = rl.getUsed
+              taskToMemoryPoolMap.synchronized {
+                if (taskToMemoryPoolMap.containsKey(context)) {
+                  val pool = taskToMemoryPoolMap.get(context)
+                  val allocated = pool.getBytesAllocated()
                   if (allocated == 0L) {
-                    taskToReservationListenerMap.remove(context)
+                    taskToMemoryPoolMap.remove(context).close()
                   } else {
                     // do nothing
                   }
@@ -155,9 +167,9 @@ object SparkMemoryUtils {
               }
             }
           })
-        rl
+        pool
       }
     }
-    listener
+    pool
   }
 }

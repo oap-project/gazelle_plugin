@@ -128,7 +128,7 @@ class ArrowDataSourceTPCHBasedTest extends QueryTest with SharedSparkSession {
       val aPrev = System.currentTimeMillis()
       (0 until iterations).foreach(_ => {
         // scalastyle:off println
-        println(SparkMemoryUtils.arrowAllocator().getAllocatedMemory)
+        println(SparkMemoryUtils.contextAllocator().getAllocatedMemory)
         // scalastyle:on println
         spark.sql("select\n\tsum(l_extendedprice * l_discount) as revenue\n" +
           "from\n\tlineitem_arrow\n" +
@@ -276,9 +276,9 @@ class ArrowDataSourceTPCHBasedTest extends QueryTest with SharedSparkSession {
     })
     Executors.newSingleThreadScheduledExecutor().scheduleWithFixedDelay(() => {
       println("[org.apache.spark.sql.util.ArrowUtils.rootAllocator]                           " +
-        "Allocated memory amount: " + SparkMemoryUtils.arrowAllocator())
+        "Allocated memory amount: " + SparkMemoryUtils.contextAllocator())
       println("[com.intel.oap.vectorized.ArrowWritableColumnVector.allocator] " +
-        "Allocated memory amount: " + SparkMemoryUtils.arrowAllocator().getAllocatedMemory)
+        "Allocated memory amount: " + SparkMemoryUtils.contextAllocator().getAllocatedMemory)
     }, 0L, 100L, TimeUnit.MILLISECONDS)
     Thread.sleep(60 * 60 * 1000L)
   }

@@ -1,11 +1,12 @@
 package org.apache.spark.sql.execution
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.Lists
 import com.intel.oap.expression._
-import com.intel.oap.vectorized.{ArrowWritableColumnVector, ExpressionEvaluator, BatchIterator}
+import com.intel.oap.vectorized.{ArrowWritableColumnVector, BatchIterator, ExpressionEvaluator}
 import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
-import java.io.{OutputStream, ObjectOutputStream}
+import java.io.{ObjectOutputStream, OutputStream}
 import java.nio.ByteBuffer
+
 import scala.concurrent.duration.NANOSECONDS
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.control.NonFatal
@@ -16,20 +17,20 @@ import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
 import org.apache.spark.sql.catalyst.expressions.BoundReference
-import org.apache.spark.sql.execution.{SparkPlan, SQLExecution, ColumnarHashedRelation}
+import org.apache.spark.sql.execution.{ColumnarHashedRelation, SparkPlan, SQLExecution}
 import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.TaskContext
 import org.apache.spark.util.{SparkFatalException, ThreadUtils}
-
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
 
 class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
@@ -146,7 +147,7 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
           TreeBuilder.makeExpression(
             hash_relation_function,
             Field.nullable("result", new ArrowType.Int(32, true)))
-        val hashRelationKernel = new ExpressionEvaluator()
+        val hashRelationKernel = new ExpressionEvaluator(SparkMemoryUtils.globalMemoryPool())
         hashRelationKernel.build(
           hash_relation_schema,
           Lists.newArrayList(hash_relation_expr),

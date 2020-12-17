@@ -58,7 +58,7 @@ private class ArrowColumnarBatchSerializerInstance(
       private val compressionEnabled =
         SparkEnv.get.conf.getBoolean("spark.shuffle.compress", true)
       private val compressionCodec = SparkEnv.get.conf.get("spark.io.compression.codec", "lz4")
-      private val allocator: BufferAllocator = SparkMemoryUtils.arrowAllocator()
+      private val allocator: BufferAllocator = SparkMemoryUtils.contextAllocator()
         .newChildAllocator("ArrowColumnarBatch deserialize", 0, Long.MaxValue)
 
       private var reader: ArrowStreamReader = _

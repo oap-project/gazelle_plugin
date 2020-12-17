@@ -59,11 +59,6 @@ static jmethodID serializable_obj_builder_constructor;
 static jclass split_result_class;
 static jmethodID split_result_constructor;
 
-static jclass native_memory_reservation_class;
-static jclass native_direct_memory_reservation_class;
-static jmethodID reserve_memory_method;
-static jmethodID unreserve_memory_method;
-
 using arrow::jni::ConcurrentMap;
 static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 
@@ -79,9 +74,6 @@ using sparkcolumnarplugin::shuffle::Splitter;
 static arrow::jni::ConcurrentMap<std::shared_ptr<Splitter>> shuffle_splitter_holder_;
 static arrow::jni::ConcurrentMap<std::shared_ptr<arrow::Schema>>
     decompression_schema_holder_;
-static arrow::jni::ConcurrentMap<arrow::MemoryPool*> memory_pool_holder;
-
-static int64_t default_memory_pool_id;
 
 std::shared_ptr<CodeGenerator> GetCodeGenerator(JNIEnv* env, jlong id) {
   auto handler = handler_holder_.Lookup(id);
@@ -181,49 +173,6 @@ std::shared_ptr<ParquetFileWriter> GetFileWriter(JNIEnv* env, jlong id) {
 extern "C" {
 #endif
 
-
-class ReserveMemory : public arrow::ReservationListener {
- public:
-  ReserveMemory(JavaVM* vm, jobject memory_reservation)
-      : vm_(vm), memory_reservation_(memory_reservation) {}
-
-  arrow::Status OnReservation(int64_t size) override {
-    JNIEnv* env;
-    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
-      return arrow::Status::Invalid("JNIEnv was not attached to current thread");
-    }
-    env->CallObjectMethod(memory_reservation_, reserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Memory reservation failed in Java");
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status OnRelease(int64_t size) override {
-    JNIEnv* env;
-    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
-      return arrow::Status::Invalid("JNIEnv was not attached to current thread");
-    }
-    env->CallObjectMethod(memory_reservation_, unreserve_memory_method, size);
-    if (env->ExceptionCheck()) {
-      env->ExceptionDescribe();
-      env->ExceptionClear();
-      return arrow::Status::Invalid("Memory unreservation failed in Java");
-    }
-    return arrow::Status::OK();
-  }
-
-  jobject GetMemoryReservation() {
-    return memory_reservation_;
-  }
-
- private:
-  JavaVM* vm_;
-  jobject memory_reservation_;
-};
-
 jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   JNIEnv* env;
   if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
@@ -264,23 +213,6 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
       CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/SplitResult;");
   split_result_constructor = GetMethodID(env, split_result_class, "<init>", "(JJJJJJ[J)V");
 
-
-  native_memory_reservation_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "memory/ReservationListener;");
-  native_direct_memory_reservation_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "memory/DirectReservationListener;");
-
-  reserve_memory_method =
-      GetMethodID(env, native_memory_reservation_class, "reserve", "(J)V");
-  unreserve_memory_method =
-      GetMethodID(env, native_memory_reservation_class, "unreserve", "(J)V");
-
-  default_memory_pool_id = memory_pool_holder.Insert(arrow::default_memory_pool());
-
   return JNI_VERSION;
 }
 
@@ -300,54 +232,11 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(serializable_obj_builder_class);
   env->DeleteGlobalRef(split_result_class);
 
-  env->DeleteGlobalRef(native_memory_reservation_class);
-  env->DeleteGlobalRef(native_direct_memory_reservation_class);
-
   buffer_holder_.Clear();
   handler_holder_.Clear();
   batch_iterator_holder_.Clear();
   shuffle_splitter_holder_.Clear();
   decompression_schema_holder_.Clear();
-  memory_pool_holder.Clear();
-
-  default_memory_pool_id = -1L;
-}
-
-JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ExpressionMemoryPool_getDefaultMemoryPool
-    (JNIEnv *, jclass) {
-  return default_memory_pool_id;
-}
-
-JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ExpressionMemoryPool_createListenableMemoryPool
-    (JNIEnv* env, jclass, jobject jlistener) {
-  jobject jlistener_ref = env->NewGlobalRef(jlistener);
-  JavaVM* vm;
-  if (env->GetJavaVM(&vm) != JNI_OK) {
-    env->ThrowNew(illegal_access_exception_class, "Unable to get JavaVM instance");
-    return -1;
-  }
-  std::shared_ptr<arrow::ReservationListener> listener =
-      std::make_shared<ReserveMemory>(vm, jlistener_ref);
-  auto memory_pool =
-      new arrow::ReservationListenableMemoryPool(arrow::default_memory_pool(), listener);
-  return memory_pool_holder.Insert(memory_pool);
-}
-
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ExpressionMemoryPool_releaseMemoryPool
-    (JNIEnv* env, jclass, jlong memory_pool_id) {
-  arrow::ReservationListenableMemoryPool* pool =
-      dynamic_cast<arrow::ReservationListenableMemoryPool*>(
-          memory_pool_holder.Lookup(memory_pool_id));
-  if (pool == nullptr) {
-    return;
-  }
-  std::shared_ptr<ReserveMemory> rm =
-      std::dynamic_pointer_cast<ReserveMemory>(pool->get_listener());
-  if (rm == nullptr) {
-    return;
-  }
-  env->DeleteGlobalRef(rm->GetMemoryReservation());
-  memory_pool_holder.Erase(memory_pool_id);
 }
 
 JNIEXPORT void JNICALL
@@ -367,7 +256,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetBatchSize(
 
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
-    JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
+    JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr, jbyteArray exprs_arr,
     jbyteArray res_schema_arr, jboolean return_when_finish = false) {
   arrow::Status status;
 
@@ -405,8 +294,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
 
   std::shared_ptr<CodeGenerator> handler;
   try {
+    arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+    if (pool == nullptr) {
+      env->ThrowNew(illegal_argument_exception_class,
+                    "Memory pool does not exist or has been closed");
+      return -1;
+    }
     msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(
-        schema, expr_vector, ret_types, &handler, return_when_finish);
+        pool, schema, expr_vector, ret_types, &handler, return_when_finish);
   } catch (const std::runtime_error& error) {
     env->ThrowNew(unsupportedoperation_exception_class, error.what());
   } catch (const std::exception& error) {
@@ -433,7 +328,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
 
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinish(
-    JNIEnv* env, jobject obj, jbyteArray schema_arr, jbyteArray exprs_arr,
+    JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr, jbyteArray exprs_arr,
     jbyteArray finish_exprs_arr) {
   arrow::Status status;
 
@@ -464,8 +359,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinis
 
   std::shared_ptr<CodeGenerator> handler;
   try {
+    arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+    if (pool == nullptr) {
+      env->ThrowNew(illegal_argument_exception_class,
+                    "Memory pool does not exist or has been closed");
+      return -1;
+    }
     msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(
-        schema, expr_vector, ret_types, &handler, true, finish_expr_vector);
+        pool, schema, expr_vector, ret_types, &handler, true, finish_expr_vector);
   } catch (const std::runtime_error& error) {
     env->ThrowNew(unsupportedoperation_exception_class, error.what());
   } catch (const std::exception& error) {
@@ -1305,7 +1206,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
     jbyteArray schema_arr, jbyteArray expr_arr, jint buffer_size,
     jstring compression_type_jstr, jstring data_file_jstr, jint num_sub_dirs,
-    jstring local_dirs_jstr, jboolean prefer_spill) {
+    jstring local_dirs_jstr, jboolean prefer_spill, jlong memory_pool_id) {
   if (partitioning_name_jstr == NULL) {
     env->ThrowNew(illegal_argument_exception_class,
                   std::string("Short partitioning name can't be null").c_str());
@@ -1350,6 +1251,20 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   auto data_file_c = env->GetStringUTFChars(data_file_jstr, JNI_FALSE);
   splitOptions.data_file = std::string(data_file_c);
   env->ReleaseStringUTFChars(data_file_jstr, data_file_c);
+
+  try {
+    auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+    if (pool == nullptr) {
+      env->ThrowNew(illegal_argument_exception_class,
+                    "Memory pool does not exist or has been closed");
+      return -1;
+    }
+    splitOptions.memory_pool = pool;
+  } catch (const std::runtime_error& error) {
+    env->ThrowNew(unsupportedoperation_exception_class, error.what());
+  } catch (const std::exception& error) {
+    env->ThrowNew(io_exception_class, error.what());
+  }
 
   auto local_dirs = env->GetStringUTFChars(local_dirs_jstr, JNI_FALSE);
   setenv("NATIVESQL_SPARK_LOCAL_DIRS", local_dirs, 1);

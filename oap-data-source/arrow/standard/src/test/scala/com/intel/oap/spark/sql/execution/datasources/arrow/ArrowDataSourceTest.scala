@@ -291,7 +291,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   }
 
   def closeAllocators(): Unit = {
-    SparkMemoryUtils.arrowAllocator().close()
+    SparkMemoryUtils.contextAllocator().close()
   }
 }
 

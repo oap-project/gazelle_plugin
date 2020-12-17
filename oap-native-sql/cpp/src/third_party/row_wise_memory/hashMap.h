@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
+#include <arrow/memory_pool.h>
 #include "third_party/row_wise_memory/unsafe_row.h"
 
 #define MAX_HASH_MAP_CAPACITY (1 << 29)  // must be power of 2
@@ -39,7 +40,8 @@ typedef struct {
   bool needSpill;
   char* keyArray;  //<32-bit key hash,32-bit offset>, hash slot itself.
   char* bytesMap;  // use to save the  key-row, and value row.
-} unsafeHashMap;   /*general purpose hash structure*/
+  void* pool;
+} unsafeHashMap; /*general purpose hash structure*/
 
 static inline void dump(unsafeHashMap* hm) {
   printf("=================== HashMap DUMP =======================\n");
@@ -116,33 +118,39 @@ static inline int getKeyLength(char* base) { return *((int*)(base)) & 0x00ff; }
 
 /* If keySize > 0, we should put raw key also in keyArray */
 /* Other wise we put key in bytesMap */
-static inline unsafeHashMap* createUnsafeHashMap(int initArrayCapacity,
+static inline unsafeHashMap* createUnsafeHashMap(arrow::MemoryPool* pool,
+                                                 int initArrayCapacity,
                                                  int initialHashCapacity,
                                                  int keySize = -1) {
-  unsafeHashMap* hashMap =
-      (unsafeHashMap*)nativeMalloc(sizeof(unsafeHashMap), MEMTYPE_HASHMAP);
+  unsafeHashMap* hashMap;
+  pool->Allocate(sizeof(unsafeHashMap), (uint8_t**)&hashMap);
   uint8_t bytesInKeyArray = (keySize == -1) ? 8 : 8 + keySize;
   hashMap->bytesInKeyArray = bytesInKeyArray;
-  hashMap->keyArray =
-      (char*)nativeMalloc(initArrayCapacity * bytesInKeyArray, MEMTYPE_HASHMAP);
+  pool->Allocate(initArrayCapacity * bytesInKeyArray, (uint8_t**)&hashMap->keyArray);
   hashMap->arrayCapacity = initArrayCapacity;
   memset(hashMap->keyArray, -1, initArrayCapacity * bytesInKeyArray);
 
-  hashMap->bytesMap = (char*)nativeMalloc(initialHashCapacity, MEMTYPE_HASHMAP);
+  // hashMap->bytesMap = (char*)nativeMalloc(initialHashCapacity, MEMTYPE_HASHMAP);
+  pool->Allocate(initialHashCapacity, (uint8_t**)&hashMap->bytesMap);
   hashMap->mapSize = initialHashCapacity;
 
   hashMap->cursor = 0;
   hashMap->numKeys = 0;
   hashMap->needSpill = false;
+  hashMap->pool = (void*)pool;
   return hashMap;
 }
 
 static inline void destroyHashMap(unsafeHashMap* hm) {
   if (hm != NULL) {
-    if (hm->keyArray != NULL) nativeFree(hm->keyArray);
-    if (hm->bytesMap != NULL) nativeFree(hm->bytesMap);
-
-    nativeFree(hm);
+    // if (hm->keyArray != NULL) nativeFree(hm->keyArray);
+    // if (hm->bytesMap != NULL) nativeFree(hm->bytesMap);
+    // nativeFree(hm);
+    auto pool = (arrow::MemoryPool*)hm->pool;
+    if (hm->keyArray != NULL)
+      pool->Free((uint8_t*)hm->keyArray, hm->arrayCapacity * hm->bytesInKeyArray);
+    if (hm->bytesMap != NULL) pool->Free((uint8_t*)hm->bytesMap, hm->mapSize);
+    pool->Free((uint8_t*)hm, sizeof(unsafeHashMap));
   }
 }
 
@@ -195,10 +203,10 @@ static inline bool growHashBytesMap(unsafeHashMap* hashMap) {
   std::cout << "growHashBytesMap" << std::endl;
   int oldSize = hashMap->mapSize;
   int newSize = oldSize << 1;
-  char* newBytesMap = (char*)nativeRealloc(hashMap->bytesMap, newSize, MEMTYPE_HASHMAP);
-  if (newBytesMap == NULL) return false;
+  auto pool = (arrow::MemoryPool*)hashMap->pool;
+  pool->Reallocate(hashMap->mapSize, newSize, (uint8_t**)&hashMap->bytesMap);
+  if (hashMap->bytesMap == NULL) return false;
 
-  hashMap->bytesMap = newBytesMap;
   hashMap->mapSize = newSize;
   return true;
 }
@@ -211,59 +219,58 @@ static inline bool growAndRehashKeyArray(unsafeHashMap* hashMap) {
   int newCapacity = (oldCapacity << 1);
   newCapacity =
       (newCapacity >= MAX_HASH_MAP_CAPACITY) ? MAX_HASH_MAP_CAPACITY : newCapacity;
-  char* oldKeyArray = hashMap->keyArray;
 
   // Allocate the new keyArray and zero it
-  char* newKeyArray =
-      (char*)nativeMalloc(newCapacity * hashMap->bytesInKeyArray, MEMTYPE_HASHMAP);
-  if (newKeyArray == NULL) return false;
+  char* origKeyArray = hashMap->keyArray;
+  auto pool = (arrow::MemoryPool*)hashMap->pool;
+  pool->Allocate(newCapacity * hashMap->bytesInKeyArray, (uint8_t**)&hashMap->keyArray);
+  if (hashMap->keyArray == NULL) return false;
 
-  memset(newKeyArray, -1, newCapacity * hashMap->bytesInKeyArray);
+  memset(hashMap->keyArray, -1, newCapacity * hashMap->bytesInKeyArray);
   int mask = newCapacity - 1;
 
   int keySizeInBytes = hashMap->bytesInKeyArray;
   if (keySizeInBytes > 8) {
     // Rehash the map
     for (int pos = 0; pos < oldCapacity; pos++) {
-      int keyOffset = *(int*)(oldKeyArray + pos * keySizeInBytes);
-      int hashcode = *(int*)(oldKeyArray + pos * keySizeInBytes + 4);
+      int keyOffset = *(int*)(origKeyArray + pos * keySizeInBytes);
+      int hashcode = *(int*)(origKeyArray + pos * keySizeInBytes + 4);
 
       if (keyOffset < 0) continue;
 
       int newPos = hashcode & mask;
       int step = 1;
-      while (*(int*)(newKeyArray + newPos * keySizeInBytes) >= 0) {
+      while (*(int*)(hashMap->keyArray + newPos * keySizeInBytes) >= 0) {
         newPos = (newPos + step) & mask;
         step++;
       }
-      memcpy(newKeyArray + newPos * keySizeInBytes, oldKeyArray + pos * keySizeInBytes,
-             keySizeInBytes);
+      memcpy(hashMap->keyArray + newPos * keySizeInBytes,
+             origKeyArray + pos * keySizeInBytes, keySizeInBytes);
     }
   } else {
     // Rehash the map
     for (int pos = 0; pos < oldCapacity; pos++) {
-      int keyOffset = *(int*)(oldKeyArray + pos * keySizeInBytes);
-      int hashcode = *(int*)(oldKeyArray + pos * keySizeInBytes + 4);
+      int keyOffset = *(int*)(origKeyArray + pos * keySizeInBytes);
+      int hashcode = *(int*)(origKeyArray + pos * keySizeInBytes + 4);
 
       if (keyOffset < 0) continue;
 
       int newPos = hashcode & mask;
       int step = 1;
-      while (*(int*)(newKeyArray + newPos * keySizeInBytes) >= 0) {
+      while (*(int*)(hashMap->keyArray + newPos * keySizeInBytes) >= 0) {
         newPos = (newPos + step) & mask;
         step++;
       }
-      *(int*)(newKeyArray + newPos * keySizeInBytes) = keyOffset;
-      *(int*)(newKeyArray + newPos * keySizeInBytes + 4) = hashcode;
+      *(int*)(hashMap->keyArray + newPos * keySizeInBytes) = keyOffset;
+      *(int*)(hashMap->keyArray + newPos * keySizeInBytes + 4) = hashcode;
     }
   }
 
-  hashMap->keyArray = newKeyArray;
   hashMap->arrayCapacity = newCapacity;
-
-  nativeFree(oldKeyArray);
+  pool->Free((uint8_t*)origKeyArray, oldCapacity * keySizeInBytes);
   return true;
 }
+
 /*
  * return:
  *   0 if exists

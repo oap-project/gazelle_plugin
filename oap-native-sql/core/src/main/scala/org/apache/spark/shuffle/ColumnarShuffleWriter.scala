@@ -29,6 +29,8 @@ import com.intel.oap.vectorized.{
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.MapStatus
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.Utils
 
@@ -91,7 +93,8 @@ class ColumnarShuffleWriter[K, V](
         dataTmp.getAbsolutePath,
         blockManager.subDirsPerLocalDir,
         localDirs,
-        preferSpill)
+        preferSpill,
+        SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
     }
 
     while (records.hasNext) {

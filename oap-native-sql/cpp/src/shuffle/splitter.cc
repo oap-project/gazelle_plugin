@@ -1105,7 +1105,7 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
 
   arrow::ArrayVector outputs;
   TIME_NANO_OR_RAISE(total_compute_pid_time_,
-                     projector_->Evaluate(rb, arrow::default_memory_pool(), &outputs));
+                     projector_->Evaluate(rb, options_.memory_pool, &outputs));
   if (outputs.size() != 1) {
     return arrow::Status::Invalid("Projector result should have one field, actual is ",
                                   std::to_string(outputs.size()));
