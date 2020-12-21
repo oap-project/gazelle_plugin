@@ -34,7 +34,7 @@ class StringFunctionsSuite extends QueryTest with SharedSparkSession {
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "10m")
+      .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
       .set("spark.oap.sql.columnar.wholestagecodegen", "false")
