@@ -104,7 +104,6 @@ case class AdaptiveSparkPlanExec(
 
   @transient private val additionalRules: Seq[Rule[SparkPlan]] = Seq(
     ApplyColumnarRulesAndInsertTransitions(conf, context.session.sessionState.columnarRules),
-    ColumnarCollapseCodegenStages(context.session.sparkContext.getConf),
     CollapseCodegenStages(conf))
 
   @transient private val costEvaluator = SimpleCostEvaluator
