@@ -73,12 +73,6 @@ class ColumnarPluginConfig(conf: SparkConf) {
       } else {
         val numCores = conf.getInt("spark.executor.cores", defaultValue = 1)
         val coreRangeList: Array[String] = tmp.split('|').map(_.trim)
-            /*val res = range.trim.split("-")
-            res match {
-              case Array(start, end, _*) => (start.toInt, end.toInt)
-              case _ => (-1, -1)
-            }
-          }).filter(_ != (-1, -1))*/
         ColumnarNumaBindingInfo(true, coreRangeList, numCores)
       }
 
