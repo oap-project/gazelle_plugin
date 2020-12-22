@@ -91,6 +91,8 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.condition,
             plan.left,
             plan.right)
+        case plan: BroadcastExchangeExec =>
+          new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
         case plan: BroadcastHashJoinExec =>
           ColumnarBroadcastHashJoinExec(
             plan.leftKeys,
