@@ -67,6 +67,7 @@ class ColumnarSorter(
   var total_elapse: Long = 0
   val inputBatchHolder = new ListBuffer[ColumnarBatch]()
   var nextVector: FieldVector = null
+  var closed: Boolean = false
   val resultSchema = StructType(
     outputAttributes
       .map(expr => {
@@ -83,6 +84,7 @@ class ColumnarSorter(
   var sort_iterator: BatchIterator = _
 
   def close(): Unit = {
+    if (closed) return
     logInfo(s"Sort Closed, ${processedNumRows} rows, output ${outputRows} rows")
     if (nextVector != null) {
       nextVector.close()
@@ -98,6 +100,7 @@ class ColumnarSorter(
       sort_iterator.close()
       sort_iterator = null
     }
+    closed = true
   }
 
   def updateSorterResult(input: ColumnarBatch): Unit = {
@@ -132,6 +135,7 @@ class ColumnarSorter(
       var resultCb: ColumnarBatch = null
       var nextBatch: ArrowRecordBatch = null
       var batchIterator: BatchIterator = null
+      var has_next: Boolean = true
 
       override def hasNext: Boolean = {
         if (sort_iterator == null) {
@@ -149,7 +153,14 @@ class ColumnarSorter(
           sort_elapse += System.nanoTime() - beforeSort
           total_elapse += System.nanoTime() - beforeSort
         }
-        return sort_iterator.hasNext()
+        if (has_next)
+          has_next = sort_iterator.hasNext()
+
+        if (has_next == false) {
+          close()
+        }
+
+        return has_next
 
       }
 
@@ -168,6 +179,50 @@ class ColumnarSorter(
 }
 
 object ColumnarSorter extends Logging {
+
+  def prepareRelationFunction(
+      sortOrder: Seq[SortOrder],
+      outputAttributes: Seq[Attribute]): TreeNode = {
+    val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
+      val attr = ConverterUtils.getAttrFromExpr(expr)
+      Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    })
+
+    val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
+      val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"Decimal type is not supported in ColumnarSorter.")
+      val field = Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      if (outputFieldList.indexOf(field) == -1) {
+        throw new UnsupportedOperationException(
+          s"ColumnarSorter not found ${attr.name}#${attr.exprId.id} in ${outputAttributes}")
+      }
+      field
+    });
+
+    val key_args_node = TreeBuilder.makeFunction(
+      "key_field",
+      keyFieldList
+        .map(field => {
+          TreeBuilder.makeField(field)
+        })
+        .asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val cachedRelationFuncName = "CachedRelation"
+    val cached_relation_func = TreeBuilder.makeFunction(
+      cachedRelationFuncName,
+      Lists.newArrayList(key_args_node),
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    TreeBuilder.makeFunction(
+      "standalone",
+      Lists.newArrayList(cached_relation_func),
+      new ArrowType.Int(32, true))
+  }
 
   def prepareKernelFunction(
       sortOrder: Seq[SortOrder],

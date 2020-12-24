@@ -153,9 +153,14 @@ class WholeStageCodeGenKernel::Impl {
       } else if (func_name.compare("conditionedMergeJoinExistence") == 0) {
         join_type = 4;
       }
-      std::vector<int> cur_hash_relation_idx = {*hash_relation_idx,
-                                                *hash_relation_idx + 1};
-      *hash_relation_idx += 2;
+      std::vector<int> cur_hash_relation_idx;
+      if (*hash_relation_idx == 0) {
+        cur_hash_relation_idx = {*hash_relation_idx, *hash_relation_idx + 1};
+        *hash_relation_idx += 2;
+      } else {
+        cur_hash_relation_idx = {*hash_relation_idx};
+        *hash_relation_idx += 1;
+      }
       RETURN_NOT_OK(ConditionedMergeJoinKernel::Make(
           ctx_, left_key_list, right_key_list, left_schema_list, right_schema_list,
           condition, join_type, result_list, cur_hash_relation_idx, out));
@@ -262,6 +267,8 @@ class WholeStageCodeGenKernel::Impl {
     std::stringstream define_ss;
     codes_ss << BaseCodes() << std::endl;
     codes_ss << R"(#include "precompile/builder.h")" << std::endl;
+    codes_ss << R"(#include <iostream>)" << std::endl;
+    codes_ss << R"(#include "utils/macros.h")" << std::endl;
     std::vector<std::string> headers;
     for (auto codegen_ctx : codegen_ctx_list) {
       for (auto header : codegen_ctx->header_codes) {
@@ -296,6 +303,23 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
         : ctx_(ctx), result_schema_(result_schema) {)";
     codes_ss << GetBuilderInitializeCodes(output_field_list) << std::endl;
     codes_ss << "}" << std::endl;
+
+    codes_ss << "arrow::Status GetMetrics(std::shared_ptr<Metrics>* out) override {"
+             << std::endl;
+    codes_ss << "auto metrics = std::make_shared<Metrics>(" << codegen_ctx_list.size()
+             << ");" << std::endl;
+    for (int i = 0; i < codegen_ctx_list.size(); i++) {
+      auto out_length_name = "codegen_out_length_" + std::to_string(i);
+      auto process_time_name = "process_time_" + std::to_string(i);
+      codes_ss << "metrics->output_length[" << i << "] = " << out_length_name << ";"
+               << std::endl;
+      codes_ss << "metrics->process_time[" << i << "] = " << process_time_name << ";"
+               << std::endl;
+    }
+    codes_ss << "*out = metrics;" << std::endl;
+    codes_ss << "return arrow::Status::OK();" << std::endl;
+    codes_ss << "}" << std::endl;
+
     codes_ss << R"(
     arrow::Status SetDependencies(
         const std::vector<std::shared_ptr<ResultIteratorBase>>& dependent_iter_list) {
@@ -373,13 +397,19 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     // paste children's codegen
     int codegen_ctx_idx = 0;
     for (auto codegen_ctx : codegen_ctx_list) {
+      auto tmp_idx = codegen_ctx_idx;
       codegen_ctx_idx++;
+      codes_ss << "struct timespec start_" << tmp_idx << ", end_" << tmp_idx << ";"
+               << std::endl;
+      codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &start_" << tmp_idx << ");"
+               << std::endl;
       codes_ss << codegen_ctx->prepare_codes << std::endl;
       if (codegen_ctx_idx < codegen_ctx_list.size()) {
         codes_ss << codegen_ctx_list[codegen_ctx_idx]->unsafe_row_prepare_codes
                  << std::endl;
       }
       codes_ss << codegen_ctx->process_codes << std::endl;
+      codes_ss << "codegen_out_length_" << tmp_idx << " += 1;" << std::endl;
     }
 
     codes_ss << GetProcessMaterializeCodes(codegen_ctx_list.back()) << std::endl;
@@ -387,6 +417,10 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     for (int ctx_idx = codegen_ctx_list.size() - 1; ctx_idx >= 0; ctx_idx--) {
       auto codegen_ctx = codegen_ctx_list[ctx_idx];
       codes_ss << codegen_ctx->finish_codes << std::endl;
+      codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &end_" << ctx_idx << ");"
+               << std::endl;
+      codes_ss << "process_time_" << ctx_idx << " += TIME_NANO_DIFF(end_" << ctx_idx
+               << ", start_" << ctx_idx << ");" << std::endl;
     }
     codes_ss << "} // end of for loop" << std::endl;
     codes_ss << GetProcessFinishCodes(output_field_list) << std::endl;
@@ -410,6 +444,12 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       for (auto func_codes : codegen_ctx->function_list) {
         codes_ss << func_codes << std::endl;
       }
+    }
+
+    codes_ss << "// Metrics" << std::endl;
+    for (int i = 0; i < codegen_ctx_list.size(); i++) {
+      codes_ss << "uint64_t codegen_out_length_" << i << " = 0;" << std::endl;
+      codes_ss << "uint64_t process_time_" << i << " = 0;" << std::endl;
     }
 
     codes_ss << "};" << std::endl;

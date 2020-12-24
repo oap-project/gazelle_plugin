@@ -17,6 +17,13 @@
 
 #pragma once
 
+#include <time.h>
+
+#include <chrono>
+
+#define TIME_NANO_DIFF(finish, start) \
+  (finish.tv_sec - start.tv_sec) * 1000000000 + (finish.tv_nsec - start.tv_nsec)
+
 #define TIME_MICRO_OR_RAISE(time, expr)                                                 \
   do {                                                                                  \
     auto start = std::chrono::steady_clock::now();                                      \

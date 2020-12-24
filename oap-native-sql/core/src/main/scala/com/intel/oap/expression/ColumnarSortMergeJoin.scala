@@ -248,6 +248,10 @@ object ColumnarSortMergeJoin extends Logging {
         BuildRight
       case LeftAnti =>
         BuildRight
+      case j: ExistenceJoin =>
+        BuildRight
+      case LeftExistence(_) =>
+        BuildRight
       case _ =>
         BuildLeft
     }

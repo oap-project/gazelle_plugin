@@ -63,19 +63,23 @@ case class ColumnarSortMergeJoinExec(
     condition: Option[Expression],
     left: SparkPlan,
     right: SparkPlan,
-    isSkewJoin: Boolean = false)
+    isSkewJoin: Boolean = false,
+    projectList: Seq[NamedExpression] = null)
     extends BinaryExecNode
     with ColumnarCodegenSupport {
 
   val sparkConf = sparkContext.getConf
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
+    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
     "prepareTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to prepare left list"),
+    "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to process"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to merge join"),
     "totaltime_sortmergejoin" -> SQLMetrics
       .createTimingMetric(sparkContext, "totaltime_sortmergejoin"))
 
   val numOutputRows = longMetric("numOutputRows")
+  val numOutputBatches = longMetric("numOutputBatches")
   val joinTime = longMetric("joinTime")
   val prepareTime = longMetric("prepareTime")
   val totaltime_sortmegejoin = longMetric("totaltime_sortmergejoin")
@@ -100,6 +104,7 @@ case class ColumnarSortMergeJoinExec(
   }
 
   override def supportsColumnar = true
+
   override protected def doExecute(): RDD[InternalRow] = {
     throw new UnsupportedOperationException(
       s"ColumnarSortMergeJoinExec doesn't support doExecute")
@@ -128,6 +133,8 @@ case class ColumnarSortMergeJoinExec(
   }
 
   override def output: Seq[Attribute] = {
+    if (projectList != null && !projectList.isEmpty)
+      return projectList.map(_.toAttribute)
     joinType match {
       case _: InnerLike =>
         left.output ++ right.output
@@ -237,24 +244,36 @@ case class ColumnarSortMergeJoinExec(
 
   override def supportColumnarCodegen: Boolean = true
 
-  def getKernelFunction: TreeNode = {
+  val output_skip_alias =
+    if (projectList == null || projectList.isEmpty) output
+    else projectList.map(expr => ConverterUtils.getAttrFromExpr(expr, true))
 
+  def getKernelFunction: TreeNode = {
     ColumnarSortMergeJoin.prepareKernelFunction(
       buildKeys,
       streamedKeys,
       buildPlan.output,
       streamedPlan.output,
-      output,
+      output_skip_alias,
       joinType,
       condition)
   }
 
   override def getBuildPlans: Seq[SparkPlan] = {
-    buildPlan match {
+
+    val curBuildPlan = buildPlan match {
       case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
         c.getBuildPlans
       case _ =>
         Seq()
+    }
+    streamedPlan match {
+      case c: ColumnarCodegenSupport if c.isInstanceOf[ColumnarSortExec] =>
+        curBuildPlan ++ c.getBuildPlans
+      case c: ColumnarCodegenSupport if !c.isInstanceOf[ColumnarSortExec] =>
+        c.getBuildPlans ++ curBuildPlan
+      case _ =>
+        curBuildPlan
     }
   }
 
@@ -265,6 +284,15 @@ case class ColumnarSortMergeJoinExec(
       this
   }
 
+  override def updateMetrics(out_num_rows: Long, process_time: Long): Unit = {
+    val numOutputRows = longMetric("numOutputRows")
+    val procTime = longMetric("processTime")
+    procTime.set(process_time / 1000000)
+    numOutputRows += out_num_rows
+  }
+
+  override def getChild: SparkPlan = streamedPlan
+
   override def doCodeGen: ColumnarCodegenContext = {
     val childCtx = streamedPlan match {
       case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
@@ -272,7 +300,7 @@ case class ColumnarSortMergeJoinExec(
       case _ =>
         null
     }
-    val outputSchema = ConverterUtils.toArrowSchema(output)
+    val outputSchema = ConverterUtils.toArrowSchema(output_skip_alias)
     val (codeGenNode, inputSchema) = if (childCtx != null) {
       (
         TreeBuilder.makeFunction(
@@ -282,11 +310,10 @@ case class ColumnarSortMergeJoinExec(
         childCtx.inputSchema)
     } else {
       (
-        TreeBuilder
-          .makeFunction(
-            s"child",
-            Lists.newArrayList(getKernelFunction),
-            new ArrowType.Int(32, true)),
+        TreeBuilder.makeFunction(
+          s"child",
+          Lists.newArrayList(getKernelFunction),
+          new ArrowType.Int(32, true)),
         new Schema(Lists.newArrayList()))
     }
     ColumnarCodegenContext(inputSchema, outputSchema, codeGenNode)
@@ -340,16 +367,15 @@ case class ColumnarSortMergeJoinExec(
     right.executeColumnar().zipPartitions(left.executeColumnar()) { (streamIter, buildIter) =>
       ColumnarPluginConfig.getConf(sparkConf)
       val execTempDir = ColumnarPluginConfig.getTempFile
-      val jarList = listJars
-        .map(jarUrl => {
-          logWarning(s"Get Codegened library Jar ${jarUrl}")
-          UserAddedJarUtils.fetchJarFromSpark(
-            jarUrl,
-            execTempDir,
-            s"spark-columnar-plugin-codegen-precompile-${signature}.jar",
-            sparkConf)
-          s"${execTempDir}/spark-columnar-plugin-codegen-precompile-${signature}.jar"
-        })
+      val jarList = listJars.map(jarUrl => {
+        logWarning(s"Get Codegened library Jar ${jarUrl}")
+        UserAddedJarUtils.fetchJarFromSpark(
+          jarUrl,
+          execTempDir,
+          s"spark-columnar-plugin-codegen-precompile-${signature}.jar",
+          sparkConf)
+        s"${execTempDir}/spark-columnar-plugin-codegen-precompile-${signature}.jar"
+      })
 
       val vsmj = ColumnarSortMergeJoin.create(
         leftKeys,

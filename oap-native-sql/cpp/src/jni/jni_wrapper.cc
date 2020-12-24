@@ -59,6 +59,9 @@ static jmethodID serializable_obj_builder_constructor;
 static jclass split_result_class;
 static jmethodID split_result_constructor;
 
+static jclass metrics_builder_class;
+static jmethodID metrics_builder_constructor;
+
 using arrow::jni::ConcurrentMap;
 static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 
@@ -211,7 +214,13 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
 
   split_result_class =
       CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/SplitResult;");
-  split_result_constructor = GetMethodID(env, split_result_class, "<init>", "(JJJJJJ[J)V");
+  split_result_constructor =
+      GetMethodID(env, split_result_class, "<init>", "(JJJJJJ[J)V");
+
+  metrics_builder_class =
+      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/MetricsObject;");
+  metrics_builder_constructor =
+      GetMethodID(env, metrics_builder_class, "<init>", "([J[J)V");
 
   return JNI_VERSION;
 }
@@ -256,8 +265,9 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetBatchSize(
 
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
-    JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr, jbyteArray exprs_arr,
-    jbyteArray res_schema_arr, jboolean return_when_finish = false) {
+    JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr,
+    jbyteArray exprs_arr, jbyteArray res_schema_arr,
+    jboolean return_when_finish = false) {
   arrow::Status status;
 
   std::shared_ptr<arrow::Schema> schema;
@@ -328,8 +338,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
 
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinish(
-    JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr, jbyteArray exprs_arr,
-    jbyteArray finish_exprs_arr) {
+    JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr,
+    jbyteArray exprs_arr, jbyteArray finish_exprs_arr) {
   arrow::Status status;
 
   std::shared_ptr<arrow::Schema> schema;
@@ -629,6 +639,21 @@ JNIEXPORT jboolean JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeHas
     JNIEnv* env, jobject obj, jlong id) {
   auto iter = GetBatchIterator(env, id);
   return iter->HasNext();
+}
+
+JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeFetchMetrics(
+    JNIEnv* env, jobject obj, jlong id) {
+  auto iter = GetBatchIterator(env, id);
+  std::shared_ptr<Metrics> metrics;
+  iter->GetMetrics(&metrics);
+  auto output_length_list = env->NewLongArray(metrics->num_metrics);
+  auto process_time_list = env->NewLongArray(metrics->num_metrics);
+  env->SetLongArrayRegion(output_length_list, 0, metrics->num_metrics,
+                          metrics->output_length);
+  env->SetLongArrayRegion(process_time_list, 0, metrics->num_metrics,
+                          metrics->process_time);
+  return env->NewObject(metrics_builder_class, metrics_builder_constructor,
+                        output_length_list, process_time_list);
 }
 
 JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeNext(
@@ -1300,7 +1325,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   }
 
   jclass tc_cls = env->FindClass("org/apache/spark/TaskContext");
-  jmethodID get_tc_mid = env->GetStaticMethodID(tc_cls, "get", "()Lorg/apache/spark/TaskContext;");
+  jmethodID get_tc_mid =
+      env->GetStaticMethodID(tc_cls, "get", "()Lorg/apache/spark/TaskContext;");
   jobject tc_obj = env->CallStaticObjectMethod(tc_cls, get_tc_mid);
   if (tc_obj == NULL) {
     std::cout << "TaskContext.get() return NULL" << std::endl;
@@ -1356,8 +1382,9 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_s
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, JNI_FALSE);
 
   std::shared_ptr<arrow::RecordBatch> in;
-  auto status = MakeRecordBatch(splitter->input_schema(), num_rows, (int64_t*)in_buf_addrs,
-                                (int64_t*)in_buf_sizes, in_bufs_len, &in);
+  auto status =
+      MakeRecordBatch(splitter->input_schema(), num_rows, (int64_t*)in_buf_addrs,
+                      (int64_t*)in_buf_sizes, in_bufs_len, &in);
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
@@ -1408,8 +1435,9 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrappe
   env->SetLongArrayRegion(partition_length_arr, 0, partition_length.size(), src);
   jobject split_result = env->NewObject(
       split_result_class, split_result_constructor, splitter->TotalComputePidTime(),
-      splitter->TotalWriteTime(), splitter->TotalSpillTime(), splitter->TotalCompressTime(),
-      splitter->TotalBytesWritten(), splitter->TotalBytesSpilled(), partition_length_arr);
+      splitter->TotalWriteTime(), splitter->TotalSpillTime(),
+      splitter->TotalCompressTime(), splitter->TotalBytesWritten(),
+      splitter->TotalBytesSpilled(), partition_length_arr);
 
   return split_result;
 }

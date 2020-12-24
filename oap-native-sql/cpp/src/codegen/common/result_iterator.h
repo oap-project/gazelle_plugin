@@ -20,9 +20,26 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
+struct Metrics {
+  int num_metrics;
+  long* process_time;
+  long* output_length;
+  Metrics(int size) : num_metrics(size) {
+    process_time = new long[num_metrics];
+    output_length = new long[num_metrics];
+  }
+  ~Metrics() {
+    delete[] process_time;
+    delete[] output_length;
+  }
+};
+
 class ResultIteratorBase {
  public:
   virtual bool HasNext() { return false; }
+  virtual arrow::Status GetMetrics(std::shared_ptr<Metrics>* out) {
+    return arrow::Status::NotImplemented("ResultIterator abstract GetMetrics");
+  }
   virtual std::string ToString() { return ""; }
   virtual arrow::Status ProcessAndCacheOne(
       const std::vector<std::shared_ptr<arrow::Array>>& in,
@@ -35,6 +52,9 @@ template <typename T>
 class ResultIterator : public ResultIteratorBase {
  public:
   virtual bool HasNext() override { return false; }
+  virtual arrow::Status GetMetrics(std::shared_ptr<Metrics>* out) {
+    return arrow::Status::NotImplemented("ResultIterator abstract GetMetrics");
+  }
   virtual arrow::Status Next(std::shared_ptr<T>* out) {
     return arrow::Status::NotImplemented("ResultIterator abstract Next()");
   }

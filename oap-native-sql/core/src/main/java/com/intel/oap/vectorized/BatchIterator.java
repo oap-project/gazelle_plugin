@@ -32,6 +32,7 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 public class BatchIterator {
   private native boolean nativeHasNext(long nativeHandler);
   private native ArrowRecordBatchBuilder nativeNext(long nativeHandler);
+  private native MetricsObject nativeFetchMetrics(long nativeHandler);
   private native ArrowRecordBatchBuilder nativeProcess(long nativeHandler,
       byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes);
   private native void nativeProcessAndCacheOne(long nativeHandler, byte[] schemaBuf,
@@ -73,6 +74,13 @@ public class BatchIterator {
     ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl =
         new ArrowRecordBatchBuilderImpl(resRecordBatchBuilder);
     return resRecordBatchBuilderImpl.build();
+  }
+
+  public MetricsObject getMetrics() throws IOException, ClassNotFoundException {
+    if (nativeHandler == 0) {
+      return null;
+    }
+    return nativeFetchMetrics(nativeHandler);
   }
 
   public SerializableObject nextHashRelationObject()

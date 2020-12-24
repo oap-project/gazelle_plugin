@@ -52,6 +52,7 @@ class TypedRelationColumn<DataType, enable_if_number<DataType>> : public Relatio
     return array_vector_[array_id]->IsNull(id);
   }
   bool IsEqualTo(int x_array_id, int x_id, int y_array_id, int y_id) {
+    if (!has_null_) return GetValue(x_array_id, x_id) == GetValue(y_array_id, y_id);
     auto is_null_x = IsNull(x_array_id, x_id);
     auto is_null_y = IsNull(y_array_id, y_id);
     if (is_null_x && is_null_y) return true;
@@ -60,6 +61,7 @@ class TypedRelationColumn<DataType, enable_if_number<DataType>> : public Relatio
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<ArrayType>(in);
+    if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();
   }
@@ -74,6 +76,7 @@ class TypedRelationColumn<DataType, enable_if_number<DataType>> : public Relatio
  private:
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
   std::vector<std::shared_ptr<ArrayType>> array_vector_;
+  bool has_null_ = false;
 };
 
 template <typename DataType>
@@ -85,6 +88,7 @@ class TypedRelationColumn<DataType, enable_if_string_like<DataType>>
     return array_vector_[array_id]->IsNull(id);
   }
   bool IsEqualTo(int x_array_id, int x_id, int y_array_id, int y_id) {
+    if (!has_null_) return GetValue(x_array_id, x_id) == GetValue(y_array_id, y_id);
     auto is_null_x = IsNull(x_array_id, x_id);
     auto is_null_y = IsNull(y_array_id, y_id);
     if (is_null_x && is_null_y) return true;
@@ -93,6 +97,7 @@ class TypedRelationColumn<DataType, enable_if_string_like<DataType>>
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<StringArray>(in);
+    if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();
   }
@@ -108,6 +113,7 @@ class TypedRelationColumn<DataType, enable_if_string_like<DataType>>
 
  private:
   std::vector<std::shared_ptr<StringArray>> array_vector_;
+  bool has_null_ = false;
 };
 
 arrow::Status MakeRelationColumn(uint32_t data_type_id,

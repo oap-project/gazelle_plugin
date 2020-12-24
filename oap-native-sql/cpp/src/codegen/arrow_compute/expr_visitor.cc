@@ -257,16 +257,16 @@ arrow::Status ExprVisitor::Make(arrow::MemoryPool* memory_pool,
   return arrow::Status::OK();
 }
 
-arrow::Status ExprVisitor::MakeWindow(arrow::MemoryPool* memory_pool,
-                                      std::shared_ptr<arrow::Schema> schema_ptr,
-                                      std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-                                      const gandiva::FunctionNode& node,
-                                      std::shared_ptr<ExprVisitor>* out) {
+arrow::Status ExprVisitor::MakeWindow(
+    arrow::MemoryPool* memory_pool, std::shared_ptr<arrow::Schema> schema_ptr,
+    std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+    const gandiva::FunctionNode& node, std::shared_ptr<ExprVisitor>* out) {
   auto func_name = node.descriptor()->name();
   if (func_name != "window") {
     return arrow::Status::Invalid("window's Gandiva function name mismatch");
   }
-  *out = std::make_shared<ExprVisitor>(arrow::compute::FunctionContext(memory_pool), schema_ptr, func_name);
+  *out = std::make_shared<ExprVisitor>(arrow::compute::FunctionContext(memory_pool),
+                                       schema_ptr, func_name);
   std::vector<std::shared_ptr<gandiva::FunctionNode>> window_functions;
   std::shared_ptr<gandiva::FunctionNode> partition_spec;
   std::shared_ptr<gandiva::FunctionNode> order_spec;
@@ -346,6 +346,9 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     } else if (child_func_name.compare("sortArraysToIndices") == 0) {
       RETURN_NOT_OK(SortArraysToIndicesVisitorImpl::Make(field_list, func_node,
                                                          ret_fields, p, &impl_));
+    } else if (child_func_name.compare("CachedRelation") == 0) {
+      RETURN_NOT_OK(
+          CachedRelationVisitorImpl::Make(field_list, func_node, ret_fields, p, &impl_));
     } else if (child_func_name.compare("ConcatArrayList") == 0) {
       RETURN_NOT_OK(
           ConcatArrayListVisitorImpl::Make(field_list, func_node, ret_fields, p, &impl_));

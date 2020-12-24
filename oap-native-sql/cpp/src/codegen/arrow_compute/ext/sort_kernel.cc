@@ -359,25 +359,7 @@ class TypedSorterImpl : public CodeGenBase {
            R"(
     return arrow::Status::OK();
   }
-
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<SortRelation>>* out) override {
-    std::shared_ptr<FixedSizeBinaryArray> indices_out;
-    RETURN_NOT_OK(FinishInternal(&indices_out));
-
-    std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
-    )" + make_key_relation_str +
-           R"(
-    auto key_relation_list = {)" +
-           key_relation_list_str + R"(};
-    auto sort_relation = std::make_shared<SortRelation>(indices_out, key_relation_list,
-                                                        sort_relation_list);
-    *out = std::make_shared<SortRelationResultIterator>(sort_relation);
-    return arrow::Status::OK();
-  }
-
-
+  
  private:
   )" + cached_variables_define_str +
            projected_variables_str +
@@ -1485,29 +1467,6 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<SortRelation>>* out) override {
-    std::shared_ptr<FixedSizeBinaryArray> indices_out;
-    RETURN_NOT_OK(FinishInternal(&indices_out));
-
-    std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
-    for (auto array_vector : cached_) {
-      if (array_vector.size() == 0) break;
-      std::shared_ptr<RelationColumn> out;
-      RETURN_NOT_OK(MakeRelationColumn(array_vector[0]->type_id(), &out));
-      for (auto arr : array_vector) {
-        RETURN_NOT_OK(out->AppendColumn(arr));
-      }
-      sort_relation_list.push_back(out);
-    }
-    auto key_relation_list = {sort_relation_list[key_id_]};
-    auto sort_relation = std::make_shared<SortRelation>(indices_out, key_relation_list,
-                                                        sort_relation_list);
-    *out = std::make_shared<SortRelationResultIterator>(sort_relation);
-    return arrow::Status::OK();
-  }
-
  private:
   using ArrayType_key = typename arrow::TypeTraits<DATATYPE>::ArrayType;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
@@ -1676,8 +1635,7 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
     }
   }
 
-  if (result_type == 0 && key_field_list.size() == 1 &&
-      result_schema->num_fields() == 1 &&
+  if (key_field_list.size() == 1 && result_schema->num_fields() == 1 &&
       key_field_list[0]->type()->id() != arrow::Type::STRING &&
       key_field_list[0]->type()->id() != arrow::Type::BOOL) {
     // Will use SortInplace when sorting for one non-string and non-boolean col

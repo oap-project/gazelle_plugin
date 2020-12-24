@@ -342,6 +342,29 @@ class SortArraysToIndicesKernel : public KernalBase {
   arrow::compute::FunctionContext* ctx_;
 };
 
+class CachedRelationKernel : public KernalBase {
+ public:
+  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
+                            std::shared_ptr<arrow::Schema> result_schema,
+                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+                            int result_type, std::shared_ptr<KernalBase>* out);
+  CachedRelationKernel(arrow::compute::FunctionContext* ctx,
+                       std::shared_ptr<arrow::Schema> result_schema,
+                       std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+                       int result_type);
+  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<SortRelation>>* out) override;
+  std::string GetSignature() override;
+
+  class Impl;
+
+ private:
+  std::unique_ptr<Impl> impl_;
+  arrow::compute::FunctionContext* ctx_;
+};
+
 class WindowSortKernel : public KernalBase {
  public:
   static arrow::Status Make(arrow::compute::FunctionContext* ctx,

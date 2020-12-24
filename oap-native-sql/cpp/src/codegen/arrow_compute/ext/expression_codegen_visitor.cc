@@ -51,7 +51,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
 
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list, field_list_v_,
                                                hash_relation_id_, func_count_,
-                                               prepared_list_, &child_visitor));
+                                               prepared_list_, &child_visitor, is_smj_));
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
       field_type_ = child_visitor->GetFieldType();
@@ -610,8 +610,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
   auto index_pair = GetFieldIndex(this_field, field_list_v_);
   auto index = index_pair.first;
   auto arg_id = index_pair.second;
-
-  if (input_list_.empty()) {
+  if (is_smj_ && input_list_.empty()) {
     ///// For inputs are SortRelation /////
     codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +
                  std::to_string(arg_id) + "_value";
@@ -631,33 +630,60 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
     prepare_ss << "  }" << std::endl;
     field_type_ = sort_relation;
   } else {
-    ///// For Inputs are one side HashRelation and other side regular array /////
-    if (field_list_v_.size() == 1) {
-      codes_str_ = input_list_[arg_id];
-      codes_validity_str_ = GetValidityName(codes_str_);
-    } else {
+    if (is_smj_) {
+      ///// For inputs are build side as SortRelation, streamed side as input /////
       if (index == 0) {
-        codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
+        codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +
                      std::to_string(arg_id) + "_value";
         codes_validity_str_ = GetValidityName(codes_str_);
-        input_codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
-                           std::to_string(arg_id);
+        auto idx_name = "idx_" + std::to_string(0 + index);
+        input_codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) +
+                           "_" + std::to_string(arg_id);
         prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
         prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
                    << ";" << std::endl;
-        prepare_ss << "  if (" << input_codes_str_ << "->IsNull(x.array_id, x.id)) {"
-                   << std::endl;
+        prepare_ss << "  if (" << input_codes_str_ << "->IsNull(" << idx_name
+                   << ".array_id, " << idx_name << ".id)) {" << std::endl;
         prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
         prepare_ss << "  } else {" << std::endl;
-        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
-                   << "->GetValue(x.array_id, x.id);" << std::endl;
+        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_ << "->GetValue("
+                   << idx_name << ".array_id, " << idx_name << ".id);" << std::endl;
         prepare_ss << "  }" << std::endl;
-        field_type_ = left;
-
+        field_type_ = sort_relation;
       } else {
         codes_str_ = input_list_[arg_id];
         codes_validity_str_ = GetValidityName(codes_str_);
         field_type_ = right;
+      }
+    } else {
+      ///// For Inputs are one side HashRelation and other side regular array /////
+      if (field_list_v_.size() == 1) {
+        codes_str_ = input_list_[arg_id];
+        codes_validity_str_ = GetValidityName(codes_str_);
+      } else {
+        if (index == 0) {
+          codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
+                       std::to_string(arg_id) + "_value";
+          codes_validity_str_ = GetValidityName(codes_str_);
+          input_codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
+                             std::to_string(arg_id);
+          prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
+          prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
+                     << ";" << std::endl;
+          prepare_ss << "  if (" << input_codes_str_ << "->IsNull(x.array_id, x.id)) {"
+                     << std::endl;
+          prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
+          prepare_ss << "  } else {" << std::endl;
+          prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
+                     << "->GetValue(x.array_id, x.id);" << std::endl;
+          prepare_ss << "  }" << std::endl;
+          field_type_ = left;
+
+        } else {
+          codes_str_ = input_list_[arg_id];
+          codes_validity_str_ = GetValidityName(codes_str_);
+          field_type_ = right;
+        }
       }
     }
   }
@@ -685,7 +711,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
     *func_count_ = *func_count_ + 1;
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list_, field_list_v_,
                                                hash_relation_id_, func_count_,
-                                               prepared_list_, &child_visitor));
+                                               prepared_list_, &child_visitor, is_smj_));
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
       field_type_ = child_visitor->GetFieldType();
@@ -754,7 +780,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) 
     *func_count_ = *func_count_ + 1;
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list_, field_list_v_,
                                                hash_relation_id_, func_count_,
-                                               prepared_list_, &child_visitor));
+                                               prepared_list_, &child_visitor, is_smj_));
 
     prepare_str_ += child_visitor->GetPrepare();
     child_visitor_list.push_back(child_visitor);
@@ -793,7 +819,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
 
   RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
                                              hash_relation_id_, func_count_,
-                                             prepared_list_, &child_visitor));
+                                             prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<int> in_list_" << cur_func_id << " = {";
   bool add_comma = false;
@@ -833,7 +859,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
 
   RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
                                              hash_relation_id_, func_count_,
-                                             prepared_list_, &child_visitor));
+                                             prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<long int> in_list_" << cur_func_id << " = {";
   bool add_comma = false;
@@ -873,7 +899,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
 
   RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
                                              hash_relation_id_, func_count_,
-                                             prepared_list_, &child_visitor));
+                                             prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<std::string> in_list_" << cur_func_id << " = {";
   bool add_comma = false;

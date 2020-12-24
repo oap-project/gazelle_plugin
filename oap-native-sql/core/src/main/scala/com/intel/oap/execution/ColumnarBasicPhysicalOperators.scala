@@ -51,6 +51,14 @@ case class ColumnarConditionProjectExec(
 
   val sparkConf: SparkConf = sparkContext.getConf
 
+  override def supportsColumnar = true
+
+  override lazy val metrics = Map(
+    "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
+    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
+    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
+    "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_condproject"))
+
   def isNullIntolerant(expr: Expression): Boolean = expr match {
     case e: NullIntolerant => e.children.forall(isNullIntolerant)
     case _ => false
@@ -106,6 +114,15 @@ case class ColumnarConditionProjectExec(
       this
   }
 
+  override def updateMetrics(out_num_rows: Long, process_time: Long): Unit = {
+    val numOutputRows = longMetric("numOutputRows")
+    val procTime = longMetric("processTime")
+    procTime.set(process_time / 1000000)
+    numOutputRows += out_num_rows
+  }
+
+  override def getChild: SparkPlan = child
+
   override def supportColumnarCodegen: Boolean = true
 
   override def canEqual(that: Any): Boolean = false
@@ -143,11 +160,10 @@ case class ColumnarConditionProjectExec(
       }
     } else if (projectNode != null) {
       if (childTreeNode != null) {
-        TreeBuilder
-          .makeFunction(
-            s"child",
-            Lists.newArrayList(projectNode, childTreeNode),
-            new ArrowType.Int(32, true))
+        TreeBuilder.makeFunction(
+          s"child",
+          Lists.newArrayList(projectNode, childTreeNode),
+          new ArrowType.Int(32, true))
       } else {
         TreeBuilder.makeFunction(
           s"child",
@@ -180,14 +196,6 @@ case class ColumnarConditionProjectExec(
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
-
-  override def supportsColumnar = true
-
-  override lazy val metrics = Map(
-    "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
-    "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
-    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
-    "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_condproject"))
 
   ColumnarConditionProjector.prebuild(condition, projectList, child.output)
 

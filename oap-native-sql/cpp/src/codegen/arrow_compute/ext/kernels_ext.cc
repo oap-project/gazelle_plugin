@@ -1421,6 +1421,119 @@ arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
   return impl_->Evaluate(in, out);
 }
 
+///////////////  ConcatArray  ////////////////
+class CachedRelationKernel::Impl {
+ public:
+  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+       std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type)
+      : ctx_(ctx),
+        result_schema_(result_schema),
+        key_field_list_(key_field_list),
+        result_type_(result_type) {
+    for (auto field : key_field_list) {
+      auto indices = result_schema->GetAllFieldIndices(field->name());
+      if (indices.size() != 1) {
+        std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
+                  << field->ToString() << " from " << result_schema->ToString()
+                  << std::endl;
+        throw;
+      }
+      key_index_list_.push_back(indices[0]);
+    }
+    col_num_ = result_schema->num_fields();
+  }
+
+  arrow::Status Evaluate(const ArrayList& in) {
+    items_total_ += in[0]->length();
+    length_list_.push_back(in[0]->length());
+    if (cached_.size() < col_num_) {
+      cached_.resize(col_num_);
+    }
+    for (int i = 0; i < col_num_; i++) {
+      cached_[i].push_back(in[i]);
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIterator<SortRelation>>* out) {
+    std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
+    int idx = 0;
+    for (auto field : result_schema_->fields()) {
+      std::shared_ptr<RelationColumn> col_out;
+      RETURN_NOT_OK(MakeRelationColumn(field->type()->id(), &col_out));
+      for (auto arr : cached_[idx]) {
+        RETURN_NOT_OK(col_out->AppendColumn(arr));
+      }
+      sort_relation_list.push_back(col_out);
+      idx++;
+    }
+    std::vector<std::shared_ptr<RelationColumn>> key_relation_list;
+    for (auto key_id : key_index_list_) {
+      key_relation_list.push_back(sort_relation_list[key_id]);
+    }
+    auto sort_relation = std::make_shared<SortRelation>(
+        ctx_, items_total_, length_list_, key_relation_list, sort_relation_list);
+    *out = std::make_shared<SortRelationResultIterator>(sort_relation);
+    return arrow::Status::OK();
+  }
+
+ private:
+  int col_num_;
+  int result_type_;
+  arrow::MemoryPool* pool_;
+  arrow::compute::FunctionContext* ctx_;
+  std::unique_ptr<arrow::StringBuilder> builder_;
+  std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
+  std::shared_ptr<arrow::Schema> result_schema_;
+
+  std::vector<int> key_index_list_;
+  std::vector<int> length_list_;
+  std::vector<arrow::ArrayVector> cached_;
+  uint64_t items_total_ = 0;
+
+  class SortRelationResultIterator : public ResultIterator<SortRelation> {
+   public:
+    SortRelationResultIterator(std::shared_ptr<SortRelation> sort_relation)
+        : sort_relation_(sort_relation) {}
+    arrow::Status Next(std::shared_ptr<SortRelation>* out) {
+      *out = sort_relation_;
+      return arrow::Status::OK();
+    }
+
+   private:
+    std::shared_ptr<SortRelation> sort_relation_;
+  };
+};
+
+arrow::Status CachedRelationKernel::Make(
+    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type,
+    std::shared_ptr<KernalBase>* out) {
+  *out = std::make_shared<CachedRelationKernel>(ctx, result_schema, key_field_list,
+                                                result_type);
+  return arrow::Status::OK();
+}
+
+CachedRelationKernel::CachedRelationKernel(
+    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type) {
+  impl_.reset(new Impl(ctx, result_schema, key_field_list, result_type));
+  kernel_name_ = "CachedRelationKernel";
+}
+
+arrow::Status CachedRelationKernel::Evaluate(const ArrayList& in) {
+  return impl_->Evaluate(in);
+}
+
+arrow::Status CachedRelationKernel::MakeResultIterator(
+    std::shared_ptr<arrow::Schema> schema,
+    std::shared_ptr<ResultIterator<SortRelation>>* out) {
+  return impl_->MakeResultIterator(schema, out);
+}
+
+std::string CachedRelationKernel::GetSignature() { return ""; }
+
 ///////////////  ConcatArrayList  ////////////////
 class ConcatArrayListKernel::Impl {
  public:

@@ -9,7 +9,7 @@ Array::Array(const std::shared_ptr<arrow::Array>& in) : cache_(in) {
   offset_ = in->offset();
   length_ = in->length();
   null_count_ = in->null_count();
-  null_bitmap_data_ = in->null_bitmap_data();
+  null_bitmap_data_ = null_count_ == 0 ? NULLPTR : in->null_bitmap_data();
   raw_value_ = in->data()->buffers[1]->mutable_data();
 }
 
@@ -17,7 +17,7 @@ BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in) : cache_(in)
   offset_ = in->offset();
   length_ = in->length();
   null_count_ = in->null_count();
-  null_bitmap_data_ = in->null_bitmap_data();
+  null_bitmap_data_ = null_count_ == 0 ? NULLPTR : in->null_bitmap_data();
   raw_value_ = in->data()->buffers[1]->data();
 }
 
@@ -26,7 +26,7 @@ BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in) : cache_(in)
     offset_ = in->offset();                                                  \
     length_ = in->length();                                                  \
     null_count_ = in->null_count();                                          \
-    null_bitmap_data_ = in->null_bitmap_data();                              \
+    null_bitmap_data_ = null_count_ == 0 ? NULLPTR : in->null_bitmap_data(); \
     auto typed_in = std::dynamic_pointer_cast<arrow::TYPENAME>(in);          \
     raw_value_ = typed_in->raw_values();                                     \
   }
@@ -50,7 +50,7 @@ TYPED_NUMERIC_ARRAY_IMPL(Date64Array, int64_t)
     offset_ = in->offset();                                                  \
     length_ = in->length();                                                  \
     null_count_ = in->null_count();                                          \
-    null_bitmap_data_ = in->null_bitmap_data();                              \
+    null_bitmap_data_ = null_count_ == 0 ? NULLPTR : in->null_bitmap_data(); \
     auto typed_in = std::dynamic_pointer_cast<arrow::TYPENAME>(in);          \
     auto value_offsets = typed_in->value_offsets();                          \
     auto value_data = typed_in->value_data();                                \
@@ -69,7 +69,7 @@ FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<arrow::Array>& 
   offset_ = in->offset();
   length_ = in->length();
   null_count_ = in->null_count();
-  null_bitmap_data_ = in->null_bitmap_data();
+  null_bitmap_data_ = null_count_ == 0 ? NULLPTR : in->null_bitmap_data();
   auto typed_in = std::dynamic_pointer_cast<arrow::FixedSizeBinaryArray>(in);
   raw_value_ = typed_in->raw_values();
   byte_width_ = typed_in->byte_width();
