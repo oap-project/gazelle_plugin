@@ -20,17 +20,28 @@ package com.intel.oap.vectorized
 import java.io._
 import java.nio.ByteBuffer
 
+import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression.ConverterUtils
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector.ipc.ArrowStreamReader
-import org.apache.arrow.vector.{BaseFixedWidthVector, BaseVariableWidthVector, VectorLoader, VectorSchemaRoot}
+import org.apache.arrow.vector.{
+  BaseFixedWidthVector,
+  BaseVariableWidthVector,
+  VectorLoader,
+  VectorSchemaRoot
+}
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
-import org.apache.spark.serializer.{DeserializationStream, SerializationStream, Serializer, SerializerInstance}
+import org.apache.spark.serializer.{
+  DeserializationStream,
+  SerializationStream,
+  Serializer,
+  SerializerInstance
+}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -57,7 +68,14 @@ private class ArrowColumnarBatchSerializerInstance(
 
       private val compressionEnabled =
         SparkEnv.get.conf.getBoolean("spark.shuffle.compress", true)
-      private val compressionCodec = SparkEnv.get.conf.get("spark.io.compression.codec", "lz4")
+      private val compressionCodec =
+        if (ColumnarPluginConfig
+              .getConf(SparkEnv.get.conf)
+              .columnarShuffleUseCustomizedCompression) {
+          "fastpfor"
+        } else {
+          SparkEnv.get.conf.get("spark.io.compression.codec", "lz4")
+        }
       private val allocator: BufferAllocator = SparkMemoryUtils.contextAllocator()
         .newChildAllocator("ArrowColumnarBatch deserialize", 0, Long.MaxValue)
 

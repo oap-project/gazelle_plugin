@@ -89,12 +89,12 @@ jmethodID GetMethodID(JNIEnv* env, jclass this_class, const char* name, const ch
   return ret;
 }
 
-jmethodID GetStaticMethodID(JNIEnv* env, jclass this_class,
-                            const char* name, const char* sig) {
+jmethodID GetStaticMethodID(JNIEnv* env, jclass this_class, const char* name,
+                            const char* sig) {
   jmethodID ret = env->GetStaticMethodID(this_class, name, sig);
   if (ret == nullptr) {
     std::string error_message = "Unable to find static method " + std::string(name) +
-        " within signature" + std::string(sig);
+                                " within signature" + std::string(sig);
     env->ThrowNew(illegal_access_exception_class, error_message.c_str());
   }
   return ret;
@@ -238,45 +238,120 @@ arrow::Result<arrow::Compression::type> GetCompressionType(JNIEnv* env,
   return compression_type;
 }
 
-arrow::Status DecompressBuffers(arrow::Compression::type compression,
-                                const arrow::ipc::IpcReadOptions& options,
-                                const uint8_t* buf_mask,
-                                std::vector<std::shared_ptr<arrow::Buffer>>& buffers) {
+Status DecompressBuffer(const arrow::Buffer& buffer, arrow::util::Codec* codec,
+                        std::shared_ptr<arrow::Buffer>* out, arrow::MemoryPool* pool) {
+  const uint8_t* data = buffer.data();
+  int64_t compressed_size = buffer.size() - sizeof(int64_t);
+  int64_t uncompressed_size =
+      arrow::BitUtil::FromLittleEndian(arrow::util::SafeLoadAs<int64_t>(data));
+
+  ARROW_ASSIGN_OR_RAISE(auto uncompressed, AllocateBuffer(uncompressed_size, pool));
+
+  int64_t actual_decompressed;
+  ARROW_ASSIGN_OR_RAISE(
+      actual_decompressed,
+      codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                        uncompressed->mutable_data()));
+  if (actual_decompressed != uncompressed_size) {
+    return Status::Invalid("Failed to fully decompress buffer, expected ",
+                           uncompressed_size, " bytes but decompressed ",
+                           actual_decompressed);
+  }
+  *out = std::move(uncompressed);
+  return Status::OK();
+}
+
+Status DecompressBuffersByType(
+    arrow::Compression::type compression, const arrow::ipc::IpcReadOptions& options,
+    const uint8_t* buf_mask, std::vector<std::shared_ptr<arrow::Buffer>>& buffers,
+    const std::vector<std::shared_ptr<arrow::Field>>& schema_fields) {
+  std::unique_ptr<arrow::util::Codec> codec;
+  std::unique_ptr<arrow::util::Codec> int32_codec;
+  std::unique_ptr<arrow::util::Codec> int64_codec;
+  ARROW_ASSIGN_OR_RAISE(codec, arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+  ARROW_ASSIGN_OR_RAISE(int32_codec, arrow::util::Codec::CreateInt32(compression));
+  ARROW_ASSIGN_OR_RAISE(int64_codec, arrow::util::Codec::CreateInt64(compression));
+
+  int32_t buffer_idx = 0;
+  for (const auto& field : schema_fields) {
+    if (field->type()->id() == arrow::Type::NA) continue;
+
+    const auto& layout_buffers = field->type()->layout().buffers;
+    for (size_t i = 0; i < layout_buffers.size(); ++i) {
+      const auto& layout = layout_buffers[i];
+      auto& buffer = buffers[buffer_idx + i];
+      if (buffer == nullptr || buffer->size() == 0) {
+        continue;
+      }
+      // if the buffer has been rebuilt to uncompressed on java side, return
+      if (arrow::BitUtil::GetBit(buf_mask, buffer_idx + i)) {
+        continue;
+      }
+      if (buffer->size() < 8) {
+        return Status::Invalid(
+            "Likely corrupted message, compressed buffers "
+            "are larger than 8 bytes by construction");
+      }
+      switch (layout.kind) {
+        case arrow::DataTypeLayout::BufferKind::FIXED_WIDTH:
+          if (layout.byte_width == 4 && field->type()->id() != arrow::Type::FLOAT) {
+            RETURN_NOT_OK(DecompressBuffer(*buffer, int32_codec.get(), &buffer,
+                                           options.memory_pool));
+          } else if (layout.byte_width == 8 &&
+                     field->type()->id() != arrow::Type::DOUBLE) {
+            RETURN_NOT_OK(DecompressBuffer(*buffer, int64_codec.get(), &buffer,
+                                           options.memory_pool));
+          } else {
+            RETURN_NOT_OK(
+                DecompressBuffer(*buffer, codec.get(), &buffer, options.memory_pool));
+          }
+          break;
+        case arrow::DataTypeLayout::BufferKind::BITMAP:
+        case arrow::DataTypeLayout::BufferKind::VARIABLE_WIDTH: {
+          RETURN_NOT_OK(
+              DecompressBuffer(*buffer, codec.get(), &buffer, options.memory_pool));
+          break;
+        }
+        case arrow::DataTypeLayout::BufferKind::ALWAYS_NULL:
+          break;
+        default:
+          return Status::Invalid("Wrong buffer layout.");
+      }
+    }
+    buffer_idx += layout_buffers.size();
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status DecompressBuffers(
+    arrow::Compression::type compression, const arrow::ipc::IpcReadOptions& options,
+    const uint8_t* buf_mask, std::vector<std::shared_ptr<arrow::Buffer>>& buffers,
+    const std::vector<std::shared_ptr<arrow::Field>>& schema_fields) {
+  if (compression == arrow::Compression::FASTPFOR) {
+    RETURN_NOT_OK(
+        DecompressBuffersByType(compression, options, buf_mask, buffers, schema_fields));
+    return arrow::Status::OK();
+  }
+
   std::unique_ptr<arrow::util::Codec> codec;
   ARROW_ASSIGN_OR_RAISE(codec, arrow::util::Codec::Create(compression));
 
   auto DecompressOne = [&buffers, &buf_mask, &codec, &options](int i) {
-    if (buffers[i] != nullptr && buffers[i]->size() > 0) {
-      // if the buffer has been rebuilt to uncompressed on java side, return
-      if (arrow::BitUtil::GetBit(buf_mask, i)) {
-        return arrow::Status::OK();
-      }
-
-      if (buffers[i]->size() < 8) {
-        return arrow::Status::Invalid(
-            "Likely corrupted message, compressed buffers "
-            "are larger than 8 bytes by construction");
-      }
-      const uint8_t* data = buffers[i]->data();
-      int64_t compressed_size = buffers[i]->size() - sizeof(int64_t);
-      int64_t uncompressed_size =
-          arrow::BitUtil::FromLittleEndian(arrow::util::SafeLoadAs<int64_t>(data));
-
-      ARROW_ASSIGN_OR_RAISE(auto uncompressed,
-                            AllocateBuffer(uncompressed_size, options.memory_pool));
-
-      int64_t actual_decompressed;
-      ARROW_ASSIGN_OR_RAISE(
-          actual_decompressed,
-          codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
-                            uncompressed->mutable_data()));
-      if (actual_decompressed != uncompressed_size) {
-        return arrow::Status::Invalid("Failed to fully decompress buffer, expected ",
-                                      uncompressed_size, " bytes but decompressed ",
-                                      actual_decompressed);
-      }
-      buffers[i] = std::move(uncompressed);
+    if (buffers[i] == nullptr || buffers[i]->size() == 0) {
+      return arrow::Status::OK();
     }
+    // if the buffer has been rebuilt to uncompressed on java side, return
+    if (arrow::BitUtil::GetBit(buf_mask, i)) {
+      return arrow::Status::OK();
+    }
+
+    if (buffers[i]->size() < 8) {
+      return arrow::Status::Invalid(
+          "Likely corrupted message, compressed buffers "
+          "are larger than 8 bytes by construction");
+    }
+    RETURN_NOT_OK(
+        DecompressBuffer(*buffers[i], codec.get(), &buffers[i], options.memory_pool));
     return arrow::Status::OK();
   };
 

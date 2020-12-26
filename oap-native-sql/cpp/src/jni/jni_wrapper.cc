@@ -1522,8 +1522,8 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
   // decompress buffers
   auto options = arrow::ipc::IpcReadOptions::Defaults();
   options.use_threads = false;
-  auto status =
-      DecompressBuffers(compression_type, options, (uint8_t*)in_buf_mask, input_buffers);
+  auto status = DecompressBuffers(compression_type, options, (uint8_t*)in_buf_mask,
+                                  input_buffers, schema->fields());
   if (!status.ok()) {
     env->ThrowNew(
         io_exception_class,

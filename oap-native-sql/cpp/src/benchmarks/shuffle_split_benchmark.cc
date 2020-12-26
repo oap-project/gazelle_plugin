@@ -181,6 +181,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
 };
 
 TEST_F(BenchmarkShuffleSplit, LZ4) { DoSplit(arrow::Compression::LZ4_FRAME); }
+TEST_F(BenchmarkShuffleSplit, FASTPFOR) { DoSplit(arrow::Compression::FASTPFOR); }
 
 }  // namespace shuffle
 }  // namespace sparkcolumnarplugin
