@@ -799,6 +799,27 @@ arrow::Status ExprVisitor::GetResult(
   return arrow::Status::OK();
 }
 
+arrow::Status ExprVisitor::Spill(int64_t size, int64_t* spilled_size) {
+  int64_t current_spilled = 0L;
+  if (dependency_) {
+    // fixme cycle invocation?
+    int64_t single_call_spilled;
+    RETURN_NOT_OK(dependency_->Spill(size - current_spilled, &single_call_spilled));
+    current_spilled += single_call_spilled;
+    if (current_spilled >= size) {
+      *spilled_size = current_spilled;
+      return arrow::Status::OK();
+    }
+  }
+  if (!finish_visitor_) {
+    int64_t single_call_spilled;
+    RETURN_NOT_OK(impl_->Spill(size - current_spilled, &single_call_spilled));
+    current_spilled += single_call_spilled;
+  }
+  *spilled_size = current_spilled;
+  return arrow::Status::OK();
+}
+
 }  // namespace arrowcompute
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin

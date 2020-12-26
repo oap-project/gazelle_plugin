@@ -55,6 +55,10 @@ class CodeGenerator {
     return arrow::Status::NotImplemented(
         "evaluate with selection array is not Implemented.");
   }
+  virtual arrow::Status Spill(int64_t size, bool call_by_self, int64_t* spilled_size) {
+    *spilled_size = 0;
+    return arrow::Status::OK();
+  }
   virtual std::string ToString() { return ""; }
 };
 }  // namespace codegen

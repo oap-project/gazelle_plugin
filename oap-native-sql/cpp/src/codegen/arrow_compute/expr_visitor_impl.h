@@ -59,6 +59,11 @@ class ExprVisitorImpl {
     return arrow::Status::NotImplemented("ExprVisitorImpl SetDependency is abstract.");
   }
 
+  virtual arrow::Status Spill(int64_t size, int64_t* spilled_size) {
+    *spilled_size = 0L;
+    return arrow::Status::OK();
+  }
+
   virtual arrow::Status Finish() {
 #ifdef DEBUG
     std::cout << "ExprVisitorImpl::Finish visitor is " << p_->func_name_ << ", ptr is "

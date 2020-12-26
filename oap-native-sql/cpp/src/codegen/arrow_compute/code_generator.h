@@ -249,6 +249,26 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     return arrow::Status::OK();
   }
 
+  arrow::Status Spill(int64_t size, bool call_by_self, int64_t* spilled_size) {
+    if (call_by_self) {
+      // passive strategy: not to spill from self call
+      *spilled_size = 0L;
+      return arrow::Status::OK();
+    }
+    int64_t current_spilled = 0L;
+    for (auto visitor : visitor_list_) {
+      int64_t single_call_spilled;
+      RETURN_NOT_OK(visitor->Spill(size - current_spilled, &single_call_spilled));
+      current_spilled += single_call_spilled;
+      if (current_spilled >= size) {
+        *spilled_size = current_spilled;
+        return arrow::Status::OK();
+      }
+    }
+    *spilled_size = current_spilled;
+    return arrow::Status::OK();
+  }
+
  private:
   std::vector<std::shared_ptr<ExprVisitor>> visitor_list_;
   std::shared_ptr<arrow::Schema> schema_;

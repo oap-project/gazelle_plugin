@@ -17,6 +17,8 @@
 
 package com.intel.oap.vectorized;
 
+import org.apache.spark.memory.MemoryConsumer;
+
 import java.io.IOException;
 import java.util.List;
 
@@ -101,6 +103,20 @@ public class ExpressionEvaluatorJniWrapper {
          *                      see the protobuf specification
          */
         native void nativeSetReturnFields(long nativeHandler, byte[] schemaBuf) throws RuntimeException;
+
+        /**
+         *
+         * Spill data to disk.
+         *
+         * @param nativeHandler nativeHandler representing expressions. Created using a
+         *                      call to buildNativeCode
+         * @param size expected size to spill (in bytes)
+         * @param callBySelf whether the caller is the expression evaluator itself, true
+         *                   when running out of off-heap memory due to allocations from
+         *                   the evaluator itself
+         * @return actual spilled size
+         */
+        native long nativeSpill(long nativeHandler, long size, boolean callBySelf) throws RuntimeException;
 
         /**
          * Evaluate the expressions represented by the nativeHandler on a record batch

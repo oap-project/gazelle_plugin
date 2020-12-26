@@ -428,6 +428,21 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(JNIEnv* 
   handler_holder_.Erase(id);
 }
 
+JNIEXPORT jlong JNICALL
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSpill(
+    JNIEnv* env, jobject obj, jlong id, jlong size, jboolean call_by_self) {
+  std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
+  jlong spilled_size;
+  arrow::Status status = handler->Spill(size, call_by_self, &spilled_size);
+  if (!status.ok()) {
+    std::string error_message =
+        "nativeSpill: spill failed with error msg " + status.ToString();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+    return -1L;
+  }
+  return spilled_size;
+}
+
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,

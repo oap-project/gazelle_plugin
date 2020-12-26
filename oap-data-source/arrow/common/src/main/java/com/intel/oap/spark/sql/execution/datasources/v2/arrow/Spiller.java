@@ -17,26 +17,15 @@
 
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow;
 
-import org.apache.arrow.memory.ReservationListener;
+import org.apache.spark.memory.MemoryConsumer;
 
-/**
- * Reserve Spark managed memory.
- */
-public class SparkManagedReservationListener implements ReservationListener {
+public interface Spiller {
+    Spiller NO_OP = new Spiller() {
+        @Override
+        public long spill(long size, MemoryConsumer trigger) {
+            return 0L;
+        }
+    };
 
-    private final NativeSQLMemoryConsumer consumer;
-
-    public SparkManagedReservationListener(NativeSQLMemoryConsumer consumer) {
-        this.consumer = consumer;
-    }
-
-    @Override
-    public void reserve(long size) {
-        consumer.acquire(size);
-    }
-
-    @Override
-    public void unreserve(long size) {
-        consumer.free(size);
-    }
+    long spill(long size, MemoryConsumer trigger);
 }
