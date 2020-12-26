@@ -301,6 +301,7 @@ class SortArraysToIndicesKernel::Impl {
 #include "precompile/builder.h"
 #include "precompile/type.h"
 #include "third_party/ska_sort.hpp"
+#include "third_party/timsort.hpp"
 using namespace sparkcolumnarplugin::precompile;
 
 class TypedSorterImpl : public CodeGenBase {
@@ -618,7 +619,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     }
   }
   std::string GetSortFunction() {
-    return "std::sort(indices_begin, indices_begin + "
+    return "gfx::timsort(indices_begin, indices_begin + "
            "items_total_, "
            "comp);";
   }
