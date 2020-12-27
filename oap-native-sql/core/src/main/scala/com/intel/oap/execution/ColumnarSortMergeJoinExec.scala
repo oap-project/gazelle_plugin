@@ -34,6 +34,7 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 import scala.collection.JavaConverters._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions.BoundReference
+import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReference
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 

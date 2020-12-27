@@ -93,6 +93,8 @@ class ColumnarSortMergeJoin(
         (streamIter, buildIter)
       case LeftAnti =>
         (streamIter, buildIter)
+      case ExistenceJoin(_) =>
+        (streamIter, buildIter)
       case _ =>
         (buildIter, streamIter)
     }
@@ -228,17 +230,44 @@ object ColumnarSortMergeJoin extends Logging {
       .toList
 
     logInfo(s"leftKeyExpression is ${leftKeys}, rightKeyExpression is ${rightKeys}")
-    val lkeyFieldList: List[Field] = leftKeys.toList.map(expr => {
-      val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
+    val lkeyProjectOrdinalList = new ListBuffer[Int]()
+    val lkeyFieldList: List[Field] = leftKeys.toList.zipWithIndex.map {
+      case (expr, i) => {
+        val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
+        if (s"${nativeNode.toProtobuf}".contains("none#")) {
+          throw new UnsupportedOperationException(
+            s"Unsupport to generate native expression from replaceable expression.")
+        }
+        if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+          throw new UnsupportedOperationException(s"join key with expression is not supported.")
+          lkeyProjectOrdinalList += i
+          Field.nullable(s"${expr}", returnType)
+        } else {
+          val attr = ConverterUtils.getAttrFromExpr(expr)
+          Field
+            .nullable(
+              s"${attr.name}#${attr.exprId.id}",
+              CodeGeneration.getResultType(attr.dataType))
+        }
+      }
+    }
 
-    val rkeyFieldList: List[Field] = rightKeys.toList.map(expr => {
-      val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
+    val rkeyProjectOrdinalList = new ListBuffer[Int]()
+    val rkeyFieldList: List[Field] = rightKeys.toList.zipWithIndex.map {
+      case (expr, i) => {
+        val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
+        if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+          rkeyProjectOrdinalList += i
+          Field.nullable(s"${expr}", returnType)
+        } else {
+          val attr = ConverterUtils.getAttrFromExpr(expr)
+          Field
+            .nullable(
+              s"${attr.name}#${attr.exprId.id}",
+              CodeGeneration.getResultType(attr.dataType))
+        }
+      }
+    }
 
     //TODO: fix join left/right
     val buildSide: BuildSide = joinType match {
@@ -279,6 +308,9 @@ object ColumnarSortMergeJoin extends Logging {
         ("conditionedJoinArraysOuter", build_input_field_list, stream_input_field_list)
       case RightOuter =>
         ("conditionedJoinArraysOuter", build_input_field_list, stream_input_field_list)
+      //TODO: full outer is not supported yet
+      //case FullOuter =>
+      //  ("conditionedJoinArraysFullOuter", build_input_field_list, stream_input_field_list)
       case LeftAnti =>
         ("conditionedJoinArraysAnti", List[Field](), stream_input_field_list)
       case j: ExistenceJoin =>
@@ -291,7 +323,7 @@ object ColumnarSortMergeJoin extends Logging {
         existsField = Field.nullable(
           s"${existsSchema.name}#${existsSchema.exprId.id}",
           CodeGeneration.getResultType(existsSchema.dataType))
-        ("conditionedProbeArraysExistence", build_input_field_list, stream_input_field_list)
+        ("conditionedJoinArraysExistence", build_input_field_list, stream_input_field_list)
       case _ =>
         throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
     }
