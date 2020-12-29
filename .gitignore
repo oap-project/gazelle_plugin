@@ -1,7 +1,6 @@
 **/target/**
 *.class
 *.iml
-*.sh
 
 # logs
 *.log
