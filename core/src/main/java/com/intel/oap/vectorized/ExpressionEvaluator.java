@@ -238,6 +238,7 @@ public class ExpressionEvaluator implements AutoCloseable {
   }
 
   byte[] getSchemaBytesBuf(Schema schema) throws IOException {
+    if (schema == null) return null; 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema);
     return out.toByteArray();
