@@ -113,8 +113,9 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
         hashRelationKernel.build(
           hash_relation_schema,
           Lists.newArrayList(hash_relation_expr),
-          true
-          )
+          null,
+          true,
+          SparkMemoryUtils.globalMemoryPool())
         val iter = ConverterUtils.convertFromNetty(output, input)
         var numRows: Long = 0
         val _input = new ArrayBuffer[ColumnarBatch]()
