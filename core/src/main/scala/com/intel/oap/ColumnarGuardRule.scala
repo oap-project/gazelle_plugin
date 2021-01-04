@@ -151,6 +151,10 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
    */
   private def insertRowGuardRecursive(plan: SparkPlan): SparkPlan = {
     plan match {
+      case p: ShuffleExchangeExec =>
+        RowGuard(p.withNewChildren(p.children.map(insertRowGuardOrNot)))
+      case p: BroadcastExchangeExec =>
+        RowGuard(p.withNewChildren(p.children.map(insertRowGuardOrNot)))
       case p: ShuffledHashJoinExec =>
         RowGuard(p.withNewChildren(p.children.map(insertRowGuardRecursive)))
       case p if !supportCodegen(p) =>
