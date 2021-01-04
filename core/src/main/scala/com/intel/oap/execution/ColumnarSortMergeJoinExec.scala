@@ -85,24 +85,24 @@ case class ColumnarSortMergeJoinExec(
   val prepareTime = longMetric("prepareTime")
   val totaltime_sortmegejoin = longMetric("totaltime_sortmergejoin")
   val resultSchema = this.schema
-  try {
-    ColumnarSortMergeJoin.precheck(
-      leftKeys,
-      rightKeys,
-      resultSchema,
-      joinType,
-      condition,
-      left,
-      right,
-      joinTime,
-      prepareTime,
-      totaltime_sortmegejoin,
-      numOutputRows,
-      sparkConf)
-  } catch {
-    case e: Throwable =>
-      throw e
-  }
+  //try {
+  //  ColumnarSortMergeJoin.precheck(
+  //    leftKeys,
+  //    rightKeys,
+  //    resultSchema,
+  //    joinType,
+  //    condition,
+  //    left,
+  //    right,
+  //    joinTime,
+  //    prepareTime,
+  //    totaltime_sortmegejoin,
+  //    numOutputRows,
+  //    sparkConf)
+  //} catch {
+  //  case e: Throwable =>
+  //    throw e
+  //}
 
   override def supportsColumnar = true
 
@@ -319,6 +319,8 @@ case class ColumnarSortMergeJoinExec(
     }
     ColumnarCodegenContext(inputSchema, outputSchema, codeGenNode)
   }
+  val triggerBuildSignature = getCodeGenSignature
+
 
   /***********************************************************/
   def getCodeGenSignature: String =
