@@ -33,6 +33,7 @@ import org.apache.spark.sql.execution.datasources.v2.DataSourceV2ScanRelation
 import org.apache.spark.sql.execution.datasources.v2.orc.OrcScan
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.SQLConf.ORC_IMPLEMENTATION
+import org.apache.spark.sql.internal.SQLConf.PARQUET_VECTORIZED_READER_ENABLED
 
 /**
  * OrcTest
@@ -62,10 +63,13 @@ abstract class OrcTest extends QueryTest with FileBasedDataSourceTest with Befor
     super.beforeAll()
     originalConfORCImplementation = spark.conf.get(ORC_IMPLEMENTATION)
     spark.conf.set(ORC_IMPLEMENTATION.key, orcImp)
+    spark.conf.set(vectorizedReaderEnabledKey, "false")
+//    spark.conf.set(PARQUET_VECTORIZED_READER_ENABLED.key, "false")
   }
 
   protected override def afterAll(): Unit = {
     spark.conf.set(ORC_IMPLEMENTATION.key, originalConfORCImplementation)
+    spark.conf.set(vectorizedReaderEnabledKey, "false")
     super.afterAll()
   }
 

@@ -40,7 +40,7 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.memory.offHeap.size", "100m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
       .set("spark.oap.sql.columnar.wholestagecodegen", "false")
@@ -49,6 +49,7 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.hashCompare", "true")
 
   private lazy val left = spark.createDataFrame(
     sparkContext.parallelize(Seq(
@@ -122,6 +123,7 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
       ProjectExec(output, FilterExec(condition, join))
     }
 
+    // ignored in maven test
     test(s"$testName using ShuffledHashJoin") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
@@ -227,7 +229,6 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     right,
     composedConditionEQ,
     Seq(Row(2, 1.0), Row(2, 1.0)))
-   */
 
   testExistenceJoin(
     "test composed condition (both non-equal) for left semi join",
@@ -237,7 +238,6 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     composedConditionNEQ,
     Seq(Row(1, 2.0), Row(1, 2.0), Row(2, 1.0), Row(2, 1.0)))
 
-  /*
   testExistenceJoin(
     "test single condition (equal) for left Anti join",
     LeftAnti,
@@ -261,7 +261,6 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     right,
     composedConditionEQ,
     Seq(Row(1, 2.0), Row(1, 2.0), Row(3, 3.0), Row(6, null), Row(null, 5.0), Row(null, null)))
-   */
 
   testExistenceJoin(
     "test composed condition (both non-equal) for anti join",
@@ -271,7 +270,6 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     composedConditionNEQ,
     Seq(Row(3, 3.0), Row(6, null), Row(null, 5.0), Row(null, null)))
 
-  /*
   testExistenceJoin(
     "test composed unique condition (both non-equal) for anti join",
     LeftAnti,

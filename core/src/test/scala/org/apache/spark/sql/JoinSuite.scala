@@ -58,6 +58,9 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   private def attachCleanupResourceChecker(plan: SparkPlan): Unit = {
     // SPARK-21492: Check cleanupResources are finally triggered in SortExec node for every
@@ -634,7 +637,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
         Row(3, 2) :: Nil)
   }
 
-  ignore("cross join detection") {
+  test("cross join detection") {
     withTempView("A", "B", "C", "D") {
       testData.createOrReplaceTempView("A")
       testData.createOrReplaceTempView("B")
@@ -909,7 +912,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     joinQueries.foreach(assertJoinOrdering)
   }
 
-  ignore("SPARK-22445 Respect stream-side child's needCopyResult in BroadcastHashJoin") {
+  test("SPARK-22445 Respect stream-side child's needCopyResult in BroadcastHashJoin") {
     val df1 = Seq((2, 3), (2, 5), (2, 2), (3, 8), (2, 1)).toDF("k", "v1")
     val df2 = Seq((2, 8), (3, 7), (3, 4), (1, 2)).toDF("k", "v2")
     val df3 = Seq((1, 1), (3, 2), (4, 3), (5, 1)).toDF("k", "v3")
@@ -945,7 +948,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-27485: EnsureRequirements should not fail join with duplicate keys") {
+  test("SPARK-27485: EnsureRequirements should not fail join with duplicate keys") {
     withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "2",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       val tbl_a = spark.range(40)
@@ -965,7 +968,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-26352: join reordering should not change the order of columns") {
+  test("SPARK-26352: join reordering should not change the order of columns") {
     withTable("tab1", "tab2", "tab3") {
       spark.sql("select 1 as x, 100 as y").write.saveAsTable("tab1")
       spark.sql("select 42 as i, 200 as j").write.saveAsTable("tab2")
@@ -1085,7 +1088,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     checkAnswer(df, Row(1, 2, 1, 2) :: Nil)
   }
 
-  ignore("SPARK-21492: cleanupResource without code generation") {
+  test("SPARK-21492: cleanupResource without code generation") {
     withSQLConf(
       SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "false",
       SQLConf.SHUFFLE_PARTITIONS.key -> "1",

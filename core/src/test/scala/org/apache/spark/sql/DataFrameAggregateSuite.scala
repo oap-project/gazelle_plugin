@@ -61,7 +61,7 @@ class DataFrameAggregateSuite extends QueryTest
 
   val absTol = 1e-8
 
-  ignore("groupBy") {
+  test("groupBy") {
     checkAnswer(
       testData2.groupBy("a").agg(sum($"b")),
       Seq(Row(1, 3), Row(2, 3), Row(3, 3))
@@ -129,7 +129,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-18952: regexes fail codegen when used as keys due to bad forward-slash escapes") {
+  test("SPARK-18952: regexes fail codegen when used as keys due to bad forward-slash escapes") {
     val df = Seq(("some[thing]", "random-string")).toDF("key", "val")
 
     checkAnswer(
@@ -311,7 +311,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("average") {
+  test("average") {
     checkAnswer(
       testData2.agg(avg($"a"), mean($"a")),
       Row(2.0, 2.0))
@@ -426,7 +426,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(0, null))
   }
 
-  ignore("stddev") {
+  test("stddev") {
     val testData2ADev = math.sqrt(4.0 / 5.0)
     checkAnswer(
       testData2.agg(stddev($"a"), stddev_pop($"a"), stddev_samp($"a")),
@@ -436,7 +436,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(testData2ADev, math.sqrt(4 / 6.0), testData2ADev))
   }
 
-  ignore("zero stddev") {
+  test("zero stddev") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
     emptyTableData.agg(stddev($"a"), stddev_pop($"a"), stddev_samp($"a")),
@@ -457,7 +457,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(null))
   }
 
-  ignore("moments") {
+  test("moments") {
 
     val sparkVariance = testData2.agg(variance($"a"))
     checkAggregatesWithTol(sparkVariance, Row(4.0 / 5.0), absTol)
@@ -475,7 +475,7 @@ class DataFrameAggregateSuite extends QueryTest
     checkAggregatesWithTol(sparkKurtosis, Row(-1.5), absTol)
   }
 
-  ignore("zero moments") {
+  test("zero moments") {
     val input = Seq((1, 2)).toDF("a", "b")
     checkAnswer(
       input.agg(stddev($"a"), stddev_samp($"a"), stddev_pop($"a"), variance($"a"),
@@ -497,7 +497,7 @@ class DataFrameAggregateSuite extends QueryTest
         Double.NaN, Double.NaN))
   }
 
-  ignore("null moments") {
+  test("null moments") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(emptyTableData.agg(
       variance($"a"), var_samp($"a"), var_pop($"a"), skewness($"a"), kurtosis($"a")),
@@ -549,7 +549,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-31500: collect_set() of BinaryType returns duplicate elements") {
+  test("SPARK-31500: collect_set() of BinaryType returns duplicate elements") {
     val bytesTest1 = "test1".getBytes
     val bytesTest2 = "test2".getBytes
     val df = Seq(bytesTest1, bytesTest1, bytesTest2).toDF("a")
@@ -595,7 +595,7 @@ class DataFrameAggregateSuite extends QueryTest
       Seq(Row(Seq(1.0, 2.0))))
   }
 
-  ignore("SPARK-14664: Decimal sum/avg over window should work.") {
+  test("SPARK-14664: Decimal sum/avg over window should work.") {
     checkAnswer(
       spark.sql("select sum(a) over () from values 1.0, 2.0, 3.0 T(a)"),
       Row(6.0) :: Row(6.0) :: Row(6.0) :: Nil)
@@ -604,7 +604,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(2.0) :: Row(2.0) :: Row(2.0) :: Nil)
   }
 
-  ignore("SQL decimal test (used for catching certain decimal handling bugs in aggregates)") {
+  test("SQL decimal test (used for catching certain decimal handling bugs in aggregates)") {
     checkAnswer(
       decimalData.groupBy($"a" cast DecimalType(10, 2)).agg(avg($"b" cast DecimalType(10, 2))),
       Seq(Row(new java.math.BigDecimal(1), new java.math.BigDecimal("1.5")),
@@ -628,7 +628,7 @@ class DataFrameAggregateSuite extends QueryTest
       limit2Df.select($"id"))
   }
 
-  ignore("SPARK-17237 remove backticks in a pivot result schema") {
+  test("SPARK-17237 remove backticks in a pivot result schema") {
     val df = Seq((2, 3, 4), (3, 4, 5)).toDF("a", "x", "y")
     withSQLConf(SQLConf.SUPPORT_QUOTED_REGEX_COLUMN_NAME.key -> "false") {
       checkAnswer(
@@ -681,7 +681,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-19471: AggregationIterator does not initialize the generated result projection" +
+  test("SPARK-19471: AggregationIterator does not initialize the generated result projection" +
     " before using it") {
     Seq(
       monotonically_increasing_id(), spark_partition_id(),
@@ -844,7 +844,7 @@ class DataFrameAggregateSuite extends QueryTest
     checkAnswer(countAndDistinct, Row(100000, 100))
   }
 
-  ignore("max_by") {
+  test("max_by") {
     val yearOfMaxEarnings =
       sql("SELECT course, max_by(year, earnings) FROM courseSales GROUP BY course")
     checkAnswer(yearOfMaxEarnings, Row("dotNET", 2013) :: Row("Java", 2013) :: Nil)
@@ -900,7 +900,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("min_by") {
+  test("min_by") {
     val yearOfMinEarnings =
       sql("SELECT course, min_by(year, earnings) FROM courseSales GROUP BY course")
     checkAnswer(yearOfMinEarnings, Row("dotNET", 2012) :: Row("Java", 2012) :: Nil)
@@ -956,7 +956,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("count_if") {
+  test("count_if") {
     withTempView("tempView") {
       Seq(("a", None), ("a", Some(1)), ("a", Some(2)), ("a", Some(3)),
         ("b", None), ("b", Some(4)), ("b", Some(5)), ("b", Some(6)))

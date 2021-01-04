@@ -134,7 +134,7 @@ class OffsetSeqLogSuite extends SharedSparkSession {
     }
   }
 
-  ignore("read Spark 2.1.0 log format") {
+  test("read Spark 2.1.0 log format") {
     val (batchId, offsetSeq) = readFromResource("offset-log-version-2.1.0")
     assert(batchId === 0)
     assert(offsetSeq.offsets === Seq(

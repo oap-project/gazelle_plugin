@@ -106,11 +106,15 @@ class ColumnarAbs(child: Expression, original: Expression)
   extends Abs(child: Expression)
     with ColumnarExpression
     with Logging {
+  if (dataType == IntegerType) {
+    throw new UnsupportedOperationException(s"${dataType} abs(${child.dataType}) is not supported")
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+    val resultType = CodeGeneration.getResultType(dataType)
     val funcNode =
       TreeBuilder.makeFunction("abs", Lists.newArrayList(child_node), resultType)
     (funcNode, resultType)
@@ -174,6 +178,32 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
   extends Cast(child: Expression, datatype: DataType, timeZoneId: Option[String])
     with ColumnarExpression
     with Logging {
+  val supportedTypes =
+    List(StringType, ByteType, IntegerType, LongType, FloatType, DoubleType, DateType)
+  if (supportedTypes.indexOf(datatype) == -1 || datatype.isInstanceOf[DecimalType]) {
+    throw new UnsupportedOperationException(s"${datatype} is not supported in ColumnarCast")
+  }
+  if (datatype == StringType) {
+    val supported = List(IntegerType, DoubleType, DateType)
+    if (supported.indexOf(child.dataType) == -1 || child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(s"${child.dataType} is not supported in castVARCHAR")
+    }
+  }
+  if (child.dataType == StringType) {
+    val unsupported = List(IntegerType, DoubleType, LongType, DateType)
+    if (unsupported.indexOf(datatype) != -1) {
+      throw new UnsupportedOperationException(
+        s"${datatype} is not supported in cast(${child.dataType})")
+    }
+  }
+  if (child.dataType == TimestampType) {
+    if (datatype == DateType) {
+      throw new UnsupportedOperationException(
+        s"${datatype} is not supported in cast(${child.dataType})")
+    }
+  }
+  CodeGeneration.getResultType(dataType)
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

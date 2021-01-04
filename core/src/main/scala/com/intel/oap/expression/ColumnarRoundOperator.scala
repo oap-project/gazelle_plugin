@@ -38,6 +38,11 @@ class ColumnarRound(child: Expression, scale: Expression, original: Expression)
   extends Round(child: Expression, scale: Expression)
     with ColumnarExpression
     with Logging {
+
+  if (child.dataType != DoubleType) {
+    throw new UnsupportedOperationException(s"${child.dataType} is not supported in ColumnarRound")
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

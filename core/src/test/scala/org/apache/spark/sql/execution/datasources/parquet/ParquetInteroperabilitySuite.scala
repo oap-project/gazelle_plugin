@@ -51,8 +51,9 @@ class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedS
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
-  ignore("parquet files with different physical schemas but share the same logical schema") {
+  test("parquet files with different physical schemas but share the same logical schema") {
     import ParquetCompatibilityTest._
 
     // This test case writes two Parquet files, both representing the following Catalyst schema
@@ -117,7 +118,7 @@ class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedS
     }
   }
 
-  ignore("parquet timestamp conversion") {
+  test("parquet timestamp conversion") {
     // Make a table with one parquet file written by impala, and one parquet file written by spark.
     // We should only adjust the timestamps in the impala file, and only if the conf is set
     val impalaFile = "test-data/impala_timestamp.parq"

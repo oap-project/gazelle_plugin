@@ -47,7 +47,7 @@ trait AddNestedColumnTest extends ReadSchemaTest {
     }
   }
 
-  ignore("add a nested column at the end of the leaf struct column") {
+  test("add a nested column at the end of the leaf struct column") {
     testAdd(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4, 'c7', 5)) c2"),
@@ -56,7 +56,7 @@ trait AddNestedColumnTest extends ReadSchemaTest {
         Row(1, Row(2, Row(3, 4, 5)), "two")))
   }
 
-  ignore("add a nested column in the middle of the leaf struct column") {
+  test("add a nested column in the middle of the leaf struct column") {
     testAdd(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c7', 5, 'c6', 4)) c2"),
@@ -65,7 +65,7 @@ trait AddNestedColumnTest extends ReadSchemaTest {
         Row(1, Row(2, Row(3, 5, 4)), "two")))
   }
 
-  ignore("add a nested column at the end of the middle struct column") {
+  test("add a nested column at the end of the middle struct column") {
     testAdd(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4), 'c7', 5) c2"),
@@ -74,7 +74,7 @@ trait AddNestedColumnTest extends ReadSchemaTest {
         Row(1, Row(2, Row(3, 4), 5), "two")))
   }
 
-  ignore("add a nested column in the middle of the middle struct column") {
+  test("add a nested column in the middle of the middle struct column") {
     testAdd(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 1 c1, named_struct('c3', 2, 'c7', 5, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
@@ -111,7 +111,7 @@ trait HideNestedColumnTest extends ReadSchemaTest {
     }
   }
 
-  ignore("hide a nested column at the end of the leaf struct column") {
+  test("hide a nested column at the end of the leaf struct column") {
     testHide(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 5 c1, named_struct('c3', 6, 'c4', named_struct('c5', 7, 'c6', 8, 'c7', 9)) c2"),
@@ -122,7 +122,7 @@ trait HideNestedColumnTest extends ReadSchemaTest {
         Row(0, Row(1, Row(2, 3)), "three")))
   }
 
-  ignore("hide a nested column in the middle of the leaf struct column") {
+  test("hide a nested column in the middle of the leaf struct column") {
     testHide(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 5 c1, named_struct('c3', 6, 'c4', named_struct('c5', 7, 'c7', 8, 'c6', 9)) c2"),
@@ -133,7 +133,7 @@ trait HideNestedColumnTest extends ReadSchemaTest {
         Row(0, Row(1, Row(3, 4)), "three")))
   }
 
-  ignore("hide a nested column at the end of the middle struct column") {
+  test("hide a nested column at the end of the middle struct column") {
     testHide(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 5 c1, named_struct('c3', 6, 'c4', named_struct('c5', 7, 'c6', 8), 'c7', 9) c2"),
@@ -144,7 +144,7 @@ trait HideNestedColumnTest extends ReadSchemaTest {
         Row(0, Row(1, Row(2, 3)), "three")))
   }
 
-  ignore("hide a nested column in the middle of the middle struct column") {
+  test("hide a nested column in the middle of the middle struct column") {
     testHide(
       sql("SELECT 1 c1, named_struct('c3', 2, 'c4', named_struct('c5', 3, 'c6', 4)) c2"),
       sql("SELECT 5 c1, named_struct('c3', 6, 'c7', 7, 'c4', named_struct('c5', 8, 'c6', 9)) c2"),

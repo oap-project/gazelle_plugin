@@ -95,7 +95,7 @@ class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("schema_of_csv - infers schemas") {
+  test("schema_of_csv - infers schemas") {
     checkAnswer(
       spark.range(1).select(schema_of_csv(lit("0.1,1"))),
       Seq(Row("struct<_c0:double,_c1:int>")))
@@ -104,7 +104,7 @@ class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
       Seq(Row("struct<_c0:double,_c1:int>")))
   }
 
-  ignore("schema_of_csv - infers schemas using options") {
+  test("schema_of_csv - infers schemas using options") {
     val df = spark.range(1)
       .select(schema_of_csv(lit("0.1 1"), Map("sep" -> " ").asJava))
     checkAnswer(df, Seq(Row("struct<_c0:double,_c1:int>")))
@@ -160,7 +160,7 @@ class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(Row(1, "haa")) :: Nil)
   }
 
-  ignore("roundtrip to_csv -> from_csv") {
+  test("roundtrip to_csv -> from_csv") {
     val df = Seq(Tuple1(Tuple1(1)), Tuple1(null)).toDF("struct")
     val schema = df.schema(0).dataType.asInstanceOf[StructType]
     val options = Map.empty[String, String]
@@ -231,7 +231,7 @@ class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("optional datetime parser does not affect csv time formatting") {
+  test("optional datetime parser does not affect csv time formatting") {
     val s = "2015-08-26 12:34:46"
     def toDF(p: String): DataFrame = sql(
       s"""

@@ -67,7 +67,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     }
   }
 
-  ignore("ReadOnlySQLConf is correctly created at the executor side") {
+  test("ReadOnlySQLConf is correctly created at the executor side") {
     withSQLConf("spark.sql.x" -> "a") {
       val checks = spark.range(10).mapPartitions { _ =>
         val conf = SQLConf.get
@@ -77,7 +77,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     }
   }
 
-  ignore("case-sensitive config should work for json schema inference") {
+  test("case-sensitive config should work for json schema inference") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
       withTempPath { path =>
         val pathString = path.getCanonicalPath
@@ -88,7 +88,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-24727 CODEGEN_CACHE_MAX_ENTRIES is correctly referenced at the executor side") {
+  test("SPARK-24727 CODEGEN_CACHE_MAX_ENTRIES is correctly referenced at the executor side") {
     withSQLConf(StaticSQLConf.CODEGEN_CACHE_MAX_ENTRIES.key -> "300") {
       val checks = spark.range(10).mapPartitions { _ =>
         val conf = SQLConf.get
@@ -99,7 +99,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-22219: refactor to control to generate comment",
+  test("SPARK-22219: refactor to control to generate comment",
     DisableAdaptiveExecution("WSCG rule is applied later in AQE")) {
     Seq(true, false).foreach { flag =>
       withSQLConf(StaticSQLConf.CODEGEN_COMMENTS.key -> flag.toString) {
@@ -115,7 +115,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-28939: propagate SQLConf also in conversions to RDD") {
+  test("SPARK-28939: propagate SQLConf also in conversions to RDD") {
     val confs = Seq("spark.sql.a" -> "x", "spark.sql.b" -> "y")
     val physicalPlan = SQLConfAssertPlan(confs)
     val dummyQueryExecution = FakeQueryExecution(spark, physicalPlan)
@@ -129,7 +129,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     assert(e.getCause.isInstanceOf[NoSuchElementException])
   }
 
-  ignore("SPARK-30556 propagate local properties to subquery execution thread") {
+  test("SPARK-30556 propagate local properties to subquery execution thread") {
     withSQLConf(StaticSQLConf.SUBQUERY_MAX_THREAD_THRESHOLD.key -> "1") {
       withTempView("l", "m", "n") {
         Seq(true).toDF().createOrReplaceTempView("l")
@@ -161,7 +161,7 @@ class ExecutorSideSQLConfSuite extends SparkFunSuite with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-22590 propagate local properties to broadcast execution thread") {
+  test("SPARK-22590 propagate local properties to broadcast execution thread") {
     withSQLConf(StaticSQLConf.BROADCAST_EXCHANGE_MAX_THREAD_THRESHOLD.key -> "1") {
       val df1 = Seq(true).toDF()
       val confKey = "spark.sql.y"

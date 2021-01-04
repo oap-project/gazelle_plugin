@@ -133,43 +133,43 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("sin") {
+  test("sin") {
     testOneToOneMathFunction(sin, math.sin)
   }
 
-  ignore("asin") {
+  test("asin") {
     testOneToOneMathFunction(asin, math.asin)
   }
 
-  ignore("sinh") {
+  test("sinh") {
     testOneToOneMathFunction(sinh, math.sinh)
   }
 
-  ignore("cos") {
+  test("cos") {
     testOneToOneMathFunction(cos, math.cos)
   }
 
-  ignore("acos") {
+  test("acos") {
     testOneToOneMathFunction(acos, math.acos)
   }
 
-  ignore("cosh") {
+  test("cosh") {
     testOneToOneMathFunction(cosh, math.cosh)
   }
 
-  ignore("tan") {
+  test("tan") {
     testOneToOneMathFunction(tan, math.tan)
   }
 
-  ignore("atan") {
+  test("atan") {
     testOneToOneMathFunction(atan, math.atan)
   }
 
-  ignore("tanh") {
+  test("tanh") {
     testOneToOneMathFunction(tanh, math.tanh)
   }
 
-  ignore("degrees") {
+  test("degrees") {
     testOneToOneMathFunction(degrees, math.toDegrees)
     checkAnswer(
       sql("SELECT degrees(0), degrees(1), degrees(1.5)"),
@@ -177,7 +177,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("radians") {
+  test("radians") {
     testOneToOneMathFunction(radians, math.toRadians)
     checkAnswer(
       sql("SELECT radians(0), radians(1), radians(1.5)"),
@@ -185,18 +185,18 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("cbrt") {
+  test("cbrt") {
     testOneToOneMathFunction(cbrt, math.cbrt)
   }
 
-  ignore("ceil and ceiling") {
+  test("ceil and ceiling") {
     testOneToOneMathFunction(ceil, (d: Double) => math.ceil(d).toLong)
     checkAnswer(
       sql("SELECT ceiling(0), ceiling(1), ceiling(1.5)"),
       Row(0L, 1L, 2L))
   }
 
-  ignore("conv") {
+  test("conv") {
     val df = Seq(("333", 10, 2)).toDF("num", "fromBase", "toBase")
     checkAnswer(df.select(conv('num, 10, 16)), Row("14D"))
     checkAnswer(df.select(conv(lit(100), 2, 16)), Row("4"))
@@ -208,7 +208,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
       df.selectExpr("""conv("9223372036854775807", 36, -16)"""), Row("-1")) // for overflow
   }
 
-  ignore("floor") {
+  test("floor") {
     testOneToOneMathFunction(floor, (d: Double) => math.floor(d).toLong)
   }
 
@@ -224,11 +224,11 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("rint") {
+  test("rint") {
     testOneToOneMathFunction(rint, math.rint)
   }
 
-  ignore("round/bround") {
+  test("round/bround") {
     val df = Seq(5, 55, 555).map(Tuple1(_)).toDF("a")
     checkAnswer(
       df.select(round('a), round('a, -1), round('a, -2)),
@@ -269,7 +269,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("round/bround with data frame from a local Seq of Product") {
+  test("round/bround with data frame from a local Seq of Product") {
     val df = spark.createDataFrame(Seq(Tuple1(BigDecimal("5.9")))).toDF("value")
     checkAnswer(
       df.withColumn("value_rounded", round('value)),
@@ -281,7 +281,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("round/bround with table columns") {
+  test("round/bround with table columns") {
     withTable("t") {
       Seq(BigDecimal("5.9")).toDF("i").write.saveAsTable("t")
       checkAnswer(
@@ -293,15 +293,15 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("exp") {
+  test("exp") {
     testOneToOneMathFunction(exp, StrictMath.exp)
   }
 
-  ignore("expm1") {
+  test("expm1") {
     testOneToOneMathFunction(expm1, StrictMath.expm1)
   }
 
-  ignore("signum / sign") {
+  test("signum / sign") {
     testOneToOneMathFunction[Double, Double](signum, math.signum)
 
     checkAnswer(
@@ -309,7 +309,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(1, -1))
   }
 
-  ignore("pow / power") {
+  test("pow / power") {
     testTwoToOneMathFunction(pow, pow, StrictMath.pow)
 
     checkAnswer(
@@ -331,7 +331,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(data.selectExpr("hex(cast(d as binary))"), Seq(Row("68656C6C6F")))
   }
 
-  ignore("unhex") {
+  test("unhex") {
     val data = Seq(("1C", "737472696E67")).toDF("a", "b")
     checkAnswer(data.select(unhex('a)), Row(Array[Byte](28.toByte)))
     checkAnswer(data.select(unhex('b)), Row("string".getBytes(StandardCharsets.UTF_8)))
@@ -349,7 +349,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     testTwoToOneMathFunction(atan2, atan2, math.atan2)
   }
 
-  ignore("log / ln") {
+  test("log / ln") {
     testOneToOneNonNegativeMathFunction(org.apache.spark.sql.functions.log, StrictMath.log)
     checkAnswer(
       sql("SELECT ln(0), ln(1), ln(1.5)"),
@@ -357,15 +357,15 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("log10") {
+  test("log10") {
     testOneToOneNonNegativeMathFunction(log10, StrictMath.log10)
   }
 
-  ignore("log1p") {
+  test("log1p") {
     testOneToOneNonNegativeMathFunction(log1p, StrictMath.log1p)
   }
 
-  ignore("shift left") {
+  test("shift left") {
     val df = Seq[(Long, Integer, Short, Byte, Integer, Integer)]((21, 21, 21, 21, 21, null))
       .toDF("a", "b", "c", "d", "e", "f")
 
@@ -382,7 +382,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(42.toLong, 42, 42.toShort, 42.toByte, null))
   }
 
-  ignore("shift right") {
+  test("shift right") {
     val df = Seq[(Long, Integer, Short, Byte, Integer, Integer)]((42, 42, 42, 42, 42, null))
       .toDF("a", "b", "c", "d", "e", "f")
 
@@ -429,7 +429,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(StrictMath.log(123), StrictMath.log(123) / StrictMath.log(2), null))
   }
 
-  ignore("abs") {
+  test("abs") {
     val input =
       Seq[(java.lang.Double, java.lang.Double)]((null, null), (0.0, 0.0), (1.5, 1.5), (-2.5, 2.5))
     checkAnswer(
@@ -451,7 +451,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("log2") {
+  test("log2") {
     val df = Seq((1, 2)).toDF("a", "b")
     checkAnswer(
       df.select(log2("b") + log2("a")),
@@ -460,7 +460,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(sql("SELECT LOG2(8), LOG2(null)"), Row(3, null))
   }
 
-  ignore("sqrt") {
+  test("sqrt") {
     val df = Seq((1, 4)).toDF("a", "b")
     checkAnswer(
       df.select(sqrt("a"), sqrt("b")),
@@ -470,7 +470,7 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df.selectExpr("sqrt(a)", "sqrt(b)", "sqrt(null)"), Row(1.0, 2.0, null))
   }
 
-  ignore("negative") {
+  test("negative") {
     checkAnswer(
       sql("SELECT negative(1), negative(0), negative(-1)"),
       Row(-1, 0, 1))

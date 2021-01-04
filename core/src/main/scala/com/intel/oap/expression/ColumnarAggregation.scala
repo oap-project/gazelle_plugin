@@ -552,6 +552,53 @@ class ColumnarAggregation(
 
 object ColumnarAggregation {
   var columnarAggregation: ColumnarAggregation = _
+
+  def buildCheck(groupingExpressions: Seq[NamedExpression],
+                 originalInputAttributes: Seq[Attribute],
+                 aggregateExpressions: Seq[AggregateExpression],
+                 resultExpressions: Seq[NamedExpression]): Unit = {
+    // check datatype
+    val unsupportedTypes = List(NullType, TimestampType, BinaryType)
+    for (attr <- originalInputAttributes) {
+      if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType]) {
+        throw new UnsupportedOperationException(
+          s"${attr.dataType} is not supported in ColumnarAggregation")
+      }
+    }
+    // check aggregate children function
+    for (expr <- aggregateExpressions) {
+      val internalExpressionList = expr.aggregateFunction.children
+      ColumnarProjection.buildCheck(originalInputAttributes, internalExpressionList)
+    }
+    // check project
+    ColumnarProjection.buildCheck(originalInputAttributes, groupingExpressions)
+    ColumnarProjection.buildCheck(originalInputAttributes, resultExpressions)
+    // check aggregate expressions
+    checkAggregate(aggregateExpressions)
+  }
+
+  def checkAggregate(aggregateExpressions: Seq[AggregateExpression]): Unit = {
+    for (expr <- aggregateExpressions) {
+      val mode = expr.mode
+      val aggregateFunction = expr.aggregateFunction
+      aggregateFunction match {
+        case Average(_) | Sum(_) | Count(_) | Max(_) | Min(_) =>
+        case StddevSamp(_) => mode match {
+          case Partial | Final =>
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
+        }
+        case other =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
+      mode match {
+        case Partial | PartialMerge | Final =>
+        case other =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
+    }
+  }
+
   def create(
       partIndex: Int,
       groupingExpressions: Seq[NamedExpression],

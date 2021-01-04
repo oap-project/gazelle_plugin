@@ -229,17 +229,17 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession {
     if (blackList.exists(t =>
         testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
       // Create a test case to ignore this case.
-      ignore(testCase.name) { /* Do nothing */ }
+      test(testCase.name) { /* Do nothing */ }
     } else testCase match {
       case udfTestCase: UDFTest
           if udfTestCase.udf.isInstanceOf[TestPythonUDF] && !shouldTestPythonUDFs =>
-        ignore(s"${testCase.name} is skipped because " +
+        test(s"${testCase.name} is skipped because " +
           s"[$pythonExec] and/or pyspark were not available.") {
           /* Do nothing */
         }
       case udfTestCase: UDFTest
           if udfTestCase.udf.isInstanceOf[TestScalarPandasUDF] && !shouldTestScalarPandasUDFs =>
-        ignore(s"${testCase.name} is skipped because pyspark," +
+        test(s"${testCase.name} is skipped because pyspark," +
           s"pandas and/or pyarrow were not available in [$pythonExec].") {
           /* Do nothing */
         }

@@ -45,8 +45,6 @@ class ParquetEncodingSuite extends ParquetCompatibilityTest with SharedSparkSess
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-
-
   val ROW = ((1).toByte, 2, 3L, "abc")
   val NULL_ROW = (
     null.asInstanceOf[java.lang.Byte],

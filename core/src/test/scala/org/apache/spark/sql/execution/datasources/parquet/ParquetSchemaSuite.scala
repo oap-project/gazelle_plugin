@@ -138,6 +138,7 @@ class ParquetSchemaInferenceSuite extends ParquetSchemaTest {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   testSchemaInference[(Boolean, Int, Long, Float, Double, Array[Byte])](
     "basic types",
@@ -386,6 +387,7 @@ class ParquetSchemaSuite extends ParquetSchemaTest {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   test("DataType string parser compatibility") {
     // This is the generated string from previous versions of the Spark SQL, using the following:
@@ -444,7 +446,7 @@ class ParquetSchemaSuite extends ParquetSchemaTest {
     e
   }
 
-  ignore("schema mismatch failure error message for parquet reader") {
+  test("schema mismatch failure error message for parquet reader") {
     withTempPath { dir =>
       val e = testSchemaMismatch(dir.getCanonicalPath, vectorizedReaderEnabled = false)
       val expectedMessage = "Encounter error while reading parquet files. " +
@@ -456,7 +458,7 @@ class ParquetSchemaSuite extends ParquetSchemaTest {
     }
   }
 
-  ignore("schema mismatch failure error message for parquet vectorized reader") {
+  test("schema mismatch failure error message for parquet vectorized reader") {
     withTempPath { dir =>
       val e = testSchemaMismatch(dir.getCanonicalPath, vectorizedReaderEnabled = true)
       assert(e.getCause.isInstanceOf[QueryExecutionException])

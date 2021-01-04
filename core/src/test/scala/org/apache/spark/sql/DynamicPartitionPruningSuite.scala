@@ -61,6 +61,9 @@ abstract class DynamicPartitionPruningSuiteBase
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   val adaptiveExecutionOn: Boolean
 
@@ -268,7 +271,7 @@ abstract class DynamicPartitionPruningSuiteBase
   /**
    * Test the result of a simple join on mock-up tables
    */
-  ignore("simple inner join triggers DPP with mock-up tables") {
+  test("simple inner join triggers DPP with mock-up tables") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.EXCHANGE_REUSE_ENABLED.key -> "false") {
@@ -301,7 +304,7 @@ abstract class DynamicPartitionPruningSuiteBase
   /**
    * Test DPP is triggered by a self-join on a partitioned table
    */
-  ignore("self-join on a partitioned table should not trigger DPP") {
+  test("self-join on a partitioned table should not trigger DPP") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.EXCHANGE_REUSE_ENABLED.key -> "false") {
@@ -333,7 +336,7 @@ abstract class DynamicPartitionPruningSuiteBase
   /**
    * Check the static scan metrics with and without DPP
    */
-  ignore("static scan metrics") {
+  test("static scan metrics") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.EXCHANGE_REUSE_ENABLED.key -> "false") {
@@ -401,7 +404,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("DPP should not be rewritten as an existential join") {
+  test("DPP should not be rewritten as an existential join") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_FALLBACK_FILTER_RATIO.key -> "1.5",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
@@ -428,7 +431,7 @@ abstract class DynamicPartitionPruningSuiteBase
    * (2) DPP should be triggered only for certain join types
    * (3) DPP should trigger only when we have attributes on both sides of the join condition
    */
-  ignore("DPP triggers only for certain types of query") {
+  test("DPP triggers only for certain types of query") {
     withSQLConf(
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false") {
       Given("dynamic partition pruning disabled")
@@ -509,7 +512,7 @@ abstract class DynamicPartitionPruningSuiteBase
   /**
    * The filtering policy has a fallback when the stats are unavailable
    */
-  ignore("filtering ratio policy fallback") {
+  test("filtering ratio policy fallback") {
     withSQLConf(
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.EXCHANGE_REUSE_ENABLED.key -> "false") {
@@ -579,7 +582,7 @@ abstract class DynamicPartitionPruningSuiteBase
   /**
    *  The filtering ratio policy performs best when it uses cardinality estimates
    */
-  ignore("filtering ratio policy with stats when the broadcast pruning is disabled") {
+  test("filtering ratio policy with stats when the broadcast pruning is disabled") {
     withSQLConf(
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.EXCHANGE_REUSE_ENABLED.key -> "false") {
@@ -650,7 +653,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("partition pruning in broadcast hash joins with non-deterministic probe part") {
+  test("partition pruning in broadcast hash joins with non-deterministic probe part") {
     Given("alias with simple join condition, and non-deterministic query")
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       val df = sql(
@@ -879,7 +882,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("broadcast a single key in a HashedRelation") {
+  test("broadcast a single key in a HashedRelation") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("fact", "dim") {
         spark.range(100).select(
@@ -937,7 +940,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("broadcast multiple keys in a LongHashedRelation") {
+  test("broadcast multiple keys in a LongHashedRelation") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("fact", "dim") {
         spark.range(100).select(
@@ -972,7 +975,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("broadcast multiple keys in an UnsafeHashedRelation") {
+  test("broadcast multiple keys in an UnsafeHashedRelation") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("fact", "dim") {
         spark.range(100).select(
@@ -1007,7 +1010,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("different broadcast subqueries with identical children") {
+  test("different broadcast subqueries with identical children") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("fact", "dim") {
         spark.range(100).select(
@@ -1044,7 +1047,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("no partition pruning when the build side is a stream") {
+  test("no partition pruning when the build side is a stream") {
     withTable("fact") {
       val input = MemoryStream[Int]
       val stream = input.toDF.select($"value" as "one", ($"value" * 3) as "code")
@@ -1129,7 +1132,7 @@ abstract class DynamicPartitionPruningSuiteBase
    * a disjoint filter. The outcome of this query is a sequence of nested joins that have
    * duplicated partitioning keys, also used to uniquely identify the dynamic pruning filters.
    */
-  ignore("dynamic partition pruning ambiguity issue across nested joins") {
+  test("dynamic partition pruning ambiguity issue across nested joins") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("store", "date", "item") {
         spark.range(500)
@@ -1167,7 +1170,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("cleanup any DPP filter that isn't pushed down due to expression id clashes") {
+  test("cleanup any DPP filter that isn't pushed down due to expression id clashes") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("fact", "dim") {
         spark.range(1000).select($"id".as("A"), $"id".as("AA"))
@@ -1188,7 +1191,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("cleanup any DPP filter that isn't pushed down due to non-determinism") {
+  test("cleanup any DPP filter that isn't pushed down due to non-determinism") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       val df = sql(
         """
@@ -1236,7 +1239,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("Make sure dynamic pruning works on uncorrelated queries") {
+  test("Make sure dynamic pruning works on uncorrelated queries") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       val df = sql(
         """

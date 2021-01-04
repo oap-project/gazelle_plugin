@@ -35,8 +35,9 @@ class ColumnarBoundReference(ordinal: Int, dataType: DataType, nullable: Boolean
     extends BoundReference(ordinal, dataType, nullable)
     with ColumnarExpression with Logging {
 
+  val resultType: ArrowType = CodeGeneration.getResultType(dataType)
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    val resultType = CodeGeneration.getResultType(dataType)
     val field = Field.nullable(s"c_$ordinal", resultType)
     val fieldTypes = args.asInstanceOf[java.util.List[Field]]
     fieldTypes.add(field)

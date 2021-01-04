@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql
 
+import com.intel.oap.execution.ColumnarBroadcastHashJoinExec
 import org.apache.log4j.Level
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.optimizer.EliminateResolvedHint
@@ -49,6 +50,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   lazy val df = spark.range(10)
   lazy val df1 = df.selectExpr("id as a1", "id as a2")
@@ -368,6 +370,15 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     assert(broadcastHashJoins.head.buildSide == buildSide)
   }
 
+  private def assertColumnarBroadcastHashJoin(df: DataFrame, buildSide: BuildSide): Unit = {
+    val executedPlan = df.queryExecution.executedPlan
+    val broadcastHashJoins = collect(executedPlan) {
+      case b: ColumnarBroadcastHashJoinExec => b
+    }
+    assert(broadcastHashJoins.size == 1)
+    assert(broadcastHashJoins.head.buildSide == buildSide)
+  }
+
   private def assertBroadcastNLJoin(df: DataFrame, buildSide: BuildSide): Unit = {
     val executedPlan = df.queryExecution.executedPlan
     val broadcastNLJoins = collect(executedPlan) {
@@ -402,7 +413,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     assert(shuffleReplicateNLJoins.size == 1)
   }
 
-  ignore("join strategy hint - broadcast") {
+  test("join strategy hint - broadcast") {
     withTempView("t1", "t2") {
       Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
       Seq((1, "1"), (2, "12.3"), (2, "123")).toDF("key", "value").createTempView("t2")
@@ -413,13 +424,13 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
 
       withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
         // Broadcast hint specified on one side
-        assertBroadcastHashJoin(
+        assertColumnarBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1)" :: Nil)), BuildLeft)
         assertBroadcastNLJoin(
           sql(nonEquiJoinQueryWithHint("BROADCAST(t2)" :: Nil)), BuildRight)
 
         // Determine build side based on the join type and child relation sizes
-        assertBroadcastHashJoin(
+        assertColumnarBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1, t2)" :: Nil)), BuildLeft)
         assertBroadcastNLJoin(
           sql(nonEquiJoinQueryWithHint("BROADCAST(t1, t2)" :: Nil, "left")), BuildRight)
@@ -427,11 +438,11 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
           sql(nonEquiJoinQueryWithHint("BROADCAST(t1, t2)" :: Nil, "right")), BuildLeft)
 
         // Use broadcast-hash join if hinted "broadcast" and equi-join
-        assertBroadcastHashJoin(
+        assertColumnarBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t2)" :: "SHUFFLE_HASH(t1)" :: Nil)), BuildRight)
-        assertBroadcastHashJoin(
+        assertColumnarBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1)" :: "MERGE(t1, t2)" :: Nil)), BuildLeft)
-        assertBroadcastHashJoin(
+        assertColumnarBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1)" :: "SHUFFLE_REPLICATE_NL(t2)" :: Nil)),
           BuildLeft)
 
@@ -534,7 +545,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     }
   }
 
-  ignore("join strategy hint - shuffle-replicate-nl") {
+  test("join strategy hint - shuffle-replicate-nl") {
     withTempView("t1", "t2") {
       Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
       Seq((1, "1"), (2, "12.3"), (2, "123")).toDF("key", "value").createTempView("t2")
@@ -561,7 +572,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
           sql(nonEquiJoinQueryWithHint("SHUFFLE_HASH(t2)" :: "SHUFFLE_REPLICATE_NL(t1)" :: Nil)))
 
         // Shuffle-replicate-nl hint specified but not doable
-        assertBroadcastHashJoin(
+        assertColumnarBroadcastHashJoin(
           sql(equiJoinQueryWithHint("SHUFFLE_REPLICATE_NL(t1, t2)" :: Nil, "left")), BuildRight)
         assertBroadcastNLJoin(
           sql(nonEquiJoinQueryWithHint("SHUFFLE_REPLICATE_NL(t1, t2)" :: Nil, "right")), BuildLeft)

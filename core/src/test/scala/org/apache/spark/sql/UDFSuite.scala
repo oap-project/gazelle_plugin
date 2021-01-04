@@ -56,6 +56,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   test("built-in fixed arity expressions") {
     val df = spark.emptyDataFrame
@@ -90,7 +91,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     spark.catalog.dropTempView("tmp_table")
   }
 
-  ignore("SPARK-8005 input_file_name") {
+  test("SPARK-8005 input_file_name") {
     withTempPath { dir =>
       val data = sparkContext.parallelize(0 to 10, 2).toDF("id")
       data.write.parquet(dir.getCanonicalPath)
@@ -172,7 +173,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     assert(sql("SELECT strLenScala('test', 1)").head().getInt(0) === 5)
   }
 
-  ignore("UDF in a WHERE") {
+  test("UDF in a WHERE") {
     withTempView("integerData") {
       spark.udf.register("oneArgFilter", (n: Int) => { n > 80 })
 
@@ -186,7 +187,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("UDF in a HAVING") {
+  test("UDF in a HAVING") {
     withTempView("groupData") {
       spark.udf.register("havingFilter", (n: Long) => { n > 5 })
 
@@ -226,7 +227,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("UDFs everywhere") {
+  test("UDFs everywhere") {
     withTempView("groupData") {
       spark.udf.register("groupFunction", (n: Int) => { n > 10 })
       spark.udf.register("havingFilter", (n: Long) => { n > 2000 })

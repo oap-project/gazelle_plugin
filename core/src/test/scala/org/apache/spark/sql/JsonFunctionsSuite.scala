@@ -260,7 +260,7 @@ class JsonFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("""{"col1":{"a":"-3 months 7 hours"}}""") :: Nil)
   }
 
-  ignore("roundtrip in to_json and from_json - struct") {
+  test("roundtrip in to_json and from_json - struct") {
     val dfOne = Seq(Tuple1(Tuple1(1)), Tuple1(null)).toDF("struct")
     val schemaOne = dfOne.schema(0).dataType.asInstanceOf[StructType]
     val readBackOne = dfOne.select(to_json($"struct").as("json"))
@@ -274,7 +274,7 @@ class JsonFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(dfTwo, readBackTwo)
   }
 
-  ignore("roundtrip in to_json and from_json - array") {
+  test("roundtrip in to_json and from_json - array") {
     val dfOne = Seq(Tuple1(Tuple1(1) :: Nil), Tuple1(null :: Nil)).toDF("array")
     val schemaOne = dfOne.schema(0).dataType
     val readBackOne = dfOne.select(to_json($"array").as("json"))
@@ -426,7 +426,7 @@ class JsonFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(out.schema == expected)
   }
 
-  ignore("infers schemas using options") {
+  test("infers schemas using options") {
     val df = spark.range(1)
       .select(schema_of_json(lit("{a:1}"), Map("allowUnquotedFieldNames" -> "true").asJava))
     checkAnswer(df, Seq(Row("struct<a:bigint>")))
@@ -684,7 +684,7 @@ class JsonFunctionsSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-31065: schema_of_json - null and empty strings as strings") {
+  test("SPARK-31065: schema_of_json - null and empty strings as strings") {
     Seq("""{"id": null}""", """{"id": ""}""").foreach { input =>
       checkAnswer(
         spark.range(1).select(schema_of_json(input)),
@@ -692,7 +692,7 @@ class JsonFunctionsSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-31065: schema_of_json - 'dropFieldIfAllNull' option") {
+  test("SPARK-31065: schema_of_json - 'dropFieldIfAllNull' option") {
     val options = Map("dropFieldIfAllNull" -> "true")
     // Structs
     checkAnswer(
@@ -719,7 +719,7 @@ class JsonFunctionsSuite extends QueryTest with SharedSparkSession {
       Seq(Row("string")))
   }
 
-  ignore("optional datetime parser does not affect json time formatting") {
+  test("optional datetime parser does not affect json time formatting") {
     val s = "2015-08-26 12:34:46"
     def toDF(p: String): DataFrame = sql(
       s"""

@@ -160,7 +160,7 @@ public class JniUtils {
         }
         final File folder = new File(path);
         copyResourcesToDirectory(urlConnection,
-                         tmp_dir + "/" + "nativesql_include", folder);
+                                 tmp_dir + "/" + "nativesql_include", folder);
       }
     }
   }

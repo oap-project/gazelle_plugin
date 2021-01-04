@@ -233,7 +233,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
     assert(exception.getCause.getMessage.contains("Could not read footer for file"))
   }
 
-  ignore("create temporary orc table") {
+  test("create temporary orc table") {
     checkAnswer(sql("SELECT COUNT(*) FROM normal_orc_source"), Row(10))
 
     checkAnswer(
@@ -249,7 +249,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
       (1 to 10).map(i => Row(1, s"part-$i")))
   }
 
-  ignore("create temporary orc table as") {
+  test("create temporary orc table as") {
     checkAnswer(sql("SELECT COUNT(*) FROM normal_orc_as_source"), Row(10))
 
     checkAnswer(
@@ -286,7 +286,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
       (6 to 10).map(i => Row(i, s"part-$i")))
   }
 
-  ignore("write null values") {
+  test("write null values") {
     sql("DROP TABLE IF EXISTS orcNullValues")
 
     val df = sql(
@@ -347,7 +347,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
 
   // SPARK-28885 String value is not allowed to be stored as numeric type with
   // ANSI store assignment policy.
-  ignore("SPARK-23340 Empty float/double array columns raise EOFException") {
+  test("SPARK-23340 Empty float/double array columns raise EOFException") {
     Seq(Seq(Array.empty[Float]).toDF(), Seq(Array.empty[Double]).toDF()).foreach { df =>
       withTempPath { path =>
         df.write.format("orc").save(path.getCanonicalPath)
@@ -482,7 +482,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
     }
   }
 
-  ignore("SPARK-31238: compatibility with Spark 2.4 in reading dates") {
+  test("SPARK-31238: compatibility with Spark 2.4 in reading dates") {
     Seq(false, true).foreach { vectorized =>
       withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> vectorized.toString) {
         checkAnswer(
@@ -492,7 +492,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
     }
   }
 
-  ignore("SPARK-31238, SPARK-31423: rebasing dates in write") {
+  test("SPARK-31238, SPARK-31423: rebasing dates in write") {
     withTempPath { dir =>
       val path = dir.getAbsolutePath
       Seq("1001-01-01", "1582-10-10").toDF("dateS")
@@ -510,7 +510,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
     }
   }
 
-  ignore("SPARK-31284: compatibility with Spark 2.4 in reading timestamps") {
+  test("SPARK-31284: compatibility with Spark 2.4 in reading timestamps") {
     Seq(false, true).foreach { vectorized =>
       withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> vectorized.toString) {
         checkAnswer(
@@ -520,7 +520,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
     }
   }
 
-  ignore("SPARK-31284, SPARK-31423: rebasing timestamps in write") {
+  test("SPARK-31284, SPARK-31423: rebasing timestamps in write") {
     withTempPath { dir =>
       val path = dir.getAbsolutePath
       Seq("1001-01-01 01:02:03.123456", "1582-10-10 11:12:13.654321").toDF("tsS")
@@ -561,6 +561,10 @@ class OrcSourceSuite extends OrcSuite with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   protected override def beforeAll(): Unit = {
     super.beforeAll()
@@ -608,7 +612,7 @@ class OrcSourceSuite extends OrcSuite with SharedSparkSession {
     testMergeSchemasInParallel(OrcUtils.readOrcSchemasInParallel)
   }
 
-  ignore("SPARK-31580: Read a file written before ORC-569") {
+  test("SPARK-31580: Read a file written before ORC-569") {
     // Test ORC file came from ORC-621
     val df = readResourceOrcFile("test-data/TestStringDictionary.testRowIndex.orc")
     assert(df.where("str < 'row 001000'").count() === 1000)

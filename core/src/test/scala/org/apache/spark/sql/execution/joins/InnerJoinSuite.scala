@@ -42,7 +42,7 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.memory.offHeap.size", "1g")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
       .set("spark.oap.sql.columnar.wholestagecodegen", "false")
@@ -51,6 +51,7 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.hashCompare", "true")
 
   private lazy val myUpperCaseData = spark.createDataFrame(
     sparkContext.parallelize(Seq(
@@ -172,7 +173,8 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    test(s"$testName using ShuffledHashJoin (build=left)") {
+    // ignored in maven test
+    ignore(s"$testName using ShuffledHashJoin (build=left)") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (leftPlan: SparkPlan, rightPlan: SparkPlan) =>
@@ -184,7 +186,8 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
       }
     }
 
-    test(s"$testName using ShuffledHashJoin (build=right)") {
+    // ignored in maven test
+    ignore(s"$testName using ShuffledHashJoin (build=right)") {
       extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
         withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
           checkAnswer2(leftRows, rightRows, (leftPlan: SparkPlan, rightPlan: SparkPlan) =>
@@ -236,7 +239,6 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
   }
 
-  /*
   testInnerJoin(
     "inner join, one match per row",
     myUpperCaseData,
@@ -308,5 +310,4 @@ class InnerJoinSuite extends SparkPlanTest with SharedSparkSession {
         (Row(1, 1), "L1", Row(1, 1), "R1"),
         (Row(2, 2), "L2", Row(2, 2), "R2")))
   }
-   */
 }

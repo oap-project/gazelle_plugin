@@ -756,7 +756,7 @@ class FlatMapGroupsWithStateSuite extends StateStoreMetricsTest {
     checkAnswer(df, Seq(("a", 2), ("b", 1)).toDF)
   }
 
-  ignore("flatMapGroupsWithState - streaming with processing time timeout") {
+  test("flatMapGroupsWithState - streaming with processing time timeout") {
     // Function to maintain the count as state and set the proc. time timeout delay of 10 seconds.
     // It returns the count if changed, or -1 if the state was removed by timeout.
     val stateFunc = (key: String, values: Iterator[String], state: GroupState[RunningCount]) => {

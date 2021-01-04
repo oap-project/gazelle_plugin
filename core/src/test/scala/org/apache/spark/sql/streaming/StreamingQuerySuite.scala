@@ -66,6 +66,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   // To make === between double tolerate inexact values
   implicit val doubleEquality = TolerantNumerics.tolerantDoubleEquality(0.01)
@@ -490,7 +491,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     assert(progress.sources(0).numInputRows === 20)
   }
 
-  ignore("input row calculation with mixed batch and streaming V1 sources") {
+  test("input row calculation with mixed batch and streaming V1 sources") {
     val streamingTriggerDF = spark.createDataset(1 to 10).toDF
     val streamingInputDF = createSingleTriggerStreamingDF(streamingTriggerDF).toDF("value")
     val staticInputDF = spark.createDataFrame(Seq(1 -> "1", 2 -> "2")).toDF("value", "anotherValue")
@@ -604,7 +605,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     )
   }
 
-  ignore("input row calculation with mixed batch and streaming V2 sources") {
+  test("input row calculation with mixed batch and streaming V2 sources") {
 
     val streamInput = MemoryStream[Int]
     val staticInputDF = spark.createDataFrame(Seq(1 -> "1", 2 -> "2")).toDF("value", "anotherValue")
@@ -856,7 +857,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     }
   }
 
-  ignore("SPARK-22238: don't check for RDD partitions during streaming aggregation preparation") {
+  test("SPARK-22238: don't check for RDD partitions during streaming aggregation preparation") {
     val stream = MemoryStream[(Int, Int)]
     val baseDf = Seq((1, "A"), (2, "b")).toDF("num", "char").where("char = 'A'")
     val otherDf = stream.toDF().toDF("num", "numSq")
@@ -986,7 +987,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
       sparkMetadata.replaceAll("TEMPDIR", dir.getCanonicalPath), UTF_8)
   }
 
-  ignore("detect escaped path and report the migration guide") {
+  test("detect escaped path and report the migration guide") {
     // Assert that the error message contains the migration conf, path and the legacy path.
     def assertMigrationError(errorMessage: String, path: File, legacyPath: File): Unit = {
       Seq(SQLConf.STREAMING_CHECKPOINT_ESCAPED_PATH_CHECK_ENABLED.key,
@@ -1070,7 +1071,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     }
   }
 
-  ignore("ignore the escaped path check when the flag is off") {
+  test("ignore the escaped path check when the flag is off") {
     withTempDir { tempDir =>
       setUp2dot4dot0Checkpoint(tempDir)
       val outputDir = new File(tempDir, "output %@#output")

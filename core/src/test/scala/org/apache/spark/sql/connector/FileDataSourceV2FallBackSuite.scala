@@ -105,9 +105,9 @@ class FileDataSourceV2FallBackSuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
-
-  ignore("Fall back to v1 when writing to file with read only FileDataSourceV2") {
+  test("Fall back to v1 when writing to file with read only FileDataSourceV2") {
     val df = spark.range(10).toDF()
     withTempPath { file =>
       val path = file.getCanonicalPath
@@ -162,7 +162,7 @@ class FileDataSourceV2FallBackSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("Always fall back write path to v1") {
+  test("Always fall back write path to v1") {
     val df = spark.range(10).toDF()
     withTempPath { path =>
       // Writes should fall back to v1 and succeed.

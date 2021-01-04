@@ -54,6 +54,9 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   private lazy val booleanData = {
     spark.createDataFrame(sparkContext.parallelize(
@@ -236,7 +239,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       complexData.collect().toSeq.map(r => Row(!r.getBoolean(3))))
   }
 
-  ignore("isNull") {
+  test("isNull") {
     checkAnswer(
       nullStrings.toDF.where($"s".isNull),
       nullStrings.collect().toSeq.filter(r => r.getString(1) eq null))
@@ -246,7 +249,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       Row(true, false))
   }
 
-  ignore("isNotNull") {
+  test("isNotNull") {
     checkAnswer(
       nullStrings.toDF.where($"s".isNotNull),
       nullStrings.collect().toSeq.filter(r => r.getString(1) ne null))
@@ -256,7 +259,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       Row(false, true))
   }
 
-  ignore("isNaN") {
+  test("isNaN") {
     val testData = spark.createDataFrame(sparkContext.parallelize(
       Row(Double.NaN, Float.NaN) ::
       Row(math.log(-1), math.log(-3).toFloat) ::
@@ -504,7 +507,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-31553: isInCollection - collection element types") {
+  test("SPARK-31553: isInCollection - collection element types") {
     val expected = Seq(Row(true), Row(false))
     Seq(0, 1, 10).foreach { optThreshold =>
       Seq(0, 1, 10).foreach { switchThreshold =>
@@ -602,7 +605,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     intercept[IllegalArgumentException] { when($"key" === 1, -1).otherwise(-1).otherwise(-1) }
   }
 
-  ignore("sqrt") {
+  test("sqrt") {
     checkAnswer(
       testData.select(sqrt($"key")).orderBy($"key".asc),
       (1 to 100).map(n => Row(math.sqrt(n)))
@@ -619,7 +622,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("upper") {
+  test("upper") {
     checkAnswer(
       lowerCaseData.select(upper($"l")),
       ('a' to 'd').map(c => Row(c.toString.toUpperCase(Locale.ROOT)))
@@ -640,7 +643,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       Row("AB", "CDE"))
   }
 
-  ignore("lower") {
+  test("lower") {
     checkAnswer(
       upperCaseData.select(lower($"L")),
       ('A' to 'F').map(c => Row(c.toString.toLowerCase(Locale.ROOT)))
@@ -686,7 +689,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("input_file_name, input_file_block_start, input_file_block_length - more than one source") {
+  test("input_file_name, input_file_block_start, input_file_block_length - more than one source") {
     withTempView("tempView1") {
       withTable("tab1", "tab2") {
         val data = sparkContext.parallelize(0 to 9).toDF("id")
@@ -923,7 +926,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       testData2.collect().toSeq.map(r => Row(r.getInt(0) ^ r.getInt(1) ^ 39)))
   }
 
-  ignore("typedLit") {
+  test("typedLit") {
     val df = Seq(Tuple1(0)).toDF("a")
     // Only check the types `lit` cannot handle
     checkAnswer(

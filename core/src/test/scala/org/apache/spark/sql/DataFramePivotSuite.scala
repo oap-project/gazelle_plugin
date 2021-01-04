@@ -48,7 +48,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-  ignore("pivot courses") {
+  test("pivot courses") {
     val expected = Row(2012, 15000.0, 20000.0) :: Row(2013, 48000.0, 30000.0) :: Nil
     checkAnswer(
       courseSales.groupBy("year").pivot("course", Seq("dotNET", "Java"))
@@ -60,7 +60,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       expected)
   }
 
-  ignore("pivot year") {
+  test("pivot year") {
     val expected = Row("dotNET", 15000.0, 48000.0) :: Row("Java", 20000.0, 30000.0) :: Nil
     checkAnswer(
       courseSales.groupBy("course").pivot("year", Seq(2012, 2013)).agg(sum($"earnings")),
@@ -70,7 +70,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       expected)
   }
 
-  ignore("pivot courses with multiple aggregations") {
+  test("pivot courses with multiple aggregations") {
     val expected = Row(2012, 15000.0, 7500.0, 20000.0, 20000.0) ::
       Row(2013, 48000.0, 48000.0, 30000.0, 30000.0) :: Nil
     checkAnswer(
@@ -85,21 +85,21 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       expected)
   }
 
-  ignore("pivot year with string values (cast)") {
+  test("pivot year with string values (cast)") {
     checkAnswer(
       courseSales.groupBy("course").pivot("year", Seq("2012", "2013")).sum("earnings"),
       Row("dotNET", 15000.0, 48000.0) :: Row("Java", 20000.0, 30000.0) :: Nil
     )
   }
 
-  ignore("pivot year with int values") {
+  test("pivot year with int values") {
     checkAnswer(
       courseSales.groupBy("course").pivot("year", Seq(2012, 2013)).sum("earnings"),
       Row("dotNET", 15000.0, 48000.0) :: Row("Java", 20000.0, 30000.0) :: Nil
     )
   }
 
-  ignore("pivot courses with no values") {
+  test("pivot courses with no values") {
     // Note Java comes before dotNet in sorted order
     val expected = Row(2012, 20000.0, 15000.0) :: Row(2013, 30000.0, 48000.0) :: Nil
     checkAnswer(
@@ -110,7 +110,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       expected)
   }
 
-  ignore("pivot year with no values") {
+  test("pivot year with no values") {
     val expected = Row("dotNET", 15000.0, 48000.0) :: Row("Java", 20000.0, 30000.0) :: Nil
     checkAnswer(
       courseSales.groupBy("course").pivot("year").agg(sum($"earnings")),
@@ -129,7 +129,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       SQLConf.DATAFRAME_PIVOT_MAX_VALUES.defaultValue.get)
   }
 
-  ignore("pivot with UnresolvedFunction") {
+  test("pivot with UnresolvedFunction") {
     checkAnswer(
       courseSales.groupBy("year").pivot("course", Seq("dotNET", "Java"))
         .agg("earnings" -> "sum"),
@@ -149,7 +149,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
   }
 
 
-  ignore("optimized pivot courses with literals") {
+  test("optimized pivot courses with literals") {
     checkAnswer(
       courseSales.groupBy("year")
         // pivot with extra columns to trigger optimization
@@ -160,7 +160,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("optimized pivot year with literals") {
+  test("optimized pivot year with literals") {
     checkAnswer(
       courseSales.groupBy($"course")
         // pivot with extra columns to trigger optimization
@@ -171,7 +171,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("optimized pivot year with string values (cast)") {
+  test("optimized pivot year with string values (cast)") {
     checkAnswer(
       courseSales.groupBy("course")
         // pivot with extra columns to trigger optimization
@@ -182,7 +182,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("optimized pivot DecimalType") {
+  test("optimized pivot DecimalType") {
     val df = courseSales.select($"course", $"year", $"earnings".cast(DecimalType(10, 2)))
       .groupBy("year")
       // pivot with extra columns to trigger optimization
@@ -209,7 +209,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     assertResult(false)(PivotFirst.supportsDataType(ArrayType(IntegerType)))
   }
 
-  ignore("optimized pivot with multiple aggregations") {
+  test("optimized pivot with multiple aggregations") {
     checkAnswer(
       courseSales.groupBy($"year")
         // pivot with extra columns to trigger optimization
@@ -251,7 +251,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("pivot with column definition in groupby") {
+  test("pivot with column definition in groupby") {
     checkAnswer(
       courseSales.groupBy(substring(col("course"), 0, 1).as("foo"))
         .pivot("year", Seq(2012, 2013))
@@ -260,7 +260,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("pivot with null should not throw NPE") {
+  test("pivot with null should not throw NPE") {
     checkAnswer(
       Seq(Tuple1(None), Tuple1(Some(1))).toDF("a").groupBy($"a").pivot("a").count(),
       Row(null, 1, null) :: Row(1, null, 1) :: Nil)
@@ -274,7 +274,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
       Row(null, Seq(null, 7), null) :: Row(1, null, Seq(1, 7)) :: Nil)
   }
 
-  ignore("pivot with timestamp and count should not print internal representation") {
+  test("pivot with timestamp and count should not print internal representation") {
     val ts = "2012-12-31 16:00:10.011"
     val tsWithZone = "2013-01-01 00:00:10.011"
 
@@ -290,7 +290,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-24722: pivoting nested columns") {
+  test("SPARK-24722: pivoting nested columns") {
     val expected = Row(2012, 15000.0, 20000.0) :: Row(2013, 48000.0, 30000.0) :: Nil
     val df = trainingSales
       .groupBy($"sales.year")
@@ -300,7 +300,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df, expected)
   }
 
-  ignore("SPARK-24722: references to multiple columns in the pivot column") {
+  test("SPARK-24722: references to multiple columns in the pivot column") {
     val expected = Row(2012, 10000.0) :: Row(2013, 48000.0) :: Nil
     val df = trainingSales
       .groupBy($"sales.year")
@@ -310,7 +310,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df, expected)
   }
 
-  ignore("SPARK-24722: pivoting by a constant") {
+  test("SPARK-24722: pivoting by a constant") {
     val expected = Row(2012, 35000.0) :: Row(2013, 78000.0) :: Nil
     val df1 = trainingSales
       .groupBy($"sales.year")
@@ -331,7 +331,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     assert(exception.getMessage.contains("aggregate functions are not allowed"))
   }
 
-  ignore("pivoting column list with values") {
+  test("pivoting column list with values") {
     val expected = Row(2012, 10000.0, null) :: Row(2013, 48000.0, 30000.0) :: Nil
     val df = trainingSales
       .groupBy($"sales.year")
@@ -343,7 +343,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df, expected)
   }
 
-  ignore("pivoting column list") {
+  test("pivoting column list") {
     val exception = intercept[RuntimeException] {
       trainingSales
         .groupBy($"sales.year")
@@ -354,7 +354,7 @@ class DataFramePivotSuite extends QueryTest with SharedSparkSession {
     assert(exception.getMessage.contains("Unsupported literal type"))
   }
 
-  ignore("SPARK-26403: pivoting by array column") {
+  test("SPARK-26403: pivoting by array column") {
     val df = Seq(
       (2, Seq.empty[String]),
       (2, Seq("a", "x")),

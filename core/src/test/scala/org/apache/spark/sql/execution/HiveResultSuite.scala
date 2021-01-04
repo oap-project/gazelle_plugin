@@ -45,7 +45,7 @@ class HiveResultSuite extends SharedSparkSession {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-  ignore("date formatting in hive result") {
+  test("date formatting in hive result") {
     DateTimeTestUtils.outstandingTimezonesIds.foreach { zoneId =>
       withSQLConf(SQLConf.SESSION_LOCAL_TIMEZONE.key -> zoneId) {
         val dates = Seq("2018-12-28", "1582-10-03", "1582-10-04", "1582-10-15")
@@ -60,7 +60,7 @@ class HiveResultSuite extends SharedSparkSession {
     }
   }
 
-  ignore("timestamp formatting in hive result") {
+  test("timestamp formatting in hive result") {
     val timestamps = Seq(
       "2018-12-28 01:02:03",
       "1582-10-03 01:02:03",

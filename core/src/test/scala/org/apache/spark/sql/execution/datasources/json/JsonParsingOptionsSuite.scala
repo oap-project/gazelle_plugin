@@ -131,7 +131,7 @@ class JsonParsingOptionsSuite extends QueryTest with SharedSparkSession {
     assert(df.schema.head.name == "_corrupt_record")
   }
 
-  ignore("allowNonNumericNumbers on") {
+  test("allowNonNumericNumbers on") {
     val str = """{"age": NaN}"""
     val df = spark.read.option("allowNonNumericNumbers", "true").json(Seq(str).toDS())
 

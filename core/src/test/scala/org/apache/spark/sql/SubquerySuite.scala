@@ -49,6 +49,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   setupTestData()
 
@@ -100,11 +101,11 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-15791: rdd deserialization does not crash") {
+  test("SPARK-15791: rdd deserialization does not crash") {
     sql("select (select 1 as b) as b").rdd.count()
   }
 
-  ignore("simple uncorrelated scalar subquery") {
+  test("simple uncorrelated scalar subquery") {
     checkAnswer(
       sql("select (select 1 as b) as b"),
       Array(Row(1))
@@ -156,14 +157,14 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  ignore("uncorrelated scalar subquery should return null if there is 0 rows") {
+  test("uncorrelated scalar subquery should return null if there is 0 rows") {
     checkAnswer(
       sql("select (select 's' as s limit 0) as b"),
       Array(Row(null))
     )
   }
 
-  ignore("runtime error when the number of rows is greater than 1") {
+  test("runtime error when the number of rows is greater than 1") {
     val error2 = intercept[RuntimeException] {
       sql("select (select a from (select 1 as a union all select 2 as a) t) as b").collect()
     }
@@ -172,7 +173,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  ignore("uncorrelated scalar subquery on a DataFrame generated query") {
+  test("uncorrelated scalar subquery on a DataFrame generated query") {
     withTempView("subqueryData") {
       val df = Seq((1, "one"), (2, "two"), (3, "three")).toDF("key", "value")
       df.createOrReplaceTempView("subqueryData")
@@ -200,7 +201,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-15677: Queries against local relations with scalar subquery in Select list") {
+  test("SPARK-15677: Queries against local relations with scalar subquery in Select list") {
     withTempView("t1", "t2") {
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t1")
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t2")
@@ -227,7 +228,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-14791: scalar subquery inside broadcast join") {
+  test("SPARK-14791: scalar subquery inside broadcast join") {
     val df = sql("select a, sum(b) as s from l group by a having a > (select avg(a) from l)")
     val expected = Row(3, 2.0, 3, 3.0) :: Row(6, null, 6, null) :: Nil
     (1 to 10).foreach { _ =>
@@ -235,7 +236,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("EXISTS predicate subquery") {
+  test("EXISTS predicate subquery") {
     checkAnswer(
       sql("select * from l where exists (select * from r where l.a = r.c)"),
       Row(2, 1.0) :: Row(2, 1.0) :: Row(3, 3.0) :: Row(6, null) :: Nil)
@@ -245,7 +246,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(2, 1.0) :: Row(2, 1.0) :: Nil)
   }
 
-  ignore("NOT EXISTS predicate subquery") {
+  test("NOT EXISTS predicate subquery") {
     checkAnswer(
       sql("select * from l where not exists (select * from r where l.a = r.c)"),
       Row(1, 2.0) :: Row(1, 2.0) :: Row(null, null) :: Row(null, 5.0) :: Nil)
@@ -256,7 +257,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null, null) :: Row(null, 5.0) :: Row(6, null) :: Nil)
   }
 
-  ignore("EXISTS predicate subquery within OR") {
+  test("EXISTS predicate subquery within OR") {
     checkAnswer(
       sql("select * from l where exists (select * from r where l.a = r.c)" +
         " or exists (select * from r where l.a = r.c)"),
@@ -269,7 +270,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(null, null) :: Row(null, 5.0) :: Row(6, null) :: Nil)
   }
 
-  ignore("IN predicate subquery") {
+  test("IN predicate subquery") {
     checkAnswer(
       sql("select * from l where l.a in (select c from r)"),
       Row(2, 1.0) :: Row(2, 1.0) :: Row(3, 3.0) :: Row(6, null) :: Nil)
@@ -304,7 +305,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
 
   }
 
-  ignore("IN predicate subquery within OR") {
+  test("IN predicate subquery within OR") {
     checkAnswer(
       sql("select * from l where l.a in (select c from r)" +
         " or l.a in (select c from r where l.b < r.d)"),
@@ -326,7 +327,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1, 2.0) :: Row(1, 2.0) :: Row(2, 1.0) :: Row(2, 1.0) :: Row(3, 3.0) :: Nil)
   }
 
-  ignore("same column in subquery and outer table") {
+  test("same column in subquery and outer table") {
     checkAnswer(
       sql("select a from l l1 where a in (select a from l where a < 3 group by a)"),
       Row(1) :: Row(1) :: Row(2) :: Row(2) :: Nil
@@ -505,27 +506,27 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("correlated scalar subquery in where") {
+  test("correlated scalar subquery in where") {
     checkAnswer(
       sql("select * from l where b < (select max(d) from r where a = c)"),
       Row(2, 1.0) :: Row(2, 1.0) :: Nil)
   }
 
-  ignore("correlated scalar subquery in select") {
+  test("correlated scalar subquery in select") {
     checkAnswer(
       sql("select a, (select sum(b) from l l2 where l2.a = l1.a) sum_b from l l1"),
       Row(1, 4.0) :: Row(1, 4.0) :: Row(2, 2.0) :: Row(2, 2.0) :: Row(3, 3.0) ::
       Row(null, null) :: Row(null, null) :: Row(6, null) :: Nil)
   }
 
-  ignore("correlated scalar subquery in select (null safe)") {
+  test("correlated scalar subquery in select (null safe)") {
     checkAnswer(
       sql("select a, (select sum(b) from l l2 where l2.a <=> l1.a) sum_b from l l1"),
       Row(1, 4.0) :: Row(1, 4.0) :: Row(2, 2.0) :: Row(2, 2.0) :: Row(3, 3.0) ::
         Row(null, 5.0) :: Row(null, 5.0) :: Row(6, null) :: Nil)
   }
 
-  ignore("correlated scalar subquery in aggregate") {
+  test("correlated scalar subquery in aggregate") {
     checkAnswer(
       sql("select a, (select sum(d) from r where a = c) sum_d from l l1 group by 1, 2"),
       Row(1, null) :: Row(2, 6.0) :: Row(3, 2.0) :: Row(null, null) :: Row(6, null) :: Nil)
@@ -564,7 +565,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       "Correlated column is not allowed in a non-equality predicate:"))
   }
 
-  ignore("disjunctive correlated scalar subquery") {
+  test("disjunctive correlated scalar subquery") {
     checkAnswer(
       sql("""
         |select a
@@ -576,7 +577,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(3) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in WHERE clause (Filter)") {
+  test("SPARK-15370: COUNT bug in WHERE clause (Filter)") {
     // Case 1: Canonical example of the COUNT bug
     checkAnswer(
       sql("select l.a from l where (select count(*) from r where l.a = r.c) < l.a"),
@@ -592,14 +593,14 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) ::Row(null) :: Row(null) :: Row(6) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in SELECT clause (Project)") {
+  test("SPARK-15370: COUNT bug in SELECT clause (Project)") {
     checkAnswer(
       sql("select a, (select count(*) from r where l.a = r.c) as cnt from l"),
       Row(1, 0) :: Row(1, 0) :: Row(2, 2) :: Row(2, 2) :: Row(3, 1) :: Row(null, 0)
         :: Row(null, 0) :: Row(6, 1) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in HAVING clause (Filter)") {
+  test("SPARK-15370: COUNT bug in HAVING clause (Filter)") {
     checkAnswer(
       sql("select l.a as grp_a from l group by l.a " +
         "having (select count(*) from r where grp_a = r.c) = 0 " +
@@ -607,14 +608,14 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null) :: Row(1) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in Aggregate") {
+  test("SPARK-15370: COUNT bug in Aggregate") {
     checkAnswer(
       sql("select l.a as aval, sum((select count(*) from r where l.a = r.c)) as cnt " +
         "from l group by l.a order by aval"),
       Row(null, 0) :: Row(1, 0) :: Row(2, 4) :: Row(3, 1) :: Row(6, 1)  :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug negative examples") {
+  test("SPARK-15370: COUNT bug negative examples") {
     // Case 1: Potential COUNT bug case that was working correctly prior to the fix
     checkAnswer(
       sql("select l.a from l where (select sum(r.d) from r where l.a = r.c) is null"),
@@ -629,7 +630,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in subquery in subquery in subquery") {
+  test("SPARK-15370: COUNT bug in subquery in subquery in subquery") {
     checkAnswer(
       sql("""select l.a from l
             |where (
@@ -642,7 +643,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug with nasty predicate expr") {
+  test("SPARK-15370: COUNT bug with nasty predicate expr") {
     checkAnswer(
       sql("select l.a from l where " +
         "(select case when count(*) = 1 then null else count(*) end as cnt " +
@@ -650,7 +651,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug with attribute ref in subquery input and output ") {
+  test("SPARK-15370: COUNT bug with attribute ref in subquery input and output ") {
     checkAnswer(
       sql(
         """
@@ -676,7 +677,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-16804: Correlated subqueries containing LIMIT - 2") {
+  test("SPARK-16804: Correlated subqueries containing LIMIT - 2") {
     withTempView("onerow") {
       Seq(1).toDF("c1").createOrReplaceTempView("onerow")
 
@@ -691,7 +692,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-17337: Incorrect column resolution leads to incorrect results") {
+  test("SPARK-17337: Incorrect column resolution leads to incorrect results") {
     withTempView("t1", "t2") {
       Seq(1, 2).toDF("c1").createOrReplaceTempView("t1")
       Seq(1).toDF("c2").createOrReplaceTempView("t2")
@@ -707,7 +708,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
      }
    }
 
-   ignore("SPARK-17348: Correlated subqueries with non-equality predicate (good case)") {
+   test("SPARK-17348: Correlated subqueries with non-equality predicate (good case)") {
      withTempView("t1", "t2") {
        Seq((1, 1)).toDF("c1", "c2").createOrReplaceTempView("t1")
        Seq((1, 1), (2, 0)).toDF("c1", "c2").createOrReplaceTempView("t2")
@@ -844,7 +845,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
   }
 
   // Generate operator
-  ignore("Correlated subqueries in LATERAL VIEW") {
+  test("Correlated subqueries in LATERAL VIEW") {
     withTempView("t1", "t2") {
       Seq((1, 1), (2, 0)).toDF("c1", "c2").createOrReplaceTempView("t1")
       Seq[(Int, Array[Int])]((1, Array(1, 2)), (2, Array(-1, -3)))
@@ -874,7 +875,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-19933 Do not eliminate top-level aliases in sub-queries") {
+  test("SPARK-19933 Do not eliminate top-level aliases in sub-queries") {
     withTempView("t1", "t2") {
       spark.range(4).createOrReplaceTempView("t1")
       checkAnswer(
@@ -888,7 +889,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("ListQuery and Exists should work even no correlated references") {
+  test("ListQuery and Exists should work even no correlated references") {
     checkAnswer(
       sql("select * from l, r where l.a = r.c AND (r.d in (select d from r) OR l.a >= 1)"),
       Row(2, 1.0, 2, 3.0) :: Row(2, 1.0, 2, 3.0) :: Row(2, 1.0, 2, 3.0) ::
@@ -985,7 +986,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     spark.range(10).where("(id,id) in (select id, null from range(3))").count
   }
 
-  ignore("SPARK-24085 scalar subquery in partitioning expression") {
+  test("SPARK-24085 scalar subquery in partitioning expression") {
     withTable("parquet_part") {
       Seq("1" -> "a", "2" -> "a", "3" -> "b", "4" -> "b")
         .toDF("id_value", "id_type")
@@ -1343,7 +1344,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-26078: deduplicate fake self joins for IN subqueries") {
+  test("SPARK-26078: deduplicate fake self joins for IN subqueries") {
     withTempView("a", "b") {
       Seq("a" -> 2, "b" -> 1).toDF("id", "num").createTempView("a")
       Seq("a" -> 2, "b" -> 1).toDF("id", "num").createTempView("b")
@@ -1599,7 +1600,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(3.0, false) :: Row(5.0, true) :: Row(null, false) :: Row(null, true) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug with non-foldable expression") {
+  test("SPARK-28441: COUNT bug with non-foldable expression") {
     // Case 1: Canonical example of the COUNT bug
     checkAnswer(
       sql("SELECT l.a FROM l WHERE (SELECT count(*) + cast(rand() as int) FROM r " +
@@ -1618,7 +1619,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) ::Row(null) :: Row(null) :: Row(6) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug in nested subquery with non-foldable expr") {
+  test("SPARK-28441: COUNT bug in nested subquery with non-foldable expr") {
     checkAnswer(
       sql("""
             |SELECT l.a FROM l
@@ -1633,7 +1634,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug with non-foldable expression in Filter condition") {
+  test("SPARK-28441: COUNT bug with non-foldable expression in Filter condition") {
     val df = sql("""
                    |SELECT
                    |  l.a

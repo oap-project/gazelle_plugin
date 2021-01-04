@@ -138,6 +138,13 @@ class ColumnarProjection (
 }
 
 object ColumnarProjection extends Logging {
+  def buildCheck(originalInputAttributes: Seq[Attribute],
+                 exprs: Seq[Expression]): Unit = {
+    for (expr <- exprs) {
+      val func = ColumnarExpressionConverter.replaceWithColumnarExpression(expr, originalInputAttributes)
+      CodeGeneration.getResultType(func.dataType)
+    }
+  }
   def binding(originalInputAttributes: Seq[Attribute],
     exprs: Seq[Expression],
     expIdx: Int,

@@ -954,7 +954,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     }
   }
 
-  ignore("aliases in the aggregate expressions should not introduce extra shuffle") {
+  test("aliases in the aggregate expressions should not introduce extra shuffle") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       val t1 = spark.range(10).selectExpr("floor(id/4) as k1")
       val t2 = spark.range(20).selectExpr("floor(id/4) as k2")

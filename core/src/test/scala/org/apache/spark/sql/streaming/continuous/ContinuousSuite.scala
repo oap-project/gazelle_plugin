@@ -122,7 +122,7 @@ class ContinuousSuite extends ContinuousSuiteBase {
       CheckAnswer(0, 1, 2, 3, 4, 5))
   }
 
-  ignore("SPARK-29642: basic with various types") {
+  test("SPARK-29642: basic with various types") {
     val input = ContinuousMemoryStream[String]
 
     testStream(input.toDF())(
@@ -268,7 +268,7 @@ class ContinuousSuite extends ContinuousSuiteBase {
     }
   }
 
-  ignore("query without test harness") {
+  test("query without test harness") {
     val df = spark.readStream
       .format("rate")
       .option("numPartitions", "2")
@@ -317,7 +317,7 @@ class ContinuousSuite extends ContinuousSuiteBase {
 class ContinuousStressSuite extends ContinuousSuiteBase {
   import testImplicits._
 
-  ignore("only one epoch") {
+  test("only one epoch") {
     val df = spark.readStream
       .format("rate")
       .option("numPartitions", "5")
@@ -337,7 +337,7 @@ class ContinuousStressSuite extends ContinuousSuiteBase {
     )
   }
 
-  ignore("automatic epoch advancement") {
+  test("automatic epoch advancement") {
     val df = spark.readStream
       .format("rate")
       .option("numPartitions", "5")
@@ -356,7 +356,7 @@ class ContinuousStressSuite extends ContinuousSuiteBase {
       CheckAnswerRowsContains(scala.Range(0, 2500).map(Row(_))))
   }
 
-  ignore("restarts") {
+  test("restarts") {
     val df = spark.readStream
       .format("rate")
       .option("numPartitions", "5")

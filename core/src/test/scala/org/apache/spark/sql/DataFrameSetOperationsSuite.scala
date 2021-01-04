@@ -89,7 +89,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
       Nil)
   }
 
-  ignore("SPARK-23274: except between two projects without references used in filter") {
+  test("SPARK-23274: except between two projects without references used in filter") {
     val df = Seq((1, 2, 4), (1, 3, 5), (2, 2, 3), (2, 4, 5)).toDF("a", "b", "c")
     val df1 = df.filter($"a" === 1)
     val df2 = df.filter($"a" === 2)
@@ -97,7 +97,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df1.select("b").except(df2.select("c")), Row(2) :: Nil)
   }
 
-  ignore("except distinct - SQL compliance") {
+  test("except distinct - SQL compliance") {
     val df_left = Seq(1, 2, 2, 3, 3, 4).toDF("id")
     val df_right = Seq(1, 3).toDF("id")
 
@@ -107,7 +107,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("except - nullability") {
+  test("except - nullability") {
     val nonNullableInts = Seq(Tuple1(11), Tuple1(3)).toDF()
     assert(nonNullableInts.schema.forall(!_.nullable))
 
@@ -196,7 +196,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     assert(df4.schema.forall(!_.nullable))
   }
 
-  ignore("intersect") {
+  test("intersect") {
     checkAnswer(
       lowerCaseData.intersect(lowerCaseData),
       Row(1, "a") ::
@@ -227,7 +227,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
         Row("id1", 2) :: Nil)
   }
 
-  ignore("intersect - nullability") {
+  test("intersect - nullability") {
     val nonNullableInts = Seq(Tuple1(1), Tuple1(3)).toDF()
     assert(nonNullableInts.schema.forall(!_.nullable))
 
@@ -302,7 +302,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     assert(df4.schema.forall(!_.nullable))
   }
 
-  ignore("SPARK-10539: Project should not be pushed down through Intersect or Except") {
+  test("SPARK-10539: Project should not be pushed down through Intersect or Except") {
     val df1 = (1 to 100).map(Tuple1.apply).toDF("i")
     val df2 = (1 to 30).map(Tuple1.apply).toDF("i")
     val intersect = df1.intersect(df2)
@@ -311,7 +311,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     assert(except.count() === 70)
   }
 
-  ignore("SPARK-10740: handle nondeterministic expressions correctly for set operations") {
+  test("SPARK-10740: handle nondeterministic expressions correctly for set operations") {
     val df1 = (1 to 20).map(Tuple1.apply).toDF("i")
     val df2 = (1 to 10).map(Tuple1.apply).toDF("i")
 
@@ -352,7 +352,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("SPARK-17123: Performing set operations that combine non-scala native types") {
+  test("SPARK-17123: Performing set operations that combine non-scala native types") {
     val dates = Seq(
       (new Date(0), BigDecimal.valueOf(1), new Timestamp(2)),
       (new Date(3), BigDecimal.valueOf(4), new Timestamp(5))

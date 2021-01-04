@@ -62,7 +62,8 @@ class ColumnarConditionProjector(
   var elapseTime_make: Long = 0
   val start_make: Long = System.nanoTime()
   var selectionBuffer: ArrowBuf = null
-  if (projectFieldList.size == 0 && conditionFieldList.size == 0) {
+  if (projectFieldList.size == 0 && conditionFieldList.size == 0
+      && (projPrepareList == null || projPrepareList.isEmpty)) {
     skip = true
   } else {
     skip = false
@@ -303,6 +304,20 @@ class ColumnarConditionProjector(
 } // end of class
 
 object ColumnarConditionProjector extends Logging {
+  def buildCheck(projectList: Seq[Expression],
+                 originalInputAttributes: Seq[Attribute]): Unit = {
+    // check datatype
+    val unsupportedTypes = List(NullType, TimestampType, BinaryType)
+    originalInputAttributes.toList.foreach(attr => {
+      if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(s"${attr.dataType} is not supported in ColumnarConditionProjector.")
+    })
+    // check result type
+    originalInputAttributes.toList.foreach(attr => {
+      CodeGeneration.getResultType(attr.dataType)
+    })
+  }
+
   def init(
       condExpr: Expression,
       projectList: Seq[Expression],
@@ -315,6 +330,7 @@ object ColumnarConditionProjector extends Logging {
       Boolean) = {
     logInfo(
       s"originalInputAttributes is ${originalInputAttributes}, \nCondition is ${condExpr}, \nProjection is ${projectList}")
+    buildCheck(projectList, originalInputAttributes)
     val conditionInputList: java.util.List[Field] = Lists.newArrayList()
     val (condPrepareList, skip_filter) = if (condExpr != null) {
       val columnarCondExpr: Expression = ColumnarExpressionConverter

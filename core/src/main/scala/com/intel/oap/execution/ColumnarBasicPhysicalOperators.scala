@@ -27,8 +27,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
+import org.apache.spark.sql.types.{MapType, StructType}
 import org.apache.spark.util.ExecutorManager
 import org.apache.spark.sql.util.StructTypeFWD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -231,6 +231,17 @@ case class ColumnarConditionProjectExec(
 
 case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
   // updating nullability to make all the children consistent
+
+  // build check
+  val unsupportedTypes = List(Array)
+  for (child <- children) {
+    for (schema <- child.schema) {
+      if (schema.dataType.isInstanceOf[MapType]) {
+        throw new UnsupportedOperationException(
+          s"${schema.dataType} is not supported in ColumnarUnionExec")
+      }
+    }
+  }
 
   override def supportsColumnar = true
   protected override def doExecuteColumnar(): RDD[ColumnarBatch] =

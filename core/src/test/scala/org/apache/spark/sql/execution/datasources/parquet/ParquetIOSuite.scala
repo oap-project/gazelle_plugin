@@ -97,6 +97,10 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   /**
    * Writes `data` to a Parquet file, reads it back and check file contents.
@@ -105,14 +109,14 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     withParquetDataFrame(data.toDF())(r => checkAnswer(r, data.map(Row.fromTuple)))
   }
 
-  ignore("basic data types (without binary)") {
+  test("basic data types (without binary)") {
     val data = (1 to 4).map { i =>
       (i % 2 == 0, i, i.toLong, i.toFloat, i.toDouble)
     }
     checkParquetFile(data)
   }
 
-  ignore("raw binary") {
+  test("raw binary") {
     val data = (1 to 4).map(i => Tuple1(Array.fill(3)(i.toByte)))
     withParquetDataFrame(data.toDF()) { df =>
       assertResult(data.map(_._1.mkString(",")).sorted) {
@@ -153,7 +157,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("string") {
+  test("string") {
     val data = (1 to 4).map(i => Tuple1(i.toString))
     // Property spark.sql.parquet.binaryAsString shouldn't affect Parquet files written by Spark SQL
     // as we store Spark SQL schema in the extra metadata.
@@ -183,7 +187,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("date type") {
+  test("date type") {
     def makeDateRDD(): DataFrame =
       sparkContext
         .parallelize(0 to 1000)
@@ -305,7 +309,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("nulls") {
+  test("nulls") {
     val allNulls = (
       null.asInstanceOf[java.lang.Boolean],
       null.asInstanceOf[Integer],
@@ -320,7 +324,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("nones") {
+  test("nones") {
     val allNones = (
       None.asInstanceOf[Option[Int]],
       None.asInstanceOf[Option[Long]],
@@ -404,7 +408,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     checkCompressionCodec(CompressionCodecName.SNAPPY)
   }
 
-  ignore("read raw Parquet file") {
+  test("read raw Parquet file") {
     def makeRawParquetFile(path: Path): Unit = {
       val schema = MessageTypeParser.parseMessageType(
         """
@@ -455,7 +459,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("write metadata") {
+  test("write metadata") {
     val hadoopConf = spark.sessionState.newHadoopConf()
     withTempPath { file =>
       val path = new Path(file.toURI.toString)
@@ -474,7 +478,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("save - overwrite") {
+  test("save - overwrite") {
     withParquetFile((1 to 10).map(i => (i, i.toString))) { file =>
       val newData = (11 to 20).map(i => (i, i.toString))
       newData.toDF().write.format("parquet").mode(SaveMode.Overwrite).save(file)
@@ -484,7 +488,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("save - ignore") {
+  test("save - ignore") {
     val data = (1 to 10).map(i => (i, i.toString))
     withParquetFile(data) { file =>
       val newData = (11 to 20).map(i => (i, i.toString))
@@ -506,7 +510,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("save - append") {
+  test("save - append") {
     val data = (1 to 10).map(i => (i, i.toString))
     withParquetFile(data) { file =>
       val newData = (11 to 20).map(i => (i, i.toString))
@@ -652,19 +656,22 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
       else "a"
     )
     val df = data.toDF("col")
-    assert(df.agg("col" -> "count").collect().head.getLong(0) == 50)
-
+    withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      assert(df.agg("col" -> "count").collect().head.getLong(0) == 50)
+    }
     withTempPath { dir =>
       val path = s"${dir.getCanonicalPath}/data"
       df.write.parquet(path)
 
       readParquetFile(path) { df2 =>
-        assert(df2.agg("col" -> "count").collect().head.getLong(0) == 50)
+        withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+          assert(df2.agg("col" -> "count").collect().head.getLong(0) == 50)
+        }
       }
     }
   }
 
-  ignore("read dictionary encoded decimals written as INT32") {
+  test("read dictionary encoded decimals written as INT32") {
     withAllParquetReaders {
       checkAnswer(
         // Decimal column in this file is encoded using plain dictionary
@@ -673,7 +680,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("read dictionary encoded decimals written as INT64") {
+  test("read dictionary encoded decimals written as INT64") {
     withAllParquetReaders {
       checkAnswer(
         // Decimal column in this file is encoded using plain dictionary
@@ -682,7 +689,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("read dictionary encoded decimals written as FIXED_LEN_BYTE_ARRAY") {
+  test("read dictionary encoded decimals written as FIXED_LEN_BYTE_ARRAY") {
     withAllParquetReaders {
       checkAnswer(
         // Decimal column in this file is encoded using plain dictionary
@@ -691,7 +698,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("read dictionary and plain encoded timestamp_millis written as INT64") {
+  test("read dictionary and plain encoded timestamp_millis written as INT64") {
     withAllParquetReaders {
       checkAnswer(
         // timestamp column in this file is encoded using combination of plain
@@ -701,7 +708,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("SPARK-12589 copy() on rows returned from reader works for strings") {
+  test("SPARK-12589 copy() on rows returned from reader works for strings") {
     withTempPath { dir =>
       val data = (1, "abc") ::(2, "helloabcde") :: Nil
       data.toDF().write.parquet(dir.getCanonicalPath)
@@ -858,7 +865,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("SPARK-23173 Writing a file with data converted from JSON with and incorrect user schema") {
+  test("SPARK-23173 Writing a file with data converted from JSON with and incorrect user schema") {
     withTempPath { file =>
       val jsonData =
         """{
@@ -1042,7 +1049,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("SPARK-31159: rebasing timestamps in write") {
+  test("SPARK-31159: rebasing timestamps in write") {
     val N = 8
     Seq(false, true).foreach { dictionaryEncoding =>
       Seq(
@@ -1090,7 +1097,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
     }
   }
 
-  ignore("SPARK-31159: rebasing dates in write") {
+  test("SPARK-31159: rebasing dates in write") {
     val N = 8
     Seq(false, true).foreach { dictionaryEncoding =>
       withTempPath { dir =>

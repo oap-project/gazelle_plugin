@@ -42,6 +42,7 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -73,7 +74,7 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("simple case") {
+  test("simple case") {
     val df = spark.table("tab").selectExpr(
       "i5", "named_struct('a', i1, 'b', i2) as col1", "named_struct('a', i3, 'c', i4) as col2")
       .filter("col2.c > 11").selectExpr("col1.a")
@@ -98,7 +99,7 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
     checkNamedStruct(df1.queryExecution.optimizedPlan, expectedCount = 1)
   }
 
-  ignore("expression in named_struct") {
+  test("expression in named_struct") {
     val df = spark.table("tab")
       .selectExpr("i5", "struct(i1 as exp, i2, i3) as cola")
       .selectExpr("cola.exp", "cola.i3").filter("cola.i3 > 10")
@@ -112,7 +113,7 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
     checkNamedStruct(df1.queryExecution.optimizedPlan, expectedCount = 0)
   }
 
-  ignore("nested case") {
+  test("nested case") {
     val df = spark.table("tab")
       .selectExpr("struct(struct(i2, i3) as exp, i4) as cola")
       .selectExpr("cola.exp.i2", "cola.i4").filter("cola.exp.i2 > 10")

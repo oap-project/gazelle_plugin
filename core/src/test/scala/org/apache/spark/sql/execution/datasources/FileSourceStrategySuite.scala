@@ -60,6 +60,10 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
       .set("spark.default.parallelism", "1")
 
   test("unpartitioned table, single partition") {
@@ -399,7 +403,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     }
   }
 
-  ignore("SPARK-14959: Do not call getFileBlockLocations on directories") {
+  test("SPARK-14959: Do not call getFileBlockLocations on directories") {
     // Setting PARALLEL_PARTITION_DISCOVERY_THRESHOLD to 2. So we will first
     // list file statues at driver side and then for the level of p2, we will list
     // file statues in parallel.
@@ -431,7 +435,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     }
   }
 
-  test("[SPARK-16818] partition pruned file scans implement sameResult correctly") {
+  ignore("[SPARK-16818] partition pruned file scans implement sameResult correctly") {
     Seq("orc", "").foreach { useV1ReaderList =>
       withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> useV1ReaderList) {
         withTempPath { path =>
@@ -454,7 +458,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     }
   }
 
-  ignore("[SPARK-16818] exchange reuse respects differences in partition pruning") {
+  test("[SPARK-16818] exchange reuse respects differences in partition pruning") {
     spark.conf.set(SQLConf.EXCHANGE_REUSE_ENABLED.key, true)
     withTempPath { path =>
       val tempDir = path.getCanonicalPath
@@ -470,7 +474,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     }
   }
 
-  ignore("spark.files.ignoreCorruptFiles should work in SQL") {
+  test("spark.files.ignoreCorruptFiles should work in SQL") {
     val inputFile = File.createTempFile("input-", ".gz")
     try {
       // Create a corrupt gzip file
@@ -504,7 +508,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     }
   }
 
-  ignore("[SPARK-18753] keep pushed-down null literal as a filter in Spark-side post-filter") {
+  test("[SPARK-18753] keep pushed-down null literal as a filter in Spark-side post-filter") {
     val ds = Seq(Tuple1(Some(true)), Tuple1(None), Tuple1(Some(false))).toDS()
     withTempPath { p =>
       val path = p.getAbsolutePath

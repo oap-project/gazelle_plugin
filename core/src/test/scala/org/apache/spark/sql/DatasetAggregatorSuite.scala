@@ -263,7 +263,7 @@ class DatasetAggregatorSuite extends QueryTest with SharedSparkSession {
       ("a", 2.0, (2L, 4L)), ("b", 3.0, (1L, 3L)))
   }
 
-  ignore("typed aggregation: class input") {
+  test("typed aggregation: class input") {
     val ds = Seq(AggData(1, "one"), AggData(2, "two")).toDS()
 
     checkDataset(
@@ -271,7 +271,7 @@ class DatasetAggregatorSuite extends QueryTest with SharedSparkSession {
       3)
   }
 
-  ignore("typed aggregation: class input with reordering") {
+  test("typed aggregation: class input with reordering") {
     val ds = sql("SELECT 'one' AS b, 1 as a").as[AggData]
 
     checkDataset(
@@ -312,7 +312,7 @@ class DatasetAggregatorSuite extends QueryTest with SharedSparkSession {
       ("one", 1), ("two", 1))
   }
 
-  ignore("generic typed sum") {
+  test("generic typed sum") {
     val ds = Seq("a" -> 1, "a" -> 3, "b" -> 3).toDS()
     checkDataset(
       ds.groupByKey(_._1)
@@ -333,7 +333,7 @@ class DatasetAggregatorSuite extends QueryTest with SharedSparkSession {
         (1279869254, "Some String"))
   }
 
-  ignore("aggregator in DataFrame/Dataset[Row]") {
+  test("aggregator in DataFrame/Dataset[Row]") {
     val df = Seq(1 -> "a", 2 -> "b", 3 -> "b").toDF("i", "j")
     checkAnswer(df.groupBy($"j").agg(RowAgg.toColumn), Row("a", 1) :: Row("b", 5) :: Nil)
   }
@@ -347,7 +347,7 @@ class DatasetAggregatorSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("spark-15051 alias of aggregator in DataFrame/Dataset[Row]") {
+  test("spark-15051 alias of aggregator in DataFrame/Dataset[Row]") {
     val df1 = Seq(1 -> "a", 2 -> "b", 3 -> "b").toDF("i", "j")
     checkAnswer(df1.agg(RowAgg.toColumn as "b"), Row(6) :: Nil)
 
@@ -424,7 +424,7 @@ class DatasetAggregatorSuite extends QueryTest with SharedSparkSession {
     checkDataset(group.as[OptionBooleanIntData], OptionBooleanIntData("bob", Some((true, 3))))
   }
 
-  ignore("SPARK-30590: untyped select should not accept typed column that needs input type") {
+  test("SPARK-30590: untyped select should not accept typed column that needs input type") {
     val df = Seq((1, 2, 3, 4, 5, 6)).toDF("a", "b", "c", "d", "e", "f")
     val fooAgg = (i: Int) => FooAgg(i).toColumn.name(s"foo_agg_$i")
 

@@ -145,6 +145,7 @@ class UserDefinedTypeSuite extends QueryTest with SharedSparkSession with Parque
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   private lazy val pointsRDD = Seq(
     MyLabeledPoint(1.0, new TestUDT.MyDenseVector(Array(0.1, 1.0))),
@@ -154,7 +155,7 @@ class UserDefinedTypeSuite extends QueryTest with SharedSparkSession with Parque
     MyLabeledPoint(1.0, new TestUDT.MyDenseVector(Array(0.1, 1.0))),
     MyLabeledPoint(0.0, new TestUDT.MyDenseVector(Array(0.3, 3.0)))).toDF()
 
-  ignore("register user type: MyDenseVector for MyLabeledPoint") {
+  test("register user type: MyDenseVector for MyLabeledPoint") {
     val labels: RDD[Double] = pointsRDD.select('label).rdd.map { case Row(v: Double) => v }
     val labelsArrays: Array[Double] = labels.collect()
     assert(labelsArrays.size === 2)
@@ -205,7 +206,7 @@ class UserDefinedTypeSuite extends QueryTest with SharedSparkSession with Parque
   }
 
   // Tests to make sure that all operators correctly convert types on the way out.
-  ignore("Local UDTs") {
+  test("Local UDTs") {
     val vec = new TestUDT.MyDenseVector(Array(0.1, 1.0))
     val df = Seq((1, vec)).toDF("int", "vec")
     assert(vec === df.collect()(0).getAs[TestUDT.MyDenseVector](1))
@@ -302,7 +303,7 @@ class UserDefinedTypeSuite extends QueryTest with SharedSparkSession with Parque
     sql("SELECT doOtherUDF(doSubTypeUDF(42))")
   }
 
-  ignore("except on UDT") {
+  test("except on UDT") {
     checkAnswer(
       pointsRDD.except(pointsRDD2),
       Seq(Row(0.0, new TestUDT.MyDenseVector(Array(0.2, 2.0)))))
@@ -321,7 +322,7 @@ class UserDefinedTypeSuite extends QueryTest with SharedSparkSession with Parque
     assert(!Cast.canUpCast(udt, StringType))
   }
 
-  ignore("typeof user defined type") {
+  test("typeof user defined type") {
     val schema = new StructType().add("a", new TestUDT.MyDenseVectorUDT())
     val data = Arrays.asList(
       RowFactory.create(new TestUDT.MyDenseVector(Array(1.0, 3.0, 5.0, 7.0, 9.0))))

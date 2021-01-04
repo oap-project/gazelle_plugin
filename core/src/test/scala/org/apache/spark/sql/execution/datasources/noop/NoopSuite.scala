@@ -41,6 +41,7 @@ class NoopSuite extends SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   test("materialisation of all rows") {
     val numElems = 10
@@ -57,7 +58,7 @@ class NoopSuite extends SharedSparkSession {
     assert(accum.value == numElems)
   }
 
-  ignore("read partitioned data") {
+  test("read partitioned data") {
     val numElems = 100
     withTempPath { dir =>
       val path = dir.getCanonicalPath

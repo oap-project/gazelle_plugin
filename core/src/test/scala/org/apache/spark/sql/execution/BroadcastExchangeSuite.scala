@@ -53,7 +53,7 @@ class BroadcastExchangeSuite extends SparkPlanTest
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-  ignore("BroadcastExchange should cancel the job group if timeout") {
+  test("BroadcastExchange should cancel the job group if timeout") {
     val startLatch = new CountDownLatch(1)
     val endLatch = new CountDownLatch(1)
     var jobEvents: Seq[SparkListenerEvent] = Seq.empty[SparkListenerEvent]
@@ -102,7 +102,7 @@ class BroadcastExchangeSuite extends SparkPlanTest
     }
   }
 
-  ignore("set broadcastTimeout to -1") {
+  test("set broadcastTimeout to -1") {
     withSQLConf(SQLConf.BROADCAST_TIMEOUT.key -> "-1") {
       val df = spark.range(1).toDF()
       val joinDF = df.join(broadcast(df), "id")

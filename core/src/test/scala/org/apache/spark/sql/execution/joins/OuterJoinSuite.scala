@@ -49,6 +49,7 @@ class OuterJoinSuite extends SparkPlanTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.hashCompare", "true")
 
   private lazy val left = spark.createDataFrame(
     sparkContext.parallelize(Seq(
@@ -98,7 +99,7 @@ class OuterJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
 
     if (joinType != FullOuter) {
-      test(s"$testName using ShuffledHashJoin") {
+      ignore(s"$testName using ShuffledHashJoin") {
         extractJoinParts().foreach { case (_, leftKeys, rightKeys, boundCondition, _, _, _) =>
           withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
             val buildSide = if (joinType == LeftOuter) BuildRight else BuildLeft
@@ -165,7 +166,6 @@ class OuterJoinSuite extends SparkPlanTest with SharedSparkSession {
 
   // --- Basic outer joins ------------------------------------------------------------------------
 
-  /*
   testOuterJoin(
     "basic left outer join",
     left,
@@ -207,7 +207,6 @@ class OuterJoinSuite extends SparkPlanTest with SharedSparkSession {
       (null, null, 7, 7.0)
     )
   )
-   */
 
   testOuterJoin(
     "basic full outer join",
@@ -238,7 +237,6 @@ class OuterJoinSuite extends SparkPlanTest with SharedSparkSession {
 
   // --- Both inputs empty ------------------------------------------------------------------------
 
-  /*
   testOuterJoin(
     "left outer join with both inputs empty",
     left.filter("false"),
@@ -256,7 +254,6 @@ class OuterJoinSuite extends SparkPlanTest with SharedSparkSession {
     condition,
     Seq.empty
   )
-   */
 
   testOuterJoin(
     "full outer join with both inputs empty",

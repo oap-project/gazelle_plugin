@@ -50,6 +50,26 @@ class TestFileFilter extends PathFilter {
 abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJsonData {
   import testImplicits._
 
+  override def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
+
   test("Type promotion") {
     def checkTypePromotion(expected: Any, actual: Any): Unit = {
       assert(expected.getClass == actual.getClass,
@@ -298,7 +318,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Complex field and type inferring") {
+  test("Complex field and type inferring") {
     withTempView("jsonTable") {
       val jsonDF = spark.read.json(complexFieldAndType1)
 
@@ -419,7 +439,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Type conflict in primitive field values") {
+  test("Type conflict in primitive field values") {
     withTempView("jsonTable") {
       val jsonDF = spark.read.json(primitiveFieldValueTypeConflict)
 
@@ -519,7 +539,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Type conflict in array elements") {
+  test("Type conflict in array elements") {
     withTempView("jsonTable") {
       val jsonDF = spark.read.json(arrayElementTypeConflict)
 
@@ -567,7 +587,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Loading a JSON dataset from a text file") {
+  test("Loading a JSON dataset from a text file") {
     withTempView("jsonTable") {
       val dir = Utils.createTempDir()
       dir.delete()
@@ -601,7 +621,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Loading a JSON dataset primitivesAsString returns schema with primitive types as strings") {
+  test("Loading a JSON dataset primitivesAsString returns schema with primitive types as strings") {
     withTempView("jsonTable") {
       val dir = Utils.createTempDir()
       dir.delete()
@@ -635,7 +655,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Loading a JSON dataset primitivesAsString returns complex fields as strings") {
+  test("Loading a JSON dataset primitivesAsString returns complex fields as strings") {
     withTempView("jsonTable") {
       val jsonDF = spark.read.option("primitivesAsString", "true").json(complexFieldAndType1)
 
@@ -860,7 +880,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     )
   }
 
-  ignore("Applying schemas") {
+  test("Applying schemas") {
     withTempView("jsonTable1", "jsonTable2") {
       val dir = Utils.createTempDir()
       dir.delete()
@@ -1210,7 +1230,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-4228 DataFrame to JSON") {
+  test("SPARK-4228 DataFrame to JSON") {
     withTempView("applySchema1", "applySchema2", "primitiveTable", "complexTable") {
       val schema1 = StructType(
         StructField("f1", IntegerType, false) ::
@@ -1379,7 +1399,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     assert(StructType(Seq()) === emptySchema)
   }
 
-  ignore("SPARK-7565 MapType in JsonRDD") {
+  test("SPARK-7565 MapType in JsonRDD") {
     withSQLConf(SQLConf.COLUMN_NAME_OF_CORRUPT_RECORD.key -> "_unparsed") {
       withTempDir { dir =>
         val schemaWithSimpleMap = StructType(
@@ -1406,7 +1426,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     assert(StructType(Seq()) === emptySchema)
   }
 
-  ignore("JSON with Partition") {
+  test("JSON with Partition") {
     def makePartition(rdd: RDD[String], parent: File, partName: String, partValue: Any): File = {
       val p = new File(parent, s"$partName=${partValue.toString}")
       rdd.saveAsTextFile(p.getCanonicalPath)
@@ -1441,7 +1461,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     })
   }
 
-  ignore("backward compatibility") {
+  test("backward compatibility") {
     // This test we make sure our JSON support can read JSON data generated by previous version
     // of Spark generated through toJSON method and JSON data source.
     // The data is generated by the following program.
@@ -1542,7 +1562,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-11544 test pathfilter") {
+  test("SPARK-11544 test pathfilter") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -1595,7 +1615,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Parse JSON rows having an array type and a struct type in the same field.") {
+  test("Parse JSON rows having an array type and a struct type in the same field.") {
     withTempDir { dir =>
       val dir = Utils.createTempDir()
       dir.delete()
@@ -1612,7 +1632,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-12872 Support to specify the option for compression codec") {
+  test("SPARK-12872 Support to specify the option for compression codec") {
     withTempDir { dir =>
       val dir = Utils.createTempDir()
       dir.delete()
@@ -1640,7 +1660,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-13543 Write the output as uncompressed via option()") {
+  test("SPARK-13543 Write the output as uncompressed via option()") {
     val extraOptions = Map[String, String](
       "mapreduce.output.fileoutputformat.compress" -> "true",
       "mapreduce.output.fileoutputformat.compress.type" -> CompressionType.BLOCK.toString,
@@ -1706,7 +1726,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     df.collect()
   }
 
-  ignore("Write dates correctly with dateFormat option") {
+  test("Write dates correctly with dateFormat option") {
     val customSchema = new StructType(Array(StructField("date", DateType, true)))
     withTempDir { dir =>
       // With dateFormat option.
@@ -1735,7 +1755,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Write timestamps correctly with timestampFormat option") {
+  test("Write timestamps correctly with timestampFormat option") {
     val customSchema = new StructType(Array(StructField("date", TimestampType, true)))
     withTempDir { dir =>
       // With dateFormat option.
@@ -1763,7 +1783,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("Write timestamps correctly with timestampFormat option and timeZone option") {
+  test("Write timestamps correctly with timestampFormat option and timeZone option") {
     val customSchema = new StructType(Array(StructField("date", TimestampType, true)))
     withTempDir { dir =>
       // With dateFormat option and timeZone option.
@@ -1813,7 +1833,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     assert(df2.schema == schema)
   }
 
-  ignore("SPARK-18352: Parse normal multi-line JSON files (compressed)") {
+  test("SPARK-18352: Parse normal multi-line JSON files (compressed)") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       primitiveFieldAndType
@@ -1838,7 +1858,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-18352: Parse normal multi-line JSON files (uncompressed)") {
+  test("SPARK-18352: Parse normal multi-line JSON files (uncompressed)") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       primitiveFieldAndType
@@ -1859,7 +1879,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-18352: Expect one JSON document per file") {
+  test("SPARK-18352: Expect one JSON document per file") {
     // the json parser terminates as soon as it sees a matching END_OBJECT or END_ARRAY token.
     // this might not be the optimal behavior but this test verifies that only the first value
     // is parsed and the rest are discarded.
@@ -1914,7 +1934,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-19641: Handle multi-line corrupt documents (DROPMALFORMED)") {
+  test("SPARK-19641: Handle multi-line corrupt documents (DROPMALFORMED)") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val corruptRecordCount = additionalCorruptRecords.count().toInt
@@ -1932,7 +1952,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-18352: Handle multi-line corrupt documents (FAILFAST)") {
+  test("SPARK-18352: Handle multi-line corrupt documents (FAILFAST)") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val corruptRecordCount = additionalCorruptRecords.count().toInt
@@ -2041,7 +2061,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
+  test("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
     "from a file") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
@@ -2069,7 +2089,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
   }
 
   def testLineSeparator(lineSep: String): Unit = {
-    ignore(s"SPARK-21289: Support line separator - lineSep: '$lineSep'") {
+    test(s"SPARK-21289: Support line separator - lineSep: '$lineSep'") {
       // Read
       val data =
         s"""
@@ -2116,7 +2136,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     testLineSeparator(lineSep)
   }
   // scalastyle:on nonascii
-  ignore("""SPARK-21289: Support line separator - default value \r, \r\n and \n""") {
+  test("""SPARK-21289: Support line separator - default value \r, \r\n and \n""") {
     val data =
       "{\"f\": \"a\", \"f0\": 1}\r{\"f\": \"c\",  \"f0\": 2}\r\n{\"f\": \"d\",  \"f0\": 3}\n"
 
@@ -2170,7 +2190,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     assert(sampled.count() == ds.count())
   }
 
-  ignore("SPARK-23723: json in UTF-16 with BOM") {
+  test("SPARK-23723: json in UTF-16 with BOM") {
     val fileName = "test-data/utf16WithBOM.json"
     val schema = new StructType().add("firstName", StringType).add("lastName", StringType)
     val jsonDF = spark.read.schema(schema)
@@ -2181,7 +2201,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     checkAnswer(jsonDF, Seq(Row("Chris", "Baird"), Row("Doug", "Rood")))
   }
 
-  ignore("SPARK-23723: multi-line json in UTF-32BE with BOM") {
+  test("SPARK-23723: multi-line json in UTF-32BE with BOM") {
     val fileName = "test-data/utf32BEWithBOM.json"
     val schema = new StructType().add("firstName", StringType).add("lastName", StringType)
     val jsonDF = spark.read.schema(schema)
@@ -2191,7 +2211,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     checkAnswer(jsonDF, Seq(Row("Chris", "Baird")))
   }
 
-  ignore("SPARK-23723: Use user's encoding in reading of multi-line json in UTF-16LE") {
+  test("SPARK-23723: Use user's encoding in reading of multi-line json in UTF-16LE") {
     val fileName = "test-data/utf16LE.json"
     val schema = new StructType().add("firstName", StringType).add("lastName", StringType)
     val jsonDF = spark.read.schema(schema)
@@ -2202,7 +2222,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     checkAnswer(jsonDF, Seq(Row("Chris", "Baird")))
   }
 
-  ignore("SPARK-23723: Unsupported encoding name") {
+  test("SPARK-23723: Unsupported encoding name") {
     val invalidCharset = "UTF-128"
     val exception = intercept[UnsupportedCharsetException] {
       spark.read
@@ -2214,7 +2234,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     assert(exception.getMessage.contains(invalidCharset))
   }
 
-  ignore("SPARK-23723: checking that the encoding option is case agnostic") {
+  test("SPARK-23723: checking that the encoding option is case agnostic") {
     val fileName = "test-data/utf16LE.json"
     val schema = new StructType().add("firstName", StringType).add("lastName", StringType)
     val jsonDF = spark.read.schema(schema)
@@ -2225,7 +2245,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     checkAnswer(jsonDF, Seq(Row("Chris", "Baird")))
   }
 
-  ignore("SPARK-23723: specified encoding is not matched to actual encoding") {
+  test("SPARK-23723: specified encoding is not matched to actual encoding") {
     val fileName = "test-data/utf16LE.json"
     val schema = new StructType().add("firstName", StringType).add("lastName", StringType)
     val exception = intercept[SparkException] {
@@ -2300,7 +2320,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
       "java.nio.charset.UnsupportedCharsetException: UTF-128"))
   }
 
-  ignore("SPARK-23723: read back json in UTF-16LE") {
+  test("SPARK-23723: read back json in UTF-16LE") {
     val options = Map("encoding" -> "UTF-16LE", "lineSep" -> "\n")
     withTempPath { path =>
       val ds = spark.createDataset(Seq(("a", 1), ("b", 2), ("c", 3))).repartition(2)
@@ -2333,7 +2353,6 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  /*
   def checkReadJson(lineSep: String, encoding: String, inferSchema: Boolean, id: Int): Unit = {
     test(s"SPARK-23724: checks reading json in ${encoding} #${id}") {
       val schema = new StructType().add("f1", StringType).add("f2", IntegerType)
@@ -2379,9 +2398,8 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     case (testNum, sep, encoding, inferSchema) => checkReadJson(sep, encoding, inferSchema, testNum)
   }
   // scalastyle:on nonascii
-  */
 
-  ignore("SPARK-23724: lineSep should be set if encoding if different from UTF-8") {
+  test("SPARK-23724: lineSep should be set if encoding if different from UTF-8") {
     val encoding = "UTF-16LE"
     val exception = intercept[IllegalArgumentException] {
       spark.read
@@ -2396,7 +2414,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
 
   private val badJson = "\u0000\u0000\u0000A\u0001AAA"
 
-  ignore("SPARK-23094: permissively read JSON file with leading nulls when multiLine is enabled") {
+  test("SPARK-23094: permissively read JSON file with leading nulls when multiLine is enabled") {
     withTempPath { tempDir =>
       val path = tempDir.getAbsolutePath
       Seq(badJson + """{"a":1}""").toDS().write.text(path)
@@ -2411,7 +2429,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-23094: permissively read JSON file with leading nulls when multiLine is disabled") {
+  test("SPARK-23094: permissively read JSON file with leading nulls when multiLine is disabled") {
     withTempPath { tempDir =>
       val path = tempDir.getAbsolutePath
       Seq(badJson, """{"a":1}""").toDS().write.text(path)
@@ -2431,7 +2449,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
       Row(badJson))
   }
 
-  ignore("SPARK-23772 ignore column of all null values or empty array during schema inference") {
+  test("SPARK-23772 ignore column of all null values or empty array during schema inference") {
      withTempPath { tempDir =>
       val path = tempDir.getAbsolutePath
 
@@ -2480,7 +2498,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("SPARK-24190: restrictions for JSONOptions in read") {
+  test("SPARK-24190: restrictions for JSONOptions in read") {
     for (encoding <- Set("UTF-16", "UTF-32")) {
       val exception = intercept[IllegalArgumentException] {
         spark.read
@@ -2519,7 +2537,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     countForMalformedJSON(0, Seq(""))
   }
 
-  ignore("SPARK-26745: count() for non-multiline input with empty lines") {
+  test("SPARK-26745: count() for non-multiline input with empty lines") {
     withTempPath { tempPath =>
       val path = tempPath.getCanonicalPath
       Seq("""{ "a" : 1 }""", "", """     { "a" : 2 }""", " \t ")
@@ -2628,7 +2646,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
       === fromDDL("a timestamp"))
   }
 
-  ignore("roundtrip for timestamp type inferring") {
+  test("roundtrip for timestamp type inferring") {
     val customSchema = new StructType().add("date", TimestampType)
     withTempDir { dir =>
       val timestampsWithFormatPath = s"${dir.getCanonicalPath}/timestampsWithFormat.json"
@@ -2690,65 +2708,17 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
 class JsonV1Suite extends JsonSuite {
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "json")
 }
 
 class JsonV2Suite extends JsonSuite {
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }
 
 class JsonLegacyTimeParserSuite extends JsonSuite {
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.LEGACY_TIME_PARSER_POLICY, "legacy")
 }

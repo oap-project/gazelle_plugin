@@ -60,7 +60,7 @@ abstract class OrcPartitionDiscoveryTest extends OrcTest {
     partDir
   }
 
-  ignore("read partitioned table - normal case") {
+  test("read partitioned table - normal case") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -150,7 +150,7 @@ abstract class OrcPartitionDiscoveryTest extends OrcTest {
     }
   }
 
-  ignore("SPARK-27162: handle pathfilter configuration correctly") {
+  test("SPARK-27162: handle pathfilter configuration correctly") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -187,6 +187,10 @@ class OrcPartitionDiscoverySuite extends OrcPartitionDiscoveryTest with SharedSp
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
   test("read partitioned table - partition key included in orc file") {
@@ -291,9 +295,13 @@ class OrcV1PartitionDiscoverySuite extends OrcPartitionDiscoveryTest with Shared
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "orc")
 
-  ignore("read partitioned table - partition key included in orc file") {
+  test("read partitioned table - partition key included in orc file") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -340,7 +348,7 @@ class OrcV1PartitionDiscoverySuite extends OrcPartitionDiscoveryTest with Shared
     }
   }
 
-  ignore("read partitioned table - with nulls and partition keys are included in Orc file") {
+  test("read partitioned table - with nulls and partition keys are included in Orc file") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)

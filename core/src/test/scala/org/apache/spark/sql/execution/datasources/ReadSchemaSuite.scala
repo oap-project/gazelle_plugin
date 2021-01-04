@@ -79,6 +79,7 @@ class CSVReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 }
 
 class HeaderCSVReadSchemaSuite
@@ -110,6 +111,7 @@ class HeaderCSVReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 }
 
 class JsonReadSchemaSuite
@@ -144,6 +146,7 @@ class JsonReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 }
 
 class OrcReadSchemaSuite
@@ -174,6 +177,7 @@ class OrcReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -217,7 +221,7 @@ class VectorizedOrcReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
-
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -262,6 +266,7 @@ class MergedOrcReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.ORC_SCHEMA_MERGING_ENABLED.key, "true")
 }
 
@@ -292,6 +297,7 @@ class ParquetReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -333,6 +339,7 @@ class VectorizedParquetReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -374,6 +381,7 @@ class MergedParquetReadSchemaSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override def beforeAll(): Unit = {
     super.beforeAll()

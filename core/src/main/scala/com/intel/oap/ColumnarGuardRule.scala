@@ -28,6 +28,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.joins._
@@ -56,6 +57,18 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
       val columnarPlan = plan match {
         case plan: BatchScanExec =>
           new ColumnarBatchScanExec(plan.output, plan.scan)
+        case plan: FileSourceScanExec =>
+          if (plan.supportsColumnar) {
+            logWarning(s"FileSourceScanExec ${plan.nodeName} supports columnar, " +
+              s"may causing columnar conversion exception")
+          }
+          plan
+        case plan: InMemoryTableScanExec =>
+          if (plan.supportsColumnar) {
+            logWarning(s"InMemoryTableScanExec ${plan.nodeName} supports columnar, " +
+              s"may causing columnar conversion exception")
+          }
+          plan
         case plan: ProjectExec =>
           new ColumnarConditionProjectExec(null, plan.projectList, plan.child)
         case plan: FilterExec =>
@@ -124,6 +137,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
       }
     } catch {
       case e: UnsupportedOperationException =>
+        System.out.println(s"Fall back to use row-based operators, error is ${e.getMessage}")
         return false
     }
     return true

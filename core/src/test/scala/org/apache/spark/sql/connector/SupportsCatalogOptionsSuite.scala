@@ -57,6 +57,7 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   private val catalogName = "testcat"
   private val format = classOf[CatalogSupportingInMemoryTableProvider].getName
@@ -118,19 +119,19 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
     checkAnswer(load("t1", withCatalogOption), df.toDF())
   }
 
-  ignore(s"save works with ErrorIfExists - no table, no partitioning, session catalog") {
+  test(s"save works with ErrorIfExists - no table, no partitioning, session catalog") {
     testCreateAndRead(SaveMode.ErrorIfExists, None, Nil)
   }
 
-  ignore(s"save works with ErrorIfExists - no table, with partitioning, session catalog") {
+  test(s"save works with ErrorIfExists - no table, with partitioning, session catalog") {
     testCreateAndRead(SaveMode.ErrorIfExists, None, Seq("part"))
   }
 
-  ignore(s"save works with Ignore - no table, no partitioning, testcat catalog") {
+  test(s"save works with Ignore - no table, no partitioning, testcat catalog") {
     testCreateAndRead(SaveMode.Ignore, Some(catalogName), Nil)
   }
 
-  ignore(s"save works with Ignore - no table, with partitioning, testcat catalog") {
+  test(s"save works with Ignore - no table, with partitioning, testcat catalog") {
     testCreateAndRead(SaveMode.Ignore, Some(catalogName), Seq("part"))
   }
 
@@ -176,7 +177,7 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
     assert(load("t1", Some(catalogName)).count() === 0)
   }
 
-  ignore("append and overwrite modes - session catalog") {
+  test("append and overwrite modes - session catalog") {
     sql(s"create table t1 (id bigint) using $format")
     val df = spark.range(10)
     df.write.format(format).option("name", "t1").mode(SaveMode.Append).save()
@@ -189,7 +190,7 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
     checkAnswer(load("t1", None), df2.toDF())
   }
 
-  ignore("append and overwrite modes - testcat catalog") {
+  test("append and overwrite modes - testcat catalog") {
     sql(s"create table $catalogName.t1 (id bigint) using $format")
     val df = spark.range(10)
     df.write.format(format).option("name", "t1").option("catalog", catalogName)

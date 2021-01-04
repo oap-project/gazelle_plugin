@@ -71,7 +71,7 @@ class SameResultSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("FileScan: different orders of data filters and partition filters") {
+  test("FileScan: different orders of data filters and partition filters") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "") {
       Seq("orc", "json", "csv", "parquet").foreach { format =>
         withTempPath { path =>

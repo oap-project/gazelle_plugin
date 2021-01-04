@@ -14,7 +14,7 @@ import scala.concurrent.duration.NANOSECONDS
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.control.NonFatal
 import scala.collection.mutable.ArrayBuffer
-import org.apache.spark.{broadcast, SparkException}
+import org.apache.spark.{SparkException, broadcast}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.launcher.SparkLauncher
@@ -27,7 +27,7 @@ import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 import org.apache.spark.TaskContext
 import org.apache.spark.util.{SparkFatalException, ThreadUtils}
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
@@ -38,6 +38,7 @@ import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
+import org.apache.spark.sql.types.{BinaryType, ByteType, DecimalType, NullType, TimestampType}
 
 case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) extends Exchange {
 
@@ -70,6 +71,17 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
       throw new UnsupportedOperationException(
         s"ColumnarBroadcastExchange only support HashRelationMode")
   }
+  for (expr <- buildKeyExprs) {
+    ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+  }
+  val unsupportedTypes = List(NullType, TimestampType, BinaryType, ByteType)
+  output.toList.foreach(attr => {
+    if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType])
+      throw new UnsupportedOperationException(
+        s"${attr.dataType} is not supported in ColumnarBroadcastExchangeExec.")
+    CodeGeneration.getResultType(attr.dataType)
+  })
+
   @transient
   lazy val promise = Promise[broadcast.Broadcast[Any]]()
 

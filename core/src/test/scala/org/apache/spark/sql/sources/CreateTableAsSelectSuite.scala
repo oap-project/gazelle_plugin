@@ -97,6 +97,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
+  // ignored in maven test
   ignore("CREATE TABLE USING AS SELECT based on the file without write permission") {
     // setWritable(...) does not work on Windows. Please refer JDK-6728842.
     assume(!Utils.isWindows)
@@ -121,6 +122,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     path.setWritable(true)
   }
 
+  // ignored in maven test
   ignore("create a table, drop it and create another one with the same name") {
     withTable("jsonTable") {
       sql(
@@ -206,7 +208,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  ignore("create table using as select - with partitioned by") {
+  test("create table using as select - with partitioned by") {
     val catalog = spark.sessionState.catalog
     withTable("t") {
       sql(
@@ -222,7 +224,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  ignore("create table using as select - with valid number of buckets") {
+  test("create table using as select - with valid number of buckets") {
     val catalog = spark.sessionState.catalog
     withTable("t") {
       sql(
@@ -256,7 +258,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  ignore("create table using as select - with overriden max number of buckets") {
+  test("create table using as select - with overriden max number of buckets") {
     def createTableSql(numBuckets: Int): String =
       s"""
          |CREATE TABLE t USING PARQUET

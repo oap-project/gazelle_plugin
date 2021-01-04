@@ -47,7 +47,6 @@ class ParquetCompressionCodecPrecedenceSuite extends ParquetTest with SharedSpar
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-
   test("Test `spark.sql.parquet.compression.codec` config") {
     Seq("NONE", "UNCOMPRESSED", "SNAPPY", "GZIP", "LZO", "LZ4", "BROTLI", "ZSTD").foreach { c =>
       withSQLConf(SQLConf.PARQUET_COMPRESSION.key -> c) {
@@ -123,7 +122,7 @@ class ParquetCompressionCodecPrecedenceSuite extends ParquetTest with SharedSpar
     }
   }
 
-  ignore("Create parquet table with compression") {
+  test("Create parquet table with compression") {
     Seq(true, false).foreach { isPartitioned =>
       Seq("UNCOMPRESSED", "SNAPPY", "GZIP").foreach { compressionCodec =>
         checkCompressionCodec(compressionCodec, isPartitioned)

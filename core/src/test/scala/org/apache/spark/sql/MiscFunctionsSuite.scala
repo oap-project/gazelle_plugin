@@ -52,7 +52,7 @@ class MiscFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("m1one", "m1one"))
   }
 
-  ignore("version") {
+  test("version") {
     val df = sql("SELECT version()")
     checkAnswer(
       df,

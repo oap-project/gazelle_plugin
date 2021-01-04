@@ -343,7 +343,7 @@ class StreamingInnerJoinSuite extends StreamTest with StateStoreMetricsTest with
     assert(e.toString.contains("Stream-stream join without equality predicate is not supported"))
   }
 
-  ignore("stream stream self join") {
+  test("stream stream self join") {
     val input = MemoryStream[Int]
     val df = input.toDF
     val join =

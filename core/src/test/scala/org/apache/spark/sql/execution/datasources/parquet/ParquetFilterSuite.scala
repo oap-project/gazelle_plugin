@@ -64,6 +64,29 @@ import org.apache.spark.util.{AccumulatorContext, AccumulatorV2}
  */
 abstract class ParquetFilterSuite extends QueryTest with ParquetTest with SharedSparkSession {
 
+  override protected def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
+
   protected def createParquetFilters(
       schema: MessageType,
       caseSensitive: Option[Boolean] = None): ParquetFilters =
@@ -224,7 +247,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - boolean") {
+  test("filter pushdown - boolean") {
     val data = (true :: false :: Nil).map(b => Tuple1.apply(Option(b)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -243,7 +266,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - tinyint") {
+  test("filter pushdown - tinyint") {
     val data = (1 to 4).map(i => Tuple1(Option(i.toByte)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -279,7 +302,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - smallint") {
+  test("filter pushdown - smallint") {
     val data = (1 to 4).map(i => Tuple1(Option(i.toShort)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -315,7 +338,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - integer") {
+  test("filter pushdown - integer") {
     val data = (1 to 4).map(i => Tuple1(Option(i)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -351,7 +374,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - long") {
+  test("filter pushdown - long") {
     val data = (1 to 4).map(i => Tuple1(Option(i.toLong)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -387,7 +410,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - float") {
+  test("filter pushdown - float") {
     val data = (1 to 4).map(i => Tuple1(Option(i.toFloat)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -423,7 +446,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - double") {
+  test("filter pushdown - double") {
     val data = (1 to 4).map(i => Tuple1(Option(i.toDouble)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -459,7 +482,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - string") {
+  test("filter pushdown - string") {
     val data = (1 to 4).map(i => Tuple1(Option(i.toString)))
     import testImplicits._
     withNestedDataFrame(data.toDF()) { case (inputDF, colName, resultFun) =>
@@ -495,7 +518,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - binary") {
+  test("filter pushdown - binary") {
     implicit class IntToBinary(int: Int) {
       def b: Array[Byte] = int.toString.getBytes(StandardCharsets.UTF_8)
     }
@@ -536,7 +559,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - date") {
+  test("filter pushdown - date") {
     implicit class StringToDate(s: String) {
       def date: Date = Date.valueOf(s)
     }
@@ -601,7 +624,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - timestamp") {
+  test("filter pushdown - timestamp") {
     Seq(true, false).foreach { java8Api =>
       withSQLConf(SQLConf.DATETIME_JAVA8API_ENABLED.key -> java8Api.toString) {
         // spark.sql.parquet.outputTimestampType = TIMESTAMP_MILLIS
@@ -642,7 +665,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("filter pushdown - decimal") {
+  test("filter pushdown - decimal") {
     Seq(
       (false, Decimal.MAX_INT_DIGITS), // int32Writer
       (false, Decimal.MAX_LONG_DIGITS), // int64Writer
@@ -725,7 +748,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-6554: don't push down predicates which reference partition columns") {
+  test("SPARK-6554: don't push down predicates which reference partition columns") {
     import testImplicits._
 
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
@@ -742,7 +765,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-10829: Filter combine partition key and attribute doesn't work in DataSource scan") {
+  test("SPARK-10829: Filter combine partition key and attribute doesn't work in DataSource scan") {
     import testImplicits._
 
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
@@ -758,8 +781,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
       }
     }
   }
-
-  ignore("SPARK-12231: test the filter and empty project in partitioned DataSource scan") {
+  test("SPARK-12231: test the filter and empty project in partitioned DataSource scan") {
     import testImplicits._
 
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
@@ -778,7 +800,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-12231: test the new projection in partitioned DataSource scan") {
+  test("SPARK-12231: test the new projection in partitioned DataSource scan") {
     import testImplicits._
 
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
@@ -800,11 +822,12 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
   }
 
 
-  ignore("Filter applied on merged Parquet schema with new column should work") {
+  test("Filter applied on merged Parquet schema with new column should work") {
     import testImplicits._
     withAllParquetReaders {
       withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true",
-        SQLConf.PARQUET_SCHEMA_MERGING_ENABLED.key -> "true") {
+        SQLConf.PARQUET_SCHEMA_MERGING_ENABLED.key -> "true",
+        SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
         withTempPath { dir =>
           val path1 = s"${dir.getCanonicalPath}/table1"
           (1 to 3).map(i => (i, i.toString)).toDF("a", "b").write.parquet(path1)
@@ -835,7 +858,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
   }
 
   // The unsafe row RecordReader does not support row by row filtering so run it with it disabled.
-  ignore("SPARK-11661 Still pushdown filters returned by unhandledFilters") {
+  test("SPARK-11661 Still pushdown filters returned by unhandledFilters") {
     import testImplicits._
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
@@ -854,7 +877,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-12218: 'Not' is included in Parquet filter pushdown") {
+  test("SPARK-12218: 'Not' is included in Parquet filter pushdown") {
     import testImplicits._
 
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
@@ -1072,6 +1095,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
+  // ignored in maven test
   test("SPARK-27698 Convertible Parquet filter predicates") {
     val schema = StructType(Seq(
       StructField("a", IntegerType, nullable = false),
@@ -1194,7 +1218,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-16371 Do not push down filters when inner name and outer name are the same") {
+  test("SPARK-16371 Do not push down filters when inner name and outer name are the same") {
     import testImplicits._
     withParquetDataFrame((1 to 4).map(i => Tuple1(Tuple1(i))).toDF()) { implicit df =>
       // Here the schema becomes as below:
@@ -1209,7 +1233,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("Filters should be pushed down for vectorized Parquet reader at row group level") {
+  test("Filters should be pushed down for vectorized Parquet reader at row group level") {
     import testImplicits._
 
     withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true",
@@ -1238,23 +1262,25 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-17213: Broken Parquet filter push-down for string columns") {
+  test("SPARK-17213: Broken Parquet filter push-down for string columns") {
     withAllParquetReaders {
       withTempPath { dir =>
-        import testImplicits._
+        withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+          import testImplicits._
 
-        val path = dir.getCanonicalPath
-        // scalastyle:off nonascii
-        Seq("a", "é").toDF("name").write.parquet(path)
-        // scalastyle:on nonascii
+          val path = dir.getCanonicalPath
+          // scalastyle:off nonascii
+          Seq("a", "é").toDF("name").write.parquet(path)
+          // scalastyle:on nonascii
 
-        assert(spark.read.parquet(path).where("name > 'a'").count() == 1)
-        assert(spark.read.parquet(path).where("name >= 'a'").count() == 2)
+          assert(spark.read.parquet(path).where("name > 'a'").count() == 1)
+          assert(spark.read.parquet(path).where("name >= 'a'").count() == 2)
 
-        // scalastyle:off nonascii
-        assert(spark.read.parquet(path).where("name < 'é'").count() == 1)
-        assert(spark.read.parquet(path).where("name <= 'é'").count() == 2)
-        // scalastyle:on nonascii
+          // scalastyle:off nonascii
+          assert(spark.read.parquet(path).where("name < 'é'").count() == 1)
+          assert(spark.read.parquet(path).where("name <= 'é'").count() == 2)
+          // scalastyle:on nonascii
+        }
       }
     }
   }
@@ -1264,8 +1290,8 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
 
     withAllParquetReaders {
       withSQLConf(
-          SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> true.toString,
-          SQLConf.SUPPORT_QUOTED_REGEX_COLUMN_NAME.key -> "false") {
+        SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> true.toString,
+        SQLConf.SUPPORT_QUOTED_REGEX_COLUMN_NAME.key -> "false") {
         withTempPath { path =>
           Seq(Some(1), None).toDF("col.dots").write.parquet(path.getAbsolutePath)
           val readBack = spark.read.parquet(path.getAbsolutePath).where("`col.dots` IS NOT NULL")
@@ -1274,10 +1300,10 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
       }
 
       withSQLConf(
-          // Makes sure disabling 'spark.sql.parquet.recordFilter' still enables
-          // row group level filtering.
-          SQLConf.PARQUET_RECORD_FILTER_ENABLED.key -> "false",
-          SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
+        // Makes sure disabling 'spark.sql.parquet.recordFilter' still enables
+        // row group level filtering.
+        SQLConf.PARQUET_RECORD_FILTER_ENABLED.key -> "false",
+        SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
 
         withTempPath { path =>
           val data = (1 to 1024)
@@ -1323,7 +1349,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-23852: Broken Parquet push-down for partially-written stats") {
+  test("SPARK-23852: Broken Parquet push-down for partially-written stats") {
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       // parquet-1217.parquet contains a single column with values -1, 0, 1, 2 and null.
       // The row-group statistics include null counts, but not min and max values, which
@@ -1541,7 +1567,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-25207: exception when duplicate fields in case-insensitive mode") {
+  test("SPARK-25207: exception when duplicate fields in case-insensitive mode") {
     withTempPath { dir =>
       val count = 10
       val tableName = "spark_25207"
@@ -1571,7 +1597,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
-  ignore("SPARK-30826: case insensitivity of StringStartsWith attribute") {
+  test("SPARK-30826: case insensitivity of StringStartsWith attribute") {
     import testImplicits._
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "false") {
       withTable("t1") {
@@ -1596,22 +1622,6 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
 class ParquetV1FilterSuite extends ParquetFilterSuite {
   override protected def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
 
   override def checkFilterPredicate(
@@ -1691,22 +1701,6 @@ class ParquetV2FilterSuite extends ParquetFilterSuite {
   // TODO: enable Parquet V2 write path after file source V2 writers are workable.
   override protected def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
   override def checkFilterPredicate(

@@ -33,8 +33,9 @@ import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
-  val columnarConf = ColumnarPluginConfig.getConf(conf)
+  val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getConf(conf)
   var isSupportAdaptive: Boolean = true
+  val testing: Boolean = columnarConf.isTesting
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
@@ -42,22 +43,29 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: RowGuard =>
       val actualPlan = plan.child match {
         case p: BroadcastHashJoinExec =>
-          p.withNewChildren(p.children.map(child =>
-            child match {
-              case RowGuard(queryStage: BroadcastQueryStageExec) =>
-                fallBackBroadcastQueryStage(queryStage)
-              case queryStage: BroadcastQueryStageExec =>
-                fallBackBroadcastQueryStage(queryStage)
-              case other => other
-            }))
+          p.withNewChildren(p.children.map {
+            case RowGuard(queryStage: BroadcastQueryStageExec) =>
+              fallBackBroadcastQueryStage(queryStage)
+            case queryStage: BroadcastQueryStageExec =>
+              fallBackBroadcastQueryStage(queryStage)
+            case plan: BroadcastExchangeExec =>
+              // if BroadcastHashJoin is row-based, BroadcastExchange should also be row-based
+              RowGuard(plan)
+            case other => other
+          })
         case other =>
           other
       }
       logDebug(s"Columnar Processing for ${actualPlan.getClass} is under RowGuard.")
       actualPlan.withNewChildren(actualPlan.children.map(replaceWithColumnarPlan))
     case plan: BatchScanExec =>
-      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarBatchScanExec(plan.output, plan.scan)
+      if (testing) {
+        // disable ColumnarBatchScanExec according to config
+        plan
+      } else {
+        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+        new ColumnarBatchScanExec(plan.output, plan.scan)
+      }
     case plan: ProjectExec =>
       val columnarPlan = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")

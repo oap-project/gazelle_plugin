@@ -325,7 +325,7 @@ abstract class StatisticsCollectionTestBase extends QueryTest with SQLTestUtils 
   }
 
   // This test will be run twice: with and without Hive support
-  ignore("conversion from CatalogStatistics to Statistics") {
+  test("conversion from CatalogStatistics to Statistics") {
     withTable("ds_tbl", "hive_tbl") {
       // Test data source table
       checkStatsConversion(tableName = "ds_tbl", isDatasourceTable = true)

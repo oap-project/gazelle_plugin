@@ -147,6 +147,7 @@ class ColumnarAdaptiveQueryExecSuite
     }
   }
 
+  // ignored in maven test
   ignore("SPARK-29544: adaptive skew join with different join types") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",

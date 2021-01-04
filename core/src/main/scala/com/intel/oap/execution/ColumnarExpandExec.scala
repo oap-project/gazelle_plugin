@@ -51,6 +51,9 @@ case class ColumnarExpandExec(
 
   override def supportsColumnar = true
 
+  // build check for projection
+  projections.map(proj => ColumnarProjection.buildCheck(originalInputAttributes, proj))
+
   protected override def doExecute(): RDD[InternalRow] =
     throw new UnsupportedOperationException("doExecute is not supported in ColumnarExpandExec.")
 

@@ -74,6 +74,9 @@ class DatasetSuite extends QueryTest
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   private implicit val ordering = Ordering.by((c: ClassData) => c.a -> c.b)
 
@@ -266,7 +269,7 @@ class DatasetSuite extends QueryTest
       OtherTuple("a", 1), OtherTuple("b", 2), OtherTuple("c", 3))
   }
 
-  ignore("map and group by with class data") {
+  test("map and group by with class data") {
     // We inject a group by here to make sure this test case is future proof
     // when we implement better pipelining and local execution mode.
     val ds: Dataset[(ClassData, Long)] = Seq(ClassData("one", 1), ClassData("two", 2)).toDS()
@@ -411,14 +414,14 @@ class DatasetSuite extends QueryTest
     }
   }
 
-  ignore("filter") {
+  test("filter") {
     val ds = Seq(("a", 1), ("b", 2), ("c", 3)).toDS()
     checkDataset(
       ds.filter(_._1 == "b"),
       ("b", 2))
   }
 
-  ignore("filter and then select") {
+  test("filter and then select") {
     val ds = Seq(("a", 1), ("b", 2), ("c", 3)).toDS()
     checkDataset(
       ds.filter(_._1 == "b").select(expr("_1").as[String]),
@@ -450,7 +453,7 @@ class DatasetSuite extends QueryTest
     assert(ds.reduce((a, b) => ("sum", a._2 + b._2)) == (("sum", 6)))
   }
 
-  ignore("joinWith, flat schema") {
+  test("joinWith, flat schema") {
     val ds1 = Seq(1, 2, 3).toDS().as("a")
     val ds2 = Seq(1, 2).toDS().as("b")
 
@@ -468,7 +471,7 @@ class DatasetSuite extends QueryTest
       (1, 1), (2, 2))
   }
 
-  ignore("joinWith tuple with primitive, expression") {
+  test("joinWith tuple with primitive, expression") {
     val ds1 = Seq(1, 1, 2).toDS()
     val ds2 = Seq(("a", 1), ("b", 2)).toDS()
 
@@ -490,7 +493,7 @@ class DatasetSuite extends QueryTest
       (1, ("a", 1)), (1, ("a", 1)), (2, ("b", 2)))
   }
 
-  ignore("joinWith class with primitive, toDF") {
+  test("joinWith class with primitive, toDF") {
     val ds1 = Seq(1, 1, 2).toDS()
     val ds2 = Seq(ClassData("a", 1), ClassData("b", 2)).toDS()
 
@@ -585,7 +588,7 @@ class DatasetSuite extends QueryTest
       3 -> "abcxyz", 5 -> "hello")
   }
 
-  ignore("groupBy single field class, count") {
+  test("groupBy single field class, count") {
     val ds = Seq("abc", "xyz", "hello").toDS()
     val count = ds.groupByKey(s => Tuple1(s.length)).count()
 
@@ -789,7 +792,7 @@ class DatasetSuite extends QueryTest
     checkAnswer(sampleDF.select(simpleUdf($"id")), List.fill(sampleDF.count.toInt)(Row(a)))
   }
 
-  ignore("SPARK-11436: we should rebind right encoder when join 2 datasets") {
+  test("SPARK-11436: we should rebind right encoder when join 2 datasets") {
     val ds1 = Seq("1", "2").toDS().as("a")
     val ds2 = Seq(2, 3).toDS().as("b")
 
@@ -808,7 +811,7 @@ class DatasetSuite extends QueryTest
     assert(ds.toString == "[_1: int, _2: int]")
   }
 
-  ignore("Kryo encoder") {
+  test("Kryo encoder") {
     implicit val kryoEncoder = Encoders.kryo[KryoData]
     val ds = Seq(KryoData(1), KryoData(2)).toDS()
 
@@ -816,7 +819,7 @@ class DatasetSuite extends QueryTest
       Set((KryoData(1), 1L), (KryoData(2), 1L)))
   }
 
-  ignore("Kryo encoder self join") {
+  test("Kryo encoder self join") {
     implicit val kryoEncoder = Encoders.kryo[KryoData]
     val ds = Seq(KryoData(1), KryoData(2)).toDS()
     assert(ds.joinWith(ds, lit(true), "cross").collect().toSet ==
@@ -836,7 +839,7 @@ class DatasetSuite extends QueryTest
     assert(e.contains("cannot cast double to binary"))
   }
 
-  ignore("Java encoder") {
+  test("Java encoder") {
     implicit val kryoEncoder = Encoders.javaSerialization[JavaData]
     val ds = Seq(JavaData(1), JavaData(2)).toDS()
 
@@ -844,7 +847,7 @@ class DatasetSuite extends QueryTest
       Set((JavaData(1), 1L), (JavaData(2), 1L)))
   }
 
-  ignore("Java encoder self join") {
+  test("Java encoder self join") {
     implicit val kryoEncoder = Encoders.javaSerialization[JavaData]
     val ds = Seq(JavaData(1), JavaData(2)).toDS()
     assert(ds.joinWith(ds, lit(true), "cross").collect().toSet ==
@@ -967,7 +970,7 @@ class DatasetSuite extends QueryTest
         "but failed as the number of fields does not line up.")
   }
 
-  ignore("SPARK-13440: Resolving option fields") {
+  test("SPARK-13440: Resolving option fields") {
     val df = Seq(1, 2, 3).toDS()
     val ds = df.as[Option[Int]]
     checkDataset(
@@ -1011,7 +1014,7 @@ class DatasetSuite extends QueryTest
     checkDataset(wideDF.map(_.getLong(0)), 0L until 10 : _*)
   }
 
-  ignore("SPARK-14838: estimating sizeInBytes in operators with ObjectProducer shouldn't fail") {
+  test("SPARK-14838: estimating sizeInBytes in operators with ObjectProducer shouldn't fail") {
     val dataset = Seq(
       (0, 3, 54f),
       (0, 4, 44f),
@@ -1124,7 +1127,7 @@ class DatasetSuite extends QueryTest
     checkShowString(ds, expected)
   }
 
-  ignore("SPARK-15550 Dataset.show() should show inner nested products as rows") {
+  test("SPARK-15550 Dataset.show() should show inner nested products as rows") {
     val ds = Seq(
       NestedStruct(ClassData("foo", 1)),
       NestedStruct(ClassData("bar", 2))
@@ -1191,7 +1194,7 @@ class DatasetSuite extends QueryTest
     checkShowString(ds, expected)
   }
 
-  ignore(
+  test(
     "SPARK-15112: EmbedDeserializerInFilter should not optimize plan fragment that changes schema"
   ) {
     val ds = Seq(1 -> "foo", 2 -> "bar").toDF("b", "a").as[ClassData]
@@ -1205,7 +1208,7 @@ class DatasetSuite extends QueryTest
     }
   }
 
-  ignore("mapped dataset should resolve duplicated attributes for self join") {
+  test("mapped dataset should resolve duplicated attributes for self join") {
     val ds = Seq(1, 2, 3).toDS().map(_ + 1)
     val ds1 = ds.as("d1")
     val ds2 = ds.as("d2")
@@ -1215,7 +1218,7 @@ class DatasetSuite extends QueryTest
     checkDatasetUnorderly(ds1.except(ds1))
   }
 
-  ignore("SPARK-15441: Dataset outer join") {
+  test("SPARK-15441: Dataset outer join") {
     val left = Seq(ClassData("a", 1), ClassData("b", 2)).toDS().as("left")
     val right = Seq(ClassData("x", 2), ClassData("y", 3)).toDS().as("right")
     val joined = left.joinWith(right, $"left.b" === $"right.b", "left")
@@ -1250,7 +1253,7 @@ class DatasetSuite extends QueryTest
     assert(e.getMessage.contains("top level Product or row object"))
   }
 
-  ignore("dropDuplicates") {
+  test("dropDuplicates") {
     val ds = Seq(("a", 1), ("a", 2), ("b", 1), ("a", 1)).toDS()
     checkDataset(
       ds.dropDuplicates("_1"),
@@ -1263,7 +1266,7 @@ class DatasetSuite extends QueryTest
       ("a", 1), ("a", 2), ("b", 1))
   }
 
-  ignore("dropDuplicates: columns with same column name") {
+  test("dropDuplicates: columns with same column name") {
     val ds1 = Seq(("a", 1), ("a", 2), ("b", 1), ("a", 1)).toDS()
     val ds2 = Seq(("a", 1), ("a", 2), ("b", 1), ("a", 1)).toDS()
     // The dataset joined has two columns of the same name "_2".
@@ -1677,7 +1680,7 @@ class DatasetSuite extends QueryTest
     checkDataset(data.toDS(), data: _*)
   }
 
-  ignore("SPARK-23614: Union produces incorrect results when caching is used") {
+  test("SPARK-23614: Union produces incorrect results when caching is used") {
     val cached = spark.createDataset(Seq(TestDataUnion(1, 2, 3), TestDataUnion(4, 5, 6))).cache()
     val group1 = cached.groupBy("x").agg(min(col("y")) as "value")
     val group2 = cached.groupBy("x").agg(min(col("z")) as "value")
@@ -1775,14 +1778,14 @@ class DatasetSuite extends QueryTest
       None, None, Some((3, 4)))
   }
 
-  ignore("SPARK-24762: joinWith on Option[Product]") {
+  test("SPARK-24762: joinWith on Option[Product]") {
     val ds1 = Seq(Some((1, 2)), Some((2, 3)), None).toDS().as("a")
     val ds2 = Seq(Some((1, 2)), Some((2, 3)), None).toDS().as("b")
     val joined = ds1.joinWith(ds2, $"a.value._1" === $"b.value._2", "inner")
     checkDataset(joined, (Some((2, 3)), Some((1, 2))))
   }
 
-  ignore("SPARK-24762: typed agg on Option[Product] type") {
+  test("SPARK-24762: typed agg on Option[Product] type") {
     val ds = Seq(Some((1, 2)), Some((2, 3)), Some((1, 3))).toDS()
     assert(ds.groupByKey(_.get._1).count().collect() === Seq((1, 2), (2, 1)))
 
@@ -1798,7 +1801,7 @@ class DatasetSuite extends QueryTest
     checkDatasetUnorderly(agg, (false, 1L, 2L), (true, 5L, 7L))
   }
 
-  ignore("SPARK-25942: typed aggregation on product type") {
+  test("SPARK-25942: typed aggregation on product type") {
     val ds = Seq((1, 2), (2, 3), (3, 4)).toDS()
     val agg = ds.groupByKey(x => x).agg(sum("_1").as[Long], sum($"_2" + 1).as[Long])
     checkDatasetUnorderly(agg, ((1, 2), 1L, 3L), ((2, 3), 2L, 4L), ((3, 4), 3L, 5L))
@@ -1821,7 +1824,7 @@ class DatasetSuite extends QueryTest
     checkAnswer(ds.select("x"), Seq(Row(1), Row(2)))
   }
 
-  ignore("SPARK-26233: serializer should enforce decimal precision and scale") {
+  test("SPARK-26233: serializer should enforce decimal precision and scale") {
     val s = StructType(Seq(StructField("a", StringType), StructField("b", DecimalType(38, 8))))
     val encoder = RowEncoder(s)
     implicit val uEnc = encoder

@@ -49,13 +49,16 @@ class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   test("test simple types") {
     val df = sparkContext.parallelize(Seq((1, 2))).toDF("a", "b")
     assert(df.select(struct("a", "b")).first().getStruct(0) === Row(1, 2))
   }
 
-  ignore("test struct type") {
+  test("test struct type") {
     val struct = Row(1, 2L, 3.0F, 3.0)
     val data = sparkContext.parallelize(Seq(Row(1, struct)))
 
@@ -72,7 +75,7 @@ class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
     assert(df.select("b").first() === Row(struct))
   }
 
-  ignore("test nested struct type") {
+  test("test nested struct type") {
     val innerStruct = Row(1, "abcd")
     val outerStruct = Row(1, 2L, 3.0F, 3.0, innerStruct, "efg")
     val data = sparkContext.parallelize(Seq(Row(1, outerStruct)))
@@ -108,7 +111,7 @@ class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df, row)
   }
 
-  ignore("access cache multiple times") {
+  test("access cache multiple times") {
     val df0 = sparkContext.parallelize(Seq(1, 2, 3), 1).toDF("x").cache
     df0.count
     val df1 = df0.filter("x > 1")
@@ -123,7 +126,7 @@ class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("access only some column of the all of columns") {
+  test("access only some column of the all of columns") {
     val df = spark.range(1, 10).map(i => (i, (i + 1).toDouble)).toDF("l", "d")
     df.cache
     df.count

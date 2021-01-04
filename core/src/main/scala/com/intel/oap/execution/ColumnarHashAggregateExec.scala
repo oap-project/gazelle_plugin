@@ -140,6 +140,13 @@ case class ColumnarHashAggregateExec(
         (List(), "")
       }
     } else {
+      try {
+        ColumnarAggregation.buildCheck(groupingExpressions, child.output,
+                                       aggregateExpressions, resultExpressions)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw e
+      }
       (List(), "")
     }
   listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))

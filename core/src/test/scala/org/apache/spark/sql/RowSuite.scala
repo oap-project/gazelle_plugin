@@ -73,7 +73,7 @@ class RowSuite extends SparkFunSuite with SharedSparkSession {
     assert(row.isNullAt(0))
   }
 
-  ignore("get values by field name on Row created via .toDF") {
+  test("get values by field name on Row created via .toDF") {
     val row = Seq((1, Seq(1))).toDF("a", "b").first()
     assert(row.getAs[Int]("a") === 1)
     assert(row.getAs[Seq[Int]]("b") === Seq(1))

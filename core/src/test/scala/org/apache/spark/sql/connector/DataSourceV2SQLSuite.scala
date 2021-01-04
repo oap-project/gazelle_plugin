@@ -57,6 +57,7 @@ class DataSourceV2SQLSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   private val v2Source = classOf[FakeV2Provider].getName
   override protected val v2Format = v2Source
@@ -673,7 +674,7 @@ class DataSourceV2SQLSuite
     assert(t.isInstanceOf[V1Table], "V1 table wasn't returned as an unresolved table")
   }
 
-  ignore("CreateTableAsSelect: nullable schema") {
+  test("CreateTableAsSelect: nullable schema") {
     val basicCatalog = catalog("testcat").asTableCatalog
     val atomicCatalog = catalog("testcat_atomic").asTableCatalog
     val basicIdentifier = "testcat.table_name"
@@ -726,7 +727,7 @@ class DataSourceV2SQLSuite
     assert(catalog("testcat").asTableCatalog.tableExists(ident) === false)
   }
 
-  ignore("DropTable: table qualified with the session catalog name") {
+  test("DropTable: table qualified with the session catalog name") {
     val ident = Identifier.of(Array("default"), "tbl")
     sql("CREATE TABLE tbl USING json AS SELECT 1 AS i")
     assert(catalog("spark_catalog").asTableCatalog.tableExists(ident) === true)
@@ -741,7 +742,7 @@ class DataSourceV2SQLSuite
     sql(s"DROP TABLE IF EXISTS testcat.db.notbl")
   }
 
-  ignore("Relation: basic") {
+  test("Relation: basic") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
       sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
@@ -750,7 +751,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("Relation: SparkSession.table()") {
+  test("Relation: SparkSession.table()") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
       sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
@@ -758,7 +759,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("Relation: CTE") {
+  test("Relation: CTE") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
       sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
@@ -782,7 +783,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("Relation: join tables in 2 catalogs") {
+  test("Relation: join tables in 2 catalogs") {
     val t1 = "testcat.ns1.ns2.tbl"
     val t2 = "testcat2.v2tbl"
     withTable(t1, t2) {
@@ -801,7 +802,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("qualified column names for v2 tables") {
+  test("qualified column names for v2 tables") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, point struct<x: bigint, y: bigint>) USING foo")
@@ -830,7 +831,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("qualified column names for v1 tables") {
+  test("qualified column names for v1 tables") {
     Seq(true, false).foreach { useV1Table =>
       val format = if (useV1Table) "json" else v2Format
       if (useV1Table) {
@@ -854,7 +855,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("InsertInto: append - across catalog") {
+  test("InsertInto: append - across catalog") {
     val t1 = "testcat.ns1.ns2.tbl"
     val t2 = "testcat2.db.tbl"
     withTable(t1, t2) {
@@ -1734,7 +1735,7 @@ class DataSourceV2SQLSuite
     assert(e.message.contains("REPLACE TABLE is only supported with v2 tables"))
   }
 
-  ignore("DeleteFrom: basic - delete all") {
+  test("DeleteFrom: basic - delete all") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1744,7 +1745,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("DeleteFrom: basic - delete with where clause") {
+  test("DeleteFrom: basic - delete with where clause") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1755,7 +1756,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("DeleteFrom: delete from aliased target table") {
+  test("DeleteFrom: delete from aliased target table") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1766,7 +1767,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("DeleteFrom: normalize attribute names") {
+  test("DeleteFrom: normalize attribute names") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1777,7 +1778,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("DeleteFrom: fail if has subquery") {
+  test("DeleteFrom: fail if has subquery") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -2228,7 +2229,7 @@ class DataSourceV2SQLSuite
       "The namespace in session catalog must have exactly one name part: default.ns1.ns2.fun"))
   }
 
-  ignore("global temp view should not be masked by v2 catalog") {
+  test("global temp view should not be masked by v2 catalog") {
     val globalTempDB = spark.sessionState.conf.getConf(StaticSQLConf.GLOBAL_TEMP_DATABASE)
     spark.conf.set(s"spark.sql.catalog.$globalTempDB", classOf[InMemoryTableCatalog].getName)
 
@@ -2275,7 +2276,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("SPARK-30001: session catalog name can be specified in SQL statements") {
+  test("SPARK-30001: session catalog name can be specified in SQL statements") {
     // unset this config to use the default v2 session catalog.
     spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
 
@@ -2286,7 +2287,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("SPARK-30885: v1 table name should be fully qualified") {
+  test("SPARK-30885: v1 table name should be fully qualified") {
     def assertWrongTableIdent(): Unit = {
       withTable("t") {
         sql("CREATE TABLE t USING json AS SELECT 1 AS i")
@@ -2324,7 +2325,7 @@ class DataSourceV2SQLSuite
     assertWrongTableIdent()
   }
 
-  ignore("SPARK-30259: session catalog can be specified in CREATE TABLE AS SELECT command") {
+  test("SPARK-30259: session catalog can be specified in CREATE TABLE AS SELECT command") {
     withTable("tbl") {
       val ident = Identifier.of(Array("default"), "tbl")
       sql("CREATE TABLE spark_catalog.default.tbl USING json AS SELECT 1 AS i")
@@ -2340,7 +2341,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("SPARK-30094: current namespace is used during table resolution") {
+  test("SPARK-30094: current namespace is used during table resolution") {
     // unset this config to use the default v2 session catalog.
     spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
 
@@ -2355,7 +2356,7 @@ class DataSourceV2SQLSuite
     }
   }
 
-  ignore("SPARK-30284: CREATE VIEW should track the current catalog and namespace") {
+  test("SPARK-30284: CREATE VIEW should track the current catalog and namespace") {
     // unset this config to use the default v2 session catalog.
     spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
     val sessionCatalogName = CatalogManager.SESSION_CATALOG_NAME
@@ -2467,7 +2468,7 @@ class DataSourceV2SQLSuite
     assert(e2.message.contains("It is not allowed to add database prefix"))
   }
 
-  ignore("SPARK-31015: star expression should work for qualified column names for v2 tables") {
+  test("SPARK-31015: star expression should work for qualified column names for v2 tables") {
     val t = "testcat.ns1.ns2.tbl"
     withTable(t) {
       sql(s"CREATE TABLE $t (id bigint, name string) USING foo")

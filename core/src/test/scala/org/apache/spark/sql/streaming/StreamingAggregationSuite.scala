@@ -121,7 +121,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     )
   }
 
-  ignore("count distinct") {
+  test("count distinct") {
     val inputData = MemoryStream[(Int, Seq[Int])]
 
     val aggregated =
@@ -380,7 +380,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     )
   }
 
-  ignore("prune results by current_time, complete mode") {
+  test("prune results by current_time, complete mode") {
     import testImplicits._
     val clock = new StreamManualClock
     val inputData = MemoryStream[Long]
@@ -432,7 +432,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     )
   }
 
-  ignore("prune results by current_date, complete mode") {
+  test("prune results by current_date, complete mode") {
     import testImplicits._
     val clock = new StreamManualClock
     val tz = TimeZone.getDefault.getID
@@ -481,7 +481,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     )
   }
 
-  ignore("SPARK-19690: do not convert batch aggregation in streaming query " +
+  test("SPARK-19690: do not convert batch aggregation in streaming query " +
     "to streaming") {
     val streamInput = MemoryStream[Int]
     val batchDF = Seq(1, 2, 3, 4, 5)
@@ -546,7 +546,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     true
   }
 
-  ignore("SPARK-21977: coalesce(1) with 0 partition RDD should be " +
+  test("SPARK-21977: coalesce(1) with 0 partition RDD should be " +
     "repartitioned to 1") {
     val inputSource = new BlockRDDBackedSource(spark)
     MockSourceProvider.withMockSources(inputSource) {
@@ -585,7 +585,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     }
   }
 
-  ignore("SPARK-21977: coalesce(1) with aggregation should still be " +
+  test("SPARK-21977: coalesce(1) with aggregation should still be " +
     "repartitioned when it has non-empty grouping keys") {
     val inputSource = new BlockRDDBackedSource(spark)
     MockSourceProvider.withMockSources(inputSource) {
@@ -638,7 +638,7 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     }
   }
 
-  ignore("SPARK-22230: last should change with new batches") {
+  test("SPARK-22230: last should change with new batches") {
     val input = MemoryStream[Int]
 
     val aggregated = input.toDF().agg(last('value))
