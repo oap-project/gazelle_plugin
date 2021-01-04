@@ -26,6 +26,7 @@
 
 #include "precompile/type_traits.h"
 #include "third_party/row_wise_memory/unsafe_row.h"
+#include "third_party/row_wise_memory/accessible_unsafe_row.h"
 
 namespace sparkcolumnarplugin {
 namespace precompile {
@@ -34,8 +35,13 @@ class UnsafeArray {
   UnsafeArray() {}
   virtual ~UnsafeArray() {}
 
-  virtual arrow::Status Append(int i, std::shared_ptr<UnsafeRow>* unsafe_row) {
-    return arrow::Status::NotImplemented("UnsafeArray Append is abstract.");
+  virtual arrow::Status Append(
+      int i, std::shared_ptr<UnsafeRow>* unsafe_row) {
+    return arrow::Status::NotImplemented("UnsafeArray Append to UnsafeRow is abstract.");
+  }
+  virtual arrow::Status Append(
+      int i, std::shared_ptr<AccessibleUnsafeRow>* accessible_unsafe_row) {
+    return arrow::Status::NotImplemented("UnsafeArray Append to AccessibleUnsafeRow is abstract.");
   }
 };
 
@@ -60,6 +66,16 @@ class TypedUnsafeArray<DataType, enable_if_number<DataType>> : public UnsafeArra
     } else {
       auto v = typed_array_->GetView(i);
       appendToUnsafeRow((*unsafe_row).get(), idx_, v);
+    }
+    return arrow::Status::OK();
+  }
+  arrow::Status Append(
+      int i, std::shared_ptr<AccessibleUnsafeRow>* accessible_unsafe_row) override {
+    if (!skip_null_check_ && typed_array_->IsNull(i)) {
+      setNullAtAccessible((*accessible_unsafe_row).get(), idx_);
+    } else {
+      auto v = typed_array_->GetView(i);
+      appendToAccessibleUnsafeRow((*accessible_unsafe_row).get(), idx_, v);
     }
     return arrow::Status::OK();
   }
@@ -90,6 +106,16 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
     } else {
       auto v = typed_array_->GetString(i);
       appendToUnsafeRow((*unsafe_row).get(), idx_, v);
+    }
+    return arrow::Status::OK();
+  }
+  arrow::Status Append(
+      int i, std::shared_ptr<AccessibleUnsafeRow>* accessible_unsafe_row) override {
+    if (!skip_null_check_ && typed_array_->IsNull(i)) {
+      setNullAtAccessible((*accessible_unsafe_row).get(), idx_);
+    } else {
+      auto v = typed_array_->GetString(i);
+      appendToAccessibleUnsafeRow((*accessible_unsafe_row).get(), idx_, v);
     }
     return arrow::Status::OK();
   }
