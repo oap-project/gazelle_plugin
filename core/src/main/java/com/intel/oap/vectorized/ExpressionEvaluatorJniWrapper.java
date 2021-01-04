@@ -55,6 +55,15 @@ public class ExpressionEvaluatorJniWrapper {
         native void nativeSetBatchSize(int batch_size);
 
         /**
+         * Set native env variables NATIVESQL_METRICS_TIME
+         *
+         * @param batch_size numRows of one batch, use
+         *                   spark.sql.execution.arrow.maxRecordsPerBatch
+         */
+        native void nativeSetMetricsTime(boolean is_enable);
+
+
+        /**
          * Generates the projector module to evaluate the expressions with custom
          * configuration.
          *

@@ -53,6 +53,7 @@ class WholeStageCodeGenKernel::Impl {
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
       : ctx_(ctx) {
     int hash_relation_idx = 0;
+    enable_time_metrics_ = GetEnableTimeMetrics();
     THROW_NOT_OK(ParseNodeTree(root_node, &hash_relation_idx, &kernel_list_));
     THROW_NOT_OK(LoadJITFunction(input_field_list, output_field_list, kernel_list_,
                                  &wscg_kernel_));
@@ -73,6 +74,7 @@ class WholeStageCodeGenKernel::Impl {
   std::shared_ptr<CodeGenBase> wscg_kernel_;
   std::string signature_;
   bool is_smj_ = false;
+  bool enable_time_metrics_;
 
   arrow::Status GetArguments(std::shared_ptr<gandiva::Node> node, int i,
                              gandiva::NodeVector* node_list) {
@@ -399,10 +401,12 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     for (auto codegen_ctx : codegen_ctx_list) {
       auto tmp_idx = codegen_ctx_idx;
       codegen_ctx_idx++;
-      codes_ss << "struct timespec start_" << tmp_idx << ", end_" << tmp_idx << ";"
-               << std::endl;
-      codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &start_" << tmp_idx << ");"
-               << std::endl;
+      if (enable_time_metrics_) {
+        codes_ss << "struct timespec start_" << tmp_idx << ", end_" << tmp_idx << ";"
+                 << std::endl;
+        codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &start_" << tmp_idx << ");"
+                 << std::endl;
+      }
       codes_ss << codegen_ctx->prepare_codes << std::endl;
       if (codegen_ctx_idx < codegen_ctx_list.size()) {
         codes_ss << codegen_ctx_list[codegen_ctx_idx]->unsafe_row_prepare_codes
@@ -417,10 +421,12 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     for (int ctx_idx = codegen_ctx_list.size() - 1; ctx_idx >= 0; ctx_idx--) {
       auto codegen_ctx = codegen_ctx_list[ctx_idx];
       codes_ss << codegen_ctx->finish_codes << std::endl;
-      codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &end_" << ctx_idx << ");"
-               << std::endl;
-      codes_ss << "process_time_" << ctx_idx << " += TIME_NANO_DIFF(end_" << ctx_idx
-               << ", start_" << ctx_idx << ");" << std::endl;
+      if (enable_time_metrics_) {
+        codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &end_" << ctx_idx << ");"
+                 << std::endl;
+        codes_ss << "process_time_" << ctx_idx << " += TIME_NANO_DIFF(end_" << ctx_idx
+                 << ", start_" << ctx_idx << ");" << std::endl;
+      }
     }
     codes_ss << "} // end of for loop" << std::endl;
     codes_ss << GetProcessFinishCodes(output_field_list) << std::endl;

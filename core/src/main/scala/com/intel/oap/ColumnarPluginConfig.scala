@@ -50,6 +50,8 @@ class ColumnarPluginConfig(conf: SparkConf) {
     .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager")
   val batchSize: Int =
     conf.getInt("spark.sql.execution.arrow.maxRecordsPerBatch", defaultValue = 10000)
+  val enableMetricsTime: Boolean =
+    conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen.breakdownTime", defaultValue = false)
   val tmpFile: String =
     conf.getOption("spark.sql.columnar.tmp_dir").getOrElse(null)
   val broadcastCacheTimeout: Int =
@@ -105,6 +107,13 @@ object ColumnarPluginConfig {
       10000
     } else {
       ins.batchSize
+    }
+  }
+  def getEnableMetricsTime: Boolean = synchronized{
+    if (ins == null) {
+      false
+    } else {
+      ins.enableMetricsTime
     }
   }
   def getTempFile: String = synchronized {
