@@ -257,6 +257,7 @@ object ColumnarSortMergeJoin extends Logging {
       case (expr, i) => {
         val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
         if (s"${nativeNode.toProtobuf}".contains("fnNode")) {
+          throw new UnsupportedOperationException(s"join key with expression is not supported.")
           rkeyProjectOrdinalList += i
           Field.nullable(s"${expr}", returnType)
         } else {
