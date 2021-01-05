@@ -18,11 +18,7 @@
 name: Native SQL Engine TPC-H Suite
 
 on:
-  pull_request:
-    paths:
-      - '.github/workflows/tpch.yml'
-      - 'oap-native-sql/**'
-      - 'oap-data-source/arrow/**'
+  pull_request
 
 jobs:
   ram-usage-test:
@@ -51,7 +47,15 @@ jobs:
           sudo make install
           cd ../../java
           mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
-      - run: mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs -pl oap-native-sql/core -am
+      - name: Install Arrow datasource
+        run: |
+          cd /tmp
+          git clone https://github.com/oap-project/arrow-data-source.git
+          cd arrow-data-source
+          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+      - run: |
+          cd core/
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs
         env:
           MAVEN_OPTS: "-Xmx2048m"
           COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text.txt"
