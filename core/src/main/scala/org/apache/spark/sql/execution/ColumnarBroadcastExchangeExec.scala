@@ -190,7 +190,8 @@ class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan)
           throw e
       } finally {
         val timeout: Int = SQLConf.get.broadcastTimeout.toInt
-        relation.asInstanceOf[ColumnarHashedRelation].countDownClose(timeout)
+        if (relation != null)
+          relation.asInstanceOf[ColumnarHashedRelation].countDownClose(timeout)
       }
     }
   }
