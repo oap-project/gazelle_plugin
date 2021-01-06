@@ -233,6 +233,10 @@ object ColumnarSortMergeJoin extends Logging {
     val lkeyProjectOrdinalList = new ListBuffer[Int]()
     val lkeyFieldList: List[Field] = leftKeys.toList.zipWithIndex.map {
       case (expr, i) => {
+        //TODO(): fix this workaround
+        if (expr.isInstanceOf[AttributeReference] && expr.asInstanceOf[AttributeReference].name == "none") {
+          return
+        }
         val (nativeNode, returnType) = ConverterUtils.getColumnarFuncNode(expr)
         if (s"${nativeNode.toProtobuf}".contains("none#")) {
           throw new UnsupportedOperationException(
