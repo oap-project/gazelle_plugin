@@ -1806,14 +1806,19 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
 };
 
 arrow::Status SortArraysToIndicesKernel::Make(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::FunctionContext* ctx, 
+    std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-    std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check,
-    int result_type, std::shared_ptr<KernalBase>* out) {
-  *out = std::make_shared<SortArraysToIndicesKernel>(ctx, result_schema, sort_key_node,
-                                                     key_field_list, sort_directions,
-                                                     nulls_order, NaN_check, result_type);
+    std::vector<bool> sort_directions, 
+    std::vector<bool> nulls_order, 
+    bool NaN_check,
+    bool do_codegen,
+    int result_type, 
+    std::shared_ptr<KernalBase>* out) {
+  *out = std::make_shared<SortArraysToIndicesKernel>(
+      ctx, result_schema, sort_key_node, key_field_list, sort_directions, nulls_order, 
+      NaN_check, do_codegen, result_type);
   return arrow::Status::OK();
 }
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
@@ -1831,10 +1836,14 @@ arrow::Status SortArraysToIndicesKernel::Make(
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)
 SortArraysToIndicesKernel::SortArraysToIndicesKernel(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::FunctionContext* ctx, 
+    std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-    std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check,
+    std::vector<bool> sort_directions, 
+    std::vector<bool> nulls_order, 
+    bool NaN_check,
+    bool do_codegen,
     int result_type) {
   // sort_key_node may need to do projection
   bool pre_processed_key_ = false;
@@ -1938,19 +1947,21 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
       }
     }
   } else {
-    impl_.reset(new SortMultiplekeyKernel(ctx, result_schema, key_projector, 
+    if (do_codegen) {
+      // Will use Sort Codegen for multiple-key sort
+      impl_.reset(new Impl(ctx, result_schema, key_projector, projected_types,
+                          key_field_list, sort_directions, nulls_order, NaN_check));
+      auto status = impl_->LoadJITFunction(key_field_list, result_schema);
+      if (!status.ok()) {
+        std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
+        throw;
+      }
+    } else {
+      // Will use Sort without Codegen for multiple-key sort
+      impl_.reset(new SortMultiplekeyKernel(ctx, result_schema, key_projector, 
         key_field_list, sort_directions, nulls_order, NaN_check));
+    }
   }
-  // else {
-  //   // Will use Sort Codegen when sorting for several cols
-  //   impl_.reset(new Impl(ctx, result_schema, key_projector, projected_types,
-  //                        key_field_list, sort_directions, nulls_order, NaN_check));
-  //   auto status = impl_->LoadJITFunction(key_field_list, result_schema);
-  //   if (!status.ok()) {
-  //     std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-  //     throw;
-  //   }
-  // }
   kernel_name_ = "SortArraysToIndicesKernel";
 }
 #undef PROCESS_SUPPORTED_TYPES

@@ -50,8 +50,11 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
       "sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());    
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -135,8 +138,11 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastAsc) {
       "sort_nulls_order", {false_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -219,8 +225,11 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsFirstDesc) {
       "sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -304,8 +313,11 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastDesc) {
       "sort_nulls_order", {false_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -389,8 +401,11 @@ TEST(TestArrowComputeSort, SortTestInplaceAsc) {
       "sort_nulls_order", {false_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -474,8 +489,11 @@ TEST(TestArrowComputeSort, SortTestInplaceDesc) {
       "sort_nulls_order", {false_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -557,8 +575,11 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
       "sort_nulls_order", {TreeExprBuilder::MakeLiteral(true)}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -648,8 +669,11 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
       "sort_nulls_order", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());    
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -737,6 +761,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
       "sort_nulls_order", {TreeExprBuilder::MakeLiteral(true)}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
@@ -826,8 +852,11 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
       "sort_nulls_order", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -918,8 +947,11 @@ TEST(TestArrowComputeSort, SortTestOnekeyBooleanDesc) {
       "sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1012,8 +1044,11 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
       "sort_nulls_order", {false_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1099,8 +1134,11 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
       "sort_nulls_order", {false_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1186,8 +1224,11 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaN) {
       "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {true_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1322,8 +1363,11 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
                            true_literal, true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {true_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1432,8 +1476,11 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysUnsafeRow) {
       "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1542,8 +1589,11 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysUnsafeStr) {
       "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
