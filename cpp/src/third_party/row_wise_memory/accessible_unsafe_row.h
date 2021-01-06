@@ -150,8 +150,14 @@ struct AccessibleUnsafeRow {
       auto left = *((char*)(data + left_offset));
       int right_offset = *((int*)(row_to_compare->getData() + str_offset_cursor));
       auto right = *((char*)(row_to_compare->getData() + right_offset));
+      std::cout << "string left is: " << left << "right is: " << right << std::endl;
       return compareInternal<char>(left, right, asc, nulls_first);
+    } else if (field->type()->id() == arrow::Type::BOOL) {
+      auto left = *((bool*)(data + offset));
+      auto right = *((bool*)(row_to_compare->getData() + offset));
+      return compareInternal<bool>(left, right, asc, nulls_first);
     }
+    std::cout << "Unsupported type: " << field->type() << std::endl;
     return -1;
   }
 };
@@ -243,6 +249,7 @@ class RowComparator {
       bool nulls_first = nulls_order_[key_idx];
       int comparison = unsafe_rows_[left_array_id][left_id]->compare(
           unsafe_rows_[right_array_id][right_id], key_idx, asc, nulls_first);
+      std::cout << "comparison: " << comparison << std::endl;
       if (comparison != 2) {
         return comparison;
       }

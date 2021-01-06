@@ -78,7 +78,8 @@ class SortArraysToIndicesKernel::Impl {
        std::shared_ptr<gandiva::Projector> key_projector,
        std::vector<std::shared_ptr<arrow::DataType>> projected_types,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-       std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check)
+       std::vector<bool> sort_directions, std::vector<bool> nulls_order, 
+       bool NaN_check)
       : ctx_(ctx),
         result_schema_(result_schema),
         key_projector_(key_projector),
@@ -1584,6 +1585,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   SortMultiplekeyKernel(arrow::compute::FunctionContext* ctx,
                         std::shared_ptr<arrow::Schema> result_schema,
                         std::shared_ptr<gandiva::Projector> key_projector,
+                        std::vector<std::shared_ptr<arrow::DataType>> projected_types,
                         std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                         std::vector<bool> sort_directions, 
                         std::vector<bool> nulls_order,
@@ -1593,6 +1595,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         sort_directions_(sort_directions), 
         result_schema_(result_schema), 
         key_projector_(key_projector),
+        projected_types_(projected_types),
         key_field_list_(key_field_list),
         NaN_check_(NaN_check) {
       #ifdef DEBUG
@@ -1609,6 +1612,12 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         key_index_list_.push_back(indices[0]);
       }
       col_num_ = result_schema->num_fields();
+      int i = 0;
+      for (auto type : projected_types) {
+        auto field = arrow::field(std::to_string(i), type);
+        projected_field_list_.push_back(field);
+        i++;
+      }
   }
   ~SortMultiplekeyKernel(){}
 
@@ -1617,43 +1626,49 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
     }
+    for (int i = 0; i < col_num_; i++) {
+        cached_[i].push_back(in[i]);
+    }
+    std::vector<std::shared_ptr<UnsafeArray>> arrays;
+    std::vector<std::shared_ptr<arrow::Array>> projected_in;
     if (key_projector_) {
       // do projection here
-      std::vector<std::shared_ptr<arrow::Array>> projected_in;
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch = arrow::RecordBatch::Make(result_schema_, length, in);
       RETURN_NOT_OK(
           key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &projected_in));
-      for (int i = 0; i < col_num_; i++) {
-        cached_[i].push_back(projected_in[i]);
-      }
+      for (int i = 0; i < key_field_list_.size(); i++) {
+        std::shared_ptr<arrow::Array> col = projected_in[i];
+        std::shared_ptr<UnsafeArray> array;
+        RETURN_NOT_OK(MakeUnsafeArray(col->type(), i, col, &array));
+        arrays.push_back(array);
+      }    
     } else {
-      for (int i = 0; i < col_num_; i++) {
-        cached_[i].push_back(in[i]);
+      int i = 0;
+      for (auto idx : key_index_list_) {
+        std::shared_ptr<arrow::Array> col;
+        col = in[idx];
+        std::shared_ptr<UnsafeArray> array;
+        RETURN_NOT_OK(MakeUnsafeArray(col->type(), i++, col, &array));
+        arrays.push_back(array);
       }
     }
-    items_total_ += in[0]->length();
-    length_list_.push_back(in[0]->length());
-
-    std::vector<std::shared_ptr<UnsafeArray>> arrays;
-    int i = 0;
-    for (auto idx : key_index_list_) {
-      auto col = in[idx];
-      std::shared_ptr<UnsafeArray> array;
-      RETURN_NOT_OK(MakeUnsafeArray(col->type(), i++, col, &array));
-      arrays.push_back(array);
-    }
-
     std::vector<std::shared_ptr<AccessibleUnsafeRow>> rows_in_batch;
     for (int i = 0; i < in[0]->length(); i++) {
-      std::shared_ptr<AccessibleUnsafeRow> row = 
-          std::make_shared<AccessibleUnsafeRow>(key_field_list_);
+      std::shared_ptr<AccessibleUnsafeRow> row;
+      if (key_projector_) {
+        row = std::make_shared<AccessibleUnsafeRow>(projected_field_list_);
+      } else {
+        row = std::make_shared<AccessibleUnsafeRow>(key_field_list_);
+      }
       for (auto array : arrays) {
         RETURN_NOT_OK(array->Append(i, &row));
       }
       rows_in_batch.push_back(row);
     }
     unsafe_rows_.push_back(rows_in_batch);
+    items_total_ += in[0]->length();
+    length_list_.push_back(in[0]->length());
     return arrow::Status::OK();
   }
 
@@ -1710,7 +1725,9 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<arrow::Schema> result_schema_;
   std::shared_ptr<gandiva::Projector> key_projector_;
+  std::vector<std::shared_ptr<arrow::DataType>> projected_types_;
   std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> projected_field_list_;
   std::vector<bool> nulls_order_;
   std::vector<bool> sort_directions_;
   std::vector<int> key_index_list_;
@@ -1959,7 +1976,7 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
     } else {
       // Will use Sort without Codegen for multiple-key sort
       impl_.reset(new SortMultiplekeyKernel(ctx, result_schema, key_projector, 
-        key_field_list, sort_directions, nulls_order, NaN_check));
+        projected_types, key_field_list, sort_directions, nulls_order, NaN_check));
     }
   }
   kernel_name_ = "SortArraysToIndicesKernel";
