@@ -219,10 +219,12 @@ class WholeStageCodeGenKernel::Impl {
     int argument_id = 0;
     int level = 0;
     std::vector<std::shared_ptr<CodeGenContext>> codegen_ctx_list;
-    std::vector<std::string> input_list;
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        input_list;
     for (int i = 0; i < input_field_list.size(); i++) {
       auto name = "typed_in_col_" + std::to_string(i);
-      input_list.push_back(name);
+      auto type = input_field_list[i]->type();
+      input_list.push_back(std::make_pair(std::make_pair(name, ""), type));
     }
     for (auto kernel : kernel_list) {
       std::shared_ptr<CodeGenContext> child_codegen_ctx;
@@ -231,7 +233,7 @@ class WholeStageCodeGenKernel::Impl {
       codegen_ctx_list.push_back(child_codegen_ctx);
       input_list.clear();
       for (auto pair : child_codegen_ctx->output_list) {
-        input_list.push_back(pair.first);
+        input_list.push_back(pair);
       }
     }
     std::string codes;
@@ -474,9 +476,10 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
     std::stringstream codes_ss;
     int i = 0;
     for (auto pair : codegen_ctx->output_list) {
-      auto name = pair.first;
+      auto name = pair.first.first;
       auto type = pair.second;
       auto validity = name + "_validity";
+      codes_ss << pair.first.second << std::endl;
       codes_ss << "if (" << validity << ") {" << std::endl;
       if (type->id() == arrow::Type::STRING) {
         codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->AppendString(" << name << "));"

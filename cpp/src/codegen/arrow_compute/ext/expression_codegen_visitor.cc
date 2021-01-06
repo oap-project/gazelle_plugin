@@ -50,7 +50,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     *func_count_ = *func_count_ + 1;
 
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list, field_list_v_,
-                                               hash_relation_id_, func_count_,
+                                               hash_relation_id_, func_count_, is_local_,
                                                prepared_list_, &child_visitor, is_smj_));
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
@@ -610,7 +610,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
   auto index_pair = GetFieldIndex(this_field, field_list_v_);
   auto index = index_pair.first;
   auto arg_id = index_pair.second;
-  if (is_smj_ && input_list_.empty()) {
+  if (is_smj_ && (*input_list_).empty()) {
     ///// For inputs are SortRelation /////
     codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +
                  std::to_string(arg_id) + "_value";
@@ -651,14 +651,22 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         prepare_ss << "  }" << std::endl;
         field_type_ = sort_relation;
       } else {
-        codes_str_ = input_list_[arg_id];
+        prepare_ss << (*input_list_)[arg_id].first.second;
+        if (!is_local_) {
+          (*input_list_)[arg_id].first.second = "";
+        }
+        codes_str_ = (*input_list_)[arg_id].first.first;
         codes_validity_str_ = GetValidityName(codes_str_);
         field_type_ = right;
       }
     } else {
       ///// For Inputs are one side HashRelation and other side regular array /////
       if (field_list_v_.size() == 1) {
-        codes_str_ = input_list_[arg_id];
+        prepare_ss << (*input_list_)[arg_id].first.second;
+        if (!is_local_) {
+          (*input_list_)[arg_id].first.second = "";
+        }
+        codes_str_ = (*input_list_)[arg_id].first.first;
         codes_validity_str_ = GetValidityName(codes_str_);
       } else {
         if (index == 0) {
@@ -680,7 +688,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
           field_type_ = left;
 
         } else {
-          codes_str_ = input_list_[arg_id];
+          prepare_ss << (*input_list_)[arg_id].first.second;
+          if (!is_local_) {
+            (*input_list_)[arg_id].first.second = "";
+          }
+          codes_str_ = (*input_list_)[arg_id].first.first;
           codes_validity_str_ = GetValidityName(codes_str_);
           field_type_ = right;
         }
@@ -693,7 +705,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
     if (std::find((*prepared_list_).begin(), (*prepared_list_).end(), codes_str_) ==
         (*prepared_list_).end()) {
       (*prepared_list_).push_back(codes_str_);
-      prepare_str_ = prepare_ss.str();
+      prepare_str_ += prepare_ss.str();
     }
   }
   return arrow::Status::OK();
@@ -710,7 +722,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
     std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
     *func_count_ = *func_count_ + 1;
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list_, field_list_v_,
-                                               hash_relation_id_, func_count_,
+                                               hash_relation_id_, func_count_, is_local_,
                                                prepared_list_, &child_visitor, is_smj_));
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
@@ -779,7 +791,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) 
     std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
     *func_count_ = *func_count_ + 1;
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list_, field_list_v_,
-                                               hash_relation_id_, func_count_,
+                                               hash_relation_id_, func_count_, is_local_,
                                                prepared_list_, &child_visitor, is_smj_));
 
     prepare_str_ += child_visitor->GetPrepare();
@@ -818,7 +830,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   *func_count_ = *func_count_ + 1;
 
   RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
-                                             hash_relation_id_, func_count_,
+                                             hash_relation_id_, func_count_, is_local_,
                                              prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<int> in_list_" << cur_func_id << " = {";
@@ -858,7 +870,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   *func_count_ = *func_count_ + 1;
 
   RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
-                                             hash_relation_id_, func_count_,
+                                             hash_relation_id_, func_count_, is_local_,
                                              prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<long int> in_list_" << cur_func_id << " = {";
@@ -898,7 +910,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   *func_count_ = *func_count_ + 1;
 
   RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
-                                             hash_relation_id_, func_count_,
+                                             hash_relation_id_, func_count_, is_local_,
                                              prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<std::string> in_list_" << cur_func_id << " = {";
@@ -959,11 +971,12 @@ std::string ExpressionCodegenVisitor::GetValidityName(std::string name) {
   }
 }
 
-std::string ExpressionCodegenVisitor::GetNaNCheckStr(std::string left, std::string right, 
+std::string ExpressionCodegenVisitor::GetNaNCheckStr(std::string left, std::string right,
                                                      std::string func) {
   std::stringstream ss;
   func = " " + func + " ";
-  ss << "((std::isnan(" << left << ") && std::isnan(" << right << ")) ? (1.0 / 0.0" << func << "1.0 / 0.0) : "
+  ss << "((std::isnan(" << left << ") && std::isnan(" << right << ")) ? (1.0 / 0.0"
+     << func << "1.0 / 0.0) : "
      << "(std::isnan(" << left << ")) ? (1.0 / 0.0" << func << right << ") : "
      << "(std::isnan(" << right << ")) ? (" << left << func << "1.0 / 0.0) : "
      << "(" << left << func << right << "))";

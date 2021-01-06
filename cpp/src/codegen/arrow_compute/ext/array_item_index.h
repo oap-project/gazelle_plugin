@@ -25,18 +25,14 @@ namespace extra {
 struct ArrayItemIndex {
   uint16_t id = 0;
   uint16_t array_id = 0;
-  bool valid = true;
-  ArrayItemIndex() : array_id(0), id(0), valid(true) {}
-  ArrayItemIndex(bool valid) : array_id(0), id(0), valid(valid) {}
-  ArrayItemIndex(uint16_t array_id, uint16_t id)
-      : array_id(array_id), id(id), valid(true) {}
+  ArrayItemIndex() : array_id(0), id(0) {}
+  ArrayItemIndex(uint16_t array_id, uint16_t id) : array_id(array_id), id(id) {}
 };
 struct ArrayItemIndexS {
   uint16_t id = 0;
   uint16_t array_id = 0;
   ArrayItemIndexS() : array_id(0), id(0) {}
-  ArrayItemIndexS(uint16_t array_id, uint16_t id)
-      : array_id(array_id), id(id) {}
+  ArrayItemIndexS(uint16_t array_id, uint16_t id) : array_id(array_id), id(id) {}
 };
 
 }  // namespace extra

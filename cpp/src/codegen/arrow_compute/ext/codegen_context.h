@@ -29,5 +29,7 @@ struct CodeGenContext {
   std::string finish_codes;
   std::string definition_codes;
   std::vector<std::string> function_list;
-  std::vector<std::pair<std::string, std::shared_ptr<arrow::DataType>>> output_list;
+  std::vector<
+      std::pair<std::pair<std::string, std::string>, std::shared_ptr<arrow::DataType>>>
+      output_list;
 };
