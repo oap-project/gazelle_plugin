@@ -157,7 +157,8 @@ class ColumnarSorter(
           has_next = sort_iterator.hasNext()
 
         if (has_next == false) {
-          close()
+          //TODO(): should try to close sorter
+          //close()
         }
 
         return has_next
