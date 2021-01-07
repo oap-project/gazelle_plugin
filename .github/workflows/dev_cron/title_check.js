@@ -25,7 +25,7 @@ function haveISSUESID(title) {
   if (!title) {
     return false;
   }
-  return /^\[OAP-\d+\]/.test(title);
+  return /^\[NSE-\d+\]/.test(title);
 }
 
 async function commentOpenISSUESIssue(pullRequestNumber) {

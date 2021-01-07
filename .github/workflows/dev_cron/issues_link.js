@@ -21,7 +21,7 @@ function detectISSUESID(title) {
   if (!title) {
     return null;
   }
-  const matched = /^\[OAP-\d+\]/.exec(title);
+  const matched = /^\[NSE-\d+\]/.exec(title);
   if (!matched) {
     return null;
   }
@@ -50,7 +50,7 @@ async function haveComment(pullRequestNumber, body) {
 }
 
 async function commentISSUESURL(pullRequestNumber, issuesID) {
-  const issuesURL = `https://github.com/Intel-bigdata/OAP/issues/${issuesID}`;
+  const issuesURL = `https://github.com/oap-project/native-sql-engine/issues/${issuesID}`;
   if (await haveComment(pullRequestNumber, issuesURL)) {
     return;
   }
