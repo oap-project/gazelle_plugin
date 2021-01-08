@@ -306,11 +306,7 @@ case class ColumnarSortMergeJoinExec(
 
   /***********************************************************/
   def getCodeGenSignature: String =
-    if (resultSchema.size > 0 && !leftKeys
-          .filter(expr => bindReference(expr, left.output, true).isInstanceOf[BoundReference])
-          .isEmpty && !rightKeys
-          .filter(expr => bindReference(expr, right.output, true).isInstanceOf[BoundReference])
-          .isEmpty) {
+    if (resultSchema.size > 0) {
       try {
         ColumnarSortMergeJoin.prebuild(
           leftKeys,
