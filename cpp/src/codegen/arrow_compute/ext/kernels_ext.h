@@ -93,9 +93,11 @@ class KernalBase {
     return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
                                          kernel_name_);
   }
-  virtual arrow::Status DoCodeGen(int level, std::vector<std::string> input,
-                                  std::shared_ptr<CodeGenContext>* codegen_ctx,
-                                  int* var_id) {
+  virtual arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) {
     return arrow::Status::NotImplemented("DoCodeGen is abstract interface for ",
                                          kernel_name_);
   }
@@ -608,9 +610,11 @@ class ConditionedProbeKernel : public KernalBase {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
-  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx_out,
-                          int* var_id) override;
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) override;
   std::string GetSignature() override;
   class Impl;
 
@@ -640,9 +644,11 @@ class ConditionedMergeJoinKernel : public KernalBase {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
-  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx_out,
-                          int* var_id) override;
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) override;
   std::string GetSignature() override;
   class Impl;
 
@@ -662,9 +668,11 @@ class ProjectKernel : public KernalBase {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
-  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx,
-                          int* var_id) override;
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) override;
   std::string GetSignature() override;
   class Impl;
 
@@ -684,9 +692,11 @@ class FilterKernel : public KernalBase {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
-  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx,
-                          int* var_id) override;
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) override;
   std::string GetSignature() override;
   class Impl;
 

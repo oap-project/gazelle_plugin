@@ -263,6 +263,12 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetBatchSize(
   setenv("NATIVESQL_BATCH_SIZE", std::to_string(batch_size).c_str(), 1);
 }
 
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMetricsTime(
+    JNIEnv* env, jobject obj, jboolean is_enable) {
+  setenv("NATIVESQL_METRICS_TIME", (is_enable ? "true" : "false"), 1);
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
     JNIEnv* env, jobject obj, jlong memory_pool_id, jbyteArray schema_arr,

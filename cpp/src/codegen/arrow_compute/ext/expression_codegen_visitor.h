@@ -28,17 +28,20 @@ namespace extra {
 class ExpressionCodegenVisitor : public VisitorBase {
  public:
   ExpressionCodegenVisitor(
-      std::shared_ptr<gandiva::Node> func, std::vector<std::string> input_list,
+      std::shared_ptr<gandiva::Node> func,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>*
+          input_list,
       std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
-      int hash_relation_id, int* func_count, std::vector<std::string>* prepared_list,
-      bool is_smj)
+      int hash_relation_id, int* func_count, bool is_local,
+      std::vector<std::string>* prepared_list, bool is_smj)
       : func_(func),
         field_list_v_(field_list_v),
         func_count_(func_count),
         input_list_(input_list),
         prepared_list_(prepared_list),
         hash_relation_id_(hash_relation_id),
-        is_smj_(is_smj) {}
+        is_smj_(is_smj),
+        is_local_(is_local) {}
 
   enum FieldType { left, right, sort_relation, literal, mixed, unknown };
 
@@ -70,10 +73,12 @@ class ExpressionCodegenVisitor : public VisitorBase {
   std::shared_ptr<gandiva::Node> func_;
   std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v_;
   int hash_relation_id_;
-  std::vector<std::string> input_list_;
+  std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>*
+      input_list_;
   int* func_count_;
   FieldType field_type_ = unknown;
   bool is_smj_;
+  bool is_local_;
   // output
   std::vector<std::string>* prepared_list_;
   std::vector<std::string> header_list_;
@@ -91,13 +96,16 @@ class ExpressionCodegenVisitor : public VisitorBase {
 };
 
 static arrow::Status MakeExpressionCodegenVisitor(
-    std::shared_ptr<gandiva::Node> func, std::vector<std::string> input_list,
+    std::shared_ptr<gandiva::Node> func,
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>*
+        input_list,
     std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
-    int hash_relation_id, int* func_count, std::vector<std::string>* prepared_list,
+    int hash_relation_id, int* func_count, bool is_local,
+    std::vector<std::string>* prepared_list,
     std::shared_ptr<ExpressionCodegenVisitor>* out, bool is_smj = false) {
   auto visitor = std::make_shared<ExpressionCodegenVisitor>(
-      func, input_list, field_list_v, hash_relation_id, func_count, prepared_list,
-      is_smj);
+      func, input_list, field_list_v, hash_relation_id, func_count, is_local,
+      prepared_list, is_smj);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;
   return arrow::Status::OK();

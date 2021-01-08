@@ -164,8 +164,11 @@ class ConditionedProbeKernel::Impl {
 
   std::string GetSignature() { return ""; }
 
-  arrow::Status DoCodeGen(int level, std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
 
     codegen_ctx->header_codes.push_back(
@@ -205,24 +208,13 @@ class ConditionedProbeKernel::Impl {
     }
     codegen_ctx->relation_prepare_codes = hash_prepare_ss.str();
 
-    // define output list here, which will also be defined in class variables definition
-    int idx = 0;
-    for (auto field : result_schema_) {
-      auto output_name = "hash_relation_" + std::to_string(hash_relation_id_) +
-                         "_output_col_" + std::to_string(idx++);
-      auto output_validity = output_name + "_validity";
-      codegen_ctx->output_list.push_back(std::make_pair(output_name, field->type()));
-      hash_define_ss << GetCTypeString(field->type()) << " " << output_name << ";"
-                     << std::endl;
-      hash_define_ss << "bool " << output_validity << ";" << std::endl;
-    }
-
     codegen_ctx->definition_codes = hash_define_ss.str();
     // 1.1 prepare probe key column, name is key_0 and key_0_validity
     std::stringstream prepare_ss;
 
     std::vector<std::string> input_list;
-    std::vector<std::string> project_output_list;
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        project_output_list;
     auto unsafe_row_name = "unsafe_row_" + std::to_string(hash_relation_id_);
     bool do_unsafe_row = true;
     if (right_key_project_codegen_.size() == 1) {
@@ -239,12 +231,13 @@ class ConditionedProbeKernel::Impl {
       codegen_ctx->unsafe_row_prepare_codes = unsafe_row_define_ss.str();
       prepare_ss << unsafe_row_name << "->reset();" << std::endl;
     }
-    idx = 0;
+    int idx = 0;
     for (auto expr : right_key_project_codegen_) {
       std::shared_ptr<ExpressionCodegenVisitor> project_node_visitor;
-      RETURN_NOT_OK(MakeExpressionCodegenVisitor(expr->root(), input, {right_field_list_},
-                                                 -1, var_id, &input_list,
-                                                 &project_node_visitor));
+      auto is_local = false;
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+          expr->root(), &input, {right_field_list_}, -1, var_id, is_local, &input_list,
+          &project_node_visitor));
       prepare_ss << project_node_visitor->GetPrepare();
       auto key_name = project_node_visitor->GetResult();
       auto validity_name = project_node_visitor->GetPreCheck();
@@ -262,7 +255,8 @@ class ConditionedProbeKernel::Impl {
         prepare_ss << "}" << std::endl;
       }
 
-      project_output_list.push_back(project_node_visitor->GetResult());
+      project_output_list.push_back(
+          std::make_pair(std::make_pair(key_name, ""), nullptr));
       for (auto header : project_node_visitor->GetHeaders()) {
         if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                       header) == codegen_ctx->header_codes.end()) {
@@ -272,9 +266,10 @@ class ConditionedProbeKernel::Impl {
       idx++;
     }
     std::shared_ptr<ExpressionCodegenVisitor> hash_node_visitor;
+    auto is_local = false;
     RETURN_NOT_OK(MakeExpressionCodegenVisitor(
-        right_key_hash_codegen_->root(), project_output_list, {key_hash_field_list_}, -1,
-        var_id, &input_list, &hash_node_visitor));
+        right_key_hash_codegen_->root(), &project_output_list, {key_hash_field_list_}, -1,
+        var_id, is_local, &input_list, &hash_node_visitor));
     prepare_ss << hash_node_visitor->GetPrepare();
     auto key_name = hash_node_visitor->GetResult();
     auto validity_name = hash_node_visitor->GetPreCheck();
@@ -295,9 +290,10 @@ class ConditionedProbeKernel::Impl {
     // 3. do continue if not exists
     if (cond_check) {
       std::shared_ptr<ExpressionCodegenVisitor> condition_node_visitor;
+      auto is_local = true;
       RETURN_NOT_OK(MakeExpressionCodegenVisitor(
-          condition_, input, {left_field_list_, right_field_list_}, hash_relation_id_,
-          var_id, &prepare_list, &condition_node_visitor));
+          condition_, &input, {left_field_list_, right_field_list_}, hash_relation_id_,
+          var_id, is_local, &prepare_list, &condition_node_visitor));
       auto function_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
       std::stringstream function_define_ss;
       function_define_ss << "bool " << function_name << "(ArrayItemIndex x, int y) {"
@@ -1440,78 +1436,92 @@ class ConditionedProbeKernel::Impl {
     std::shared_ptr<ProbeFunctionBase> probe_func_;
   };
 
-  arrow::Status GetInnerJoin(const std::vector<std::string> input, bool cond_check,
-                             std::string set_value, std::string index_name,
+  arrow::Status GetInnerJoin(bool cond_check, std::string index_name,
                              std::string hash_relation_name,
                              std::shared_ptr<CodeGenContext>* output) {
     std::stringstream shuffle_ss;
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
+    auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
+    auto item_index_list_name = index_name + "_item_list";
+    auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
              << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
     codes_ss << "if (" << index_name << " == -1) { continue; }" << std::endl;
-    codes_ss << "for (auto tmp : " << hash_relation_name << "->GetItemListByIndex("
-             << index_name << ")) {" << std::endl;
+    codes_ss << "auto " << item_index_list_name << " = " << hash_relation_name
+             << "->GetItemListByIndex(" << index_name << ");" << std::endl;
+    codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
+             << item_index_list_name << ".size(); " << range_index_name << "++) {"
+             << std::endl;
+    codes_ss << tmp_name << " = " << item_index_list_name << "[" << range_index_name
+             << "];" << std::endl;
     if (cond_check) {
       auto condition_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
-      codes_ss << "if (!" << condition_name << "(tmp, i)) {" << std::endl;
+      codes_ss << "if (!" << condition_name << "(" << tmp_name << ", i)) {" << std::endl;
       codes_ss << "  continue;" << std::endl;
       codes_ss << "}" << std::endl;
-      codes_ss << set_value << std::endl;
-    } else {
-      codes_ss << set_value << std::endl;
     }
     finish_codes_ss << "} // end of Inner Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
   }
-  arrow::Status GetOuterJoin(const std::vector<std::string> input, bool cond_check,
-                             std::string set_value, std::string index_name,
+  arrow::Status GetOuterJoin(bool cond_check, std::string index_name,
                              std::string hash_relation_name,
                              std::shared_ptr<CodeGenContext>* output) {
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
+
+    auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
+    auto is_outer_null_name = "is_outer_null_" + std::to_string(hash_relation_id_);
     auto condition_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
-    auto matched_index_list_name =
-        "hash_relation_matched_" + std::to_string(hash_relation_id_);
+    auto item_index_list_name = index_name + "_item_list";
+    auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
+    auto range_size_name = "range_" + std::to_string(hash_relation_id_) + "_size";
+
     codes_ss << "int32_t " << index_name << ";" << std::endl;
+    codes_ss << "std::vector<ArrayItemIndex> " << item_index_list_name << ";"
+             << std::endl;
     codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
              << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
              << std::endl;
-    codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name << ";"
-             << std::endl;
-    codes_ss << "if (" << index_name << " == -1) {" << std::endl;
-    codes_ss << matched_index_list_name << " = {ArrayItemIndex(false)};" << std::endl;
-    codes_ss << "} else {" << std::endl;
-    codes_ss << matched_index_list_name << " = " << hash_relation_name
+    codes_ss << "auto " << range_size_name << " = 1;" << std::endl;
+    codes_ss << "if (" << index_name << " != -1) {" << std::endl;
+    codes_ss << item_index_list_name << " = " << hash_relation_name
              << "->GetItemListByIndex(" << index_name << ");" << std::endl;
+    codes_ss << range_size_name << " = " << item_index_list_name << ".size();"
+             << std::endl;
     codes_ss << "}" << std::endl;
-    codes_ss << "for (auto tmp : " << matched_index_list_name << ") {" << std::endl;
+    codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
+             << range_size_name << "; " << range_index_name << "++) {" << std::endl;
+    codes_ss << "if (!" << item_index_list_name << ".empty()) {" << std::endl;
+    codes_ss << tmp_name << " = " << item_index_list_name << "[" << range_index_name
+             << "];" << std::endl;
+    codes_ss << is_outer_null_name << " = false;" << std::endl;
+    codes_ss << "} else {" << std::endl;
+    codes_ss << is_outer_null_name << " = true;" << std::endl;
+    codes_ss << "}" << std::endl;
     if (cond_check) {
-      codes_ss << "if (!" << condition_name << "(tmp, i)) {" << std::endl;
+      codes_ss << "if (!" << condition_name << "(" << tmp_name << ", i)) {" << std::endl;
       codes_ss << "  continue;" << std::endl;
       codes_ss << "}" << std::endl;
-      codes_ss << set_value << std::endl;
-    } else {
-      codes_ss << set_value << std::endl;
     }
     finish_codes_ss << "} // end of Outer Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
   }
-  arrow::Status GetAntiJoin(const std::vector<std::string> input, bool cond_check,
-                            std::string set_value, std::string index_name,
+  arrow::Status GetAntiJoin(bool cond_check, std::string index_name,
                             std::string hash_relation_name,
                             std::shared_ptr<CodeGenContext>* output) {
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
+    auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
     auto condition_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
-    auto matched_index_list_name =
-        "hash_relation_matched_" + std::to_string(hash_relation_id_);
+    auto item_index_list_name = index_name + "_item_list";
+    auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
       codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
@@ -1522,43 +1532,46 @@ class ConditionedProbeKernel::Impl {
                << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
                << std::endl;
     }
-    codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name << ";"
-             << std::endl;
-    codes_ss << "if (" << index_name << " == -1) {" << std::endl;
-    codes_ss << matched_index_list_name << " = {ArrayItemIndex(false)};" << std::endl;
     if (cond_check) {
-      codes_ss << "} else {" << std::endl;
+      codes_ss << "if (" << index_name << " != -1) {" << std::endl;
       codes_ss << "  bool found = false;" << std::endl;
-      codes_ss << "  for (auto tmp : " << hash_relation_name << "->GetItemListByIndex("
-               << index_name << ")"
-               << ") {" << std::endl;
-      codes_ss << "    if (" << condition_name << "(tmp, i)) {" << std::endl;
+      codes_ss << "auto " << item_index_list_name << " = " << hash_relation_name
+               << "->GetItemListByIndex(" << index_name << ");" << std::endl;
+      codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
+               << item_index_list_name << ".size(); " << range_index_name << "++) {"
+               << std::endl;
+      codes_ss << tmp_name << " = " << item_index_list_name << "[" << range_index_name
+               << "];" << std::endl;
+      codes_ss << "    if (" << condition_name << "(" << tmp_name << ", i)) {"
+               << std::endl;
       codes_ss << "      found = true;" << std::endl;
       codes_ss << "      break;" << std::endl;
       codes_ss << "    }" << std::endl;
       codes_ss << "  }" << std::endl;
-      codes_ss << "  if (!found) {" << std::endl;
-      codes_ss << matched_index_list_name << " = {ArrayItemIndex(false)};" << std::endl;
-      codes_ss << "  }" << std::endl;
+      codes_ss << "if (found) continue;" << std::endl;
+      codes_ss << "}" << std::endl;
+    } else {
+      codes_ss << "if (" << index_name << " != -1) {" << std::endl;
+      codes_ss << "  continue;" << std::endl;
+      codes_ss << "}" << std::endl;
     }
-    codes_ss << "}" << std::endl;
-    codes_ss << "for (auto tmp : " << matched_index_list_name << ") {" << std::endl;
-    codes_ss << set_value << std::endl;
+    codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < 1;"
+             << range_index_name << "++) {" << std::endl;
     finish_codes_ss << "} // end of Anti Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
   }
-  arrow::Status GetSemiJoin(const std::vector<std::string> input, bool cond_check,
-                            std::string set_value, std::string index_name,
+  arrow::Status GetSemiJoin(bool cond_check, std::string index_name,
                             std::string hash_relation_name,
                             std::shared_ptr<CodeGenContext>* output) {
     std::stringstream shuffle_ss;
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
+    auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
+    auto item_index_list_name = index_name + "_item_list";
+    auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     auto condition_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
-    auto matched_index_list_name =
-        "hash_relation_matched_" + std::to_string(hash_relation_id_);
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
       codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
@@ -1569,46 +1582,45 @@ class ConditionedProbeKernel::Impl {
                << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
                << std::endl;
     }
-    codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name << ";"
-             << std::endl;
     codes_ss << "if (" << index_name << " == -1) {" << std::endl;
     codes_ss << "continue;" << std::endl;
     if (cond_check) {
       codes_ss << "} else {" << std::endl;
       codes_ss << "  bool found = false;" << std::endl;
-      codes_ss << "  for (auto tmp : " << hash_relation_name << "->GetItemListByIndex("
-               << index_name << ")"
-               << ") {" << std::endl;
-      codes_ss << "    if (" << condition_name << "(tmp, i)) {" << std::endl;
+      codes_ss << "auto " << item_index_list_name << " = " << hash_relation_name
+               << "->GetItemListByIndex(" << index_name << ");" << std::endl;
+      codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
+               << item_index_list_name << ".size(); " << range_index_name << "++) {"
+               << std::endl;
+      codes_ss << tmp_name << " = " << item_index_list_name << "[" << range_index_name
+               << "];" << std::endl;
+      codes_ss << "    if (" << condition_name << "(" << tmp_name << ", i)) {"
+               << std::endl;
       codes_ss << "      found = true;" << std::endl;
       codes_ss << "      break;" << std::endl;
       codes_ss << "    }" << std::endl;
       codes_ss << "  }" << std::endl;
       codes_ss << "  if (found) {" << std::endl;
-      codes_ss << matched_index_list_name << " = {ArrayItemIndex(false)};" << std::endl;
       codes_ss << "  }" << std::endl;
-    } else {
-      codes_ss << "} else {" << std::endl;
-      codes_ss << matched_index_list_name << " = {ArrayItemIndex(false)};" << std::endl;
     }
     codes_ss << "}" << std::endl;
-    codes_ss << "for (auto tmp : " << matched_index_list_name << ") {" << std::endl;
-    codes_ss << set_value << std::endl;
+    codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < 1;"
+             << range_index_name << "++) {" << std::endl;
     finish_codes_ss << "} // end of Semi Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
   }
-  arrow::Status GetExistenceJoin(const std::vector<std::string> input, bool cond_check,
-                                 std::string set_value, std::string index_name,
+  arrow::Status GetExistenceJoin(bool cond_check, std::string index_name,
                                  std::string hash_relation_name,
                                  std::shared_ptr<CodeGenContext>* output) {
     std::stringstream shuffle_ss;
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
+    auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
     auto condition_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
-    auto matched_index_list_name =
-        "hash_relation_matched_" + std::to_string(hash_relation_id_);
+    auto item_index_list_name = index_name + "_item_list";
+    auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     auto exist_name =
         "hash_relation_" + std::to_string(hash_relation_id_) + "_existence_value";
     auto exist_validity = exist_name + "_validity";
@@ -1628,10 +1640,15 @@ class ConditionedProbeKernel::Impl {
     codes_ss << exist_name << " = false;" << std::endl;
     if (cond_check) {
       codes_ss << "} else {" << std::endl;
-      codes_ss << "  for (auto tmp : " << hash_relation_name << "->GetItemListByIndex("
-               << index_name << ")"
-               << ") {" << std::endl;
-      codes_ss << "    if (" << condition_name << "(tmp, i)) {" << std::endl;
+      codes_ss << "auto " << item_index_list_name << " = " << hash_relation_name
+               << "->GetItemListByIndex(" << index_name << ");" << std::endl;
+      codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
+               << item_index_list_name << ".size(); " << range_index_name << "++) {"
+               << std::endl;
+      codes_ss << tmp_name << " = " << item_index_list_name << "[" << range_index_name
+               << "];" << std::endl;
+      codes_ss << "    if (" << condition_name << "(" << tmp_name << ", i)) {"
+               << std::endl;
       codes_ss << "      " << exist_name << " = true;" << std::endl;
       codes_ss << "      break;" << std::endl;
       codes_ss << "    }" << std::endl;
@@ -1641,85 +1658,94 @@ class ConditionedProbeKernel::Impl {
       codes_ss << exist_name << " = true;" << std::endl;
     }
     codes_ss << "}" << std::endl;
-    codes_ss << "std::vector<ArrayItemIndex> " << matched_index_list_name
-             << " = {ArrayItemIndex(false)};" << std::endl;
-    codes_ss << "for (auto tmp : " << matched_index_list_name << ") {" << std::endl;
-    codes_ss << set_value << std::endl;
+    codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < 1;"
+             << range_index_name << "++) {" << std::endl;
     finish_codes_ss << "} // end of Existence Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
     return arrow::Status::OK();
   }
-  arrow::Status GetProcessProbe(const std::vector<std::string> input, int join_type,
-                                bool cond_check,
-                                std::shared_ptr<CodeGenContext>* output) {
+  arrow::Status GetProcessProbe(
+      const std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      int join_type, bool cond_check, std::shared_ptr<CodeGenContext>* output) {
     auto hash_relation_name =
         "hash_relation_list_" + std::to_string(hash_relation_id_) + "_";
     auto index_name = "hash_relation_" + std::to_string(hash_relation_id_) + "_index";
-    std::vector<std::vector<std::string>> output_name_list = {{}, {}};
-    std::stringstream valid_ss;
-    for (int i = 0; i < left_field_list_.size(); i++) {
-      auto type = left_field_list_[i]->type();
-      auto name =
-          "hash_relation_" + std::to_string(hash_relation_id_) + "_" + std::to_string(i);
-      auto output_name = name + "_value";
-      auto output_validity = output_name + "_validity";
-      valid_ss << "auto " << output_validity << " = tmp.valid ? !" << name
-               << "->IsNull(tmp.array_id, tmp.id) : false;" << std::endl;
-      valid_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
-      valid_ss << "if (" << output_validity << ") {" << std::endl;
-      valid_ss << output_name << " = " << name << "->GetValue(tmp.array_id, tmp.id);"
-               << std::endl;
-      valid_ss << "}" << std::endl;
-
-      output_name_list[0].push_back(output_name);
-    }
-    for (int i = 0; i < right_field_list_.size(); i++) {
-      if (exist_index_ != -1 && exist_index_ == i) {
-        auto exist_name =
-            "hash_relation_" + std::to_string(hash_relation_id_) + "_existence_value";
-        output_name_list[1].push_back(exist_name);
-      }
-      output_name_list[1].push_back(input[i]);
-    }
-    if (exist_index_ != -1 && exist_index_ == right_field_list_.size()) {
-      auto exist_name =
-          "hash_relation_" + std::to_string(hash_relation_id_) + "_existence_value";
-      output_name_list[1].push_back(exist_name);
-    }
 
     int output_idx = 0;
     std::stringstream ss;
+    auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
+    auto is_outer_null_name = "is_outer_null_" + std::to_string(hash_relation_id_);
+    std::stringstream prepare_ss;
+    if (join_type == 1) {
+      prepare_ss << "bool " << is_outer_null_name << ";" << std::endl;
+    }
+    prepare_ss << "ArrayItemIndex " << tmp_name << ";" << std::endl;
+    (*output)->definition_codes += prepare_ss.str();
+
+    int right_index_shift = 0;
     for (auto pair : result_schema_index_list_) {
       // set result to output list
-      auto name = (*output)->output_list[output_idx++].first;
-      ss << name << " = " << output_name_list[pair.first][pair.second] << ";"
-         << std::endl;
-      ss << name << "_validity = " << output_name_list[pair.first][pair.second]
-         << "_validity;" << std::endl;
+      auto output_name = "hash_relation_" + std::to_string(hash_relation_id_) +
+                         "_output_col_" + std::to_string(output_idx++);
+      auto output_validity = output_name + "_validity";
+
+      gandiva::DataTypePtr type;
+      std::stringstream valid_ss;
+      if (pair.first == 0) { /* left_table */
+        auto name = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
+                    std::to_string(pair.second);
+        type = left_field_list_[pair.second]->type();
+        if (join_type == 1) {
+          valid_ss << "auto " << output_validity << " = !" << is_outer_null_name
+                   << " && !" << name << "->IsNull(" << tmp_name << ".array_id, "
+                   << tmp_name << ".id);" << std::endl;
+
+        } else {
+          valid_ss << "auto " << output_validity << " = !" << name << "->IsNull("
+                   << tmp_name << ".array_id, " << tmp_name << ".id);" << std::endl;
+        }
+        valid_ss << "auto " << output_name << " = " << name << "->GetValue(" << tmp_name
+                 << ".array_id, " << tmp_name << ".id);" << std::endl;
+
+      } else { /* right table */
+        std::string name;
+        if (exist_index_ != -1 && exist_index_ == pair.second) {
+          name =
+              "hash_relation_" + std::to_string(hash_relation_id_) + "_existence_value";
+          valid_ss << "auto " << output_validity << " = true;" << std::endl;
+          valid_ss << "auto " << output_name << " = " << name << ";" << std::endl;
+          type = arrow::boolean();
+          right_index_shift = -1;
+        } else {
+          auto i = pair.second + right_index_shift;
+          output_name = input[i].first.first;
+          output_validity = output_name + "_validity";
+          valid_ss << input[i].first.second;
+          type = input[i].second;
+        }
+      }
+      (*output)->output_list.push_back(
+          std::make_pair(std::make_pair(output_name, valid_ss.str()), type));
     }
-    valid_ss << ss.str();
 
     switch (join_type) {
       case 0: { /*Inner Join*/
-        return GetInnerJoin(input, cond_check, valid_ss.str(), index_name,
-                            hash_relation_name, output);
+        return GetInnerJoin(cond_check, index_name, hash_relation_name, output);
       } break;
       case 1: { /*Outer Join*/
-        return GetOuterJoin(input, cond_check, valid_ss.str(), index_name,
-                            hash_relation_name, output);
+        return GetOuterJoin(cond_check, index_name, hash_relation_name, output);
       } break;
       case 2: { /*Anti Join*/
-        return GetAntiJoin(input, cond_check, valid_ss.str(), index_name,
-                           hash_relation_name, output);
+        return GetAntiJoin(cond_check, index_name, hash_relation_name, output);
       } break;
       case 3: { /*Semi Join*/
-        return GetSemiJoin(input, cond_check, valid_ss.str(), index_name,
-                           hash_relation_name, output);
+        return GetSemiJoin(cond_check, index_name, hash_relation_name, output);
       } break;
       case 4: { /*Existence Join*/
-        return GetExistenceJoin(input, cond_check, valid_ss.str(), index_name,
-                                hash_relation_name, output);
+        return GetExistenceJoin(cond_check, index_name, hash_relation_name, output);
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -1766,7 +1792,9 @@ arrow::Status ConditionedProbeKernel::MakeResultIterator(
 std::string ConditionedProbeKernel::GetSignature() { return impl_->GetSignature(); }
 
 arrow::Status ConditionedProbeKernel::DoCodeGen(
-    int level, std::vector<std::string> input,
+    int level,
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        input,
     std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
   return impl_->DoCodeGen(level, input, codegen_ctx_out, var_id);
 }

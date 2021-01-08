@@ -65,16 +65,20 @@ class ProjectKernel::Impl {
 
   std::string GetSignature() { return signature_; }
 
-  arrow::Status DoCodeGen(int level, const std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
     int idx = 0;
     for (auto project : project_list_) {
       std::shared_ptr<ExpressionCodegenVisitor> project_node_visitor;
       std::vector<std::string> input_list;
       std::vector<int> indices_list;
-      RETURN_NOT_OK(MakeExpressionCodegenVisitor(project, input, {input_field_list_}, -1,
-                                                 var_id, &input_list,
+      auto is_local = false;
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(project, &input, {input_field_list_}, -1,
+                                                 var_id, is_local, &input_list,
                                                  &project_node_visitor));
       codegen_ctx->process_codes += project_node_visitor->GetPrepare();
       auto name = project_node_visitor->GetResult();
@@ -83,26 +87,19 @@ class ProjectKernel::Impl {
       auto output_name =
           "project_" + std::to_string(level) + "_output_col_" + std::to_string(idx++);
       auto output_validity = output_name + "_validity";
-      codegen_ctx->output_list.push_back(
-          std::make_pair(output_name, project->return_type()));
+      std::stringstream output_get_ss;
+      output_get_ss << "auto " << output_name << " = " << name << ";" << std::endl;
+      output_get_ss << "auto " << output_validity << " = " << validity << ";"
+                    << std::endl;
+
+      codegen_ctx->output_list.push_back(std::make_pair(
+          std::make_pair(output_name, output_get_ss.str()), project->return_type()));
       for (auto header : project_node_visitor->GetHeaders()) {
         if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                       header) == codegen_ctx->header_codes.end()) {
           codegen_ctx->header_codes.push_back(header);
         }
       }
-
-      std::stringstream process_ss;
-      std::stringstream define_ss;
-
-      process_ss << output_name << " = " << name << ";" << std::endl;
-      process_ss << output_validity << " = " << validity << ";" << std::endl;
-      codegen_ctx->process_codes += process_ss.str();
-
-      define_ss << GetCTypeString(project->return_type()) << " " << output_name << ";"
-                << std::endl;
-      define_ss << "bool " << output_validity << ";" << std::endl;
-      codegen_ctx->definition_codes += define_ss.str();
     }
     *codegen_ctx_out = codegen_ctx;
     return arrow::Status::OK();
@@ -139,9 +136,11 @@ arrow::Status ProjectKernel::MakeResultIterator(
 
 std::string ProjectKernel::GetSignature() { return impl_->GetSignature(); }
 
-arrow::Status ProjectKernel::DoCodeGen(int level, std::vector<std::string> input,
-                                       std::shared_ptr<CodeGenContext>* codegen_ctx,
-                                       int* var_id) {
+arrow::Status ProjectKernel::DoCodeGen(
+    int level,
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        input,
+    std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) {
   return impl_->DoCodeGen(level, input, codegen_ctx, var_id);
 }
 
@@ -166,14 +165,18 @@ class FilterKernel::Impl {
 
   std::string GetSignature() { return signature_; }
 
-  arrow::Status DoCodeGen(int level, const std::vector<std::string> input,
-                          std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
     std::shared_ptr<ExpressionCodegenVisitor> condition_node_visitor;
     std::vector<std::string> input_list;
     std::vector<int> indices_list;
-    RETURN_NOT_OK(MakeExpressionCodegenVisitor(condition_, input, {input_field_list_}, -1,
-                                               var_id, &input_list,
+    auto is_local = false;
+    RETURN_NOT_OK(MakeExpressionCodegenVisitor(condition_, &input, {input_field_list_},
+                                               -1, var_id, is_local, &input_list,
                                                &condition_node_visitor));
     codegen_ctx->process_codes += condition_node_visitor->GetPrepare();
     for (auto header : condition_node_visitor->GetHeaders()) {
@@ -185,27 +188,16 @@ class FilterKernel::Impl {
 
     auto condition_codes = condition_node_visitor->GetResult();
     std::stringstream process_ss;
-    std::stringstream define_ss;
     process_ss << "if (!(" << condition_codes << ")) {" << std::endl;
     process_ss << "continue;" << std::endl;
     process_ss << "}" << std::endl;
     int idx = 0;
     for (auto field : input_field_list_) {
-      auto output_name =
-          "filter_" + std::to_string(level) + "_output_col_" + std::to_string(idx);
-      auto output_validity = output_name + "_validity";
-      codegen_ctx->output_list.push_back(std::make_pair(output_name, field->type()));
-
-      define_ss << GetCTypeString(field->type()) << " " << output_name << ";"
-                << std::endl;
-      define_ss << "bool " << output_validity << ";" << std::endl;
-
-      process_ss << output_name << " = " << input[idx] << ";" << std::endl;
-      process_ss << output_validity << " = " << input[idx] << "_validity"
-                 << ";" << std::endl;
+      codegen_ctx->output_list.push_back(
+          std::make_pair(std::make_pair(input[idx].first.first, input[idx].first.second),
+                         field->type()));
       idx++;
     }
-    codegen_ctx->definition_codes += define_ss.str();
     codegen_ctx->process_codes += process_ss.str();
 
     *codegen_ctx_out = codegen_ctx;
@@ -244,9 +236,11 @@ arrow::Status FilterKernel::MakeResultIterator(
 
 std::string FilterKernel::GetSignature() { return impl_->GetSignature(); }
 
-arrow::Status FilterKernel::DoCodeGen(int level, std::vector<std::string> input,
-                                      std::shared_ptr<CodeGenContext>* codegen_ctx,
-                                      int* var_id) {
+arrow::Status FilterKernel::DoCodeGen(
+    int level,
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        input,
+    std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) {
   return impl_->DoCodeGen(level, input, codegen_ctx, var_id);
 }
 

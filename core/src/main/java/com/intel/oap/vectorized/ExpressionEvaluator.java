@@ -55,6 +55,7 @@ public class ExpressionEvaluator implements AutoCloseable {
     jniWrapper = new ExpressionEvaluatorJniWrapper(tmp_dir, listJars);
     jniWrapper.nativeSetJavaTmpDir(jniWrapper.tmp_dir_path);
     jniWrapper.nativeSetBatchSize(ColumnarPluginConfig.getBatchSize());
+    jniWrapper.nativeSetMetricsTime(ColumnarPluginConfig.getEnableMetricsTime());
     ColumnarPluginConfig.setRandomTempDir(jniWrapper.tmp_dir_path);
   }
 

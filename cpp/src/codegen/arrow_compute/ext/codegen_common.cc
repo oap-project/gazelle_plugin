@@ -449,6 +449,16 @@ std::string GetTempPath() {
   return tmp_dir_;
 }
 
+bool GetEnableTimeMetrics() {
+  bool is_enable = false;
+  const char* env_enable_time_metrics = std::getenv("NATIVESQL_METRICS_TIME");
+  if (env_enable_time_metrics != nullptr) {
+    auto is_enable_str = std::string(env_enable_time_metrics);
+    if (is_enable_str.compare("true") == 0) is_enable = true;
+  }
+  return is_enable;
+}
+
 int GetBatchSize() {
   int batch_size;
   const char* env_batch_size = std::getenv("NATIVESQL_BATCH_SIZE");
