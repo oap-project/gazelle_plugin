@@ -200,9 +200,19 @@ case class ColumnarCollapseCodegenStages(
     plan match {
       case p if !supportCodegen(p) =>
         new ColumnarInputAdapter(insertWholeStageCodegen(p))
-      /*case j: ColumnarSortMergeJoinExec if !j.streamedPlan.isInstanceOf[ColumnarSortExec] =>
-        // we don't support any ColumnarSortMergeJoin whose child is not ColumnarSort
-        new ColumnarInputAdapter(insertWholeStageCodegen(j))*/
+      case j: ColumnarSortMergeJoinExec
+          if j.buildPlan.isInstanceOf[ColumnarSortMergeJoinExec] || (j.buildPlan
+            .isInstanceOf[ColumnarConditionProjectExec] && j.buildPlan
+            .children(0)
+            .isInstanceOf[ColumnarSortMergeJoinExec]) =>
+        // we don't support any ColumnarSortMergeJoin whose both children are ColumnarSortMergeJoin
+        j.withNewChildren(j.children.map(c => {
+          if (c.equals(j.buildPlan)) {
+            new ColumnarInputAdapter(insertWholeStageCodegen(c))
+          } else {
+            insertInputAdapter(c)
+          }
+        }))
       case j: ColumnarSortExec =>
         j.withNewChildren(
           j.children.map(child => new ColumnarInputAdapter(insertWholeStageCodegen(child))))
@@ -226,10 +236,6 @@ case class ColumnarCollapseCodegenStages(
       case plan
           if plan.output.length == 1 && plan.output.head.dataType.isInstanceOf[ObjectType] =>
         plan.withNewChildren(plan.children.map(insertWholeStageCodegen))
-      //case plan: ColumnarCodegenSupport if supportCodegen(plan) =>
-      /*case j: ColumnarSortMergeJoinExec if !j.streamedPlan.isInstanceOf[ColumnarSortExec] =>
-        // we don't support any ColumnarSortMergeJoin whose child is not ColumnarSort
-        j.withNewChildren(j.children.map(insertWholeStageCodegen))*/
       case plan: ColumnarCodegenSupport if supportCodegen(plan) && existsJoins(plan) =>
         ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
           codegenStageCounter.incrementAndGet())

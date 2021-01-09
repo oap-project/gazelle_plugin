@@ -118,12 +118,12 @@ case class ColumnarShuffledHashJoinExec(
     case _ =>
       Seq(streamedPlan.executeColumnar())
   }
-  override def getBuildPlans: Seq[SparkPlan] = streamedPlan match {
+  override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       val childPlans = c.getBuildPlans
-      childPlans :+ this
+      childPlans :+ (this, null)
     case _ =>
-      Seq(this)
+      Seq((this, null))
   }
 
   override def getStreamedLeafPlan: SparkPlan = streamedPlan match {
@@ -145,6 +145,9 @@ case class ColumnarShuffledHashJoinExec(
 
   override def supportColumnarCodegen: Boolean = true
 
+  val output_skip_alias =
+    if (projectList == null || projectList.isEmpty) super.output
+    else projectList.map(expr => ConverterUtils.getAttrFromExpr(expr, true))
   def getKernelFunction(_type: Int = 0): TreeNode = {
 
     val buildInputAttributes = buildPlan.output.toList
@@ -153,9 +156,6 @@ case class ColumnarShuffledHashJoinExec(
     // 1. create buildHashRelation RDD ?
     // 2. create streamCodeGen and return
 
-    val output_skip_alias =
-      if (projectList == null || projectList.isEmpty) super.output
-      else projectList.map(expr => ConverterUtils.getAttrFromExpr(expr, true))
     ColumnarConditionedProbeJoin.prepareKernelFunction(
       buildKeyExprs,
       streamedKeyExprs,

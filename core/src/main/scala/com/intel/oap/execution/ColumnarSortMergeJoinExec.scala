@@ -214,7 +214,14 @@ case class ColumnarSortMergeJoinExec(
     case LeftExistence(_) =>
       (rightKeys, leftKeys, right, left)
     case _ =>
-      (leftKeys, rightKeys, left, right)
+      left match {
+        case p: ColumnarSortMergeJoinExec =>
+          (rightKeys, leftKeys, right, left)
+        case ColumnarConditionProjectExec(_, _, child: ColumnarSortMergeJoinExec) =>
+          (rightKeys, leftKeys, right, left)
+        case other =>
+          (leftKeys, rightKeys, left, right)
+      }
   }
 
   /*****************  WSCG related function ******************/
@@ -242,17 +249,21 @@ case class ColumnarSortMergeJoinExec(
       condition)
   }
 
-  override def getBuildPlans: Seq[SparkPlan] = {
+  override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = {
 
-    val curBuildPlan = buildPlan match {
-      case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
+    val curBuildPlan: Seq[(SparkPlan, SparkPlan)] = buildPlan match {
+      case s: ColumnarSortExec =>
+        Seq((s, this))
+      case c: ColumnarCodegenSupport
+          if !c.isInstanceOf[ColumnarSortExec] && c.supportColumnarCodegen == true =>
         c.getBuildPlans
-      case _ =>
-        Seq()
+      case other =>
+        /* should be ColumnarInputAdapter or others */
+        Seq((other, this))
     }
     streamedPlan match {
       case c: ColumnarCodegenSupport if c.isInstanceOf[ColumnarSortExec] =>
-        curBuildPlan ++ c.getBuildPlans
+        curBuildPlan ++ Seq((c, this))
       case c: ColumnarCodegenSupport if !c.isInstanceOf[ColumnarSortExec] =>
         c.getBuildPlans ++ curBuildPlan
       case _ =>
@@ -302,7 +313,6 @@ case class ColumnarSortMergeJoinExec(
     ColumnarCodegenContext(inputSchema, outputSchema, codeGenNode)
   }
   val triggerBuildSignature = getCodeGenSignature
-
 
   /***********************************************************/
   def getCodeGenSignature: String =

@@ -1462,8 +1462,10 @@ class CachedRelationKernel::Impl {
     for (auto field : result_schema_->fields()) {
       std::shared_ptr<RelationColumn> col_out;
       RETURN_NOT_OK(MakeRelationColumn(field->type()->id(), &col_out));
-      for (auto arr : cached_[idx]) {
-        RETURN_NOT_OK(col_out->AppendColumn(arr));
+      if (cached_.size() == col_num_) {
+        for (auto arr : cached_[idx]) {
+          RETURN_NOT_OK(col_out->AppendColumn(arr));
+        }
       }
       sort_relation_list.push_back(col_out);
       idx++;
