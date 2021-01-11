@@ -111,11 +111,4 @@ case class DataToArrowColumnarExec(child: SparkPlan, numPartitions: Int) extends
       child.executeBroadcast[ColumnarHashedRelation]())
   }
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[DataToArrowColumnarExec]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: DataToArrowColumnarExec =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
 }

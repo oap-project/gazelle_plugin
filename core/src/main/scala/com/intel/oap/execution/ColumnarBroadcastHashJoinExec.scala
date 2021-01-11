@@ -333,14 +333,6 @@ case class ColumnarBroadcastHashJoinExec(
     }
   }
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBroadcastHashJoinExec]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarBroadcastHashJoinExec =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
-
   //////////////////////////////////////////////////////////////////////////////////////////////////////
   def getResultSchema = {
     val attributes =

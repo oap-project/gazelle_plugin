@@ -45,6 +45,7 @@ import org.apache.spark.sql.execution.CoalesceExec.EmptyPartition
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec.createShuffleWriteProcessor
+import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.metric.{
   SQLMetric,
   SQLMetrics,
@@ -59,15 +60,15 @@ import org.apache.spark.util.{MutablePair, Utils}
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-class ColumnarShuffleExchangeExec(
+case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
     child: SparkPlan,
     canChangeNumPartitions: Boolean = true)
-    extends ShuffleExchangeExec(outputPartitioning, child, canChangeNumPartitions) {
+    extends Exchange {
 
   private lazy val writeMetrics =
     SQLShuffleWriteMetricsReporter.createShuffleWriteMetrics(sparkContext)
-  override private[sql] lazy val readMetrics =
+  private[sql] lazy val readMetrics =
     SQLShuffleReadMetricsReporter.createShuffleReadMetrics(sparkContext)
   override lazy val metrics: Map[String, SQLMetric] = Map(
     "dataSize" -> SQLMetrics.createSizeMetric(sparkContext, "data size"),
@@ -83,11 +84,13 @@ class ColumnarShuffleExchangeExec(
       .createMetric(sparkContext, "number of output rows")) ++ readMetrics ++ writeMetrics
 
   override def nodeName: String = "ColumnarExchange"
+  override def output: Seq[Attribute] = child.output
 
   override def supportsColumnar: Boolean = true
 
   override def stringArgs =
-    super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
+    super.stringArgs ++ Iterator(s"[id=#$id]")
+  //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   private val serializer: Serializer = new ArrowColumnarBatchSerializer(
     longMetric("avgReadBatchNumRows"),
@@ -96,7 +99,7 @@ class ColumnarShuffleExchangeExec(
   @transient lazy val inputColumnarRDD: RDD[ColumnarBatch] = child.executeColumnar()
 
   // 'mapOutputStatisticsFuture' is only needed when enable AQE.
-  @transient override lazy val mapOutputStatisticsFuture: Future[MapOutputStatistics] = {
+  @transient lazy val mapOutputStatisticsFuture: Future[MapOutputStatistics] = {
     if (inputColumnarRDD.getNumPartitions == 0) {
       Future.successful(null)
     } else {
@@ -127,7 +130,9 @@ class ColumnarShuffleExchangeExec(
   }
 
   private var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
-
+  protected override def doExecute(): RDD[InternalRow] = {
+    throw new UnsupportedOperationException()
+  }
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     if (cachedShuffleRDD == null) {
       cachedShuffleRDD = new ShuffledColumnarBatchRDD(columnarShuffleDependency, readMetrics)
@@ -137,7 +142,7 @@ class ColumnarShuffleExchangeExec(
 
   // 'shuffleDependency' is only needed when enable AQE. Columnar shuffle will use 'columnarShuffleDependency'
   @transient
-  override lazy val shuffleDependency: ShuffleDependency[Int, InternalRow, InternalRow] =
+  lazy val shuffleDependency: ShuffleDependency[Int, InternalRow, InternalRow] =
     new ShuffleDependency[Int, InternalRow, InternalRow](
       _rdd = new ColumnarShuffleExchangeExec.DummyPairRDDWithPartitions(
         sparkContext,
@@ -149,13 +154,6 @@ class ColumnarShuffleExchangeExec(
       override val shuffleHandle: ShuffleHandle = columnarShuffleDependency.shuffleHandle
     }
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeExec]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarShuffleExchangeExec =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
 }
 
 object ColumnarShuffleExchangeExec extends Logging {
@@ -295,23 +293,20 @@ object ColumnarShuffleExchangeExec extends Logging {
 
     val rddWithDummyKey: RDD[Product2[Int, ColumnarBatch]] = newPartitioning match {
       case RangePartitioning(sortingExpressions, _) =>
-        rdd.mapPartitionsWithIndexInternal(
-          (_, cbIter) => {
-            val partitionKeyExtractor: InternalRow => Any = {
-              val projection =
-                UnsafeProjection.create(sortingExpressions.map(_.child), outputAttributes)
-              row =>
-                projection(row)
-            }
-            val newIter = computeAndAddPartitionId(cbIter, partitionKeyExtractor)
+        rdd.mapPartitionsWithIndexInternal((_, cbIter) => {
+          val partitionKeyExtractor: InternalRow => Any = {
+            val projection =
+              UnsafeProjection.create(sortingExpressions.map(_.child), outputAttributes)
+            row => projection(row)
+          }
+          val newIter = computeAndAddPartitionId(cbIter, partitionKeyExtractor)
 
-            SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
-              newIter.closeAppendedVector()
-            }
+          SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
+            newIter.closeAppendedVector()
+          }
 
-            newIter
-          },
-          isOrderSensitive = isOrderSensitive)
+          newIter
+        }, isOrderSensitive = isOrderSensitive)
       case _ =>
         rdd.mapPartitionsWithIndexInternal(
           (_, cbIter) =>
@@ -322,7 +317,7 @@ object ColumnarShuffleExchangeExec extends Logging {
                   .getValueVector
                   .setValueCount(cb.numRows))
               (0, cb)
-          },
+            },
           isOrderSensitive = isOrderSensitive)
     }
 

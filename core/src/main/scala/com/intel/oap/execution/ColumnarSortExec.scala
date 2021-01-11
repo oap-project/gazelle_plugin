@@ -205,11 +205,4 @@ case class ColumnarSortExec(
     }
   }
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarSortExec]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarSortExec =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
 }

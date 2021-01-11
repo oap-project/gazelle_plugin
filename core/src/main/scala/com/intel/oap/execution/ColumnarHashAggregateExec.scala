@@ -37,7 +37,7 @@ import org.apache.spark.sql.catalyst.plans.physical._
 import org.apache.spark.sql.catalyst.util.DateTimeUtils._
 import org.apache.spark.sql.catalyst.util.truncatedString
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.aggregate._
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.vectorized.MutableColumnarRow
@@ -51,7 +51,7 @@ import scala.collection.Iterator
 /**
  * Columnar Based HashAggregateExec.
  */
-class ColumnarHashAggregateExec(
+case class ColumnarHashAggregateExec(
     requiredChildDistributionExpressions: Option[Seq[Expression]],
     groupingExpressions: Seq[NamedExpression],
     aggregateExpressions: Seq[AggregateExpression],
@@ -59,14 +59,9 @@ class ColumnarHashAggregateExec(
     initialInputBufferOffset: Int,
     resultExpressions: Seq[NamedExpression],
     child: SparkPlan)
-    extends HashAggregateExec(
-      requiredChildDistributionExpressions,
-      groupingExpressions,
-      aggregateExpressions,
-      aggregateAttributes,
-      initialInputBufferOffset,
-      resultExpressions,
-      child) {
+    extends BaseAggregateExec
+    with BlockingOperatorWithCodegen
+    with AliasAwareOutputPartitioning {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
@@ -74,6 +69,21 @@ class ColumnarHashAggregateExec(
 
   // Disable code generation
   override def supportCodegen: Boolean = false
+
+  // Members declared in org.apache.spark.sql.execution.AliasAwareOutputPartitioning
+  override protected def outputExpressions: Seq[NamedExpression] = resultExpressions
+
+  // Members declared in org.apache.spark.sql.execution.CodegenSupport
+  protected def doProduce(ctx: CodegenContext): String = throw new UnsupportedOperationException()
+  def inputRDDs(): Seq[RDD[InternalRow]] = throw new UnsupportedOperationException()
+
+  // Members declared in org.apache.spark.sql.catalyst.plans.QueryPlan
+  override def output: Seq[Attribute] = resultExpressions.map(_.toAttribute)
+
+  // Members declared in org.apache.spark.sql.execution.SparkPlan
+  protected override def doExecute()
+      : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] =
+    throw new UnsupportedOperationException()
 
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
@@ -172,8 +182,8 @@ class ColumnarHashAggregateExec(
             totalTime,
             sparkConf)
           SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
-              aggregation.close()
-            })
+            aggregation.close()
+          })
           new CloseableColumnBatchIterator(aggregation.createIterator(iter))
         } else {
           var aggregation = ColumnarAggregation.create(
@@ -191,21 +201,13 @@ class ColumnarHashAggregateExec(
             totalTime,
             sparkConf)
           SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
-              aggregation.close()
-            })
+            aggregation.close()
+          })
           new CloseableColumnBatchIterator(aggregation.createIterator(iter))
         }
       }
       res
     }
-  }
-
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarHashAggregateExec]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarHashAggregateExec =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
   }
 
   override def verboseString(maxFields: Int): String = toString(verbose = true, maxFields)

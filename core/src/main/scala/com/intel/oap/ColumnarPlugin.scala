@@ -103,13 +103,10 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if ((child.supportsColumnar || columnarConf.enablePreferColumnar) && columnarConf.enableColumnarShuffle) {
         if (SQLConf.get.adaptiveExecutionEnabled) {
-          new ColumnarShuffleExchangeExec(
-            plan.outputPartitioning,
-            child,
-            plan.canChangeNumPartitions)
+          ColumnarShuffleExchangeExec(plan.outputPartitioning, child, plan.canChangeNumPartitions)
         } else {
           CoalesceBatchesExec(
-            new ColumnarShuffleExchangeExec(
+            ColumnarShuffleExchangeExec(
               plan.outputPartitioning,
               child,
               plan.canChangeNumPartitions))
@@ -136,7 +133,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: BroadcastExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarBroadcastExchangeExec(plan.mode, child)
+      ColumnarBroadcastExchangeExec(plan.mode, child)
     case plan: BroadcastHashJoinExec =>
       if (columnarConf.enableColumnarBroadcastJoin) {
         val left = replaceWithColumnarPlan(plan.left)
@@ -312,8 +309,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   override def preColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      val tmpPlan = rowGuardOverrides(plan)
-      preOverrides(tmpPlan)
+      preOverrides(rowGuardOverrides(plan))
     } else {
       plan
     }

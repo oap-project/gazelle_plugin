@@ -125,7 +125,7 @@ case class ColumnarConditionProjectExec(
 
   override def supportColumnarCodegen: Boolean = true
 
-  override def canEqual(that: Any): Boolean = false
+  // override def canEqual(that: Any): Boolean = false
 
   def getKernelFunction(childTreeNode: TreeNode): TreeNode = {
     val (filterNode, projectNode) =
@@ -226,16 +226,6 @@ case class ColumnarConditionProjectExec(
     }
   }
 
-  // We have to override equals because subclassing a case class like ProjectExec is not that clean
-  // One of the issues is that the generated equals will see ColumnarProjectExec and ProjectExec
-  // as being equal and this can result in the withNewChildren method not actually replacing
-  // anything
-  override def equals(other: Any): Boolean = {
-    if (!super.equals(other)) {
-      return false
-    }
-    return other.isInstanceOf[ColumnarConditionProjectExec]
-  }
 }
 
 class ColumnarUnionExec(children: Seq[SparkPlan]) extends UnionExec(children) {
