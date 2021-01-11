@@ -301,7 +301,27 @@ case class ColumnarSortMergeJoinExec(
     }
     ColumnarCodegenContext(inputSchema, outputSchema, codeGenNode)
   }
-  val triggerBuildSignature = getCodeGenSignature
+  //do not call prebuild so we could skip the c++ codegen
+  //val triggerBuildSignature = getCodeGenSignature
+
+  try {
+    ColumnarSortMergeJoin.precheck(
+      leftKeys,
+      rightKeys,
+      resultSchema,
+      joinType,
+      condition,
+      left,
+      right,
+      joinTime,
+      prepareTime,
+      totaltime_sortmegejoin,
+      numOutputRows,
+      sparkConf)
+  } catch {
+    case e: Throwable =>
+      throw e
+  }
 
 
   /***********************************************************/
