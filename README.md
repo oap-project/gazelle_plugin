@@ -20,7 +20,7 @@ With [Spark 27396](https://issues.apache.org/jira/browse/SPARK-27396) its possib
 
 ![Overview](/resource/dataset.png)
 
-A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check [Arrow Data Source](../oap-data-source/README.md)
+A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check [Arrow Data Source](https://github.com/oap-project/arrow-data-source/)
 
 ### Apache Arrow Compute/Gandiva based operators
 
