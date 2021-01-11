@@ -198,9 +198,13 @@ class ConditionedMergeJoinKernel::Impl {
 
     function_define_ss << "inline int JoinCompare_" << relation_id_[0] << "() {"
                        << std::endl;
+    function_define_ss << "if (!sort_relation_" << relation_id_[0]
+                       << "_->CheckRangeBound(0)) return -1;" << std::endl;
     function_define_ss << "auto idx_0 = sort_relation_" << relation_id_[0]
                        << "_->GetItemIndexWithShift(0);" << std::endl;
     if (use_relation_for_stream) {
+      function_define_ss << "if (!sort_relation_" << relation_id_[1]
+                         << "_->CheckRangeBound(0)) return 1;" << std::endl;
       function_define_ss << "auto idx_1 = sort_relation_" << relation_id_[1]
                          << "_->GetItemIndexWithShift(0);" << std::endl;
     }
@@ -397,11 +401,9 @@ class ConditionedMergeJoinKernel::Impl {
     codes_ss << "auto " << function_name << "_res = " << function_name << "();"
              << std::endl;
     codes_ss << "while (" << function_name << "_res < 0) {" << std::endl;
-    codes_ss << "if ((should_stop_ = !" << build_relation << "->NextNewKey())) break;"
-             << std::endl;
+    codes_ss << "if ((!" << build_relation << "->NextNewKey())) break;" << std::endl;
     codes_ss << function_name << "_res = " << function_name << "();" << std::endl;
     codes_ss << "}" << std::endl;
-    codes_ss << "if (should_stop_) break;" << std::endl;
     codes_ss << "if (" << function_name << "_res == 0) {" << std::endl;
     codes_ss << range_name << " = " << build_relation << "->GetSameKeyRange();"
              << std::endl;
@@ -480,11 +482,9 @@ class ConditionedMergeJoinKernel::Impl {
     codes_ss << "auto " << function_name << "_res = " << function_name << "();"
              << std::endl;
     codes_ss << "while (" << function_name << "_res < 0) {" << std::endl;
-    codes_ss << "if ((should_stop_ = !" << build_relation << "->NextNewKey())) break;"
-             << std::endl;
+    codes_ss << "if ((!" << build_relation << "->NextNewKey())) break;" << std::endl;
     codes_ss << function_name << "_res = " << function_name << "();" << std::endl;
     codes_ss << "}" << std::endl;
-    codes_ss << "if (should_stop_) break;" << std::endl;
     codes_ss << "if (" << function_name << "_res == 0) {" << std::endl;
     if (cond_check) {
       codes_ss << found_match_name << " = true;" << std::endl;
@@ -670,11 +670,9 @@ class ConditionedMergeJoinKernel::Impl {
     codes_ss << "auto " << function_name << "_res = " << function_name << "();"
              << std::endl;
     codes_ss << "while (" << function_name << "_res < 0) {" << std::endl;
-    codes_ss << "if ((should_stop_ = !" << build_relation << "->NextNewKey())) break;"
-             << std::endl;
+    codes_ss << "if ((!" << build_relation << "->NextNewKey())) break;" << std::endl;
     codes_ss << function_name << "_res = " << function_name << "();" << std::endl;
     codes_ss << "}" << std::endl;
-    codes_ss << "if (should_stop_) break;" << std::endl;
     codes_ss << "if (" << function_name << "_res != 0) {" << std::endl;
     codes_ss << found_match_name << " = false;" << std::endl;
     codes_ss << "} else {" << std::endl;

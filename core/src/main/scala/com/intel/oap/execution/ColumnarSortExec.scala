@@ -96,12 +96,12 @@ case class ColumnarSortExec(
 
   override def supportColumnarCodegen: Boolean = true
 
-  override def getBuildPlans: Seq[SparkPlan] = child match {
+  override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = child match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       val childPlans = c.getBuildPlans
-      childPlans :+ this
+      childPlans :+ (this, null)
     case _ =>
-      Seq(this)
+      Seq((this, null))
   }
 
   override def getStreamedLeafPlan: SparkPlan = child match {

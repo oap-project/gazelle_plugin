@@ -61,7 +61,7 @@ trait ColumnarCodegenSupport extends SparkPlan {
    */
   def inputRDDs: Seq[RDD[ColumnarBatch]]
 
-  def getBuildPlans: Seq[SparkPlan]
+  def getBuildPlans: Seq[(SparkPlan, SparkPlan)]
 
   def getStreamedLeafPlan: SparkPlan
 
@@ -145,7 +145,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     ColumnarCodegenContext(childCtx.inputSchema, childCtx.outputSchema, wholeStageCodeGenNode)
   }
 
-  override def getBuildPlans: Seq[SparkPlan] = {
+  override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = {
     child.asInstanceOf[ColumnarCodegenSupport].getBuildPlans
   }
 
@@ -175,6 +175,45 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       curChild = curChild.asInstanceOf[ColumnarCodegenSupport].getChild
     }
     metricsUpdated = true
+  }
+
+  def prepareRelationFunction(
+      keyAttributes: Seq[Attribute],
+      outputAttributes: Seq[Attribute]): TreeNode = {
+    val outputFieldList: List[Field] = outputAttributes.toList.map(attr => {
+      Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    })
+
+    val keyFieldList: List[Field] = keyAttributes.toList.map(attr => {
+      val field = Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      if (outputFieldList.indexOf(field) == -1) {
+        throw new UnsupportedOperationException(
+          s"CashedRelation not found ${attr.name}#${attr.exprId.id} in ${outputAttributes}")
+      }
+      field
+    });
+
+    val key_args_node = TreeBuilder.makeFunction(
+      "key_field",
+      keyFieldList
+        .map(field => {
+          TreeBuilder.makeField(field)
+        })
+        .asJava,
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val cachedRelationFuncName = "CachedRelation"
+    val cached_relation_func = TreeBuilder.makeFunction(
+      cachedRelationFuncName,
+      Lists.newArrayList(key_args_node),
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    TreeBuilder.makeFunction(
+      "standalone",
+      Lists.newArrayList(cached_relation_func),
+      new ArrowType.Int(32, true))
   }
 
   /**
@@ -240,7 +279,8 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     var idx = 0
     var curRDD = inputRDDs()(0)
     while (idx < buildPlans.length) {
-      val curPlan = buildPlans(idx).asInstanceOf[ColumnarCodegenSupport]
+      val curPlan = buildPlans(idx)._1
+      val parentPlan = buildPlans(idx)._2
 
       curRDD = curPlan match {
         case p: ColumnarBroadcastHashJoinExec =>
@@ -261,7 +301,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             serializableObjectHolder += hashRelationObject
             val depIter =
               new CloseableColumnBatchIterator(relation.getColumnarBatchAsIter)
-            val ctx = curPlan.dependentPlanCtx
+            val ctx = curPlan.asInstanceOf[ColumnarCodegenSupport].dependentPlanCtx
             val expression =
               TreeBuilder.makeExpression(
                 ctx.root,
@@ -294,7 +334,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildPlan = p.getBuildPlan
           curRDD.zipPartitions(buildPlan.executeColumnar()) { (iter, depIter) =>
             ExecutorManager.tryTaskSet(numaBindingInfo)
-            val ctx = curPlan.dependentPlanCtx
+            val ctx = curPlan.asInstanceOf[ColumnarCodegenSupport].dependentPlanCtx
             val expression =
               TreeBuilder.makeExpression(
                 ctx.root,
@@ -319,22 +359,41 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             dependentKernelIterators += hashRelationKernel.finishByIterator()
             iter
           }
-        case p: ColumnarSortExec =>
-          curRDD.zipPartitions(p.executeColumnar()) { (iter, depIter) =>
+        case other =>
+          /* we should cache result from this operator */
+          curRDD.zipPartitions(other.executeColumnar()) { (iter, depIter) =>
             ExecutorManager.tryTaskSet(numaBindingInfo)
-            // Chendi: We have an assumption here
-            // when curPlan is ColumnarSortExec,
-            // curRDD should be the other ColumnarSortExec
-            val ctx = curPlan.dependentPlanCtx
+            val curOutput = other match {
+              case p: ColumnarSortMergeJoinExec => p.output_skip_alias
+              case p: ColumnarBroadcastHashJoinExec => p.output_skip_alias
+              case p: ColumnarShuffledHashJoinExec => p.output_skip_alias
+              case p => p.output
+            }
+            val inputSchema = ConverterUtils.toArrowSchema(curOutput)
+            val outputSchema = ConverterUtils.toArrowSchema(curOutput)
+            if (!parentPlan.isInstanceOf[ColumnarSortMergeJoinExec]) {
+              if (parentPlan == null)
+                throw new UnsupportedOperationException(
+                  s"Only support use ${other.getClass} as buildPlan in ColumnarSortMergeJoin, while this parent Plan is null")
+              else
+                throw new UnsupportedOperationException(
+                  s"Only support use ${other.getClass} as buildPlan in ColumnarSortMergeJoin, while this parent Plan is ${parentPlan.getClass}")
+            }
+            val parent = parentPlan.asInstanceOf[ColumnarSortMergeJoinExec]
+            val keyAttributes =
+              if (other.equals(parent.buildPlan))
+                parent.buildKeys.map(ConverterUtils.getAttrFromExpr(_))
+              else parent.streamedKeys.map(ConverterUtils.getAttrFromExpr(_))
+            val cachedFunction = prepareRelationFunction(keyAttributes, curOutput)
             val expression =
               TreeBuilder.makeExpression(
-                ctx.root,
+                cachedFunction,
                 Field.nullable("result", new ArrowType.Int(32, true)))
             val cachedRelationKernel = new ExpressionEvaluator()
             cachedRelationKernel.build(
-              ctx.inputSchema,
+              inputSchema,
               Lists.newArrayList(expression),
-              ctx.outputSchema,
+              outputSchema,
               true)
             while (depIter.hasNext) {
               val dep_cb = depIter.next()
@@ -353,8 +412,6 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             build_elapse += System.nanoTime() - beforeEval
             iter
           }
-        case _ =>
-          throw new UnsupportedOperationException
       }
 
       idx += 1
@@ -413,9 +470,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
               val output = ConverterUtils.fromArrowRecordBatch(resCtx.outputSchema, output_rb)
               ConverterUtils.releaseArrowRecordBatch(output_rb)
               eval_elapse += System.nanoTime() - beforeEval
-              new ColumnarBatch(
-                output.map(v => v.asInstanceOf[ColumnVector]).toArray,
-                outputNumRows)
+              new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
             }
           }
 
@@ -452,9 +507,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
               val output = ConverterUtils.fromArrowRecordBatch(resCtx.outputSchema, output_rb)
               ConverterUtils.releaseArrowRecordBatch(output_rb)
               eval_elapse += System.nanoTime() - beforeEval
-              new ColumnarBatch(
-                output.map(v => v.asInstanceOf[ColumnVector]).toArray,
-                outputNumRows)
+              new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
             }
           }
       }
