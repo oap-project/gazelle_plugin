@@ -40,24 +40,27 @@
 #include "precompile/array.h"
 #include "precompile/type.h"
 #include "third_party/ska_sort.hpp"
+#include "third_party/timsort.hpp"
 #include "utils/macros.h"
 
 /**
                  The Overall Implementation of Sort Kernel
- * In general, there are three kenels to use when sorting for different data.
-   They are SortInplaceKernel, SortOnekeyKernel and SortArraysToIndicesKernel.
+ * In general, there are four kenels to use when sorting for different data.
+   They are SortInplaceKernel, SortOnekeyKernel, SortArraysToIndicesKernel 
+   and SortMultiplekeyKernel.
  * If sorting for one non-string and non-bool col without payload, SortInplaceKernel
-   is used. In this kernel, if sorted data has no null value, ska_sort is used for
-   asc direciton, and std sort is used for desc direciton. If sorted data has null
-   value, arrow sort is used. Data is partitioned to null, NaN (for double and
-   float only) and valid value before sort.
- * If sorting for one col with payload, and one string or bool col without payload,
+   is used. In this kernel, ska_sort is used for asc direciton, and std sort is used 
+   for desc direciton. Data is partitioned to null, NaN (for double and float only) 
+   and valid value before sort.
+ * If sorting for single key with payload, and one string or bool col without payload,
    SortOnekeyKernel is used. In this kernel, ska_sort is used for asc direciton,
    and std sort is used for desc direciton. Data is partitioned to null, NaN (for
    double and float only) and valid value before sort.
- * If sorting for multiple cols, SortArraysToIndicesKernel is used. This kernel
-   will do codegen, and std sort is used.
- * Projection is supported in all the three kernels. If projection is required,
+ * If sorting for multiple keys, there are two kernels to use. When enabling codegen,
+ * SortArraysToIndicesKernel is used, which will do codegen, and timsort is used.
+ * When disabling codegen, SortMultiplekeyKernel is used, which append values to 
+ * accessible unsafe rows, and use RowComparator to do comparison.
+ * Projection is supported in all the four kernels. If projection is required,
    projection is completed before sort, and the projected cols are used to do
    comparison.
    FIXME: 1. datatype change after projection is not supported in Inplace.
@@ -821,6 +824,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
+  // This function is used for float/double data without null value.
+  // If NaN_check_ is true, we need to do partition for NaN before sort.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
       typename std::enable_if_t<std::is_floating_point<TYPE>::value> {
@@ -842,6 +847,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
   }
 
+  // This function is used for non-float and non-double data without null value.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
       typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
@@ -853,6 +859,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
   }
 
+  // This function is used for float/double data with null value.
+  // We should do partition for null and NaN (if (NaN_check_ is true).
   template <typename TYPE, typename ArrayType>
   auto Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) ->
       typename std::enable_if_t<std::is_floating_point<TYPE>::value> {
@@ -920,6 +928,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
   }
 
+  // This function is used for non-float and non-double data with null value.
+  // We should do partition for null.
   template <typename TYPE, typename ArrayType>
   auto Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) ->
       typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
@@ -962,6 +972,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     RETURN_NOT_OK(
         arrow::Concatenate(cached_0_, ctx_->memory_pool(), &concatenated_array_));
     if (nulls_total_ > 0) {
+      // Function Sort is used.
       auto typed_array = std::dynamic_pointer_cast<ArrayType_0>(concatenated_array_);
       std::shared_ptr<arrow::Array> indices_out;
 
@@ -981,6 +992,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       *out = std::make_shared<SorterResultIterator>(ctx_, schema, sort_out, nulls_first_,
                                                     asc_);
     } else {
+      // Function SortNoNull is used.
       CTYPE* indices_begin = concatenated_array_->data()->GetMutableValues<CTYPE>(1);
       CTYPE* indices_end = indices_begin + concatenated_array_->length();
 
@@ -1030,6 +1042,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       return true;
     }
 
+    // This class is used to copy a piece of memory from the sorted ArrayData 
+    // to a result array.
     template <typename KeyType>
     class SliceImpl {
      public:
@@ -1156,8 +1170,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       arrow::ArrayData result_data = *result_arr_->data();
       arrow::ArrayData out_data;
       SliceImpl<CTYPE>(result_data, ctx_->memory_pool(), length, total_offset_,
-                       nulls_total_, nulls_first_, total_length_)
-          .Slice(&out_data);
+                       nulls_total_, nulls_first_, total_length_).Slice(&out_data);
       std::shared_ptr<arrow::Array> out_0 =
           MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       total_offset_ += length;
@@ -1201,7 +1214,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
         key_projector_(key_projector),
         NaN_check_(NaN_check) {
 #ifdef DEBUG
-    std::cout << "UseSortOneKeyForArithmetic" << std::endl;
+    std::cout << "UseSortOnekeyKernel" << std::endl;
 #endif
     auto indices = result_schema->GetAllFieldIndices(key_field_list[0]->name());
     if (indices.size() < 1) {
@@ -1599,7 +1612,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         key_field_list_(key_field_list),
         NaN_check_(NaN_check) {
       #ifdef DEBUG
-          std::cout << "UseSortMultipleKeyForArithmetic" << std::endl;
+          std::cout << "UseSortMultiplekeyKernel" << std::endl;
       #endif
       for (auto field : key_field_list) {
         auto indices = result_schema->GetAllFieldIndices(field->name());
@@ -1632,7 +1645,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     std::vector<std::shared_ptr<UnsafeArray>> arrays;
     std::vector<std::shared_ptr<arrow::Array>> projected_in;
     if (key_projector_) {
-      // do projection here
+      // do projection here, and the projected arrays are used for comparison
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch = arrow::RecordBatch::Make(result_schema_, length, in);
       RETURN_NOT_OK(
@@ -1644,6 +1657,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         arrays.push_back(array);
       }    
     } else {
+      // the input arrays are used for comparison
       int i = 0;
       for (auto idx : key_index_list_) {
         std::shared_ptr<arrow::Array> col;
@@ -1653,6 +1667,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         arrays.push_back(array);
       }
     }
+    // append value to AccessibleUnsafeRow
     std::vector<std::shared_ptr<AccessibleUnsafeRow>> rows_in_batch;
     for (int i = 0; i < in[0]->length(); i++) {
       std::shared_ptr<AccessibleUnsafeRow> row;
@@ -1689,7 +1704,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
             std::shared_ptr<RowComparator> rowComparator) {
     auto comp = [this, &rowComparator](ArrayItemIndexS x, ArrayItemIndexS y) {
         return rowComparator->compare(x.array_id, x.id, y.array_id, y.id);};
-    std::sort(indices_begin, indices_begin + items_total_, comp);
+    gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
 
   arrow::Status FinishInternal(std::shared_ptr<FixedSizeBinaryArray>* out) {
@@ -1706,7 +1721,8 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
         unsafe_rows_, sort_directions_, nulls_order_);
     Sort(indices_begin, indices_end, rowSorter);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
-    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
+    RETURN_NOT_OK(
+        MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
     return arrow::Status::OK();
   }
@@ -1732,8 +1748,6 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   std::vector<bool> sort_directions_;
   std::vector<int> key_index_list_;
   std::vector<std::vector<std::shared_ptr<AccessibleUnsafeRow>>> unsafe_rows_;
-  std::vector<int> numeric_col_idx_;
-  std::vector<int> str_col_idx_;
   bool NaN_check_;
   std::vector<int64_t> length_list_;
   uint64_t num_batches_ = 0;

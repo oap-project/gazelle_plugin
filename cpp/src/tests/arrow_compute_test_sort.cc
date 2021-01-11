@@ -764,7 +764,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
   auto do_codegen = TreeExprBuilder::MakeFunction(
       "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
+      "sortArraysToIndices", {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
   auto n_sort = TreeExprBuilder::MakeFunction(
       "standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
@@ -1451,124 +1451,11 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
   }
 }
 
-TEST(TestArrowComputeSort, SortTestMultipleKeysUnsafeRow) {
+TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegen) {
   ////////////////////// prepare expr_vector ///////////////////////
-  auto f0 = field("f0", float64());
-  auto f1 = field("f1", uint32());
-  auto f2 = field("f2", uint32());
-  auto f3 = field("f3", float32());
-  auto arg_0 = TreeExprBuilder::MakeField(f0);
-  auto arg_1 = TreeExprBuilder::MakeField(f1);
-  auto arg_2 = TreeExprBuilder::MakeField(f2);
-  auto true_literal = TreeExprBuilder::MakeLiteral(true);
-  auto false_literal = TreeExprBuilder::MakeLiteral(false);
-  auto f_res = field("res", uint32());
-  auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
-  auto f_indices = field("indices", indices_type);
-
-  auto n_key_func = TreeExprBuilder::MakeFunction(
-      "key_function", {arg_0, arg_1, arg_2}, uint32());
-  auto n_key_field = TreeExprBuilder::MakeFunction(
-      "key_field", {arg_0, arg_1, arg_2}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction(
-      "sort_directions", {true_literal, false_literal, true_literal}, uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction(
-      "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
-  auto NaN_check = TreeExprBuilder::MakeFunction(
-      "NaN_check", {false_literal}, uint32());
-  auto do_codegen = TreeExprBuilder::MakeFunction(
-      "codegen", {false_literal}, uint32());
-  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
-      "sortArraysToIndices", 
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check}, uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction(
-      "standalone", {n_sort_to_indices}, uint32());
-  auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
-
-  auto sch = arrow::schema({f0, f1, f2, f3});
-  std::vector<std::shared_ptr<Field>> ret_types = {f0, f1, f2, f3};
-  ///////////////////// Calculation //////////////////
-  std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
-
-  std::shared_ptr<arrow::RecordBatch> input_batch;
-  std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
-  std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-
-  std::vector<std::string> input_data_string = {"[8, null, 4, null, 52, 32, 11]",
-                                                "[4, 2, 4, 7, 8, 0, 10]",
-                                                "[11, 2, 5, 51, 8, 33, 12]",
-                                                "[1, 3, 5, 10, 9, 13, 2]"};
-  MakeInputBatch(input_data_string, sch, &input_batch);
-  input_batch_list.push_back(input_batch);
-
-  std::vector<std::string> input_data_string_2 = {"[1, 14, 1, null, 6, 1, 2]",
-                                                  "[10, 12, null, 9, 2, 10, 13]",
-                                                  "[2, 5, 44, 43, 7, 34, 3]",
-                                                  "[9, 7, 5, 1, 5, 8, 17]"};
-  MakeInputBatch(input_data_string_2, sch, &input_batch);
-  input_batch_list.push_back(input_batch);
-
-  std::vector<std::string> input_data_string_3 = {"[3, 64, 8, 7, 9, 8, 1]",
-                                                  "[32, 12, 14, 27, 18, 10, null]",
-                                                  "[4, 65, 16, 8, 10, 20, 34]",
-                                                  "[8, 6, 2, 3, 10, 12, 15]"};
-  MakeInputBatch(input_data_string_3, sch, &input_batch);
-  input_batch_list.push_back(input_batch);
-
-  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]",
-                                                  "[14, 12, 24, 17, 18, 19, 7]",
-                                                  "[24, 18, 42, 4, 21, 36, 31]",
-                                                  "[15, 16, 2, 51, 3, 33, 12]"};
-  MakeInputBatch(input_data_string_4, sch, &input_batch);
-  input_batch_list.push_back(input_batch);
-
-  std::vector<std::string> input_data_string_5 = {"[37, 8, 22, 13, 8, 59, 21]",
-                                                  "[12, 10, 14, 18, 2, 0, 11]",
-                                                  "[38, 67, 23, 14, 9, 60, 22]",
-                                                  "[16, 17, 5, 15, 9, 1, 19]"};
-  MakeInputBatch(input_data_string_5, sch, &input_batch);
-  input_batch_list.push_back(input_batch);
-
-  ////////////////////////////////// calculation ///////////////////////////////////
-  std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 6, 7, 8, 8, 8, 8, 9, 11, 13, 14, 17, 18, 20, 21, "
-      "22, 23, 30, 32, 35, 37, 41, 42, 50, 52, 59, 64, 2, 3, 5, null, null]",
-      "[2, 3, 4, 5, 7, 8, 11, null, 16, 20, 10, 12, 14, null, 18, 6, 21, 22, 23, "
-      "24, 31, 33, 36, 38, 42, 43, 51, null, 60, 65, 44, 34, 2, 67, 34]",
-      "[2, 3, 4, 5, 7, 8, 11, null, 16, 20, 10, 12, 14, null, 18, 4, 21, 22, 23, "
-      "24, 31, 33, 36, 38, 42, 43, 51, null, 60, 65, 44, 34, 8, 67, 34]",
-      "[9, 17, 8, 5, 5, 3, 1, 9, 2, 12, 10, 2, 15, 7, 16, 51, null, 19, 5, "
-      "15, 12, 13, 33, 16, 2, 1, 10, null, null, 6, 5, 15, 3, 17, null]"};
-
-  MakeInputBatch(expected_result_string, sch, &expected_result);
-
-  for (auto batch : input_batch_list) {
-    ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
-  }
-  std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
-  std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
-  ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      sort_result_iterator_base);
-
-  std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
-  std::shared_ptr<arrow::RecordBatch> result_batch;
-
-  if (sort_result_iterator->HasNext()) {
-    ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
-    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
-  }
-}
-
-TEST(TestArrowComputeSort, SortTestMultipleKeysUnsafeStr) {
-  ////////////////////// prepare expr_vector ///////////////////////
-  auto f0 = field("f0", float64());
+  auto f0 = field("f0", float32());
   auto f1 = field("f1", utf8());
-  auto f2 = field("f2", float64());
+  auto f2 = field("f2", uint32());
   auto f3 = field("f3", float64());
   auto arg_0 = TreeExprBuilder::MakeField(f0);
   auto arg_1 = TreeExprBuilder::MakeField(f1);
@@ -1610,51 +1497,51 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysUnsafeStr) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
 
-  std::vector<std::string> input_data_string = {"[8, 1, 4, 50, 52, 32, 11]",
+  std::vector<std::string> input_data_string = {"[8, 9, 4, 50, 52, 32, 11]",
                                                 R"([null, "a", "a", "b", "b","b", "b"])",
-                                                "[11, 2, 5, 51, 8, 33, 12]",
-                                                "[1, 3, 5, 10, 12, 13, 2]"};
+                                                "[11, 3, 5, 51, null, 33, 12]",
+                                                "[1, 3, 5, 10, null, 13, 2]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-   std::vector<std::string> input_data_string_2 = {"[1, 14, 2, 42, 6, 5, 2]",
-                                                   R"(["a", "a", "c", "b", "b", "a", "b"])",
-                                                   "[2, 8, 44, 43, 7, 34, 3]",
-                                                   "[9, 7, 5, 1, 5, 9, 17]"};
-   MakeInputBatch(input_data_string_2, sch, &input_batch);
-   input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_2 = {"[1, 14, 6, 42, 6, null, 2]",
+                                                  R"(["a", "a", null, "b", "b", "a", "b"])",
+                                                  "[2, null, 44, 43, 7, 34, 3]",
+                                                  "[9, 7, 5, 1, 5, null, 17]"};
+  MakeInputBatch(input_data_string_2, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
-   std::vector<std::string> input_data_string_3 = {"[3, 64, 8, 7, 9, 8, 12]",
-                                                   R"(["a", "a", null, "b", "b","b", "b"])",
-                                                   "[4, 65, 16, 8, 10, 20, 34]",
-                                                   "[8, 6, 2, 3, 10, 12, 15]"};
-    MakeInputBatch(input_data_string_3, sch, &input_batch);
-    input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_3 = {"[3, 64, 8, 7, 9, 8, 12]",
+                                                  R"(["a", "a", "b", "b", "b","b", "b"])",
+                                                  "[4, 65, 16, 8, 10, 20, 34]",
+                                                  "[8, 6, 2, 3, 10, 12, 15]"};
+  MakeInputBatch(input_data_string_3, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
-   std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]",
-                                                   R"(["a", "a", "a", "b", "b","b", "b"])",
-                                                   "[24, 18, 42, 12, 21, 36, 31]",
-                                                   "[15, 16, 2, 51, 8, 33, 12]"};
-   MakeInputBatch(input_data_string_4, sch, &input_batch);
-   input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]",
+                                                  R"(["a", "a", "a", "b", "b","b", "b"])",
+                                                  "[24, 18, 42, 15, 21, 36, 31]",
+                                                  "[15, 16, 2, 51, null, 33, 12]"};
+  MakeInputBatch(input_data_string_4, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
-   std::vector<std::string> input_data_string_5 = {"[37, 9, 22, 13, 8, 59, 21]",
-                                                   R"(["a", "b", "a", "b", "b","b", "b"])",
-                                                   "[38, 67, 23, 14, 15, 60, 22]",
-                                                   "[16, 17, 5, 15, 9, 6, 19]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
+                                                  R"(["a", "b", "a", "b", "a","b", "b"])",
+                                                  "[38, 67, 23, 14, null, 60, 22]",
+                                                  "[16, 17, 5, 15, 9, null, 19]"};
    MakeInputBatch(input_data_string_5, sch, &input_batch);
    input_batch_list.push_back(input_batch);
 
   ////////////////////////////////// calculation ///////////////////////////////////
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 6, 7, 8, 8, 8, 8, 9, 11, 13, 14, 17, 18, 20, 21, "
-      "22, 23, 30, 32, 35, 37, 41, 42, 50, 52, 59, 64, NaN, NaN, NaN, null, null]",
-      R"(["a","b","a","a","b","b", null,"b","b","b","b","b","b","a","a","b","b","b","a","a","b","b","b","a","a","b","b","b","b","a",null,"b","a","b","a"])",
-      "[2, 3, 4, 5, 7, 8, 11, null, 16, 20, 10, 12, 14, null, 18, NaN, 21, 22, 23, "
-      "24, 31, 33, 36, 38, 42, 43, 51, null, 60, 65, 44, 34, NaN, 67, 34]",
-      "[9, 17, 8, 5, 5, 3, 1, 9, 2, 12, 10, 2, 15, 7, 16, 51, null, 19, 5, "
-      "15, 12, 13, 33, 16, 2, 1, 10, null, null, 6, 5, 15, 3, 17, null]"};
+      "[1, 2, 3, 4, 6, 6, 7, 8, 8, 8, 8, 9, 9, 11, 12, 13, 14, 17, 18, 20, 21, "
+      "22, 23, 30, 32, 35, 37, 41, 42, 50, 52, 59, 64, null, null]",
+      R"(["a","b","a","a",null,"b","b",null,"b","b","a","b","a","b","b","b","a","a","b","b","b","a","a","b","b","b","a","a","b","b","b","b","a","b","a"])",
+      "[2, 3, 4, 5, 44, 7, 8, 11, 16, 20, null, 10, 3, 12, 34, 14, null, 18, 15, 21, 22, "
+      "23, 24, 31, 33, 36, 38, 42, 43, 51, null, 60, 65, 67, 34]",
+      "[9, 17, 8, 5, 5, 5, 3, 1, 2, 12, 9, 10, 3, 2, 15, 15, 7, 16, 51, null, 19, 5, "
+      "15, 12, 13, 33, 16, 2, 1, 10, null, null, 6, 17, null]"};
 
   MakeInputBatch(expected_result_string, sch, &expected_result);
 
@@ -1676,7 +1563,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysUnsafeStr) {
   }
 }
 
-TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjectionWithoutCodegen) {
+TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegenWithProjection) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", uint32());
   auto f1 = field("f1", utf8());
@@ -1757,33 +1644,33 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjectionWithoutCodegen) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-//   std::vector<std::string> input_data_string_2 = {"[1, 14, 8, 42, 6, null, 2]",
-//                                                   R"(["a", "a", null, "b", "b","b", "b"])",
-//                                                   "[2, null, 44, 43, 7, 34, 3]",
-//                                                   "[9, 7, 5, 1, 5, null, 17]"};
-//   MakeInputBatch(input_data_string_2, sch, &input_batch);
-//   input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_2 = {"[1, 14, 8, 42, 6, null, 2]",
+                                                  R"(["a", "a", null, "b", "b","b", "b"])",
+                                                  "[2, null, 44, 43, 7, 34, 3]",
+                                                  "[9, 7, 5, 1, 5, null, 17]"};
+  MakeInputBatch(input_data_string_2, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
-//   std::vector<std::string> input_data_string_3 = {"[3, 64, 8, 7, 9, 8, 33]",
-//                                                   R"(["a", "a", "a", "b", "b","b", "b"])",
-//                                                   "[4, 65, 16, 8, 10, 20, 34]",
-//                                                   "[8, 6, 2, 3, 10, 12, 15]"};
-//   MakeInputBatch(input_data_string_3, sch, &input_batch);
-//   input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_3 = {"[3, 64, 8, 7, 9, 8, 33]",
+                                                  R"(["a", "a", "a", "b", "b","b", "b"])",
+                                                  "[4, 65, 16, 8, 10, 20, 34]",
+                                                  "[8, 6, 2, 3, 10, 12, 15]"};
+  MakeInputBatch(input_data_string_3, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
-//   std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]",
-//                                                   R"(["a", "a", "a", "b", "b","b", "b"])",
-//                                                   "[24, 18, 42, 19, 21, 36, 31]",
-//                                                   "[15, 16, 2, 51, null, 33, 12]"};
-//   MakeInputBatch(input_data_string_4, sch, &input_batch);
-//   input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]",
+                                                  R"(["a", "a", "a", "b", "b","b", "b"])",
+                                                  "[24, 18, 42, 19, 21, 36, 31]",
+                                                  "[15, 16, 2, 51, null, 33, 12]"};
+  MakeInputBatch(input_data_string_4, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
-//   std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
-//                                                   R"(["a", "a", "a", "b", "b","b", "b"])",
-//                                                   "[38, 67, 23, 14, null, 60, 22]",
-//                                                   "[16, 17, 5, 15, 9, null, 19]"};
-//   MakeInputBatch(input_data_string_5, sch, &input_batch);
-//   input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
+                                                  R"(["a", "a", "a", "b", "b","b", "b"])",
+                                                  "[38, 67, 23, 14, null, 60, 22]",
+                                                  "[16, 17, 5, 15, 9, null, 19]"};
+  MakeInputBatch(input_data_string_5, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
 
   ////////////////////////////////// calculation ///////////////////////////////////
   std::shared_ptr<arrow::RecordBatch> expected_result;

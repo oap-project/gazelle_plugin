@@ -12,7 +12,7 @@
 #include <vector>
 #include <arrow/type.h>
 
-#define TEMP_ACCESSIBLE_UNSAFEROW_BUFFER_SIZE 1024
+#define TEMP_ACCESSIBLE_UNSAFEROW_BUFFER_SIZE 128
 #define FIXED_UNSAFEROW_NUMERIC_SIZE 8
 
 /* Accessible Unsafe Row Layout
@@ -22,7 +22,8 @@
  * explain:
  * validity: n fields = (n/8 + 1) bytes
  * col: each col has variable size
- * cursor: used to pointer to cur unused pos
+ * cursor_: used to point to numeric pos, as well as str length and offset pos
+ * str_cursor_: used to point to str pos
  *
  */
 struct AccessibleUnsafeRow {
@@ -70,6 +71,19 @@ struct AccessibleUnsafeRow {
   }
   template <typename T>
   int compareInternal(T left, T right, bool asc, bool nulls_first) {
+    int comparison;
+    if (left == right) {
+      comparison = 2;
+    } else {
+      if (asc) {
+        comparison = left < right;
+      } else {
+        comparison = left > right;
+      }
+    }
+    return comparison;
+  }
+  int compareInternal(std::string& left, std::string& right, bool asc, bool nulls_first) {
     int comparison;
     if (left == right) {
       comparison = 2;
@@ -143,19 +157,41 @@ struct AccessibleUnsafeRow {
       auto left = *((float*)(data + offset));
       auto right = *((float*)(row_to_compare->getData() + offset));
       return compareInternal<float>(left, right, asc, nulls_first);
-    } else if (field->type()->id() == arrow::Type::STRING) {
-      int str_offset_cursor = validity_size_ + key_idx * FIXED_UNSAFEROW_NUMERIC_SIZE + 
-          FIXED_UNSAFEROW_NUMERIC_SIZE / 2;
-      int left_offset = *((int*)(data + str_offset_cursor));
-      auto left = *((char*)(data + left_offset));
-      int right_offset = *((int*)(row_to_compare->getData() + str_offset_cursor));
-      auto right = *((char*)(row_to_compare->getData() + right_offset));
-      std::cout << "string left is: " << left << "right is: " << right << std::endl;
-      return compareInternal<char>(left, right, asc, nulls_first);
     } else if (field->type()->id() == arrow::Type::BOOL) {
       auto left = *((bool*)(data + offset));
       auto right = *((bool*)(row_to_compare->getData() + offset));
       return compareInternal<bool>(left, right, asc, nulls_first);
+    } else if (field->type()->id() == arrow::Type::STRING) {
+      // Firstly, we need to know the length and offset of the string
+      int str_len_cursor = validity_size_ + key_idx * FIXED_UNSAFEROW_NUMERIC_SIZE;
+      int str_offset_cursor = validity_size_ + key_idx * FIXED_UNSAFEROW_NUMERIC_SIZE + 
+          FIXED_UNSAFEROW_NUMERIC_SIZE / 2;
+      std::string left;
+      // length of left string
+      int left_bytes = *((int*)(data + str_len_cursor));
+      if (left_bytes != 0) {
+        // offset of left string
+        int left_offset = *((int*)(data + str_offset_cursor));
+        // get the left string
+        for (int i = 0; i < left_bytes; i++) {
+          char letter = *((char*)(data + validity_size_ + left_offset + i));
+          left.push_back(letter);
+        }
+      }
+      std::string right;
+      // length of right string
+      int right_bytes = *((int*)(row_to_compare->getData() + str_len_cursor));
+      if (right_bytes != 0) {
+        // offset of right string
+        int right_offset = *((int*)(row_to_compare->getData() + str_offset_cursor));
+        // get the right string
+        for (int i = 0; i < right_bytes; i++) {
+          char letter = 
+              *((char*)(row_to_compare->getData() + validity_size_ + right_offset + i));
+          right.push_back(letter);
+        }
+      }
+      return compareInternal(left, right, asc, nulls_first);
     }
     std::cout << "Unsupported type: " << field->type() << std::endl;
     return -1;
@@ -190,6 +226,7 @@ static inline void setNullAtAccessible(AccessibleUnsafeRow* row, int index) {
   assert((index >= 0) && (index < row->numFields_));
   auto bitSetIdx = index >> 3;  // mod 8
   *(row->data + bitSetIdx) |= kBitmask[index % 8];
+  row->cursor_ += FIXED_UNSAFEROW_NUMERIC_SIZE;
 }
 
 template <typename T>
@@ -200,34 +237,27 @@ template <typename T, typename std::enable_if_t<is_number_alike<T>::value>* = nu
 static inline void appendToAccessibleUnsafeRow(
     AccessibleUnsafeRow* row, const int& index, const T& val) {
   *((T*)(row->data + row->validity_size_ + row->cursor_)) = val;
+  // null value also takes 8 empty bytes
   row->cursor_ += FIXED_UNSAFEROW_NUMERIC_SIZE;
 }
 
 static inline void appendToAccessibleUnsafeRow(
     AccessibleUnsafeRow* row, const int& index, const std::string& str) {
+  // For string, four bytes are used to store length, and other four bytes are used to 
+  // store offset.
   int numBytes = str.size();
-  // int roundedSize = roundNumberOfBytesToNearestWord(numBytes);
-
-  // zeroOutPaddingBytes(row, numBytes);
   *((int*)(row->data + row->validity_size_ + row->cursor_)) = numBytes;
   int offset = row->str_cursor_;
   *((int*)(row->data + row->validity_size_ + row->cursor_ + 
       FIXED_UNSAFEROW_NUMERIC_SIZE / 2)) = offset;
-  memcpy(row->data + row->validity_size_ + row->str_cursor_, 
-         str.c_str(), numBytes);
+  if (numBytes > 0) {
+    memcpy(row->data + row->validity_size_ + row->str_cursor_, 
+           str.c_str(), numBytes);
+  }
   // move the cursor forward.
   row->cursor_ += FIXED_UNSAFEROW_NUMERIC_SIZE;
   row->str_cursor_ += numBytes;
 }
-
-// static inline void appendToUnsafeRow(AccessibleUnsafeRow* row, const int& index,
-//                                      const arrow::Decimal128& dcm) {
-//   int numBytes = 16;
-//   zeroOutPaddingBytes(row, numBytes);
-//   memcpy(row->data + row->cursor, dcm.ToBytes().data(), numBytes);
-//   // move the cursor forward.
-//   row->cursor += numBytes;
-// }
 
 class RowComparator {
  public:
@@ -244,12 +274,12 @@ class RowComparator {
                       int right_array_id, int64_t right_id) {
     int key_idx = 0;
     int keys_num = sort_directions_.size();
+    // In comparison, 2 represents equal, 1 represents true, 0 represents false
     while (key_idx < keys_num) {
       bool asc = sort_directions_[key_idx];
       bool nulls_first = nulls_order_[key_idx];
       int comparison = unsafe_rows_[left_array_id][left_id]->compare(
           unsafe_rows_[right_array_id][right_id], key_idx, asc, nulls_first);
-      std::cout << "comparison: " << comparison << std::endl;
       if (comparison != 2) {
         return comparison;
       }
