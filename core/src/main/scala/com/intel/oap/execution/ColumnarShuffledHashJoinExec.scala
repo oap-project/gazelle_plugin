@@ -78,10 +78,7 @@ case class ColumnarShuffledHashJoinExec(
     "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to build hash map"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
-  // build check
-  for (attr <- buildPlan.output) {
-    CodeGeneration.getResultType(attr.dataType)
-  }
+  buildCheck()
 
   val (buildKeyExprs, streamedKeyExprs) = {
     require(
@@ -92,6 +89,12 @@ case class ColumnarShuffledHashJoinExec(
     buildSide match {
       case BuildLeft => (lkeys, rkeys)
       case BuildRight => (rkeys, lkeys)
+    }
+  }
+
+  def buildCheck(): Unit = {
+    for (attr <- buildPlan.output) {
+      CodeGeneration.getResultType(attr.dataType)
     }
   }
 

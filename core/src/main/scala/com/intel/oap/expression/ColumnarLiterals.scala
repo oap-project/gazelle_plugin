@@ -38,39 +38,46 @@ class ColumnarLiteral(lit: Literal)
     extends Literal(lit.value, lit.dataType)
     with ColumnarExpression {
 
-  val supportedTypes = List(StringType, IntegerType, LongType, DoubleType,
-    DateType, BooleanType, CalendarIntervalType, BinaryType)
-  if (supportedTypes.indexOf(dataType) == -1 && !dataType.isInstanceOf[DecimalType]) {
-    // Decimal is supported in ColumnarLiteral
-    throw new UnsupportedOperationException(s"${dataType} is not supported in ColumnarLiteral")
-  }
-  if (dataType == CalendarIntervalType) {
-    value match {
-      case null =>
-      case interval: CalendarInterval =>
-        if (interval.days != 0 && interval.months != 0) {
+  val resultType: ArrowType = buildCheck()
+
+  def buildCheck(): ArrowType = {
+    val supportedTypes = List(StringType, IntegerType, LongType, DoubleType, DateType,
+                              BooleanType, CalendarIntervalType, BinaryType)
+    if (supportedTypes.indexOf(dataType) == -1 && !dataType.isInstanceOf[DecimalType]) {
+      // Decimal is supported in ColumnarLiteral
+      throw new UnsupportedOperationException(
+        s"${dataType} is not supported in ColumnarLiteral")
+    }
+    if (dataType == CalendarIntervalType) {
+      value match {
+        case null =>
+        case interval: CalendarInterval =>
+          if (interval.days != 0 && interval.months != 0) {
+            throw new UnsupportedOperationException(
+              "can't support Calendar Interval with both months and days.")
+          }
+        case _ =>
           throw new UnsupportedOperationException(
-            "can't support Calendar Interval with both months and days.")
+            "can't support Literal datatype is CalendarIntervalType while real value is not.")
+      }
+    }
+    val resultType: ArrowType = dataType match {
+      case CalendarIntervalType =>
+        val interval = value.asInstanceOf[CalendarInterval]
+        if (interval.microseconds != 0) {
+          if (interval.days == 0) {
+            new ArrowType.Interval(IntervalUnit.YEAR_MONTH)
+          } else {
+            new ArrowType.Interval(IntervalUnit.DAY_TIME)
+          }
+        } else {
+          throw new UnsupportedOperationException(
+            s"can't support CalendarIntervalType with microseconds yet")
         }
       case _ =>
-        throw new UnsupportedOperationException(
-          "can't support Literal datatype is CalendarIntervalType while real value is not.")
+        CodeGeneration.getResultType(dataType)
     }
-  }
-  val resultType: ArrowType = dataType match {
-    case CalendarIntervalType =>
-      val interval = value.asInstanceOf[CalendarInterval]
-      if (interval.microseconds != 0) {
-        if (interval.days == 0) {
-          new ArrowType.Interval(IntervalUnit.YEAR_MONTH)
-        } else {
-          new ArrowType.Interval(IntervalUnit.DAY_TIME)
-        }
-      } else {
-        throw new UnsupportedOperationException(s"can't support CalendarIntervalType with microseconds yet")
-      }
-    case _ =>
-      CodeGeneration.getResultType(dataType)
+    resultType
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

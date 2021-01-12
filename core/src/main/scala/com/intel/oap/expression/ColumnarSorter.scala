@@ -360,7 +360,8 @@ object ColumnarSorter extends Logging {
     for (sort <- sortOrder) {
       val keyType = ConverterUtils.getAttrFromExpr(sort.child).dataType
       if (unsupportedTypes.indexOf(keyType) != -1 || keyType.isInstanceOf[DecimalType]) {
-        throw new UnsupportedOperationException(s"${keyType} is not supported in ColumnarSorter.")
+        throw new UnsupportedOperationException(
+          s"${keyType} is not supported in ColumnarSorter.")
       }
     }
   }

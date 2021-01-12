@@ -37,9 +37,14 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
     with ColumnarExpression
     with Logging {
 
-  val supportedTypes = List(StringType, IntegerType, LongType)
-  if (supportedTypes.indexOf(value.dataType) == -1) {
-    throw new UnsupportedOperationException(s"${value.dataType} is not supported in ColumnarInSet.")
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType, IntegerType, LongType)
+    if (supportedTypes.indexOf(value.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${value.dataType} is not supported in ColumnarInSet.")
+    }
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

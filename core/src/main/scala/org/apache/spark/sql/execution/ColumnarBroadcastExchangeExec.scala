@@ -71,16 +71,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
       throw new UnsupportedOperationException(
         s"ColumnarBroadcastExchange only support HashRelationMode")
   }
-  for (expr <- buildKeyExprs) {
-    ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-  }
-  val unsupportedTypes = List(NullType, TimestampType, BinaryType, ByteType)
-  output.toList.foreach(attr => {
-    if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType])
-      throw new UnsupportedOperationException(
-        s"${attr.dataType} is not supported in ColumnarBroadcastExchangeExec.")
-    CodeGeneration.getResultType(attr.dataType)
-  })
+  buildCheck()
 
   @transient
   lazy val promise = Promise[broadcast.Broadcast[Any]]()
@@ -294,6 +285,22 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
     plan.doExecuteBroadcast[T]()
 
   override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeAdaptor]
+
+  def buildCheck(): Unit = {
+    for (expr <- buildKeyExprs) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+    }
+    val unsupportedTypes = List(NullType, TimestampType, BinaryType, ByteType)
+    output.toList.foreach(attr => {
+      if (unsupportedTypes.indexOf(attr.dataType) != -1 ||
+          attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"${attr.dataType} is not supported in ColumnarBroadcastExchangeExec.")
+      CodeGeneration.getResultType(attr.dataType)
+    })
+  }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBroadcastExchangeExec]
 
   override def equals(other: Any): Boolean = other match {
     case that: ColumnarShuffleExchangeAdaptor =>

@@ -97,38 +97,41 @@ case class ColumnarBroadcastHashJoinExec(
       case BuildRight => (rkeys, lkeys)
     }
   }
+  buildCheck()
 
-
-  // build check for BroadcastExchange
-  left match {
-    case exec: BroadcastExchangeExec =>
-      new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-    case _ =>
-  }
-  right match {
-    case exec: BroadcastExchangeExec =>
-      new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-    case _ =>
-  }
-  // build check for condition
-  val conditionExpr: Expression = condition.orNull
-  if (conditionExpr != null) {
-    ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
-  }
-  // build check for res types
-  val streamInputAttributes: List[Attribute] = streamedPlan.output.toList
-  val unsupportedTypes = List(NullType, TimestampType, BinaryType, ByteType)
-  streamInputAttributes.foreach(attr => {
-    if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType])
-      throw new UnsupportedOperationException(
-        s"${attr.dataType} is not supported in ColumnarBroadcastHashJoinExec.")
-  })
-  // build check for expr
-  for (expr <- buildKeyExprs) {
-    ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-  }
-  for (expr <- streamedKeyExprs) {
-    ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+  def buildCheck(): Unit = {
+    // build check for BroadcastExchange
+    left match {
+      case exec: BroadcastExchangeExec =>
+        new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
+      case _ =>
+    }
+    right match {
+      case exec: BroadcastExchangeExec =>
+        new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
+      case _ =>
+    }
+    // build check for condition
+    val conditionExpr: Expression = condition.orNull
+    if (conditionExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+    }
+    // build check for res types
+    val streamInputAttributes: List[Attribute] = streamedPlan.output.toList
+    val unsupportedTypes = List(NullType, TimestampType, BinaryType, ByteType)
+    streamInputAttributes.foreach(attr => {
+      if (unsupportedTypes.indexOf(attr.dataType) != -1 ||
+          attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"${attr.dataType} is not supported in ColumnarBroadcastHashJoinExec.")
+    })
+    // build check for expr
+    for (expr <- buildKeyExprs) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+    }
+    for (expr <- streamedKeyExprs) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+    }
   }
 
   override def output: Seq[Attribute] =

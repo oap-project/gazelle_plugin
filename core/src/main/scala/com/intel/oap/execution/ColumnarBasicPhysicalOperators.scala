@@ -232,17 +232,18 @@ case class ColumnarConditionProjectExec(
 case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
   // updating nullability to make all the children consistent
 
-  // build check
-  val unsupportedTypes = List(Array)
-  for (child <- children) {
-    for (schema <- child.schema) {
-      if (schema.dataType.isInstanceOf[MapType]) {
-        throw new UnsupportedOperationException(
-          s"${schema.dataType} is not supported in ColumnarUnionExec")
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    for (child <- children) {
+      for (schema <- child.schema) {
+        if (schema.dataType.isInstanceOf[MapType]) {
+          throw new UnsupportedOperationException(
+            s"${schema.dataType} is not supported in ColumnarUnionExec")
+        }
       }
     }
   }
-
   override def supportsColumnar = true
   protected override def doExecuteColumnar(): RDD[ColumnarBatch] =
     sparkContext.union(children.map(_.executeColumnar()))

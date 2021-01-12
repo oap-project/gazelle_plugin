@@ -39,9 +39,15 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
     extends In(value: Expression, list: Seq[Expression])
     with ColumnarExpression
     with Logging {
-  val supportedTypes = List(StringType, IntegerType, LongType, DateType)
-  if (supportedTypes.indexOf(value.dataType) == -1) {
-    throw new UnsupportedOperationException(s"not currently supported: ${value.dataType}.")
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType, IntegerType, LongType, DateType)
+    if (supportedTypes.indexOf(value.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"not currently supported: ${value.dataType}.")
+    }
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

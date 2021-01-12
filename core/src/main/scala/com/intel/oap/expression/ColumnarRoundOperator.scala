@@ -39,8 +39,13 @@ class ColumnarRound(child: Expression, scale: Expression, original: Expression)
     with ColumnarExpression
     with Logging {
 
-  if (child.dataType != DoubleType) {
-    throw new UnsupportedOperationException(s"${child.dataType} is not supported in ColumnarRound")
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    if (child.dataType != DoubleType) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarRound")
+    }
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

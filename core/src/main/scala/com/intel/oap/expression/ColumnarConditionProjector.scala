@@ -304,13 +304,14 @@ class ColumnarConditionProjector(
 } // end of class
 
 object ColumnarConditionProjector extends Logging {
-  def buildCheck(projectList: Seq[Expression],
-                 originalInputAttributes: Seq[Attribute]): Unit = {
+  def buildCheck(originalInputAttributes: Seq[Attribute]): Unit = {
     // check datatype
     val unsupportedTypes = List(NullType, TimestampType, BinaryType)
     originalInputAttributes.toList.foreach(attr => {
-      if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(s"${attr.dataType} is not supported in ColumnarConditionProjector.")
+      if (unsupportedTypes.indexOf(attr.dataType) != -1 ||
+          attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"${attr.dataType} is not supported in ColumnarConditionProjector.")
     })
     // check result type
     originalInputAttributes.toList.foreach(attr => {
@@ -330,7 +331,7 @@ object ColumnarConditionProjector extends Logging {
       Boolean) = {
     logInfo(
       s"originalInputAttributes is ${originalInputAttributes}, \nCondition is ${condExpr}, \nProjection is ${projectList}")
-    buildCheck(projectList, originalInputAttributes)
+    buildCheck(originalInputAttributes)
     val conditionInputList: java.util.List[Field] = Lists.newArrayList()
     val (condPrepareList, skip_filter) = if (condExpr != null) {
       val columnarCondExpr: Expression = ColumnarExpressionConverter

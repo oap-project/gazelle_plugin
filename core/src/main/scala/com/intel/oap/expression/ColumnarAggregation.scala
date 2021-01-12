@@ -560,7 +560,8 @@ object ColumnarAggregation {
     // check datatype
     val unsupportedTypes = List(NullType, TimestampType, BinaryType)
     for (attr <- originalInputAttributes) {
-      if (unsupportedTypes.indexOf(attr.dataType) != -1 || attr.dataType.isInstanceOf[DecimalType]) {
+      if (unsupportedTypes.indexOf(attr.dataType) != -1 ||
+          attr.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
           s"${attr.dataType} is not supported in ColumnarAggregation")
       }
