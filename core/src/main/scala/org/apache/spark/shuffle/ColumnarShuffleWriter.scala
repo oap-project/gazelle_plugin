@@ -21,16 +21,13 @@ import java.io.IOException
 
 import com.google.common.annotations.VisibleForTesting
 import com.intel.oap.ColumnarPluginConfig
-import com.intel.oap.vectorized.{
-  ArrowWritableColumnVector,
-  ShuffleSplitterJniWrapper,
-  SplitResult
-}
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller
+import com.intel.oap.vectorized.{ArrowWritableColumnVector, ShuffleSplitterJniWrapper, SplitResult}
 import org.apache.spark._
 import org.apache.spark.internal.Logging
+import org.apache.spark.memory.MemoryConsumer
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.Utils
 
@@ -98,7 +95,18 @@ class ColumnarShuffleWriter[K, V](
         blockManager.subDirsPerLocalDir,
         localDirs,
         preferSpill,
-        SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
+        SparkMemoryUtils.createSpillableMemoryPool(
+          new Spiller() {
+            override def spill(size: Long, trigger: MemoryConsumer): Long = {
+              if (nativeSplitter == 0) {
+                throw new IllegalStateException("Fatal: spill() called before a shuffle splitter " +
+                  "evaluator is created. This behavior should be optimized by moving memory " +
+                  "allocations from make() to split()")
+              }
+              // fixme pass true when being called by self
+              return jniWrapper.nativeSpill(nativeSplitter, size, false)
+            }
+          }).getNativeInstanceId)
     }
 
     while (records.hasNext) {
