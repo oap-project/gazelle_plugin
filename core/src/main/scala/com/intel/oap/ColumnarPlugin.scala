@@ -62,18 +62,18 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if (columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
         val cur_plan = columnarPlan.asInstanceOf[ColumnarConditionProjectExec]
-        new ColumnarConditionProjectExec(cur_plan.condition, plan.projectList, cur_plan.child)
+        ColumnarConditionProjectExec(cur_plan.condition, plan.projectList, cur_plan.child)
       } else {
-        new ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
+        ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
       }
     case plan: FilterExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarConditionProjectExec(plan.condition, null, child)
+      ColumnarConditionProjectExec(plan.condition, null, child)
     case plan: HashAggregateExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarHashAggregateExec(
+      ColumnarHashAggregateExec(
         plan.requiredChildDistributionExpressions,
         plan.groupingExpressions,
         plan.aggregateExpressions,
@@ -84,19 +84,19 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: UnionExec =>
       val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarUnionExec(children)
+      ColumnarUnionExec(children)
     case plan: ExpandExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarExpandExec(plan.projections, plan.output, child)
+      ColumnarExpandExec(plan.projections, plan.output, child)
     case plan: SortExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       child match {
         case CoalesceBatchesExec(fwdChild: SparkPlan) =>
-          new ColumnarSortExec(plan.sortOrder, plan.global, fwdChild, plan.testSpillFrequency)
+          ColumnarSortExec(plan.sortOrder, plan.global, fwdChild, plan.testSpillFrequency)
         case _ =>
-          new ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
+          ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
       }
     case plan: ShuffleExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
@@ -159,7 +159,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         val right = replaceWithColumnarPlan(plan.right)
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
 
-        new ColumnarSortMergeJoinExec(
+        ColumnarSortMergeJoinExec(
           plan.leftKeys,
           plan.rightKeys,
           plan.joinType,
