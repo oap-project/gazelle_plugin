@@ -252,7 +252,7 @@ object ColumnarSorter extends Logging {
     Get the sort directions and nulls order from SortOrder.
     Directions: asc: true, desc: false
     NullsOrder: NullsFirst: true, NullsLast: false
-     */
+    */
     var directions = new ListBuffer[Boolean]()
     var nullsOrder = new ListBuffer[Boolean]()
     for (key <- sortOrder) {
@@ -312,7 +312,8 @@ object ColumnarSorter extends Logging {
 
     val NaN_check_node = TreeBuilder.makeFunction(
       "NaN_check",
-      Lists.newArrayList(TreeBuilder.makeLiteral(NaNCheck.asInstanceOf[java.lang.Boolean])),
+      Lists.newArrayList(
+        TreeBuilder.makeLiteral(NaNCheck.asInstanceOf[java.lang.Boolean])),
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
 
     val result_type_node = TreeBuilder.makeFunction(

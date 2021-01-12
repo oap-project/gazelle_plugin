@@ -194,7 +194,8 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
         s"${datatype} is not supported in ColumnarCast")
     }
     if (datatype == StringType) {
-      val supported = List(IntegerType, DoubleType, DateType)
+      val supported =
+        List(ByteType, ShortType, IntegerType, LongType, DoubleType, DateType)
       if (supported.indexOf(child.dataType) == -1 ||
           child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
