@@ -1,5 +1,5 @@
 # OAP Installation Guide
-This document introduces how to install OAP and its dependencies on your cluster nodes by **Conda**. 
+This document introduces how to install OAP and its dependencies on your cluster nodes by ***Conda***. 
 Follow steps below on ***every node*** of your cluster to set right environment for each machine.
 
 ## Contents
@@ -25,35 +25,32 @@ For changes to take effect, close and re-open your current shell. To test your i
 
 Dependencies below are required by OAP and all of them are included in OAP Conda package, they will be automatically installed in your cluster when you Conda install OAP. Ensure you have activated environment which you created in the previous steps.
 
+- [Arrow](https://github.com/Intel-bigdata/arrow)
+- [Plasma](http://arrow.apache.org/blog/2017/08/08/plasma-in-memory-object-store/)
 - [Memkind](https://anaconda.org/intel/memkind)
 - [Vmemcache](https://anaconda.org/intel/vmemcache)
 - [HPNL](https://anaconda.org/intel/hpnl)
+- [PMDK](https://github.com/pmem/pmdk)  
+- [OneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html)
+
 
 Create a conda environment and install OAP Conda package.
 ```bash
 $ conda create -n oapenv -y python=3.7
 $ conda activate oapenv
-$ conda install -c conda-forge -c intel -y oap=0.9.0
+$ conda install -c conda-forge -c intel -y oap=1.0.0
 ```
 
 Once finished steps above, you have completed OAP dependencies installation and OAP building, and will find built OAP jars under `$HOME/miniconda2/envs/oapenv/oap_jars`
 
 #### Extra Steps for Shuffle Remote PMem Extension
 
-If you use one of OAP features -- [Shuffle Remote PMem Extension](../oap-shuffle/RPMem-shuffle/README.md), there are 2 points to note.
- 
-1. Shuffle Remote PMem Extension needs to install library [PMDK](https://github.com/pmem/pmdk) which we haven't provided in OAP Conda package, so you can run commands below to enable PMDK (Certain libraries need to be compiled and installed on your system using ***root*** account, so you need change to `root` account to run the following commands).
-
-```
-# git clone -b <tag-version> https://github.com/Intel-bigdata/OAP.git
-# cd OAP/
-# sh dev/install-runtime-dependencies.sh 
-```
-2. If you also want to use Shuffle Remote PMem Extension with **RDMA**, you need to configure and validate RDMA, please refer to [Shuffle Remote PMem Extension Guide](../oap-shuffle/RPMem-shuffle/README.md#4-configure-and-validate-rdma) for the details.
+If you use one of OAP features -- [PMmem Shuffle](https://github.com/oap-project/pmem-shuffle) with **RDMA**, you need to configure and validate RDMA, please refer to [PMem Shuffle](https://github.com/oap-project/pmem-shuffle#4-configure-and-validate-rdma) for the details.
 
 
 ##  Configuration
-Once finished steps above, make sure libraries installed by Conda can be linked by Spark, please add the following configuration settings to `$SPARK_HOME/conf/spark-defaults` on the working node.
+
+Once finished steps above, make sure libraries installed by Conda can be linked by Spark, please add the following configuration settings to `$SPARK_HOME/conf/spark-defaults.conf`.
 
 ```
 spark.executorEnv.LD_LIBRARY_PATH   $HOME/miniconda2/envs/oapenv/lib
@@ -65,7 +62,7 @@ spark.driver.extraClassPath         $HOME/miniconda2/envs/oapenv/oap_jars/$OAP_F
 
 And then you can follow the corresponding feature documents for more details to use them.
 
-* [OAP User Guide](../README.md#user-guide)
+
 
 
 
