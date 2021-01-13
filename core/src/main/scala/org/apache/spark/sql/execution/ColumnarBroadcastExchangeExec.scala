@@ -71,7 +71,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
         s"ColumnarBroadcastExchange only support HashRelationMode")
   }
   @transient
-  private lazy val promise = Promise[broadcast.Broadcast[Any]]()
+  lazy val promise = Promise[broadcast.Broadcast[Any]]()
 
   @transient
   lazy val completionFuture: scala.concurrent.Future[broadcast.Broadcast[Any]] =
@@ -211,12 +211,12 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     }
   }
 
-  override protected def doPrepare(): Unit = {
+  override def doPrepare(): Unit = {
     // Materialize the future.
     relationFuture
   }
 
-  override protected def doExecute(): RDD[InternalRow] = {
+  override def doExecute(): RDD[InternalRow] = {
     throw new UnsupportedOperationException(
       "BroadcastExchange does not support the execute() code path.")
   }
@@ -239,4 +239,53 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     }
   }
 
+}
+
+class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
+    extends BroadcastExchangeExec(mode, child) {
+  val plan: ColumnarBroadcastExchangeExec = new ColumnarBroadcastExchangeExec(mode, child)
+
+  override def supportsColumnar = true
+  override def nodeName: String = plan.nodeName
+  override def output: Seq[Attribute] = plan.output
+
+  private[sql] override val runId: UUID = plan.runId
+
+  override def outputPartitioning: Partitioning = plan.outputPartitioning
+
+  override def doCanonicalize(): SparkPlan = plan.doCanonicalize()
+
+  @transient
+  private val timeout: Long = SQLConf.get.broadcastTimeout
+
+  override lazy val metrics = plan.metrics
+
+  val buildKeyExprs: Seq[Expression] = plan.buildKeyExprs
+
+  @transient
+  private lazy val promise = plan.promise
+
+  @transient
+  lazy override val completionFuture: scala.concurrent.Future[broadcast.Broadcast[Any]] =
+    plan.completionFuture
+
+  @transient
+  private[sql] override lazy val relationFuture
+      : java.util.concurrent.Future[broadcast.Broadcast[Any]] =
+    plan.relationFuture
+
+  override protected def doPrepare(): Unit = plan.doPrepare()
+
+  override protected def doExecute(): RDD[InternalRow] = plan.doExecute()
+
+  override protected[sql] def doExecuteBroadcast[T](): broadcast.Broadcast[T] =
+    plan.doExecuteBroadcast[T]()
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeAdaptor]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ColumnarShuffleExchangeAdaptor =>
+      (that canEqual this) && super.equals(that)
+    case _ => false
+  }
 }

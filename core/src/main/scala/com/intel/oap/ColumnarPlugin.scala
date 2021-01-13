@@ -34,6 +34,7 @@ import org.apache.spark.sql.internal.SQLConf
 
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getConf(conf)
+  var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
@@ -102,8 +103,11 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if ((child.supportsColumnar || columnarConf.enablePreferColumnar) && columnarConf.enableColumnarShuffle) {
-        if (SQLConf.get.adaptiveExecutionEnabled) {
-          ColumnarShuffleExchangeExec(plan.outputPartitioning, child, plan.canChangeNumPartitions)
+        if (isSupportAdaptive) {
+          new ColumnarShuffleExchangeAdaptor(
+            plan.outputPartitioning,
+            child,
+            plan.canChangeNumPartitions)
         } else {
           CoalesceBatchesExec(
             ColumnarShuffleExchangeExec(
@@ -133,7 +137,10 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: BroadcastExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      ColumnarBroadcastExchangeExec(plan.mode, child)
+      if (isSupportAdaptive)
+        new ColumnarBroadcastExchangeAdaptor(plan.mode, child)
+      else
+        ColumnarBroadcastExchangeExec(plan.mode, child)
     case plan: BroadcastHashJoinExec =>
       if (columnarConf.enableColumnarBroadcastJoin) {
         val left = replaceWithColumnarPlan(plan.left)
@@ -179,17 +186,17 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 
     case plan: CustomShuffleReaderExec if columnarConf.enableColumnarShuffle =>
       plan.child match {
-        case shuffle: ColumnarShuffleExchangeExec =>
+        case shuffle: ColumnarShuffleExchangeAdaptor =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
             ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs, plan.description))
-        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeExec) =>
+        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
             ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs, plan.description))
         case ShuffleQueryStageExec(_, reused: ReusedExchangeExec) =>
           reused match {
-            case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeExec) =>
+            case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
               CoalesceBatchesExec(
                 ColumnarCustomShuffleReaderExec(
@@ -228,8 +235,6 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       plan.withNewChildren(children)
 
     case p =>
-      // Here we need to make an exception for operators who use BroadcastExchange
-      // as one side child, while it is not BroadcastHashedJoin
       val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${p.getClass} is currently not supported.")
       p.withNewChildren(children.map(fallBackBroadcastExchangeOrNot))
@@ -237,13 +242,13 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 
   def fallBackBroadcastQueryStage(curPlan: BroadcastQueryStageExec): BroadcastQueryStageExec = {
     curPlan.plan match {
-      case originalBroadcastPlan: ColumnarBroadcastExchangeExec =>
+      case originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor =>
         BroadcastQueryStageExec(
           curPlan.id,
           BroadcastExchangeExec(
             originalBroadcastPlan.mode,
             DataToArrowColumnarExec(originalBroadcastPlan, 1)))
-      case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeExec) =>
+      case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor) =>
         BroadcastQueryStageExec(
           curPlan.id,
           BroadcastExchangeExec(
@@ -258,11 +263,15 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case p: ColumnarBroadcastExchangeExec =>
       // aqe is disabled
       BroadcastExchangeExec(p.mode, DataToArrowColumnarExec(p, 1))
+    case p: ColumnarBroadcastExchangeAdaptor =>
+      // aqe is disabled
+      BroadcastExchangeExec(p.mode, DataToArrowColumnarExec(p, 1))
     case p: BroadcastQueryStageExec =>
       // ape is enabled
       fallBackBroadcastQueryStage(p)
     case other => other
   }
+  def setAdaptiveSupport(enable: Boolean): Unit = { isSupportAdaptive = enable }
 
   def apply(plan: SparkPlan): SparkPlan = {
     replaceWithColumnarPlan(plan)
@@ -272,18 +281,16 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 
 case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getConf(conf)
+  var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case plan: RowToColumnarExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"ColumnarPostOverrides RowToArrowColumnarExec(${child.getClass})")
       RowToArrowColumnarExec(child)
-    case ColumnarToRowExec(child: ColumnarShuffleExchangeExec)
-        if SQLConf.get.adaptiveExecutionEnabled && columnarConf.enableColumnarShuffle =>
-      // When AQE enabled, we need to discard ColumnarToRowExec to avoid extra transactions
-      // if ColumnarShuffleExchangeExec is the last plan of the query stage.
+    case ColumnarToRowExec(child: ColumnarShuffleExchangeAdaptor) =>
       replaceWithColumnarPlan(child)
-    case ColumnarToRowExec(child: ColumnarBroadcastExchangeExec) =>
+    case ColumnarToRowExec(child: ColumnarBroadcastExchangeAdaptor) =>
       replaceWithColumnarPlan(child)
     case ColumnarToRowExec(child: CoalesceBatchesExec) =>
       plan.withNewChildren(Seq(replaceWithColumnarPlan(child.child)))
@@ -291,6 +298,8 @@ case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       val children = p.children.map(replaceWithColumnarPlan)
       p.withNewChildren(children)
   }
+
+  def setAdaptiveSupport(enable: Boolean): Unit = { isSupportAdaptive = enable }
 
   def apply(plan: SparkPlan): SparkPlan = {
     replaceWithColumnarPlan(plan)
@@ -306,9 +315,28 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   val preOverrides = ColumnarPreOverrides(conf)
   val postOverrides = ColumnarPostOverrides(conf)
   val collapseOverrides = ColumnarCollapseCodegenStages(conf)
+  var isSupportAdaptive: Boolean = true
+
+  private def supportAdaptive(plan: SparkPlan): Boolean = {
+    // TODO migrate dynamic-partition-pruning onto adaptive execution.
+    // Only QueryStage will have Exchange as Leaf Plan
+    val isLeafPlanExchange = plan match {
+      case e: Exchange => true
+      case other => false
+    }
+    isLeafPlanExchange || (sanityCheck(plan) &&
+    !plan.logicalLink.exists(_.isStreaming) &&
+    !plan.expressions.exists(_.find(_.isInstanceOf[DynamicPruningSubquery]).isDefined) &&
+    plan.children.forall(supportAdaptive))
+  }
+
+  private def sanityCheck(plan: SparkPlan): Boolean =
+    plan.logicalLink.isDefined
 
   override def preColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
+      isSupportAdaptive = supportAdaptive(plan)
+      preOverrides.setAdaptiveSupport(isSupportAdaptive)
       preOverrides(rowGuardOverrides(plan))
     } else {
       plan
@@ -317,6 +345,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
+      postOverrides.setAdaptiveSupport(isSupportAdaptive)
       val tmpPlan = postOverrides(plan)
       collapseOverrides(tmpPlan)
     } else {
