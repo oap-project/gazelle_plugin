@@ -18,46 +18,33 @@
 name: Dev Cron
 
 on:
-  push:
-    paths:
-      - '.github/workflows/dev_cron.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/dev_cron.yml'
-  schedule:
-    - cron: |
-        */15 * * * *
+  [push, pull_request]
 
 jobs:
-
-  issues-link:
-    if: github.repository == 'oap-project/native-sql-egnine'
-    name: issues link
+  process:
+    name: Process
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Comment
-        uses: actions/github-script@master
+      - uses: actions/checkout@v2
+      - name: Issue link
+        if: |
+          github.event_name == 'pull_request_target' &&
+            (github.event.action == 'opened' ||
+             github.event.action == 'edited')
+        uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const path = ".github/workflows/dev_cron/issues_link.js";
-            const script = fs.readFileSync(path).toString();
-            eval(script);
-
-  title-check:
-    if: github.repository == 'oap-project/native-sql-engine'
-    name: Title check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Check
-        uses: actions/github-script@master
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_cron/issue_link.js`);
+            script({github, context});
+      - name: Check title
+        if: |
+          github.event_name == 'pull_request_target' &&
+            (github.event.action == 'opened' ||
+             github.event.action == 'edited')
+        uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const path = ".github/workflows/dev_cron/title_check.js";
-            const script = fs.readFileSync(path).toString();
-            eval(script);
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_cron/title_check.js`);
+            script({github, context});
