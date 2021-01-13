@@ -574,7 +574,10 @@ arrow::Status Splitter::SpillFixedSize(int64_t size, int64_t* actual) {
   while (current_spilled < size && try_count < 5) {
     try_count++;
     int64_t single_call_spilled;
-    RETURN_NOT_OK(SpillLargestPartition(&single_call_spilled));
+    ARROW_ASSIGN_OR_RAISE(int32_t spilled_partition_id, SpillLargestPartition(&single_call_spilled))
+    if (spilled_partition_id == -1) {
+      break;
+    }
     current_spilled += single_call_spilled;
   }
   *actual = current_spilled;
@@ -606,6 +609,9 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
     std::cout << "Spilled partition " << std::to_string(partition_to_spill) << ", "
               << std::to_string(max_size) << " bytes released" << std::endl;
 #endif
+    *size = max_size;
+  } else {
+    *size = 0;
   }
   return partition_to_spill;
 }
