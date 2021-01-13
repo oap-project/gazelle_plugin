@@ -2,13 +2,9 @@
 
 A Native Engine for Spark SQL with vectorized SIMD optimizations
 
-## Online Documentation
-
-You can find the all the Native SQL Engine documents on the [project web page](https://oap-project.github.io/native-sql-engine/).
-
 ## Introduction
 
-![Overview](./docs/image/nativesql_arch.png)
+![Overview](./image/nativesql_arch.png)
 
 Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. [Apache Arrow](https://arrow.apache.org/) provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technoligies and brought better performance to Spark SQL.
 
@@ -16,25 +12,25 @@ Spark SQL works very well with structured row-based data. It used WholeStageCode
 
 ### Apache Arrow formatted intermediate data among Spark operator
 
-![Overview](./docs/image/columnar.png)
+![Overview](./image/columnar.png)
 
 With [Spark 27396](https://issues.apache.org/jira/browse/SPARK-27396) its possible to pass a RDD of Columnarbatch to operators. We implemented this API with Arrow columnar format.
 
 ### Apache Arrow based Native Readers for Parquet and other formats
 
-![Overview](./docs/image/dataset.png)
+![Overview](./image/dataset.png)
 
 A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check [Arrow Data Source](https://github.com/oap-project/arrow-data-source)
 
 ### Apache Arrow Compute/Gandiva based operators
 
-![Overview](./docs/image/kernel.png)
+![Overview](./image/kernel.png)
 
 We implemented common operators based on Apache Arrow Compute and Gandiva. The SQL expression was compiled to one expression tree with protobuf and passed to native kernels. The native kernels will then evaluate the these expressions based on the input columnar batch.
 
 ### Native Columnar Shuffle Operator with efficient compression support
 
-![Overview](./docs/image/shuffle.png)
+![Overview](./image/shuffle.png)
 
 We implemented columnar shuffle to improve the shuffle performance. With the columnar layout we could do very efficient data compression for different data format.
 
@@ -42,7 +38,7 @@ We implemented columnar shuffle to improve the shuffle performance. With the col
 
 ### Building by Conda
 
-If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](../docs/OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](../docs/OAP-Installation-Guide.md), you can find built `spark-columnar-core-1.0.0-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
+If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./OAP-Installation-Guide.md), you can find built `spark-columnar-core-1.0.0-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
 Then you can just skip below steps and jump to Getting Started [Get Started](#get-started).
 
 ### Building by yourself
@@ -51,14 +47,14 @@ If you prefer to build from the source code on your hand, please follow below st
 
 ### Prerequisite
 There are some requirements before you build the project.
-Please check the document [Prerequisite](./docs/Prerequisite.md) and make sure you have already installed the software in your system.
+Please check the document [Prerequisite](./Prerequisite.md) and make sure you have already installed the software in your system.
 If you are running a SPARK Cluster, please make sure all the software are installed in every single node.
 
 ### Installation
-Please check the document [Installation Guide](./docs/Installation.md) 
+Please check the document [Installation Guide](./Installation.md) 
 
 ### Configuration & Testing 
-Please check the document [Configuration Guide](./docs/Configuration.md)
+Please check the document [Configuration Guide](./Configuration.md)
 
 ## Get started
 To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-1.0.0-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-1.0.0-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
@@ -101,14 +97,14 @@ orders.createOrReplaceTempView("orders")
 spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(20000, false)
 ```
 
-The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage.
+The result should show up on Spark console and you can check the DAG diagram with some Columnar Processing stage.
 
 
 ## Performance data
 
 For initial microbenchmark performance, we add 10 fields up with spark, data size is 200G data
 
-![Performance](./docs/image/performance.png)
+![Performance](./image/performance.png)
 
 ## Coding Style
 

@@ -64,7 +64,7 @@ mvn test -pl gandiva -P arrow-jni
 Because oap-native-sql plugin will build a stand-alone jar file with arrow dependency, if you choose to build Arrow by yourself, you have to copy below files as a replacement from the original one.
 You can find those files in Apache Arrow installation directory or release directory. Below example assume Apache Arrow has been installed on /usr/local/lib64
 ``` shell
-cp /usr/local/lib64/libarrow.so.17 $oap-dir/oap-native-sql/cpp/src/resources
-cp /usr/local/lib64/libgandiva.so.17 $oap-dir/oap-native-sql/cpp/src/resources
-cp /usr/local/lib64/libparquet.so.17 $oap-dir/oap-native-sql/cpp/src/resources
+cp /usr/local/lib64/libarrow.so.17 $native-sql-engine-dir/cpp/src/resources
+cp /usr/local/lib64/libgandiva.so.17 $native-sql-engine-dir/cpp/src/resources
+cp /usr/local/lib64/libparquet.so.17 $native-sql-engine-dir/cpp/src/resources
 ``` 
