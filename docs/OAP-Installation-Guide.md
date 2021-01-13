@@ -1,5 +1,5 @@
 # OAP Installation Guide
-This document introduces how to install OAP and its dependencies on your cluster nodes by **Conda**. 
+This document introduces how to install OAP and its dependencies on your cluster nodes by ***Conda***. 
 Follow steps below on ***every node*** of your cluster to set right environment for each machine.
 
 ## Contents
