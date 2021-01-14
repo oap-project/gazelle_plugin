@@ -153,7 +153,12 @@ class ColumnarSorter(
           sort_elapse += System.nanoTime() - beforeSort
           total_elapse += System.nanoTime() - beforeSort
         }
-        sort_iterator.hasNext()
+        if (sort_iterator.hasNext()) {
+          return true
+        } else {
+          inputBatchHolder.foreach(cb => cb.close())
+          return false
+        }
       }
 
       override def next(): ColumnarBatch = {
