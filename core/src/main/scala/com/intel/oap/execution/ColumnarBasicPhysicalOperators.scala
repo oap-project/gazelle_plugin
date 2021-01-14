@@ -30,6 +30,7 @@ import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.ExecutorManager
+import org.apache.spark.sql.util.StructTypeFWD
 import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
@@ -125,7 +126,7 @@ case class ColumnarConditionProjectExec(
 
   override def supportColumnarCodegen: Boolean = true
 
-  override def canEqual(that: Any): Boolean = false
+  // override def canEqual(that: Any): Boolean = false
 
   def getKernelFunction(childTreeNode: TreeNode): TreeNode = {
     val (filterNode, projectNode) =
@@ -226,22 +227,30 @@ case class ColumnarConditionProjectExec(
     }
   }
 
-  // We have to override equals because subclassing a case class like ProjectExec is not that clean
-  // One of the issues is that the generated equals will see ColumnarProjectExec and ProjectExec
-  // as being equal and this can result in the withNewChildren method not actually replacing
-  // anything
-  override def equals(other: Any): Boolean = {
-    if (!super.equals(other)) {
-      return false
-    }
-    return other.isInstanceOf[ColumnarConditionProjectExec]
-  }
 }
 
-class ColumnarUnionExec(children: Seq[SparkPlan]) extends UnionExec(children) {
+case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
   // updating nullability to make all the children consistent
 
   override def supportsColumnar = true
   protected override def doExecuteColumnar(): RDD[ColumnarBatch] =
     sparkContext.union(children.map(_.executeColumnar()))
+  override def output: Seq[Attribute] = {
+    children.map(_.output).transpose.map { attrs =>
+      val firstAttr = attrs.head
+      val nullable = attrs.exists(_.nullable)
+      val newDt = attrs.map(_.dataType).reduce(StructTypeFWD.merge)
+      if (firstAttr.dataType == newDt) {
+        firstAttr.withNullability(nullable)
+      } else {
+        AttributeReference(firstAttr.name, newDt, nullable, firstAttr.metadata)(
+          firstAttr.exprId,
+          firstAttr.qualifier)
+      }
+    }
+  }
+  protected override def doExecute()
+      : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
+    throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
+  }
 }

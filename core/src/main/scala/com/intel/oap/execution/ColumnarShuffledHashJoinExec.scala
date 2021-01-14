@@ -301,14 +301,6 @@ case class ColumnarShuffledHashJoinExec(
     }
   }
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffledHashJoinExec]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarShuffledHashJoinExec =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
-
   //////////////////////////////////////////////////////////////////////////////////////////////////////
   def getResultSchema = {
     val attributes =
