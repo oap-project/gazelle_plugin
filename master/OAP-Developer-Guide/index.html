@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>OAP Developer Guide - Native SQL Engine - master</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "OAP Developer Guide";
+    var mkdocs_page_input_path = "OAP-Developer-Guide.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Native SQL Engine - master</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Prerequisite/">Prerequisite</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Installation/">Installation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../InstallationNotes/">InstallationNotes</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Configuration/">Configuration</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
+                    </li>
+                </ul>
+                <ul class="current">
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">OAP Developer Guide</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#building-oap">Building OAP</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites-for-building">Prerequisites for Building</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#building">Building</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#running-oap-unit-tests">Running OAP Unit Tests</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#building-sql-index-and-data-source-cache-with-pmem">Building SQL Index and Data Source Cache with PMem</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#prerequisites-for-building-with-pmem-support">Prerequisites for building with PMem support</a>
+    </li>
+    <li class="toctree-l4"><a class="reference internal" href="#building-package">Building package</a>
+    </li>
+        </ul>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="" href="../../">Version Selector</a>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Native SQL Engine - master</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>OAP Developer Guide</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="oap-developer-guide">OAP Developer Guide</h1>
+<p>This document contains the instructions &amp; scripts on installing necessary dependencies and building OAP. 
+You can get more detailed information from OAP each module below.</p>
+<ul>
+<li><a href="https://github.com/oap-project/sql-ds-cache/blob/master/docs/Developer-Guide.md">SQL Index and Data Source Cache</a></li>
+<li><a href="https://github.com/oap-project/pmem-common">PMem Common</a></li>
+<li><a href="https://github.com/oap-project/pmem-shuffle#5-install-dependencies-for-shuffle-remote-pmem-extension">PMem Shuffle</a></li>
+<li><a href="https://github.com/oap-project/remote-shuffle">Remote Shuffle</a></li>
+<li><a href="https://github.com/oap-project/oap-mllib">OAP MLlib</a></li>
+<li><a href="https://github.com/oap-project/arrow-data-source">Arrow Data Source</a></li>
+<li><a href="https://github.com/oap-project/native-sql-engine">Native SQL Engine</a></li>
+</ul>
+<h2 id="building-oap">Building OAP</h2>
+<h3 id="prerequisites-for-building">Prerequisites for Building</h3>
+<p>OAP is built with <a href="http://maven.apache.org/">Apache Maven</a> and Oracle Java 8, and mainly required tools to install on your cluster are listed below.</p>
+<ul>
+<li><a href="https://help.directadmin.com/item.php?id=494">Cmake</a></li>
+<li><a href="https://gcc.gnu.org/wiki/InstallingGCC">GCC &gt; 7</a></li>
+<li><a href="https://github.com/memkind/memkind/tree/v1.10.1-rc2">Memkind</a></li>
+<li><a href="https://github.com/pmem/vmemcache">Vmemcache</a></li>
+<li><a href="https://github.com/Intel-bigdata/HPNL">HPNL</a></li>
+<li><a href="https://github.com/pmem/pmdk">PMDK</a>  </li>
+<li><a href="https://software.intel.com/content/www/us/en/develop/tools/oneapi.html">OneAPI</a></li>
+<li>
+<p><a href="https://github.com/Intel-bigdata/arrow">Arrow</a></p>
+</li>
+<li>
+<p><strong>Requirements for Shuffle Remote PMem Extension</strong><br />
+If enable Shuffle Remote PMem extension with RDMA, you can refer to <a href="https://github.com/oap-project/pmem-shuffle">PMem Shuffle</a> to configure and validate RDMA in advance.</p>
+</li>
+</ul>
+<p>We provide scripts below to help automatically install dependencies above <strong>except RDMA</strong>, need change to <strong>root</strong> account, run:</p>
+<pre><code># git clone -b &lt;tag-version&gt; https://github.com/Intel-bigdata/OAP.git
+# cd OAP
+# sh $OAP_HOME/dev/install-compile-time-dependencies.sh
+</code></pre>
+
+<p>Run the following command to learn more.</p>
+<pre><code># sh $OAP_HOME/dev/scripts/prepare_oap_env.sh --help
+</code></pre>
+
+<p>Run the following command to automatically install specific dependency such as Maven.</p>
+<pre><code># sh $OAP_HOME/dev/scripts/prepare_oap_env.sh --prepare_maven
+</code></pre>
+
+<h3 id="building">Building</h3>
+<p>To build OAP package, run command below then you can find a tarball named <code>oap-$VERSION-bin-spark-$VERSION.tar.gz</code> under directory <code>$OAP_HOME/dev/release-package</code>.</p>
+<pre><code>$ sh $OAP_HOME/dev/compile-oap.sh
+</code></pre>
+
+<p>Building Specified OAP Module, such as <code>oap-cache</code>, run:</p>
+<pre><code>$ sh $OAP_HOME/dev/compile-oap.sh --oap-cache
+</code></pre>
+
+<h3 id="running-oap-unit-tests">Running OAP Unit Tests</h3>
+<p>Setup building environment manually for intel MLlib, and if your default GCC version is before 7.0 also need export <code>CC</code> &amp; <code>CXX</code> before using <code>mvn</code>, run</p>
+<pre><code>$ export CXX=$OAP_HOME/dev/thirdparty/gcc7/bin/g++
+$ export CC=$OAP_HOME/dev/thirdparty/gcc7/bin/gcc
+$ export ONEAPI_ROOT=/opt/intel/inteloneapi
+$ source /opt/intel/inteloneapi/daal/2021.1-beta07/env/vars.sh
+$ source /opt/intel/inteloneapi/tbb/2021.1-beta07/env/vars.sh
+$ source /tmp/oneCCL/build/_install/env/setvars.sh
+</code></pre>
+
+<p>Run all the tests:</p>
+<pre><code>$ mvn clean test
+</code></pre>
+
+<p>Run Specified OAP Module Unit Test, such as <code>oap-cache</code>:</p>
+<pre><code>$ mvn clean -pl com.intel.oap:oap-cache -am test
+
+</code></pre>
+
+<h3 id="building-sql-index-and-data-source-cache-with-pmem">Building SQL Index and Data Source Cache with PMem</h3>
+<h4 id="prerequisites-for-building-with-pmem-support">Prerequisites for building with PMem support</h4>
+<p>When using SQL Index and Data Source Cache with PMem, finish steps of <a href="#prerequisites-for-building">Prerequisites for building</a> to ensure needed dependencies have been installed.</p>
+<h4 id="building-package">Building package</h4>
+<p>You can build OAP with PMem support with command below:</p>
+<pre><code>$ sh $OAP_HOME/dev/compile-oap.sh
+</code></pre>
+
+<p>Or run:</p>
+<pre><code>$ mvn clean -q -Ppersistent-memory -Pvmemcache -DskipTests package
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../OAP-Installation-Guide/" class="btn btn-neutral" title="OAP Installation Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../OAP-Installation-Guide/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>User Guide - Native SQL Engine - master</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "User Guide";
+    var mkdocs_page_input_path = "User-Guide.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Native SQL Engine - master</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul class="current">
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">User Guide</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#key-features">Key Features</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#apache-arrow-formatted-intermediate-data-among-spark-operator">Apache Arrow formatted intermediate data among Spark operator</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#native-columnar-shuffle-operator-with-efficient-compression-support">Native Columnar Shuffle Operator with efficient compression support</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#build-the-plugin">Build the Plugin</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#building-by-conda">Building by Conda</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#building-by-yourself">Building by yourself</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisite">Prerequisite</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#installation">Installation</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#configuration-testing">Configuration &amp; Testing</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#get-started">Get started</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#performance-data">Performance data</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#coding-style">Coding Style</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#contact">Contact</a>
+    </li>
+    </ul>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Prerequisite/">Prerequisite</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Installation/">Installation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../InstallationNotes/">InstallationNotes</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Configuration/">Configuration</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../OAP-Developer-Guide/">OAP Developer Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="" href="../../">Version Selector</a>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Native SQL Engine - master</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>User Guide</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="spark-native-sql-engine">Spark Native SQL Engine</h1>
+<p>A Native Engine for Spark SQL with vectorized SIMD optimizations</p>
+<h2 id="introduction">Introduction</h2>
+<p><img alt="Overview" src="../image/nativesql_arch.png" /></p>
+<p>Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. <a href="https://arrow.apache.org/">Apache Arrow</a> provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technoligies and brought better performance to Spark SQL.</p>
+<h2 id="key-features">Key Features</h2>
+<h3 id="apache-arrow-formatted-intermediate-data-among-spark-operator">Apache Arrow formatted intermediate data among Spark operator</h3>
+<p><img alt="Overview" src="../image/columnar.png" /></p>
+<p>With <a href="https://issues.apache.org/jira/browse/SPARK-27396">Spark 27396</a> its possible to pass a RDD of Columnarbatch to operators. We implemented this API with Arrow columnar format.</p>
+<h3 id="apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</h3>
+<p><img alt="Overview" src="../image/dataset.png" /></p>
+<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/arrow-data-source">Arrow Data Source</a></p>
+<h3 id="apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</h3>
+<p><img alt="Overview" src="../image/kernel.png" /></p>
+<p>We implemented common operators based on Apache Arrow Compute and Gandiva. The SQL expression was compiled to one expression tree with protobuf and passed to native kernels. The native kernels will then evaluate the these expressions based on the input columnar batch.</p>
+<h3 id="native-columnar-shuffle-operator-with-efficient-compression-support">Native Columnar Shuffle Operator with efficient compression support</h3>
+<p><img alt="Overview" src="../image/shuffle.png" /></p>
+<p>We implemented columnar shuffle to improve the shuffle performance. With the columnar layout we could do very efficient data compression for different data format.</p>
+<h2 id="build-the-plugin">Build the Plugin</h2>
+<h3 id="building-by-conda">Building by Conda</h3>
+<p>If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a> for more information. Once finished <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a>, you can find built <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code>.
+Then you can just skip below steps and jump to Getting Started <a href="#get-started">Get Started</a>.</p>
+<h3 id="building-by-yourself">Building by yourself</h3>
+<p>If you prefer to build from the source code on your hand, please follow below steps to set up your environment.</p>
+<h3 id="prerequisite">Prerequisite</h3>
+<p>There are some requirements before you build the project.
+Please check the document <a href="../Prerequisite/">Prerequisite</a> and make sure you have already installed the software in your system.
+If you are running a SPARK Cluster, please make sure all the software are installed in every single node.</p>
+<h3 id="installation">Installation</h3>
+<p>Please check the document <a href="../Installation/">Installation Guide</a> </p>
+<h3 id="configuration-testing">Configuration &amp; Testing</h3>
+<p>Please check the document <a href="../Configuration/">Configuration Guide</a></p>
+<h2 id="get-started">Get started</h2>
+<p>To enable OAP NativeSQL Engine, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
+SPARK related options are:</p>
+<ul>
+<li><code>spark.driver.extraClassPath</code> : Set to load jar file to driver.</li>
+<li><code>spark.executor.extraClassPath</code> : Set to load jar file to executor.</li>
+<li><code>jars</code> : Set to copy jar file to the executors when using yarn cluster mode.</li>
+<li><code>spark.executorEnv.ARROW_LIBHDFS3_DIR</code> : Optional if you are using a custom libhdfs3.so.</li>
+<li><code>spark.executorEnv.LD_LIBRARY_PATH</code> : Optional if you are using a custom libhdfs3.so.</li>
+</ul>
+<p>For Spark Standalone Mode, please set the above value as relative path to the jar file.
+For Spark Yarn Cluster Mode, please set the above value as absolute path to the jar file.</p>
+<p>Example to run Spark Shell with ArrowDataSource jar file</p>
+<pre><code>${SPARK_HOME}/bin/spark-shell \
+        --verbose \
+        --master yarn \
+        --driver-memory 10G \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
+        --conf spark.driver.cores=1 \
+        --conf spark.executor.instances=12 \
+        --conf spark.executor.cores=6 \
+        --conf spark.executor.memory=20G \
+        --conf spark.memory.offHeap.size=80G \
+        --conf spark.task.cpus=1 \
+        --conf spark.locality.wait=0s \
+        --conf spark.sql.shuffle.partitions=72 \
+        --conf spark.executorEnv.ARROW_LIBHDFS3_DIR=&quot;$PATH_TO_LIBHDFS3_DIR/&quot; \
+        --conf spark.executorEnv.LD_LIBRARY_PATH=&quot;$PATH_TO_LIBHDFS3_DEPENDENCIES_DIR&quot;
+        --jars $PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar,$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar
+</code></pre>
+
+<p>Here is one example to verify if native sql engine works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to <a href="https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql">Solution Guide</a>.</p>
+<pre><code>val orders = spark.read.format(&quot;arrow&quot;).load(&quot;hdfs:////user/root/date_tpch_10/orders&quot;)
+orders.createOrReplaceTempView(&quot;orders&quot;)
+spark.sql(&quot;select * from orders where o_orderdate &gt; date '1998-07-26'&quot;).show(20000, false)
+</code></pre>
+
+<p>The result should show up on Spark console and you can check the DAG diagram with some Columnar Processing stage.</p>
+<h2 id="performance-data">Performance data</h2>
+<p>For initial microbenchmark performance, we add 10 fields up with spark, data size is 200G data</p>
+<p><img alt="Performance" src="../image/performance.png" /></p>
+<h2 id="coding-style">Coding Style</h2>
+<ul>
+<li>For Java code, we used <a href="https://github.com/google/google-java-format">google-java-format</a></li>
+<li>For Scala code, we used <a href="https://github.com/apache/spark/blob/master/dev/.scalafmt.conf">Spark Scala Format</a>, please use <a href="https://github.com/scalameta/scalafmt">scalafmt</a> or run ./scalafmt for scala codes format</li>
+<li>For Cpp codes, we used Clang-Format, check on this link <a href="https://github.com/google/vim-codefmt">google-vim-codefmt</a> for details.</li>
+</ul>
+<h2 id="contact">Contact</h2>
+<p>chendi.xue@intel.com
+binwei.yang@intel.com</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../Prerequisite/" class="btn btn-neutral float-right" title="Prerequisite">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+      
+        <span style="margin-left: 15px"><a href="../Prerequisite/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
