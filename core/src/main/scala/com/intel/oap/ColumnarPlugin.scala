@@ -324,10 +324,10 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
       case e: Exchange => true
       case other => false
     }
-    isLeafPlanExchange || (sanityCheck(plan) &&
+    isLeafPlanExchange || (SQLConf.get.adaptiveExecutionEnabled && (sanityCheck(plan) &&
     !plan.logicalLink.exists(_.isStreaming) &&
     !plan.expressions.exists(_.find(_.isInstanceOf[DynamicPruningSubquery]).isDefined) &&
-    plan.children.forall(supportAdaptive))
+    plan.children.forall(supportAdaptive)))
   }
 
   private def sanityCheck(plan: SparkPlan): Boolean =
