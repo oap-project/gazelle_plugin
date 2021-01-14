@@ -57,7 +57,7 @@ Please check the document [Installation Guide](./Installation.md)
 Please check the document [Configuration Guide](./Configuration.md)
 
 ## Get started
-To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-1.0.0-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-1.0.0-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
+To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
 SPARK related options are:
 
 * `spark.driver.extraClassPath` : Set to load jar file to driver.
@@ -75,8 +75,8 @@ ${SPARK_HOME}/bin/spark-shell \
         --verbose \
         --master yarn \
         --driver-memory 10G \
-        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-1.0.0-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-1.0.0-jar-with-dependencies.jar \
-        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-1.0.0-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-1.0.0-jar-with-dependencies.jar \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
@@ -87,7 +87,7 @@ ${SPARK_HOME}/bin/spark-shell \
         --conf spark.sql.shuffle.partitions=72 \
         --conf spark.executorEnv.ARROW_LIBHDFS3_DIR="$PATH_TO_LIBHDFS3_DIR/" \
         --conf spark.executorEnv.LD_LIBRARY_PATH="$PATH_TO_LIBHDFS3_DEPENDENCIES_DIR"
-        --jars $PATH_TO_JAR/spark-arrow-datasource-standard-1.0.0-jar-with-dependencies.jar,$PATH_TO_JAR/spark-columnar-core-1.0.0-jar-with-dependencies.jar
+        --jars $PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar,$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar
 ```
 
 Here is one example to verify if native sql engine works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to [Solution Guide](https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql).
