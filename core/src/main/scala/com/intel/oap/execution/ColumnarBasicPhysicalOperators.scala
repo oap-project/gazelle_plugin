@@ -28,7 +28,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-import org.apache.spark.sql.types.{MapType, StructType}
+import org.apache.spark.sql.types.{DecimalType, MapType, StructType}
 import org.apache.spark.util.ExecutorManager
 import org.apache.spark.sql.util.StructTypeFWD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -237,7 +237,8 @@ case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
   def buildCheck(): Unit = {
     for (child <- children) {
       for (schema <- child.schema) {
-        if (schema.dataType.isInstanceOf[MapType]) {
+        if (schema.dataType.isInstanceOf[MapType] ||
+            schema.dataType.isInstanceOf[DecimalType]) {
           throw new UnsupportedOperationException(
             s"${schema.dataType} is not supported in ColumnarUnionExec")
         }

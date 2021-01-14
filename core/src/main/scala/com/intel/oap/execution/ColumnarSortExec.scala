@@ -86,7 +86,7 @@ case class ColumnarSortExec(
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
 
-  ColumnarSorter.buildCheck(sortOrder)
+  ColumnarSorter.buildCheck(output)
 
   /*****************  WSCG related function ******************/
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = child match {

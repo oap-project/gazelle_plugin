@@ -1668,14 +1668,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setInt(int rowId, int value) {
-      BigDecimal v = new BigDecimal(value);
-      writer.setSafe(rowId, v.setScale(writer.getScale()));
+      writer.setSafe(rowId, value);
     }
 
     @Override
     final void setLong(int rowId, long value) {
-      BigDecimal v = new BigDecimal(value);
-      writer.setSafe(rowId, v.setScale(writer.getScale()));
+      writer.setSafe(rowId, value);
     }
 
     @Override

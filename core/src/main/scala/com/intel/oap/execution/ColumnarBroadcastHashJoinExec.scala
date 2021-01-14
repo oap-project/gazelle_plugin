@@ -54,6 +54,7 @@ import io.netty.buffer.ByteBuf
 import com.google.common.collect.Lists
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.ExpressionEvaluator
+import org.apache.spark.sql.execution.adaptive.BroadcastQueryStageExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
 import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
@@ -100,17 +101,6 @@ case class ColumnarBroadcastHashJoinExec(
   buildCheck()
 
   def buildCheck(): Unit = {
-    // build check for BroadcastExchange
-    left match {
-      case exec: BroadcastExchangeExec =>
-        new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-      case _ =>
-    }
-    right match {
-      case exec: BroadcastExchangeExec =>
-        new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-      case _ =>
-    }
     // build check for condition
     val conditionExpr: Expression = condition.orNull
     if (conditionExpr != null) {
