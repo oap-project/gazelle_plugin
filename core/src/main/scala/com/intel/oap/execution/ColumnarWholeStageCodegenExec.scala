@@ -344,6 +344,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             var build_elapse_internal: Long = 0
             while (depIter.hasNext) {
               val dep_cb = depIter.next()
+              if (dep_cb.numRows > 0) {
               (0 until dep_cb.numCols).toList.foreach(i =>
                 dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
               buildRelationBatchHolder += dep_cb
@@ -353,6 +354,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
               ConverterUtils.releaseArrowRecordBatch(dep_rb)
               build_elapse += System.nanoTime() - beforeEval
               build_elapse_internal += System.nanoTime() - beforeEval
+              }
             }
             buildTime += (build_elapse_internal / 1000000)
             dependentKernels += hashRelationKernel
