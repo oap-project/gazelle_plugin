@@ -209,4 +209,14 @@ object SparkMemoryUtils {
     }
     getTaskMemoryResources().defaultMemoryPool
   }
+
+  def getLeakedAllocators(): List[BufferAllocator] = {
+    val list = new util.ArrayList[BufferAllocator](leakedAllocators)
+    list.asScala.toList
+  }
+
+  def getLeakedMemoryPools(): List[NativeMemoryPool] = {
+    val list = new util.ArrayList[NativeMemoryPool](leakedMemoryPools)
+    list.asScala.toList
+  }
 }
