@@ -155,6 +155,16 @@ class HashRelation {
     return arrow::Status::NotImplemented("HashRelation AppendKeyColumn is abstract.");
   }
 
+  arrow::Status Minimize() {
+    if (hash_table_ == nullptr) {
+      return arrow::Status::OK();
+    }
+    if (shrinkToFit(hash_table_)) {
+      return arrow::Status::OK();
+    }
+    return arrow::Status::Invalid("Error minimizing hash table");
+  }
+
   arrow::Status AppendKeyColumn(
       std::shared_ptr<arrow::Array> in,
       const std::vector<std::shared_ptr<UnsafeArray>>& payloads) {

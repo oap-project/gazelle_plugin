@@ -5,39 +5,27 @@ import java.util.concurrent._
 
 import com.google.common.collect.Lists
 import com.intel.oap.expression._
-import com.intel.oap.vectorized.{ArrowWritableColumnVector, BatchIterator, ExpressionEvaluator}
-import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
-import java.io.{ObjectOutputStream, OutputStream}
-import java.nio.ByteBuffer
-
-import scala.concurrent.duration.NANOSECONDS
-import scala.concurrent.{ExecutionContext, Promise}
-import scala.util.control.NonFatal
-import scala.collection.mutable.ArrayBuffer
-import org.apache.spark.{broadcast, SparkException}
+import com.intel.oap.vectorized.{ArrowWritableColumnVector, ExpressionEvaluator}
+import org.apache.arrow.gandiva.expression._
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field}
+import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.launcher.SparkLauncher
-import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
-import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression, SortOrder}
-import org.apache.spark.sql.catalyst.expressions.BoundReference
-import org.apache.spark.sql.catalyst.plans.physical._
-import org.apache.spark.sql.execution.{ColumnarHashedRelation, SparkPlan, SQLExecution}
-import org.apache.spark.sql.execution.exchange._
+import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression}
+import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, _}
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, _}
 import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.execution.metric.SQLMetrics
-import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-import org.apache.spark.TaskContext
-import org.apache.spark.util.{SparkFatalException, ThreadUtils}
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
-import org.apache.arrow.vector.types.pojo.ArrowType
-import org.apache.arrow.vector.types.pojo.Field
-import org.apache.arrow.vector.types.pojo.Schema
-import org.apache.arrow.gandiva.expression._
-import org.apache.arrow.gandiva.evaluator._
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
+import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.util.SparkFatalException
+import org.apache.spark.{SparkException, broadcast}
+
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.Promise
+import scala.concurrent.duration.NANOSECONDS
+import scala.util.control.NonFatal
 
 case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) extends Exchange {
 
@@ -149,8 +137,8 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
           }
         }
         val hashRelationResultIterator = hashRelationKernel.finishByIterator()
-
         val hashRelationObj = hashRelationResultIterator.nextHashRelationObject()
+        hashRelationKernel.close()
         relation =
           new ColumnarHashedRelation(hashRelationObj, _input.toArray, size_raw).asReadOnlyCopy
         val dataSize = relation.asInstanceOf[ColumnarHashedRelation].size
@@ -205,10 +193,6 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
         case e: Throwable =>
           promise.failure(e)
           throw e
-      } finally {
-        val timeout: Int = SQLConf.get.broadcastTimeout.toInt
-        if (relation != null)
-          relation.asInstanceOf[ColumnarHashedRelation].countDownClose(timeout)
       }
     }
   }

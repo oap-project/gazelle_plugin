@@ -449,7 +449,6 @@ case class ColumnarShuffledHashJoinExec(
 
     val signature = getCodeGenSignature(hashTableType)
     val listJars = uploadAndListJars(signature)
-    val timeout = ColumnarPluginConfig.getConf(sparkConf).broadcastCacheTimeout
     val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
 
     if (hashTableType == 1) {

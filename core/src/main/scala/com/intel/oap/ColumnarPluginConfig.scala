@@ -54,7 +54,7 @@ class ColumnarPluginConfig(conf: SparkConf) {
     conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen.breakdownTime", defaultValue = false)
   val tmpFile: String =
     conf.getOption("spark.sql.columnar.tmp_dir").getOrElse(null)
-  val broadcastCacheTimeout: Int =
+  @deprecated val broadcastCacheTimeout: Int =
     conf.getInt("spark.sql.columnar.sort.broadcast.cache.timeout", defaultValue = -1)
   val hashCompare: Boolean =
     conf.getBoolean("spark.oap.sql.columnar.hashCompare", defaultValue = false)

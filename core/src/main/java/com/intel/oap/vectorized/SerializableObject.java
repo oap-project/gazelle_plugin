@@ -28,13 +28,15 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledByteBufAllocator;
+import org.apache.arrow.util.AutoCloseables;
 
 /** ArrowBufBuilder. */
 public class SerializableObject implements Externalizable, KryoSerializable {
   public int total_size;
   public int[] size;
   private ByteBuf[] directAddrs;
-  private ByteBufAllocator allocator;
+
+  private transient AutoCloseable[] resources = null;
 
   public SerializableObject() {}
 
@@ -44,7 +46,7 @@ public class SerializableObject implements Externalizable, KryoSerializable {
    * @param memoryAddress native ArrowBuf data addr.
    * @param size ArrowBuf size.
    */
-  public SerializableObject(long[] memoryAddress, int[] size) throws IOException {
+  public SerializableObject(long[] memoryAddress, int[] size, AutoCloseable[] resources) throws IOException {
     this.total_size = 0;
     this.size = size;
     directAddrs = new ByteBuf[size.length];
@@ -52,17 +54,12 @@ public class SerializableObject implements Externalizable, KryoSerializable {
       this.total_size += size[i];
       directAddrs[i] = Unpooled.wrappedBuffer(memoryAddress[i], size[i], false);
     }
+    this.resources = resources;
   }
 
-  /**
-   * Create an instance for NativeSerializableObject.
-   *
-   * @param memoryAddress native ArrowBuf data addr.
-   * @param size ArrowBuf size.
-   */
-  public SerializableObject(NativeSerializableObject obj)
+  public SerializableObject(NativeSerializableObject obj, AutoCloseable[] resources)
       throws IOException, ClassNotFoundException {
-    this(obj.memoryAddress, obj.size);
+    this(obj.memoryAddress, obj.size, resources);
   }
 
   @Override
@@ -70,7 +67,7 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     this.total_size = in.readInt();
     int size_len = in.readInt();
     this.size = (int[]) in.readObject();
-    allocator = UnpooledByteBufAllocator.DEFAULT;
+    ByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
     directAddrs = new ByteBuf[size_len];
     for (int i = 0; i < size.length; i++) {
       directAddrs[i] = allocator.directBuffer(size[i], size[i]);
@@ -104,7 +101,7 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     this.total_size = in.readInt();
     int size_len = in.readInt();
     this.size = in.readInts(size_len);
-    allocator = UnpooledByteBufAllocator.DEFAULT;
+    ByteBufAllocator allocator = UnpooledByteBufAllocator.DEFAULT;
     directAddrs = new ByteBuf[size_len];
     for (int i = 0; i < size.length; i++) {
       directAddrs[i] = allocator.directBuffer(size[i], size[i]);
@@ -141,6 +138,7 @@ public class SerializableObject implements Externalizable, KryoSerializable {
 
   public void close() {
     releaseDirectMemory();
+    releaseResources();
   }
 
   public long[] getDirectMemoryAddrs() throws IOException {
@@ -154,7 +152,7 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     return addrs;
   }
 
-  public void releaseDirectMemory() {
+  private void releaseDirectMemory() {
     if (directAddrs != null) {
       for (int i = 0; i < directAddrs.length; i++) {
         directAddrs[i].release();
@@ -162,10 +160,14 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     }
   }
 
-  public int getRefCnt() {
-    if (directAddrs != null) {
-      return directAddrs[0].refCnt();
+  private void releaseResources() {
+    if (resources == null) {
+      return;
     }
-    return 0;
+    try {
+      AutoCloseables.close(resources);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }
