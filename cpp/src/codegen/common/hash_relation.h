@@ -25,6 +25,7 @@
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
 #include "precompile/unsafe_array.h"
+#include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
@@ -33,6 +34,7 @@ using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
 using sparkcolumnarplugin::precompile::UnsafeArray;
+using sparkcolumnarplugin::thirdparty::murmurhash32::hash32;
 
 class HashRelationColumn {
  public:
@@ -282,6 +284,47 @@ class HashRelation {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }
     return safeLookup(hash_table_, payload, v);
+  }
+
+  template <typename CType,
+            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+  int Get(CType payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+    if (res == -1) return -1;
+
+    return 0;
+  }
+
+  int Get(std::string payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+    if (res == -1) return -1;
+    return 0;
+  }
+
+  template <typename CType,
+            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+  int IfExists(CType payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    return safeLookup(hash_table_, payload, v);
+  }
+
+  int IfExists(std::string payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    return safeLookup(hash_table_, payload.data(), payload.size(), v);
   }
 
   int GetNull() {
