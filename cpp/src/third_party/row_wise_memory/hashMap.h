@@ -1,10 +1,10 @@
 #pragma once
 
+#include <arrow/memory_pool.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
-#include <arrow/memory_pool.h>
 #include "third_party/row_wise_memory/unsafe_row.h"
 
 #define MAX_HASH_MAP_CAPACITY (1 << 29)  // must be power of 2
@@ -291,7 +291,7 @@ static inline int safeLookup(unsafeHashMap* hashMap, CType keyRow, int hashVal) 
     int KeyAddressOffset = *(int*)(keyArrayBase + pos * keySizeInBytes);
     int keyHashCode = *(int*)(keyArrayBase + pos * keySizeInBytes + 4);
 
-    if (KeyAddressOffset < 0) {
+    if (KeyAddressOffset == -1) {
       // This is a new key.
       return HASH_NEW_KEY;
     } else {
@@ -420,35 +420,25 @@ static inline int safeLookup(unsafeHashMap* hashMap, CType keyRow, int hashVal,
     int KeyAddressOffset = *(int*)(keyArrayBase + pos * keySizeInBytes);
     int keyHashCode = *(int*)(keyArrayBase + pos * keySizeInBytes + 4);
 
-    if (KeyAddressOffset < 0) {
+    if (KeyAddressOffset == -1) {
       // This is a new key.
       return HASH_NEW_KEY;
     } else {
       if ((int)keyHashCode == hashVal) {
-        if (keySizeInBytes > 8) {
-          if (keyRow == *(CType*)(keyArrayBase + pos * keySizeInBytes + 8)) {
-            char* record = base + KeyAddressOffset;
-            (*output).clear();
+        assert(keySizeInBytes > 8);
+        if (keyRow == *(CType*)(keyArrayBase + pos * keySizeInBytes + 8)) {
+          (*output).clear();
+          if (!((KeyAddressOffset >> 31) == 0)) {
+            char* record = base + (KeyAddressOffset & 0x7FFFFFFF);
             while (record != nullptr) {
               (*output).push_back(*((ArrayItemIndex*)getValueFromBytesMap(record)));
               KeyAddressOffset = getNextOffsetFromBytesMap(record);
               record = KeyAddressOffset == 0 ? nullptr : (base + KeyAddressOffset);
             }
-            return 0;
+          } else {
+            (*output).push_back(*((ArrayItemIndex*)&KeyAddressOffset));
           }
-        } else {
-          // Full hash code matches.  Let's compare the keys for equality.
-          char* record = base + KeyAddressOffset;
-          if (keyRow == *((CType*)getKeyFromBytesMap(record))) {
-            // there may be more than one record
-            (*output).clear();
-            while (record != nullptr) {
-              (*output).push_back(*((ArrayItemIndex*)getValueFromBytesMap(record)));
-              KeyAddressOffset = getNextOffsetFromBytesMap(record);
-              record = KeyAddressOffset == 0 ? nullptr : (base + KeyAddressOffset);
-            }
-            return 0;
-          }
+          return 0;
         }
       }
     }
@@ -673,31 +663,51 @@ static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, cha
   int keySizeInBytes = hashMap->bytesInKeyArray;
   char* keyArrayBase = hashMap->keyArray;
 
+  // chendi: Add a optimization here, use offset first bit to indicate if this offset is
+  // ArrayItemIndex or bytesmap offset
+  // if first key, it will be arrayItemIndex first bit is 0
+  // if multiple same key, it will be offset first bit is 1
+
   while (true) {
     int KeyAddressOffset = *(int*)(keyArrayBase + pos * keySizeInBytes);
     int keyHashCode = *(int*)(keyArrayBase + pos * keySizeInBytes + 4);
 
-    if (KeyAddressOffset < 0) {
+    if (KeyAddressOffset == -1) {
       // This is a new key.
       int keyArrayPos = pos;
-      record = base + cursor;
       // Update keyArray in hashMap
       hashMap->numKeys++;
-      *(int*)(keyArrayBase + pos * keySizeInBytes) = cursor;
+      *(int*)(keyArrayBase + pos * keySizeInBytes) = *(int*)value;
       *(int*)(keyArrayBase + pos * keySizeInBytes + 4) = hashVal;
       *(CType*)(keyArrayBase + pos * keySizeInBytes + 8) = keyRow;
-      hashMap->cursor += recordLength;
-      break;
+      return true;
     } else {
+      char* previous_value = nullptr;
       if (((int)keyHashCode == hashVal) &&
           (keyRow == *(CType*)(keyArrayBase + pos * keySizeInBytes + 8))) {
-        // Full hash code matches.  Let's compare the keys for equality.
-        record = base + KeyAddressOffset;
-        if (cursor + recordLength >= hashMap->mapSize) {
+        if ((KeyAddressOffset >> 31) == 0) {
+          // we should move in keymap value to bytesmap
+          record = base + cursor;
+          // copy keyRow and valueRow into hashmap
+          auto total_key_length = ((8 + klen + vlen) << 16) | klen;
+          *((int*)record) = total_key_length;
+          *((int*)(record + 4 + klen)) = KeyAddressOffset;
+          *((int*)(record + 4 + klen + vlen)) = 0;
+
+          // Update hashMap
+          KeyAddressOffset = hashMap->cursor;
+          *(int*)(keyArrayBase + pos * keySizeInBytes) = (KeyAddressOffset | 0x80000000);
+          record = base + KeyAddressOffset;
+          hashMap->cursor += (4 + klen + vlen + 4);
+        } else {
+          // Full hash code matches.  Let's compare the keys for equality.
+          record = base + (KeyAddressOffset & 0x7FFFFFFF);
+        }
+        if (hashMap->cursor + recordLength >= hashMap->mapSize) {
           // Grow the hash table
           assert(growHashBytesMap(hashMap));
           base = hashMap->bytesMap;
-          record = base + cursor;
+          record = base + hashMap->cursor;
         }
 
         // link current record next ptr to new record
@@ -708,8 +718,8 @@ static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, cha
           cur_record_lengh = *((int*)record) >> 16;
           nextOffset = (int*)(record + cur_record_lengh - 4);
         }
-        *nextOffset = cursor;
-        record = base + cursor;
+        *nextOffset = hashMap->cursor;
+        record = base + hashMap->cursor;
 
         // Update hashMap
         hashMap->cursor += (4 + klen + vlen + 4);

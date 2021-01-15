@@ -124,8 +124,7 @@ class HashRelation {
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
       int key_size = -1)
       : HashRelation(hash_relation_column) {
-    hash_table_ =
-        createUnsafeHashMap(ctx->memory_pool(), 1024 * 1024, 256 * 1024 * 1024, key_size);
+    key_size_ = key_size;
     ctx_ = ctx;
     arrayid_list_.reserve(64);
   }
@@ -137,6 +136,12 @@ class HashRelation {
     }
   }
 
+  arrow::Status InitHashTable(int init_key_capacity, int initial_bytesmap_capacity) {
+    hash_table_ = createUnsafeHashMap(ctx_->memory_pool(), init_key_capacity,
+                                      initial_bytesmap_capacity, key_size_);
+    return arrow::Status::OK();
+  }
+
   virtual arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in) {
     return arrow::Status::NotImplemented("HashRelation AppendKeyColumn is abstract.");
   }
@@ -144,6 +149,9 @@ class HashRelation {
   arrow::Status AppendKeyColumn(
       std::shared_ptr<arrow::Array> in,
       const std::vector<std::shared_ptr<UnsafeArray>>& payloads) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     std::shared_ptr<UnsafeRow> payload = std::make_shared<UnsafeRow>(payloads.size());
@@ -167,6 +175,9 @@ class HashRelation {
                 nullptr>
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<KeyArrayType> original_key) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
@@ -192,6 +203,9 @@ class HashRelation {
 
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<StringArray> original_key) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
@@ -342,6 +356,7 @@ class HashRelation {
   bool null_index_set_ = false;
   std::vector<ArrayItemIndex> null_index_list_;
   std::vector<ArrayItemIndex> arrayid_list_;
+  int key_size_;
 
   arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
                        uint32_t id) {
