@@ -213,21 +213,21 @@ class ConditionedMergeJoinKernel::Impl {
                        << std::endl;
     function_define_ss << "if (!(" << right_validity_paramater << ")) return 1;"
                        << std::endl;
+    auto left_tuple_name = left_paramater;
+    auto right_tuple_name = right_paramater;
     if (project_output_list[0].size() > 1) {
       function_define_ss << "auto left_tuple = std::make_tuple(" << left_paramater
                          << " );" << std::endl;
-    } else {
-      function_define_ss << "auto left_tuple = " << left_paramater << ";" << std::endl;
+      left_tuple_name = "left_tuple";
     }
     if (project_output_list[1].size() > 1) {
       function_define_ss << "auto right_tuple = std::make_tuple(" << right_paramater
                          << " );" << std::endl;
-    } else {
-      function_define_ss << "auto right_tuple = " << right_paramater << ";" << std::endl;
+      right_tuple_name = "right_tuple";
     }
-    function_define_ss
-        << "return left_tuple == right_tuple ? 0 : (left_tuple < right_tuple ? -1 : 1);"
-        << std::endl;
+    function_define_ss << "return " << left_tuple_name << " == " << right_tuple_name
+                       << " ? 0 : (" << left_tuple_name << " < " << right_tuple_name
+                       << " ? -1 : 1);" << std::endl;
     function_define_ss << "}" << std::endl;
     auto compare_function = function_define_ss.str();
     codegen_ctx->function_list.push_back(compare_function);
@@ -297,7 +297,7 @@ class ConditionedMergeJoinKernel::Impl {
   std::vector<arrow::ArrayVector> cached_;
 
   arrow::Status GetInnerJoin(bool cond_check, bool use_relation_for_stream,
-                             std::shared_ptr<CodeGenContext>* output) {
+                             bool cache_right, std::shared_ptr<CodeGenContext>* output) {
     std::stringstream shuffle_ss;
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
@@ -335,14 +335,16 @@ class ConditionedMergeJoinKernel::Impl {
     codes_ss << "}" << std::endl;
     ///////////////////////////
 
+    std::stringstream right_for_loop_codes;
     if (use_relation_for_stream) {
       codes_ss << "auto " << streamed_range_name << " = " << streamed_relation
                << "->GetSameKeyRange();" << std::endl;
-      codes_ss << "for (int " << streamed_range_id << " = 0; " << streamed_range_id
-               << " < " << streamed_range_name << "; " << streamed_range_id << "++) {"
-               << std::endl;
-      codes_ss << right_index_name << " = " << streamed_relation
-               << "->GetItemIndexWithShift(" << streamed_range_id << ");" << std::endl;
+      right_for_loop_codes << "for (int " << streamed_range_id << " = 0; "
+                           << streamed_range_id << " < " << streamed_range_name << "; "
+                           << streamed_range_id << "++) {" << std::endl;
+      right_for_loop_codes << right_index_name << " = " << streamed_relation
+                           << "->GetItemIndexWithShift(" << streamed_range_id << ");"
+                           << std::endl;
       std::stringstream prepare_ss;
       prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
@@ -350,10 +352,18 @@ class ConditionedMergeJoinKernel::Impl {
     std::stringstream prepare_ss;
     prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
+    if (cache_right) {
+      codes_ss << right_for_loop_codes.str();
+      codes_ss << "auto is_smj_" << relation_id << " = false;" << std::endl;
+    }
     codes_ss << "for (int " << range_id << " = 0; " << range_id << " < " << range_name
              << "; " << range_id << "++) {" << std::endl;
     codes_ss << left_index_name << " = " << build_relation << "->GetItemIndexWithShift("
              << range_id << ");" << std::endl;
+    if (!cache_right) {
+      codes_ss << "auto is_smj_" << relation_id << " = false;" << std::endl;
+      codes_ss << right_for_loop_codes.str();
+    }
     if (cond_check) {
       auto condition_name = "ConditionCheck_" + std::to_string(relation_id_[0]);
       if (use_relation_for_stream) {
@@ -378,7 +388,7 @@ class ConditionedMergeJoinKernel::Impl {
     return arrow::Status::OK();
   }
   arrow::Status GetOuterJoin(bool cond_check, bool use_relation_for_stream,
-                             std::shared_ptr<CodeGenContext>* output) {
+                             bool cache_right, std::shared_ptr<CodeGenContext>* output) {
     std::stringstream shuffle_ss;
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
@@ -413,14 +423,16 @@ class ConditionedMergeJoinKernel::Impl {
     codes_ss << "}" << std::endl;
     ///////////////////////////
 
+    std::stringstream right_for_loop_codes;
     if (use_relation_for_stream) {
       codes_ss << "auto " << streamed_range_name << " = " << streamed_relation
                << "->GetSameKeyRange();" << std::endl;
-      codes_ss << "for (int " << streamed_range_id << " = 0; " << streamed_range_id
-               << " < " << streamed_range_name << "; " << streamed_range_id << "++) {"
-               << std::endl;
-      codes_ss << right_index_name << " = " << streamed_relation
-               << "->GetItemIndexWithShift(" << streamed_range_id << ");" << std::endl;
+      right_for_loop_codes << "for (int " << streamed_range_id << " = 0; "
+                           << streamed_range_id << " < " << streamed_range_name << "; "
+                           << streamed_range_id << "++) {" << std::endl;
+      right_for_loop_codes << right_index_name << " = " << streamed_relation
+                           << "->GetItemIndexWithShift(" << streamed_range_id << ");"
+                           << std::endl;
       std::stringstream prepare_ss;
       prepare_ss << "ArrayItemIndexS " << right_index_name << ";" << std::endl;
       (*output)->definition_codes += prepare_ss.str();
@@ -429,12 +441,20 @@ class ConditionedMergeJoinKernel::Impl {
     prepare_ss << "ArrayItemIndexS " << left_index_name << ";" << std::endl;
     prepare_ss << "bool " << fill_null_name << ";" << std::endl;
     (*output)->definition_codes += prepare_ss.str();
+    if (cache_right) {
+      codes_ss << right_for_loop_codes.str();
+      codes_ss << "auto is_smj_" << relation_id << " = false;" << std::endl;
+    }
     codes_ss << "for (int " << range_id << " = 0; " << range_id << " < " << range_name
              << "; " << range_id << "++) {" << std::endl;
     codes_ss << "if(!" << fill_null_name << "){" << std::endl;
     codes_ss << left_index_name << " = " << build_relation << "->GetItemIndexWithShift("
              << range_id << ");" << std::endl;
     codes_ss << "}" << std::endl;
+    if (!cache_right) {
+      codes_ss << "auto is_smj_" << relation_id << " = false;" << std::endl;
+      codes_ss << right_for_loop_codes.str();
+    }
     if (cond_check) {
       auto condition_name = "ConditionCheck_" + std::to_string(relation_id_[0]);
       if (use_relation_for_stream) {
@@ -552,7 +572,6 @@ class ConditionedMergeJoinKernel::Impl {
     return arrow::Status::OK();
   }
   arrow::Status GetSemiJoin(bool cond_check, bool use_relation_for_stream,
-
                             std::shared_ptr<CodeGenContext>* output) {
     std::stringstream shuffle_ss;
     std::stringstream codes_ss;
@@ -752,6 +771,10 @@ class ConditionedMergeJoinKernel::Impl {
     // define output list here, which will also be defined in class variables definition
 
     int right_index_shift = 0;
+    std::vector<int> left_output_idx_list;
+    std::vector<int> right_output_idx_list;
+    std::stringstream define_ss;
+
     for (int idx = 0; idx < result_schema_index_list_.size(); idx++) {
       std::string name;
       std::string arguments;
@@ -768,24 +791,26 @@ class ConditionedMergeJoinKernel::Impl {
         type = left_field_list_[i]->type();
         arguments = left_index_name + ".array_id, " + left_index_name + ".id";
         if (join_type == 1) {
-          valid_ss << "auto " << output_validity << " = !" << fill_null_name << " && !"
-                   << name << "->IsNull(" << arguments << ");" << std::endl;
+          valid_ss << output_validity << " = !" << fill_null_name << " && !" << name
+                   << "->IsNull(" << arguments << ");" << std::endl;
         } else {
-          valid_ss << "auto " << output_validity << " = !" << name << "->IsNull("
-                   << arguments << ");" << std::endl;
+          valid_ss << output_validity << " = !" << name << "->IsNull(" << arguments
+                   << ");" << std::endl;
         }
-        valid_ss << "auto " << output_name << " = " << name << "->GetValue(" << arguments
-                 << ");" << std::endl;
+        valid_ss << output_name << " = " << name << "->GetValue(" << arguments << ");"
+                 << std::endl;
 
+        left_output_idx_list.push_back(idx);
+        define_ss << "bool " << output_name << "_validity = true;" << std::endl;
+        define_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
       } else {                         /*right(streamed) table*/
         if (use_relation_for_stream) { /* use sort relation in streamed side*/
           if (exist_index_ != -1 && exist_index_ == i) {
             name =
                 "sort_relation_" + std::to_string(relation_id_[0]) + "_existence_value";
             type = arrow::boolean();
-            valid_ss << "auto " << output_validity << " = " << name << "_validity;"
-                     << std::endl;
-            valid_ss << "auto " << output_name << " = " << name << ";" << std::endl;
+            valid_ss << output_validity << " = " << name << "_validity;" << std::endl;
+            valid_ss << output_name << " = " << name << ";" << std::endl;
             right_index_shift = -1;
           } else {
             i += right_index_shift;
@@ -793,20 +818,24 @@ class ConditionedMergeJoinKernel::Impl {
                    std::to_string(i);
             type = right_field_list_[i]->type();
             arguments = right_index_name + ".array_id, " + right_index_name + ".id";
-            valid_ss << "auto " << output_validity << " = !" << name << "->IsNull("
-                     << arguments << ");" << std::endl;
-            valid_ss << "auto " << output_name << " = " << name << "->GetValue("
-                     << arguments << ");" << std::endl;
+            valid_ss << output_validity << " = !" << name << "->IsNull(" << arguments
+                     << ");" << std::endl;
+            valid_ss << output_name << " = " << name << "->GetValue(" << arguments << ");"
+                     << std::endl;
           }
+          right_output_idx_list.push_back(idx);
+          define_ss << "bool " << output_name << "_validity = true;" << std::endl;
+          define_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
         } else { /* use previous output in streamed side*/
           if (exist_index_ != -1 && exist_index_ == i) {
             name =
                 "sort_relation_" + std::to_string(relation_id_[0]) + "_existence_value";
-            valid_ss << "auto " << output_validity << " = " << name << "_validity;"
-                     << std::endl;
-            valid_ss << "auto " << output_name << " = " << name << ";" << std::endl;
+            valid_ss << output_validity << " = " << name << "_validity;" << std::endl;
+            valid_ss << output_name << " = " << name << ";" << std::endl;
             type = arrow::boolean();
             right_index_shift = -1;
+            define_ss << "bool " << output_name << "_validity = true;" << std::endl;
+            define_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
           } else {
             i += right_index_shift;
             output_name = input[i].first.first;
@@ -819,13 +848,18 @@ class ConditionedMergeJoinKernel::Impl {
       (*output)->output_list.push_back(
           std::make_pair(std::make_pair(output_name, valid_ss.str()), type));
     }
+    std::stringstream process_ss;
+    bool cache_right = true;
+    if (left_output_idx_list.size() > right_output_idx_list.size()) cache_right = false;
 
     switch (join_type) {
       case 0: { /* inner join */
-        RETURN_NOT_OK(GetInnerJoin(cond_check, use_relation_for_stream, output));
+        RETURN_NOT_OK(
+            GetInnerJoin(cond_check, use_relation_for_stream, cache_right, output));
       } break;
       case 1: { /* Outer join */
-        RETURN_NOT_OK(GetOuterJoin(cond_check, use_relation_for_stream, output));
+        RETURN_NOT_OK(
+            GetOuterJoin(cond_check, use_relation_for_stream, cache_right, output));
       } break;
       case 2: { /* Anti join */
         RETURN_NOT_OK(GetAntiJoin(cond_check, use_relation_for_stream, output));
@@ -839,6 +873,8 @@ class ConditionedMergeJoinKernel::Impl {
       default: {
       } break;
     }
+    (*output)->process_codes += process_ss.str();
+    (*output)->definition_codes += define_ss.str();
 
     return arrow::Status::OK();
   }

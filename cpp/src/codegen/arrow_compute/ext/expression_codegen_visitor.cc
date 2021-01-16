@@ -651,9 +651,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         prepare_ss << "  }" << std::endl;
         field_type_ = sort_relation;
       } else {
-        prepare_ss << (*input_list_)[arg_id].first.second;
-        if (!is_local_) {
-          (*input_list_)[arg_id].first.second = "";
+        if ((*input_list_)[arg_id].first.second != "") {
+          prepare_ss << (*input_list_)[arg_id].first.second;
+          if (!is_local_) {
+            (*input_list_)[arg_id].first.second = "";
+          }
         }
         codes_str_ = (*input_list_)[arg_id].first.first;
         codes_validity_str_ = GetValidityName(codes_str_);
