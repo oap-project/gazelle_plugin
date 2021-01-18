@@ -135,10 +135,10 @@ case class ColumnarSortExec(
 
   /***********************************************************/
   def getCodeGenSignature =
-    if (!sortOrder
-          .filter(
-            expr => bindReference(expr.child, child.output, true).isInstanceOf[BoundReference])
-          .isEmpty) {
+    if (sortOrder.exists(expr =>
+        bindReference(
+          ConverterUtils.getAttrFromExpr(expr.child), child.output, true)
+          .isInstanceOf[BoundReference])) {
       ColumnarSorter.prebuild(
         sortOrder,
         child.output,
