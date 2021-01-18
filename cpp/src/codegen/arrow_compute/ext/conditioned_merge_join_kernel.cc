@@ -141,8 +141,11 @@ class ConditionedMergeJoinKernel::Impl {
                        << GetTemplateString(relation_col_type, "TypedRelationColumn",
                                             "Type", "arrow::")
                        << "> " << relation_col_name << ";" << std::endl;
+        sort_define_ss << "bool " << relation_col_name << "_has_null;" << std::endl;
         sort_prepare_ss << "RETURN_NOT_OK(" << relation_list_name << "->GetColumn(" << i
                         << ", &" << relation_col_name << "));" << std::endl;
+        sort_prepare_ss << relation_col_name << "_has_null = " << relation_col_name
+                        << "->HasNull();" << std::endl;
       }
       idx++;
     }
@@ -791,11 +794,12 @@ class ConditionedMergeJoinKernel::Impl {
         type = left_field_list_[i]->type();
         arguments = left_index_name + ".array_id, " + left_index_name + ".id";
         if (join_type == 1) {
-          valid_ss << output_validity << " = !" << fill_null_name << " && !" << name
-                   << "->IsNull(" << arguments << ");" << std::endl;
+          valid_ss << output_validity << " = !" << fill_null_name << " && !(" << name
+                   << "_has_null && " << name << "->IsNull(" << arguments << "));"
+                   << std::endl;
         } else {
-          valid_ss << output_validity << " = !" << name << "->IsNull(" << arguments
-                   << ");" << std::endl;
+          valid_ss << output_validity << " = !(" << name << "_has_null && " << name
+                   << "->IsNull(" << arguments << "));" << std::endl;
         }
         valid_ss << output_name << " = " << name << "->GetValue(" << arguments << ");"
                  << std::endl;
@@ -818,8 +822,8 @@ class ConditionedMergeJoinKernel::Impl {
                    std::to_string(i);
             type = right_field_list_[i]->type();
             arguments = right_index_name + ".array_id, " + right_index_name + ".id";
-            valid_ss << output_validity << " = !" << name << "->IsNull(" << arguments
-                     << ");" << std::endl;
+            valid_ss << output_validity << " = !(" << name << "_has_null && " << name
+                     << "->IsNull(" << arguments << "));" << std::endl;
             valid_ss << output_name << " = " << name << "->GetValue(" << arguments << ");"
                      << std::endl;
           }
