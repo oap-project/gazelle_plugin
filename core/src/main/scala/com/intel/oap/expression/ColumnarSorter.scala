@@ -92,7 +92,6 @@ class ColumnarSorter(
     elapse.set(NANOSECONDS.toMillis(total_elapse))
     sortTime.set(NANOSECONDS.toMillis(sort_elapse))
     shuffleTime.set(NANOSECONDS.toMillis(shuffle_elapse))
-    inputBatchHolder.foreach(cb => cb.close())
     if (sorter != null) {
       sorter.close()
     }
@@ -153,7 +152,12 @@ class ColumnarSorter(
           sort_elapse += System.nanoTime() - beforeSort
           total_elapse += System.nanoTime() - beforeSort
         }
-        sort_iterator.hasNext()
+        if (sort_iterator.hasNext()) {
+          return true
+        } else {
+          inputBatchHolder.foreach(cb => cb.close())
+          return false
+        }
       }
 
       override def next(): ColumnarBatch = {
