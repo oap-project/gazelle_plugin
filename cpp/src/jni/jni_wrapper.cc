@@ -1247,6 +1247,29 @@ Java_com_intel_oap_datasource_parquet_ParquetWriterJniWrapper_nativeWriteNext(
   env->ReleaseLongArrayElements(bufSizes, in_buf_sizes, JNI_ABORT);
 }
 
+
+JNIEXPORT jlong JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
+    JNIEnv* env, jobject obj, jlong splitter_id, jlong size, jboolean call_by_self) {
+
+  auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
+    return -1L;
+  }
+
+  jlong spilled_size;
+  arrow::Status status = splitter->SpillFixedSize(size, &spilled_size);
+  if (!status.ok()) {
+    std::string error_message =
+        "(shuffle) nativeSpill: spill failed with error msg " + status.ToString();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+    return -1L;
+  }
+  return spilled_size;
+}
+
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,

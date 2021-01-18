@@ -75,6 +75,19 @@ public class ShuffleSplitterJniWrapper {
       long memoryPoolId);
 
   /**
+   *
+   * Spill partition data to disk.
+   *
+   * @param splitterId splitter instance id
+   * @param size expected size to spill (in bytes)
+   * @param callBySelf whether the caller is the shuffle splitter itself, true
+   *                   when running out of off-heap memory due to allocations from
+   *                   the evaluator itself
+   * @return actual spilled size
+   */
+  public native long nativeSpill(long splitterId, long size, boolean callBySelf) throws RuntimeException;
+
+  /**
    * Split one record batch represented by bufAddrs and bufSizes into several batches. The batch is
    * split according to the first column as partition id. During splitting, the data in native
    * buffers will be write to disk when the buffers are full.

@@ -551,7 +551,8 @@ arrow::Status Splitter::AllocateNew(int32_t partition_id, int32_t new_size) {
     std::cout << status.ToString() << std::endl
               << std::to_string(++retry) << " retry to allocate new buffer for partition "
               << std::to_string(partition_id) << std::endl;
-    ARROW_ASSIGN_OR_RAISE(auto partition_to_spill, SpillLargestPartition());
+    int64_t spilled_size;
+    ARROW_ASSIGN_OR_RAISE(auto partition_to_spill, SpillLargestPartition(&spilled_size));
     if (partition_to_spill == -1) {
       std::cout << "Failed to allocate new buffer for partition "
                 << std::to_string(partition_id) << ". No partition buffer to spill."
@@ -567,6 +568,22 @@ arrow::Status Splitter::AllocateNew(int32_t partition_id, int32_t new_size) {
   return status;
 }
 
+arrow::Status Splitter::SpillFixedSize(int64_t size, int64_t* actual) {
+  int64_t current_spilled = 0L;
+  int32_t try_count = 0;
+  while (current_spilled < size && try_count < 5) {
+    try_count++;
+    int64_t single_call_spilled;
+    ARROW_ASSIGN_OR_RAISE(int32_t spilled_partition_id, SpillLargestPartition(&single_call_spilled))
+    if (spilled_partition_id == -1) {
+      break;
+    }
+    current_spilled += single_call_spilled;
+  }
+  *actual = current_spilled;
+  return arrow::Status::OK();
+}
+
 arrow::Status Splitter::SpillPartition(int32_t partition_id) {
   if (partition_writer_[partition_id] == nullptr) {
     partition_writer_[partition_id] =
@@ -576,7 +593,7 @@ arrow::Status Splitter::SpillPartition(int32_t partition_id) {
   return arrow::Status::OK();
 }
 
-arrow::Result<int32_t> Splitter::SpillLargestPartition() {
+arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
   // spill the largest partition
   auto max_size = 0;
   int32_t partition_to_spill = -1;
@@ -592,6 +609,9 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition() {
     std::cout << "Spilled partition " << std::to_string(partition_to_spill) << ", "
               << std::to_string(max_size) << " bytes released" << std::endl;
 #endif
+    *size = max_size;
+  } else {
+    *size = 0;
   }
   return partition_to_spill;
 }
