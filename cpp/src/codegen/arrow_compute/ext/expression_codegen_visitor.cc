@@ -412,7 +412,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = round_2(" << child_visitor_list[0]->GetResult()
+    prepare_ss << codes_str_ << " = round2(" << child_visitor_list[0]->GetResult()
                << fix_ss.str() << ");" << std::endl;
     prepare_ss << "}" << std::endl;
 
