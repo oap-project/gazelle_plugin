@@ -233,6 +233,7 @@ object ColumnarSorter extends Logging {
       result_type: Int = 0): TreeNode = {
     logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
     val NaNCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val codegen = ColumnarPluginConfig.getConf.enableColumnarCodegenSort
     /////////////// Prepare ColumnarSorter //////////////
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr)
@@ -322,6 +323,11 @@ object ColumnarSorter extends Logging {
         TreeBuilder.makeLiteral(NaNCheck.asInstanceOf[java.lang.Boolean])),
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
 
+    val codegen_node = TreeBuilder.makeFunction(
+      "codegen",
+      Lists.newArrayList(TreeBuilder.makeLiteral(codegen.asInstanceOf[java.lang.Boolean])),
+      new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
     val result_type_node = TreeBuilder.makeFunction(
       "result_type",
       Lists.newArrayList(TreeBuilder.makeLiteral(result_type.asInstanceOf[Integer])),
@@ -337,6 +343,7 @@ object ColumnarSorter extends Logging {
           dir_node,
           nulls_order_node,
           NaN_check_node,
+          codegen_node,
           result_type_node),
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
 
