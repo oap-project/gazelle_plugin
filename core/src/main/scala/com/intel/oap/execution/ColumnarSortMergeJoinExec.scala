@@ -315,7 +315,7 @@ case class ColumnarSortMergeJoinExec(
   //do not call prebuild so we could skip the c++ codegen
   //val triggerBuildSignature = getCodeGenSignature
 
-  try {
+  /*try {
     ColumnarSortMergeJoin.precheck(
       leftKeys,
       rightKeys,
@@ -332,7 +332,7 @@ case class ColumnarSortMergeJoinExec(
   } catch {
     case e: Throwable =>
       throw e
-  }
+  }*/
 
   /***********************************************************/
   def getCodeGenSignature: String =
