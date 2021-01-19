@@ -203,8 +203,12 @@ class ConditionedProbeKernel::Impl {
                      << GetTemplateString(hash_relation_col_type,
                                           "TypedHashRelationColumn", "Type", "arrow::")
                      << "> " << hash_relation_col_name << ";" << std::endl;
+      hash_define_ss << "bool " << hash_relation_col_name << "_has_null;" << std::endl;
       hash_prepare_ss << "RETURN_NOT_OK(" << relation_list_name << "->GetColumn(" << i
                       << ", &" << hash_relation_col_name << "));" << std::endl;
+      hash_prepare_ss << hash_relation_col_name
+                      << "_has_null = " << hash_relation_col_name << "->HasNull();"
+                      << std::endl;
     }
     codegen_ctx->relation_prepare_codes = hash_prepare_ss.str();
 
@@ -1742,12 +1746,13 @@ class ConditionedProbeKernel::Impl {
         type = left_field_list_[pair.second]->type();
         if (join_type == 1) {
           valid_ss << "auto " << output_validity << " = !" << is_outer_null_name
-                   << " && !" << name << "->IsNull(" << tmp_name << ".array_id, "
-                   << tmp_name << ".id);" << std::endl;
+                   << " && !(" << name << "_has_null && " << name << "->IsNull("
+                   << tmp_name << ".array_id, " << tmp_name << ".id));" << std::endl;
 
         } else {
-          valid_ss << "auto " << output_validity << " = !" << name << "->IsNull("
-                   << tmp_name << ".array_id, " << tmp_name << ".id);" << std::endl;
+          valid_ss << "auto " << output_validity << " = !(" << name << "_has_null && "
+                   << name << "->IsNull(" << tmp_name << ".array_id, " << tmp_name
+                   << ".id));" << std::endl;
         }
         valid_ss << "auto " << output_name << " = " << name << "->GetValue(" << tmp_name
                  << ".array_id, " << tmp_name << ".id);" << std::endl;

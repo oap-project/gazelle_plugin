@@ -682,8 +682,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
           prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
           prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
                      << ";" << std::endl;
-          prepare_ss << "  if (" << input_codes_str_ << "->IsNull(x.array_id, x.id)) {"
-                     << std::endl;
+          prepare_ss << "  if (" << input_codes_str_ << "_has_null && "
+                     << input_codes_str_ << "->IsNull(x.array_id, x.id)) {" << std::endl;
           prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
           prepare_ss << "  } else {" << std::endl;
           prepare_ss << "    " << codes_str_ << " = " << input_codes_str_

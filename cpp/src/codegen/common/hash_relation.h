@@ -46,6 +46,7 @@ class HashRelationColumn {
     return arrow::Status::NotImplemented(
         "HashRelationColumn GetArrayVector is abstract.");
   }
+  virtual bool HasNull() = 0;
 };
 
 template <typename T, typename Enable = void>
@@ -62,6 +63,7 @@ class TypedHashRelationColumn<DataType, enable_if_number<DataType>>
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<ArrayType>(in);
+    if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();
   }
@@ -72,10 +74,12 @@ class TypedHashRelationColumn<DataType, enable_if_number<DataType>>
     return arrow::Status::OK();
   }
   T GetValue(int array_id, int id) { return array_vector_[array_id]->GetView(id); }
+  bool HasNull() { return has_null_; }
 
  private:
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
   std::vector<std::shared_ptr<ArrayType>> array_vector_;
+  bool has_null_ = false;
 };
 
 template <typename DataType>
@@ -88,6 +92,7 @@ class TypedHashRelationColumn<DataType, enable_if_string_like<DataType>>
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<StringArray>(in);
+    if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();
   }
@@ -100,9 +105,11 @@ class TypedHashRelationColumn<DataType, enable_if_string_like<DataType>>
   std::string GetValue(int array_id, int id) {
     return array_vector_[array_id]->GetString(id);
   }
+  bool HasNull() { return has_null_; }
 
  private:
   std::vector<std::shared_ptr<StringArray>> array_vector_;
+  bool has_null_ = false;
 };
 
 template <typename T>
