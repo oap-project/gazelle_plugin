@@ -73,12 +73,14 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     allocator = UnpooledByteBufAllocator.DEFAULT;
     directAddrs = new ByteBuf[size_len];
     for (int i = 0; i < size.length; i++) {
-      byte[] data = new byte[size[i]];
       directAddrs[i] = allocator.directBuffer(size[i], size[i]);
-      OutputStream out = new ByteBufOutputStream(directAddrs[i]);
-      data = (byte[]) in.readObject();
-      out.write(data);
-      out.close();
+      if (size[i] > 0) {
+        byte[] data = new byte[size[i]];
+        data = (byte[]) in.readObject();
+        OutputStream out = new ByteBufOutputStream(directAddrs[i]);
+        out.write(data);
+        out.close();
+      }
     }
   }
 
@@ -88,13 +90,12 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     out.writeInt(this.size.length);
     out.writeObject(this.size);
     for (int i = 0; i < size.length; i++) {
-      byte[] data = new byte[size[i]];
-      ByteBufInputStream in = new ByteBufInputStream(directAddrs[i]);
-      try {
+      if (size[i] > 0) {
+        byte[] data = new byte[size[i]];
+        ByteBufInputStream in = new ByteBufInputStream(directAddrs[i]);
         in.read(data);
-      } catch (IOException e) {
+        out.writeObject(data);
       }
-      out.writeObject(data);
     }
   }
 
@@ -106,14 +107,16 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     allocator = UnpooledByteBufAllocator.DEFAULT;
     directAddrs = new ByteBuf[size_len];
     for (int i = 0; i < size.length; i++) {
-      byte[] data = new byte[size[i]];
       directAddrs[i] = allocator.directBuffer(size[i], size[i]);
-      OutputStream out = new ByteBufOutputStream(directAddrs[i]);
-      try {
-        in.readBytes(data);
-        out.write(data);
-        out.close();
-      } catch (IOException e) {
+      if (size[i] > 0) {
+        byte[] data = new byte[size[i]];
+        OutputStream out = new ByteBufOutputStream(directAddrs[i]);
+        try {
+          in.readBytes(data);
+          out.write(data);
+          out.close();
+        } catch (IOException e) {
+        }
       }
     }
   }
@@ -124,13 +127,15 @@ public class SerializableObject implements Externalizable, KryoSerializable {
     out.writeInt(this.size.length);
     out.writeInts(this.size);
     for (int i = 0; i < size.length; i++) {
-      byte[] data = new byte[size[i]];
-      ByteBufInputStream in = new ByteBufInputStream(directAddrs[i]);
-      try {
-        in.read(data);
-      } catch (IOException e) {
+      if (size[i] > 0) {
+        byte[] data = new byte[size[i]];
+        ByteBufInputStream in = new ByteBufInputStream(directAddrs[i]);
+        try {
+          in.read(data);
+        } catch (IOException e) {
+        }
+        out.writeBytes(data);
       }
-      out.writeBytes(data);
     }
   }
 

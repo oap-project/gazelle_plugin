@@ -203,8 +203,12 @@ class ConditionedProbeKernel::Impl {
                      << GetTemplateString(hash_relation_col_type,
                                           "TypedHashRelationColumn", "Type", "arrow::")
                      << "> " << hash_relation_col_name << ";" << std::endl;
+      hash_define_ss << "bool " << hash_relation_col_name << "_has_null;" << std::endl;
       hash_prepare_ss << "RETURN_NOT_OK(" << relation_list_name << "->GetColumn(" << i
                       << ", &" << hash_relation_col_name << "));" << std::endl;
+      hash_prepare_ss << hash_relation_col_name
+                      << "_has_null = " << hash_relation_col_name << "->HasNull();"
+                      << std::endl;
     }
     codegen_ctx->relation_prepare_codes = hash_prepare_ss.str();
 
@@ -265,23 +269,25 @@ class ConditionedProbeKernel::Impl {
       }
       idx++;
     }
-    std::shared_ptr<ExpressionCodegenVisitor> hash_node_visitor;
-    auto is_local = false;
-    RETURN_NOT_OK(MakeExpressionCodegenVisitor(
-        right_key_hash_codegen_->root(), &project_output_list, {key_hash_field_list_}, -1,
-        var_id, is_local, &input_list, &hash_node_visitor));
-    prepare_ss << hash_node_visitor->GetPrepare();
-    auto key_name = hash_node_visitor->GetResult();
-    auto validity_name = hash_node_visitor->GetPreCheck();
-    prepare_ss << "auto key_" << hash_relation_id_ << " = " << key_name << ";"
-               << std::endl;
-    prepare_ss << "auto key_" << hash_relation_id_ << "_validity = " << validity_name
-               << ";" << std::endl;
-    for (auto header : hash_node_visitor->GetHeaders()) {
-      if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
-                    header) == codegen_ctx->header_codes.end()) {
-        codegen_ctx->header_codes.push_back(header);
-      }
+    if (key_hash_field_list_.size() > 1) {
+      std::shared_ptr<ExpressionCodegenVisitor> hash_node_visitor;
+      auto is_local = false;
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+          right_key_hash_codegen_->root(), &project_output_list, {key_hash_field_list_},
+          -1, var_id, is_local, &input_list, &hash_node_visitor));
+      prepare_ss << hash_node_visitor->GetPrepare();
+      auto key_name = hash_node_visitor->GetResult();
+      auto validity_name = hash_node_visitor->GetPreCheck();
+      prepare_ss << "auto key_" << hash_relation_id_ << " = " << key_name << ";"
+                 << std::endl;
+      prepare_ss << "auto key_" << hash_relation_id_ << "_validity = " << validity_name
+                 << ";" << std::endl;
+      /*for (auto header : hash_node_visitor->GetHeaders()) {
+        if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
+                      header) == codegen_ctx->header_codes.end()) {
+          codegen_ctx->header_codes.push_back(header);
+        }
+      }*/
     }
     codegen_ctx->prepare_codes = prepare_ss.str();
     /////   inside loop  //////
@@ -1446,9 +1452,14 @@ class ConditionedProbeKernel::Impl {
     auto item_index_list_name = index_name + "_item_list";
     auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
-    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-             << std::endl;
+    if (key_hash_field_list_.size() == 1) {
+      codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
+               << hash_relation_id_ << ");" << std::endl;
+    } else {
+      codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+               << std::endl;
+    }
     codes_ss << "if (" << index_name << " == -1) { continue; }" << std::endl;
     codes_ss << "auto " << item_index_list_name << " = " << hash_relation_name
              << "->GetItemListByIndex(" << index_name << ");" << std::endl;
@@ -1484,9 +1495,14 @@ class ConditionedProbeKernel::Impl {
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     codes_ss << "std::vector<ArrayItemIndex> " << item_index_list_name << ";"
              << std::endl;
-    codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
-             << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-             << std::endl;
+    if (key_hash_field_list_.size() == 1) {
+      codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
+               << hash_relation_id_ << ");" << std::endl;
+    } else {
+      codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+               << std::endl;
+    }
     codes_ss << "auto " << range_size_name << " = 1;" << std::endl;
     codes_ss << "if (" << index_name << " != -1) {" << std::endl;
     codes_ss << item_index_list_name << " = " << hash_relation_name
@@ -1524,13 +1540,23 @@ class ConditionedProbeKernel::Impl {
     auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
-      codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
-               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-               << std::endl;
+      if (key_hash_field_list_.size() == 1) {
+        codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
+                 << hash_relation_id_ << ");" << std::endl;
+      } else {
+        codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+                 << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+                 << std::endl;
+      }
     } else {
-      codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
-               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-               << std::endl;
+      if (key_hash_field_list_.size() == 1) {
+        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(unsafe_row_"
+                 << hash_relation_id_ << ");" << std::endl;
+      } else {
+        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
+                 << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+                 << std::endl;
+      }
     }
     if (cond_check) {
       codes_ss << "if (" << index_name << " != -1) {" << std::endl;
@@ -1574,13 +1600,23 @@ class ConditionedProbeKernel::Impl {
     auto condition_name = "ConditionCheck_" + std::to_string(hash_relation_id_);
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
-      codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
-               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-               << std::endl;
+      if (key_hash_field_list_.size() == 1) {
+        codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
+                 << hash_relation_id_ << ");" << std::endl;
+      } else {
+        codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+                 << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+                 << std::endl;
+      }
     } else {
-      codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
-               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-               << std::endl;
+      if (key_hash_field_list_.size() == 1) {
+        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(unsafe_row_"
+                 << hash_relation_id_ << ");" << std::endl;
+      } else {
+        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
+                 << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+                 << std::endl;
+      }
     }
     codes_ss << "if (" << index_name << " == -1) {" << std::endl;
     codes_ss << "continue;" << std::endl;
@@ -1626,13 +1662,23 @@ class ConditionedProbeKernel::Impl {
     auto exist_validity = exist_name + "_validity";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
-      codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
-               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-               << std::endl;
+      if (key_hash_field_list_.size() == 1) {
+        codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
+                 << hash_relation_id_ << ");" << std::endl;
+      } else {
+        codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
+                 << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+                 << std::endl;
+      }
     } else {
-      codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
-               << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
-               << std::endl;
+      if (key_hash_field_list_.size() == 1) {
+        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(unsafe_row_"
+                 << hash_relation_id_ << ");" << std::endl;
+      } else {
+        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
+                 << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
+                 << std::endl;
+      }
     }
     codes_ss << "bool " << exist_name << " = false;" << std::endl;
     codes_ss << "bool " << exist_validity << " = true;" << std::endl;
@@ -1700,12 +1746,13 @@ class ConditionedProbeKernel::Impl {
         type = left_field_list_[pair.second]->type();
         if (join_type == 1) {
           valid_ss << "auto " << output_validity << " = !" << is_outer_null_name
-                   << " && !" << name << "->IsNull(" << tmp_name << ".array_id, "
-                   << tmp_name << ".id);" << std::endl;
+                   << " && !(" << name << "_has_null && " << name << "->IsNull("
+                   << tmp_name << ".array_id, " << tmp_name << ".id));" << std::endl;
 
         } else {
-          valid_ss << "auto " << output_validity << " = !" << name << "->IsNull("
-                   << tmp_name << ".array_id, " << tmp_name << ".id);" << std::endl;
+          valid_ss << "auto " << output_validity << " = !(" << name << "_has_null && "
+                   << name << "->IsNull(" << tmp_name << ".array_id, " << tmp_name
+                   << ".id));" << std::endl;
         }
         valid_ss << "auto " << output_name << " = " << name << "->GetValue(" << tmp_name
                  << ".array_id, " << tmp_name << ".id);" << std::endl;

@@ -412,7 +412,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = round_2(" << child_visitor_list[0]->GetResult()
+    prepare_ss << codes_str_ << " = round2(" << child_visitor_list[0]->GetResult()
                << fix_ss.str() << ");" << std::endl;
     prepare_ss << "}" << std::endl;
 
@@ -621,8 +621,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
     prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
     prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "  if (" << input_codes_str_ << "->IsNull(" << idx_name << ".array_id, "
-               << idx_name << ".id)) {" << std::endl;
+    prepare_ss << "  if (" << input_codes_str_ << "_has_null && " << input_codes_str_
+               << "->IsNull(" << idx_name << ".array_id, " << idx_name << ".id)) {"
+               << std::endl;
     prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
     prepare_ss << "  } else {" << std::endl;
     prepare_ss << "    " << codes_str_ << " = " << input_codes_str_ << "->GetValue("
@@ -642,8 +643,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
         prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
                    << ";" << std::endl;
-        prepare_ss << "  if (" << input_codes_str_ << "->IsNull(" << idx_name
-                   << ".array_id, " << idx_name << ".id)) {" << std::endl;
+        prepare_ss << "  if (" << input_codes_str_ << "_has_null && " << input_codes_str_
+                   << "->IsNull(" << idx_name << ".array_id, " << idx_name << ".id)) {"
+                   << std::endl;
         prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
         prepare_ss << "  } else {" << std::endl;
         prepare_ss << "    " << codes_str_ << " = " << input_codes_str_ << "->GetValue("
@@ -651,9 +653,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         prepare_ss << "  }" << std::endl;
         field_type_ = sort_relation;
       } else {
-        prepare_ss << (*input_list_)[arg_id].first.second;
-        if (!is_local_) {
-          (*input_list_)[arg_id].first.second = "";
+        if ((*input_list_)[arg_id].first.second != "") {
+          prepare_ss << (*input_list_)[arg_id].first.second;
+          if (!is_local_) {
+            (*input_list_)[arg_id].first.second = "";
+          }
         }
         codes_str_ = (*input_list_)[arg_id].first.first;
         codes_validity_str_ = GetValidityName(codes_str_);
@@ -678,8 +682,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
           prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
           prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
                      << ";" << std::endl;
-          prepare_ss << "  if (" << input_codes_str_ << "->IsNull(x.array_id, x.id)) {"
-                     << std::endl;
+          prepare_ss << "  if (" << input_codes_str_ << "_has_null && "
+                     << input_codes_str_ << "->IsNull(x.array_id, x.id)) {" << std::endl;
           prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
           prepare_ss << "  } else {" << std::endl;
           prepare_ss << "    " << codes_str_ << " = " << input_codes_str_

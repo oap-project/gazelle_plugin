@@ -38,6 +38,7 @@ class RelationColumn {
   virtual arrow::Status GetArrayVector(std::vector<std::shared_ptr<arrow::Array>>* out) {
     return arrow::Status::NotImplemented("RelationColumn GetArrayVector is abstract.");
   }
+  virtual bool HasNull() = 0;
 };
 
 template <typename T, typename Enable = void>
@@ -49,7 +50,7 @@ class TypedRelationColumn<DataType, enable_if_number<DataType>> : public Relatio
   using T = typename TypeTraits<DataType>::CType;
   TypedRelationColumn() {}
   bool IsNull(int array_id, int id) override {
-    return array_vector_[array_id]->IsNull(id);
+    return (!has_null_) ? false : array_vector_[array_id]->IsNull(id);
   }
   bool IsEqualTo(int x_array_id, int x_id, int y_array_id, int y_id) {
     if (!has_null_) return GetValue(x_array_id, x_id) == GetValue(y_array_id, y_id);
@@ -72,6 +73,7 @@ class TypedRelationColumn<DataType, enable_if_number<DataType>> : public Relatio
     return arrow::Status::OK();
   }
   T GetValue(int array_id, int id) { return array_vector_[array_id]->GetView(id); }
+  bool HasNull() { return has_null_; }
 
  private:
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
@@ -85,7 +87,7 @@ class TypedRelationColumn<DataType, enable_if_string_like<DataType>>
  public:
   TypedRelationColumn() {}
   bool IsNull(int array_id, int id) override {
-    return array_vector_[array_id]->IsNull(id);
+    return (!has_null_) ? false : array_vector_[array_id]->IsNull(id);
   }
   bool IsEqualTo(int x_array_id, int x_id, int y_array_id, int y_id) {
     if (!has_null_) return GetValue(x_array_id, x_id) == GetValue(y_array_id, y_id);
@@ -110,6 +112,7 @@ class TypedRelationColumn<DataType, enable_if_string_like<DataType>>
   std::string GetValue(int array_id, int id) {
     return array_vector_[array_id]->GetString(id);
   }
+  bool HasNull() { return has_null_; }
 
  private:
   std::vector<std::shared_ptr<StringArray>> array_vector_;

@@ -1646,7 +1646,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoinWithCoalesce) {
     ASSERT_NOT_OK(Equals(*(expected_table[i]).get(), *result_batch.get()));
   }
 }
-
+/*
 TEST(TestArrowComputeWSCG, WSCGTestStringInnerMergeJoin) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", utf8());
@@ -2092,10 +2092,12 @@ TEST(TestArrowComputeWSCG, WSCGTestStringOuterMergeJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      R"([null, null, "BJ", null, null, null, "NJ", "NY", null, "SH", "SH", "SH", "SZ", "SZ"])",
-      R"([null, null, "A", null, null, null, "B", "C", null, "A", "D", "F", "C", "C"])",
+      R"([null, null, "BJ", null, null, null, "NJ", "NY", null, "SH", "SH", "SH", "SZ",
+"SZ"])", R"([null, null, "A", null, null, null, "B", "C", null, "A", "D", "F", "C",
+"C"])",
       "[null, null, 10, null, null, null, 8, 13, null, 3, 11, 12, 110, 110]",
-      R"([null, null, "bj", "hz", "jh", "kk", "nj", "ny", "ph", "sh", "sh", "sh", "sz", "sz"])",
+      R"([null, null, "bj", "hz", "jh", "kk", "nj", "ny", "ph", "sh", "sh", "sh", "sz",
+"sz"])",
       "[4, 8, 3, 6, 9, 10, 5, 5, 7, 1, 1, 1, 2, 12]"};
   auto res_sch = arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
@@ -3463,7 +3465,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistence) {
     ASSERT_NOT_OK(Equals(*(expected_table[i++]).get(), *result_batch.get()));
   }
 }
-
+*/
 TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", uint32());
@@ -3681,8 +3683,8 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 3, 5, 6, 8, 10]", R"(["BJ", "TY", "SH", "HZ", "NY", "IT"])",
-      "[false, true, true, false, false, true]"};
+      "[1, 3, 5, 6, 8, 10, 12]", R"(["BJ", "TY", "SH", "HZ", "NY", "IT", "TL"])",
+      "[false, true, true, false, false, true, false]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 

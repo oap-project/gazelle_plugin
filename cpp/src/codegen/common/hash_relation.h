@@ -25,6 +25,7 @@
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/type_traits.h"
 #include "precompile/unsafe_array.h"
+#include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
@@ -33,6 +34,7 @@ using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
 using sparkcolumnarplugin::precompile::UnsafeArray;
+using sparkcolumnarplugin::thirdparty::murmurhash32::hash32;
 
 class HashRelationColumn {
  public:
@@ -44,6 +46,7 @@ class HashRelationColumn {
     return arrow::Status::NotImplemented(
         "HashRelationColumn GetArrayVector is abstract.");
   }
+  virtual bool HasNull() = 0;
 };
 
 template <typename T, typename Enable = void>
@@ -60,6 +63,7 @@ class TypedHashRelationColumn<DataType, enable_if_number<DataType>>
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<ArrayType>(in);
+    if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();
   }
@@ -70,10 +74,12 @@ class TypedHashRelationColumn<DataType, enable_if_number<DataType>>
     return arrow::Status::OK();
   }
   T GetValue(int array_id, int id) { return array_vector_[array_id]->GetView(id); }
+  bool HasNull() { return has_null_; }
 
  private:
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
   std::vector<std::shared_ptr<ArrayType>> array_vector_;
+  bool has_null_ = false;
 };
 
 template <typename DataType>
@@ -86,6 +92,7 @@ class TypedHashRelationColumn<DataType, enable_if_string_like<DataType>>
   }
   arrow::Status AppendColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_in = std::make_shared<StringArray>(in);
+    if (typed_in->null_count() > 0) has_null_ = true;
     array_vector_.push_back(typed_in);
     return arrow::Status::OK();
   }
@@ -98,9 +105,11 @@ class TypedHashRelationColumn<DataType, enable_if_string_like<DataType>>
   std::string GetValue(int array_id, int id) {
     return array_vector_[array_id]->GetString(id);
   }
+  bool HasNull() { return has_null_; }
 
  private:
   std::vector<std::shared_ptr<StringArray>> array_vector_;
+  bool has_null_ = false;
 };
 
 template <typename T>
@@ -124,8 +133,7 @@ class HashRelation {
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
       int key_size = -1)
       : HashRelation(hash_relation_column) {
-    hash_table_ =
-        createUnsafeHashMap(ctx->memory_pool(), 1024 * 1024, 256 * 1024 * 1024, key_size);
+    key_size_ = key_size;
     ctx_ = ctx;
     arrayid_list_.reserve(64);
   }
@@ -137,6 +145,12 @@ class HashRelation {
     }
   }
 
+  arrow::Status InitHashTable(int init_key_capacity, int initial_bytesmap_capacity) {
+    hash_table_ = createUnsafeHashMap(ctx_->memory_pool(), init_key_capacity,
+                                      initial_bytesmap_capacity, key_size_);
+    return arrow::Status::OK();
+  }
+
   virtual arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in) {
     return arrow::Status::NotImplemented("HashRelation AppendKeyColumn is abstract.");
   }
@@ -144,6 +158,9 @@ class HashRelation {
   arrow::Status AppendKeyColumn(
       std::shared_ptr<arrow::Array> in,
       const std::vector<std::shared_ptr<UnsafeArray>>& payloads) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     std::shared_ptr<UnsafeRow> payload = std::make_shared<UnsafeRow>(payloads.size());
@@ -167,6 +184,9 @@ class HashRelation {
                 nullptr>
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<KeyArrayType> original_key) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
@@ -192,6 +212,9 @@ class HashRelation {
 
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
                                 std::shared_ptr<StringArray> original_key) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
     // This Key should be Hash Key
     auto typed_array = std::make_shared<ArrayType>(in);
     if (original_key->null_count() == 0) {
@@ -270,6 +293,52 @@ class HashRelation {
     return safeLookup(hash_table_, payload, v);
   }
 
+  template <typename CType,
+            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+  int Get(CType payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    if (*(CType*)recent_cached_key_ == payload) return 0;
+    *(CType*)recent_cached_key_ = payload;
+    int32_t v = hash32(payload, true);
+    auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
+    if (res == -1) {
+      arrayid_list_.clear();
+      return -1;
+    }
+
+    return 0;
+  }
+
+  int Get(std::string payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+    if (res == -1) return -1;
+    return 0;
+  }
+
+  template <typename CType,
+            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+  int IfExists(CType payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    return safeLookup(hash_table_, payload, v);
+  }
+
+  int IfExists(std::string payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    return safeLookup(hash_table_, payload.data(), payload.size(), v);
+  }
+
   int GetNull() {
     // since vanilla spark doesn't support to join with two nulls
     // we should always return -1 here;
@@ -342,6 +411,8 @@ class HashRelation {
   bool null_index_set_ = false;
   std::vector<ArrayItemIndex> null_index_list_;
   std::vector<ArrayItemIndex> arrayid_list_;
+  int key_size_;
+  char recent_cached_key_[8] = {0};
 
   arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
                        uint32_t id) {

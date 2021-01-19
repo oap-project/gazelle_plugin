@@ -121,9 +121,9 @@ class HashRelationKernel::Impl {
         // If single key case, we can put key in KeyArray
         auto key_type = std::dynamic_pointer_cast<arrow::FixedWidthType>(
             key_hash_field_list[0]->type());
-        auto key_size = key_type->bit_width() / 8;
+        key_size_ = key_type->bit_width() / 8;
         hash_relation_ =
-            std::make_shared<HashRelation>(ctx_, hash_relation_list, key_size);
+            std::make_shared<HashRelation>(ctx_, hash_relation_list, key_size_);
       } else {
         hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
       }
@@ -135,6 +135,7 @@ class HashRelationKernel::Impl {
   ~Impl() {}
 
   arrow::Status Evaluate(const ArrayList& in) {
+    if (in.size() > 0) num_total_cached_ += in[0]->length();
     for (int i = 0; i < in.size(); i++) {
       RETURN_NOT_OK(hash_relation_->AppendPayloadColumn(i, in[i]));
     }
@@ -151,7 +152,7 @@ class HashRelationKernel::Impl {
       } else {
         key_array = in[key_indices_[0]];
       }
-      return hash_relation_->AppendKeyColumn(key_array);
+      key_hash_cached_.push_back(key_array);
     } else {
       /* Process original key projection */
       arrow::ArrayVector project_outputs;
@@ -160,7 +161,7 @@ class HashRelationKernel::Impl {
           arrow::RecordBatch::Make(arrow::schema(input_field_list_), length, in);
       RETURN_NOT_OK(key_prepare_projector_->Evaluate(*in_batch, ctx_->memory_pool(),
                                                      &project_outputs));
-
+      keys_cached_.push_back(project_outputs);
       /* Process key Hash projection */
       arrow::ArrayVector hash_outputs;
       auto hash_in_batch =
@@ -168,6 +169,34 @@ class HashRelationKernel::Impl {
       RETURN_NOT_OK(
           key_projector_->Evaluate(*hash_in_batch, ctx_->memory_pool(), &hash_outputs));
       key_array = hash_outputs[0];
+      key_hash_cached_.push_back(key_array);
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status FinishInternal() {
+    if (builder_type_ == 2) return arrow::Status::OK();
+    // Decide init hashmap size
+    if (builder_type_ == 1) {
+      int init_key_capacity = 128;
+      int init_bytes_map_capacity = init_key_capacity * 256;
+      if (num_total_cached_ > 32) {
+        init_key_capacity = pow(2, ceil(log2(num_total_cached_)) + 1);
+      }
+      if (key_size_ != -1) {
+        init_bytes_map_capacity = init_key_capacity * 12;
+      } else {
+        init_bytes_map_capacity = init_key_capacity * 128;
+      }
+      RETURN_NOT_OK(
+          hash_relation_->InitHashTable(init_key_capacity, init_bytes_map_capacity));
+    }
+    for (int idx = 0; idx < key_hash_cached_.size(); idx++) {
+      auto key_array = key_hash_cached_[idx];
+      if (builder_type_ == 0) {
+        RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array));
+      } else {
+        auto project_outputs = keys_cached_[idx];
 
 /* For single field fixed_size key, we simply insert to HashMap without append to unsafe
  * Row */
@@ -186,34 +215,35 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)
-      if (project_outputs.size() == 1) {
-        switch (project_outputs[0]->type_id()) {
-#define PROCESS(InType)                                                   \
-  case TypeTraits<InType>::type_id: {                                     \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;          \
-    auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]); \
-    return hash_relation_->AppendKeyColumn(key_array, typed_key_arr);     \
+        if (project_outputs.size() == 1) {
+          switch (project_outputs[0]->type_id()) {
+#define PROCESS(InType)                                                       \
+  case TypeTraits<InType>::type_id: {                                         \
+    using ArrayType = precompile::TypeTraits<InType>::ArrayType;              \
+    auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]);     \
+    RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, typed_key_arr)); \
   } break;
-          PROCESS_SUPPORTED_TYPES(PROCESS)
+            PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
-          default: {
-            return arrow::Status::NotImplemented(
-                "HashRelation Evaluate doesn't support single key type ",
-                project_outputs[0]->type_id());
-          } break;
-        }
+            default: {
+              return arrow::Status::NotImplemented(
+                  "HashRelation Evaluate doesn't support single key type ",
+                  project_outputs[0]->type_id());
+            } break;
+          }
 #undef PROCESS_SUPPORTED_TYPES
 
-      } else {
-        /* Append key array to UnsafeArray for later UnsafeRow projection */
-        std::vector<std::shared_ptr<UnsafeArray>> payloads;
-        int i = 0;
-        for (auto arr : project_outputs) {
-          std::shared_ptr<UnsafeArray> payload;
-          RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
-          payloads.push_back(payload);
+        } else {
+          /* Append key array to UnsafeArray for later UnsafeRow projection */
+          std::vector<std::shared_ptr<UnsafeArray>> payloads;
+          int i = 0;
+          for (auto arr : project_outputs) {
+            std::shared_ptr<UnsafeArray> payload;
+            RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
+            payloads.push_back(payload);
+          }
+          RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads));
         }
-        return hash_relation_->AppendKeyColumn(key_array, payloads);
       }
     }
     return arrow::Status::OK();
@@ -222,6 +252,7 @@ class HashRelationKernel::Impl {
   std::string GetSignature() { return ""; }
   arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
                                    std::shared_ptr<ResultIterator<HashRelation>>* out) {
+    FinishInternal();
     *out = std::make_shared<HashRelationResultIterator>(hash_relation_);
     return arrow::Status::OK();
   }
@@ -236,7 +267,11 @@ class HashRelationKernel::Impl {
   std::shared_ptr<gandiva::Projector> key_prepare_projector_;
   std::shared_ptr<arrow::Schema> hash_input_schema_;
   std::shared_ptr<HashRelation> hash_relation_;
+  std::vector<arrow::ArrayVector> keys_cached_;
+  std::vector<std::shared_ptr<arrow::Array>> key_hash_cached_;
+  uint64_t num_total_cached_ = 0;
   int builder_type_ = 0;
+  int key_size_ = -1;  // If key_size_ != 0, key will be stored directly in key_map
 
   class HashRelationResultIterator : public ResultIterator<HashRelation> {
    public:
