@@ -66,15 +66,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   private int ordinal;
   private ValueVector vector;
   private ValueVector dictionaryVector;
-  private static BufferAllocator OffRecordAllocator = null;
+  private static BufferAllocator OffRecordAllocator = SparkMemoryUtils.globalAllocator();
 
   public static BufferAllocator getAllocator() {
     return SparkMemoryUtils.contextAllocator();
   }
   public static BufferAllocator getOffRecordAllocator() {
-    if (OffRecordAllocator == null) {
-      OffRecordAllocator = new RootAllocator(Long.MAX_VALUE);
-    }
     return OffRecordAllocator;
   }
   public static AtomicLong vectorCount = new AtomicLong(0);

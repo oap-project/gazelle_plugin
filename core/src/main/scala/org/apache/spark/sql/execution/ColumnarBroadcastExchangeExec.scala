@@ -132,6 +132,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
             _input += batch
             numRows += batch.numRows
             val dep_rb = ConverterUtils.createArrowRecordBatch(batch)
+            batch.close()
             hashRelationKernel.evaluate(dep_rb)
             ConverterUtils.releaseArrowRecordBatch(dep_rb)
           }
