@@ -42,6 +42,9 @@ using is_number_like_type =
     std::integral_constant<bool, is_number_like<T>::value || is_date_type<T>::value>;
 
 template <typename T>
+using enable_if_boolean = std::enable_if_t<is_boolean_type<T>::value>;
+
+template <typename T>
 using enable_if_number = std::enable_if_t<is_number_like_type<T>::value>;
 
 template <typename T>

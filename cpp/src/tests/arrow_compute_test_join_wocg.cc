@@ -91,7 +91,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestProjectKeyInnerJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
 
   std::shared_ptr<CodeGenerator> expr_probe;
-  auto result = CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  arrow::compute::FunctionContext ctx;
+  auto result = CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f1, table0_f2}, &expr_probe, true);
 }
 
@@ -147,11 +148,12 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
-      schema_table_1, {probeArrays_expr},
+      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -280,11 +282,12 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
-      schema_table_1, {probeArrays_expr},
+      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -406,10 +409,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOuterJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table0_f0, table0_f1, table0_f2, table1_f1},
                                     &expr_probe, true));
   ///////////////////// Calculation //////////////////
@@ -532,10 +536,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -651,10 +656,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -775,10 +781,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, f_exist, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -901,10 +908,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoin2) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1, f_exist}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1030,11 +1038,12 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoinType2) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
-      schema_table_1, {probeArrays_expr},
+      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1156,10 +1165,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOuterJoinType2) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table0_f0, table0_f1, table0_f2, table1_f1},
                                     &expr_probe, true));
   ///////////////////// Calculation //////////////////
@@ -1282,10 +1292,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType2) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1401,10 +1412,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1525,10 +1537,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoinType2) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, f_exist, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1648,10 +1661,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2WithUInt64) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1769,10 +1783,11 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1911,14 +1926,15 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
 
   std::shared_ptr<CodeGenerator> expr_build_pre;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_0, {hashRelation_expr_pre}, {},
-                                    &expr_build_pre, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr_pre}, {}, &expr_build_pre, true));
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
-      schema_table_1, {probeArrays_expr},
+      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;

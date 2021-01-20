@@ -627,6 +627,7 @@ class ConditionedProbeKernel::Impl {
           : hash_relation_(hash_relation), appender_list_(appender_list) {}
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
+        struct timespec start, end;
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
@@ -705,16 +706,15 @@ class ConditionedProbeKernel::Impl {
           if (index == -1) {
             continue;
           }
-          for (auto tmp : hash_relation_->GetItemListByIndex(index)) {
-            for (auto appender : appender_list_) {
-              if (appender->GetType() == AppenderBase::left) {
-                THROW_NOT_OK(appender->Append(tmp.array_id, tmp.id));
-              } else {
-                THROW_NOT_OK(appender->Append(0, i));
-              }
+          auto index_list = hash_relation_->GetItemListByIndex(index);
+          for (auto appender : appender_list_) {
+            if (appender->GetType() == AppenderBase::left) {
+              THROW_NOT_OK(appender->Append(index_list));
+            } else {
+              THROW_NOT_OK(appender->Append(0, i, index_list.size()));
             }
-            out_length += 1;
           }
+          out_length += index_list.size();
         }
         return out_length;
       }
@@ -831,16 +831,15 @@ class ConditionedProbeKernel::Impl {
             out_length += 1;
             continue;
           }
-          for (auto tmp : hash_relation_->GetItemListByIndex(index)) {
-            for (auto appender : appender_list_) {
-              if (appender->GetType() == AppenderBase::left) {
-                THROW_NOT_OK(appender->Append(tmp.array_id, tmp.id));
-              } else {
-                THROW_NOT_OK(appender->Append(0, i));
-              }
+          auto index_list = hash_relation_->GetItemListByIndex(index);
+          for (auto appender : appender_list_) {
+            if (appender->GetType() == AppenderBase::left) {
+              THROW_NOT_OK(appender->Append(index_list));
+            } else {
+              THROW_NOT_OK(appender->Append(0, i, index_list.size()));
             }
-            out_length += 1;
           }
+          out_length += index_list.size();
         }
         return out_length;
       }
@@ -1228,16 +1227,15 @@ class ConditionedProbeKernel::Impl {
           if (index == -1) {
             continue;
           }
-          for (auto tmp : typed_hash_relation_->GetItemListByIndex(index)) {
-            for (auto appender : appender_list_) {
-              if (appender->GetType() == AppenderBase::left) {
-                THROW_NOT_OK(appender->Append(tmp.array_id, tmp.id));
-              } else {
-                THROW_NOT_OK(appender->Append(0, i));
-              }
+          auto index_list = typed_hash_relation_->GetItemListByIndex(index);
+          for (auto appender : appender_list_) {
+            if (appender->GetType() == AppenderBase::left) {
+              THROW_NOT_OK(appender->Append(index_list));
+            } else {
+              THROW_NOT_OK(appender->Append(0, i, index_list.size()));
             }
-            out_length += 1;
           }
+          out_length += index_list.size();
         }
         return out_length;
       }
@@ -1278,16 +1276,15 @@ class ConditionedProbeKernel::Impl {
             out_length += 1;
             continue;
           }
-          for (auto tmp : typed_hash_relation_->GetItemListByIndex(index)) {
-            for (auto appender : appender_list_) {
-              if (appender->GetType() == AppenderBase::left) {
-                THROW_NOT_OK(appender->Append(tmp.array_id, tmp.id));
-              } else {
-                THROW_NOT_OK(appender->Append(0, i));
-              }
+          auto index_list = typed_hash_relation_->GetItemListByIndex(index);
+          for (auto appender : appender_list_) {
+            if (appender->GetType() == AppenderBase::left) {
+              THROW_NOT_OK(appender->Append(index_list));
+            } else {
+              THROW_NOT_OK(appender->Append(0, i, index_list.size()));
             }
-            out_length += 1;
           }
+          out_length += index_list.size();
         }
         return out_length;
       }
