@@ -38,7 +38,6 @@ jobs:
       - run: sudo apt-get install cmake
       - run: sudo apt-get install libboost-all-dev
       - run: sudo apt-get install libjemalloc-dev
-      - run: find / -name libjemalloc.so
       - name: Install OAP optimized Arrow
         run: |
           cd /tmp
@@ -60,7 +59,7 @@ jobs:
           cd core/
           mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs
         env:
-          LD_PRELOAD: "/tmp/arrow/cpp/build/jemalloc_ep-prefix/src/jemalloc_ep/lib/libjemalloc.so"
+          LD_PRELOAD: "/usr/lib/x86_64-linux-gnu/libjemalloc.so"
           MAVEN_OPTS: "-Xmx2048m"
           COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text.txt"
           COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image.png"
