@@ -23,7 +23,7 @@ import com.intel.oap.vectorized._
 import com.intel.oap.ColumnarPluginConfig
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils, Utils}
+import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
@@ -35,7 +35,7 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 import scala.collection.JavaConverters._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
+import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
 import scala.collection.mutable.ListBuffer
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode
@@ -52,7 +52,6 @@ import com.intel.oap.vectorized.ExpressionEvaluator
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.joins.ShuffledHashJoinExec
 import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide, HashJoin}
-import org.apache.spark.sql.types.DecimalType
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
@@ -94,19 +93,40 @@ case class ColumnarShuffledHashJoinExec(
   }
 
   def buildCheck(): Unit = {
-    for (attr <- buildPlan.output) {
-      if (attr.dataType.isInstanceOf[DecimalType]) {
-        throw new UnsupportedOperationException(
-          s"${attr.dataType} is not supported in ColumnarShuffledHashJoin.")
-      }
-      CodeGeneration.getResultType(attr.dataType)
+    // build check for condition
+    val conditionExpr: Expression = condition.orNull
+    if (conditionExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
     }
+    // build check types
     for (attr <- streamedPlan.output) {
-      if (attr.dataType.isInstanceOf[DecimalType]) {
-        throw new UnsupportedOperationException(
-          s"${attr.dataType} is not supported in ColumnarShuffledHashJoin.")
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarShuffledHashJoinExec.")
       }
-      CodeGeneration.getResultType(attr.dataType)
+    }
+    for (attr <- buildPlan.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarShuffledHashJoinExec.")
+      }
+    }
+    // build check for expr
+    if (buildKeyExprs != null) {
+      for (expr <- buildKeyExprs) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+    if (streamedKeyExprs != null) {
+      for (expr <- streamedKeyExprs) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
     }
   }
 

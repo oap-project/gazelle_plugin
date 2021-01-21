@@ -21,6 +21,7 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, IOException}
 import java.nio.channels.Channels
 import java.nio.ByteBuffer
 import java.util.ArrayList
+
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import io.netty.buffer.{ArrowBuf, ByteBufAllocator, ByteBufOutputStream}
 import org.apache.arrow.flatbuf.MessageHeader
@@ -31,14 +32,8 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
-import org.apache.arrow.vector.ipc.message.{
-  ArrowFieldNode,
-  ArrowRecordBatch,
-  IpcOption,
-  MessageResult,
-  MessageSerializer,
-  MessageChannelReader
-}
+import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
+import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
@@ -57,8 +52,11 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
 import java.nio.channels.{Channels, WritableByteChannel}
+
 import com.google.common.collect.Lists
 import java.io.{InputStream, OutputStream}
+
+import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 
 object ConverterUtils extends Logging {
   def createArrowRecordBatch(columnarBatch: ColumnarBatch): ArrowRecordBatch = {
@@ -458,5 +456,19 @@ object ConverterUtils extends Logging {
     val builder: ExpressionList.Builder = GandivaTypes.ExpressionList.newBuilder
     exprs.foreach { expr => builder.addExprs(expr.toProtobuf) }
     builder.build.toByteArray
+  }
+
+  def checkIfTypeSupported(dt: DataType): Unit = dt match {
+    case BooleanType =>
+    case ByteType =>
+    case ShortType =>
+    case IntegerType =>
+    case LongType =>
+    case FloatType =>
+    case DoubleType =>
+    case StringType =>
+    case DateType =>
+    case _ =>
+      throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 }

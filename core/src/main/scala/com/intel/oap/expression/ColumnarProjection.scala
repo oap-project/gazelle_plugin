@@ -141,15 +141,8 @@ object ColumnarProjection extends Logging {
   def buildCheck(originalInputAttributes: Seq[Attribute],
                  exprs: Seq[Expression]): Unit = {
     for (expr <- exprs) {
-      val func = ColumnarExpressionConverter
+      ColumnarExpressionConverter
         .replaceWithColumnarExpression(expr, originalInputAttributes)
-      val unsupportedTypes = List(NullType, TimestampType, BinaryType)
-      val datatype = func.dataType
-      if (unsupportedTypes.indexOf(datatype) != -1 || datatype.isInstanceOf[DecimalType]) {
-        throw new UnsupportedOperationException(
-          s"${datatype} is not supported in ColumnarProjection.")
-      }
-      CodeGeneration.getResultType(func.dataType)
     }
   }
   def binding(originalInputAttributes: Seq[Attribute],

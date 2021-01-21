@@ -102,6 +102,8 @@ case class ColumnarHashAggregateExec(
   numOutputBatches.set(0)
   numInputBatches.set(0)
 
+  buildCheck()
+
   val (listJars, signature): (Seq[String], String) =
     if (ColumnarPluginConfig
           .getConf(sparkConf)
@@ -140,16 +142,53 @@ case class ColumnarHashAggregateExec(
         (List(), "")
       }
     } else {
-      try {
-        ColumnarAggregation.buildCheck(groupingExpressions, child.output,
-                                       aggregateExpressions, resultExpressions)
-      } catch {
-        case e: UnsupportedOperationException =>
-          throw e
-      }
       (List(), "")
     }
   listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
+
+  def buildCheck(): Unit = {
+    // check datatype
+    for (attr <- child.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarAggregation")
+      }
+    }
+    // check project
+    for (expr <- aggregateExpressions) {
+      val internalExpressionList = expr.aggregateFunction.children
+      ColumnarProjection.buildCheck(child.output, internalExpressionList)
+    }
+    ColumnarProjection.buildCheck(child.output, groupingExpressions)
+    ColumnarProjection.buildCheck(child.output, resultExpressions)
+    // check aggregate expressions
+    checkAggregate(aggregateExpressions)
+  }
+
+  def checkAggregate(aggregateExpressions: Seq[AggregateExpression]): Unit = {
+    for (expr <- aggregateExpressions) {
+      val mode = expr.mode
+      val aggregateFunction = expr.aggregateFunction
+      aggregateFunction match {
+        case Average(_) | Sum(_) | Count(_) | Max(_) | Min(_) =>
+        case StddevSamp(_) => mode match {
+          case Partial | Final =>
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
+        }
+        case other =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
+      mode match {
+        case Partial | PartialMerge | Final =>
+        case other =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
+    }
+  }
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>

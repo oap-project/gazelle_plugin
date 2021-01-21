@@ -86,6 +86,8 @@ case class ColumnarSortMergeJoinExec(
   val totaltime_sortmegejoin = longMetric("totaltime_sortmergejoin")
   val resultSchema = this.schema
 
+  buildCheck()
+
   override def supportsColumnar = true
 
   override protected def doExecute(): RDD[InternalRow] = {
@@ -333,6 +335,44 @@ case class ColumnarSortMergeJoinExec(
     case e: Throwable =>
       throw e
   }*/
+
+  def buildCheck(): Unit = {
+    // build check for condition
+    val conditionExpr: Expression = condition.orNull
+    if (conditionExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+    }
+    // build check types
+    for (attr <- left.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarSortMergeJoinExec.")
+      }
+    }
+    for (attr <- right.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarSortMergeJoinExec.")
+      }
+    }
+    // build check for expr
+    if (leftKeys != null) {
+      for (expr <- leftKeys) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+    if (rightKeys != null) {
+      for (expr <- rightKeys) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+  }
 
   /***********************************************************/
   def getCodeGenSignature: String =

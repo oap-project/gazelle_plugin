@@ -110,9 +110,10 @@ class ColumnarAbs(child: Expression, original: Expression)
   buildCheck()
 
   def buildCheck(): Unit = {
-    if (dataType == IntegerType) {
+    val supportedTypes = List(FloatType, DoubleType)
+    if (supportedTypes.indexOf(dataType) == -1) {
       throw new UnsupportedOperationException(
-        s"${dataType} abs(${child.dataType}) is not supported")
+        s"${dataType} is not supported in ColumnarAbs")
     }
   }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
@@ -187,35 +188,76 @@ class ColumnarCast(child: Expression, datatype: DataType, timeZoneId: Option[Str
   buildCheck()
 
   def buildCheck(): Unit = {
-    val supportedTypes =
-      List(StringType, ByteType, IntegerType, LongType, FloatType, DoubleType, DateType)
-    if (supportedTypes.indexOf(datatype) == -1 || datatype.isInstanceOf[DecimalType]) {
-      throw new UnsupportedOperationException(
-        s"${datatype} is not supported in ColumnarCast")
+    if (!datatype.isInstanceOf[DecimalType]) {
+      try {
+        ConverterUtils.checkIfTypeSupported(datatype)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${datatype} is not supported in ColumnarCast")
+      }
+      if (datatype == BooleanType) {
+        throw new UnsupportedOperationException(
+          s"${datatype} is not supported in ColumnarCast")
+      }
     }
     if (datatype == StringType) {
-      val supported =
-        List(ByteType, ShortType, IntegerType, LongType, DoubleType, DateType)
-      if (supported.indexOf(child.dataType) == -1 ||
-          child.dataType.isInstanceOf[DecimalType]) {
+      val supported = List(ByteType, ShortType, IntegerType, LongType, FloatType,
+                           DoubleType, StringType, DateType, TimestampType)
+      if (supported.indexOf(child.dataType) == -1 &&
+          !child.dataType.isInstanceOf[DecimalType]) {
+        // decimal is supported in castVARCHAR
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castVARCHAR")
       }
-    }
-    if (child.dataType == StringType) {
-      val unsupported = List(IntegerType, DoubleType, LongType, DateType)
-      if (unsupported.indexOf(datatype) != -1) {
+    } else if (datatype == ByteType) {
+      val supported = List(ShortType, IntegerType, LongType)
+      if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(
-          s"${datatype} is not supported in cast(${child.dataType})")
+          s"${child.dataType} is not supported in castBYTE")
       }
-    }
-    if (child.dataType == TimestampType) {
-      if (datatype == DateType) {
+    } else if (datatype == IntegerType) {
+      val supported = List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType)
+      if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(
-          s"${datatype} is not supported in cast(${child.dataType})")
+          s"${child.dataType} is not supported in castINT")
       }
+    } else if (datatype == LongType) {
+      val supported = List(IntegerType, FloatType, DoubleType, DateType)
+      if (supported.indexOf(child.dataType) == -1 &&
+          !child.dataType.isInstanceOf[DecimalType]) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in castBIGINT")
+      }
+    } else if (datatype == FloatType) {
+      val supported = List(IntegerType, LongType, DoubleType)
+      if (supported.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in castFLOAT4")
+      }
+    } else if (datatype == DoubleType) {
+      val supported = List(IntegerType, LongType, FloatType)
+      if (supported.indexOf(child.dataType) == -1 &&
+          !child.dataType.isInstanceOf[DecimalType]) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in castFLOAT8")
+      }
+    } else if (dataType == DateType) {
+      val supported = List(IntegerType, LongType, DateType)
+      if (supported.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in castDATE")
+      }
+    } else if (dataType.isInstanceOf[DecimalType]) {
+      val supported = List(IntegerType, LongType, FloatType, DoubleType, StringType)
+      if (supported.indexOf(child.dataType) == -1 &&
+          !child.dataType.isInstanceOf[DecimalType]) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in castDECIMAL")
+      }
+    } else {
+      throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
     }
-    CodeGeneration.getResultType(dataType)
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

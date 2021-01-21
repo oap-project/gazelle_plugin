@@ -27,8 +27,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-import org.apache.spark.sql.types.{DecimalType, MapType, StructType}
+import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.util.ExecutorManager
 import org.apache.spark.sql.util.StructTypeFWD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -59,6 +59,31 @@ case class ColumnarConditionProjectExec(
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_condproject"))
+
+  buildCheck(condition, projectList, child.output)
+
+  def buildCheck(condExpr: Expression, projectList: Seq[Expression],
+                 originalInputAttributes: Seq[Attribute]): Unit = {
+    // check datatype
+    originalInputAttributes.toList.foreach(attr => {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarConditionProjector.")
+      }
+    })
+    // check expr
+    if (condExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(condExpr)
+    }
+    if (projectList != null) {
+      for (expr <- projectList) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+  }
 
   def isNullIntolerant(expr: Expression): Boolean = expr match {
     case e: NullIntolerant => e.children.forall(isNullIntolerant)
@@ -237,10 +262,12 @@ case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
   def buildCheck(): Unit = {
     for (child <- children) {
       for (schema <- child.schema) {
-        if (schema.dataType.isInstanceOf[MapType] ||
-            schema.dataType.isInstanceOf[DecimalType]) {
-          throw new UnsupportedOperationException(
-            s"${schema.dataType} is not supported in ColumnarUnionExec")
+        try {
+          ConverterUtils.checkIfTypeSupported(schema.dataType)
+        } catch {
+          case e: UnsupportedOperationException =>
+            throw new UnsupportedOperationException(
+              s"${schema.dataType} is not supported in ColumnarUnionExec")
         }
       }
     }

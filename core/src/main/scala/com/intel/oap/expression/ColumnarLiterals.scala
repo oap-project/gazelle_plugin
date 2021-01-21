@@ -64,7 +64,7 @@ class ColumnarLiteral(lit: Literal)
     val resultType: ArrowType = dataType match {
       case CalendarIntervalType =>
         val interval = value.asInstanceOf[CalendarInterval]
-        if (interval.microseconds != 0) {
+        if (interval.microseconds == 0) {
           if (interval.days == 0) {
             new ArrowType.Interval(IntervalUnit.YEAR_MONTH)
           } else {

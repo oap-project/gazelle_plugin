@@ -135,7 +135,7 @@ class SameResultSuite extends QueryTest with SharedSparkSession {
       .asInstanceOf[FileSourceScanExec]
   }
 
-  test("SPARK-20725: partial aggregate should behave correctly for sameResult") {
+  ignore("SPARK-20725: partial aggregate should behave correctly for sameResult") {
     val df1 = spark.range(10).agg(sum($"id"))
     val df2 = spark.range(10).agg(sum($"id"))
     assert(df1.queryExecution.executedPlan.sameResult(df2.queryExecution.executedPlan))

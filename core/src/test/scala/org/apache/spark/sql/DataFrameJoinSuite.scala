@@ -23,7 +23,7 @@ import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.plans.{Inner, InnerLike, LeftOuter, RightOuter}
 import org.apache.spark.sql.catalyst.plans.logical.{BROADCAST, Filter, HintInfo, Join, JoinHint, LogicalPlan, Project}
 import org.apache.spark.sql.connector.catalog.CatalogManager
-import org.apache.spark.sql.execution.FileSourceScanExec
+import org.apache.spark.sql.execution.{ColumnarBroadcastExchangeExec, FileSourceScanExec}
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanHelper
 import org.apache.spark.sql.execution.datasources.LogicalRelation
 import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
@@ -363,7 +363,7 @@ class DataFrameJoinSuite extends QueryTest
             val broadcastHashJoins = sparkPlan.collect { case p: ColumnarBroadcastHashJoinExec => p }
             assert(broadcastHashJoins.size == 1)
             val broadcastExchanges = broadcastHashJoins.head.collect {
-              case p: BroadcastExchangeExec => p
+              case p: ColumnarBroadcastExchangeExec => p
             }
             assert(broadcastExchanges.size == 1)
             val tables = broadcastExchanges.head.collect {

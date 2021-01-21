@@ -2071,7 +2071,7 @@ class DataFrameSuite extends QueryTest
       Seq(Row(7, 1, 1), Row(7, 1, 2), Row(7, 2, 1), Row(7, 2, 2), Row(7, 3, 1), Row(7, 3, 2)))
   }
 
-  test("SPARK-22271: mean overflows and returns null for some decimal variables") {
+  ignore("SPARK-22271: mean overflows and returns null for some decimal variables") {
     val d = 0.034567890
     val df = Seq(d, d, d, d, d, d, d, d, d, d).toDF("DecimalCol")
     val result = df.select($"DecimalCol" cast DecimalType(38, 33))

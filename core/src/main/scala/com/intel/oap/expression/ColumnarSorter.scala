@@ -356,17 +356,6 @@ object ColumnarSorter extends Logging {
     (TreeBuilder.makeExpression(sort_node, retType), new Schema(outputFieldList.asJava))
   }
 
-  def buildCheck(outputAttributes: Seq[Attribute]): Unit = synchronized {
-    val unsupportedTypes = List(NullType, TimestampType, BinaryType)
-    for (attr <- outputAttributes) {
-      val datatype = attr.dataType
-      if (unsupportedTypes.indexOf(datatype) != -1 || datatype.isInstanceOf[DecimalType]) {
-        throw new UnsupportedOperationException(
-          s"${datatype} is not supported in ColumnarSorter.")
-      }
-    }
-  }
-
   def prebuild(
       sortOrder: Seq[SortOrder],
       outputAttributes: Seq[Attribute],

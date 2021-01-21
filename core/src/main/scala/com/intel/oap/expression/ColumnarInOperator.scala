@@ -46,7 +46,7 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
     val supportedTypes = List(StringType, IntegerType, LongType, DateType)
     if (supportedTypes.indexOf(value.dataType) == -1) {
       throw new UnsupportedOperationException(
-        s"not currently supported: ${value.dataType}.")
+        s"${value.dataType} is not supported in ColumnarIn.")
     }
   }
 
