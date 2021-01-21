@@ -37,6 +37,8 @@ jobs:
       - run: free
       - run: sudo apt-get install cmake
       - run: sudo apt-get install libboost-all-dev
+      - run: sudo apt-get install libjemalloc-dev
+      - run: find / -name libjemalloc.so
       - name: Install OAP optimized Arrow
         run: |
           cd /tmp
