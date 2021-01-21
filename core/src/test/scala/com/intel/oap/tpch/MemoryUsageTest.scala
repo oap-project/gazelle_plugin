@@ -484,7 +484,7 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
         createTPCHTables()
         writeCommentLine("```")
         writeCommentLine("Before suite starts: %s".format(genReportLine()))
-        (1 to 5).foreach { executionId =>
+        (1 to 30).foreach { executionId =>
           writeCommentLine("Iteration %d:".format(executionId))
           (1 to 22).foreach(i => {
             runTPCHQuery(i, executionId)

@@ -127,12 +127,9 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
         while (iter.hasNext) {
           val batch = iter.next
           if (batch.numRows > 0) {
-            (0 until batch.numCols).foreach(i =>
-              batch.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
             _input += batch
             numRows += batch.numRows
             val dep_rb = ConverterUtils.createArrowRecordBatch(batch)
-            batch.close()
             hashRelationKernel.evaluate(dep_rb)
             ConverterUtils.releaseArrowRecordBatch(dep_rb)
           }
