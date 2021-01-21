@@ -484,10 +484,13 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
         createTPCHTables()
         writeCommentLine("```")
         writeCommentLine("Before suite starts: %s".format(genReportLine()))
-        (1 to 30).foreach { executionId =>
+        (1 to 20).foreach { executionId =>
           writeCommentLine("Iteration %d:".format(executionId))
           (1 to 22).foreach(i => {
             runTPCHQuery(i, executionId)
+            MallocUtils.mallocTrim()
+            System.gc()
+            System.gc()
             writeCommentLine("  Query %d: %s".format(i, genReportLine()))
             ramMonitor.writeImage(commentImageOutputPath)
           })
