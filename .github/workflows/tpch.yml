@@ -56,10 +56,10 @@ jobs:
       - name: Run Maven tests
         run: |
           cd core/
-          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
-          MAVEN_OPTS: "-Xmx2048m"
+          MAVEN_OPTS: "-Xmx1G"
           COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text.txt"
           COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image.png"
           ENABLE_TPCH_TESTS: "true"
