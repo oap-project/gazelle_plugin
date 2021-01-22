@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
-#include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -45,8 +44,12 @@ class AppenderBase {
     return arrow::Status::NotImplemented("AppenderBase PopArray is abstract.");
   }
 
+  virtual arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) {
+    return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
+  }
+
   virtual arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
-                               int repeated = 1) {
+                               int repeated) {
     return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
   }
 
@@ -104,6 +107,15 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
   arrow::Status PopArray() override {
     cached_arr_.pop_back();
     has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
+    } else {
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
+    }
     return arrow::Status::OK();
   }
 
@@ -182,6 +194,15 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     return arrow::Status::OK();
   }
 
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
+    } else {
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
                        int repeated) override {
     if (repeated == 0) return arrow::Status::OK();
@@ -252,6 +273,15 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   arrow::Status PopArray() override {
     cached_arr_.pop_back();
     has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
+    } else {
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
+    }
     return arrow::Status::OK();
   }
 
