@@ -134,6 +134,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
             ConverterUtils.releaseArrowRecordBatch(dep_rb)
           }
         }
+        // Note: Do not close this object manually. GC will take over that via Cleaner for ColumnarHashedRelation
         val hashRelationResultIterator = hashRelationKernel.finishByIterator()
         val hashRelationObj = hashRelationResultIterator.nextHashRelationObject()
         hashRelationKernel.close()

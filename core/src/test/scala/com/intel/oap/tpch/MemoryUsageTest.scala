@@ -71,7 +71,7 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
         .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
         //          .set("spark.sql.autoBroadcastJoinThreshold", "1")
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-        .set("spark.sql.columnar.sort.broadcast.cache.timeout", "600")
+        .set("spark.network.io.preferDirectBufs", "false")
     return conf
   }
 
