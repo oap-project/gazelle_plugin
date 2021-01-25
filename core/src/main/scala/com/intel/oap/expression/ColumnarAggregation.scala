@@ -511,6 +511,12 @@ class ColumnarAggregation(
             }
             numInputBatches += 1
           }
+          if (processedNumRows == 0) {
+            data_loaded = true
+            aggrTime += NANOSECONDS.toMillis(eval_elapse)
+            nextBatch = false
+            return false
+          }
           if (groupingFieldList.size > 0) {
             val beforeFinish = System.nanoTime()
             result_iterator = aggregator.finishByIterator()
