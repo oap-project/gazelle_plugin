@@ -25,6 +25,7 @@ import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.catalyst.plans.FullOuter
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
@@ -103,7 +104,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.left,
             plan.right)
         case plan: SortMergeJoinExec =>
-          if (!enableColumnarSortMergeJoin) return false
+          if (!enableColumnarSortMergeJoin || plan.joinType == FullOuter) return false
           new ColumnarSortMergeJoinExec(
             plan.leftKeys,
             plan.rightKeys,
