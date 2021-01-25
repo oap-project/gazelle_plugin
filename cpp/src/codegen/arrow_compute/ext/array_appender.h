@@ -22,6 +22,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "codegen/arrow_compute/ext/array_item_index.h"
+
 namespace sparkcolumnarplugin {
 namespace codegen {
 namespace arrowcompute {
@@ -46,6 +48,15 @@ class AppenderBase {
     return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
   }
 
+  virtual arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
+                               int repeated) {
+    return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
+  }
+
+  virtual arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
+    return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
+  }
+
   virtual arrow::Status AppendNull() {
     return arrow::Status::NotImplemented("AppenderBase AppendNull is abstract.");
   }
@@ -67,10 +78,14 @@ template <typename DataType, typename Enable = void>
 class ArrayAppender {};
 
 template <typename T>
-using enable_if_not_boolean = std::enable_if_t<!arrow::is_boolean_type<T>::value>;
+using is_number_or_date = std::integral_constant<bool, arrow::is_number_type<T>::value ||
+                                                           arrow::is_date_type<T>::value>;
+
+template <typename DataType, typename R = void>
+using enable_if_number_or_date = std::enable_if_t<is_number_or_date<DataType>::value, R>;
 
 template <typename DataType>
-class ArrayAppender<DataType, enable_if_not_boolean<DataType>> : public AppenderBase {
+class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public AppenderBase {
  public:
   ArrayAppender(arrow::compute::FunctionContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
@@ -85,27 +100,139 @@ class ArrayAppender<DataType, enable_if_not_boolean<DataType>> : public Appender
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.emplace_back(typed_arr_);
+    if (typed_arr_->null_count() > 0) has_null_ = true;
     return arrow::Status::OK();
   }
 
   arrow::Status PopArray() override {
     cached_arr_.pop_back();
+    has_null_ = false;
     return arrow::Status::OK();
   }
 
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
-    if (!cached_arr_[array_id]->IsNull(item_id)) {
-      auto val = cached_arr_[array_id]->GetView(item_id);
-      return builder_->Append(cached_arr_[array_id]->GetView(item_id));
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
     } else {
-      return builder_->AppendNull();
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
     }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
+                       int repeated) override {
+    if (repeated == 0) return arrow::Status::OK();
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNulls(repeated));
+    } else {
+      auto val = cached_arr_[array_id]->GetView(item_id);
+      std::vector<CType> values;
+      values.resize(repeated, val);
+      RETURN_NOT_OK(builder_->AppendValues(values.data(), repeated));
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
+    for (auto tmp : index_list) {
+      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+        RETURN_NOT_OK(builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+      }
+    }
+    return arrow::Status::OK();
   }
 
   arrow::Status AppendNull() override { return builder_->AppendNull(); }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
-    return builder_->Finish(out_);
+    auto status = builder_->Finish(out_);
+    return status;
+  }
+
+  arrow::Status Reset() override {
+    builder_->Reset();
+    return arrow::Status::OK();
+  }
+
+ private:
+  using BuilderType_ = typename arrow::TypeTraits<DataType>::BuilderType;
+  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
+  using CType = typename arrow::TypeTraits<DataType>::CType;
+  std::unique_ptr<BuilderType_> builder_;
+  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
+  arrow::compute::FunctionContext* ctx_;
+  AppenderType type_;
+  bool has_null_ = false;
+};
+
+template <typename DataType>
+class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
+    : public AppenderBase {
+ public:
+  ArrayAppender(arrow::compute::FunctionContext* ctx, AppenderType type = left)
+      : ctx_(ctx), type_(type) {
+    std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
+                       &array_builder);
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+  }
+  ~ArrayAppender() {}
+
+  AppenderType GetType() override { return type_; }
+  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
+    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
+    cached_arr_.emplace_back(typed_arr_);
+    if (typed_arr_->null_count() > 0) has_null_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status PopArray() override {
+    cached_arr_.pop_back();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
+    } else {
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
+                       int repeated) override {
+    if (repeated == 0) return arrow::Status::OK();
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNulls(repeated));
+    } else {
+      auto val = cached_arr_[array_id]->GetView(item_id);
+      for (int i = 0; i < repeated; i++) {
+        RETURN_NOT_OK(builder_->Append(val));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
+    for (auto tmp : index_list) {
+      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+        RETURN_NOT_OK(builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+
+  arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
+    auto status = builder_->Finish(out_);
+    return status;
   }
 
   arrow::Status Reset() override {
@@ -120,6 +247,7 @@ class ArrayAppender<DataType, enable_if_not_boolean<DataType>> : public Appender
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
   arrow::compute::FunctionContext* ctx_;
   AppenderType type_;
+  bool has_null_ = false;
 };
 
 template <typename DataType>
@@ -138,21 +266,48 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.emplace_back(typed_arr_);
+    if (typed_arr_->null_count() > 0) has_null_ = true;
     return arrow::Status::OK();
   }
 
   arrow::Status PopArray() override {
     cached_arr_.pop_back();
+    has_null_ = false;
     return arrow::Status::OK();
   }
 
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
-    if (!cached_arr_[array_id]->IsNull(item_id)) {
-      auto val = cached_arr_[array_id]->GetView(item_id);
-      return builder_->Append(cached_arr_[array_id]->GetView(item_id));
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
     } else {
-      return builder_->AppendNull();
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
     }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
+                       int repeated) override {
+    if (repeated == 0) return arrow::Status::OK();
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNulls(repeated));
+    } else {
+      auto val = cached_arr_[array_id]->GetView(item_id);
+      for (int i = 0; i < repeated; i++) {
+        RETURN_NOT_OK(builder_->Append(val));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
+    for (auto tmp : index_list) {
+      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+        RETURN_NOT_OK(builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+      }
+    }
+    return arrow::Status::OK();
   }
 
   arrow::Status AppendNull() override { return builder_->AppendNull(); }
@@ -160,7 +315,8 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   arrow::Status AppendExistence(bool is_exist) { return builder_->Append(is_exist); }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
-    return builder_->Finish(out_);
+    auto status = builder_->Finish(out_);
+    return status;
   }
 
   arrow::Status Reset() override {
@@ -175,6 +331,7 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
   arrow::compute::FunctionContext* ctx_;
   AppenderType type_;
+  bool has_null_ = false;
 };
 
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
