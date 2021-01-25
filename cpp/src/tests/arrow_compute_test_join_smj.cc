@@ -56,7 +56,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
                                                      {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto n_standalone = TreeExprBuilder::MakeFunction(
+      "standalone", {n_codegen_probe}, uint32());
+  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -136,7 +138,6 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
 }
 
 TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
-  GTEST_SKIP();
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", uint32());
   auto table0_f1 = field("table0_f1", uint32());
