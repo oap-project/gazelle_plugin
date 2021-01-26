@@ -137,7 +137,7 @@ class ColumnarSorter(
       var has_next: Boolean = true
 
       override def hasNext: Boolean = {
-        if (sort_iterator == null) {
+        if (has_next && sort_iterator == null) {
           while (cbIterator.hasNext) {
             cb = cbIterator.next()
 
@@ -148,14 +148,18 @@ class ColumnarSorter(
           }
 
           val beforeSort = System.nanoTime()
-          sort_iterator = sorter.finishByIterator();
+          if (processedNumRows > 0) {
+            sort_iterator = sorter.finishByIterator();
+          }
           sort_elapse += System.nanoTime() - beforeSort
           total_elapse += System.nanoTime() - beforeSort
         }
-        if (sort_iterator.hasNext()) {
+        if (sort_iterator != null && sort_iterator.hasNext()) {
           return true
         } else {
+          has_next = false
           inputBatchHolder.foreach(cb => cb.close())
+          inputBatchHolder.clear
           return false
         }
       }
