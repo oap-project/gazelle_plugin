@@ -323,7 +323,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     assert(e.message.contains("cannot resolve '`invalid`' given input columns: [key, value]"))
   }
 
-  ignore("numerical aggregate functions on string column") {
+  test("numerical aggregate functions on string column") {
     val df = Seq((1, "a", "b")).toDF("key", "value1", "value2")
     checkAnswer(
       df.select($"key",
@@ -587,7 +587,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("aggregation and range between with unbounded + predicate pushdown") {
+  test("aggregation and range between with unbounded + predicate pushdown") {
     withTempView("window_table") {
       val df = Seq((5, "1"), (5, "2"), (4, "2"), (6, "2"), (3, "1"), (2, "2")).toDF("key", "value")
       df.createOrReplaceTempView("window_table")
@@ -608,7 +608,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("Window spill with less than the inMemoryThreshold") {
+  test("Window spill with less than the inMemoryThreshold") {
     val df = Seq((1, "1"), (2, "2"), (1, "3"), (2, "4")).toDF("key", "value")
     val window = Window.partitionBy($"key").orderBy($"value")
 
@@ -620,7 +620,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("Window spill with more than the inMemoryThreshold but less than the spillThreshold") {
+  test("Window spill with more than the inMemoryThreshold but less than the spillThreshold") {
     val df = Seq((1, "1"), (2, "2"), (1, "3"), (2, "4")).toDF("key", "value")
     val window = Window.partitionBy($"key").orderBy($"value")
 
@@ -632,7 +632,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("Window spill with more than the inMemoryThreshold and spillThreshold") {
+  test("Window spill with more than the inMemoryThreshold and spillThreshold") {
     val df = Seq((1, "1"), (2, "2"), (1, "3"), (2, "4")).toDF("key", "value")
     val window = Window.partitionBy($"key").orderBy($"value")
 
@@ -644,7 +644,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-21258: complex object in combination with spilling") {
+  test("SPARK-21258: complex object in combination with spilling") {
     // Make sure we trigger the spilling path.
     withSQLConf(SQLConf.WINDOW_EXEC_BUFFER_IN_MEMORY_THRESHOLD.key -> "1",
       SQLConf.WINDOW_EXEC_BUFFER_SPILL_THRESHOLD.key -> "17") {
@@ -768,7 +768,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("NaN and -0.0 in window partition keys") {
+  test("NaN and -0.0 in window partition keys") {
     val df = Seq(
       (Float.NaN, Double.NaN),
       (0.0f/0.0f, 0.0/0.0),

@@ -96,6 +96,45 @@ case class ColumnarBroadcastHashJoinExec(
       case BuildRight => (rkeys, lkeys)
     }
   }
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    // build check for condition
+    val conditionExpr: Expression = condition.orNull
+    if (conditionExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+    }
+    // build check types
+    for (attr <- streamedPlan.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarBroadcastHashJoinExec.")
+      }
+    }
+    for (attr <- buildPlan.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarBroadcastHashJoinExec.")
+      }
+    }
+    // build check for expr
+    if (buildKeyExprs != null) {
+      for (expr <- buildKeyExprs) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+    if (streamedKeyExprs != null) {
+      for (expr <- streamedKeyExprs) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+  }
 
   override def output: Seq[Attribute] =
     if (projectList == null || projectList.isEmpty) super.output

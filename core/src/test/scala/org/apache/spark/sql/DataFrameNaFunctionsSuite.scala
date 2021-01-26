@@ -103,7 +103,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(input.na.drop().columns.toSeq === input.columns.toSeq)
   }
 
-  ignore("drop with how") {
+  test("drop with how") {
     val input = createDF()
     val rows = input.collect()
 
@@ -124,7 +124,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("Bob") :: Row("Alice") :: Row("David") :: Row("Nina") :: Nil)
   }
 
-  ignore("drop with threshold") {
+  test("drop with threshold") {
     val input = createDF()
     val rows = input.collect()
 
@@ -285,7 +285,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
     (df1, df2)
   }
 
-  ignore("fill unambiguous field for join operation") {
+  test("fill unambiguous field for join operation") {
     val (df1, df2) = createDFsWithSameFieldsName()
     val joined_df = df1.join(df2, Seq("f1"), joinType = "left_outer")
     checkAnswer(joined_df.na.fill("", cols = Seq("f4")),
@@ -326,7 +326,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df.na.fill("a1", Seq("c1.c1-1")), df)
   }
 
-  ignore("drop with nested columns") {
+  test("drop with nested columns") {
     val df = createDFWithNestedColumns
 
     // Rows with the specified nested columns whose null values are dropped.
@@ -411,7 +411,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("Alice") :: Row("David") :: Nil)
   }
 
-  ignore("SPARK-29890: duplicate names are allowed for fill() if column names are not specified.") {
+  test("SPARK-29890: duplicate names are allowed for fill() if column names are not specified.") {
     val left = Seq(("1", null), ("3", "4")).toDF("col1", "col2")
     val right = Seq(("1", "2"), ("3", null)).toDF("col1", "col2")
     val df = left.join(right, Seq("col1"))
@@ -428,7 +428,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("1", "hello", "2") :: Row("3", "4", "hello") :: Nil)
   }
 
-  ignore("SPARK-30065: duplicate names are allowed for drop() if column names are not specified.") {
+  test("SPARK-30065: duplicate names are allowed for drop() if column names are not specified.") {
     val left = Seq(("1", null), ("3", "4"), ("5", "6")).toDF("col1", "col2")
     val right = Seq(("1", "2"), ("3", null), ("5", "6")).toDF("col1", "col2")
     val df = left.join(right, Seq("col1"))
@@ -445,7 +445,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("5", "6", "6") :: Nil)
   }
 
-  ignore("replace nan with float") {
+  test("replace nan with float") {
     checkAnswer(
       createNaNDF().na.replace("*", Map(
         Float.NaN -> 10.0f
@@ -454,7 +454,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(0, 0L, 0.toShort, 0.toByte, 10.0f, 10.0) :: Nil)
   }
 
-  ignore("replace nan with double") {
+  test("replace nan with double") {
     checkAnswer(
       createNaNDF().na.replace("*", Map(
         Double.NaN -> 10.0
@@ -463,7 +463,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(0, 0L, 0.toShort, 0.toByte, 10.0f, 10.0) :: Nil)
   }
 
-  ignore("replace float with nan") {
+  test("replace float with nan") {
     checkAnswer(
       createNaNDF().na.replace("*", Map(
         1.0f -> Float.NaN
@@ -472,7 +472,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(0, 0L, 0.toShort, 0.toByte, Float.NaN, Double.NaN) :: Nil)
   }
 
-  ignore("replace double with nan") {
+  test("replace double with nan") {
     checkAnswer(
       createNaNDF().na.replace("*", Map(
         1.0 -> Double.NaN

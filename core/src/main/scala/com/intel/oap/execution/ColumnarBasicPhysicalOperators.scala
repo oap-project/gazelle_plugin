@@ -60,6 +60,31 @@ case class ColumnarConditionProjectExec(
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_condproject"))
 
+  buildCheck(condition, projectList, child.output)
+
+  def buildCheck(condExpr: Expression, projectList: Seq[Expression],
+                 originalInputAttributes: Seq[Attribute]): Unit = {
+    // check datatype
+    originalInputAttributes.toList.foreach(attr => {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarConditionProjector.")
+      }
+    })
+    // check expr
+    if (condExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(condExpr)
+    }
+    if (projectList != null) {
+      for (expr <- projectList) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+  }
+
   def isNullIntolerant(expr: Expression): Boolean = expr match {
     case e: NullIntolerant => e.children.forall(isNullIntolerant)
     case _ => false
@@ -232,6 +257,21 @@ case class ColumnarConditionProjectExec(
 case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
   // updating nullability to make all the children consistent
 
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    for (child <- children) {
+      for (schema <- child.schema) {
+        try {
+          ConverterUtils.checkIfTypeSupported(schema.dataType)
+        } catch {
+          case e: UnsupportedOperationException =>
+            throw new UnsupportedOperationException(
+              s"${schema.dataType} is not supported in ColumnarUnionExec")
+        }
+      }
+    }
+  }
   override def supportsColumnar = true
   protected override def doExecuteColumnar(): RDD[ColumnarBatch] =
     sparkContext.union(children.map(_.executeColumnar()))

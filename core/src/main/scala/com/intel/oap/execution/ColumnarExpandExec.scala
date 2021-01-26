@@ -51,6 +51,24 @@ case class ColumnarExpandExec(
 
   override def supportsColumnar = true
 
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    // build check for projection
+    projections.foreach(proj =>
+      ColumnarProjection.buildCheck(originalInputAttributes, proj))
+    //check type
+    for (attr <- originalInputAttributes) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarExpandExec.")
+      }
+    }
+  }
+
   protected override def doExecute(): RDD[InternalRow] =
     throw new UnsupportedOperationException("doExecute is not supported in ColumnarExpandExec.")
 

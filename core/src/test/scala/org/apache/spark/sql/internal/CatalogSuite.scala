@@ -307,7 +307,7 @@ class CatalogSuite extends SharedSparkSession {
         "nullable='false', isPartition='true', isBucket='true']")
   }
 
-  ignore("catalog classes format in Dataset.show") {
+  test("catalog classes format in Dataset.show") {
     val db = new Database("nama", "descripta", "locata")
     val table = new Table("nama", "databasa", "descripta", "typa", isTemporary = false)
     val function = new Function("nama", "databasa", "descripta", "classa", isTemporary = false)

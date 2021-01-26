@@ -86,7 +86,7 @@ class RateStreamProviderSuite extends StreamTest {
     assert(ds.isInstanceOf[RateStreamProvider], "Could not find rate source")
   }
 
-  ignore("microbatch - basic") {
+  test("microbatch - basic") {
     val input = spark.readStream
       .format("rate")
       .option("rowsPerSecond", "10")
@@ -98,7 +98,7 @@ class RateStreamProviderSuite extends StreamTest {
     )
   }
 
-  ignore("microbatch - restart") {
+  test("microbatch - restart") {
     val input = spark.readStream
       .format("rate")
       .option("rowsPerSecond", "10")
@@ -134,7 +134,7 @@ class RateStreamProviderSuite extends StreamTest {
     )
   }
 
-  ignore("microbatch - uniform distribution of event timestamps") {
+  test("microbatch - uniform distribution of event timestamps") {
     val input = spark.readStream
       .format("rate")
       .option("rowsPerSecond", "1500")
@@ -230,7 +230,7 @@ class RateStreamProviderSuite extends StreamTest {
     assert(valueAtSecond(seconds = 5, rowsPerSecond = 10, rampUpTimeSeconds = 4) === 30)
   }
 
-  ignore("rampUpTime") {
+  test("rampUpTime") {
     val input = spark.readStream
       .format("rate")
       .option("rowsPerSecond", "10")
@@ -260,7 +260,7 @@ class RateStreamProviderSuite extends StreamTest {
     )
   }
 
-  ignore("numPartitions") {
+  test("numPartitions") {
     val input = spark.readStream
       .format("rate")
       .option("rowsPerSecond", "10")
@@ -275,7 +275,7 @@ class RateStreamProviderSuite extends StreamTest {
     )
   }
 
-  ignore("overflow") {
+  test("overflow") {
     val input = spark.readStream
       .format("rate")
       .option("rowsPerSecond", Long.MaxValue.toString)

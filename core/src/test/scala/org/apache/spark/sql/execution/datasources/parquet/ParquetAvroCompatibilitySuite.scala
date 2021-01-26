@@ -52,6 +52,10 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   private def withWriter[T <: IndexedRecord]
       (path: String, schema: Schema)
@@ -183,7 +187,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  ignore("nullable arrays (parquet-avro 1.7.0 does not properly support this)") {
+  test("nullable arrays (parquet-avro 1.7.0 does not properly support this)") {
     // TODO Complete this test case after upgrading to parquet-mr 1.8+
   }
 

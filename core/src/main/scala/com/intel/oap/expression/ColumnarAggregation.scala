@@ -552,6 +552,7 @@ class ColumnarAggregation(
 
 object ColumnarAggregation {
   var columnarAggregation: ColumnarAggregation = _
+
   def create(
       partIndex: Int,
       groupingExpressions: Seq[NamedExpression],

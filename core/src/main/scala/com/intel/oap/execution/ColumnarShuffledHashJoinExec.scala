@@ -78,6 +78,8 @@ case class ColumnarShuffledHashJoinExec(
     "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to build hash map"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
+  buildCheck()
+
   val (buildKeyExprs, streamedKeyExprs) = {
     require(
       leftKeys.map(_.dataType) == rightKeys.map(_.dataType),
@@ -87,6 +89,44 @@ case class ColumnarShuffledHashJoinExec(
     buildSide match {
       case BuildLeft => (lkeys, rkeys)
       case BuildRight => (rkeys, lkeys)
+    }
+  }
+
+  def buildCheck(): Unit = {
+    // build check for condition
+    val conditionExpr: Expression = condition.orNull
+    if (conditionExpr != null) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+    }
+    // build check types
+    for (attr <- streamedPlan.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarShuffledHashJoinExec.")
+      }
+    }
+    for (attr <- buildPlan.output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarShuffledHashJoinExec.")
+      }
+    }
+    // build check for expr
+    if (buildKeyExprs != null) {
+      for (expr <- buildKeyExprs) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
+    }
+    if (streamedKeyExprs != null) {
+      for (expr <- streamedKeyExprs) {
+        ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+      }
     }
   }
 

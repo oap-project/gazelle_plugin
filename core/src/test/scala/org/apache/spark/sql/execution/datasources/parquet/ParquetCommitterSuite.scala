@@ -62,19 +62,19 @@ class ParquetCommitterSuite extends SparkFunSuite with SQLTestUtils
     }
   }
 
-  ignore("alternative output committer, merge schema") {
+  test("alternative output committer, merge schema") {
     writeDataFrame(MarkingFileOutput.COMMITTER, summary = true, check = true)
   }
 
-  ignore("alternative output committer, no merge schema") {
+  test("alternative output committer, no merge schema") {
     writeDataFrame(MarkingFileOutput.COMMITTER, summary = false, check = true)
   }
 
-  ignore("Parquet output committer, merge schema") {
+  test("Parquet output committer, merge schema") {
     writeDataFrame(PARQUET_COMMITTER, summary = true, check = false)
   }
 
-  ignore("Parquet output committer, no merge schema") {
+  test("Parquet output committer, no merge schema") {
     writeDataFrame(PARQUET_COMMITTER, summary = false, check = false)
   }
 

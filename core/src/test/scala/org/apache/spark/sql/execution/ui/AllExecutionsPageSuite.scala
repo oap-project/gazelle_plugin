@@ -65,7 +65,7 @@ class AllExecutionsPageSuite extends SharedSparkSession with BeforeAndAfter {
     }
   }
 
-  ignore("SPARK-27019: correctly display SQL page when event reordering happens") {
+  test("SPARK-27019: correctly display SQL page when event reordering happens") {
     val statusStore = createStatusStore
     val tab = mock(classOf[SQLTab], RETURNS_SMART_NULLS)
     when(tab.sqlStore).thenReturn(statusStore)

@@ -55,6 +55,29 @@ abstract class ParquetPartitionDiscoverySuite
   import PartitioningUtils._
   import testImplicits._
 
+  override def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
+
   val defaultPartitionName = ExternalCatalogUtils.DEFAULT_PARTITION_NAME
 
   val timeZoneId = ZoneId.systemDefault()
@@ -482,7 +505,7 @@ abstract class ParquetPartitionDiscoverySuite
       PartitionSpec.emptySpec)
   }
 
-  ignore("read partitioned table - normal case") {
+  test("read partitioned table - normal case") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -573,7 +596,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("read partitioned table - with nulls") {
+  test("read partitioned table - with nulls") {
     withTempDir { base =>
       for {
         // Must be `Integer` rather than `Int` here. `null.asInstanceOf[Int]` results in a zero...
@@ -614,7 +637,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("read partitioned table - merging compatible schemas") {
+  test("read partitioned table - merging compatible schemas") {
     withTempDir { base =>
       makeParquetFile(
         (1 to 10).map(i => Tuple1(i)).toDF("intField"),
@@ -639,7 +662,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("SPARK-7847: Dynamic partition directory path escaping and unescaping") {
+  test("SPARK-7847: Dynamic partition directory path escaping and unescaping") {
     withTempPath { dir =>
       val df = Seq("/", "[]", "?").zipWithIndex.map(_.swap).toDF("i", "s")
       df.write.format("parquet").partitionBy("s").save(dir.getCanonicalPath)
@@ -647,7 +670,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("Various partition value types") {
+  test("Various partition value types") {
     val row =
       Row(
         100.toByte,
@@ -700,7 +723,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("Various inferred partition value types") {
+  test("Various inferred partition value types") {
     val row =
       Row(
         Long.MaxValue,
@@ -742,7 +765,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("SPARK-8037: Ignores files whose name starts with dot") {
+  test("SPARK-8037: Ignores files whose name starts with dot") {
     withTempPath { dir =>
       val df = (1 to 3).map(i => (i, i, i, i)).toDF("a", "b", "c", "d")
 
@@ -758,7 +781,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("SPARK-11678: Partition discovery stops at the root path of the dataset") {
+  test("SPARK-11678: Partition discovery stops at the root path of the dataset") {
     withTempPath { dir =>
       val tablePath = new File(dir, "key=value")
       val df = (1 to 3).map(i => (i, i, i, i)).toDF("a", "b", "c", "d")
@@ -792,7 +815,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("use basePath to specify the root dir of a partitioned table.") {
+  test("use basePath to specify the root dir of a partitioned table.") {
     withTempPath { dir =>
       val tablePath = new File(dir, "table")
       val df = (1 to 3).map(i => (i, i, i, i)).toDF("a", "b", "c", "d")
@@ -822,7 +845,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("use basePath and file globbing to selectively load partitioned table") {
+  test("use basePath and file globbing to selectively load partitioned table") {
     withTempPath { dir =>
 
       val df = Seq(
@@ -869,7 +892,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("_SUCCESS should not break partitioning discovery") {
+  test("_SUCCESS should not break partitioning discovery") {
     Seq(1, 32).foreach { threshold =>
       // We have two paths to list files, one at driver side, another one that we use
       // a Spark job. We need to test both ways.
@@ -937,7 +960,7 @@ abstract class ParquetPartitionDiscoverySuite
           Seq("file:/tmp/foo/a=1", "file:/tmp/foo/a=1/b=foo")))
   }
 
-  ignore("Parallel partition discovery") {
+  test("Parallel partition discovery") {
     withTempPath { dir =>
       withSQLConf(SQLConf.PARALLEL_PARTITION_DISCOVERY_THRESHOLD.key -> "1") {
         val path = dir.getCanonicalPath
@@ -948,7 +971,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("SPARK-15895 summary files in non-leaf partition directories") {
+  test("SPARK-15895 summary files in non-leaf partition directories") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -993,7 +1016,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("SPARK-22109: Resolve type conflicts between strings and timestamps in partition column") {
+  test("SPARK-22109: Resolve type conflicts between strings and timestamps in partition column") {
     val df = Seq(
       (1, "2015-01-01 00:00:00"),
       (2, "2014-01-01 00:00:00"),
@@ -1005,7 +1028,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("Resolve type conflicts - decimals, dates and timestamps in partition column") {
+  test("Resolve type conflicts - decimals, dates and timestamps in partition column") {
     withTempPath { path =>
       val df = Seq((1, "2014-01-01"), (2, "2016-01-01"), (3, "2015-01-01 00:01:00")).toDF("i", "ts")
       df.write.format("parquet").partitionBy("ts").save(path.getAbsolutePath)
@@ -1027,7 +1050,7 @@ abstract class ParquetPartitionDiscoverySuite
     }
   }
 
-  ignore("SPARK-23436: invalid Dates should be inferred as String in partition inference") {
+  test("SPARK-23436: invalid Dates should be inferred as String in partition inference") {
     withTempPath { path =>
       val data = Seq(("1", "2018-01", "2018-01-01-04", "test"))
         .toDF("id", "date_month", "date_hour", "data")
@@ -1047,25 +1070,9 @@ class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
 
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
 
-  ignore("read partitioned table - partition key included in Parquet file") {
+  test("read partitioned table - partition key included in Parquet file") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -1112,7 +1119,7 @@ class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
     }
   }
 
-  ignore("read partitioned table - with nulls and partition keys are included in Parquet file") {
+  test("read partitioned table - with nulls and partition keys are included in Parquet file") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -1159,8 +1166,8 @@ class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
     }
   }
 
-  ignore("SPARK-18108 Parquet reader fails when data column types conflict with partition ones") {
-    withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
+  test("SPARK-18108 Parquet reader fails when data column types conflict with partition ones") {
+    withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath
         val df = Seq((1L, 2.0)).toDF("a", "b")
@@ -1170,7 +1177,7 @@ class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
     }
   }
 
-  ignore("SPARK-21463: MetadataLogFileIndex should respect userSpecifiedSchema for partition cols") {
+  test("SPARK-21463: MetadataLogFileIndex should respect userSpecifiedSchema for partition cols") {
     withTempDir { tempDir =>
       val output = new File(tempDir, "output").toString
       val checkpoint = new File(tempDir, "chkpoint").toString
@@ -1209,25 +1216,9 @@ class ParquetV2PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
   // TODO: enable Parquet V2 write path after file source V2 writers are workable.
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
-  ignore("read partitioned table - partition key included in Parquet file") {
+  test("read partitioned table - partition key included in Parquet file") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -1274,7 +1265,7 @@ class ParquetV2PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
     }
   }
 
-  ignore("read partitioned table - with nulls and partition keys are included in Parquet file") {
+  test("read partitioned table - with nulls and partition keys are included in Parquet file") {
     withTempDir { base =>
       for {
         pi <- Seq(1, 2)
@@ -1320,7 +1311,7 @@ class ParquetV2PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
     }
   }
 
-  ignore("SPARK-18108 Parquet reader fails when data column types conflict with partition ones") {
+  test("SPARK-18108 Parquet reader fails when data column types conflict with partition ones") {
     withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath
@@ -1331,7 +1322,7 @@ class ParquetV2PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
     }
   }
 
-  ignore("SPARK-21463: MetadataLogFileIndex should respect userSpecifiedSchema for partition cols") {
+  test("SPARK-21463: MetadataLogFileIndex should respect userSpecifiedSchema for partition cols") {
     withTempDir { tempDir =>
       val output = new File(tempDir, "output").toString
       val checkpoint = new File(tempDir, "chkpoint").toString

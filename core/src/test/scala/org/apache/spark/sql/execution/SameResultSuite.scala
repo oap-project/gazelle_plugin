@@ -71,7 +71,7 @@ class SameResultSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("FileScan: different orders of data filters and partition filters") {
+  test("FileScan: different orders of data filters and partition filters") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "") {
       Seq("orc", "json", "csv", "parquet").foreach { format =>
         withTempPath { path =>
@@ -135,7 +135,7 @@ class SameResultSuite extends QueryTest with SharedSparkSession {
       .asInstanceOf[FileSourceScanExec]
   }
 
-  test("SPARK-20725: partial aggregate should behave correctly for sameResult") {
+  ignore("SPARK-20725: partial aggregate should behave correctly for sameResult") {
     val df1 = spark.range(10).agg(sum($"id"))
     val df2 = spark.range(10).agg(sum($"id"))
     assert(df1.queryExecution.executedPlan.sameResult(df2.queryExecution.executedPlan))

@@ -336,6 +336,7 @@ class BinaryFileFormatSuite extends QueryTest with SharedSparkSession {
     }
   }
 
+  // ignored in maven test
   ignore("column pruning - non-readable file") {
     withTempPath { file =>
       val content = "abc".getBytes

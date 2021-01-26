@@ -137,14 +137,14 @@ class DatasetPrimitiveSuite extends QueryTest with SharedSparkSession {
     checkDataset(dsDouble.map(e => null: Array[Double]), null, null)
   }
 
-  ignore("filter") {
+  test("filter") {
     val ds = Seq(1, 2, 3, 4).toDS()
     checkDataset(
       ds.filter(_ % 2 == 0),
       2, 4)
   }
 
-  ignore("filterPrimitive") {
+  test("filterPrimitive") {
     val dsInt = Seq(1, 2, 3).toDS()
     checkDataset(dsInt.filter(_ > 1), 2, 3)
 
@@ -363,7 +363,7 @@ class DatasetPrimitiveSuite extends QueryTest with SharedSparkSession {
       LHMapClass(LHMap(1 -> 2)) -> LHMap("test" -> MapClass(Map(3 -> 4))))
   }
 
-  ignore("arbitrary sets") {
+  test("arbitrary sets") {
     checkDataset(Seq(Set(1, 2, 3, 4)).toDS(), Set(1, 2, 3, 4))
     checkDataset(Seq(Set(1.toLong, 2.toLong)).toDS(), Set(1.toLong, 2.toLong))
     checkDataset(Seq(Set(1.toDouble, 2.toDouble)).toDS(), Set(1.toDouble, 2.toDouble))

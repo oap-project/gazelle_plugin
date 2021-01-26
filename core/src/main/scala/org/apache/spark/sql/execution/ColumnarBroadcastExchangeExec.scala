@@ -70,6 +70,8 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
       throw new UnsupportedOperationException(
         s"ColumnarBroadcastExchange only support HashRelationMode")
   }
+  buildCheck()
+
   @transient
   lazy val promise = Promise[broadcast.Broadcast[Any]]()
 
@@ -208,6 +210,20 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
         if (relation != null)
           relation.asInstanceOf[ColumnarHashedRelation].countDownClose(timeout)
       }
+    }
+  }
+
+  def buildCheck(): Unit = {
+    output.toList.foreach(attr => {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarBroadcastExchangeExec.")
+      }})
+    for (expr <- buildKeyExprs) {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
     }
   }
 

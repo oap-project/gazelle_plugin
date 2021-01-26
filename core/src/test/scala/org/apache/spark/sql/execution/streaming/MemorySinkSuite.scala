@@ -252,7 +252,7 @@ class MemorySinkSuite extends StreamTest with BeforeAndAfter {
     assert(plan.stats.sizeInBytes === 72)
   }
 
-  ignore("stress test") {
+  test("stress test") {
     // Ignore the stress test as it takes several minutes to run
     (0 until 1000).foreach { _ =>
       val input = MemoryStream[Int]

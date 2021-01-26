@@ -45,7 +45,7 @@ class DeprecatedDatasetAggregatorSuite extends QueryTest with SharedSparkSession
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-  ignore("typed aggregation: TypedAggregator") {
+  test("typed aggregation: TypedAggregator") {
     val ds = Seq(("a", 10), ("a", 20), ("b", 1), ("b", 2), ("c", 1)).toDS()
 
     checkDataset(
@@ -53,7 +53,7 @@ class DeprecatedDatasetAggregatorSuite extends QueryTest with SharedSparkSession
       ("a", 30.0), ("b", 3.0), ("c", 1.0))
   }
 
-  ignore("typed aggregation: TypedAggregator, expr, expr") {
+  test("typed aggregation: TypedAggregator, expr, expr") {
     val ds = Seq(("a", 10), ("a", 20), ("b", 1), ("b", 2), ("c", 1)).toDS()
 
     checkDataset(
@@ -64,7 +64,7 @@ class DeprecatedDatasetAggregatorSuite extends QueryTest with SharedSparkSession
       ("a", 30.0, 30L, 2L), ("b", 3.0, 3L, 2L), ("c", 1.0, 1L, 1L))
   }
 
-  ignore("typed aggregation: in project list") {
+  test("typed aggregation: in project list") {
     val ds = Seq(1, 3, 2, 5).toDS()
 
     checkDataset(

@@ -44,7 +44,6 @@ class ParquetFileFormatSuite extends QueryTest with ParquetTest with SharedSpark
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-
   test("read parquet footers in parallel") {
     def testReadFooters(ignoreCorruptFiles: Boolean): Unit = {
       withTempDir { dir =>

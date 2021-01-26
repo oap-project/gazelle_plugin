@@ -54,6 +54,7 @@ class DataSourceV2DataFrameSessionCatalogSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override protected def doInsert(tableName: String, insert: DataFrame, mode: SaveMode): Unit = {
     val dfw = insert.write.format(v2Format)
@@ -72,7 +73,7 @@ class DataSourceV2DataFrameSessionCatalogSuite
 
   override protected val catalogAndNamespace: String = ""
 
-  ignore("saveAsTable: Append mode should not fail if the table already exists " +
+  test("saveAsTable: Append mode should not fail if the table already exists " +
     "and a same-name temp view exist") {
     withTable("same_name") {
       withTempView("same_name") {
@@ -86,7 +87,7 @@ class DataSourceV2DataFrameSessionCatalogSuite
     }
   }
 
-  ignore("saveAsTable with mode Overwrite should not fail if the table already exists " +
+  test("saveAsTable with mode Overwrite should not fail if the table already exists " +
     "and a same-name temp view exist") {
     withTable("same_name") {
       withTempView("same_name") {
@@ -192,14 +193,14 @@ private [connector] trait SessionCatalogTest[T <: Table, Catalog <: TestV2Sessio
 
   import testImplicits._
 
-  ignore("saveAsTable: v2 table - table doesn't exist and default mode (ErrorIfExists)") {
+  test("saveAsTable: v2 table - table doesn't exist and default mode (ErrorIfExists)") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     df.write.format(v2Format).saveAsTable(t1)
     verifyTable(t1, df)
   }
 
-  ignore("saveAsTable: v2 table - table doesn't exist and append mode") {
+  test("saveAsTable: v2 table - table doesn't exist and append mode") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     df.write.format(v2Format).mode("append").saveAsTable(t1)
@@ -218,7 +219,7 @@ private [connector] trait SessionCatalogTest[T <: Table, Catalog <: TestV2Sessio
     }
   }
 
-  ignore("saveAsTable: v2 table - table exists") {
+  test("saveAsTable: v2 table - table exists") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     spark.sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
@@ -233,14 +234,14 @@ private [connector] trait SessionCatalogTest[T <: Table, Catalog <: TestV2Sessio
     verifyTable(t1, df.union(df))
   }
 
-  ignore("saveAsTable: v2 table - table overwrite and table doesn't exist") {
+  test("saveAsTable: v2 table - table overwrite and table doesn't exist") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     df.write.format(v2Format).mode("overwrite").saveAsTable(t1)
     verifyTable(t1, df)
   }
 
-  ignore("saveAsTable: v2 table - table overwrite and table exists") {
+  test("saveAsTable: v2 table - table overwrite and table exists") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     spark.sql(s"CREATE TABLE $t1 USING $v2Format AS SELECT 'c', 'd'")
@@ -261,14 +262,14 @@ private [connector] trait SessionCatalogTest[T <: Table, Catalog <: TestV2Sessio
     }
   }
 
-  ignore("saveAsTable: v2 table - ignore mode and table doesn't exist") {
+  test("saveAsTable: v2 table - ignore mode and table doesn't exist") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     df.write.format(v2Format).mode("ignore").saveAsTable(t1)
     verifyTable(t1, df)
   }
 
-  ignore("saveAsTable: v2 table - ignore mode and table exists") {
+  test("saveAsTable: v2 table - ignore mode and table exists") {
     val t1 = "tbl"
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
     spark.sql(s"CREATE TABLE $t1 USING $v2Format AS SELECT 'c', 'd'")

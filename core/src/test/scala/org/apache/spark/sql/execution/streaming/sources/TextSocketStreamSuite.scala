@@ -141,7 +141,7 @@ class TextSocketStreamSuite extends StreamTest with SharedSparkSession {
     }
   }
 
-  ignore("timestamped usage") {
+  test("timestamped usage") {
     serverThread = new ServerThread()
     serverThread.start()
 

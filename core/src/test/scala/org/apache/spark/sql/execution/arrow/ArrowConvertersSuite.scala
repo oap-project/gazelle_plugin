@@ -704,7 +704,7 @@ class ArrowConvertersSuite extends SharedSparkSession {
     collectAndValidate(df, json, "dateData.json")
   }
 
-  ignore("timestamp type conversion") {
+  test("timestamp type conversion") {
     withSQLConf(SQLConf.SESSION_LOCAL_TIMEZONE.key -> "America/Los_Angeles") {
       val json =
         s"""
@@ -793,7 +793,7 @@ class ArrowConvertersSuite extends SharedSparkSession {
     collectAndValidate(df, json, "nanData-floating_point.json")
   }
 
-  ignore("array type conversion") {
+  test("array type conversion") {
     val json =
       s"""
          |{

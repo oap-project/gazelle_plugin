@@ -50,6 +50,7 @@ class SaveLoadSuite extends DataSourceTest with SharedSparkSession with BeforeAn
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   protected override lazy val sql = spark.sql _
   private var originalDefaultSource: String = null
@@ -96,32 +97,32 @@ class SaveLoadSuite extends DataSourceTest with SharedSparkSession with BeforeAn
       sql(s"SELECT b FROM $tbl").collect())
   }
 
-  ignore("save with path and load") {
+  test("save with path and load") {
     spark.conf.set(SQLConf.DEFAULT_DATA_SOURCE_NAME.key, "org.apache.spark.sql.json")
     df.write.save(path.toString)
     checkLoad()
   }
 
-  ignore("save with string mode and path, and load") {
+  test("save with string mode and path, and load") {
     spark.conf.set(SQLConf.DEFAULT_DATA_SOURCE_NAME.key, "org.apache.spark.sql.json")
     path.createNewFile()
     df.write.mode("overwrite").save(path.toString)
     checkLoad()
   }
 
-  ignore("save with path and datasource, and load") {
+  test("save with path and datasource, and load") {
     spark.conf.set(SQLConf.DEFAULT_DATA_SOURCE_NAME.key, "not a source name")
     df.write.json(path.toString)
     checkLoad()
   }
 
-  ignore("save with data source and options, and load") {
+  test("save with data source and options, and load") {
     spark.conf.set(SQLConf.DEFAULT_DATA_SOURCE_NAME.key, "not a source name")
     df.write.mode(SaveMode.ErrorIfExists).json(path.toString)
     checkLoad()
   }
 
-  ignore("save and save again") {
+  test("save and save again") {
     withTempView("jsonTable2") {
       df.write.json(path.toString)
 
@@ -166,7 +167,7 @@ class SaveLoadSuite extends DataSourceTest with SharedSparkSession with BeforeAn
     }
   }
 
-  ignore("skip empty files in non bucketed read") {
+  test("skip empty files in non bucketed read") {
     Seq("csv", "text").foreach { format =>
       withTempDir { dir =>
         val path = dir.getCanonicalPath

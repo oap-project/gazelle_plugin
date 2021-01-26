@@ -60,6 +60,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   private def catalog(name: String): TableCatalog = {
     spark.sessionState.catalogManager.catalog(name).asTableCatalog
@@ -120,7 +121,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(v2.catalog.exists(_ == catalogPlugin))
   }
 
-  ignore("Append: basic append") {
+  test("Append: basic append") {
     spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
     checkAnswer(spark.table("testcat.table_name"), Seq.empty)
@@ -163,7 +164,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("Overwrite: overwrite by expression: true") {
+  test("Overwrite: overwrite by expression: true") {
     spark.sql(
       "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
@@ -182,7 +183,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
       Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
   }
 
-  ignore("Overwrite: overwrite by expression: id = 3") {
+  test("Overwrite: overwrite by expression: id = 3") {
     spark.sql(
       "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
@@ -227,7 +228,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("OverwritePartitions: overwrite conflicting partitions") {
+  test("OverwritePartitions: overwrite conflicting partitions") {
     spark.sql(
       "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
@@ -247,7 +248,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
       Seq(Row(1L, "a"), Row(2L, "d"), Row(3L, "e"), Row(4L, "f")))
   }
 
-  ignore("OverwritePartitions: overwrite all rows if not partitioned") {
+  test("OverwritePartitions: overwrite all rows if not partitioned") {
     spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
     checkAnswer(spark.table("testcat.table_name"), Seq.empty)
@@ -291,7 +292,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("Create: basic behavior") {
+  test("Create: basic behavior") {
     spark.table("source").writeTo("testcat.table_name").create()
 
     checkAnswer(
@@ -306,7 +307,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(table.properties == defaultOwnership.asJava)
   }
 
-  ignore("Create: with using") {
+  test("Create: with using") {
     spark.table("source").writeTo("testcat.table_name").using("foo").create()
 
     checkAnswer(
@@ -321,7 +322,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
   }
 
-  ignore("Create: with property") {
+  test("Create: with property") {
     spark.table("source").writeTo("testcat.table_name").tableProperty("prop", "value").create()
 
     checkAnswer(
@@ -336,7 +337,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(table.properties === (Map("prop" -> "value") ++ defaultOwnership).asJava)
   }
 
-  ignore("Create: identity partitioned table") {
+  test("Create: identity partitioned table") {
     spark.table("source").writeTo("testcat.table_name").partitionedBy($"id").create()
 
     checkAnswer(
@@ -440,7 +441,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
   }
 
-  ignore("Replace: basic behavior") {
+  test("Replace: basic behavior") {
     spark.sql(
       "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
     spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
@@ -477,7 +478,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(replaced.properties === defaultOwnership.asJava)
   }
 
-  ignore("Replace: partitioned table") {
+  test("Replace: partitioned table") {
     spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
     spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
 
@@ -521,7 +522,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("CreateOrReplace: table does not exist") {
+  test("CreateOrReplace: table does not exist") {
     spark.table("source2").writeTo("testcat.table_name").createOrReplace()
 
     checkAnswer(
@@ -537,7 +538,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(replaced.properties === defaultOwnership.asJava)
   }
 
-  ignore("CreateOrReplace: table exists") {
+  test("CreateOrReplace: table exists") {
     spark.sql(
       "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
     spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
@@ -574,7 +575,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(replaced.properties === defaultOwnership.asJava)
   }
 
-  ignore("SPARK-30289 Create: partitioned by nested column") {
+  test("SPARK-30289 Create: partitioned by nested column") {
     val schema = new StructType().add("ts", new StructType()
       .add("created", TimestampType)
       .add("modified", TimestampType)

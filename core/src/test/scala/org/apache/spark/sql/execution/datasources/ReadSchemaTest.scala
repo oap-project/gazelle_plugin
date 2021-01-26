@@ -79,6 +79,7 @@ trait ReadSchemaTest extends QueryTest with SharedSparkSession {
 trait AddColumnTest extends ReadSchemaTest {
   import testImplicits._
 
+  // ignored in maven test
   ignore("append column at the end") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
@@ -118,6 +119,7 @@ trait AddColumnTest extends ReadSchemaTest {
 trait AddColumnIntoTheMiddleTest extends ReadSchemaTest {
   import testImplicits._
 
+  // ignored in maven test
   ignore("append column into middle") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
@@ -155,7 +157,7 @@ trait AddColumnIntoTheMiddleTest extends ReadSchemaTest {
 trait HideColumnAtTheEndTest extends ReadSchemaTest {
   import testImplicits._
 
-  ignore("hide column at the end") {
+  test("hide column at the end") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -201,7 +203,7 @@ trait HideColumnAtTheEndTest extends ReadSchemaTest {
 trait HideColumnInTheMiddleTest extends ReadSchemaTest {
   import testImplicits._
 
-  ignore("hide column in the middle") {
+  test("hide column in the middle") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -236,7 +238,7 @@ trait HideColumnInTheMiddleTest extends ReadSchemaTest {
 trait ChangePositionTest extends ReadSchemaTest {
   import testImplicits._
 
-  ignore("change column position") {
+  test("change column position") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -269,7 +271,7 @@ trait ChangePositionTest extends ReadSchemaTest {
 trait BooleanTypeTest extends ReadSchemaTest {
   import testImplicits._
 
-  ignore("change column type from boolean to byte/short/int/long") {
+  test("change column type from boolean to byte/short/int/long") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -300,7 +302,7 @@ trait BooleanTypeTest extends ReadSchemaTest {
 trait ToStringTypeTest extends ReadSchemaTest {
   import testImplicits._
 
-  ignore("read as string") {
+  test("read as string") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -347,7 +349,7 @@ trait IntegralTypeTest extends ReadSchemaTest {
   private lazy val intDF = values.toDF("col1")
   private lazy val longDF = values.map(_.toLong).toDF("col1")
 
-  ignore("change column type from byte to short/int/long") {
+  test("change column type from byte to short/int/long") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -362,7 +364,7 @@ trait IntegralTypeTest extends ReadSchemaTest {
     }
   }
 
-  ignore("change column type from short to int/long") {
+  test("change column type from short to int/long") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -374,7 +376,7 @@ trait IntegralTypeTest extends ReadSchemaTest {
     }
   }
 
-  ignore("change column type from int to long") {
+  test("change column type from int to long") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -386,7 +388,7 @@ trait IntegralTypeTest extends ReadSchemaTest {
     }
   }
 
-  ignore("read byte, int, short, long together") {
+  test("read byte, int, short, long together") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -430,7 +432,7 @@ trait ToDoubleTypeTest extends ReadSchemaTest {
   private lazy val doubleDF = values.map(_.toDouble).toDF("col1")
   private lazy val unionDF = floatDF.union(doubleDF)
 
-  ignore("change column type from float to double") {
+  test("change column type from float to double") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -442,7 +444,7 @@ trait ToDoubleTypeTest extends ReadSchemaTest {
     }
   }
 
-  ignore("read float and double together") {
+  test("read float and double together") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -477,7 +479,7 @@ trait ToDecimalTypeTest extends ReadSchemaTest {
   private lazy val decimalDF = values.map(BigDecimal(_)).toDF("col1")
   private lazy val unionDF = floatDF.union(doubleDF).union(decimalDF)
 
-  ignore("change column type from float to decimal") {
+  test("change column type from float to decimal") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -493,7 +495,7 @@ trait ToDecimalTypeTest extends ReadSchemaTest {
     }
   }
 
-  ignore("change column type from double to decimal") {
+  test("change column type from double to decimal") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -509,7 +511,7 @@ trait ToDecimalTypeTest extends ReadSchemaTest {
     }
   }
 
-  ignore("read float, double, decimal together") {
+  test("read float, double, decimal together") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 

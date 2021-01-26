@@ -180,7 +180,7 @@ class StringFunctionsSuite extends QueryTest with SharedSparkSession {
       Row(Array[Byte](1, -1, -1, -1, -1, -1, 6, 7, 8, 9)))
   }
 
-  ignore("string / binary substring function") {
+  test("string / binary substring function") {
     // scalastyle:off
     // non ascii characters are not allowed in the code, so we disable the scalastyle here.
     val df = Seq(("1世3", Array[Byte](1, 2, 3, 4))).toDF("a", "b")

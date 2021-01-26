@@ -69,7 +69,7 @@ class DeprecatedStreamingAggregationSuite extends StateStoreMetricsTest with Ass
   }
 
 
-  ignore("typed aggregators") {
+  test("typed aggregators") {
     val inputData = MemoryStream[(String, Int)]
     val aggregated = inputData.toDS().groupByKey(_._1).agg(typed.sumLong(_._2))
 

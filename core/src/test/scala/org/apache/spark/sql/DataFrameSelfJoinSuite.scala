@@ -45,7 +45,7 @@ class DataFrameSelfJoinSuite extends QueryTest with SharedSparkSession {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-  ignore("join - join using self join") {
+  test("join - join using self join") {
     val df = Seq(1, 2, 3).map(i => (i, i.toString)).toDF("int", "str")
 
     // self join
@@ -64,7 +64,7 @@ class DataFrameSelfJoinSuite extends QueryTest with SharedSparkSession {
         .collect().toSeq)
   }
 
-  ignore("join - self join auto resolve ambiguity with case insensitivity") {
+  test("join - self join auto resolve ambiguity with case insensitivity") {
     val df = Seq((1, "1"), (2, "2")).toDF("key", "value")
     checkAnswer(
       df.join(df, df("key") === df("Key")),
@@ -75,7 +75,7 @@ class DataFrameSelfJoinSuite extends QueryTest with SharedSparkSession {
       Row(2, "2", 2, "2") :: Nil)
   }
 
-  ignore("join - using aliases after self join") {
+  test("join - using aliases after self join") {
     val df = Seq(1, 2, 3).map(i => (i, i.toString)).toDF("int", "str")
     checkAnswer(
       df.as("x").join(df.as("y"), $"x.str" === $"y.str").groupBy("x.str").count(),
@@ -86,7 +86,7 @@ class DataFrameSelfJoinSuite extends QueryTest with SharedSparkSession {
       Row("1", 1) :: Row("2", 1) :: Row("3", 1) :: Nil)
   }
 
-  ignore("[SPARK-6231] join - self join auto resolve ambiguity") {
+  test("[SPARK-6231] join - self join auto resolve ambiguity") {
     val df = Seq((1, "1"), (2, "2")).toDF("key", "value")
     checkAnswer(
       df.join(df, df("key") === df("key")),

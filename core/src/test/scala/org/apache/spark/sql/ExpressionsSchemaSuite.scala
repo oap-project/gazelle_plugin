@@ -120,7 +120,7 @@ class ExpressionsSchemaSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("Check schemas for expression examples") {
+  test("Check schemas for expression examples") {
     val exampleRe = """^(.+);\n(?s)(.+)$""".r
     val funInfos = spark.sessionState.functionRegistry.listFunction().map { funcId =>
       spark.sessionState.catalog.lookupFunctionInfo(funcId)

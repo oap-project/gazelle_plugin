@@ -106,7 +106,7 @@ class ApproximatePercentileQuerySuite extends QueryTest with SharedSparkSession 
     }
   }
 
-  ignore("percentile_approx, different column types") {
+  test("percentile_approx, different column types") {
     withTempView(table) {
       val intSeq = 1 to 1000
       val data: Seq[(java.math.BigDecimal, Date, Timestamp)] = intSeq.map { i =>

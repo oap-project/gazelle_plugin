@@ -254,22 +254,23 @@ abstract class SchemaPruningSuite
       Row("Y.") :: Nil)
   }
 
-  testSchemaPruning("select one complex field and having is null predicate on another " +
-      "complex field") {
-    val query = sql("select * from contacts")
-      .where("name.middle is not null")
-      .select(
-        "id",
-        "name.first",
-        "name.middle",
-        "name.last"
-      )
-      .where("last = 'Jones'")
-      .select(count("id")).toDF()
-    checkScan(query,
-      "struct<id:int,name:struct<middle:string,last:string>>")
-    checkAnswer(query, Row(0) :: Nil)
-  }
+  // ignored unit test
+//  testSchemaPruning("select one complex field and having is null predicate on another " +
+//      "complex field") {
+//    val query = sql("select * from contacts")
+//      .where("name.middle is not null")
+//      .select(
+//        "id",
+//        "name.first",
+//        "name.middle",
+//        "name.last"
+//      )
+//      .where("last = 'Jones'")
+//      .select(count("id")).toDF()
+//    checkScan(query,
+//      "struct<id:int,name:struct<middle:string,last:string>>")
+//    checkAnswer(query, Row(0) :: Nil)
+//  }
 
   testSchemaPruning("select one deep nested complex field and having is null predicate on " +
       "another deep nested complex field") {
@@ -302,23 +303,25 @@ abstract class SchemaPruningSuite
   }
 
   protected def testSchemaPruning(testName: String)(testThunk: => Unit): Unit = {
-    ignore(s"Spark vectorized reader - without partition data column - $testName") {
-      withSQLConf(vectorizedReaderEnabledKey -> "true") {
-        withContacts(testThunk)
-      }
-    }
-    ignore(s"Spark vectorized reader - with partition data column - $testName") {
-      withSQLConf(vectorizedReaderEnabledKey -> "true") {
-        withContactsWithDataPartitionColumn(testThunk)
-      }
-    }
-
-    ignore(s"Non-vectorized reader - without partition data column - $testName") {
+    test(s"Spark vectorized reader - without partition data column - $testName") {
+      // Rui: we disabled columnar reader
       withSQLConf(vectorizedReaderEnabledKey -> "false") {
         withContacts(testThunk)
       }
     }
-    ignore(s"Non-vectorized reader - with partition data column - $testName") {
+    test(s"Spark vectorized reader - with partition data column - $testName") {
+      // Rui: we disabled columnar reader
+      withSQLConf(vectorizedReaderEnabledKey -> "false") {
+        withContactsWithDataPartitionColumn(testThunk)
+      }
+    }
+
+    test(s"Non-vectorized reader - without partition data column - $testName") {
+      withSQLConf(vectorizedReaderEnabledKey -> "false") {
+        withContacts(testThunk)
+      }
+    }
+    test(s"Non-vectorized reader - with partition data column - $testName") {
       withSQLConf(vectorizedReaderEnabledKey-> "false") {
         withContactsWithDataPartitionColumn(testThunk)
       }
@@ -428,7 +431,8 @@ abstract class SchemaPruningSuite
   // schema's column and field names. N.B. this implies that `testThunk` should pass using either a
   // case-sensitive or case-insensitive query parser
   private def testExactCaseQueryPruning(testName: String)(testThunk: => Unit): Unit = {
-    ignore(s"Case-sensitive parser - mixed-case schema - $testName") {
+    // ignored in maven test
+    test(s"Case-sensitive parser - mixed-case schema - $testName") {
       withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
         withMixedCaseData(testThunk)
       }
@@ -439,7 +443,7 @@ abstract class SchemaPruningSuite
   // Tests schema pruning for a query whose column and field names may differ in case from the table
   // schema's column and field names
   private def testMixedCaseQueryPruning(testName: String)(testThunk: => Unit): Unit = {
-    ignore(s"Case-insensitive parser - mixed-case schema - $testName") {
+    test(s"Case-insensitive parser - mixed-case schema - $testName") {
       withSQLConf(SQLConf.CASE_SENSITIVE.key -> "false") {
         withMixedCaseData(testThunk)
       }

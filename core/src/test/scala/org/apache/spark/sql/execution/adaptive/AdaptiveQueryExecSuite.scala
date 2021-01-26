@@ -493,7 +493,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Union/Except/Intersect queries") {
+  test("Union/Except/Intersect queries") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
       runAdaptiveAndVerifyResult(
         """
@@ -508,7 +508,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Subquery de-correlation in Union queries") {
+  test("Subquery de-correlation in Union queries") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
       withTempView("a", "b") {
         Seq("a" -> 2, "b" -> 1).toDF("id", "num").createTempView("a")
@@ -612,7 +612,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("SPARK-30524: Do not optimize skew join if introduce additional shuffle") {
+  test("SPARK-30524: Do not optimize skew join if introduce additional shuffle") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1",
@@ -760,7 +760,7 @@ class AdaptiveQueryExecSuite
         s" enabled but is not supported for")))
   }
 
-  ignore("test log level") {
+  test("test log level") {
     def verifyLog(expectedLevel: Level): Unit = {
       val logAppender = new LogAppender("adaptive execution")
       withLogAppender(
@@ -818,7 +818,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("SPARK-30953: InsertAdaptiveSparkPlan should apply AQE on child plan of write commands") {
+  test("SPARK-30953: InsertAdaptiveSparkPlan should apply AQE on child plan of write commands") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.ADAPTIVE_EXECUTION_FORCE_APPLY.key -> "true") {
       withTable("t1") {
@@ -866,7 +866,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("SPARK-31658: SQL UI should show write commands") {
+  test("SPARK-31658: SQL UI should show write commands") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.ADAPTIVE_EXECUTION_FORCE_APPLY.key -> "true") {
       withTable("t1") {

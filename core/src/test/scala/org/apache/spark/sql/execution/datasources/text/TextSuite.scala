@@ -34,15 +34,35 @@ import org.apache.spark.util.Utils
 abstract class TextSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
-  ignore("reading text file") {
+  override protected def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
+
+  test("reading text file") {
     verifyFrame(spark.read.format("text").load(testFile))
   }
 
-  ignore("SQLContext.read.text() API") {
+  test("SQLContext.read.text() API") {
     verifyFrame(spark.read.text(testFile))
   }
 
-  ignore("SPARK-12562 verify write.text() can handle column name beyond `value`") {
+  test("SPARK-12562 verify write.text() can handle column name beyond `value`") {
     val df = spark.read.text(testFile).withColumnRenamed("value", "adwrasdf")
 
     val tempFile = Utils.createTempDir()
@@ -67,7 +87,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("reading partitioned data using read.textFile()") {
+  test("reading partitioned data using read.textFile()") {
     val partitionedData = Thread.currentThread().getContextClassLoader
       .getResource("test-data/text-partitioned").toString
     val ds = spark.read.textFile(partitionedData)
@@ -77,7 +97,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
     assert(data.length == 2)
   }
 
-  ignore("support for partitioned reading using read.text()") {
+  test("support for partitioned reading using read.text()") {
     val partitionedData = Thread.currentThread().getContextClassLoader
       .getResource("test-data/text-partitioned").toString
     val df = spark.read.text(partitionedData)
@@ -87,7 +107,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
     assert(data.length == 1)
   }
 
-  ignore("SPARK-13503 Support to specify the option for compression codec for TEXT") {
+  test("SPARK-13503 Support to specify the option for compression codec for TEXT") {
     val testDf = spark.read.text(testFile)
     val extensionNameMap = Map("bzip2" -> ".bz2", "deflate" -> ".deflate", "gzip" -> ".gz")
     extensionNameMap.foreach {
@@ -108,7 +128,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
       "Known codecs are"))
   }
 
-  ignore("SPARK-13543 Write the output as uncompressed via option()") {
+  test("SPARK-13543 Write the output as uncompressed via option()") {
     val extraOptions = Map[String, String](
       "mapreduce.output.fileoutputformat.compress" -> "true",
       "mapreduce.output.fileoutputformat.compress.type" -> CompressionType.BLOCK.toString,
@@ -127,7 +147,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("case insensitive option") {
+  test("case insensitive option") {
     val extraOptions = Map[String, String](
       "mApReDuCe.output.fileoutputformat.compress" -> "true",
       "mApReDuCe.output.fileoutputformat.compress.type" -> CompressionType.BLOCK.toString,
@@ -146,7 +166,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-14343: select partitioning column") {
+  test("SPARK-14343: select partitioning column") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val ds1 = spark.range(1).selectExpr("CONCAT('val_', id)")
@@ -159,7 +179,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-15654: should not split gz files") {
+  test("SPARK-15654: should not split gz files") {
     withTempDir { dir =>
       val path = dir.getCanonicalPath
       val df1 = spark.range(0, 1000).selectExpr("CAST(id AS STRING) AS s")
@@ -176,7 +196,7 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
   }
 
   def testLineSeparator(lineSep: String): Unit = {
-    ignore(s"SPARK-23577: Support line separator - lineSep: '$lineSep'") {
+    test(s"SPARK-23577: Support line separator - lineSep: '$lineSep'") {
       // Read
       val values = Seq("a", "b", "\nc")
       val data = values.mkString(lineSep)
@@ -236,47 +256,13 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
 }
 
 class TextV1Suite extends TextSuite {
-
   override protected def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "text")
 }
 
 class TextV2Suite extends TextSuite {
-
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }

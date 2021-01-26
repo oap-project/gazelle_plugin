@@ -38,8 +38,30 @@ class ColumnarLiteral(lit: Literal)
     extends Literal(lit.value, lit.dataType)
     with ColumnarExpression {
 
-  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    val resultType = dataType match {
+  val resultType: ArrowType = buildCheck()
+
+  def buildCheck(): ArrowType = {
+    val supportedTypes = List(StringType, IntegerType, LongType, DoubleType, DateType,
+                              BooleanType, CalendarIntervalType, BinaryType)
+    if (supportedTypes.indexOf(dataType) == -1 && !dataType.isInstanceOf[DecimalType]) {
+      // Decimal is supported in ColumnarLiteral
+      throw new UnsupportedOperationException(
+        s"${dataType} is not supported in ColumnarLiteral")
+    }
+    if (dataType == CalendarIntervalType) {
+      value match {
+        case null =>
+        case interval: CalendarInterval =>
+          if (interval.days != 0 && interval.months != 0) {
+            throw new UnsupportedOperationException(
+              "can't support Calendar Interval with both months and days.")
+          }
+        case _ =>
+          throw new UnsupportedOperationException(
+            "can't support Literal datatype is CalendarIntervalType while real value is not.")
+      }
+    }
+    val resultType: ArrowType = dataType match {
       case CalendarIntervalType =>
         val interval = value.asInstanceOf[CalendarInterval]
         if (interval.microseconds == 0) {
@@ -49,11 +71,16 @@ class ColumnarLiteral(lit: Literal)
             new ArrowType.Interval(IntervalUnit.DAY_TIME)
           }
         } else {
-          throw new UnsupportedOperationException(s"can't support CalendarIntervalType with microseconds yet")
+          throw new UnsupportedOperationException(
+            s"can't support CalendarIntervalType with microseconds yet")
         }
       case _ =>
         CodeGeneration.getResultType(dataType)
     }
+    resultType
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     dataType match {
       case t: StringType =>
         value match {
@@ -122,6 +149,13 @@ class ColumnarLiteral(lit: Literal)
             }
           case _ =>
             throw new UnsupportedOperationException("can't support Literal datatype is CalendarIntervalType while real value is not.")
+        }
+      case b: BinaryType =>
+        value match {
+          case null =>
+            (TreeBuilder.makeNull(resultType), resultType)
+          case _ =>
+            (TreeBuilder.makeBinaryLiteral(value.asInstanceOf[Array[Byte]]), resultType)
         }
     }
   }

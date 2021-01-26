@@ -184,7 +184,7 @@ class StateStoreRDDSuite extends SparkFunSuite with BeforeAndAfter with BeforeAn
     }
   }
 
-  ignore("distributed test") {
+  test("distributed test") {
     quietly {
 
       withSparkSession(

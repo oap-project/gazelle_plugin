@@ -158,7 +158,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     )
   }
 
-  ignore("Aggregate metrics: track avg probe") {
+  test("Aggregate metrics: track avg probe") {
     // The executed plan looks like:
     // HashAggregate(keys=[a#61], functions=[count(1)], output=[a#61, count#71L])
     // +- Exchange hashpartitioning(a#61, 5)
@@ -469,7 +469,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     assert(metricInfoDeser.metadata === Some(AccumulatorContext.SQL_ACCUM_IDENTIFIER))
   }
 
-  ignore("range metrics") {
+  test("range metrics") {
     val res1 = InputOutputMetricsHelper.run(
       spark.range(30).filter(x => x % 3 == 0).toDF()
     )
@@ -544,7 +544,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
-  ignore("SPARK-25602: SparkPlan.getByteArrayRdd should not consume the input when not necessary") {
+  test("SPARK-25602: SparkPlan.getByteArrayRdd should not consume the input when not necessary") {
     def checkFilterAndRangeMetrics(
         df: DataFrame,
         filterNumOutputs: Int,
@@ -624,7 +624,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
-  ignore("InMemoryTableScan shows the table name on UI if possible") {
+  test("InMemoryTableScan shows the table name on UI if possible") {
     // Show table name on UI
     withView("inMemoryTable", "```a``b```") {
       sql("CREATE TEMPORARY VIEW inMemoryTable AS SELECT 1 AS c1")

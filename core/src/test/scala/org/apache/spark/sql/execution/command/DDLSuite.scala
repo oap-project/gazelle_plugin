@@ -60,6 +60,10 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override def afterEach(): Unit = {
     try {
@@ -126,7 +130,7 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
     }
   }
 
-  ignore("Create Hive Table As Select") {
+  test("Create Hive Table As Select") {
     import testImplicits._
     withTable("t", "t1") {
       var e = intercept[AnalysisException] {
@@ -149,7 +153,7 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-22431: view with nested type") {
+  test("SPARK-22431: view with nested type") {
     withView("t", "v") {
       spark.sql("CREATE VIEW t AS SELECT STRUCT('a' AS `$a`, 1 AS b) q")
       checkAnswer(spark.table("t"), Row(Row("a", 1)) :: Nil)
@@ -159,7 +163,7 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
   }
 
   // TODO: This test is copied from HiveDDLSuite, unify it later.
-  ignore("SPARK-23348: append data to data source table with saveAsTable") {
+  test("SPARK-23348: append data to data source table with saveAsTable") {
     withTable("t", "t1") {
       Seq(1 -> "a").toDF("i", "j").write.saveAsTable("t")
       checkAnswer(spark.table("t"), Row(1, "a"))
@@ -212,7 +216,7 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-25403 refresh the table after inserting data") {
+  test("SPARK-25403 refresh the table after inserting data") {
     withTable("t") {
       val catalog = spark.sessionState.catalog
       val table = QualifiedTableName(catalog.getCurrentDatabase, "t")
@@ -224,7 +228,7 @@ class InMemoryCatalogedDDLSuite extends DDLSuite with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-19784 refresh the table after altering the table location") {
+  test("SPARK-19784 refresh the table after altering the table location") {
     withTable("t") {
       withTempDir { dir =>
         val catalog = spark.sessionState.catalog
@@ -467,7 +471,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
   }
 
 
-  ignore("CTAS a managed table with the existing empty directory") {
+  test("CTAS a managed table with the existing empty directory") {
     withEmptyDirInTablePath("tab1") { tableLoc =>
       withTable("tab1") {
         sql(s"CREATE TABLE tab1 USING ${dataSource} AS SELECT 1, 'a'")
@@ -476,7 +480,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("create a managed table with the existing empty directory") {
+  test("create a managed table with the existing empty directory") {
     withEmptyDirInTablePath("tab1") { tableLoc =>
       withTable("tab1") {
         sql(s"CREATE TABLE tab1 (col1 int, col2 string) USING ${dataSource}")
@@ -515,7 +519,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("rename a managed table with existing empty directory") {
+  test("rename a managed table with existing empty directory") {
     withEmptyDirInTablePath("tab2") { tableLoc =>
       withTable("tab1") {
         sql(s"CREATE TABLE tab1 USING $dataSource AS SELECT 1, 'a'")
@@ -563,7 +567,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("Create partitioned data source table without user specified schema") {
+  test("Create partitioned data source table without user specified schema") {
     import testImplicits._
     val df = sparkContext.parallelize(1 to 10).map(i => (i, i.toString)).toDF("num", "str")
 
@@ -583,7 +587,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("Create partitioned data source table with user specified schema") {
+  test("Create partitioned data source table with user specified schema") {
     import testImplicits._
     val df = sparkContext.parallelize(1 to 10).map(i => (i, i.toString)).toDF("num", "str")
 
@@ -603,7 +607,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("Create non-partitioned data source table without user specified schema") {
+  test("Create non-partitioned data source table without user specified schema") {
     import testImplicits._
     val df = sparkContext.parallelize(1 to 10).map(i => (i, i.toString)).toDF("num", "str")
 
@@ -622,7 +626,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("Create non-partitioned data source table with user specified schema") {
+  test("Create non-partitioned data source table with user specified schema") {
     import testImplicits._
     val df = sparkContext.parallelize(1 to 10).map(i => (i, i.toString)).toDF("num", "str")
 
@@ -986,7 +990,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("create temporary view using") {
+  test("create temporary view using") {
     // when we test the HiveCatalogedDDLSuite, it will failed because the csvFile path above
     // starts with 'jar:', and it is an illegal parameter for Path, so here we copy it
     // to a temp file by withResourceTempPath
@@ -1044,7 +1048,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("alter table: rename cached table") {
+  test("alter table: rename cached table") {
     import testImplicits._
     sql("CREATE TABLE students (age INT, name STRING) USING parquet")
     val df = (1 to 2).map { i => (i, i.toString) }.toDF("age", "name")
@@ -1934,7 +1938,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("Create Data Source Table As Select") {
+  test("Create Data Source Table As Select") {
     import testImplicits._
     withTable("t", "t1", "t2") {
       sql("CREATE TABLE t USING parquet SELECT 1 as a, 1 as b")
@@ -1979,7 +1983,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("truncate table - datasource table") {
+  test("truncate table - datasource table") {
     import testImplicits._
 
     val data = (1 to 10).map { i => (i, i) }.toDF("width", "length")
@@ -1999,7 +2003,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("truncate partitioned table - datasource table") {
+  test("truncate partitioned table - datasource table") {
     import testImplicits._
 
     val data = (1 to 10).map { i => (i % 3, i % 5, i) }.toDF("width", "length", "height")
@@ -2039,7 +2043,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-30312: truncate table - keep acl/permission") {
+  test("SPARK-30312: truncate table - keep acl/permission") {
     import testImplicits._
     val ignorePermissionAcl = Seq(true, false)
 
@@ -2112,7 +2116,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-31163: acl/permission should handle non-existed path when truncating table") {
+  test("SPARK-31163: acl/permission should handle non-existed path when truncating table") {
     withSQLConf(SQLConf.TRUNCATE_TABLE_IGNORE_PERMISSION_ACL.key -> "false") {
       withTable("tab1") {
         sql("CREATE TABLE tab1 (col1 STRING, col2 INT) USING parquet PARTITIONED BY (col2)")
@@ -2133,7 +2137,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("create temporary view with mismatched schema") {
+  test("create temporary view with mismatched schema") {
     withTable("tab1") {
       spark.range(10).write.saveAsTable("tab1")
       withView("view1") {
@@ -2146,7 +2150,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("create temporary view with specified schema") {
+  test("create temporary view with specified schema") {
     withView("view1") {
       sql("CREATE TEMPORARY VIEW view1 (col1, col2) AS SELECT 1, 2")
       checkAnswer(
@@ -2176,7 +2180,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("truncate table - external table, temporary table, view (not allowed)") {
+  test("truncate table - external table, temporary table, view (not allowed)") {
     import testImplicits._
     withTempPath { tempDir =>
       withTable("my_ext_tab") {
@@ -2193,7 +2197,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("truncate table - non-partitioned table (not allowed)") {
+  test("truncate table - non-partitioned table (not allowed)") {
     withTable("my_tab") {
       sql("CREATE TABLE my_tab (age INT, name STRING) using parquet")
       sql("INSERT INTO my_tab values (10, 'a')")
@@ -2201,7 +2205,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-16034 Partition columns should match when appending to existing data source tables") {
+  test("SPARK-16034 Partition columns should match when appending to existing data source tables") {
     import testImplicits._
     val df = Seq((1, 2, 3)).toDF("a", "b", "c")
     withTable("partitionedTable") {
@@ -2315,7 +2319,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("insert data to a data source table which has a non-existing location should succeed") {
+  test("insert data to a data source table which has a non-existing location should succeed") {
     withTable("t") {
       withTempDir { dir =>
         spark.sql(
@@ -2355,7 +2359,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("insert into a data source table with a non-existing partition location should succeed") {
+  test("insert into a data source table with a non-existing partition location should succeed") {
     withTable("t") {
       withTempDir { dir =>
         spark.sql(
@@ -2410,7 +2414,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("read data from a data source table with non-existing partition location should succeed") {
+  test("read data from a data source table with non-existing partition location should succeed") {
     withTable("t") {
       withTempDir { dir =>
         spark.sql(
@@ -2432,7 +2436,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("create datasource table with a non-existing location") {
+  test("create datasource table with a non-existing location") {
     withTable("t", "t1") {
       withTempPath { dir =>
         spark.sql(s"CREATE TABLE t(a int, b int) USING parquet LOCATION '${dir.toURI}'")
@@ -2527,7 +2531,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
 
   Seq(true, false).foreach { shouldDelete =>
     val tcName = if (shouldDelete) "non-existing" else "existed"
-    ignore(s"CTAS for external data source table with a $tcName location") {
+    test(s"CTAS for external data source table with a $tcName location") {
       withTable("t", "t1") {
         withTempDir { dir =>
           if (shouldDelete) dir.delete()
@@ -2567,7 +2571,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
   }
 
   Seq("a b", "a:b", "a%b", "a,b").foreach { specialChars =>
-    ignore(s"data source table:partition column name containing $specialChars") {
+    test(s"data source table:partition column name containing $specialChars") {
       // On Windows, it looks colon in the file name is illegal by default. See
       // https://support.microsoft.com/en-us/help/289627
       assume(!Utils.isWindows || specialChars != "a:b")
@@ -2594,7 +2598,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
   }
 
   Seq("a b", "a:b", "a%b").foreach { specialChars =>
-    ignore(s"location uri contains $specialChars for datasource table") {
+    test(s"location uri contains $specialChars for datasource table") {
       // On Windows, it looks colon in the file name is illegal by default. See
       // https://support.microsoft.com/en-us/help/289627
       assume(!Utils.isWindows || specialChars != "a:b")
@@ -2664,7 +2668,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
   }
 
   Seq("a b", "a:b", "a%b").foreach { specialChars =>
-    ignore(s"location uri contains $specialChars for database") {
+    test(s"location uri contains $specialChars for database") {
       // On Windows, it looks colon in the file name is illegal by default. See
       // https://support.microsoft.com/en-us/help/289627
       assume(!Utils.isWindows || specialChars != "a:b")
@@ -2733,7 +2737,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("the qualified path of a partition is stored in the catalog") {
+  test("the qualified path of a partition is stored in the catalog") {
     withTable("t") {
       withTempDir { dir =>
         spark.sql(
@@ -2817,13 +2821,13 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     "org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat")
 
   supportedNativeFileFormatsForAlterTableAddColumns.foreach { provider =>
-    ignore(s"alter datasource table add columns - $provider") {
+    test(s"alter datasource table add columns - $provider") {
       testAddColumn(provider)
     }
   }
 
   supportedNativeFileFormatsForAlterTableAddColumns.foreach { provider =>
-    ignore(s"alter datasource table add columns - partitioned - $provider") {
+    test(s"alter datasource table add columns - partitioned - $provider") {
       testAddColumnPartitioned(provider)
     }
   }
@@ -2938,7 +2942,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
       }
     }
 
-    ignore(s"basic DDL using locale tr - caseSensitive $caseSensitive") {
+    test(s"basic DDL using locale tr - caseSensitive $caseSensitive") {
       withSQLConf(SQLConf.CASE_SENSITIVE.key -> s"$caseSensitive") {
         withLocale("tr") {
           val dbName = "DaTaBaSe_I"

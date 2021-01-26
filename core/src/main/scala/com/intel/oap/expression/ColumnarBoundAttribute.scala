@@ -35,6 +35,17 @@ class ColumnarBoundReference(ordinal: Int, dataType: DataType, nullable: Boolean
     extends BoundReference(ordinal, dataType, nullable)
     with ColumnarExpression with Logging {
 
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    try {
+      ConverterUtils.checkIfTypeSupported(dataType)
+    } catch {
+      case e : UnsupportedOperationException =>
+        throw new UnsupportedOperationException(
+          s"${dataType} is not supported in ColumnarBoundReference.")
+    }
+  }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val resultType = CodeGeneration.getResultType(dataType)
     val field = Field.nullable(s"c_$ordinal", resultType)

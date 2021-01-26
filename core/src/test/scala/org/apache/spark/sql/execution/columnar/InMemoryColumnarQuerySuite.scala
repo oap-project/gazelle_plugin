@@ -55,7 +55,9 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
-
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   setupTestData()
 
@@ -169,7 +171,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     }.map(Row.fromTuple))
   }
 
-  ignore("access only some column of the all of columns") {
+  test("access only some column of the all of columns") {
     val df = spark.range(1, 100).map(i => (i, (i + 1).toFloat)).toDF("i", "f")
     df.cache
     df.count  // forced to build cache
@@ -209,7 +211,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
       nullableRepeatedData.collect().toSeq.map(Row.fromTuple))
   }
 
-  ignore("SPARK-2729 regression: timestamp data type") {
+  test("SPARK-2729 regression: timestamp data type") {
     withTempView("timestamps") {
       val timestamps = (0 to 3).map(i => Tuple1(new Timestamp(i))).toDF("time")
       timestamps.createOrReplaceTempView("timestamps")
@@ -262,7 +264,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("test different data types") {
+  test("test different data types") {
     // Create the schema.
     val struct =
       StructType(
@@ -463,7 +465,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-20356: pruned InMemoryTableScanExec should have correct ordering and partitioning") {
+  test("SPARK-20356: pruned InMemoryTableScanExec should have correct ordering and partitioning") {
     withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "200") {
       val df1 = Seq(("a", 1), ("b", 1), ("c", 2)).toDF("item", "group")
       val df2 = Seq(("a", 1), ("b", 2), ("c", 3)).toDF("item", "id")
@@ -530,7 +532,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     assert(json.contains("outputOrdering"))
   }
 
-  test("SPARK-22673: InMemoryRelation should utilize existing stats of the plan to be cached") {
+  ignore("SPARK-22673: InMemoryRelation should utilize existing stats of the plan to be cached") {
     Seq("orc", "").foreach { useV1SourceReaderList =>
       // This test case depends on the size of ORC in statistics.
       withSQLConf(
@@ -539,36 +541,41 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
         SQLConf.USE_V1_SOURCE_LIST.key -> useV1SourceReaderList) {
         withTempPath { workDir =>
           withTable("table1") {
-            val workDirPath = workDir.getAbsolutePath
-            val data = Seq(100, 200, 300, 400).toDF("count")
-            data.write.orc(workDirPath)
-            val dfFromFile = spark.read.orc(workDirPath).cache()
-            val inMemoryRelation = dfFromFile.queryExecution.optimizedPlan.collect {
-              case plan: InMemoryRelation => plan
-            }.head
-            // InMemoryRelation's stats is file size before the underlying RDD is materialized
-            assert(inMemoryRelation.computeStats().sizeInBytes === getLocalDirSize(workDir))
+            withSQLConf(
+              SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false",
+              SQLConf.CACHE_VECTORIZED_READER_ENABLED.key -> "false") {
 
-            // InMemoryRelation's stats is updated after materializing RDD
-            dfFromFile.collect()
-            assert(inMemoryRelation.computeStats().sizeInBytes === 16)
+              val workDirPath = workDir.getAbsolutePath
+              val data = Seq(100, 200, 300, 400).toDF("count")
+              data.write.orc(workDirPath)
+              val dfFromFile = spark.read.orc(workDirPath).cache()
+              val inMemoryRelation = dfFromFile.queryExecution.optimizedPlan.collect {
+                case plan: InMemoryRelation => plan
+              }.head
+              // InMemoryRelation's stats is file size before the underlying RDD is materialized
+              assert(inMemoryRelation.computeStats().sizeInBytes === getLocalDirSize(workDir))
 
-            // test of catalog table
-            val dfFromTable = spark.catalog.createTable("table1", workDirPath).cache()
-            val inMemoryRelation2 = dfFromTable.queryExecution.optimizedPlan.
-              collect { case plan: InMemoryRelation => plan }.head
+              // InMemoryRelation's stats is updated after materializing RDD
+              dfFromFile.collect()
+              assert(inMemoryRelation.computeStats().sizeInBytes === 16)
 
-            // Even CBO enabled, InMemoryRelation's stats keeps as the file size before table's
-            // stats is calculated
-            assert(inMemoryRelation2.computeStats().sizeInBytes === getLocalDirSize(workDir))
+              // test of catalog table
+              val dfFromTable = spark.catalog.createTable("table1", workDirPath).cache()
+              val inMemoryRelation2 = dfFromTable.queryExecution.optimizedPlan.
+                collect { case plan: InMemoryRelation => plan }.head
 
-            // InMemoryRelation's stats should be updated after calculating stats of the table
-            // clear cache to simulate a fresh environment
-            dfFromTable.unpersist(blocking = true)
-            spark.sql("ANALYZE TABLE table1 COMPUTE STATISTICS")
-            val inMemoryRelation3 = spark.read.table("table1").cache().queryExecution.optimizedPlan.
-              collect { case plan: InMemoryRelation => plan }.head
-            assert(inMemoryRelation3.computeStats().sizeInBytes === 48)
+              // Even CBO enabled, InMemoryRelation's stats keeps as the file size before table's
+              // stats is calculated
+              assert(inMemoryRelation2.computeStats().sizeInBytes === getLocalDirSize(workDir))
+
+              // InMemoryRelation's stats should be updated after calculating stats of the table
+              // clear cache to simulate a fresh environment
+              dfFromTable.unpersist(blocking = true)
+              spark.sql("ANALYZE TABLE table1 COMPUTE STATISTICS")
+              val inMemoryRelation3 = spark.read.table("table1").cache().queryExecution.optimizedPlan.
+                collect { case plan: InMemoryRelation => plan }.head
+              assert(inMemoryRelation3.computeStats().sizeInBytes === 48)
+            }
           }
         }
       }

@@ -87,7 +87,7 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("randomSplit on reordered partitions") {
+  test("randomSplit on reordered partitions") {
 
     def testNonOverlappingSplits(data: DataFrame): Unit = {
       val splits = data.randomSplit(Array[Double](2, 3), seed = 1)
@@ -435,7 +435,7 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
     assert(resultRow.get(1).asInstanceOf[Seq[String]].toSet == Set("a", "b", null))
   }
 
-  ignore("sampleBy") {
+  test("sampleBy") {
     val df = spark.range(0, 100).select((col("id") % 3).as("key"))
     val sampled = df.stat.sampleBy("key", Map(0 -> 0.1, 1 -> 0.2), 0L)
     checkAnswer(
@@ -443,7 +443,7 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
       Seq(Row(0, 1), Row(1, 6)))
   }
 
-  ignore("sampleBy one column") {
+  test("sampleBy one column") {
     val df = spark.range(0, 100).select((col("id") % 3).as("key"))
     val sampled = df.stat.sampleBy($"key", Map(0 -> 0.1, 1 -> 0.2), 0L)
     checkAnswer(
@@ -451,7 +451,7 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
       Seq(Row(0, 1), Row(1, 6)))
   }
 
-  ignore("sampleBy multiple columns") {
+  test("sampleBy multiple columns") {
     val df = spark.range(0, 100)
       .select(lit("Foo").as("name"), (col("id") % 3).as("key"))
     val sampled = df.stat.sampleBy(

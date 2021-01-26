@@ -43,14 +43,39 @@ import org.apache.spark.util.Utils
 abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSparkSession {
   import testImplicits._
 
-  ignore("simple select queries") {
+  override protected def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
+
+  test("simple select queries") {
     withParquetTable((0 until 10).map(i => (i, i.toString)), "t") {
-      checkAnswer(sql("SELECT _1 FROM t where t._1 > 5"), (6 until 10).map(Row.apply(_)))
-      checkAnswer(sql("SELECT _1 FROM t as tmp where tmp._1 < 5"), (0 until 5).map(Row.apply(_)))
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(sql("SELECT _1 FROM t where t._1 > 5"), (6 until 10).map(Row.apply(_)))
+        checkAnswer(sql("SELECT _1 FROM t as tmp where tmp._1 < 5"), (0 until 5).map(Row.apply(_)))
+      }
     }
   }
 
-  ignore("appending") {
+  test("appending") {
     val data = (0 until 10).map(i => (i, i.toString))
     spark.createDataFrame(data).toDF("c1", "c2").createOrReplaceTempView("tmp")
     // Query appends, don't test with both read modes.
@@ -62,7 +87,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
       TableIdentifier("tmp"), ignoreIfNotExists = true, purge = false)
   }
 
-  ignore("overwriting") {
+  test("overwriting") {
     val data = (0 until 10).map(i => (i, i.toString))
     spark.createDataFrame(data).toDF("c1", "c2").createOrReplaceTempView("tmp")
     withParquetTable(data, "t") {
@@ -73,7 +98,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
       TableIdentifier("tmp"), ignoreIfNotExists = true, purge = false)
   }
 
-  ignore("self-join") {
+  test("self-join") {
     // 4 rows, cells of column 1 of row 2 and row 4 are null
     val data = (1 to 4).map { i =>
       val maybeInt = if (i % 2 == 0) None else Some(i)
@@ -94,7 +119,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("nested data - struct with array field") {
+  test("nested data - struct with array field") {
     val data = (1 to 10).map(i => Tuple1((i, Seq(s"val_$i"))))
     withParquetTable(data, "t") {
       checkAnswer(sql("SELECT _1._2[0] FROM t"), data.map {
@@ -103,7 +128,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("nested data - array of struct") {
+  test("nested data - array of struct") {
     val data = (1 to 10).map(i => Tuple1(Seq(i -> s"val_$i")))
     withParquetTable(data, "t") {
       checkAnswer(sql("SELECT _1[0]._2 FROM t"), data.map {
@@ -112,24 +137,28 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-1913 regression: columns only referenced by pushed down filters should remain") {
+  test("SPARK-1913 regression: columns only referenced by pushed down filters should remain") {
     withParquetTable((1 to 10).map(Tuple1.apply), "t") {
-      checkAnswer(sql("SELECT _1 FROM t WHERE _1 < 10"), (1 to 9).map(Row.apply(_)))
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(sql("SELECT _1 FROM t WHERE _1 < 10"), (1 to 9).map(Row.apply(_)))
+      }
     }
   }
 
-  ignore("SPARK-5309 strings stored using dictionary compression in parquet") {
+  test("SPARK-5309 strings stored using dictionary compression in parquet") {
     withParquetTable((0 until 1000).map(i => ("same", "run_" + i /100, 1)), "t") {
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
 
-      checkAnswer(sql("SELECT _1, _2, SUM(_3) FROM t GROUP BY _1, _2"),
-        (0 until 10).map(i => Row("same", "run_" + i, 100)))
+        checkAnswer(sql("SELECT _1, _2, SUM(_3) FROM t GROUP BY _1, _2"),
+          (0 until 10).map(i => Row("same", "run_" + i, 100)))
 
-      checkAnswer(sql("SELECT _1, _2, SUM(_3) FROM t WHERE _2 = 'run_5' GROUP BY _1, _2"),
-        List(Row("same", "run_5", 100)))
+        checkAnswer(sql("SELECT _1, _2, SUM(_3) FROM t WHERE _2 = 'run_5' GROUP BY _1, _2"),
+          List(Row("same", "run_5", 100)))
+      }
     }
   }
 
-  ignore("SPARK-6917 DecimalType should work with non-native types") {
+  test("SPARK-6917 DecimalType should work with non-native types") {
     val data = (1 to 10).map(i => Row(Decimal(i, 18, 0), new java.sql.Timestamp(i)))
     val schema = StructType(List(StructField("d", DecimalType(18, 0), false),
       StructField("time", TimestampType, false)).toArray)
@@ -141,7 +170,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10634 timestamp written and read as INT64 - truncation") {
+  test("SPARK-10634 timestamp written and read as INT64 - truncation") {
     withTable("ts") {
       sql("create table ts (c1 int, c2 timestamp) using parquet")
       sql("insert into ts values (1, timestamp'2016-01-01 10:11:12.123456')")
@@ -156,7 +185,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10365 timestamp written and read as INT64 - TIMESTAMP_MICROS") {
+  test("SPARK-10365 timestamp written and read as INT64 - TIMESTAMP_MICROS") {
     val data = (1 to 10).map { i =>
       val ts = new java.sql.Timestamp(i)
       ts.setNanos(2000)
@@ -228,7 +257,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("Enabling/disabling ignoreCorruptFiles") {
+  test("Enabling/disabling ignoreCorruptFiles") {
     def testIgnoreCorruptFiles(): Unit = {
       withTempDir { dir =>
         val basePath = dir.getCanonicalPath
@@ -328,7 +357,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-9119 Decimal should be correctly written into parquet") {
+  test("SPARK-9119 Decimal should be correctly written into parquet") {
     withTempPath { dir =>
       val basePath = dir.getCanonicalPath
       val schema = StructType(Array(StructField("name", DecimalType(10, 5), false)))
@@ -341,7 +370,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10005 Schema merging for nested struct") {
+  test("SPARK-10005 Schema merging for nested struct") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -366,7 +395,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - same schema") {
+  test("SPARK-10301 requested schema clipping - same schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -387,7 +416,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-11997 parquet with null partition values") {
+  test("SPARK-11997 parquet with null partition values") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       spark.range(1, 3)
@@ -422,7 +451,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - requested schema contains physical schema") {
+  test("SPARK-10301 requested schema clipping - requested schema contains physical schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -466,7 +495,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - physical schema contains requested schema") {
+  test("SPARK-10301 requested schema clipping - physical schema contains requested schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark
@@ -514,7 +543,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - schemas overlap but don't contain each other") {
+  test("SPARK-10301 requested schema clipping - schemas overlap but don't contain each other") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark
@@ -540,7 +569,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - deeply nested struct") {
+  test("SPARK-10301 requested schema clipping - deeply nested struct") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -570,7 +599,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - out of order") {
+  test("SPARK-10301 requested schema clipping - out of order") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -603,7 +632,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - schema merging") {
+  test("SPARK-10301 requested schema clipping - schema merging") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -740,7 +769,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-16344: array of struct with a single field named 'element'") {
+  test("SPARK-16344: array of struct with a single field named 'element'") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       Seq(Tuple1(Array(SingleElement(42)))).toDF("f").write.parquet(path)
@@ -752,7 +781,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-16632: read Parquet int32 as ByteType and ShortType") {
+  test("SPARK-16632: read Parquet int32 as ByteType and ShortType") {
     withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath
@@ -776,7 +805,8 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-24230: filter row group using dictionary") {
+  // ignored in maven test
+  test("SPARK-24230: filter row group using dictionary") {
     withSQLConf(("parquet.filter.dictionary.enabled", "true")) {
       // create a table with values from 0, 2, ..., 18 that will be dictionary-encoded
       withParquetTable((0 until 100).map(i => ((i * 2) % 20, s"data-$i")), "t") {
@@ -800,7 +830,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("Migration from INT96 to TIMESTAMP_MICROS timestamp type") {
+  test("Migration from INT96 to TIMESTAMP_MICROS timestamp type") {
     def testMigration(fromTsType: String, toTsType: String): Unit = {
       def checkAppend(write: DataFrameWriter[_] => Unit, readback: => DataFrame): Unit = {
         def data(start: Int, end: Int): Seq[Row] = (start to end).map { i =>
@@ -847,43 +877,30 @@ class ParquetV1QuerySuite extends ParquetQuerySuite {
 
   override protected def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
 
   test("returning batch for wide table") {
     withSQLConf(SQLConf.WHOLESTAGE_MAX_NUM_FIELDS.key -> "10") {
       withTempPath { dir =>
-        val path = dir.getCanonicalPath
-        val df = spark.range(10).select(Seq.tabulate(11) {i => ('id + i).as(s"c$i")} : _*)
-        df.write.mode(SaveMode.Overwrite).parquet(path)
+        withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+          val path = dir.getCanonicalPath
+          val df = spark.range(10).select(Seq.tabulate(11) { i => ('id + i).as(s"c$i") }: _*)
+          df.write.mode(SaveMode.Overwrite).parquet(path)
 
-        // donot return batch, because whole stage codegen is disabled for wide table (>200 columns)
-        val df2 = spark.read.parquet(path)
-        val fileScan2 = df2.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
-        assert(!fileScan2.asInstanceOf[FileSourceScanExec].supportsColumnar)
-        checkAnswer(df2, df)
+          // donot return batch, because whole stage codegen is disabled for wide table (>200 columns)
+          val df2 = spark.read.parquet(path)
+          val fileScan2 = df2.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
+          assert(!fileScan2.asInstanceOf[FileSourceScanExec].supportsColumnar)
+          checkAnswer(df2, df)
 
-        // return batch
-        val columns = Seq.tabulate(9) {i => s"c$i"}
-        val df3 = df2.selectExpr(columns : _*)
-        val fileScan3 = df3.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
-        assert(fileScan3.asInstanceOf[FileSourceScanExec].supportsColumnar)
-        checkAnswer(df3, df.selectExpr(columns : _*))
+          // return batch
+          val columns = Seq.tabulate(9) { i => s"c$i" }
+          val df3 = df2.selectExpr(columns: _*)
+          val fileScan3 = df3.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
+          // Rui: we disabled columnar reader
+          assert(!fileScan3.asInstanceOf[FileSourceScanExec].supportsColumnar)
+          checkAnswer(df3, df.selectExpr(columns: _*))
+        }
       }
     }
   }
@@ -895,25 +912,9 @@ class ParquetV2QuerySuite extends ParquetQuerySuite {
   // TODO: enable Parquet V2 write path after file source V2 writers are workable.
   override def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
-  ignore("returning batch for wide table") {
+  test("returning batch for wide table") {
     withSQLConf(SQLConf.WHOLESTAGE_MAX_NUM_FIELDS.key -> "10") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath
@@ -934,7 +935,8 @@ class ParquetV2QuerySuite extends ParquetQuerySuite {
         val df3 = df2.selectExpr(columns : _*)
         val fileScan3 = df3.queryExecution.sparkPlan.find(_.isInstanceOf[BatchScanExec]).get
         val parquetScan3 = fileScan3.asInstanceOf[BatchScanExec].scan.asInstanceOf[ParquetScan]
-        assert(parquetScan3.createReaderFactory().supportColumnarReads(null))
+        // Rui: we disabled columnar reader
+        assert(!parquetScan3.createReaderFactory().supportColumnarReads(null))
         checkAnswer(df3, df.selectExpr(columns : _*))
       }
     }

@@ -107,7 +107,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("simple csv test") {
+  test("simple csv test") {
     val cars = spark
       .read
       .format("csv")
@@ -117,7 +117,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = false, checkTypes = false)
   }
 
-  ignore("simple csv test with calling another function to load") {
+  test("simple csv test with calling another function to load") {
     val cars = spark
       .read
       .option("header", "false")
@@ -126,7 +126,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = false, checkTypes = false)
   }
 
-  ignore("simple csv test with type inference") {
+  test("simple csv test with type inference") {
     val cars = spark
       .read
       .format("csv")
@@ -137,7 +137,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = true, checkTypes = true)
   }
 
-  ignore("simple csv test with string dataset") {
+  test("simple csv test with string dataset") {
     val csvDataset = spark.read.text(testFile(carsFile)).as[String]
     val cars = spark.read
       .option("header", "true")
@@ -153,7 +153,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(carsWithoutHeader, withHeader = false, checkTypes = false)
   }
 
-  ignore("test inferring booleans") {
+  test("test inferring booleans") {
     val result = spark.read
       .format("csv")
       .option("header", "true")
@@ -165,7 +165,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(result.schema === expectedSchema)
   }
 
-  ignore("test inferring decimals") {
+  test("test inferring decimals") {
     val result = spark.read
       .format("csv")
       .option("comment", "~")
@@ -179,7 +179,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(result.schema === expectedSchema)
   }
 
-  ignore("test with alternative delimiter and quote") {
+  test("test with alternative delimiter and quote") {
     val cars = spark.read
       .format("csv")
       .options(Map("quote" -> "\'", "delimiter" -> "|", "header" -> "true"))
@@ -188,7 +188,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = true)
   }
 
-  ignore("test with tab delimiter and double quote") {
+  test("test with tab delimiter and double quote") {
     val cars = spark.read
         .options(Map("quote" -> "\"", "delimiter" -> """\t""", "header" -> "true"))
         .csv(testFile(carsTsvFile))
@@ -196,7 +196,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, numFields = 6, withHeader = true, checkHeader = false)
   }
 
-  ignore("SPARK-24540: test with multiple character delimiter (comma space)") {
+  test("SPARK-24540: test with multiple character delimiter (comma space)") {
     val cars = spark.read
         .options(Map("quote" -> "\'", "delimiter" -> ", ", "header" -> "true"))
         .csv(testFile(carsMultiCharDelimitedFile))
@@ -204,7 +204,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = true)
   }
 
-  ignore("SPARK-24540: test with multiple (crazy) character delimiter") {
+  test("SPARK-24540: test with multiple (crazy) character delimiter") {
     val cars = spark.read
         .options(Map("quote" -> "\'", "delimiter" -> """_/-\\_""", "header" -> "true"))
         .csv(testFile(carsMultiCharCrazyDelimitedFile))
@@ -231,7 +231,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("parse unescaped quotes with maxCharsPerColumn") {
+  test("parse unescaped quotes with maxCharsPerColumn") {
     val rows = spark.read
       .format("csv")
       .option("maxCharsPerColumn", "4")
@@ -242,7 +242,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     checkAnswer(rows, expectedRows)
   }
 
-  ignore("bad encoding name") {
+  test("bad encoding name") {
     val exception = intercept[UnsupportedCharsetException] {
       spark
         .read
@@ -254,7 +254,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(exception.getMessage.contains("1-9588-osi"))
   }
 
-  ignore("test different encoding") {
+  test("test different encoding") {
     withView("carsTable") {
       // scalastyle:off
       spark.sql(
@@ -268,7 +268,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("crlf line separators in multiline mode") {
+  test("crlf line separators in multiline mode") {
     val cars = spark
       .read
       .format("csv")
@@ -279,7 +279,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = true)
   }
 
-  ignore("test aliases sep and encoding for delimiter and charset") {
+  test("test aliases sep and encoding for delimiter and charset") {
     // scalastyle:off
     val cars = spark
       .read
@@ -293,7 +293,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = true)
   }
 
-  ignore("DDL test with tab separated file") {
+  test("DDL test with tab separated file") {
     withView("carsTable") {
       spark.sql(
         s"""
@@ -305,7 +305,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("DDL test parsing decimal type") {
+  test("DDL test parsing decimal type") {
     withView("carsTable") {
       spark.sql(
         s"""
@@ -321,7 +321,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("test for DROPMALFORMED parsing mode") {
+  test("test for DROPMALFORMED parsing mode") {
     withSQLConf(SQLConf.CSV_PARSER_COLUMN_PRUNING.key -> "false") {
       Seq(false, true).foreach { multiLine =>
         val cars = spark.read
@@ -335,7 +335,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("test for blank column names on read and select columns") {
+  test("test for blank column names on read and select columns") {
     val cars = spark.read
       .format("csv")
       .options(Map("header" -> "true", "inferSchema" -> "true"))
@@ -346,7 +346,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(cars.select("_c1").collect().size == 2)
   }
 
-  ignore("test for FAILFAST parsing mode") {
+  test("test for FAILFAST parsing mode") {
     Seq(false, true).foreach { multiLine =>
       val exception = intercept[SparkException] {
         spark.read
@@ -360,7 +360,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("test for tokens more than the fields in the schema") {
+  test("test for tokens more than the fields in the schema") {
     val cars = spark
       .read
       .format("csv")
@@ -371,7 +371,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = false, checkTypes = false)
   }
 
-  ignore("test with null quote character") {
+  test("test with null quote character") {
     val cars = spark.read
       .format("csv")
       .option("header", "true")
@@ -382,7 +382,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
 
   }
 
-  ignore("test with empty file and known schema") {
+  test("test with empty file and known schema") {
     val result = spark.read
       .format("csv")
       .schema(StructType(List(StructField("column", StringType, false))))
@@ -406,7 +406,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("DDL test with schema") {
+  test("DDL test with schema") {
     withView("carsTable") {
       spark.sql(
         s"""
@@ -423,7 +423,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv") {
+  test("save csv") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
       val cars = spark.read
@@ -444,7 +444,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv with quote") {
+  test("save csv with quote") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
       val cars = spark.read
@@ -468,7 +468,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv with quoteAll enabled") {
+  test("save csv with quoteAll enabled") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
 
@@ -494,7 +494,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv with quote escaping enabled") {
+  test("save csv with quote escaping enabled") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
 
@@ -519,7 +519,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv with quote escaping disabled") {
+  test("save csv with quote escaping disabled") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
 
@@ -545,7 +545,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv with quote escaping, using charToEscapeQuoteEscaping option") {
+  test("save csv with quote escaping, using charToEscapeQuoteEscaping option") {
     withTempPath { path =>
 
       // original text
@@ -611,7 +611,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(exception.getCause.getMessage.contains("1-9588-osi"))
   }
 
-  ignore("commented lines in CSV data") {
+  test("commented lines in CSV data") {
     Seq("false", "true").foreach { multiLine =>
 
       val results = spark.read
@@ -629,7 +629,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("inferring schema with commented lines in CSV data") {
+  test("inferring schema with commented lines in CSV data") {
     val results = spark.read
       .format("csv")
       .options(Map("comment" -> "~", "header" -> "false", "inferSchema" -> "true"))
@@ -645,7 +645,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(results.toSeq.map(_.toSeq) === expected)
   }
 
-  ignore("inferring timestamp types via custom date format") {
+  test("inferring timestamp types via custom date format") {
     val options = Map(
       "header" -> "true",
       "inferSchema" -> "true",
@@ -665,7 +665,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(results.toSeq.map(_.toSeq) === expected)
   }
 
-  ignore("load date types via custom date format") {
+  test("load date types via custom date format") {
     val customSchema = new StructType(Array(StructField("date", DateType, true)))
     val options = Map(
       "header" -> "true",
@@ -694,7 +694,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("setting comment to null disables comment support") {
+  test("setting comment to null disables comment support") {
     val results = spark.read
       .format("csv")
       .options(Map("comment" -> "", "header" -> "false"))
@@ -709,7 +709,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(results.toSeq.map(_.toSeq) === expected)
   }
 
-  ignore("nullable fields with user defined null value of \"null\"") {
+  test("nullable fields with user defined null value of \"null\"") {
 
     // year,make,model,comment,blank
     val dataSchema = StructType(List(
@@ -730,7 +730,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(results(2).toSeq === Array(null, "Chevy", "Volt", null, null))
   }
 
-  ignore("empty fields with user defined empty values") {
+  test("empty fields with user defined empty values") {
 
     // year,make,model,comment,blank
     val dataSchema = StructType(List(
@@ -754,7 +754,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(results(2).toSeq === Array(2015, "Chevy", "Volt", null, "empty"))
   }
 
-  ignore("save csv with empty fields with user defined empty values") {
+  test("save csv with empty fields with user defined empty values") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
 
@@ -794,7 +794,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("save csv with compression codec option") {
+  test("save csv with compression codec option") {
     withTempDir { dir =>
       val csvDir = new File(dir, "csv").getCanonicalPath
       val cars = spark.read
@@ -820,7 +820,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-13543 Write the output as uncompressed via option()") {
+  test("SPARK-13543 Write the output as uncompressed via option()") {
     val extraOptions = Map(
       "mapreduce.output.fileoutputformat.compress" -> "true",
       "mapreduce.output.fileoutputformat.compress.type" -> CompressionType.BLOCK.toString,
@@ -855,7 +855,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Schema inference correctly identifies the datatype when data is sparse.") {
+  test("Schema inference correctly identifies the datatype when data is sparse.") {
     val df = spark.read
       .format("csv")
       .option("header", "true")
@@ -867,7 +867,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
         Array(IntegerType, IntegerType, IntegerType, IntegerType)))
   }
 
-  ignore("old csv data source name works") {
+  test("old csv data source name works") {
     val cars = spark
       .read
       .format("com.databricks.spark.csv")
@@ -877,7 +877,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = false, checkTypes = false)
   }
 
-  ignore("nulls, NaNs and Infinity values can be parsed") {
+  test("nulls, NaNs and Infinity values can be parsed") {
     val numbers = spark
       .read
       .format("csv")
@@ -899,7 +899,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(numbers.count() == 8)
   }
 
-  ignore("SPARK-15585 turn off quotations") {
+  test("SPARK-15585 turn off quotations") {
     val cars = spark.read
       .format("csv")
       .option("header", "true")
@@ -909,7 +909,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     verifyCars(cars, withHeader = true, checkValues = false)
   }
 
-  ignore("Write timestamps correctly in ISO8601 format by default") {
+  test("Write timestamps correctly in ISO8601 format by default") {
     withTempDir { dir =>
       val iso8601timestampsPath = s"${dir.getCanonicalPath}/iso8601timestamps.csv"
       val timestamps = spark.read
@@ -941,7 +941,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Write dates correctly in ISO8601 format by default") {
+  test("Write dates correctly in ISO8601 format by default") {
     withSQLConf(SQLConf.SESSION_LOCAL_TIMEZONE.key -> "UTC") {
       withTempDir { dir =>
         val customSchema = new StructType(Array(StructField("date", DateType, true)))
@@ -977,7 +977,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Roundtrip in reading and writing timestamps") {
+  test("Roundtrip in reading and writing timestamps") {
     withTempDir { dir =>
       val iso8601timestampsPath = s"${dir.getCanonicalPath}/iso8601timestamps.csv"
       val timestamps = spark.read
@@ -1001,7 +1001,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Write dates correctly with dateFormat option") {
+  test("Write dates correctly with dateFormat option") {
     val customSchema = new StructType(Array(StructField("date", DateType, true)))
     withTempDir { dir =>
       // With dateFormat option.
@@ -1034,7 +1034,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Write timestamps correctly with timestampFormat option") {
+  test("Write timestamps correctly with timestampFormat option") {
     withTempDir { dir =>
       // With dateFormat option.
       val timestampsWithFormatPath = s"${dir.getCanonicalPath}/timestampsWithFormat.csv"
@@ -1066,7 +1066,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Write timestamps correctly with timestampFormat option and timeZone option") {
+  test("Write timestamps correctly with timestampFormat option and timeZone option") {
     withTempDir { dir =>
       // With dateFormat option and timeZone option.
       val timestampsWithFormatPath = s"${dir.getCanonicalPath}/timestampsWithFormat.csv"
@@ -1109,7 +1109,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("load duplicated field names consistently with null or empty strings - case sensitive") {
+  test("load duplicated field names consistently with null or empty strings - case sensitive") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
       withTempPath { path =>
         Seq("a,a,c,A,b,B").toDF().write.text(path.getAbsolutePath)
@@ -1125,7 +1125,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("load duplicated field names consistently with null or empty strings - case insensitive") {
+  test("load duplicated field names consistently with null or empty strings - case insensitive") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "false") {
       withTempPath { path =>
         Seq("a,A,c,A,b,B").toDF().write.text(path.getAbsolutePath)
@@ -1141,7 +1141,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("load null when the schema is larger than parsed tokens ") {
+  test("load null when the schema is larger than parsed tokens ") {
     withTempPath { path =>
       Seq("1").toDF().write.text(path.getAbsolutePath)
       val schema = StructType(
@@ -1156,7 +1156,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-18699 put malformed records in a `columnNameOfCorruptRecord` field") {
+  test("SPARK-18699 put malformed records in a `columnNameOfCorruptRecord` field") {
     Seq(false, true).foreach { multiLine =>
       val schema = new StructType().add("a", IntegerType).add("b", DateType)
       // We use `PERMISSIVE` mode by default if invalid string is given.
@@ -1217,7 +1217,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Enabling/disabling ignoreCorruptFiles") {
+  test("Enabling/disabling ignoreCorruptFiles") {
     val inputFile = File.createTempFile("input-", ".gz")
     try {
       // Create a corrupt gzip file
@@ -1251,7 +1251,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-19610: Parse normal multi-line CSV files") {
+  test("SPARK-19610: Parse normal multi-line CSV files") {
     val primitiveFieldAndType = Seq(
       """"
         |string","integer
@@ -1296,7 +1296,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Empty file produces empty dataframe with empty schema") {
+  test("Empty file produces empty dataframe with empty schema") {
     Seq(false, true).foreach { multiLine =>
       val df = spark.read.format("csv")
         .option("header", true)
@@ -1308,7 +1308,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Empty string dataset produces empty dataframe and keep user-defined schema") {
+  test("Empty string dataset produces empty dataframe and keep user-defined schema") {
     val df1 = spark.read.csv(spark.emptyDataset[String])
     assert(df1.schema === spark.emptyDataFrame.schema)
     checkAnswer(df1, spark.emptyDataFrame)
@@ -1318,7 +1318,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(df2.schema === schema)
   }
 
-  ignore("ignoreLeadingWhiteSpace and ignoreTrailingWhiteSpace options - read") {
+  test("ignoreLeadingWhiteSpace and ignoreTrailingWhiteSpace options - read") {
     val input = " a,b  , c "
 
     // For reading, default of both `ignoreLeadingWhiteSpace` and`ignoreTrailingWhiteSpace`
@@ -1345,7 +1345,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
       }
   }
 
-  ignore("SPARK-18579: ignoreLeadingWhiteSpace and ignoreTrailingWhiteSpace options - write") {
+  test("SPARK-18579: ignoreLeadingWhiteSpace and ignoreTrailingWhiteSpace options - write") {
     val df = Seq((" a", "b  ", " c ")).toDF()
 
     // For writing, default of both `ignoreLeadingWhiteSpace` and `ignoreTrailingWhiteSpace`
@@ -1397,7 +1397,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     checkAnswer(results, Row(null))
   }
 
-  ignore("SPARK-20978: Fill the malformed column when the number of tokens is less than schema") {
+  test("SPARK-20978: Fill the malformed column when the number of tokens is less than schema") {
     val df = spark.read
       .schema("a string, b string, unparsed string")
       .option("columnNameOfCorruptRecord", "unparsed")
@@ -1405,7 +1405,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     checkAnswer(df, Row("a", null, "a"))
   }
 
-  ignore("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
+  test("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
     "from a file") {
     val columnNameOfCorruptRecord = "_corrupt_record"
     val schema = new StructType()
@@ -1439,7 +1439,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     )
   }
 
-  ignore("SPARK-23846: schema inferring touches less data if samplingRatio < 1.0") {
+  test("SPARK-23846: schema inferring touches less data if samplingRatio < 1.0") {
     // Set default values for the DataSource parameters to make sure
     // that whole test file is mapped to only one partition. This will guarantee
     // reliable sampling of the input file.
@@ -1457,7 +1457,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     })
   }
 
-  ignore("SPARK-23846: usage of samplingRatio while parsing a dataset of strings") {
+  test("SPARK-23846: usage of samplingRatio while parsing a dataset of strings") {
     val ds = sampledTestData.coalesce(1)
     val readback = spark.read
       .option("inferSchema", true).option("samplingRatio", 0.1)
@@ -1466,7 +1466,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(readback.schema == new StructType().add("_c0", IntegerType))
   }
 
-  ignore("SPARK-23846: samplingRatio is out of the range (0, 1.0]") {
+  test("SPARK-23846: samplingRatio is out of the range (0, 1.0]") {
     val ds = spark.range(0, 100, 1, 1).map(_.toString)
 
     val errorMsg0 = intercept[IllegalArgumentException] {
@@ -1483,7 +1483,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(sampled.count() == ds.count())
   }
 
-  ignore("SPARK-17916: An empty string should not be coerced to null when nullValue is passed.") {
+  test("SPARK-17916: An empty string should not be coerced to null when nullValue is passed.") {
     val litNull: String = null
     val df = Seq(
       (1, "John Doe"),
@@ -1529,7 +1529,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-25241: An empty string should not be coerced to null when emptyValue is passed.") {
+  test("SPARK-25241: An empty string should not be coerced to null when emptyValue is passed.") {
     val litNull: String = null
     val df = Seq(
       (1, "John Doe"),
@@ -1575,7 +1575,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-24329: skip lines with comments, and one or multiple whitespaces") {
+  test("SPARK-24329: skip lines with comments, and one or multiple whitespaces") {
     val schema = new StructType().add("colA", StringType)
     val ds = spark
       .read
@@ -1590,7 +1590,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     checkAnswer(ds, Seq(Row(""" "a" """)))
   }
 
-  ignore("SPARK-24244: Select a subset of all columns") {
+  test("SPARK-24244: Select a subset of all columns") {
     withTempPath { path =>
       import collection.JavaConverters._
       val schema = new StructType()
@@ -1678,15 +1678,15 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore(s"SPARK-23786: Checking column names against schema in the multiline mode") {
+  test(s"SPARK-23786: Checking column names against schema in the multiline mode") {
     checkHeader(multiLine = true)
   }
 
-  ignore(s"SPARK-23786: Checking column names against schema in the per-line mode") {
+  test(s"SPARK-23786: Checking column names against schema in the per-line mode") {
     checkHeader(multiLine = false)
   }
 
-  ignore("SPARK-23786: CSV header must not be checked if it doesn't exist") {
+  test("SPARK-23786: CSV header must not be checked if it doesn't exist") {
     withTempPath { path =>
       val oschema = new StructType().add("f1", DoubleType).add("f2", DoubleType)
       val odf = spark.createDataFrame(List(Row(1.0, 1234.5)).asJava, oschema)
@@ -1702,7 +1702,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-23786: Ignore column name case if spark.sql.caseSensitive is false") {
+  test("SPARK-23786: Ignore column name case if spark.sql.caseSensitive is false") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "false") {
       withTempPath { path =>
         val oschema = new StructType().add("A", StringType)
@@ -1718,7 +1718,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-23786: check header on parsing of dataset of strings") {
+  test("SPARK-23786: check header on parsing of dataset of strings") {
     val ds = Seq("columnA,columnB", "1.0,1000.0").toDS()
     val ischema = new StructType().add("columnB", DoubleType).add("columnA", DoubleType)
     val exception = intercept[IllegalArgumentException] {
@@ -1728,7 +1728,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(exception.getMessage.contains("CSV header does not conform to the schema"))
   }
 
-  ignore("SPARK-23786: enforce inferred schema") {
+  test("SPARK-23786: enforce inferred schema") {
     val expectedSchema = new StructType().add("_c0", DoubleType).add("_c1", StringType)
     val withHeader = spark.read
       .option("inferSchema", true)
@@ -1760,7 +1760,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(exception.getMessage.contains("CSV header does not conform to the schema"))
   }
 
-  ignore("SPARK-23786: warning should be printed if CSV header doesn't conform to schema") {
+  test("SPARK-23786: warning should be printed if CSV header doesn't conform to schema") {
     val testAppender1 = new LogAppender("CSV header matches to schema")
     withLogAppender(testAppender1) {
       val ds = Seq("columnA,columnB", "1.0,1000.0").toDS()
@@ -1790,7 +1790,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
       .exists(msg => msg.getRenderedMessage.contains("CSV header does not conform to the schema")))
   }
 
-  ignore("SPARK-25134: check header on parsing of dataset with projection and column pruning") {
+  test("SPARK-25134: check header on parsing of dataset with projection and column pruning") {
     withSQLConf(SQLConf.CSV_PARSER_COLUMN_PRUNING.key -> "true") {
       Seq(false, true).foreach { multiLine =>
         withTempPath { path =>
@@ -1823,7 +1823,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-24645 skip parsing when columnPruning enabled and partitions scanned only") {
+  test("SPARK-24645 skip parsing when columnPruning enabled and partitions scanned only") {
     withSQLConf(SQLConf.CSV_PARSER_COLUMN_PRUNING.key -> "true") {
       withTempPath { path =>
         val dir = path.getAbsolutePath
@@ -1833,7 +1833,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-24676 project required data from parsed data when columnPruning disabled") {
+  test("SPARK-24676 project required data from parsed data when columnPruning disabled") {
     withSQLConf(SQLConf.CSV_PARSER_COLUMN_PRUNING.key -> "false") {
       withTempPath { path =>
         val dir = path.getAbsolutePath
@@ -1888,7 +1888,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     countForMalformedCSV(0, Seq(""))
   }
 
-  ignore("SPARK-25387: bad input should not cause NPE") {
+  test("SPARK-25387: bad input should not cause NPE") {
     val schema = StructType(StructField("a", IntegerType) :: Nil)
     val input = spark.createDataset(Seq("\u0000\u0000\u0001234"))
 
@@ -1897,7 +1897,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(spark.read.csv(input).collect().toSet == Set(Row()))
   }
 
-  ignore("SPARK-31261: bad csv input with `columnNameCorruptRecord` should not cause NPE") {
+  test("SPARK-31261: bad csv input with `columnNameCorruptRecord` should not cause NPE") {
     val schema = StructType(
       StructField("a", IntegerType) :: StructField("_corrupt_record", StringType) :: Nil)
     val input = spark.createDataset(Seq("\u0000\u0000\u0001234"))
@@ -1911,13 +1911,13 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(spark.read.csv(input).collect().toSet == Set(Row()))
   }
 
-  ignore("field names of inferred schema shouldn't compare to the first row") {
+  test("field names of inferred schema shouldn't compare to the first row") {
     val input = Seq("1,2").toDS()
     val df = spark.read.option("enforceSchema", false).csv(input)
     checkAnswer(df, Row("1", "2"))
   }
 
-  ignore("using the backward slash as the delimiter") {
+  test("using the backward slash as the delimiter") {
     val input = Seq("""abc\1""").toDS()
     val delimiter = """\\"""
     checkAnswer(spark.read.option("delimiter", delimiter).csv(input), Row("abc", "1"))
@@ -1927,7 +1927,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     checkAnswer(spark.read.schema(schema).option("delimiter", delimiter).csv(input), Row("abc", 1))
   }
 
-  ignore("using spark.sql.columnNameOfCorruptRecord") {
+  test("using spark.sql.columnNameOfCorruptRecord") {
     withSQLConf(SQLConf.COLUMN_NAME_OF_CORRUPT_RECORD.key -> "_unparsed") {
       val csv = "\""
       val df = spark.read
@@ -1938,7 +1938,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("encoding in multiLine mode") {
+  test("encoding in multiLine mode") {
     val df = spark.range(3).toDF()
     Seq("UTF-8", "ISO-8859-1", "CP1251", "US-ASCII", "UTF-16BE", "UTF-32LE").foreach { encoding =>
       Seq(true, false).foreach { header =>
@@ -1959,7 +1959,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("""Support line separator - default value \r, \r\n and \n""") {
+  test("""Support line separator - default value \r, \r\n and \n""") {
     val data = "\"a\",1\r\"c\",2\r\n\"d\",3\n"
 
     withTempPath { path =>
@@ -1973,7 +1973,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
   }
 
   def testLineSeparator(lineSep: String, encoding: String, inferSchema: Boolean, id: Int): Unit = {
-    ignore(s"Support line separator in ${encoding} #${id}") {
+    test(s"Support line separator in ${encoding} #${id}") {
       // Read
       val data =
         s""""a",1$lineSep
@@ -2053,7 +2053,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
   }
   // scalastyle:on nonascii
 
-  ignore("lineSep restrictions") {
+  test("lineSep restrictions") {
     val errMsg1 = intercept[IllegalArgumentException] {
       spark.read.option("lineSep", "").csv(testFile(carsFile)).collect
     }.getMessage
@@ -2065,7 +2065,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(errMsg2.contains("'lineSep' can contain only 1 character"))
   }
 
-  ignore("SPARK-26208: write and read empty data to csv file with headers") {
+  test("SPARK-26208: write and read empty data to csv file with headers") {
     withTempPath { path =>
       val df1 = spark.range(10).repartition(2).filter(_ < 0).map(_.toString).toDF
       // we have 2 partitions but they are both empty and will be filtered out upon writing
@@ -2078,7 +2078,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Do not reuse last good value for bad input field") {
+  test("Do not reuse last good value for bad input field") {
     val schema = StructType(
       StructField("col1", StringType) ::
       StructField("col2", DateType) ::
@@ -2096,14 +2096,14 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     checkAnswer(rows, expectedRows)
   }
 
-  ignore("SPARK-27512: Decimal type inference should not handle ',' for backward compatibility") {
+  test("SPARK-27512: Decimal type inference should not handle ',' for backward compatibility") {
     assert(spark.read
       .option("delimiter", "|")
       .option("inferSchema", "true")
       .csv(Seq("1,2").toDS).schema.head.dataType === StringType)
   }
 
-  ignore("SPARK-27873: disabling enforceSchema should not fail columnNameOfCorruptRecord") {
+  test("SPARK-27873: disabling enforceSchema should not fail columnNameOfCorruptRecord") {
     Seq("csv", "").foreach { reader =>
       withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> reader) {
         withTempPath { path =>
@@ -2129,7 +2129,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-28431: prevent CSV datasource throw TextParsingException with large size message") {
+  test("SPARK-28431: prevent CSV datasource throw TextParsingException with large size message") {
     withTempPath { path =>
       val maxCharsPerCol = 10000
       val str = "a" * (maxCharsPerCol + 1)
@@ -2152,7 +2152,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-29101 test count with DROPMALFORMED mode") {
+  test("SPARK-29101 test count with DROPMALFORMED mode") {
     Seq((true, 4), (false, 3)).foreach { case (csvColumnPruning, expectedCount) =>
       withSQLConf(SQLConf.CSV_PARSER_COLUMN_PRUNING.key -> csvColumnPruning.toString) {
         val count = spark.read
@@ -2165,7 +2165,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("parse timestamp in microsecond precision") {
+  test("parse timestamp in microsecond precision") {
     withTempPath { path =>
       val t = "2019-11-14 20:35:30.123456"
       Seq(t).toDF("t").write.text(path.getAbsolutePath)
@@ -2177,7 +2177,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("Roundtrip in reading and writing timestamps in microsecond precision") {
+  test("Roundtrip in reading and writing timestamps in microsecond precision") {
     withTempPath { path =>
       val timestamp = Timestamp.valueOf("2019-11-18 11:56:00.123456")
       Seq(timestamp).toDF("t")
@@ -2192,7 +2192,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("return correct results when data columns overlap with partition columns") {
+  test("return correct results when data columns overlap with partition columns") {
     withTempPath { path =>
       val tablePath = new File(s"${path.getCanonicalPath}/cOl3=c/cOl1=a/cOl5=e")
 
@@ -2210,7 +2210,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("filters push down") {
+  test("filters push down") {
     Seq(true, false).foreach { filterPushdown =>
       Seq(true, false).foreach { columnPruning =>
         withSQLConf(
@@ -2248,7 +2248,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("filters push down - malformed input in PERMISSIVE mode") {
+  test("filters push down - malformed input in PERMISSIVE mode") {
     val invalidTs = "2019-123_14 20:35:30"
     val invalidRow = s"0,$invalidTs,999"
     val validTs = "2019-12-14 20:35:30"
@@ -2285,7 +2285,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-30530: apply filters to malformed rows") {
+  test("SPARK-30530: apply filters to malformed rows") {
     withSQLConf(SQLConf.CSV_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       withTempPath { path =>
         Seq(
@@ -2309,20 +2309,20 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("SPARK-30810: parses and convert a CSV Dataset having different column from 'value'") {
+  test("SPARK-30810: parses and convert a CSV Dataset having different column from 'value'") {
     val ds = spark.range(2).selectExpr("concat('a,b,', id) AS `a.text`").as[String]
     val csv = spark.read.option("header", true).option("inferSchema", true).csv(ds)
     assert(csv.schema.fieldNames === Seq("a", "b", "0"))
     checkAnswer(csv, Row("a", "b", 1))
   }
 
-  ignore("SPARK-30960: parse date/timestamp string with legacy format") {
+  test("SPARK-30960: parse date/timestamp string with legacy format") {
     val ds = Seq("2020-1-12 3:23:34.12, 2020-1-12 T").toDS()
     val csv = spark.read.option("header", false).schema("t timestamp, d date").csv(ds)
     checkAnswer(csv, Row(Timestamp.valueOf("2020-1-12 3:23:34.12"), Date.valueOf("2020-1-12")))
   }
 
-  ignore("exception mode for parsing date/timestamp string") {
+  test("exception mode for parsing date/timestamp string") {
     val ds = Seq("2020-01-27T20:06:11.847-0800").toDS()
     val csv = spark.read
       .option("header", false)
@@ -2359,9 +2359,10 @@ class CSVv1Suite extends CSVSuite {
       .set("spark.oap.sql.columnar.wholestagecodegen", "false")
       .set("spark.sql.columnar.window", "false")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      // .set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "csv")
 }
 
@@ -2384,6 +2385,7 @@ class CSVv2Suite extends CSVSuite {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }
 
@@ -2406,5 +2408,6 @@ class CSVLegacyTimeParserSuite extends CSVSuite {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.LEGACY_TIME_PARSER_POLICY, "legacy")
 }

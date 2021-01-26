@@ -62,7 +62,8 @@ class ColumnarConditionProjector(
   var elapseTime_make: Long = 0
   val start_make: Long = System.nanoTime()
   var selectionBuffer: ArrowBuf = null
-  if (projectFieldList.size == 0 && conditionFieldList.size == 0) {
+  if (projectFieldList.size == 0 && conditionFieldList.size == 0
+      && (projPrepareList == null || projPrepareList.isEmpty)) {
     skip = true
   } else {
     skip = false

@@ -43,11 +43,11 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
       .set("spark.oap.sql.columnar.wholestagecodegen", "false")
       .set("spark.sql.columnar.window", "false")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+//      .set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
 
-  ignore("simple tumbling window with record at window start") {
+  test("simple tumbling window with record at window start") {
     val df = Seq(
       ("2016-03-27 19:39:30", 1, "a")).toDF("time", "value", "id")
 
@@ -62,7 +62,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("SPARK-21590: tumbling window using negative start time") {
+  test("SPARK-21590: tumbling window using negative start time") {
     val df = Seq(
       ("2016-03-27 19:39:30", 1, "a"),
       ("2016-03-27 19:39:25", 2, "a")).toDF("time", "value", "id")
@@ -78,7 +78,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("tumbling window groupBy statement") {
+  test("tumbling window groupBy statement") {
     val df = Seq(
       ("2016-03-27 19:39:34", 1, "a"),
       ("2016-03-27 19:39:56", 2, "a"),
@@ -93,7 +93,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("tumbling window groupBy statement with startTime") {
+  test("tumbling window groupBy statement with startTime") {
     val df = Seq(
       ("2016-03-27 19:39:34", 1, "a"),
       ("2016-03-27 19:39:56", 2, "a"),
@@ -107,7 +107,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
       Seq(Row(1), Row(1), Row(1)))
   }
 
-  ignore("SPARK-21590: tumbling window groupBy statement with negative startTime") {
+  test("SPARK-21590: tumbling window groupBy statement with negative startTime") {
     val df = Seq(
       ("2016-03-27 19:39:34", 1, "a"),
       ("2016-03-27 19:39:56", 2, "a"),
@@ -121,7 +121,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
       Seq(Row(1), Row(1), Row(1)))
   }
 
-  ignore("tumbling window with multi-column projection") {
+  test("tumbling window with multi-column projection") {
     val df = Seq(
         ("2016-03-27 19:39:34", 1, "a"),
         ("2016-03-27 19:39:56", 2, "a"),
@@ -143,7 +143,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("sliding window grouping") {
+  test("sliding window grouping") {
     val df = Seq(
       ("2016-03-27 19:39:34", 1, "a"),
       ("2016-03-27 19:39:56", 2, "a"),
@@ -170,7 +170,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("sliding window projection") {
+  test("sliding window projection") {
     val df = Seq(
         ("2016-03-27 19:39:34", 1, "a"),
         ("2016-03-27 19:39:56", 2, "a"),
@@ -190,7 +190,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("windowing combined with explode expression") {
+  test("windowing combined with explode expression") {
     val df = Seq(
       ("2016-03-27 19:39:34", 1, Seq("a", "b")),
       ("2016-03-27 19:39:56", 2, Seq("a", "c", "d"))).toDF("time", "value", "ids")
@@ -203,7 +203,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("null timestamps") {
+  test("null timestamps") {
     val df = Seq(
       ("2016-03-27 09:00:05", 1),
       ("2016-03-27 09:00:32", 2),
@@ -218,7 +218,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
       1, 2) // null columns are dropped
   }
 
-  ignore("time window joins") {
+  test("time window joins") {
     val df = Seq(
       ("2016-03-27 09:00:05", 1),
       ("2016-03-27 09:00:32", 2),
@@ -238,7 +238,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
       Seq(Row(4), Row(8)))
   }
 
-  ignore("negative timestamps") {
+  test("negative timestamps") {
     val df4 = Seq(
       ("1970-01-01 00:00:02", 1),
       ("1970-01-01 00:00:12", 2)).toDF("time", "value")
@@ -263,7 +263,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
       "Multiple time window expressions would result in a cartesian product"))
   }
 
-  ignore("aliased windows") {
+  test("aliased windows") {
     val df = Seq(
       ("2016-03-27 19:39:34", 1, Seq("a", "b")),
       ("2016-03-27 19:39:56", 2, Seq("a", "c", "d"))).toDF("time", "value", "ids")
@@ -276,7 +276,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("millisecond precision sliding windows") {
+  test("millisecond precision sliding windows") {
     val df = Seq(
       ("2016-03-27 09:00:00.41", 3),
       ("2016-03-27 09:00:00.62", 6),
@@ -315,7 +315,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("time window in SQL with single string expression") {
+  test("time window in SQL with single string expression") {
     withTempTable { table =>
       checkAnswer(
         spark.sql(s"""select window(time, "10 seconds"), value from $table""")
@@ -329,7 +329,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("time window in SQL with two expressions") {
+  test("time window in SQL with two expressions") {
     withTempTable { table =>
       checkAnswer(
         spark.sql(
@@ -344,7 +344,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("time window in SQL with three expressions") {
+  test("time window in SQL with three expressions") {
     withTempTable { table =>
       checkAnswer(
         spark.sql(
@@ -359,7 +359,7 @@ class DataFrameTimeWindowingSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-21590: time window in SQL with three expressions including negative start time") {
+  test("SPARK-21590: time window in SQL with three expressions including negative start time") {
     withTempTable { table =>
       checkAnswer(
         spark.sql(

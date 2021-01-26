@@ -55,7 +55,7 @@ class GlobalTempViewSuite extends QueryTest with SharedSparkSession {
 
   private var globalTempDB: String = _
 
-  ignore("basic semantic") {
+  test("basic semantic") {
     val expectedErrorMsg = "not found"
     withGlobalTempView("src") {
       sql("CREATE GLOBAL TEMP VIEW src AS SELECT 1, 'a'")
@@ -103,7 +103,7 @@ class GlobalTempViewSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("global temp view is shared among all sessions") {
+  test("global temp view is shared among all sessions") {
     withGlobalTempView("src") {
       sql("CREATE GLOBAL TEMP VIEW src AS SELECT 1, 2")
       checkAnswer(spark.table(s"$globalTempDB.src"), Row(1, 2))
@@ -120,7 +120,7 @@ class GlobalTempViewSuite extends QueryTest with SharedSparkSession {
     assert(e2.message.contains("system preserved database"))
   }
 
-  ignore("CREATE GLOBAL TEMP VIEW USING") {
+  test("CREATE GLOBAL TEMP VIEW USING") {
     withTempPath { path =>
       withGlobalTempView("src") {
         Seq(1 -> "a").toDF("i", "j").write.parquet(path.getAbsolutePath)
@@ -160,7 +160,7 @@ class GlobalTempViewSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("should lookup global temp view if and only if global temp db is specified") {
+  test("should lookup global temp view if and only if global temp db is specified") {
     withTempView("same_name") {
       withGlobalTempView("same_name") {
         sql("CREATE GLOBAL TEMP VIEW same_name AS SELECT 3, 4")

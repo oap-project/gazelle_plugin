@@ -17,6 +17,7 @@
 
 package org.apache.spark.sql.execution
 
+import com.intel.oap.execution.ColumnarHashAggregateExec
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Row, execution}
@@ -954,7 +955,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     }
   }
 
-  ignore("aliases in the aggregate expressions should not introduce extra shuffle") {
+  test("aliases in the aggregate expressions should not introduce extra shuffle") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       val t1 = spark.range(10).selectExpr("floor(id/4) as k1")
       val t2 = spark.range(20).selectExpr("floor(id/4) as k2")
@@ -964,7 +965,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
 
       val planned = agg1.join(agg2, $"k1" === $"k3").queryExecution.executedPlan
 
-      assert(planned.collect { case h: HashAggregateExec => h }.nonEmpty)
+      assert(planned.collect { case h: ColumnarHashAggregateExec => h }.nonEmpty)
 
       val exchanges = planned.collect { case s: ShuffleExchangeExec => s }
       assert(exchanges.size == 2)

@@ -93,6 +93,7 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   test("SPARK-23034 show rdd names in RDD scan nodes (Dataset)") {
     val rddWithName = spark.sparkContext.parallelize(Row(1, "abc") :: Nil).setName("testRdd")
@@ -367,6 +368,26 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
 
 class ExplainSuiteAE extends ExplainSuiteHelper with EnableAdaptiveExecutionSuite {
   import testImplicits._
+
+  override def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   ignore("Explain formatted") {
     val df1 = Seq((1, 2), (2, 3)).toDF("k", "v1")

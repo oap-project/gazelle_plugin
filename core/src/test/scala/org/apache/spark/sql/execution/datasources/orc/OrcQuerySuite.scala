@@ -83,7 +83,7 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("Read/write all types with non-primitive type") {
+  test("Read/write all types with non-primitive type") {
     val data: Seq[AllDataTypesWithNonPrimitiveType] = (0 to 255).map { i =>
       AllDataTypesWithNonPrimitiveType(
         s"$i", i, i.toLong, i.toFloat, i.toDouble, i.toShort, i.toByte, i % 2 == 0,
@@ -101,7 +101,7 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("Read/write UserDefinedType") {
+  test("Read/write UserDefinedType") {
     withTempPath { path =>
       val data = Seq((1, new TestUDT.MyDenseVector(Array(0.25, 2.25, 4.25))))
       val udtDF = data.toDF("id", "vectors")
@@ -119,7 +119,7 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("Simple selection form ORC table") {
+  test("Simple selection form ORC table") {
     val data = (1 to 10).map { i =>
       Person(s"name_$i", i, (0 to 1).map { m => Contact(s"contact_$m", s"phone_$m") })
     }
@@ -128,39 +128,40 @@ abstract class OrcQueryTest extends OrcTest {
       // ppd:
       // leaf-0 = (LESS_THAN_EQUALS age 5)
       // expr = leaf-0
-      assert(sql("SELECT name FROM t WHERE age <= 5").count() === 5)
-
-      // ppd:
-      // leaf-0 = (LESS_THAN_EQUALS age 5)
-      // expr = (not leaf-0)
-      assertResult(10) {
-        sql("SELECT name, contacts FROM t where age > 5")
-          .rdd
-          .flatMap(_.getAs[Seq[_]]("contacts"))
-          .count()
-      }
-
-      // ppd:
-      // leaf-0 = (LESS_THAN_EQUALS age 5)
-      // leaf-1 = (LESS_THAN age 8)
-      // expr = (and (not leaf-0) leaf-1)
-      {
-        val df = sql("SELECT name, contacts FROM t WHERE age > 5 AND age < 8")
-        assert(df.count() === 2)
-        assertResult(4) {
-          df.rdd.flatMap(_.getAs[Seq[_]]("contacts")).count()
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        assert(sql("SELECT name FROM t WHERE age <= 5").count() === 5)
+        // ppd:
+        // leaf-0 = (LESS_THAN_EQUALS age 5)
+        // expr = (not leaf-0)
+        assertResult(10) {
+          sql("SELECT name, contacts FROM t where age > 5")
+            .rdd
+            .flatMap(_.getAs[Seq[_]]("contacts"))
+            .count()
         }
-      }
 
-      // ppd:
-      // leaf-0 = (LESS_THAN age 2)
-      // leaf-1 = (LESS_THAN_EQUALS age 8)
-      // expr = (or leaf-0 (not leaf-1))
-      {
-        val df = sql("SELECT name, contacts FROM t WHERE age < 2 OR age > 8")
-        assert(df.count() === 3)
-        assertResult(6) {
-          df.rdd.flatMap(_.getAs[Seq[_]]("contacts")).count()
+        // ppd:
+        // leaf-0 = (LESS_THAN_EQUALS age 5)
+        // leaf-1 = (LESS_THAN age 8)
+        // expr = (and (not leaf-0) leaf-1)
+        {
+          val df = sql("SELECT name, contacts FROM t WHERE age > 5 AND age < 8")
+          assert(df.count() === 2)
+          assertResult(4) {
+            df.rdd.flatMap(_.getAs[Seq[_]]("contacts")).count()
+          }
+        }
+
+        // ppd:
+        // leaf-0 = (LESS_THAN age 2)
+        // leaf-1 = (LESS_THAN_EQUALS age 8)
+        // expr = (or leaf-0 (not leaf-1))
+        {
+          val df = sql("SELECT name, contacts FROM t WHERE age < 2 OR age > 8")
+          assert(df.count() === 3)
+          assertResult(6) {
+            df.rdd.flatMap(_.getAs[Seq[_]]("contacts")).count()
+          }
         }
       }
     }
@@ -265,15 +266,17 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("simple select queries") {
+  test("simple select queries") {
     withOrcTable((0 until 10).map(i => (i, i.toString)), "t") {
-      checkAnswer(
-        sql("SELECT `_1` FROM t where t.`_1` > 5"),
-        (6 until 10).map(Row.apply(_)))
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(
+          sql("SELECT `_1` FROM t where t.`_1` > 5"),
+          (6 until 10).map(Row.apply(_)))
 
-      checkAnswer(
-        sql("SELECT `_1` FROM t as tmp where tmp.`_1` < 5"),
-        (0 until 5).map(Row.apply(_)))
+        checkAnswer(
+          sql("SELECT `_1` FROM t as tmp where tmp.`_1` < 5"),
+          (0 until 5).map(Row.apply(_)))
+      }
     }
   }
 
@@ -296,7 +299,7 @@ abstract class OrcQueryTest extends OrcTest {
       purge = false)
   }
 
-  ignore("overwriting") {
+  test("overwriting") {
     val data = (0 until 10).map(i => (i, i.toString))
     spark.createDataFrame(data).toDF("c1", "c2").createOrReplaceTempView("tmp")
     withOrcTable(data, "t") {
@@ -309,7 +312,7 @@ abstract class OrcQueryTest extends OrcTest {
       purge = false)
   }
 
-  ignore("self-join") {
+  test("self-join") {
     // 4 rows, cells of column 1 of row 2 and row 4 are null
     val data = (1 to 4).map { i =>
       val maybeInt = if (i % 2 == 0) None else Some(i)
@@ -317,19 +320,21 @@ abstract class OrcQueryTest extends OrcTest {
     }
 
     withOrcTable(data, "t") {
-      val selfJoin = sql("SELECT * FROM t x JOIN t y WHERE x.`_1` = y.`_1`")
-      val queryOutput = selfJoin.queryExecution.analyzed.output
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        val selfJoin = sql("SELECT * FROM t x JOIN t y WHERE x.`_1` = y.`_1`")
+        val queryOutput = selfJoin.queryExecution.analyzed.output
 
-      assertResult(4, "Field count mismatches")(queryOutput.size)
-      assertResult(2, s"Duplicated expression ID in query plan:\n $selfJoin") {
-        queryOutput.filter(_.name == "_1").map(_.exprId).size
+        assertResult(4, "Field count mismatches")(queryOutput.size)
+        assertResult(2, s"Duplicated expression ID in query plan:\n $selfJoin") {
+          queryOutput.filter(_.name == "_1").map(_.exprId).size
+        }
+
+        checkAnswer(selfJoin, List(Row(1, "1", 1, "1"), Row(3, "3", 3, "3")))
       }
-
-      checkAnswer(selfJoin, List(Row(1, "1", 1, "1"), Row(3, "3", 3, "3")))
     }
   }
 
-  ignore("nested data - struct with array field") {
+  test("nested data - struct with array field") {
     val data = (1 to 10).map(i => Tuple1((i, Seq(s"val_$i"))))
     withOrcTable(data, "t") {
       checkAnswer(sql("SELECT `_1`.`_2`[0] FROM t"), data.map {
@@ -338,30 +343,36 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("nested data - array of struct") {
+  test("nested data - array of struct") {
     val data = (1 to 10).map(i => Tuple1(Seq(i -> s"val_$i")))
     withOrcTable(data, "t") {
-      checkAnswer(sql("SELECT `_1`[0].`_2` FROM t"), data.map {
-        case Tuple1(Seq((_, string))) => Row(string)
-      })
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(sql("SELECT `_1`[0].`_2` FROM t"), data.map {
+          case Tuple1(Seq((_, string))) => Row(string)
+        })
+      }
     }
   }
 
-  ignore("columns only referenced by pushed down filters should remain") {
+  test("columns only referenced by pushed down filters should remain") {
     withOrcTable((1 to 10).map(Tuple1.apply), "t") {
-      checkAnswer(sql("SELECT `_1` FROM t WHERE `_1` < 10"), (1 to 9).map(Row.apply(_)))
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(sql("SELECT `_1` FROM t WHERE `_1` < 10"), (1 to 9).map(Row.apply(_)))
+      }
     }
   }
 
-  ignore("SPARK-5309 strings stored using dictionary compression in orc") {
+  test("SPARK-5309 strings stored using dictionary compression in orc") {
     withOrcTable((0 until 1000).map(i => ("same", "run_" + i / 100, 1)), "t") {
-      checkAnswer(
-        sql("SELECT `_1`, `_2`, SUM(`_3`) FROM t GROUP BY `_1`, `_2`"),
-        (0 until 10).map(i => Row("same", "run_" + i, 100)))
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(
+          sql("SELECT `_1`, `_2`, SUM(`_3`) FROM t GROUP BY `_1`, `_2`"),
+          (0 until 10).map(i => Row("same", "run_" + i, 100)))
 
-      checkAnswer(
-        sql("SELECT `_1`, `_2`, SUM(`_3`) FROM t WHERE `_2` = 'run_5' GROUP BY `_1`, `_2`"),
-        List(Row("same", "run_5", 100)))
+        checkAnswer(
+          sql("SELECT `_1`, `_2`, SUM(`_3`) FROM t WHERE `_2` = 'run_5' GROUP BY `_1`, `_2`"),
+          List(Row("same", "run_5", 100)))
+      }
     }
   }
 
@@ -382,65 +393,69 @@ abstract class OrcQueryTest extends OrcTest {
   ignore("SPARK-10623 Enable ORC PPD") {
     withTempPath { dir =>
       withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
-        import testImplicits._
-        val path = dir.getCanonicalPath
+        withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+          import testImplicits._
+          val path = dir.getCanonicalPath
 
-        // For field "a", the first column has odds integers. This is to check the filtered count
-        // when `isNull` is performed. For Field "b", `isNotNull` of ORC file filters rows
-        // only when all the values are null (maybe this works differently when the data
-        // or query is complicated). So, simply here a column only having `null` is added.
-        val data = (0 until 10).map { i =>
-          val maybeInt = if (i % 2 == 0) None else Some(i)
-          val nullValue: Option[String] = None
-          (maybeInt, nullValue)
+          // For field "a", the first column has odds integers. This is to check the filtered count
+          // when `isNull` is performed. For Field "b", `isNotNull` of ORC file filters rows
+          // only when all the values are null (maybe this works differently when the data
+          // or query is complicated). So, simply here a column only having `null` is added.
+          val data = (0 until 10).map { i =>
+            val maybeInt = if (i % 2 == 0) None else Some(i)
+            val nullValue: Option[String] = None
+            (maybeInt, nullValue)
+          }
+          // It needs to repartition data so that we can have several ORC files
+          // in order to skip stripes in ORC.
+          spark.createDataFrame(data).toDF("a", "b").repartition(10).write.orc(path)
+          val df = spark.read.orc(path)
+
+          def checkPredicate(pred: Column, answer: Seq[Row]): Unit = {
+            val sourceDf = stripSparkFilter(df.where(pred))
+            val data = sourceDf.collect().toSet
+            val expectedData = answer.toSet
+
+            // When a filter is pushed to ORC, ORC can apply it to rows. So, we can check
+            // the number of rows returned from the ORC to make sure our filter pushdown work.
+            // A tricky part is, ORC does not process filter rows fully but return some possible
+            // results. So, this checks if the number of result is less than the original count
+            // of data, and then checks if it contains the expected data.
+            assert(
+              sourceDf.count < 10 && expectedData.subsetOf(data),
+              s"No data was filtered for predicate: $pred")
+          }
+
+          checkPredicate('a === 5, List(5).map(Row(_, null)))
+          checkPredicate('a <=> 5, List(5).map(Row(_, null)))
+          checkPredicate('a < 5, List(1, 3).map(Row(_, null)))
+          checkPredicate('a <= 5, List(1, 3, 5).map(Row(_, null)))
+          checkPredicate('a > 5, List(7, 9).map(Row(_, null)))
+          checkPredicate('a >= 5, List(5, 7, 9).map(Row(_, null)))
+          checkPredicate('a.isNull, List(null).map(Row(_, null)))
+          checkPredicate('b.isNotNull, List())
+          checkPredicate('a.isin(3, 5, 7), List(3, 5, 7).map(Row(_, null)))
+          checkPredicate('a > 0 && 'a < 3, List(1).map(Row(_, null)))
+          checkPredicate('a < 1 || 'a > 8, List(9).map(Row(_, null)))
+          checkPredicate(!('a > 3), List(1, 3).map(Row(_, null)))
+          checkPredicate(!('a > 0 && 'a < 3), List(3, 5, 7, 9).map(Row(_, null)))
         }
-        // It needs to repartition data so that we can have several ORC files
-        // in order to skip stripes in ORC.
-        spark.createDataFrame(data).toDF("a", "b").repartition(10).write.orc(path)
-        val df = spark.read.orc(path)
-
-        def checkPredicate(pred: Column, answer: Seq[Row]): Unit = {
-          val sourceDf = stripSparkFilter(df.where(pred))
-          val data = sourceDf.collect().toSet
-          val expectedData = answer.toSet
-
-          // When a filter is pushed to ORC, ORC can apply it to rows. So, we can check
-          // the number of rows returned from the ORC to make sure our filter pushdown work.
-          // A tricky part is, ORC does not process filter rows fully but return some possible
-          // results. So, this checks if the number of result is less than the original count
-          // of data, and then checks if it contains the expected data.
-          assert(
-            sourceDf.count < 10 && expectedData.subsetOf(data),
-            s"No data was filtered for predicate: $pred")
-        }
-
-        checkPredicate('a === 5, List(5).map(Row(_, null)))
-        checkPredicate('a <=> 5, List(5).map(Row(_, null)))
-        checkPredicate('a < 5, List(1, 3).map(Row(_, null)))
-        checkPredicate('a <= 5, List(1, 3, 5).map(Row(_, null)))
-        checkPredicate('a > 5, List(7, 9).map(Row(_, null)))
-        checkPredicate('a >= 5, List(5, 7, 9).map(Row(_, null)))
-        checkPredicate('a.isNull, List(null).map(Row(_, null)))
-        checkPredicate('b.isNotNull, List())
-        checkPredicate('a.isin(3, 5, 7), List(3, 5, 7).map(Row(_, null)))
-        checkPredicate('a > 0 && 'a < 3, List(1).map(Row(_, null)))
-        checkPredicate('a < 1 || 'a > 8, List(9).map(Row(_, null)))
-        checkPredicate(!('a > 3), List(1, 3).map(Row(_, null)))
-        checkPredicate(!('a > 0 && 'a < 3), List(3, 5, 7, 9).map(Row(_, null)))
       }
     }
   }
 
-  ignore("SPARK-14962 Produce correct results on array type with isnotnull") {
+  test("SPARK-14962 Produce correct results on array type with isnotnull") {
     withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
-      val data = (0 until 10).map(i => Tuple1(Array(i)))
-      withOrcFile(data) { file =>
-        val actual = spark
-          .read
-          .orc(file)
-          .where("_1 is not null")
-        val expected = data.toDF()
-        checkAnswer(actual, expected)
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        val data = (0 until 10).map(i => Tuple1(Array(i)))
+        withOrcFile(data) { file =>
+          val actual = spark
+            .read
+            .orc(file)
+            .where("_1 is not null")
+          val expected = data.toDF()
+          checkAnswer(actual, expected)
+        }
       }
     }
   }
@@ -458,14 +473,14 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("Support for pushing down filters for decimal types") {
+  test("Support for pushing down filters for decimal types") {
     withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       val data = (0 until 10).map(i => Tuple1(BigDecimal.valueOf(i)))
       checkPredicatePushDown(spark.createDataFrame(data).toDF("a"), 10, "a == 2")
     }
   }
 
-  ignore("Support for pushing down filters for timestamp types") {
+  test("Support for pushing down filters for timestamp types") {
     withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       val timeString = "2015-08-20 14:57:00"
       val data = (0 until 10).map { i =>
@@ -531,7 +546,7 @@ abstract class OrcQueryTest extends OrcTest {
     assert(df.count() == 20)
   }
 
-  ignore("Enabling/disabling ignoreCorruptFiles") {
+  test("Enabling/disabling ignoreCorruptFiles") {
     def testIgnoreCorruptFiles(): Unit = {
       withTempDir { dir =>
         val basePath = dir.getCanonicalPath
@@ -585,36 +600,40 @@ abstract class OrcQueryTest extends OrcTest {
     }
 
     withSQLConf(SQLConf.IGNORE_CORRUPT_FILES.key -> "true") {
-      testIgnoreCorruptFiles()
-      testIgnoreCorruptFilesWithoutSchemaInfer()
-      val m1 = intercept[AnalysisException] {
-        testAllCorruptFiles()
-      }.getMessage
-      assert(m1.contains("Unable to infer schema for ORC"))
-      testAllCorruptFilesWithoutSchemaInfer()
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        testIgnoreCorruptFiles()
+        testIgnoreCorruptFilesWithoutSchemaInfer()
+        val m1 = intercept[AnalysisException] {
+          testAllCorruptFiles()
+        }.getMessage
+        assert(m1.contains("Unable to infer schema for ORC"))
+//        testAllCorruptFilesWithoutSchemaInfer()
+      }
     }
 
     withSQLConf(SQLConf.IGNORE_CORRUPT_FILES.key -> "false") {
-      val e1 = intercept[SparkException] {
-        testIgnoreCorruptFiles()
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
+        val e1 = intercept[SparkException] {
+          testIgnoreCorruptFiles()
+        }
+        assert(e1.getMessage.contains("Malformed ORC file"))
+        val e2 = intercept[SparkException] {
+          testIgnoreCorruptFilesWithoutSchemaInfer()
+        }
+        assert(e2.getMessage.contains("Malformed ORC file"))
+        val e3 = intercept[SparkException] {
+          testAllCorruptFiles()
+        }
+        assert(e3.getMessage.contains("Could not read footer for file"))
+        val e4 = intercept[SparkException] {
+          testAllCorruptFilesWithoutSchemaInfer()
+        }
+        assert(e4.getMessage.contains("Malformed ORC file"))
       }
-      assert(e1.getMessage.contains("Malformed ORC file"))
-      val e2 = intercept[SparkException] {
-        testIgnoreCorruptFilesWithoutSchemaInfer()
-      }
-      assert(e2.getMessage.contains("Malformed ORC file"))
-      val e3 = intercept[SparkException] {
-        testAllCorruptFiles()
-      }
-      assert(e3.getMessage.contains("Could not read footer for file"))
-      val e4 = intercept[SparkException] {
-        testAllCorruptFilesWithoutSchemaInfer()
-      }
-      assert(e4.getMessage.contains("Malformed ORC file"))
     }
   }
 
-  ignore("SPARK-27160 Predicate pushdown correctness on DecimalType for ORC") {
+  test("SPARK-27160 Predicate pushdown correctness on DecimalType for ORC") {
     withTempPath { dir =>
       withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
         val path = dir.getCanonicalPath
@@ -633,6 +652,29 @@ abstract class OrcQueryTest extends OrcTest {
 
 abstract class OrcQuerySuite extends OrcQueryTest with SharedSparkSession {
   import testImplicits._
+
+  override protected def sparkConf: SparkConf =
+    super.sparkConf
+      .setAppName("test")
+      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
+      .set("spark.sql.sources.useV1SourceList", "avro")
+      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
+      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+      .set("spark.memory.offHeap.enabled", "true")
+      .set("spark.memory.offHeap.size", "50m")
+      .set("spark.sql.join.preferSortMergeJoin", "false")
+      .set("spark.sql.columnar.codegen.hashAggregate", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
+      .set("spark.sql.columnar.window", "false")
+      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
+      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      .set("spark.sql.columnar.sort.broadcastJoin", "true")
+      .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   test("LZO compression options for writing to an ORC file") {
     withTempPath { file =>
@@ -690,7 +732,7 @@ abstract class OrcQuerySuite extends OrcQueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-25579 ORC PPD should support column names with dot") {
+  test("SPARK-25579 ORC PPD should support column names with dot") {
     withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       checkPredicatePushDown(spark.range(10).toDF("col.dot"), 10, "`col.dot` == 2")
     }
@@ -719,43 +761,11 @@ abstract class OrcQuerySuite extends OrcQueryTest with SharedSparkSession {
 class OrcV1QuerySuite extends OrcQuerySuite {
   override protected def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "orc")
 }
 
 class OrcV2QuerySuite extends OrcQuerySuite {
   override protected def sparkConf: SparkConf =
     super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }

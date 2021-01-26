@@ -148,11 +148,11 @@ private[sql] trait ParquetTest extends FileBasedDataSourceTest {
   }
 
   protected def testStandardAndLegacyModes(testName: String)(f: => Unit): Unit = {
-    ignore(s"Standard mode - $testName") {
+    test(s"Standard mode - $testName") {
       withSQLConf(SQLConf.PARQUET_WRITE_LEGACY_FORMAT.key -> "false") { f }
     }
 
-    ignore(s"Legacy mode - $testName") {
+    test(s"Legacy mode - $testName") {
       withSQLConf(SQLConf.PARQUET_WRITE_LEGACY_FORMAT.key -> "true") { f }
     }
   }

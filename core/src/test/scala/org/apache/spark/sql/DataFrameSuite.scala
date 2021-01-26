@@ -70,6 +70,10 @@ class DataFrameSuite extends QueryTest
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   test("analysis error should be eagerly reported") {
     intercept[Exception] { testData.select("nonExistentName") }
@@ -90,7 +94,7 @@ class DataFrameSuite extends QueryTest
     assert($"test".toString === "test")
   }
 
-  ignore("rename nested groupby") {
+  test("rename nested groupby") {
     val df = Seq((1, (1, 1))).toDF()
 
     checkAnswer(
@@ -98,7 +102,7 @@ class DataFrameSuite extends QueryTest
       Row(1, 1) :: Nil)
   }
 
-  ignore("access complex data") {
+  test("access complex data") {
     assert(complexData.filter(complexData("a").getItem(0) === 2).count() == 1)
     assert(complexData.filter(complexData("m").getItem("1") === 1).count() == 1)
     assert(complexData.filter(complexData("s").getField("key") === 1).count() == 1)
@@ -171,7 +175,7 @@ class DataFrameSuite extends QueryTest
     assert(structDf.select(array($"record.*").as("a")).first().getAs[Seq[Int]](0) === Seq(1, 1))
   }
 
-  ignore("Star Expansion - hash") {
+  test("Star Expansion - hash") {
     val structDf = testData2.select("a", "b").as("record")
     checkAnswer(
       structDf.groupBy($"a", $"b").agg(min(hash($"a", $"*"))),
@@ -190,7 +194,7 @@ class DataFrameSuite extends QueryTest
       structDf.select(hash($"a", $"record.*")))
   }
 
-  ignore("Star Expansion - xxhash64") {
+  test("Star Expansion - xxhash64") {
     val structDf = testData2.select("a", "b").as("record")
     checkAnswer(
       structDf.groupBy($"a", $"b").agg(min(xxhash64($"a", $"*"))),
@@ -209,7 +213,7 @@ class DataFrameSuite extends QueryTest
       structDf.select(xxhash64($"a", $"record.*")))
   }
 
-  ignore("SPARK-28224: Aggregate sum big decimal overflow") {
+  test("SPARK-28224: Aggregate sum big decimal overflow") {
     val largeDecimals = spark.sparkContext.parallelize(
       DecimalData(BigDecimal("1"* 20 + ".123"), BigDecimal("1"* 20 + ".123")) ::
         DecimalData(BigDecimal("9"* 20 + ".123"), BigDecimal("9"* 20 + ".123")) :: Nil).toDF()
@@ -266,7 +270,7 @@ class DataFrameSuite extends QueryTest
       Row("1") :: Row("2") :: Row("4") :: Row("7") :: Row("8") :: Row("9") :: Nil)
   }
 
-  ignore("Star Expansion - explode alias and star") {
+  test("Star Expansion - explode alias and star") {
     val df = Seq((Array("a"), 1)).toDF("a", "b")
 
     checkAnswer(
@@ -274,7 +278,7 @@ class DataFrameSuite extends QueryTest
       Row("a", Seq("a"), 1) :: Nil)
   }
 
-  ignore("sort after generate with join=true") {
+  test("sort after generate with join=true") {
     val df = Seq((Array("a"), 1)).toDF("a", "b")
 
     checkAnswer(
@@ -282,7 +286,7 @@ class DataFrameSuite extends QueryTest
       Row(Seq("a"), 1, "a") :: Nil)
   }
 
-  ignore("selectExpr") {
+  test("selectExpr") {
     checkAnswer(
       testData.selectExpr("abs(key)", "value"),
       testData.collect().map(row => Row(math.abs(row.getInt(0)), row.getString(1))).toSeq)
@@ -294,7 +298,7 @@ class DataFrameSuite extends QueryTest
       testData.select("key").collect().toSeq)
   }
 
-  ignore("selectExpr with udtf") {
+  test("selectExpr with udtf") {
     val df = Seq((Map("1" -> 1), 1)).toDF("a", "b")
     checkAnswer(
       df.selectExpr("explode(a)"),
@@ -423,7 +427,7 @@ class DataFrameSuite extends QueryTest
       Row("1"))
   }
 
-  ignore("select with functions") {
+  test("select with functions") {
     checkAnswer(
       testData.select(sum("value"), avg("value"), count(lit(1))),
       Row(5050.0, 50.5, 100))
@@ -718,7 +722,7 @@ class DataFrameSuite extends QueryTest
     assert(df("id") == person("id"))
   }
 
-  ignore("drop top level columns that contains dot") {
+  test("drop top level columns that contains dot") {
     val df1 = Seq((1, 2)).toDF("a.b", "a.c")
     checkAnswer(df1.drop("a.b"), Row(2))
 
@@ -936,7 +940,7 @@ class DataFrameSuite extends QueryTest
     assert(testData.select($"*").getRows(0, 20) === expectedAnswer)
   }
 
-  ignore("getRows: array") {
+  test("getRows: array") {
     val df = Seq(
       (Array(1, 2, 3), Array(1, 2, 3)),
       (Array(2, 3, 4), Array(2, 3, 4))
@@ -1074,7 +1078,7 @@ class DataFrameSuite extends QueryTest
     assert(testData.select($"*").showString(0, vertical = true) === expectedAnswer)
   }
 
-  ignore("showString: array") {
+  test("showString: array") {
     val df = Seq(
       (Array(1, 2, 3), Array(1, 2, 3)),
       (Array(2, 3, 4), Array(2, 3, 4))
@@ -1089,7 +1093,7 @@ class DataFrameSuite extends QueryTest
     assert(df.showString(10) === expectedAnswer)
   }
 
-  ignore("showString: array, vertical = true") {
+  test("showString: array, vertical = true") {
     val df = Seq(
       (Array(1, 2, 3), Array(1, 2, 3)),
       (Array(2, 3, 4), Array(2, 3, 4))
@@ -1180,7 +1184,7 @@ class DataFrameSuite extends QueryTest
     assert(testData.select($"*").showString(1, vertical = true) === expectedAnswer)
   }
 
-  ignore("SPARK-23023 Cast rows to strings in showString") {
+  test("SPARK-23023 Cast rows to strings in showString") {
     val df1 = Seq(Seq(1, 2, 3, 4)).toDF("a")
     assert(df1.showString(10) ===
       s"""+------------+
@@ -1221,7 +1225,7 @@ class DataFrameSuite extends QueryTest
     assert(testData.select($"*").filter($"key" < 0).showString(1, vertical = true) === "(0 rows)\n")
   }
 
-  ignore("SPARK-18350 show with session local timezone") {
+  test("SPARK-18350 show with session local timezone") {
     val d = Date.valueOf("2016-12-01")
     val ts = Timestamp.valueOf("2016-12-01 00:00:00")
     val df = Seq((d, ts)).toDF("d", "ts")
@@ -1245,7 +1249,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-18350 show with session local timezone, vertical = true") {
+  test("SPARK-18350 show with session local timezone, vertical = true") {
     val d = Date.valueOf("2016-12-01")
     val ts = Timestamp.valueOf("2016-12-01 00:00:00")
     val df = Seq((d, ts)).toDF("d", "ts")
@@ -1270,11 +1274,11 @@ class DataFrameSuite extends QueryTest
     df.rdd.collect()
   }
 
-  ignore("SPARK-6899: type should match when using codegen") {
+  test("SPARK-6899: type should match when using codegen") {
     checkAnswer(decimalData.agg(avg("a")), Row(new java.math.BigDecimal(2)))
   }
 
-  ignore("SPARK-7133: Implement struct, array, and map field accessor") {
+  test("SPARK-7133: Implement struct, array, and map field accessor") {
     assert(complexData.filter(complexData("a")(0) === 2).count() == 1)
     assert(complexData.filter(complexData("m")("1") === 1).count() == 1)
     assert(complexData.filter(complexData("s")("key") === 1).count() == 1)
@@ -1310,7 +1314,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-7324 dropDuplicates") {
+  test("SPARK-7324 dropDuplicates") {
     val testData = sparkContext.parallelize(
       (2, 1, 2) :: (1, 1, 1) ::
       (1, 2, 1) :: (2, 1, 2) ::
@@ -1483,7 +1487,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(df.orderBy("a.b"), Row(Row(1)))
   }
 
-  ignore("SPARK-9950: correctly analyze grouping/aggregating on struct fields") {
+  test("SPARK-9950: correctly analyze grouping/aggregating on struct fields") {
     val df = Seq(("x", (1, 1)), ("y", (2, 2))).toDF("a", "b")
     checkAnswer(df.groupBy("b._1").agg(sum("b._2")), Row(1, 1) :: Row(2, 2) :: Nil)
   }
@@ -1497,7 +1501,7 @@ class DataFrameSuite extends QueryTest
       .collect()
   }
 
-  ignore("SPARK-10185: Read multiple Hadoop Filesystem paths and paths with a comma in it") {
+  test("SPARK-10185: Read multiple Hadoop Filesystem paths and paths with a comma in it") {
     withTempDir { dir =>
       val df1 = Seq((1, 22)).toDF("a", "b")
       val dir1 = new File(dir, "dir,1").getCanonicalPath
@@ -1671,7 +1675,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("fix case sensitivity of partition by") {
+  test("fix case sensitivity of partition by") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "false") {
       withTempPath { path =>
         val p = path.getAbsolutePath
@@ -1882,7 +1886,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(df.distinct(), Row(1) :: Row(2) :: Nil)
   }
 
-  ignore("SPARK-16181: outer join with isNull filter") {
+  test("SPARK-16181: outer join with isNull filter") {
     val left = Seq("x").toDF("col")
     val right = Seq("y").toDF("col").withColumn("new", lit(true))
     val joined = left.join(right, left("col") === right("col"), "left_outer")
@@ -1957,7 +1961,7 @@ class DataFrameSuite extends QueryTest
       expectedNonNullableColumns = Seq.empty[String])
   }
 
-  ignore("SPARK-17957: set nullability to false in FilterExec output") {
+  test("SPARK-17957: set nullability to false in FilterExec output") {
     val df = sparkContext.parallelize(Seq(
       null.asInstanceOf[java.lang.Integer] -> java.lang.Integer.valueOf(3),
       java.lang.Integer.valueOf(1) -> null.asInstanceOf[java.lang.Integer],
@@ -1981,13 +1985,13 @@ class DataFrameSuite extends QueryTest
       expr = "cast((_1 + _2) as boolean)", expectedNonNullableColumns = Seq("_1", "_2"))
   }
 
-  ignore("SPARK-17897: Fixed IsNotNull Constraint Inference Rule") {
+  test("SPARK-17897: Fixed IsNotNull Constraint Inference Rule") {
     val data = Seq[java.lang.Integer](1, null).toDF("key")
     checkAnswer(data.filter(!$"key".isNotNull), Row(null))
     checkAnswer(data.filter(!(- $"key").isNotNull), Row(null))
   }
 
-  ignore("SPARK-17957: outer join + na.fill") {
+  test("SPARK-17957: outer join + na.fill") {
     withSQLConf(SQLConf.SUPPORT_QUOTED_REGEX_COLUMN_NAME.key -> "false") {
       val df1 = Seq((1, 2), (2, 3)).toDF("a", "b")
       val df2 = Seq((2, 5), (3, 4)).toDF("a", "c")
@@ -1997,7 +2001,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-18070 binary operator should not consider nullability when comparing input types") {
+  test("SPARK-18070 binary operator should not consider nullability when comparing input types") {
     val rows = Seq(Row(Seq(1), Seq(1)))
     val schema = new StructType()
       .add("array1", ArrayType(IntegerType))
@@ -2006,7 +2010,7 @@ class DataFrameSuite extends QueryTest
     assert(df.filter($"array1" === $"array2").count() == 1)
   }
 
-  ignore("SPARK-17913: compare long and string type column may return confusing result") {
+  test("SPARK-17913: compare long and string type column may return confusing result") {
     val df = Seq(123L -> "123", 19157170390056973L -> "19157170390056971").toDF("i", "j")
     checkAnswer(df.select($"i" === $"j"), Row(true) :: Row(false) :: Nil)
   }
@@ -2016,7 +2020,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(df, Row(BigDecimal(0)) :: Nil)
   }
 
-  ignore("SPARK-20359: catalyst outer join optimization should not throw npe") {
+  test("SPARK-20359: catalyst outer join optimization should not throw npe") {
     val df1 = Seq("a", "b", "c").toDF("x")
       .withColumn("y", udf{ (x: String) => x.substring(0, 1) + "!" }.apply($"x"))
     val df2 = Seq("a", "b").toDF("x1")
@@ -2147,7 +2151,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(df, df.collect())
   }
 
-  ignore("SPARK-24313: access map with binary keys") {
+  test("SPARK-24313: access map with binary keys") {
     val mapWithBinaryKey = map(lit(Array[Byte](1.toByte)), lit(1))
     checkAnswer(spark.range(1).select(mapWithBinaryKey.getItem(Array[Byte](1.toByte))), Row(1))
   }
@@ -2163,7 +2167,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(sort1, sort2.collect())
   }
 
-  ignore("SPARK-24781: Using a reference not in aggregation in Filter/Sort") {
+  test("SPARK-24781: Using a reference not in aggregation in Filter/Sort") {
      withSQLConf(SQLConf.DATAFRAME_RETAIN_GROUP_COLUMNS.key -> "false") {
       val df = Seq(("test1", 0), ("test2", 1)).toDF("name", "id")
 
@@ -2220,14 +2224,14 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-25816 ResolveReferences works with nested extractors") {
+  test("SPARK-25816 ResolveReferences works with nested extractors") {
     val df = Seq((1, Map(1 -> "a")), (2, Map(2 -> "b"))).toDF("key", "map")
     val swappedDf = df.select($"key".as("map"), $"map".as("key"))
 
     checkAnswer(swappedDf.filter($"key"($"map") > "a"), Row(2, Map(2 -> "b")))
   }
 
-  ignore("SPARK-26057: attribute deduplication on already analyzed plans") {
+  test("SPARK-26057: attribute deduplication on already analyzed plans") {
     withTempView("a", "b", "v") {
       val df1 = Seq(("1-1", 6)).toDF("id", "n")
       df1.createOrReplaceTempView("a")
@@ -2252,7 +2256,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-27671: Fix analysis exception when casting null in nested field in struct") {
+  test("SPARK-27671: Fix analysis exception when casting null in nested field in struct") {
     val df = sql("SELECT * FROM VALUES (('a', (10, null))), (('b', (10, 50))), " +
       "(('c', null)) AS tab(x, y)")
     checkAnswer(df, Row("a", Row(10, null)) :: Row("b", Row(10, 50)) :: Row("c", null) :: Nil)
@@ -2293,7 +2297,7 @@ class DataFrameSuite extends QueryTest
     assert(SaveMode.ErrorIfExists === modeField.get(writer).asInstanceOf[SaveMode])
   }
 
-  ignore("sample should not duplicated the input data") {
+  test("sample should not duplicated the input data") {
     val df1 = spark.range(10).select($"id" as "id1", $"id" % 5 as "key1")
     val df2 = spark.range(10).select($"id" as "id2", $"id" % 5 as "key2")
     val sampled = df1.join(df2, $"key1" === $"key2")
@@ -2378,7 +2382,7 @@ class DataFrameSuite extends QueryTest
     assert(e.getMessage.contains("Table or view not found:"))
   }
 
-  ignore("CalendarInterval reflection support") {
+  test("CalendarInterval reflection support") {
     val df = Seq((1, new CalendarInterval(1, 2, 3))).toDF("a", "b")
     checkAnswer(df.selectExpr("b"), Row(new CalendarInterval(1, 2, 3)))
   }
@@ -2457,7 +2461,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(Seq(nestedDecArray).toDF(), Row(Array(wrapRefArray(decJava))))
   }
 
-  ignore("SPARK-31750: eliminate UpCast if child's dataType is DecimalType") {
+  test("SPARK-31750: eliminate UpCast if child's dataType is DecimalType") {
     withTempPath { f =>
       sql("select cast(1 as decimal(38, 0)) as d")
         .write.mode("overwrite")

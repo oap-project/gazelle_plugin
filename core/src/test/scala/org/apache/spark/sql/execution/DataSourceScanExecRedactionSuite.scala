@@ -90,6 +90,7 @@ class DataSourceScanExecRedactionSuite extends DataSourceScanRedactionTest {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST.key, "orc")
 
   override protected def getRootPath(df: DataFrame): Path =
@@ -159,6 +160,7 @@ class DataSourceV2ScanExecRedactionSuite extends DataSourceScanRedactionTest {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set(SQLConf.USE_V1_SOURCE_LIST.key, "")
 
   override protected def getRootPath(df: DataFrame): Path =
@@ -206,7 +208,7 @@ class DataSourceV2ScanExecRedactionSuite extends DataSourceScanRedactionTest {
     }
   }
 
-  ignore("SPARK-30362: test input metrics for DSV2") {
+  test("SPARK-30362: test input metrics for DSV2") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "") {
       Seq("json", "orc", "parquet").foreach { format =>
         withTempPath { path =>

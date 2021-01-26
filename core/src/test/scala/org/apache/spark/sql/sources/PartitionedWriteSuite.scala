@@ -63,8 +63,9 @@ class PartitionedWriteSuite extends QueryTest with SharedSparkSession {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
-  ignore("write many partitions") {
+  test("write many partitions") {
     val path = Utils.createTempDir()
     path.delete()
 
@@ -78,7 +79,7 @@ class PartitionedWriteSuite extends QueryTest with SharedSparkSession {
     Utils.deleteRecursively(path)
   }
 
-  ignore("write many partitions with repeats") {
+  test("write many partitions with repeats") {
     val path = Utils.createTempDir()
     path.delete()
 
@@ -141,7 +142,7 @@ class PartitionedWriteSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("timeZone setting in dynamic partition writes") {
+  test("timeZone setting in dynamic partition writes") {
     def checkPartitionValues(file: File, expected: String): Unit = {
       val dir = file.getParentFile()
       val value = ExternalCatalogUtils.unescapePathName(

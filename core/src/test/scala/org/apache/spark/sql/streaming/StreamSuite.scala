@@ -70,6 +70,7 @@ class StreamSuite extends StreamTest {
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
       .set("spark.redaction.string.regex", "file:/[\\w_]+")
 
   test("map with recovery") {
@@ -86,7 +87,7 @@ class StreamSuite extends StreamTest {
       CheckAnswer(2, 3, 4, 5, 6, 7))
   }
 
-  ignore("join") {
+  test("join") {
     // Make a table and ensure it will be broadcast.
     val smallTable = Seq((1, "one"), (2, "two"), (4, "four")).toDF("number", "word")
 
@@ -173,7 +174,7 @@ class StreamSuite extends StreamTest {
     }
   }
 
-  ignore("SPARK-20432: union one stream with itself") {
+  test("SPARK-20432: union one stream with itself") {
     val df = spark.readStream.format(classOf[FakeDefaultSource].getName).load().select("a")
     val unioned = df.union(df)
     withTempDir { outputDir =>
@@ -212,7 +213,7 @@ class StreamSuite extends StreamTest {
       CheckAnswer(1, 2, 3, 4, 5, 6, 7, 8))
   }
 
-  ignore("sql queries") {
+  test("sql queries") {
     withTempView("stream") {
       val inputData = MemoryStream[Int]
       inputData.toDF().createOrReplaceTempView("stream")
@@ -224,7 +225,7 @@ class StreamSuite extends StreamTest {
     }
   }
 
-  ignore("DataFrame reuse") {
+  test("DataFrame reuse") {
     def assertDF(df: DataFrame): Unit = {
       withTempDir { outputDir =>
         withTempDir { checkpointDir =>
@@ -542,7 +543,7 @@ class StreamSuite extends StreamTest {
     }
   }
 
-  ignore("explain-continuous") {
+  test("explain-continuous") {
     val inputData = ContinuousMemoryStream[Int]
     val df = inputData.toDS().map(_ * 2).filter(_ > 5)
 
@@ -593,7 +594,7 @@ class StreamSuite extends StreamTest {
     }
   }
 
-  ignore("codegen-microbatch") {
+  test("codegen-microbatch") {
     val inputData = MemoryStream[Int]
     val df = inputData.toDS().map(_ * 2).filter(_ > 5)
 
@@ -618,7 +619,7 @@ class StreamSuite extends StreamTest {
     }
   }
 
-  ignore("codegen-continuous") {
+  test("codegen-continuous") {
     val inputData = ContinuousMemoryStream[Int]
     val df = inputData.toDS().map(_ * 2).filter(_ > 5)
 
@@ -736,7 +737,7 @@ class StreamSuite extends StreamTest {
       CheckAnswer((1, 2), (2, 2), (3, 2)))
   }
 
-  ignore("recover from a Spark v2.1 checkpoint") {
+  test("recover from a Spark v2.1 checkpoint") {
     var inputData: MemoryStream[Int] = null
     var query: DataStreamWriter[Row] = null
 
@@ -971,7 +972,7 @@ class StreamSuite extends StreamTest {
       CheckAnswer(1 to 4: _*))
   }
 
-  ignore("streaming limit with other operators") {
+  test("streaming limit with other operators") {
     val inputData = MemoryStream[Int]
     testStream(inputData.toDF().where("value % 2 = 1").limit(4))(
       AddData(inputData, 1 to 5: _*),
@@ -1082,7 +1083,7 @@ class StreamSuite extends StreamTest {
         false))
   }
 
-  ignore("SPARK-30657: streaming limit should not apply on limits on state subplans") {
+  test("SPARK-30657: streaming limit should not apply on limits on state subplans") {
     val streanData = MemoryStream[Int]
     val streamingDF = streanData.toDF().toDF("value")
     val staticDF = spark.createDataset(Seq(1)).toDF("value").orderBy("value")
@@ -1093,7 +1094,7 @@ class StreamSuite extends StreamTest {
       CheckAnswer(Row(1), Row(1)))
   }
 
-  ignore("SPARK-30657: streaming limit optimization from StreamingLocalLimitExec to LocalLimitExec") {
+  test("SPARK-30657: streaming limit optimization from StreamingLocalLimitExec to LocalLimitExec") {
     val inputData = MemoryStream[Int]
     val inputDF = inputData.toDF()
 

@@ -44,6 +44,7 @@ class DataSourceV2SQLSessionCatalogSuite
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
 
   override protected val catalogAndNamespace = ""
 

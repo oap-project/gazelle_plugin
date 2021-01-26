@@ -92,31 +92,31 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     plan
   }
 
-  ignore("unsafe broadcast hash join updates peak execution memory") {
+  test("unsafe broadcast hash join updates peak execution memory") {
     testBroadcastJoinPeak[BroadcastHashJoinExec]("unsafe broadcast hash join", "inner")
   }
 
-  ignore("unsafe broadcast hash outer join updates peak execution memory") {
+  test("unsafe broadcast hash outer join updates peak execution memory") {
     testBroadcastJoinPeak[BroadcastHashJoinExec]("unsafe broadcast hash outer join", "left_outer")
   }
 
-  ignore("unsafe broadcast left semi join updates peak execution memory") {
+  test("unsafe broadcast left semi join updates peak execution memory") {
     testBroadcastJoinPeak[BroadcastHashJoinExec]("unsafe broadcast left semi join", "leftsemi")
   }
 
-  ignore("broadcast hint isn't bothered by authBroadcastJoinThreshold set to low values") {
+  test("broadcast hint isn't bothered by authBroadcastJoinThreshold set to low values") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "0") {
       testBroadcastJoin[BroadcastHashJoinExec]("inner", true)
     }
   }
 
-  ignore("broadcast hint isn't bothered by a disabled authBroadcastJoinThreshold") {
+  test("broadcast hint isn't bothered by a disabled authBroadcastJoinThreshold") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       testBroadcastJoin[BroadcastHashJoinExec]("inner", true)
     }
   }
 
-  ignore("SPARK-23192: broadcast hint should be retained after using the cached data") {
+  test("SPARK-23192: broadcast hint should be retained after using the cached data") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       try {
         val df1 = Seq((1, "4"), (2, "2")).toDF("key", "value")
@@ -133,7 +133,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("SPARK-23214: cached data should not carry extra hint info") {
+  test("SPARK-23214: cached data should not carry extra hint info") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       try {
         val df1 = Seq((1, "4"), (2, "2")).toDF("key", "value")
@@ -158,7 +158,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("broadcast hint isn't propagated after a join") {
+  test("broadcast hint isn't propagated after a join") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       val df1 = Seq((1, "4"), (2, "2")).toDF("key", "value")
       val df2 = Seq((1, "1"), (2, "2")).toDF("key", "value")
@@ -183,7 +183,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     assert(plan.collect { case p: BroadcastHashJoinExec => p }.size === 1)
   }
 
-  ignore("broadcast hint programming API") {
+  test("broadcast hint programming API") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       val df2 = Seq((1, "1"), (2, "2"), (3, "2")).toDF("key", "value")
       val broadcasted = broadcast(df2)
@@ -204,7 +204,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("broadcast hint in SQL") {
+  test("broadcast hint in SQL") {
     import org.apache.spark.sql.catalyst.plans.logical.Join
     withTempView("t", "u") {
       spark.range(10).createOrReplaceTempView("t")
@@ -228,7 +228,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("join key rewritten") {
+  test("join key rewritten") {
     val l = Literal(1L)
     val i = Literal(2)
     val s = Literal.create(3.toShort, ShortType)
@@ -273,7 +273,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     assert(HashJoin.rewriteKeyExpr(i :: ss :: Nil) === i :: ss :: Nil)
   }
 
-  ignore("Shouldn't change broadcast join buildSide if user clearly specified") {
+  test("Shouldn't change broadcast join buildSide if user clearly specified") {
     withTempView("t1", "t2") {
       Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
       Seq((1, "1"), (2, "12.3"), (2, "123")).toDF("key", "value").createTempView("t2")
@@ -332,7 +332,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("Shouldn't bias towards build right if user didn't specify") {
+  test("Shouldn't bias towards build right if user didn't specify") {
 
     withTempView("t1", "t2") {
       Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
@@ -400,7 +400,7 @@ abstract class BroadcastJoinSuiteBase extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("Broadcast timeout") {
+  test("Broadcast timeout") {
     val timeout = 5
     val slowUDF = udf({ x: Int => Thread.sleep(timeout * 10 * 1000); x })
     val df1 = spark.range(10).select($"id" as 'a)

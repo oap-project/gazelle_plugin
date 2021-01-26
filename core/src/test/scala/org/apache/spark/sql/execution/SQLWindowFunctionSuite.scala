@@ -464,7 +464,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
       Row(2, 2))
   }
 
-  ignore("lead/lag should respect null values") {
+  test("lead/lag should respect null values") {
     checkAnswer(sql(
       """
         |SELECT

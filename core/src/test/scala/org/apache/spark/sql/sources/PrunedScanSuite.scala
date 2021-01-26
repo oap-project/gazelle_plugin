@@ -141,7 +141,7 @@ class PrunedScanSuite extends DataSourceTest with SharedSparkSession {
   testPruning("SELECT a, rand() FROM oneToTenPruned WHERE b > 5", "a", "b")
 
   def testPruning(sqlString: String, expectedColumns: String*): Unit = {
-    ignore(s"Columns output ${expectedColumns.mkString(",")}: $sqlString") {
+    test(s"Columns output ${expectedColumns.mkString(",")}: $sqlString") {
 
       // These tests check a particular plan, disable whole stage codegen.
       spark.conf.set(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key, false)

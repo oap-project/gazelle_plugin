@@ -21,6 +21,8 @@ import java.io.{File, FileNotFoundException}
 import java.nio.file.{Files, StandardOpenOption}
 import java.util.Locale
 
+import com.intel.oap.execution.ColumnarBroadcastHashJoinExec
+
 import scala.collection.mutable
 import org.apache.hadoop.fs.Path
 import org.apache.spark.{SparkConf, SparkException}
@@ -63,6 +65,10 @@ class FileBasedDataSourceSuite extends QueryTest
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.sql.parquet.enableVectorizedReader", "false")
+      .set("spark.sql.orc.enableVectorizedReader", "false")
+      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -90,7 +96,7 @@ class FileBasedDataSourceSuite extends QueryTest
 
   // `TEXT` data source always has a single column whose name is `value`.
   allFileBasedDataSources.filterNot(_ == "text").foreach { format =>
-    ignore(s"SPARK-23072 Write and read back unicode column names - $format") {
+    test(s"SPARK-23072 Write and read back unicode column names - $format") {
       withTempPath { path =>
         val dir = path.getCanonicalPath
 
@@ -110,7 +116,8 @@ class FileBasedDataSourceSuite extends QueryTest
   // Only ORC/Parquet support this. `CSV` and `JSON` returns an empty schema.
   // `TEXT` data source always has a single column whose name is `value`.
   Seq("orc", "parquet").foreach { format =>
-    ignore(s"SPARK-15474 Write and read back non-empty schema with empty dataframe - $format") {
+    // ignored in maven test
+    test(s"SPARK-15474 Write and read back non-empty schema with empty dataframe - $format") {
       withTempPath { file =>
         val path = file.getCanonicalPath
         val emptyDf = Seq((true, 1, "str")).toDF().limit(0)
@@ -124,7 +131,8 @@ class FileBasedDataSourceSuite extends QueryTest
   }
 
   Seq("orc", "parquet").foreach { format =>
-    ignore(s"SPARK-23271 empty RDD when saved should write a metadata only file - $format") {
+    // ignored in maven test
+    test(s"SPARK-23271 empty RDD when saved should write a metadata only file - $format") {
       withTempPath { outputPath =>
         val df = spark.emptyDataFrame.select(lit(1).as("i"))
         df.write.format(format).save(outputPath.toString)
@@ -168,7 +176,7 @@ class FileBasedDataSourceSuite extends QueryTest
   }
 
   allFileBasedDataSources.foreach { format =>
-    ignore(s"SPARK-22146 read files containing special characters using $format") {
+    test(s"SPARK-22146 read files containing special characters using $format") {
       withTempDir { dir =>
         val tmpFile = s"$dir/$nameWithSpecialChars"
         spark.createDataset(Seq("a", "b")).write.format(format).save(tmpFile)
@@ -180,7 +188,7 @@ class FileBasedDataSourceSuite extends QueryTest
 
   // Separate test case for formats that support multiLine as an option.
   Seq("json", "csv").foreach { format =>
-    ignore("SPARK-23148 read files containing special characters " +
+    test("SPARK-23148 read files containing special characters " +
       s"using $format with multiline enabled") {
       withTempDir { dir =>
         val tmpFile = s"$dir/$nameWithSpecialChars"
@@ -193,7 +201,7 @@ class FileBasedDataSourceSuite extends QueryTest
   }
 
   allFileBasedDataSources.foreach { format =>
-    ignore(s"Enabling/disabling ignoreMissingFiles using $format") {
+    test(s"Enabling/disabling ignoreMissingFiles using $format") {
       def testIgnoreMissingFiles(): Unit = {
         withTempDir { dir =>
           val basePath = dir.getCanonicalPath
@@ -464,7 +472,7 @@ class FileBasedDataSourceSuite extends QueryTest
   }
 
   Seq("parquet", "orc").foreach { format =>
-    ignore(s"Spark native readers should respect spark.sql.caseSensitive - ${format}") {
+    test(s"Spark native readers should respect spark.sql.caseSensitive - ${format}") {
       withTempDir { dir =>
         val tableName = s"spark_25132_${format}_native"
         val tableDir = dir.getCanonicalPath + s"/$tableName"
@@ -507,7 +515,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-25237 compute correct input metrics in FileScanRDD") {
+  test("SPARK-25237 compute correct input metrics in FileScanRDD") {
     // TODO: Test CSV V2 as well after it implements [[SupportsReportStatistics]].
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "csv") {
       withTempPath { p =>
@@ -563,7 +571,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  test("UDF input_file_name()") {
+  ignore("UDF input_file_name()") {
     Seq("", "orc").foreach { useV1SourceReaderList =>
       withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> useV1SourceReaderList) {
         withTempPath { dir =>
@@ -576,7 +584,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("Option pathGlobFilter: filter files correctly") {
+  test("Option pathGlobFilter: filter files correctly") {
     withTempPath { path =>
       val dataDir = path.getCanonicalPath
       Seq("foo").toDS().write.text(dataDir)
@@ -593,7 +601,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("Option pathGlobFilter: simple extension filtering should contains partition info") {
+  test("Option pathGlobFilter: simple extension filtering should contains partition info") {
     withTempPath { path =>
       val input = Seq(("foo", 1), ("oof", 2)).toDF("a", "b")
       input.write.partitionBy("b").text(path.getCanonicalPath)
@@ -658,7 +666,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("Option recursiveFileLookup: disable partition inferring") {
+  test("Option recursiveFileLookup: disable partition inferring") {
     val dataPath = Thread.currentThread().getContextClassLoader
       .getResource("test-data/text-partitioned").toString
 
@@ -677,7 +685,7 @@ class FileBasedDataSourceSuite extends QueryTest
     assert(fileList.toSet === expectedFileList.toSet)
   }
 
-  ignore("Return correct results when data columns overlap with partition columns") {
+  test("Return correct results when data columns overlap with partition columns") {
     Seq("parquet", "orc", "json").foreach { format =>
       withTempPath { path =>
         val tablePath = new File(s"${path.getCanonicalPath}/cOl3=c/cOl1=a/cOl5=e")
@@ -691,7 +699,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("Return correct results when data columns overlap with partition columns (nested data)") {
+  test("Return correct results when data columns overlap with partition columns (nested data)") {
     Seq("parquet", "orc", "json").foreach { format =>
       withSQLConf(SQLConf.NESTED_SCHEMA_PRUNING_ENABLED.key -> "true") {
         withTempPath { path =>
@@ -721,7 +729,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-22790,SPARK-27668: spark.sql.sources.compressionFactor takes effect") {
+  test("SPARK-22790,SPARK-27668: spark.sql.sources.compressionFactor takes effect") {
     Seq(1.0, 0.5).foreach { compressionFactor =>
       withSQLConf(SQLConf.FILE_COMPRESSION_FACTOR.key -> compressionFactor.toString,
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "250") {
@@ -737,7 +745,7 @@ class FileBasedDataSourceSuite extends QueryTest
           val joinedDF = df1FromFile.join(df2FromFile, Seq("count"))
           if (compressionFactor == 0.5) {
             val bJoinExec = collect(joinedDF.queryExecution.executedPlan) {
-              case bJoin: BroadcastHashJoinExec => bJoin
+              case bJoin: ColumnarBroadcastHashJoinExec => bJoin
             }
             assert(bJoinExec.nonEmpty)
             val smJoinExec = collect(joinedDF.queryExecution.executedPlan) {
@@ -760,7 +768,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("File source v2: support partition pruning") {
+  test("File source v2: support partition pruning") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "") {
       allFileBasedDataSources.foreach { format =>
         withTempPath { dir =>
@@ -804,7 +812,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("File source v2: support passing data filters to FileScan without partitionFilters") {
+  test("File source v2: support passing data filters to FileScan without partitionFilters") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "") {
       allFileBasedDataSources.foreach { format =>
         withTempPath { dir =>
@@ -839,7 +847,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("File table location should include both values of option `path` and `paths`") {
+  test("File table location should include both values of option `path` and `paths`") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "") {
       withTempPaths(3) { paths =>
         paths.zipWithIndex.foreach { case (path, index) =>
@@ -860,7 +868,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-31116: Select nested schema with case insensitive mode") {
+  test("SPARK-31116: Select nested schema with case insensitive mode") {
     // This test case failed at only Parquet. ORC is added for test coverage parity.
     Seq("orc", "parquet").foreach { format =>
       Seq("true", "false").foreach { nestedSchemaPruningEnabled =>

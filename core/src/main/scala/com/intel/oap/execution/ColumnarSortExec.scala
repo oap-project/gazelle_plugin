@@ -86,6 +86,25 @@ case class ColumnarSortExec(
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
 
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    // check types
+    for (attr <- output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarSorter.")
+      }
+    }
+    // check expr
+    sortOrder.toList.map(expr => {
+      ColumnarExpressionConverter.replaceWithColumnarExpression(expr.child)
+    })
+  }
+
   /*****************  WSCG related function ******************/
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = child match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
