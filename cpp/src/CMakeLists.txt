@@ -13,6 +13,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_BUILD_TYPE  "Release")
 
+set(ARROW_ROOT "/usr/local")
+
+option(BUILD_ARROW "Build Arrow from Source" ON)
+option(STATIC_ARROW "Build Arrow with Static Libraries" OFF)
+option(BUILD_PROTOBUF "Build Protobuf from Source" ON)
 option(USE_AVX512 "Build with AVX-512 optimizations" OFF)
 option(TESTS "Build the tests" OFF)
 option(BENCHMARKS "Build the benchmarks" OFF)
@@ -26,15 +31,6 @@ find_package(JNI REQUIRED)
 set(source_root_directory ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Gandiva protobuf
-
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
-find_package(Protobuf)
-
-if ("${Protobuf_LIBRARY}" STREQUAL "Protobuf_LIBRARY-NOTFOUND")
-  message(WARNING "libprotobuf.so not found, will build from source")
-  set(BUILD_PROTOBUF true)
-endif()
-
 if(BUILD_PROTOBUF)
   message(STATUS "Building Protocol Buffers from source")
   set (PROTOBUF_SOURCE_URL
@@ -87,6 +83,9 @@ if(BUILD_PROTOBUF)
                "${PROTOBUF_INCLUDE_DIR}")
   add_dependencies(protobuf::libprotobuf protobuf_ep)
 else()
+  # Find the existing Protobuf
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
+  find_package(Protobuf)
   set(PROTOC_BIN ${Protobuf_PROTOC_EXECUTABLE})
 endif()
 
@@ -129,6 +128,234 @@ if(USE_AVX512)
   endif ()
 endif()
 
+# Build Arrow macro
+macro(build_arrow STATIC_ARROW)
+  set(ARROW_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep-install")
+  message(STATUS "ARROW_PREFIX: ${ARROW_PREFIX}")
+  set(ARROW_SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/arrow_ep")
+  message(STATUS "ARROW_SOURCE_DIR: ${ARROW_SOURCE_DIR}")
+  set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
+  set(BINARY_RELEASE_DIR "${root_directory}/releases")
+
+  # Load libarrow
+  set(ARROW_LIB_NAME arrow)
+
+  # Load libgandiva
+  set(GANDIVA_LIB_NAME gandiva)
+
+  # Load libparquet
+  set(PARQUET_LIB_NAME parquet)
+
+  # Set up arrow cmake args
+  set(MAKE_BUILD_ARGS
+      -DCMAKE_INSTALL_PREFIX:PATH=${ARROW_PREFIX}
+      -DARROW_BUILD_STATIC=ON
+      -DARROW_BUILD_SHARED=ON
+      -DARROW_DEPENDENCY_SOURCE=BUNDLED
+      -DARROW_COMPUTE=ON
+      -DARROW_GANDIVA_JAVA=ON
+      -DARROW_GANDIVA=ON
+      -DARROW_PARQUET=ON
+      -DARROW_HDFS=ON
+      -DARROW_BOOST_USE_SHARED=OFF
+      -DARROW_JNI=ON
+      -DARROW_DATASET=ON
+      -DARROW_WITH_PROTOBUF=ON
+      -DARROW_WITH_SNAPPY=ON
+      -DARROW_WITH_LZ4=ON
+      -DARROW_WITH_ZSTD=OFF
+      -DARROW_WITH_BROTLI=OFF
+      -DARROW_WITH_ZLIB=OFF
+      -DARROW_FILESYSTEM=ON
+      -DARROW_JSON=ON
+      -DARROW_FLIGHT=OFF
+  )
+  ExternalProject_Add(arrow_ep
+                      GIT_REPOSITORY https://github.com/Intel-bigdata/arrow.git
+                      SOURCE_DIR ${ARROW_SOURCE_DIR}
+                      GIT_TAG oap-master
+                      BUILD_IN_SOURCE 1
+                      INSTALL_DIR ${ARROW_PREFIX}
+                      INSTALL_COMMAND make install
+                      SOURCE_SUBDIR cpp
+                      CMAKE_ARGS ${MAKE_BUILD_ARGS}
+  )
+
+  ExternalProject_Add_Step(arrow_ep java_install
+                      COMMAND mvn clean install -P arrow-jni -am -Darrow.cpp.build.dir=${ARROW_PREFIX}/lib64 -DskipTests
+                      COMMENT "Arrow Java maven install after CPP make install"
+                      DEPENDEES mkdir download update patch configure build install
+                      WORKING_DIRECTORY "${ARROW_SOURCE_DIR}/java"
+  )
+
+  file(MAKE_DIRECTORY "${ARROW_PREFIX}/include")
+
+  if(STATIC_ARROW)
+    # Load Static Arrow Library
+    set(
+      ARROW_STATIC_LIB
+      "${ARROW_PREFIX}/lib64/${CMAKE_STATIC_LIBRARY_PREFIX}${ARROW_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(Arrow::arrow STATIC IMPORTED)
+    set_target_properties(Arrow::arrow
+                          PROPERTIES IMPORTED_LOCATION "${ARROW_STATIC_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                      "${ARROW_PREFIX}/include")
+    add_dependencies(Arrow::arrow arrow_ep)
+
+    # Load Static Gandiva Library
+    set(
+      GANDIVA_STATIC_LIB
+      "${ARROW_PREFIX}/lib64/${CMAKE_STATIC_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(Arrow::gandiva STATIC IMPORTED)
+    set_target_properties(Arrow::gandiva
+                          PROPERTIES IMPORTED_LOCATION "${GANDIVA_STATIC_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                      "${ARROW_PREFIX}/include")
+    add_dependencies(Arrow::gandiva arrow_ep)
+
+    # Load Static Parquet Library
+    set(
+      PARQUET_STATIC_LIB
+      "${ARROW_PREFIX}/lib64/${CMAKE_STATIC_LIBRARY_PREFIX}${PARQUET_LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    add_library(Arrow::parquet STATIC IMPORTED)
+    set_target_properties(Arrow::parquet
+                          PROPERTIES IMPORTED_LOCATION "${PARQUET_STATIC_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                      "${ARROW_PREFIX}/include")
+    add_dependencies(Arrow::parquet arrow_ep)
+    target_link_libraries(spark_columnar_jni
+                      LINK_PRIVATE Arrow::arrow Arrow::gandiva Arrow::parquet)
+
+  else()
+
+    # Copy Arrow Shared Library to releases directory for package jar
+    ExternalProject_Add_Step(arrow_ep copy_arrow_binary
+                      COMMAND cp ${ARROW_PREFIX}/lib64/libarrow.so.17 ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so.17 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep create_arrow_link
+                      COMMAND ln -s ${root_directory}/releases/libarrow.so.17 ${root_directory}/releases/libarrow.so
+                      COMMENT "Create libarrow.so soft link to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install copy_arrow_binary
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    # Copy Gandiva Shared Library to releases directory for package jar
+    ExternalProject_Add_Step(arrow_ep copy_gandiva_binary
+                      COMMAND cp ${ARROW_PREFIX}/lib64/libgandiva.so.17 ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so.17 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep create_gandiva_link
+                      COMMAND ln -s ${root_directory}/releases/libgandiva.so.17 ${root_directory}/releases/libgandiva.so
+                      COMMENT "Create libgandiva.so soft link to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install copy_gandiva_binary
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    # Copy Parquet Shared Library to releases directory for package jar
+    ExternalProject_Add_Step(arrow_ep copy_parquet_binary
+                      COMMAND cp ${ARROW_PREFIX}/lib64/libparquet.so.17 ${root_directory}/releases/
+                      COMMENT "Copy libparquet.so.17 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep create_parquet_link
+                      COMMAND ln -s ${root_directory}/releases/libparquet.so.17 ${root_directory}/releases/libparquet.so
+                      COMMENT "Create libparquet.so soft link to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install copy_parquet_binary
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    # Copy Arrow Headers to releases/include
+    ExternalProject_Add_Step(arrow_ep copy_arrow_header
+                      COMMAND cp -rf ${ARROW_PREFIX}/include/ ${root_directory}/releases/
+                      COMMENT "Arrow Header to releases/include"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    # Set up Arrow Shared Library Directory
+    set(
+      ARROW_SHARED_LIB
+      "${root_directory}/releases/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      )
+    add_library(Arrow::arrow SHARED IMPORTED)
+    set_target_properties(Arrow::arrow
+                          PROPERTIES IMPORTED_LOCATION "${ARROW_SHARED_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                      "${root_directory}/releases/include")
+    add_dependencies(Arrow::arrow arrow_ep)
+
+    # Set up Gandiva Shared Library Directory
+    set(
+      GANDIVA_SHARED_LIB
+      "${root_directory}/releases/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      )
+    add_library(Arrow::gandiva SHARED IMPORTED)
+    set_target_properties(Arrow::gandiva
+                          PROPERTIES IMPORTED_LOCATION "${GANDIVA_SHARED_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                      "${root_directory}/releases/include")
+    add_dependencies(Arrow::gandiva arrow_ep)
+
+    # Set up Parquet Shared Library Directory
+    set(
+      PARQUET_SHARED_LIB
+      "${root_directory}/releases/${CMAKE_SHARED_LIBRARY_PREFIX}${PARQUET_LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      )
+    add_library(Arrow::parquet SHARED IMPORTED)
+    set_target_properties(Arrow::parquet
+                          PROPERTIES IMPORTED_LOCATION "${PARQUET_SHARED_LIB}"
+                                     INTERFACE_INCLUDE_DIRECTORIES
+                                      "${root_directory}/releases/include")
+    add_dependencies(Arrow::parquet arrow_ep)
+    target_link_libraries(spark_columnar_jni
+                      LINK_PUBLIC Arrow::arrow Arrow::gandiva Arrow::parquet)
+  endif()
+endmacro()
+
+# Find the existing Arrow library by using ARROW_RROT path
+macro(find_arrow)
+  set(ARROW_LIB_DIR "${ARROW_ROOT}/lib64")
+  message(STATUS "Set Arrow Library Directory in ${ARROW_LIB_DIR}")
+  set(ARROW_INCLUDE_DIR "${ARROW_ROOT}/include")
+  message(STATUS "Set Arrow Include Directory in ${ARROW_INCLUDE_DIR}")
+
+  find_library(ARROW_LIB NAMES libarrow.so.17 PATHS ${ARROW_LIB_DIR} NO_DEFAULT_PATH)
+  if(NOT ARROW_LIB)
+    message(FATAL_ERROR "Arrow Library Not Found")
+  else()
+    message(STATUS "Arrow Library Can Be Found in ${ARROW_LIB_DIR}")
+  endif()
+
+  find_library(PARQUET_LIB NAMES libparquet.so.17 PATHS ${ARROW_LIB_DIR} NO_DEFAULT_PATH)
+  if(NOT PARQUET_LIB)
+    message(FATAL_ERROR "Parquet Library Not Found")
+  else()
+    message(STATUS "Parquet Library Can Be Found in ${ARROW_LIB_DIR}")
+  endif()
+
+  find_library(GANDIVA_LIB NAMES libgandiva.so.17 PATHS ${ARROW_LIB_DIR} NO_DEFAULT_PATH)
+  if(NOT GANDIVA_LIB)
+    message(FATAL_ERROR "Gandiva Library Not Found")
+  else()
+    message(STATUS "Gandiva Library Can Be Found in ${ARROW_LIB_DIR}")
+  endif()
+
+  target_link_libraries(spark_columnar_jni
+                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB})
+endmacro()
+
 if(TESTS)
   find_package(GTest)
 macro(package_add_test TESTNAME)
@@ -168,22 +395,6 @@ endif()
 
 if(DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -DDEBUG -DDEBUG_LEVEL_1 -DDEBUG_LEVEL_2")
-endif()
-
-find_library(ARROW_LIB arrow)
-find_library(PARQUET_LIB parquet)
-find_library(GANDIVA_LIB gandiva)
-
-if(NOT ARROW_LIB)
-    message(FATAL_ERROR "Arrow library not found")
-endif()
-
-if(NOT GANDIVA_LIB)
-    message(FATAL_ERROR "Gandiva library not found")
-endif()
-
-if(NOT PARQUET_LIB)
-    message(FATAL_ERROR "Parquet library not found")
 endif()
 
 set(CODEGEN_HEADERS
@@ -255,13 +466,24 @@ file(MAKE_DIRECTORY ${root_directory}/releases)
 add_library(spark_columnar_jni SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS} ${THIRDPARTY_GANDIVA_SRCS})
 add_dependencies(spark_columnar_jni jni_proto)
 
+# Build Arrow
+message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
+if(BUILD_ARROW)
+  build_arrow(${STATIC_ARROW})
+  message(STATUS "Building Static ARROW: ${STATIC_ARROW}")
+else() #
+  find_arrow()
+  message(STATUS "Use existing ARROW libraries")
+endif()
+
 if(BUILD_PROTOBUF)
-target_link_libraries(spark_columnar_jni
-                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB}
-                      LINK_PRIVATE protobuf::libprotobuf)
+  message(STATUS "Building ProtoBuf from Source: ${BUILD_PROTOBUF}")
+  target_link_libraries(spark_columnar_jni
+                        LINK_PRIVATE protobuf::libprotobuf)
 else()
-target_link_libraries(spark_columnar_jni
-                      LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB}  ${PROTOBUF_LIBRARY})
+  message(STATUS "Use existing ProtoBuf libraries: ${PROTOBUF_LIBRARY}")
+  target_link_libraries(spark_columnar_jni
+                        LINK_PUBLIC ${PROTOBUF_LIBRARY})
 endif()
 target_include_directories(spark_columnar_jni PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${JNI_INCLUDE_DIRS} ${source_root_directory} ${PROTO_OUTPUT_DIR} ${PROTOBUF_INCLUDE})
 set_target_properties(spark_columnar_jni PROPERTIES

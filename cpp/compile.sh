@@ -11,7 +11,7 @@ if [ -d build ]; then
 fi
 mkdir build
 cd build
-cmake ..
+cmake .. -DTESTS=OFF -DBUILD_ARROW=ON -DSTATIC_ARROW=OFF -DBUILD_PROTOBUF=ON
 make
 
 set +eu
