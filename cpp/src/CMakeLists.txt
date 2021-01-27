@@ -30,9 +30,9 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 find_package(JNI REQUIRED)
 set(source_root_directory ${CMAKE_CURRENT_SOURCE_DIR})
 
-# Gandiva protobuf
-if(BUILD_PROTOBUF)
-  message(STATUS "Building Protocol Buffers from source")
+# Building Protobuf
+macro(build_protobuf)
+  message(STATUS "Building Protocol Buffers from Source")
   set (PROTOBUF_SOURCE_URL
        "https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/protobuf-all-3.7.1.tar.gz"
         "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-v3.7.1.tar.gz"
@@ -82,37 +82,17 @@ if(BUILD_PROTOBUF)
     PROPERTIES IMPORTED_LOCATION "${PROTOBUF_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
                "${PROTOBUF_INCLUDE_DIR}")
   add_dependencies(protobuf::libprotobuf protobuf_ep)
-else()
+endmacro()
+
+macro(find_protobuf)
   # Find the existing Protobuf
   set(CMAKE_FIND_LIBRARY_SUFFIXES ".so")
   find_package(Protobuf)
+  if ("${Protobuf_LIBRARY}" STREQUAL "Protobuf_LIBRARY-NOTFOUND")
+    message(FATAL_ERROR "Protobuf Library Not Found")
+  endif()
   set(PROTOC_BIN ${Protobuf_PROTOC_EXECUTABLE})
-endif()
-
-file(MAKE_DIRECTORY ${root_directory}/src/proto)
-set(PROTO_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/proto")
-set(PROTO_OUTPUT_FILES "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
-set(PROTO_OUTPUT_FILES ${PROTO_OUTPUT_FILES} "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
-
-set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
-
-get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_CURRENT_SOURCE_DIR}/proto/Exprs.proto
-                       ABSOLUTE)
-
-add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
-                   COMMAND ${PROTOC_BIN}
-                           --proto_path
-                           ${CMAKE_CURRENT_SOURCE_DIR}/proto
-                           --cpp_out
-                       ${PROTO_OUTPUT_DIR}
-                           ${CMAKE_CURRENT_SOURCE_DIR}/proto/Exprs.proto
-                   DEPENDS  ${ABS_GANDIVA_PROTO}
-                   COMMENT "Running PROTO compiler on Exprs.proto"
-                   VERBATIM)
-
-add_custom_target(jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
-set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
-set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
+endmacro()
 
 if(USE_AVX512)
   # Only enable additional instruction sets if they are supported
@@ -166,6 +146,7 @@ macro(build_arrow STATIC_ARROW)
       -DARROW_WITH_ZSTD=OFF
       -DARROW_WITH_BROTLI=OFF
       -DARROW_WITH_ZLIB=OFF
+      -DARROW_WITH_FASTPFOR=ON
       -DARROW_FILESYSTEM=ON
       -DARROW_JSON=ON
       -DARROW_FLIGHT=OFF
@@ -356,6 +337,20 @@ macro(find_arrow)
                       LINK_PUBLIC ${ARROW_LIB} ${PARQUET_LIB} ${GANDIVA_LIB})
 endmacro()
 
+# Set up Proto
+file(MAKE_DIRECTORY ${root_directory}/src/proto)
+set(PROTO_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/proto")
+set(PROTO_OUTPUT_FILES "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
+set(PROTO_OUTPUT_FILES ${PROTO_OUTPUT_FILES} "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
+
+set_source_files_properties(${PROTO_OUTPUT_FILES} PROPERTIES GENERATED TRUE)
+
+get_filename_component(ABS_GANDIVA_PROTO ${CMAKE_CURRENT_SOURCE_DIR}/proto/Exprs.proto
+                       ABSOLUTE)
+
+set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
+set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
+
 if(TESTS)
   find_package(GTest)
 macro(package_add_test TESTNAME)
@@ -476,15 +471,32 @@ else() #
   message(STATUS "Use existing ARROW libraries")
 endif()
 
+# Build Protobuf
 if(BUILD_PROTOBUF)
+  build_protobuf()
   message(STATUS "Building ProtoBuf from Source: ${BUILD_PROTOBUF}")
   target_link_libraries(spark_columnar_jni
                         LINK_PRIVATE protobuf::libprotobuf)
 else()
+  find_protobuf()
   message(STATUS "Use existing ProtoBuf libraries: ${PROTOBUF_LIBRARY}")
   target_link_libraries(spark_columnar_jni
                         LINK_PUBLIC ${PROTOBUF_LIBRARY})
 endif()
+
+add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
+                   COMMAND ${PROTOC_BIN}
+                           --proto_path
+                           ${CMAKE_CURRENT_SOURCE_DIR}/proto
+                           --cpp_out
+                           ${PROTO_OUTPUT_DIR}
+                           ${CMAKE_CURRENT_SOURCE_DIR}/proto/Exprs.proto
+                   DEPENDS  ${ABS_GANDIVA_PROTO}
+                   COMMENT "Running PROTO compiler on Exprs.proto"
+                   VERBATIM)
+add_custom_target(jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
+add_dependencies(jni_proto protobuf::libprotobuf)
+
 target_include_directories(spark_columnar_jni PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${JNI_INCLUDE_DIRS} ${source_root_directory} ${PROTO_OUTPUT_DIR} ${PROTOBUF_INCLUDE})
 set_target_properties(spark_columnar_jni PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases
