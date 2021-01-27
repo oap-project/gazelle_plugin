@@ -22,9 +22,9 @@ import com.intel.oap.vectorized.ArrowWritableColumnVector
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.execution.FileSourceScanExec
 import org.apache.spark.sql.execution.datasources.parquet.ParquetSQLConf
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
 class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
@@ -33,7 +33,7 @@ class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
 
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
-    conf.set("spark.memory.offHeap.size", String.valueOf(1 * 1024 * 1024))
+    conf.set("spark.memory.offHeap.size", String.valueOf(256 * 1024 * 1024))
     conf
   }
 
@@ -41,10 +41,9 @@ class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
     SparkMemoryUtils.contextAllocator().close()
   }
 
-  test("no overwriting") {
+  test("overwrite write only") {
     import testImplicits._
-    withSQLConf(ParquetSQLConf.OVERWRITE_PARQUET_DATASOURCE.key -> "false",
-      SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+    withSQLConf(ParquetSQLConf.OVERWRITE_PARQUET_DATASOURCE_READ.key -> "false") {
       ServiceLoaderUtil.ensureParquetFileFormatOverwritten()
       spark.read
         .json(Seq("{\"col\": -1}", "{\"col\": 0}", "{\"col\": 1}", "{\"col\": 2}",
@@ -56,12 +55,19 @@ class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
         .parquet(ParquetFileFormatTest.locateResourcePath(parquetFile1))
       val path = ParquetFileFormatTest.locateResourcePath(parquetFile1)
       val frame = spark.read.parquet(path)
-      assert(frame.queryExecution.executedPlan.toString
-        .contains("Batched: true"))
+      val eplan = frame.queryExecution.executedPlan
+      assert(eplan.toString
+        .contains("Format: Parquet-Overwritten-By-Arrow"))
+      val scan = eplan.find(_.isInstanceOf[FileSourceScanExec]).get
+      val typeAssertions = scan.executeColumnar()
+          .flatMap(b => (0 until b.numCols()).map(b.column(_)))
+          .map(!_.isInstanceOf[ArrowWritableColumnVector])
+          .collect()
+      assert(typeAssertions.forall(p => p))
     }
   }
 
-  test("read and write") {
+  test("overwrite read and write") {
     import testImplicits._
     ServiceLoaderUtil.ensureParquetFileFormatOverwritten()
     spark.read
@@ -73,10 +79,15 @@ class ParquetFileFormatTest extends QueryTest with SharedSparkSession {
       .parquet(ParquetFileFormatTest.locateResourcePath(parquetFile1))
     val path = ParquetFileFormatTest.locateResourcePath(parquetFile1)
     val frame = spark.read.parquet(path)
-    val rows = frame.collect()
-    assert(frame.queryExecution.executedPlan.toString
+    val eplan = frame.queryExecution.executedPlan
+    assert(eplan.toString
       .contains("Format: Parquet-Overwritten-By-Arrow"))
-    assert(rows.length === 5)
+    val scan = eplan.find(_.isInstanceOf[FileSourceScanExec]).get
+    val typeAssertions = scan.executeColumnar()
+        .flatMap(b => (0 until b.numCols()).map(b.column(_)))
+        .map(_.isInstanceOf[ArrowWritableColumnVector])
+        .collect()
+    assert(typeAssertions.forall(p => p))
   }
 }
 

@@ -163,8 +163,8 @@ class ParquetFileFormat
   override def inferSchema(sparkSession: SparkSession,
                             parameters: Map[String, String],
                             files: Seq[FileStatus]): Option[StructType] = {
-    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSource
-    if (!overwrite) {
+    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSourceRead
+    if (overwrite) {
       return super.inferSchema(sparkSession, parameters, files)
     }
     ParquetUtils.inferSchema(sparkSession, parameters, files)
@@ -175,8 +175,8 @@ class ParquetFileFormat
    */
   override def supportBatch(sparkSession: SparkSession, schema: StructType): Boolean = {
     val conf = sparkSession.sessionState.conf
-    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSource
-    if (!overwrite) {
+    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSourceRead
+    if (overwrite) {
       return super.supportBatch(sparkSession, schema)
     }
     conf.parquetVectorizedReaderEnabled && conf.wholeStageEnabled &&
@@ -187,8 +187,8 @@ class ParquetFileFormat
   override def vectorTypes(requiredSchema: StructType,
                             partitionSchema: StructType,
                             sqlConf: SQLConf): Option[Seq[String]] = {
-    val overwrite = sqlConf.overwriteParquetDataSource
-    if (!overwrite) {
+    val overwrite = sqlConf.overwriteParquetDataSourceRead
+    if (overwrite) {
       return super.vectorTypes(requiredSchema, partitionSchema, sqlConf)
     }
     Option(Seq.fill(requiredSchema.fields.length + partitionSchema.fields.length)(
@@ -203,9 +203,9 @@ class ParquetFileFormat
   override def isSplitable(sparkSession: SparkSession,
                             options: Map[String, String],
                             path: Path): Boolean = {
-    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSource
-    if (!overwrite) {
-      return false
+    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSourceRead
+    if (overwrite) {
+      return super.isSplitable(sparkSession, options, path)
     }
     true
   }
@@ -218,8 +218,8 @@ class ParquetFileFormat
                                                options: Map[String, String],
                                                hadoopConf: Configuration):
   (PartitionedFile) => Iterator[InternalRow] = {
-    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSource
-    if (!overwrite) {
+    val overwrite = sparkSession.sqlContext.conf.overwriteParquetDataSourceRead
+    if (overwrite) {
       return super.buildReaderWithPartitionValues(sparkSession, dataSchema,
         partitionSchema, requiredSchema, filters, options, hadoopConf)
     }

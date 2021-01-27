@@ -24,6 +24,7 @@ import scala.collection.JavaConverters._
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat.UnsafeItr
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
+import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -33,6 +34,7 @@ import org.apache.spark.TaskContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
@@ -122,6 +124,13 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           requiredSchema))
       new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
     }
+  }
+
+  override def vectorTypes(requiredSchema: StructType, partitionSchema: StructType,
+      sqlConf: SQLConf): Option[Seq[String]] = {
+    Option(Seq.fill(requiredSchema.fields.length + partitionSchema.fields.length)(
+      classOf[ArrowWritableColumnVector].getName
+    ))
   }
 
   override def shortName(): String = "arrow"
