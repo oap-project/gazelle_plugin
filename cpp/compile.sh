@@ -12,7 +12,7 @@ fi
 mkdir build
 cd build
 cmake .. -DTESTS=ON -DBUILD_ARROW=ON -DSTATIC_ARROW=OFF -DBUILD_PROTOBUF=ON
-make
+make -j
 
 set +eu
 

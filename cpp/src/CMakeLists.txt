@@ -126,31 +126,6 @@ macro(build_arrow STATIC_ARROW)
   # Load libparquet
   set(PARQUET_LIB_NAME parquet)
 
-  # Set up arrow cmake args
-  set(MAKE_BUILD_ARGS
-      -DCMAKE_INSTALL_PREFIX:PATH=${ARROW_PREFIX}
-      -DARROW_BUILD_STATIC=ON
-      -DARROW_BUILD_SHARED=ON
-      -DARROW_DEPENDENCY_SOURCE=BUNDLED
-      -DARROW_COMPUTE=ON
-      -DARROW_GANDIVA_JAVA=ON
-      -DARROW_GANDIVA=ON
-      -DARROW_PARQUET=ON
-      -DARROW_HDFS=ON
-      -DARROW_BOOST_USE_SHARED=OFF
-      -DARROW_JNI=ON
-      -DARROW_DATASET=ON
-      -DARROW_WITH_PROTOBUF=ON
-      -DARROW_WITH_SNAPPY=ON
-      -DARROW_WITH_LZ4=ON
-      -DARROW_WITH_ZSTD=OFF
-      -DARROW_WITH_BROTLI=OFF
-      -DARROW_WITH_ZLIB=OFF
-      -DARROW_WITH_FASTPFOR=ON
-      -DARROW_FILESYSTEM=ON
-      -DARROW_JSON=ON
-      -DARROW_FLIGHT=OFF
-  )
   ExternalProject_Add(arrow_ep
                       GIT_REPOSITORY https://github.com/Intel-bigdata/arrow.git
                       SOURCE_DIR ${ARROW_SOURCE_DIR}
@@ -159,8 +134,29 @@ macro(build_arrow STATIC_ARROW)
                       INSTALL_DIR ${ARROW_PREFIX}
                       INSTALL_COMMAND make install
                       SOURCE_SUBDIR cpp
-                      CMAKE_ARGS ${MAKE_BUILD_ARGS}
-  )
+                      CMAKE_ARGS 
+                      -DARROW_BUILD_STATIC=ON
+                      -DARROW_BUILD_SHARED=ON
+                      -DARROW_COMPUTE=ON
+                      -DARROW_GANDIVA_JAVA=ON
+                      -DARROW_GANDIVA=ON
+                      -DARROW_PARQUET=ON
+                      -DARROW_HDFS=ON
+                      -DARROW_BOOST_USE_SHARED=OFF
+                      -DARROW_JNI=ON
+                      -DARROW_DATASET=ON
+                      -DARROW_WITH_PROTOBUF=ON
+                      -DARROW_WITH_SNAPPY=ON
+                      -DARROW_WITH_LZ4=ON
+                      -DARROW_WITH_ZSTD=OFF
+                      -DARROW_WITH_BROTLI=OFF
+                      -DARROW_WITH_ZLIB=OFF
+                      -DARROW_WITH_FASTPFOR=ON
+                      -DARROW_FILESYSTEM=ON
+                      -DARROW_JSON=ON
+                      -DARROW_FLIGHT=OFF
+                      -DARROW_DEPENDENCY_SOURCE=BUNDLED
+                      -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX})
 
   ExternalProject_Add_Step(arrow_ep java_install
                       COMMAND mvn clean install -P arrow-jni -am -Darrow.cpp.build.dir=${ARROW_PREFIX}/lib64 -DskipTests
@@ -168,6 +164,7 @@ macro(build_arrow STATIC_ARROW)
                       DEPENDEES mkdir download update patch configure build install
                       WORKING_DIRECTORY "${ARROW_SOURCE_DIR}/java"
   )
+  add_dependencies(arrow_ep jni_proto)
 
   file(MAKE_DIRECTORY "${ARROW_PREFIX}/include")
 
@@ -461,16 +458,6 @@ file(MAKE_DIRECTORY ${root_directory}/releases)
 add_library(spark_columnar_jni SHARED ${SPARK_COLUMNAR_PLUGIN_SRCS} ${THIRDPARTY_GANDIVA_SRCS})
 add_dependencies(spark_columnar_jni jni_proto)
 
-# Build Arrow
-message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
-if(BUILD_ARROW)
-  build_arrow(${STATIC_ARROW})
-  message(STATUS "Building Static ARROW: ${STATIC_ARROW}")
-else() #
-  find_arrow()
-  message(STATUS "Use existing ARROW libraries")
-endif()
-
 # Build Protobuf
 if(BUILD_PROTOBUF)
   build_protobuf()
@@ -501,6 +488,16 @@ target_include_directories(spark_columnar_jni PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH
 set_target_properties(spark_columnar_jni PROPERTIES
                       LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases
 )
+
+# Build Arrow
+message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
+if(BUILD_ARROW)
+  build_arrow(${STATIC_ARROW})
+  message(STATUS "Building Static ARROW: ${STATIC_ARROW}")
+else() #
+  find_arrow()
+  message(STATUS "Use existing ARROW libraries")
+endif()
 
 if(DEFINED ENV{HADOOP_HOME})
   set(LIBHDFS3_DESTINATION $ENV{HADOOP_HOME}/lib/native)
