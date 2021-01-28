@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-#include <arrow/builder.h>
 #include <arrow/compute/context.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
-#include <arrow/type_traits.h>
 #include <arrow/util/checked_cast.h>
 #include <math.h>
-#include <limits>
 
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>
 
@@ -43,20 +41,26 @@ class ActionBase {
   virtual int RequiredColNum() { return 1; }
 
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
-                               std::function<arrow::Status(int)> *on_valid,
-                               std::function<arrow::Status()> *on_null);
+                               std::function<arrow::Status(int)>* on_valid,
+                               std::function<arrow::Status()>* on_null);
   virtual arrow::Status Submit(std::vector<std::shared_ptr<arrow::Array>> in,
-                               std::function<arrow::Status(uint64_t, uint64_t)> *on_valid,
-                               std::function<arrow::Status()> *on_null);
-  virtual arrow::Status Submit(const std::shared_ptr<arrow::Array> &in,
-                               std::stringstream *ss,
-                               std::function<arrow::Status(int)> *out);
-  virtual arrow::Status Submit(const std::shared_ptr<arrow::Array> &in,
-                               std::function<arrow::Status(uint32_t)> *on_valid,
-                               std::function<arrow::Status()> *on_null);
-  virtual arrow::Status Finish(ArrayList *out);
-  virtual arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList *out);
-  virtual arrow::Status FinishAndReset(ArrayList *out);
+                               std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
+                               std::function<arrow::Status()>* on_null);
+  virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
+                               std::stringstream* ss,
+                               std::function<arrow::Status(int)>* out);
+  virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
+                               std::function<arrow::Status(uint32_t)>* on_valid,
+                               std::function<arrow::Status()>* on_null);
+  virtual arrow::Status Evaluate(int dest_group_id);
+  virtual arrow::Status Evaluate(int dest_group_id, void* data);
+  virtual arrow::Status Evaluate(int dest_group_id, void* data1, void* data2);
+  virtual arrow::Status Evaluate(int dest_group_id, void* data1, void* data2,
+                                 void* data3);
+  virtual arrow::Status EvaluateNull(int dest_group_id);
+  virtual arrow::Status Finish(ArrayList* out);
+  virtual arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out);
+  virtual arrow::Status FinishAndReset(ArrayList* out);
   virtual uint64_t GetResultLength();
 };
 
@@ -105,7 +109,7 @@ arrow::Status MakeStddevSampPartialAction(arrow::compute::FunctionContext* ctx,
 arrow::Status MakeStddevSampFinalAction(arrow::compute::FunctionContext* ctx,
                                         std::shared_ptr<arrow::DataType> type,
                                         std::shared_ptr<ActionBase>* out);
-}
-}
-}
-}
+}  // namespace extra
+}  // namespace arrowcompute
+}  // namespace codegen
+}  // namespace sparkcolumnarplugin

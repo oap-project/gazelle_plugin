@@ -202,6 +202,7 @@ file(COPY third_party/ DESTINATION ${root_directory}/releases/include/third_part
 file(COPY precompile/ DESTINATION ${root_directory}/releases/include/precompile/)
 file(COPY utils/ DESTINATION ${root_directory}/releases/include/utils/)
 file(COPY codegen/arrow_compute/ext/array_item_index.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
+file(COPY codegen/arrow_compute/ext/actions_impl.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/arrow_compute/ext/code_generator_base.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/arrow_compute/ext/kernels_ext.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/common/result_iterator.h DESTINATION ${root_directory}/releases/include/codegen/common/)
@@ -247,6 +248,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         precompile/sort.cc
         precompile/hash_arrays_kernel.cc
         precompile/unsafe_array.cc
+        precompile/gandiva_projector.cc
         )
 
 add_subdirectory(third_party/gandiva)

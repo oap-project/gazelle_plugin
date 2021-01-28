@@ -389,21 +389,27 @@ class WindowSortKernel : public KernalBase {
 
 class HashAggregateKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::FunctionContext* ctx,
-                            std::vector<std::shared_ptr<arrow::Field>> input_field_list,
-                            std::vector<std::shared_ptr<gandiva::Node>> action_list,
-                            std::shared_ptr<arrow::Schema> result_schema,
-                            std::shared_ptr<KernalBase>* out);
+  static arrow::Status Make(
+      arrow::compute::FunctionContext* ctx,
+      std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
+      std::vector<std::shared_ptr<gandiva::Node>> action_list,
+      std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
+      std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list,
+      std::shared_ptr<KernalBase>* out);
   HashAggregateKernel(arrow::compute::FunctionContext* ctx,
-                      std::vector<std::shared_ptr<arrow::Field>> input_field_list,
+                      std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
                       std::vector<std::shared_ptr<gandiva::Node>> action_list,
-                      std::shared_ptr<arrow::Schema> result_schema);
-  arrow::Status Evaluate(const ArrayList& in) override;
+                      std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
+                      std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list);
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) override;
   std::string GetSignature() override;
-
   class Impl;
 
  private:

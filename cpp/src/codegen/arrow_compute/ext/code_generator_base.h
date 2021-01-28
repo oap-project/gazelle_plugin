@@ -17,7 +17,9 @@
 
 #pragma once
 #include "codegen/common/result_iterator.h"
+
 class SortRelation;
+class GandivaProjector;
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -45,6 +47,14 @@ class CodeGenBase {
 
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
+    return arrow::Status::NotImplemented(
+        "CodeGenBase MakeResultIterator is an abstract interface.");
+  }
+
+  virtual arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
     return arrow::Status::NotImplemented(
         "CodeGenBase MakeResultIterator is an abstract interface.");
