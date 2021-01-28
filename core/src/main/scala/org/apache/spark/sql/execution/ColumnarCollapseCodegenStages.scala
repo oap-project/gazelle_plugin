@@ -135,6 +135,9 @@ case class ColumnarCollapseCodegenStages(
       if (p.joinType.isInstanceOf[ExistenceJoin]) true
       if (count >= 1) true
       else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
+    case p: ColumnarHashAggregateExec =>
+      if (count >= 1) true
+      else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
     case p: ColumnarCodegenSupport if p.supportColumnarCodegen =>
       plan.children.map(existsJoins(_, count)).exists(_ == true)
     case _ =>
@@ -213,6 +216,8 @@ case class ColumnarCollapseCodegenStages(
             insertInputAdapter(c)
           }
         }))
+      case j: ColumnarHashAggregateExec =>
+        new ColumnarInputAdapter(insertWholeStageCodegen(j))
       case j: ColumnarSortExec =>
         j.withNewChildren(
           j.children.map(child => new ColumnarInputAdapter(insertWholeStageCodegen(child))))
@@ -236,6 +241,13 @@ case class ColumnarCollapseCodegenStages(
       case plan
           if plan.output.length == 1 && plan.output.head.dataType.isInstanceOf[ObjectType] =>
         plan.withNewChildren(plan.children.map(insertWholeStageCodegen))
+      case j: ColumnarHashAggregateExec =>
+        if (!j.child.isInstanceOf[ColumnarHashAggregateExec] && existsJoins(j)) {
+          ColumnarWholeStageCodegenExec(j.withNewChildren(j.children.map(insertInputAdapter)))(
+            codegenStageCounter.incrementAndGet())
+        } else {
+          j.withNewChildren(j.children.map(insertWholeStageCodegen))
+        }
       case plan: ColumnarCodegenSupport if supportCodegen(plan) && existsJoins(plan) =>
         ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
           codegenStageCounter.incrementAndGet())

@@ -262,6 +262,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     // we should zip all dependent RDDs to current main RDD
     val buildPlans = getBuildPlans
     val streamedSortPlan = getStreamedLeafPlan
+    val contains_aggregate = child.isInstanceOf[ColumnarHashAggregateExec]
     val dependentKernels: ListBuffer[ExpressionEvaluator] = ListBuffer()
     val dependentKernelIterators: ListBuffer[BatchIterator] = ListBuffer()
     val buildRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
@@ -336,15 +337,15 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             while (depIter.hasNext) {
               val dep_cb = depIter.next()
               if (dep_cb.numRows > 0) {
-              (0 until dep_cb.numCols).toList.foreach(i =>
-                dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
-              buildRelationBatchHolder += dep_cb
-              val beforeEval = System.nanoTime()
-              val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
-              hashRelationKernel.evaluate(dep_rb)
-              ConverterUtils.releaseArrowRecordBatch(dep_rb)
-              build_elapse += System.nanoTime() - beforeEval
-              build_elapse_internal += System.nanoTime() - beforeEval
+                (0 until dep_cb.numCols).toList.foreach(i =>
+                  dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
+                buildRelationBatchHolder += dep_cb
+                val beforeEval = System.nanoTime()
+                val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
+                hashRelationKernel.evaluate(dep_rb)
+                ConverterUtils.releaseArrowRecordBatch(dep_rb)
+                build_elapse += System.nanoTime() - beforeEval
+                build_elapse_internal += System.nanoTime() - beforeEval
               }
             }
             buildTime += (build_elapse_internal / 1000000)
@@ -451,6 +452,53 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             }
 
             override def next(): ColumnarBatch = {
+              val beforeEval = System.nanoTime()
+              val output_rb = nativeIterator.next
+              if (output_rb == null) {
+                eval_elapse += System.nanoTime() - beforeEval
+                val resultColumnVectors =
+                  ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+                return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+              }
+              val outputNumRows = output_rb.getLength
+              val output = ConverterUtils.fromArrowRecordBatch(resCtx.outputSchema, output_rb)
+              ConverterUtils.releaseArrowRecordBatch(output_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+              new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
+            }
+          }
+
+        case _ if contains_aggregate =>
+          new Iterator[ColumnarBatch] {
+            var processed = false
+            def process: Unit = {
+              while (iter.hasNext) {
+                val cb = iter.next()
+                if (cb.numRows == 0) {
+                  val resultColumnVectors =
+                    ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+                  return new ColumnarBatch(
+                    resultColumnVectors.map(_.asInstanceOf[ColumnVector]),
+                    0)
+                }
+                val beforeEval = System.nanoTime()
+                val input_rb =
+                  ConverterUtils.createArrowRecordBatch(cb)
+                nativeIterator.processAndCacheOne(resCtx.inputSchema, input_rb)
+                ConverterUtils.releaseArrowRecordBatch(input_rb)
+                eval_elapse += System.nanoTime() - beforeEval
+              }
+              processed = true
+            }
+            override def hasNext: Boolean = {
+              if (!processed) process
+              val res = nativeIterator.hasNext
+              if (res == false) updateMetrics(nativeIterator)
+              res
+            }
+
+            override def next(): ColumnarBatch = {
+              if (!processed) process
               val beforeEval = System.nanoTime()
               val output_rb = nativeIterator.next
               if (output_rb == null) {

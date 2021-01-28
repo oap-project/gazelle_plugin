@@ -515,6 +515,8 @@ class ColumnarAggregation(
             data_loaded = true
             aggrTime += NANOSECONDS.toMillis(eval_elapse)
             nextBatch = false
+            noNext = true
+            System.out.println(s"ColumnarHashAggregate input is empty")
             return false
           }
           if (groupingFieldList.size > 0) {
