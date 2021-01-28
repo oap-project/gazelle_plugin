@@ -123,8 +123,15 @@ object ColumnarHashedRelation {
       var arrowColumnarBatch: Array[ColumnarBatch]) extends Runnable {
 
     override def run(): Unit = {
-      hashRelationObj.close()
-      arrowColumnarBatch.foreach(_.close)
+      try {
+        Option(hashRelationObj).foreach(_.close())
+        Option(arrowColumnarBatch).foreach(_.foreach(_.close))
+      } catch {
+        case e: Exception =>
+          // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
+          System.err.println("ColumnarHashedRelation: Error running deaallocator")
+          e.printStackTrace()
+      }
     }
   }
 }
