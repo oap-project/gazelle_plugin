@@ -33,6 +33,22 @@ class ColumnarIf(predicate: Expression, trueValue: Expression,
     extends If(predicate: Expression, trueValue: Expression, falseValue: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    try {
+      ConverterUtils.checkIfTypeSupported(predicate.dataType)
+      ConverterUtils.checkIfTypeSupported(trueValue.dataType)
+      ConverterUtils.checkIfTypeSupported(falseValue.dataType)
+    } catch {
+      case e : UnsupportedOperationException =>
+        throw new UnsupportedOperationException(
+          s"${predicate.dataType} or ${trueValue.dataType} or ${falseValue.dataType} " +
+          s"is not supported in ColumnarIf")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
       val (predicate_node, predicateType): (TreeNode, ArrowType) =
       predicate.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

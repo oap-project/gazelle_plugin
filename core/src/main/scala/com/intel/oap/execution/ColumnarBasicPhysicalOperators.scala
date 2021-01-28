@@ -76,10 +76,24 @@ case class ColumnarConditionProjectExec(
     })
     // check expr
     if (condExpr != null) {
+      try {
+        ConverterUtils.checkIfTypeSupported(condExpr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${condExpr.dataType} is not supported in ColumnarConditionProjector.")
+      }
       ColumnarExpressionConverter.replaceWithColumnarExpression(condExpr)
     }
     if (projectList != null) {
       for (expr <- projectList) {
+        try {
+          ConverterUtils.checkIfTypeSupported(expr.dataType)
+        } catch {
+          case e : UnsupportedOperationException =>
+            throw new UnsupportedOperationException(
+              s"${expr.dataType} is not supported in ColumnarConditionProjector.")
+        }
         ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
       }
     }

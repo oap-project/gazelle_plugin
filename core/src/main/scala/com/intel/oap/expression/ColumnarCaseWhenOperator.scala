@@ -43,6 +43,20 @@ class ColumnarCaseWhen(
     extends CaseWhen(branches: Seq[(Expression, Expression)] ,elseValue: Option[Expression])
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val exprs = branches.flatMap(b => b._1 :: b._2 :: Nil) ++ elseValue
+    exprs.foreach(expr => try {
+        ConverterUtils.checkIfTypeSupported(expr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${dataType} is not supported in ColumnarCaseWhen")
+      })
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     logInfo(s"children: ${branches.flatMap(b => b._1 :: b._2 :: Nil) ++ elseValue}")
     logInfo(s"branches: $branches")

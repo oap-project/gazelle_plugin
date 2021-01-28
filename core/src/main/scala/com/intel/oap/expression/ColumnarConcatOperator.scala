@@ -17,6 +17,17 @@ class ColumnarConcat(exps: Seq[Expression], original: Expression)
     extends Concat(exps: Seq[Expression])
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    exps.foreach(expr =>
+      if (expr.dataType != StringType) {
+        throw new UnsupportedOperationException(
+          s"${expr.dataType} is not supported in ColumnarConcat")
+      })
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val iter: Iterator[Expression] = exps.iterator
     val exp = iter.next()

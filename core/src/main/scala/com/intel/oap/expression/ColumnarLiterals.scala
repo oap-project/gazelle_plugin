@@ -41,8 +41,9 @@ class ColumnarLiteral(lit: Literal)
   val resultType: ArrowType = buildCheck()
 
   def buildCheck(): ArrowType = {
-    val supportedTypes = List(StringType, IntegerType, LongType, DoubleType, DateType,
-                              BooleanType, CalendarIntervalType, BinaryType)
+    val supportedTypes =
+      List(StringType, IntegerType, LongType, DoubleType, DateType,
+           BooleanType, CalendarIntervalType, BinaryType)
     if (supportedTypes.indexOf(dataType) == -1 && !dataType.isInstanceOf[DecimalType]) {
       // Decimal is supported in ColumnarLiteral
       throw new UnsupportedOperationException(

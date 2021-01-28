@@ -38,6 +38,16 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
     extends Substring(str: Expression, pos: Expression, len: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    if (str.dataType != StringType) {
+      throw new UnsupportedOperationException(
+        s"${str.dataType} is not supported in ColumnarSubString")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (str_node, strType): (TreeNode, ArrowType) =
       str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

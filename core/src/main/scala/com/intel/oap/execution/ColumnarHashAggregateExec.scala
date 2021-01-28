@@ -147,7 +147,7 @@ case class ColumnarHashAggregateExec(
   listJars.foreach(jar => logInfo(s"Uploaded ${jar}"))
 
   def buildCheck(): Unit = {
-    // check datatype
+    // check input datatype
     for (attr <- child.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
@@ -157,6 +157,16 @@ case class ColumnarHashAggregateExec(
             s"${attr.dataType} is not supported in ColumnarAggregation")
       }
     }
+    // check output datatype
+    resultExpressions.foreach(expr => {
+      try {
+        ConverterUtils.checkIfTypeSupported(expr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${expr.dataType} is not supported in ColumnarAggregation")
+      }
+    })
     // check project
     for (expr <- aggregateExpressions) {
       val internalExpressionList = expr.aggregateFunction.children
