@@ -56,9 +56,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
                                                      {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto n_standalone = TreeExprBuilder::MakeFunction(
-      "standalone", {n_codegen_probe}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -184,7 +182,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {"[null, null, 2, 2, 3, 5, 7, 9, 11]",
+  std::vector<std::string> input_data_string = {"[0, 0, 2, 2, 3, 5, 7, 9, 11]",
                                                 "[null, null, 2, 2, 3, 5, 7, 9, 11]",
                                                 "[null, null, 2, 2, 3, 5, 7, 9, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
@@ -195,7 +193,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {"[null, 1, 2, 3, 4, 5, 6]",
+  std::vector<std::string> input_data_2_string = {"[0, 1, 2, 3, 4, 5, 6]",
                                                   "[null, 1, 2, 3, 4, 5, 6]"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
@@ -209,9 +207,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[0, 0, null, 2, 2, 3, null, 5, null]", "[0, 0, null, 2, 2, 3, null, 5, null]",
-      "[0, 0, null, 2, 2, 3, null, 5, null]", "[0, 0, 1, 2, 2, 3, 4, 5, 6]",
-      "[0, 0, 1, 2, 2, 3, 4, 5, 6]"};
+      "[0, 0, null, 2, 2, 3, null, 5, null]", "[null, null, null, 2, 2, 3, null, 5, null]",
+      "[null, null, null, 2, 2, 3, null, 5, null]", "[0, 0, 1, 2, 2, 3, 4, 5, 6]",
+      "[null, null, 1, 2, 2, 3, 4, 5, 6]"};
   auto res_sch = arrow::schema({f_res, f_res, f_res, f_res, f_res});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
