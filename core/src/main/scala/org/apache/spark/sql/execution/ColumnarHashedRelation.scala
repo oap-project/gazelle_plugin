@@ -36,15 +36,20 @@ class ColumnarHashedRelation(
     with KryoSerializable
     with KnownSizeEstimation {
 
+  createCleaner(hashRelationObj, arrowColumnarBatch)
+
   def this() = {
     this(null, null, 0)
   }
 
-  private def createCleaner(): Unit = {
-    Cleaner.create(this, new Deallocator(hashRelationObj, arrowColumnarBatch))
+  private def createCleaner(obj: SerializableObject, batch: Array[ColumnarBatch]): Unit = {
+    if (obj == null && batch == null) {
+      // no need to clean up
+      return
+    }
+    Cleaner.create(this, new Deallocator(obj, batch))
   }
 
-  createCleaner()
 
   def asReadOnlyCopy(): ColumnarHashedRelation = {
     //new ColumnarHashedRelation(hashRelationObj, arrowColumnarBatch, arrowColumnarBatchSize)
@@ -66,12 +71,12 @@ class ColumnarHashedRelation(
   }
 
   override def readExternal(in: ObjectInput): Unit = {
-    createCleaner()
     hashRelationObj = in.readObject().asInstanceOf[SerializableObject]
     val rawArrowData = in.readObject().asInstanceOf[Array[Byte]]
     arrowColumnarBatchSize = rawArrowData.length
     arrowColumnarBatch =
       ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
+    createCleaner(hashRelationObj, arrowColumnarBatch)
     // retain all cols
     /*arrowColumnarBatch.foreach(cb => {
       (0 until cb.numCols).toList.foreach(i =>
@@ -80,13 +85,13 @@ class ColumnarHashedRelation(
   }
 
   override def read(kryo: Kryo, in: Input): Unit = {
-    createCleaner()
     hashRelationObj =
       kryo.readObject(in, classOf[SerializableObject]).asInstanceOf[SerializableObject]
     val rawArrowData = kryo.readObject(in, classOf[Array[Byte]]).asInstanceOf[Array[Byte]]
     arrowColumnarBatchSize = rawArrowData.length
     arrowColumnarBatch =
       ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
+    createCleaner(hashRelationObj, arrowColumnarBatch)
     // retain all cols
     /*arrowColumnarBatch.foreach(cb => {
       (0 until cb.numCols).toList.foreach(i =>

@@ -37,6 +37,7 @@ import org.apache.spark.sql.{QueryTest, Row, SaveMode}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 import org.codehaus.jackson.map.ObjectMapper
 import org.knowm.xchart.{BitmapEncoder, XYChartBuilder}
