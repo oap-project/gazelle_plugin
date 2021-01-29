@@ -52,6 +52,11 @@ class Splitter {
    * id. The largest partition buffer will be spilled if memory allocation failure occurs.
    */
   virtual arrow::Status Split(const arrow::RecordBatch&);
+  
+  /**
+   * Compute the compresse size of record batch.
+   */
+  virtual int64_t CompressedSize(const arrow::RecordBatch&);
 
   /**
    * For each partition, merge spilled file into shuffle data file and write any cached
@@ -63,6 +68,8 @@ class Splitter {
    * Spill specified partition
    */
   arrow::Status SpillPartition(int32_t partition_id);
+
+  void SetCompressType(arrow::Compression::type compressed_type);
 
   /**
    * Spill for fixed size of partition data

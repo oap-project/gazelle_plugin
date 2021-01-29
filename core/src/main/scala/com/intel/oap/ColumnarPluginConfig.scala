@@ -66,8 +66,8 @@ class ColumnarPluginConfig(conf: SQLConf) {
   // and the cached buffers will be spilled when reach maximum memory.
   val columnarShufflePreferSpill: Boolean =
     conf.getConfString("spark.oap.sql.columnar.shuffle.preferSpill", "true").toBoolean
-  val columnarShuffleUseCustomizedCompression: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression", "false").toBoolean
+  val columnarShuffleUseCustomizedCompressionCodec: String =
+    conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
   val isTesting: Boolean =
     conf.getConfString("spark.oap.sql.columnar.testing", "false").toBoolean
   val numaBindingInfo: ColumnarNumaBindingInfo = {

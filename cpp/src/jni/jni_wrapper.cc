@@ -1395,24 +1395,42 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   return shuffle_splitter_holder_.Insert(std::shared_ptr<Splitter>(splitter));
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
-    JNIEnv* env, jobject, jlong splitter_id, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes) {
+JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressType(
+   JNIEnv* env, jobject, jlong splitter_id, jstring compression_type_jstr) {
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
     std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
     env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
     return;
   }
+
+  if (compression_type_jstr != NULL) {
+    auto compression_type_result = GetCompressionType(env, compression_type_jstr);
+    if (compression_type_result.status().ok()) {
+      splitter->SetCompressType(compression_type_result.MoveValueUnsafe());
+    }
+  }
+  return;
+}
+
+JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
+    JNIEnv* env, jobject, jlong splitter_id, jint num_rows, jlongArray buf_addrs,
+    jlongArray buf_sizes, jboolean first_record_batch) {
+  auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
+  if (!splitter) {
+    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
+    return -1;
+  }
   if (buf_addrs == NULL) {
     env->ThrowNew(illegal_argument_exception_class,
                   std::string("Native split: buf_addrs can't be null").c_str());
-    return;
+    return -1;
   }
   if (buf_sizes == NULL) {
     env->ThrowNew(illegal_argument_exception_class,
                   std::string("Native split: buf_sizes can't be null").c_str());
-    return;
+    return -1;
   }
 
   int in_bufs_len = env->GetArrayLength(buf_addrs);
@@ -1420,7 +1438,7 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_s
     env->ThrowNew(
         illegal_argument_exception_class,
         std::string("Native split: length of buf_addrs and buf_sizes mismatch").c_str());
-    return;
+    return -1;
   }
 
   jlong* in_buf_addrs = env->GetLongArrayElements(buf_addrs, JNI_FALSE);
@@ -1440,17 +1458,21 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_s
         std::string("Native split: make record batch failed, error message is " +
                     status.message())
             .c_str());
-    return;
+    return -1;
   }
 
-  status = splitter->Split(*in);
-
-  if (!status.ok()) {
-    // Throw IOException
-    env->ThrowNew(io_exception_class,
+  if (first_record_batch) {
+    return splitter->CompressedSize(*in);
+  } else {
+    status = splitter->Split(*in);
+    if (!status.ok()) {
+      // Throw IOException
+      env->ThrowNew(io_exception_class,
                   std::string("Native split: splitter split failed, error message is " +
                               status.message())
                       .c_str());
+    }
+    return -1;
   }
 }
 

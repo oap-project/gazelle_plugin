@@ -96,9 +96,18 @@ public class ShuffleSplitterJniWrapper {
    * @param numRows Rows per batch
    * @param bufAddrs Addresses of buffers
    * @param bufSizes Sizes of buffers
+   * @param firstRecordBatch whether this record batch is the first
+   *                         record batch in the first partition.
+   * @return If the firstRecorBatch is true, return the compressed size, otherwise -1.
    */
-  public native void split(long splitterId, int numRows, long[] bufAddrs, long[] bufSizes)
+  public native long split(
+      long splitterId, int numRows, long[] bufAddrs, long[] bufSizes, boolean firstRecordBatch)
       throws IOException;
+
+  /**
+   * Update the compress type.
+   */
+  public native void setCompressType(long splitterId, String compressType);
 
   /**
    * Write the data remained in the buffers hold by native splitter to each partition's temporary
