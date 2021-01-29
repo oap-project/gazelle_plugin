@@ -516,9 +516,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
     // We need to determine the position of nulls.
-    ss << "if (" << is_x_null << " && " << is_y_null << ") {\n";
-    ss << "return false;} "
-       << "else if (" << is_x_null << ") {\n";
+    ss << "if (" << is_x_null << ") {\n";
     // If value accessed from x is null, return true to make nulls first.
     if (nulls_first) {
       ss << "return true;\n}";
@@ -535,9 +533,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     // If datatype is floating, we need to do partition for NaN if NaN check is enabled
     if (data_type->id() == arrow::Type::DOUBLE || data_type->id() == arrow::Type::FLOAT) {
       if (NaN_check_) {
-        ss << " else if (" << is_x_nan << " && " << is_y_nan << ") {\n";
-        ss << "return false;} "
-           << "else if (" << is_x_nan << ") {\n";
+        ss << "else if (" << is_x_nan << ") {\n";
         if (asc) {
           ss << "return false;\n}";
         } else {
