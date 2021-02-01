@@ -207,6 +207,18 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                << ";" << std::endl;
     prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
     prepare_str_ += prepare_ss.str();
+  } else if (func_name.compare("starts_with") == 0) {
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = "starts_with_" + std::to_string(cur_func_id);
+    check_str_ = GetValidityName(codes_str_);
+    std::stringstream prepare_ss;
+    prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
+    prepare_ss << "bool " << codes_str_ << " = " << child_visitor_list[0]->GetResult()
+               << ".rfind(" << child_visitor_list[1]->GetResult()
+               << ") != std::string::npos;";
+    prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("substr") == 0) {
     ss << child_visitor_list[0]->GetResult() << ".substr("
        << "((" << child_visitor_list[1]->GetResult() << " - 1) < 0 ? 0 : ("
@@ -307,12 +319,23 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
     std::stringstream prepare_ss;
+    auto typed_func_name = func_name;
+    if (node.return_type()->id() == arrow::Type::INT32 ||
+        node.return_type()->id() == arrow::Type::DATE32) {
+      typed_func_name += "32";
+    } else if (node.return_type()->id() == arrow::Type::INT64 ||
+               node.return_type()->id() == arrow::Type::DATE64) {
+      typed_func_name += "64";
+    } else {
+      return arrow::Status::NotImplemented("castDATE doesn't support ",
+                                           node.return_type()->ToString());
+    }
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << func_name << "("
+    prepare_ss << codes_str_ << " = " << typed_func_name << "("
                << child_visitor_list[0]->GetResult() << ");" << std::endl;
     prepare_ss << "}" << std::endl;
 
