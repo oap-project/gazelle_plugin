@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.intel.oap.execution._
+import com.intel.oap.expression.ColumnarExpressionConverter
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions._
@@ -122,6 +123,20 @@ case class ColumnarCollapseCodegenStages(
     case _ => false
   }
 
+  private def containsSubquery(expr: Expression): Boolean = {
+    if (expr == null) false
+    else {
+      ColumnarExpressionConverter.containsSubquery(expr)
+    }
+  }
+
+  private def containsSubquery(exprs: Seq[Expression]): Boolean = {
+    if (exprs == null) false
+    else {
+      exprs.map(ColumnarExpressionConverter.containsSubquery).exists(_ == true)
+    }
+  }
+
   private def existsJoins(plan: SparkPlan, count: Int = 0): Boolean = plan match {
     case p: ColumnarBroadcastHashJoinExec =>
       if (p.condition.isDefined) return true
@@ -138,6 +153,9 @@ case class ColumnarCollapseCodegenStages(
     case p: ColumnarHashAggregateExec =>
       if (count >= 1) true
       else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
+    case p: ColumnarConditionProjectExec
+        if (containsSubquery(p.condition) || containsSubquery(p.projectList)) =>
+      false
     case p: ColumnarCodegenSupport if p.supportColumnarCodegen =>
       plan.children.map(existsJoins(_, count)).exists(_ == true)
     case _ =>
@@ -203,6 +221,9 @@ case class ColumnarCollapseCodegenStages(
     plan match {
       case p if !supportCodegen(p) =>
         new ColumnarInputAdapter(insertWholeStageCodegen(p))
+      case p: ColumnarConditionProjectExec
+          if (containsSubquery(p.condition) || containsSubquery(p.projectList)) =>
+        new ColumnarInputAdapter(p.withNewChildren(p.children.map(insertWholeStageCodegen)))
       case j: ColumnarSortMergeJoinExec
           if j.buildPlan.isInstanceOf[ColumnarSortMergeJoinExec] || (j.buildPlan
             .isInstanceOf[ColumnarConditionProjectExec] && j.buildPlan
