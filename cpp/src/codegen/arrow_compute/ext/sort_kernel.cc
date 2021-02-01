@@ -1640,9 +1640,6 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     }
     if (key_projector_) {
       int projected_col_num = projected_field_list_.size();
-      for (int i = 0; i < projected_col_num; i++) {
-        null_total_list_.push_back(0);
-      }
       if (projected_.size() <= projected_col_num) {
         projected_.resize(projected_col_num + 1);
       }
@@ -1654,15 +1651,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
           key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &projected_batch));
       for (int i = 0; i < projected_col_num; i++) {
         std::shared_ptr<arrow::Array> col = projected_batch[i];
-        null_total_list_[i] += col->null_count();
         projected_[i].push_back(col);
-      }
-    } else {
-      for (int i = 0; i < col_num_; i++) {
-        null_total_list_.push_back(0);
-      }
-      for (int i = 0; i < col_num_; i++) {
-        null_total_list_[i] += in[i]->null_count();
       }
     }
     items_total_ += in[0]->length();
@@ -1674,6 +1663,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
                       int64_t right_id, int keys_num) {
     int key_idx = 0;
     while (key_idx < keys_num) {
+      // In comparison, 1 represents for true, 0 for false, and 2 for equal.
       int cmp_res = 2;
       cmp_functions_[key_idx](left_array_id, right_array_id, 
                               left_id, right_id, cmp_res);
@@ -1687,7 +1677,8 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
 
   bool compareRow(int left_array_id, int64_t left_id, int right_array_id, 
                   int64_t right_id, int keys_num) {
-    if (compareInternal(left_array_id, left_id, right_array_id, right_id, keys_num) == 1) {
+    if (compareInternal(left_array_id, left_id, right_array_id, 
+                        right_id, keys_num) == 1) {
       return true;
     }
     return false;
@@ -1730,11 +1721,11 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
       }
       MakeCmpFunction(
           projected_, projected_field_list_, projected_key_idx_list, sort_directions_, 
-          nulls_order_, null_total_list_, cmp_functions_);
+          nulls_order_, cmp_functions_);
     } else {
       MakeCmpFunction(
           cached_, key_field_list_, key_index_list_, sort_directions_, 
-          nulls_order_, null_total_list_, cmp_functions_);
+          nulls_order_, cmp_functions_);
     }
     Sort(indices_begin, indices_end);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
@@ -1769,7 +1760,6 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   uint64_t num_batches_ = 0;
   uint64_t items_total_ = 0;
   int col_num_;
-  std::vector<uint64_t> null_total_list_;
   std::vector<std::function<void(int, int, int64_t, int64_t, int&)>> cmp_functions_;                             
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
