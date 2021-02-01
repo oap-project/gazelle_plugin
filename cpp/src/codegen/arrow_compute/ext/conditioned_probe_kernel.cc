@@ -1751,7 +1751,9 @@ class ConditionedProbeKernel::Impl {
                    << name << "->IsNull(" << tmp_name << ".array_id, " << tmp_name
                    << ".id));" << std::endl;
         }
-        valid_ss << "auto " << output_name << " = " << name << "->GetValue(" << tmp_name
+        valid_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
+        valid_ss << "if (" << output_validity << ")" << std::endl;
+        valid_ss << output_name << " = " << name << "->GetValue(" << tmp_name
                  << ".array_id, " << tmp_name << ".id);" << std::endl;
 
       } else { /* right table */

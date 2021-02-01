@@ -801,6 +801,7 @@ class ConditionedMergeJoinKernel::Impl {
           valid_ss << output_validity << " = !(" << name << "_has_null && " << name
                    << "->IsNull(" << arguments << "));" << std::endl;
         }
+        valid_ss << "if (" << output_validity << ")" << std::endl;
         valid_ss << output_name << " = " << name << "->GetValue(" << arguments << ");"
                  << std::endl;
 
@@ -824,6 +825,7 @@ class ConditionedMergeJoinKernel::Impl {
             arguments = right_index_name + ".array_id, " + right_index_name + ".id";
             valid_ss << output_validity << " = !(" << name << "_has_null && " << name
                      << "->IsNull(" << arguments << "));" << std::endl;
+            valid_ss << "if (" << output_validity << ")" << std::endl;
             valid_ss << output_name << " = " << name << "->GetValue(" << arguments << ");"
                      << std::endl;
           }

@@ -297,7 +297,6 @@ class WholeStageCodeGenKernel::Impl {
     std::stringstream define_ss;
     codes_ss << BaseCodes() << std::endl;
     codes_ss << R"(#include "precompile/builder.h")" << std::endl;
-    codes_ss << R"(#include <iostream>)" << std::endl;
     codes_ss << R"(#include "utils/macros.h")" << std::endl;
     std::vector<std::string> headers;
     for (auto codegen_ctx : codegen_ctx_list) {

@@ -8,7 +8,7 @@
 
 #include "third_party/gandiva/types.h"
 
-int64_t castDATE(int32_t in) { return castDATE_date32(in); }
+int32_t castDATE(int32_t in) { return castDATE_int32(in); }
 int64_t extractYear(int64_t millis) { return extractYear_timestamp(millis); }
 template <typename T>
 T round2(T val, int precision = 2) {
