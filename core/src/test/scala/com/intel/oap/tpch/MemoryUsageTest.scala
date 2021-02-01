@@ -37,6 +37,7 @@ import org.apache.spark.sql.{QueryTest, Row, SaveMode}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 import org.codehaus.jackson.map.ObjectMapper
 import org.knowm.xchart.{BitmapEncoder, XYChartBuilder}
@@ -71,7 +72,7 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
         .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
         //          .set("spark.sql.autoBroadcastJoinThreshold", "1")
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-        .set("spark.sql.columnar.sort.broadcast.cache.timeout", "600")
+        .set("spark.network.io.preferDirectBufs", "false")
     return conf
   }
 
@@ -484,10 +485,13 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
         createTPCHTables()
         writeCommentLine("```")
         writeCommentLine("Before suite starts: %s".format(genReportLine()))
-        (1 to 5).foreach { executionId =>
+        (1 to 20).foreach { executionId =>
           writeCommentLine("Iteration %d:".format(executionId))
           (1 to 22).foreach(i => {
             runTPCHQuery(i, executionId)
+            MallocUtils.mallocTrim()
+            System.gc()
+            System.gc()
             writeCommentLine("  Query %d: %s".format(i, genReportLine()))
             ramMonitor.writeImage(commentImageOutputPath)
           })

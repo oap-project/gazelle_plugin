@@ -17,47 +17,26 @@
 
 package com.intel.oap.execution
 
-import java.io.{ByteArrayInputStream, ObjectInputStream}
-import java.nio.ByteBuffer
-import java.util.concurrent.TimeUnit._
-
-import com.intel.oap.vectorized._
+import com.google.common.collect.Lists
 import com.intel.oap.ColumnarPluginConfig
-import org.apache.spark.TaskContext
+import com.intel.oap.expression._
+import com.intel.oap.vectorized.{ExpressionEvaluator, _}
+import org.apache.arrow.gandiva.expression._
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
-import org.apache.spark.sql.catalyst.expressions.codegen._
 import org.apache.spark.sql.catalyst.plans._
-import org.apache.spark.sql.catalyst.plans.physical._
 import org.apache.spark.sql.execution._
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide, HashJoin}
 import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.util.ArrowUtils
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
+import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils}
 
 import scala.collection.JavaConverters._
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.catalyst.expressions.BoundReference
-import org.apache.spark.sql.catalyst.expressions.BindReferences._
-import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-
 import scala.collection.mutable.ListBuffer
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
-import org.apache.arrow.vector.types.pojo.ArrowType
-import org.apache.arrow.vector.types.pojo.Field
-import org.apache.arrow.vector.types.pojo.Schema
-import org.apache.arrow.gandiva.expression._
-import org.apache.arrow.gandiva.evaluator._
-import io.netty.buffer.ArrowBuf
-import io.netty.buffer.ByteBuf
-import com.google.common.collect.Lists
-import com.intel.oap.expression._
-import com.intel.oap.vectorized.ExpressionEvaluator
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
-import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide, HashJoin}
-import org.apache.spark.sql.types.{StructField, StructType}
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
@@ -260,8 +239,6 @@ case class ColumnarBroadcastHashJoinExec(
     var eval_elapse: Long = 0
     val buildInputByteBuf = buildPlan.executeBroadcast[ColumnarHashedRelation]()
 
-    val timeout = ColumnarPluginConfig.getConf(sparkConf).broadcastCacheTimeout
-
     streamedPlan.executeColumnar().mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
       val hashRelationKernel = new ExpressionEvaluator()
@@ -283,6 +260,7 @@ case class ColumnarBroadcastHashJoinExec(
           Field.nullable("result", new ArrowType.Int(32, true)))
       hashRelationKernel.build(hash_relation_schema, Lists.newArrayList(hash_relation_expr), true)
       val hashRelationResultIterator = hashRelationKernel.finishByIterator()
+
       // we need to set original recordBatch to hashRelationKernel
       var numRows = 0
       while (depIter.hasNext) {
@@ -328,7 +306,6 @@ case class ColumnarBroadcastHashJoinExec(
         hashRelationResultIterator.close
         nativeKernel.close
         nativeIterator.close
-        relation.countDownClose(timeout)
       }
 
       // now we can return this wholestagecodegen iter
@@ -451,7 +428,6 @@ case class ColumnarBroadcastHashJoinExec(
     val listJars = uploadAndListJars(signature)
     val buildInputByteBuf = buildPlan.executeBroadcast[ColumnarHashedRelation]()
     val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
-    val timeout = ColumnarPluginConfig.getConf(sparkConf).broadcastCacheTimeout
 
     streamedPlan.executeColumnar().mapPartitions { streamIter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
@@ -518,7 +494,6 @@ case class ColumnarBroadcastHashJoinExec(
         hashRelationResultIterator.close
         nativeKernel.close
         nativeIterator.close
-        relation.countDownClose(timeout)
       }
       val resultStructType = ArrowUtils.fromArrowSchema(resCtx.outputSchema)
       val res = new Iterator[ColumnarBatch] {

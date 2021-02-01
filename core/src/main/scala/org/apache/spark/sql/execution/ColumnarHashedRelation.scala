@@ -18,17 +18,15 @@
 package org.apache.spark.sql.execution
 
 import java.io._
-import java.util.concurrent.atomic.{AtomicInteger, AtomicBoolean}
-import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
+
 import com.esotericsoftware.kryo.io.{Input, Output}
+import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, SerializableObject}
-import org.apache.spark.util.{KnownSizeEstimation, Utils}
-import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.{Failure, Success}
-import java.util.concurrent.atomic.AtomicBoolean
+import org.apache.spark.sql.execution.ColumnarHashedRelation.Deallocator
+import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.util.KnownSizeEstimation
+import sun.misc.Cleaner
 
 class ColumnarHashedRelation(
     var hashRelationObj: SerializableObject,
@@ -37,60 +35,36 @@ class ColumnarHashedRelation(
     extends Externalizable
     with KryoSerializable
     with KnownSizeEstimation {
-  val refCnt: AtomicInteger = new AtomicInteger()
-  val closed: AtomicBoolean = new AtomicBoolean()
+
+  createCleaner(hashRelationObj, arrowColumnarBatch)
 
   def this() = {
     this(null, null, 0)
   }
 
+  private def createCleaner(obj: SerializableObject, batch: Array[ColumnarBatch]): Unit = {
+    if (obj == null && batch == null) {
+      // no need to clean up
+      return
+    }
+    Cleaner.create(this, new Deallocator(obj, batch))
+  }
+
+
   def asReadOnlyCopy(): ColumnarHashedRelation = {
     //new ColumnarHashedRelation(hashRelationObj, arrowColumnarBatch, arrowColumnarBatchSize)
-    refCnt.incrementAndGet()
     this
   }
 
   override def estimatedSize: Long = 0
 
-  def close(waitTime: Int): Future[Int] = Future {
-    Thread.sleep(waitTime * 1000)
-    if (refCnt.get == 0) {
-      if (!closed.getAndSet(true)) {
-        hashRelationObj.close
-        arrowColumnarBatch.foreach(_.close)
-      }
-    }
-    refCnt.get
-  }
-
-  def countDownClose(waitTime: Int = -1): Unit = {
-    val curRefCnt = refCnt.decrementAndGet()
-    if (waitTime == -1) return
-    if (curRefCnt == 0) {
-      close(waitTime).onComplete {
-        case Success(resRefCnt) => {}
-        case Failure(e) =>
-          System.err.println(s"Failed to close ColumnarHashedRelation, exception = $e")
-      }
-    }
-  }
-
-  override def finalize(): Unit = {
-    if (!closed.getAndSet(true)) {
-      hashRelationObj.close
-      arrowColumnarBatch.foreach(_.close)
-    }
-  }
-
   override def writeExternal(out: ObjectOutput): Unit = {
-    if (closed.get()) return
     out.writeObject(hashRelationObj)
     val rawArrowData = ConverterUtils.convertToNetty(arrowColumnarBatch)
     out.writeObject(rawArrowData)
   }
 
   override def write(kryo: Kryo, out: Output): Unit = {
-    if (closed.get()) return
     kryo.writeObject(out, hashRelationObj)
     val rawArrowData = ConverterUtils.convertToNetty(arrowColumnarBatch)
     kryo.writeObject(out, rawArrowData)
@@ -102,6 +76,7 @@ class ColumnarHashedRelation(
     arrowColumnarBatchSize = rawArrowData.length
     arrowColumnarBatch =
       ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
+    createCleaner(hashRelationObj, arrowColumnarBatch)
     // retain all cols
     /*arrowColumnarBatch.foreach(cb => {
       (0 until cb.numCols).toList.foreach(i =>
@@ -116,6 +91,7 @@ class ColumnarHashedRelation(
     arrowColumnarBatchSize = rawArrowData.length
     arrowColumnarBatch =
       ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
+    createCleaner(hashRelationObj, arrowColumnarBatch)
     // retain all cols
     /*arrowColumnarBatch.foreach(cb => {
       (0 until cb.numCols).toList.foreach(i =>
@@ -129,9 +105,6 @@ class ColumnarHashedRelation(
   }
 
   def getColumnarBatchAsIter: Iterator[ColumnarBatch] = {
-    if (closed.get())
-      throw new InvalidObjectException(
-        s"can't getColumnarBatchAsIter from a deleted ColumnarHashedRelation.")
     new Iterator[ColumnarBatch] {
       var idx = 0
       val total_len = arrowColumnarBatch.length
@@ -147,5 +120,23 @@ class ColumnarHashedRelation(
       }
     }
   }
+}
+object ColumnarHashedRelation {
 
+  private class Deallocator (
+      var hashRelationObj: SerializableObject,
+      var arrowColumnarBatch: Array[ColumnarBatch]) extends Runnable {
+
+    override def run(): Unit = {
+      try {
+        Option(hashRelationObj).foreach(_.close())
+        Option(arrowColumnarBatch).foreach(_.foreach(_.close))
+      } catch {
+        case e: Exception =>
+          // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
+          System.err.println("ColumnarHashedRelation: Error running deaallocator")
+          e.printStackTrace()
+      }
+    }
+  }
 }

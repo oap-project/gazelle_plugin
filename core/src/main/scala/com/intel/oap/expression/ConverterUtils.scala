@@ -121,11 +121,16 @@ object ConverterUtils extends Logging {
         schema = new Schema(vectors.map(_.getValueVector().getField).asJava)
         MessageSerializer.serialize(channel, schema, option)
       }
-      MessageSerializer.serialize(
-        channel,
-        ConverterUtils
-          .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector)),
-        option)
+      val batch = ConverterUtils
+          .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector))
+      try {
+        MessageSerializer.serialize(
+          channel,
+          batch,
+          option)
+      } finally {
+        batch.close()
+      }
     }
   }
 

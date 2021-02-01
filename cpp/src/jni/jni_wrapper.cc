@@ -26,6 +26,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/util/compression.h>
 #include <jni.h>
+#include <malloc.h>
 
 #include <iostream>
 #include <memory>
@@ -1600,6 +1601,20 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
 JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(
     JNIEnv* env, jobject, jlong schema_holder_id) {
   decompression_schema_holder_.Erase(schema_holder_id);
+}
+
+JNIEXPORT void JNICALL
+Java_com_intel_oap_tpch_MallocUtils_mallocTrim(JNIEnv* env, jobject obj) {
+//  malloc_stats_print(statsPrint, nullptr, nullptr);
+  std::cout << "Calling malloc_trim... " << std::endl;
+  malloc_trim(0);
+}
+
+JNIEXPORT void JNICALL
+Java_com_intel_oap_tpch_MallocUtils_mallocStats(JNIEnv* env, jobject obj) {
+//  malloc_stats_print(statsPrint, nullptr, nullptr);
+  std::cout << "Calling malloc_stats... " << std::endl;
+  malloc_stats();
 }
 
 #ifdef __cplusplus

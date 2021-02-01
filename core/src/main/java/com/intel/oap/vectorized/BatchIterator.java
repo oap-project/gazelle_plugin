@@ -29,7 +29,7 @@ import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 
-public class BatchIterator {
+public class BatchIterator implements AutoCloseable {
   private native boolean nativeHasNext(long nativeHandler);
   private native ArrowRecordBatchBuilder nativeNext(long nativeHandler);
   private native MetricsObject nativeFetchMetrics(long nativeHandler);
@@ -89,7 +89,7 @@ public class BatchIterator {
       return null;
     }
     NativeSerializableObject obj = nativeNextHashRelation(nativeHandler);
-    SerializableObject objImpl = new SerializableObject(obj);
+    SerializableObject objImpl = new SerializableObject(obj, new AutoCloseable[]{this});
     return objImpl;
   }
 
@@ -196,6 +196,7 @@ public class BatchIterator {
     nativeSetDependencies(nativeHandler, instanceIdList);
   }
 
+  @Override
   public void close() {
     if (!closed) {
       nativeClose(nativeHandler);

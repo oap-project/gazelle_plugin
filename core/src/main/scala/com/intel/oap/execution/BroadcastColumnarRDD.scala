@@ -17,15 +17,11 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.ColumnarPluginConfig
-import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.CloseableColumnBatchIterator
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.SQLMetric
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
 private final case class BroadcastColumnarRDDPartition(index: Int) extends Partition
@@ -41,9 +37,7 @@ case class BroadcastColumnarRDD(
     (0 until numPartitioning).map { index => new BroadcastColumnarRDDPartition(index) }.toArray
   }
   override def compute(split: Partition, context: TaskContext): Iterator[ColumnarBatch] = {
-    val timeout: Int = SQLConf.get.broadcastTimeout.toInt
     val relation = inputByteBuf.value.asReadOnlyCopy
-    relation.countDownClose(timeout)
     new CloseableColumnBatchIterator(relation.getColumnarBatchAsIter)
   }
 }

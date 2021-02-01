@@ -199,6 +199,18 @@ static inline int getValueFromBytesMapByOffset(unsafeHashMap* hashMap,
   return KeyAddressOffset;
 }
 
+static inline bool shrinkToFit(unsafeHashMap* hashMap) {
+  if (hashMap->cursor >= hashMap->mapSize) {
+    return true;
+  }
+  auto pool = (arrow::MemoryPool*)hashMap->pool;
+  auto status = pool->Reallocate(hashMap->mapSize, hashMap->cursor, (uint8_t**)&hashMap->bytesMap);
+  if (status.ok()) {
+    hashMap->mapSize = hashMap->cursor;
+  }
+  return status.ok();
+}
+
 static inline bool growHashBytesMap(unsafeHashMap* hashMap) {
   std::cout << "growHashBytesMap" << std::endl;
   int oldSize = hashMap->mapSize;
