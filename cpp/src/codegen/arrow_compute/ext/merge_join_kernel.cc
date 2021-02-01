@@ -1069,7 +1069,7 @@ class ConditionedJoinArraysKernel::Impl {
     std::stringstream ss;
     std::string tuple_str;
     if (multiple_cols) {
-      tuple_str = "std::make_tuple";
+      tuple_str = "std::forward_as_tuple";
     }
     if (multiple_cols) {
       for (int i = 0; i < size; i++) {
@@ -1115,7 +1115,7 @@ class ConditionedJoinArraysKernel::Impl {
         tuple_str += local_tuple;
       }
       tuple_str.erase(tuple_str.end() - 1, tuple_str.end());
-      ss << std::endl << "return {" + tuple_str + "};" << std::endl;
+      ss << std::endl << "return std::forward_as_tuple(" + tuple_str + ");" << std::endl;
     } else {
 
       ss << std::endl << "return it->GetView(segment_len);" << std::endl;
