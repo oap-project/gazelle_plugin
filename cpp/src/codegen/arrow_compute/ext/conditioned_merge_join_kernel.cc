@@ -219,12 +219,12 @@ class ConditionedMergeJoinKernel::Impl {
     auto left_tuple_name = left_paramater;
     auto right_tuple_name = right_paramater;
     if (project_output_list[0].size() > 1) {
-      function_define_ss << "auto left_tuple = std::make_tuple(" << left_paramater
+      function_define_ss << "auto left_tuple = std::forward_as_tuple(" << left_paramater
                          << " );" << std::endl;
       left_tuple_name = "left_tuple";
     }
     if (project_output_list[1].size() > 1) {
-      function_define_ss << "auto right_tuple = std::make_tuple(" << right_paramater
+      function_define_ss << "auto right_tuple = std::forward_as_tuple(" << right_paramater
                          << " );" << std::endl;
       right_tuple_name = "right_tuple";
     }
