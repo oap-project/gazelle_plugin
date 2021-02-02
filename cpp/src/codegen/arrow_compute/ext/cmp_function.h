@@ -19,6 +19,7 @@
 
 #include <arrow/type.h>
 #include <arrow/array.h>
+#include "third_party/function.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -32,7 +33,7 @@ class TypedComparator {
 
   ~TypedComparator() {}
 
-  std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
+  func::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
       const arrow::ArrayVector& arrays, bool asc, bool nulls_first) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<ArrayType>> typed_arrays;
@@ -161,7 +162,7 @@ class StringComparator {
 
   ~StringComparator() {}
 
-  std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
+  func::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
       const arrow::ArrayVector& arrays, bool asc, bool nulls_first) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<ArrayType>> typed_arrays;
@@ -303,7 +304,7 @@ static arrow::Status MakeCmpFunction(
     std::vector<int> key_index_list,
     std::vector<bool> sort_directions, 
     std::vector<bool> nulls_order,
-    std::vector<std::function<void(int, int, int64_t, int64_t, int&)>>& cmp_functions) {
+    std::vector<func::function<void(int, int, int64_t, int64_t, int&)>>& cmp_functions) {
   for (int i = 0; i < key_field_list.size(); i++) {
     auto type = key_field_list[i]->type();
     int key_col_id = key_index_list[i];
