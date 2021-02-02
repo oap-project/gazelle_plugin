@@ -69,7 +69,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), 
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -182,7 +183,8 @@ TEST(TestArrowComputeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
 
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), 
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
 
@@ -288,7 +290,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingOuterJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), 
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
 
@@ -397,7 +400,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingAntiJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_0, {probeArrays_expr},
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -503,7 +507,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoinWithCondition) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), 
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
 
@@ -612,7 +617,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingAntiJoinWithCondition) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_0, {probeArrays_expr},
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -715,7 +721,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingExistenceJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), 
       schema_table_0, {probeArrays_expr},
       {table1_f0, field("table1_exists", boolean()), table1_f1}, &expr_probe, true));
 
@@ -836,7 +843,8 @@ TEST(TestArrowComputeJoin, JoinTestUsingInnerJoinWithProjectedCondition) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), 
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
 

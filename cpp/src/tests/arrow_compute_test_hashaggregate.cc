@@ -67,7 +67,8 @@ TEST(TestArrowCompute, GroupByHashAggregateTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -155,7 +156,8 @@ TEST(TestArrowCompute, GroupByHashAggregateTest2) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -243,7 +245,8 @@ TEST(TestArrowCompute, GroupByHashAggregateTest3) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -321,7 +324,8 @@ TEST(TestArrowCompute, GroupByHashAggregateWithStringTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -403,7 +407,8 @@ TEST(TestArrowCompute, GroupByHashAggregateWithProjectionTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -489,7 +494,8 @@ TEST(TestArrowCompute, GroupByHashAggregateWithCaseWhenTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -567,7 +573,8 @@ TEST(TestArrowCompute, GroupByHashAggregateWithNoKeyTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -649,7 +656,8 @@ TEST(TestArrowCompute, GroupByHashAggregateWithTwoStringTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -732,7 +740,8 @@ TEST(TestArrowCompute, GroupByHashAggregateWithProjectedKeyTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -815,7 +824,8 @@ TEST(TestArrowCompute, GroupByStddevSampPartialHashAggregateTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
@@ -904,7 +914,8 @@ TEST(TestArrowCompute, GroupByStddevSampFinalHashAggregateTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  ASSERT_NOT_OK(CreateCodeGenerator(sch, expr_vector, ret_types, &expr, true));
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
