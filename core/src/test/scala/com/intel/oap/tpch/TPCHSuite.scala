@@ -25,8 +25,8 @@ import java.text.SimpleDateFormat
 import java.util.concurrent.{Executors, ScheduledFuture, TimeUnit}
 import java.util.{Scanner, StringTokenizer}
 
-import com.intel.oap.tags.{CommentOnContextPR, TestAndWriteLogs}
-import com.intel.oap.tpch.TPCHSuite.{RAMMonitor, commentOnContextPR, stdoutLog}
+import com.intel.oap.tags.{BroadcastHashJoinMode, SortMergeJoinMode, TestAndWriteLogs}
+import com.intel.oap.tpch.TPCHSuite.RAMMonitor
 import io.prestosql.tpch._
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
@@ -36,12 +36,10 @@ import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{QueryTest, Row, SaveMode}
-import org.codehaus.jackson.map.ObjectMapper
 import org.knowm.xchart.BitmapEncoder.BitmapFormat
 import org.knowm.xchart.XYSeries.XYSeriesRenderStyle
 import org.knowm.xchart.style.Styler.ChartTheme
 import org.knowm.xchart.{BitmapEncoder, XYChartBuilder}
-import org.kohsuke.github.{GHIssueComment, GitHubBuilder}
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -67,7 +65,6 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
         .set("spark.sql.columnar.sort", "true")
         .set("spark.sql.columnar.window", "true")
         .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-        //          .set("spark.sql.autoBroadcastJoinThreshold", "1")
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
         .set("spark.network.io.preferDirectBufs", "false")
     return conf
@@ -76,6 +73,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
+    LogManager.getRootLogger.setLevel(Level.WARN)
     createTPCHTables()
   }
 
@@ -379,91 +377,66 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
     })
   }
 
-  test("comment on context pr", CommentOnContextPR) {
-    def run(): Unit = {
-      val enableTPCHTests = Option(System.getenv("ENABLE_TPCH_TESTS"))
-      if (!enableTPCHTests.exists(_.toBoolean)) {
-        TPCHSuite.stdoutLog("TPCH tests are not enabled, Skipping... ")
-        return
-      }
-      val commentContentPath = System.getenv("COMMENT_CONTENT_PATH")
-      if (StringUtils.isEmpty(commentContentPath)) {
-        TPCHSuite.stdoutLog("No COMMENT_CONTENT_PATH set. Aborting... ")
-        throw new IllegalArgumentException("No COMMENT_CONTENT_PATH set")
-      }
-
-      val repoSlug = System.getenv("GITHUB_REPOSITORY")
-      stdoutLog("Reading essential env variables... " +
-        "Envs: GITHUB_REPOSITORY: %s" .format(repoSlug))
-
-      if (StringUtils.isEmpty(repoSlug)) {
-        throw new IllegalArgumentException("No GITHUB_REPOSITORY set")
-      }
-
-      val eventPath = System.getenv("PREVIOUS_EVENT_PATH")
-      stdoutLog("Reading essential env variables... " +
-        "Envs: PREVIOUS_EVENT_PATH: %s" .format(eventPath))
-
-      if (StringUtils.isEmpty(eventPath)) {
-        throw new IllegalArgumentException("No PREVIOUS_EVENT_PATH set")
-      }
-
-      val token = System.getenv("GITHUB_TOKEN")
-
-      if (StringUtils.isEmpty(token)) {
-        throw new IllegalArgumentException("No GITHUB_TOKEN set")
-      }
-
-      val ghEventPayloadJson = new ObjectMapper().readTree(FileUtils.readFileToString(new File(eventPath)))
-      val prId = ghEventPayloadJson.get("number").asInt()
-
-      commentOnContextPR(repoSlug, prId, token, FileUtils.readFileToString(new File(commentContentPath)))
+  test("memory usage test - broadcast hash join", TestAndWriteLogs, BroadcastHashJoinMode) {
+    withSQLConf(("spark.sql.autoBroadcastJoinThreshold", "1TB")) {
+      runMemoryUsageTest(comment = "BHJ")
     }
-    run()
   }
 
-  test("memory usage test long-run", TestAndWriteLogs) {
-    def run(): Unit = {
-      val enableTPCHTests = Option(System.getenv("ENABLE_TPCH_TESTS"))
-      if (!enableTPCHTests.exists(_.toBoolean)) {
-        TPCHSuite.stdoutLog("TPCH tests are not enabled, Skipping... ")
-        return
-      }
+  test("memory usage test - sort merge join", TestAndWriteLogs, SortMergeJoinMode) {
+    withSQLConf(("spark.sql.autoBroadcastJoinThreshold", "-1"),
+      ("spark.oap.sql.columnar.sortmergejoin", "true")) {
+      runMemoryUsageTest(comment = "SMJ", exclusions = Array(12))
+    }
+  }
 
-      LogManager.getRootLogger.setLevel(Level.WARN)
-      val commentTextOutputPath = System.getenv("COMMENT_TEXT_OUTPUT_PATH")
-      if (StringUtils.isEmpty(commentTextOutputPath)) {
-        TPCHSuite.stdoutLog("No COMMENT_TEXT_OUTPUT_PATH set. Aborting... ")
-        throw new IllegalArgumentException("No COMMENT_TEXT_OUTPUT_PATH set")
-      }
+  test("Q12 SMJ failure") {
+    withSQLConf(("spark.sql.autoBroadcastJoinThreshold", "-1"),
+      ("spark.oap.sql.columnar.sortmergejoin", "true")) {
+      runTPCHQuery(12, 1, true)
+    }
+  }
 
-      val commentImageOutputPath = System.getenv("COMMENT_IMAGE_OUTPUT_PATH")
-      if (StringUtils.isEmpty(commentImageOutputPath)) {
-        TPCHSuite.stdoutLog("No COMMENT_IMAGE_OUTPUT_PATH set. Aborting... ")
-        throw new IllegalArgumentException("No COMMENT_IMAGE_OUTPUT_PATH set")
-      }
+  private def runMemoryUsageTest(exclusions: Array[Int] = Array(), comment: String = ""): Unit = {
+    val enableTPCHTests = Option(System.getenv("ENABLE_TPCH_TESTS"))
+    if (!enableTPCHTests.exists(_.toBoolean)) {
+      TPCHSuite.stdoutLog("TPCH tests are not enabled, Skipping... ")
+      return
+    }
 
-      val ramMonitor = new RAMMonitor()
-      ramMonitor.startMonitorDaemon()
-      val writer = new OutputStreamWriter(new FileOutputStream(commentTextOutputPath))
+    val commentTextOutputPath = System.getenv("COMMENT_TEXT_OUTPUT_PATH")
+    if (StringUtils.isEmpty(commentTextOutputPath)) {
+      TPCHSuite.stdoutLog("No COMMENT_TEXT_OUTPUT_PATH set. Aborting... ")
+      throw new IllegalArgumentException("No COMMENT_TEXT_OUTPUT_PATH set")
+    }
 
-      def writeCommentLine(line: String): Unit = {
-        writer.write(line)
-        writer.write('\n')
-        writer.flush()
-        TPCHSuite.stdoutLog("Wrote log line: " + line)
-      }
+    val commentImageOutputPath = System.getenv("COMMENT_IMAGE_OUTPUT_PATH")
+    if (StringUtils.isEmpty(commentImageOutputPath)) {
+      TPCHSuite.stdoutLog("No COMMENT_IMAGE_OUTPUT_PATH set. Aborting... ")
+      throw new IllegalArgumentException("No COMMENT_IMAGE_OUTPUT_PATH set")
+    }
 
-      writeCommentLine("GitHub Action TPC-H RAM usage test starts to run. " +
+    val ramMonitor = new RAMMonitor()
+    ramMonitor.startMonitorDaemon()
+    val writer = new OutputStreamWriter(new FileOutputStream(commentTextOutputPath))
+
+    def writeCommentLine(line: String): Unit = {
+      writer.write(line)
+      writer.write('\n')
+      writer.flush()
+      TPCHSuite.stdoutLog("Wrote log line: " + line)
+    }
+
+    writeCommentLine("GitHub Action TPC-H RAM usage test starts to run. " +
         "Report will be continuously updated in following block.")
 
-      def genReportLine(): String = {
-        val jvmHeapUsed = ramMonitor.getJVMHeapUsed()
-        val jvmHeapTotal = ramMonitor.getJVMHeapTotal()
-        val processRes = ramMonitor.getCurrentPIDRAMUsed()
-        val os = ramMonitor.getOSRAMUsed()
-        val lineBuilder = new StringBuilder
-        lineBuilder
+    def genReportLine(): String = {
+      val jvmHeapUsed = ramMonitor.getJVMHeapUsed()
+      val jvmHeapTotal = ramMonitor.getJVMHeapTotal()
+      val processRes = ramMonitor.getCurrentPIDRAMUsed()
+      val os = ramMonitor.getOSRAMUsed()
+      val lineBuilder = new StringBuilder
+      lineBuilder
           .append("Off-Heap Allocated: %d MB,".format((processRes - jvmHeapTotal) / 1000L))
           .append(' ')
           .append("Off-Heap Allocation Ratio: %.2f%%,".format((processRes - jvmHeapTotal) * 100.0D / processRes))
@@ -475,43 +448,47 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
           .append("Process Resident: %d MB,".format(processRes / 1000L))
           .append(' ')
           .append("OS Used: %d MB".format((os / 1000L)))
-        val line = lineBuilder.toString()
-        "Appending RAM report line: " + line
-      }
-
-      try {
-        writeCommentLine("```")
-        writeCommentLine("Before suite starts: %s".format(genReportLine()))
-        (1 to 20).foreach { executionId =>
-          writeCommentLine("Iteration %d:".format(executionId))
-          (1 to 22).foreach(i => {
-            runTPCHQuery(i, executionId)
-            MallocUtils.mallocTrim()
-            System.gc()
-            System.gc()
-            writeCommentLine("  Query %d: %s".format(i, genReportLine()))
-            ramMonitor.writeImage(commentImageOutputPath)
-          })
-        }
-      } catch {
-        case e: Throwable =>
-          writeCommentLine("Error executing TPC-H queries: %s".format(e.getMessage))
-          throw e
-      } finally {
-        writeCommentLine("```")
-        writer.close()
-        ramMonitor.close()
-      }
+      val line = lineBuilder.toString()
+      "Appending RAM report line: " + line
     }
-    run()
+
+    try {
+      writeCommentLine("```")
+      writeCommentLine("Before suite starts: %s".format(genReportLine()))
+      (1 to 20).foreach { executionId =>
+        writeCommentLine("Iteration %d:".format(executionId))
+        (1 to 22)
+            .filterNot(i => exclusions.toList.contains(i))
+            .foreach(i => {
+              runTPCHQuery(i, executionId)
+              MallocUtils.mallocTrim()
+              System.gc()
+              System.gc()
+              writeCommentLine("  Query %d: %s".format(i, genReportLine()))
+              ramMonitor.writeImage("RAM Usage History (TPC-H)" +
+                  (if (StringUtils.isEmpty(comment)) "" else " - %s".format(comment)), commentImageOutputPath)
+            })
+      }
+    } catch {
+      case e: Throwable =>
+        writeCommentLine("Error executing TPC-H queries: %s".format(e.getMessage))
+        throw e
+    } finally {
+      writeCommentLine("```")
+      writer.close()
+      ramMonitor.close()
+    }
   }
 
-  private def runTPCHQuery(caseId: Int, roundId: Int): Unit = {
+  private def runTPCHQuery(caseId: Int, roundId: Int, explain: Boolean = false): Unit = {
     val path = "tpch-queries/q" + caseId + ".sql";
     val absolute = TPCHSuite.locateResourcePath(path)
     val sql = FileUtils.readFileToString(new File(absolute), StandardCharsets.UTF_8)
     TPCHSuite.stdoutLog("Running TPC-H query %d (round %d)... ".format(caseId, roundId))
     val df = spark.sql(sql)
+    if (explain) {
+      df.explain(extended = false)
+    }
     df.show(100)
   }
 }
@@ -627,11 +604,11 @@ object TPCHSuite {
     }
 
 
-    def writeImage(chartOutputPath: String): Unit = {
+    def writeImage(title: String, chartOutputPath: String): Unit = {
       val chart = new XYChartBuilder()
           .width(768)
           .height(512)
-          .title("RAM Usage History (TPC-H)")
+          .title(title)
           .xAxisTitle("Up Time (Second)")
           .yAxisTitle("RAM Used (MB)")
           .theme(ChartTheme.XChart)
@@ -660,18 +637,6 @@ object TPCHSuite {
     }
   }
 
-  def commentOnContextPR(repoSlug: String, prId: Int, token: String, comment: String): Option[GHIssueComment] = {
-    val inst = new GitHubBuilder()
-        .withAppInstallationToken(token)
-      .build()
-
-    val repository = inst.getRepository(repoSlug)
-    val pr = repository.getPullRequest(prId)
-    val c = pr.comment(comment)
-    stdoutLog("Comment successfully submitted. ")
-    Some(c)
-  }
-  
   def stdoutLog(line: Any): Unit = {
     println("[RAM Reporter] %s".format(line))
   }

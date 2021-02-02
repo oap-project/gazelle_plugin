@@ -45,7 +45,7 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
 }
 
 case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
-  val columnarConf = ColumnarPluginConfig.getConf(conf)
+  val columnarConf = ColumnarPluginConfig.getSessionConf
   val preferColumnar = columnarConf.enablePreferColumnar
   val optimizeLevel = columnarConf.joinOptimizationThrottle
   val enableColumnarShuffle = columnarConf.enableColumnarShuffle
