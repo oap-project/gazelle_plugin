@@ -1726,6 +1726,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       writer.setNull(rowId);
     }
 
+    @Override
     final void setNulls(int rowId, int count) {
       for (int i = 0; i < count; i++) {
         writer.setNull(rowId + i);
