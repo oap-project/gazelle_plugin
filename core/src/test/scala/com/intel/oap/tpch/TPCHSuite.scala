@@ -22,33 +22,30 @@ import java.lang.management.ManagementFactory
 import java.nio.charset.StandardCharsets
 import java.sql.Date
 import java.text.SimpleDateFormat
-import java.util.{Scanner, StringTokenizer}
 import java.util.concurrent.{Executors, ScheduledFuture, TimeUnit}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.{Scanner, StringTokenizer}
 
 import com.intel.oap.tags.{CommentOnContextPR, TestAndWriteLogs}
-import com.intel.oap.tpch.MemoryUsageTest.{commentOnContextPR, stdoutLog, RAMMonitor}
+import com.intel.oap.tpch.TPCHSuite.{RAMMonitor, commentOnContextPR, stdoutLog}
 import io.prestosql.tpch._
-import javax.imageio.ImageIO
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
 import org.apache.log4j.{Level, LogManager}
-import org.apache.spark.sql.{QueryTest, Row, SaveMode}
-import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
+import org.apache.spark.sql.{QueryTest, Row, SaveMode}
 import org.codehaus.jackson.map.ObjectMapper
-import org.knowm.xchart.{BitmapEncoder, XYChartBuilder}
 import org.knowm.xchart.BitmapEncoder.BitmapFormat
 import org.knowm.xchart.XYSeries.XYSeriesRenderStyle
 import org.knowm.xchart.style.Styler.ChartTheme
+import org.knowm.xchart.{BitmapEncoder, XYChartBuilder}
 import org.kohsuke.github.{GHIssueComment, GitHubBuilder}
 
 import scala.collection.mutable.ArrayBuffer
 
-class MemoryUsageTest extends QueryTest with SharedSparkSession {
+class TPCHSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "6g"
   private val TPCH_WRITE_PATH = "/tmp/tpch-generated"
@@ -371,7 +368,7 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
 
     val files = new File(TPCH_WRITE_PATH).listFiles()
     files.foreach(file => {
-      MemoryUsageTest.stdoutLog("Creating catalog table: " + file.getName)
+      TPCHSuite.stdoutLog("Creating catalog table: " + file.getName)
       spark.catalog.createTable(file.getName, file.getAbsolutePath, "arrow")
       try {
         spark.catalog.recoverPartitions(file.getName)
@@ -385,12 +382,12 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
     def run(): Unit = {
       val enableTPCHTests = Option(System.getenv("ENABLE_TPCH_TESTS"))
       if (!enableTPCHTests.exists(_.toBoolean)) {
-        MemoryUsageTest.stdoutLog("TPCH tests are not enabled, Skipping... ")
+        TPCHSuite.stdoutLog("TPCH tests are not enabled, Skipping... ")
         return
       }
       val commentContentPath = System.getenv("COMMENT_CONTENT_PATH")
       if (StringUtils.isEmpty(commentContentPath)) {
-        MemoryUsageTest.stdoutLog("No COMMENT_CONTENT_PATH set. Aborting... ")
+        TPCHSuite.stdoutLog("No COMMENT_CONTENT_PATH set. Aborting... ")
         throw new IllegalArgumentException("No COMMENT_CONTENT_PATH set")
       }
 
@@ -428,20 +425,20 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
     def run(): Unit = {
       val enableTPCHTests = Option(System.getenv("ENABLE_TPCH_TESTS"))
       if (!enableTPCHTests.exists(_.toBoolean)) {
-        MemoryUsageTest.stdoutLog("TPCH tests are not enabled, Skipping... ")
+        TPCHSuite.stdoutLog("TPCH tests are not enabled, Skipping... ")
         return
       }
 
       LogManager.getRootLogger.setLevel(Level.WARN)
       val commentTextOutputPath = System.getenv("COMMENT_TEXT_OUTPUT_PATH")
       if (StringUtils.isEmpty(commentTextOutputPath)) {
-        MemoryUsageTest.stdoutLog("No COMMENT_TEXT_OUTPUT_PATH set. Aborting... ")
+        TPCHSuite.stdoutLog("No COMMENT_TEXT_OUTPUT_PATH set. Aborting... ")
         throw new IllegalArgumentException("No COMMENT_TEXT_OUTPUT_PATH set")
       }
 
       val commentImageOutputPath = System.getenv("COMMENT_IMAGE_OUTPUT_PATH")
       if (StringUtils.isEmpty(commentImageOutputPath)) {
-        MemoryUsageTest.stdoutLog("No COMMENT_IMAGE_OUTPUT_PATH set. Aborting... ")
+        TPCHSuite.stdoutLog("No COMMENT_IMAGE_OUTPUT_PATH set. Aborting... ")
         throw new IllegalArgumentException("No COMMENT_IMAGE_OUTPUT_PATH set")
       }
 
@@ -453,7 +450,7 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
         writer.write(line)
         writer.write('\n')
         writer.flush()
-        MemoryUsageTest.stdoutLog("Wrote log line: " + line)
+        TPCHSuite.stdoutLog("Wrote log line: " + line)
       }
 
       writeCommentLine("GitHub Action TPC-H RAM usage test starts to run. " +
@@ -499,28 +496,30 @@ class MemoryUsageTest extends QueryTest with SharedSparkSession {
       } catch {
         case e: Throwable =>
           writeCommentLine("Error executing TPC-H queries: %s".format(e.getMessage))
+          throw e
+      } finally {
+        writeCommentLine("```")
+        writer.close()
+        ramMonitor.close()
       }
-      writeCommentLine("```")
-      writer.close()
-      ramMonitor.close()
     }
     run()
   }
 
   private def runTPCHQuery(caseId: Int, roundId: Int): Unit = {
     val path = "tpch-queries/q" + caseId + ".sql";
-    val absolute = MemoryUsageTest.locateResourcePath(path)
+    val absolute = TPCHSuite.locateResourcePath(path)
     val sql = FileUtils.readFileToString(new File(absolute), StandardCharsets.UTF_8)
-    MemoryUsageTest.stdoutLog("Running TPC-H query %d (round %d)... ".format(caseId, roundId))
+    TPCHSuite.stdoutLog("Running TPC-H query %d (round %d)... ".format(caseId, roundId))
     val df = spark.sql(sql)
     df.show(100)
   }
 }
 
-object MemoryUsageTest {
+object TPCHSuite {
 
   private def locateResourcePath(resource: String): String = {
-    classOf[MemoryUsageTest].getClassLoader.getResource("")
+    classOf[TPCHSuite].getClassLoader.getResource("")
         .getPath.concat(File.separator).concat(resource)
   }
 
