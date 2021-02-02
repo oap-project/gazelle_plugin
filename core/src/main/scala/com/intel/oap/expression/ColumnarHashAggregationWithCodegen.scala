@@ -473,7 +473,7 @@ object ColumnarHashAggregationWithCodegen extends Logging {
       output: Seq[Attribute],
       sparkConf: SparkConf): TreeNode = {
     // build gandiva projection here.
-    ColumnarPluginConfig.getConf(sparkConf)
+    ColumnarPluginConfig.getConf
 
     val mode = if (aggregateExpressions.size > 0) {
       aggregateExpressions(0).mode
