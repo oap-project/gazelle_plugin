@@ -76,6 +76,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
+    createTPCHTables()
   }
 
   override def afterAll(): Unit = {
@@ -479,7 +480,6 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
       }
 
       try {
-        createTPCHTables()
         writeCommentLine("```")
         writeCommentLine("Before suite starts: %s".format(genReportLine()))
         (1 to 20).foreach { executionId =>
