@@ -75,7 +75,6 @@ jobs:
           ENABLE_TPCH_TESTS: "true"
       - run: |
           cml-publish /tmp/comment_image_1.png --md > /tmp/comment.md
-          truncate -s -1 /tmp/comment.md
           cml-publish /tmp/comment_image_2.png --md >> /tmp/comment.md
       - run: echo "::set-output name=event_path::${GITHUB_EVENT_PATH}"
         id: output-envs

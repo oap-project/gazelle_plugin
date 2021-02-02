@@ -607,7 +607,7 @@ object TPCHSuite {
     def writeImage(title: String, chartOutputPath: String): Unit = {
       val chart = new XYChartBuilder()
           .width(768)
-          .height(512)
+          .height(256)
           .title(title)
           .xAxisTitle("Up Time (Second)")
           .yAxisTitle("RAM Used (MB)")
