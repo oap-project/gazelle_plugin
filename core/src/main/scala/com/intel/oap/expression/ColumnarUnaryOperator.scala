@@ -41,6 +41,19 @@ class ColumnarIsNotNull(child: Expression, original: Expression)
     extends IsNotNull(child: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(ByteType, ShortType, IntegerType, LongType, FloatType,
+      DoubleType, DateType, TimestampType, BooleanType, StringType, BinaryType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarIsNotNull.")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -56,6 +69,19 @@ class ColumnarIsNull(child: Expression, original: Expression)
     extends IsNotNull(child: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(ByteType, ShortType, IntegerType, LongType, FloatType,
+      DoubleType, DateType, TimestampType, BooleanType, StringType, BinaryType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarIsNull.")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -71,6 +97,17 @@ class ColumnarYear(child: Expression, original: Expression)
     extends Year(child: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(LongType, StringType, DateType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarYear.")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -91,6 +128,17 @@ class ColumnarNot(child: Expression, original: Expression)
     extends Not(child: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(BooleanType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarNot.")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -111,11 +159,12 @@ class ColumnarAbs(child: Expression, original: Expression)
 
   def buildCheck(): Unit = {
     val supportedTypes = List(FloatType, DoubleType)
-    if (supportedTypes.indexOf(dataType) == -1) {
+    if (supportedTypes.indexOf(child.dataType) == -1) {
       throw new UnsupportedOperationException(
-        s"${dataType} is not supported in ColumnarAbs")
+        s"${child.dataType} is not supported in ColumnarAbs")
     }
   }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -131,6 +180,17 @@ class ColumnarUpper(child: Expression, original: Expression)
   extends Upper(child: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarUpper")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -146,6 +206,17 @@ class ColumnarBitwiseNot(child: Expression, original: Expression)
     extends BitwiseNot(child: Expression)
         with ColumnarExpression
         with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(IntegerType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarBitwiseNot")
+    }
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -162,6 +233,18 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
     extends CheckOverflow(child: Expression, original.dataType: DecimalType, original.nullOnOverflow: Boolean)
         with ColumnarExpression
         with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(IntegerType, LongType, FloatType, DoubleType, StringType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarCheckOverflow")
+    }
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

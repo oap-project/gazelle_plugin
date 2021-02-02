@@ -210,8 +210,9 @@ class ColumnarBitwiseXor(left: Expression, right: Expression, original: Expressi
 
 object ColumnarBinaryArithmetic {
 
-  def create(left: Expression, right: Expression, original: Expression): Expression =
-    original match {
+  def create(left: Expression, right: Expression, original: Expression): Expression = {
+      buildCheck(left, right)
+      original match {
       case a: Add =>
         new ColumnarAdd(left, right, a)
       case s: Subtract =>
@@ -229,4 +230,16 @@ object ColumnarBinaryArithmetic {
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
+  }
+
+  def buildCheck(left: Expression, right: Expression): Unit = {
+    try {
+      ConverterUtils.checkIfTypeSupported(left.dataType)
+      ConverterUtils.checkIfTypeSupported(right.dataType)
+    } catch {
+      case e : UnsupportedOperationException =>
+        throw new UnsupportedOperationException(
+          s"${left.dataType} or ${right.dataType} is not supported in ColumnarBinaryArithmetic")
+    }
+  }
 }

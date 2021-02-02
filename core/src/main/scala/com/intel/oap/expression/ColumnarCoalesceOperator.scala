@@ -45,6 +45,20 @@ class ColumnarCoalesce(exps: Seq[Expression], original: Expression)
     extends Coalesce(exps: Seq[Expression])
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    exps.foreach(expr => try {
+        ConverterUtils.checkIfTypeSupported(expr.dataType)
+      } catch {
+        case e : UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${expr.dataType} is not supported in ColumnarCoalesce")
+      }
+    )
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val iter: Iterator[Expression] = exps.iterator
     val exp = iter.next()

@@ -410,7 +410,8 @@ class ColumnarShiftRight(left: Expression, right: Expression, original: Expressi
 
 object ColumnarBinaryOperator {
 
-  def create(left: Expression, right: Expression, original: Expression): Expression =
+  def create(left: Expression, right: Expression, original: Expression): Expression = {
+    buildCheck(left, right)
     original match {
       case a: And =>
         new ColumnarAnd(left, right, a)
@@ -443,4 +444,16 @@ object ColumnarBinaryOperator {
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
+  }
+
+  def buildCheck(left: Expression, right: Expression): Unit = {
+    try {
+      ConverterUtils.checkIfTypeSupported(left.dataType)
+      ConverterUtils.checkIfTypeSupported(right.dataType)
+    } catch {
+      case e : UnsupportedOperationException =>
+        throw new UnsupportedOperationException(
+          s"${left.dataType} or ${right.dataType} is not supported in ColumnarBinaryOperator")
+    }
+  }
 }
