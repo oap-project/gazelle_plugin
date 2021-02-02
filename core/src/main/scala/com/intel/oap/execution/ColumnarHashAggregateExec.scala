@@ -70,7 +70,7 @@ case class ColumnarHashAggregateExec(
     with AliasAwareOutputPartitioning {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
 
   // Members declared in org.apache.spark.sql.execution.AliasAwareOutputPartitioning

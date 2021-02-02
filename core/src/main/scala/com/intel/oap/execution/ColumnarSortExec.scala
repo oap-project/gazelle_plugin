@@ -57,7 +57,7 @@ case class ColumnarSortExec(
     with ColumnarCodegenSupport {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
   override protected def doExecute(): RDD[InternalRow] = {
     throw new UnsupportedOperationException(s"ColumnarSortExec doesn't support doExecute")
@@ -194,7 +194,7 @@ case class ColumnarSortExec(
       val res = if (!hasInput) {
         Iterator.empty
       } else {
-        ColumnarPluginConfig.getConf(sparkConf)
+        ColumnarPluginConfig.getConf
         val execTempDir = ColumnarPluginConfig.getTempFile
         val jarList = listJars.map(jarUrl => {
           logWarning(s"Get Codegened library Jar ${jarUrl}")

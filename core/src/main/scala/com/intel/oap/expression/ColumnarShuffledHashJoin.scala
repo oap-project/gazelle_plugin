@@ -230,7 +230,7 @@ object ColumnarShuffledHashJoin extends Logging {
       right: SparkPlan,
       _sparkConf: SparkConf): Unit = {
     val sparkConf = _sparkConf
-    ColumnarPluginConfig.getConf(sparkConf)
+    ColumnarPluginConfig.getConf
     // TODO
     val l_input_schema: List[Attribute] = left.output.toList
     val r_input_schema: List[Attribute] = right.output.toList

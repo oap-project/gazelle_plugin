@@ -70,7 +70,7 @@ private class ArrowColumnarBatchSerializerInstance(
         SparkEnv.get.conf.getBoolean("spark.shuffle.compress", true)
       private val compressionCodec =
         if (ColumnarPluginConfig
-              .getConf(SparkEnv.get.conf)
+              .getConf
               .columnarShuffleUseCustomizedCompression) {
           "fastpfor"
         } else {

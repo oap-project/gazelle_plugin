@@ -416,7 +416,7 @@ case class ColumnarSortMergeJoinExec(
     val signature = getCodeGenSignature
     val listJars = uploadAndListJars(signature)
     right.executeColumnar().zipPartitions(left.executeColumnar()) { (streamIter, buildIter) =>
-      ColumnarPluginConfig.getConf(sparkConf)
+      ColumnarPluginConfig.getConf
       val execTempDir = ColumnarPluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
         logWarning(s"Get Codegened library Jar ${jarUrl}")

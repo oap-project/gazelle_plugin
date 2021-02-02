@@ -48,7 +48,7 @@ case class ColumnarConditionProjectExec(
     with AliasAwareOutputPartitioning
     with Logging {
 
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
 
   val sparkConf: SparkConf = sparkContext.getConf
 
@@ -249,7 +249,7 @@ case class ColumnarConditionProjectExec(
     numInputBatches.set(0)
 
     child.executeColumnar().mapPartitions { iter =>
-      ColumnarPluginConfig.getConf(sparkConf)
+      ColumnarPluginConfig.getConf
       ExecutorManager.tryTaskSet(numaBindingInfo)
       val condProj = ColumnarConditionProjector.create(
         condition,

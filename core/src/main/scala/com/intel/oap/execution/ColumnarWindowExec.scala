@@ -68,7 +68,7 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   val totalTime = longMetric("totalTime")
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
 
   val windowFunctions: Seq[(String, Expression)] = windowExpression
       .map(e => e.asInstanceOf[Alias])
