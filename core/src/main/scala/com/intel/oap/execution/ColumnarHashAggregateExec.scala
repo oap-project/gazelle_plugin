@@ -49,6 +49,7 @@ import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.vectorized.MutableColumnarRow
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.types.{DecimalType, StringType, StructType}
 import org.apache.spark.unsafe.KVIterator
 
@@ -106,34 +107,81 @@ case class ColumnarHashAggregateExec(
   buildCheck()
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
-    child.executeColumnar().mapPartitionsWithIndex { (partIndex, iter) =>
+    var eval_elapse: Long = 0
+    child.executeColumnar().mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
-      val hasInput = iter.hasNext
-      val res = if (!hasInput) {
-        // This is a grouped aggregate and the input iterator is empty,
-        // so return an empty iterator.
-        Iterator.empty
-      } else {
-        var aggregation = ColumnarAggregation.create(
-          partIndex,
-          groupingExpressions,
-          child.output,
-          aggregateExpressions,
-          aggregateAttributes,
-          resultExpressions,
-          output,
-          numInputBatches,
-          numOutputBatches,
-          numOutputRows,
-          aggTime,
-          totalTime,
-          sparkConf)
-        SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
-          aggregation.close()
-        })
-        new CloseableColumnBatchIterator(aggregation.createIterator(iter))
+      val native_function = TreeBuilder.makeFunction(
+        s"standalone",
+        Lists.newArrayList(getKernelFunction),
+        new ArrowType.Int(32, true))
+      val hash_aggr_expr =
+        TreeBuilder
+          .makeExpression(native_function, Field.nullable("result", new ArrowType.Int(32, true)))
+      val hash_aggr_input_schema = ConverterUtils.toArrowSchema(child.output)
+      val hash_aggr_out_schema = ConverterUtils.toArrowSchema(output)
+      val resultStructType = ArrowUtils.fromArrowSchema(hash_aggr_out_schema)
+      val nativeKernel = new ExpressionEvaluator()
+      nativeKernel
+        .build(
+          hash_aggr_input_schema,
+          Lists.newArrayList(hash_aggr_expr),
+          hash_aggr_out_schema,
+          true)
+      val nativeIterator = nativeKernel.finishByIterator()
+
+      def close = {
+        aggTime += (eval_elapse / 1000000)
+        totalTime += (eval_elapse / 1000000)
+        nativeKernel.close
+        nativeIterator.close
       }
-      res
+
+      // now we can return this wholestagecodegen iter
+      val res = new Iterator[ColumnarBatch] {
+        var processed = false
+        def process: Unit = {
+          while (iter.hasNext) {
+            val cb = iter.next()
+            numInputBatches += 1
+            if (cb.numRows != 0) {
+              val beforeEval = System.nanoTime()
+              val input_rb =
+                ConverterUtils.createArrowRecordBatch(cb)
+              nativeIterator.processAndCacheOne(hash_aggr_input_schema, input_rb)
+              ConverterUtils.releaseArrowRecordBatch(input_rb)
+              eval_elapse += System.nanoTime() - beforeEval
+            }
+          }
+          processed = true
+        }
+        override def hasNext: Boolean = {
+          if (!processed) process
+          nativeIterator.hasNext
+        }
+
+        override def next(): ColumnarBatch = {
+          if (!processed) process
+          val beforeEval = System.nanoTime()
+          val output_rb = nativeIterator.next
+          if (output_rb == null) {
+            eval_elapse += System.nanoTime() - beforeEval
+            val resultColumnVectors =
+              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+          }
+          val outputNumRows = output_rb.getLength
+          val output = ConverterUtils.fromArrowRecordBatch(hash_aggr_out_schema, output_rb)
+          ConverterUtils.releaseArrowRecordBatch(output_rb)
+          eval_elapse += System.nanoTime() - beforeEval
+          numOutputRows += outputNumRows
+          numOutputBatches += 1
+          new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
+        }
+      }
+      SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
+        close
+      })
+      new CloseableColumnBatchIterator(res)
     }
   }
 
@@ -228,7 +276,7 @@ case class ColumnarHashAggregateExec(
   // override def canEqual(that: Any): Boolean = false
 
   def getKernelFunction: TreeNode = {
-    ColumnarHashAggregationWithCodegen.prepareKernelFunction(
+    ColumnarHashAggregation.prepareKernelFunction(
       groupingExpressions,
       child.output,
       aggregateExpressions,
