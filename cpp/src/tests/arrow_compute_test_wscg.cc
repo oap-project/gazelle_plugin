@@ -3857,8 +3857,8 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyHashAggregateTwoKeys) {
   auto n_avg = TreeExprBuilder::MakeFunction("action_avgByCount", {arg2, arg0}, uint32());
   auto n_stddev = TreeExprBuilder::MakeFunction("action_stddev_samp_final",
                                                 {arg2, arg3, arg4}, uint32());
-  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
-                                              {arg0, arg1, arg2, arg3, arg4}, uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction(
+      "aggregateExpressions", {arg0, arg1, arg2, arg3, arg4, arg5}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions",
       {n_groupby, n_groupby_5, n_sum_count, n_min, n_max, n_avg, n_stddev}, uint32());

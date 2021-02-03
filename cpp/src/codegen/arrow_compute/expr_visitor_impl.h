@@ -100,225 +100,6 @@ class ExprVisitorImpl {
   }
 };
 
-//////////////////////// SplitArrayListWithActionVisitorImpl //////////////////////
-class SplitArrayListWithActionVisitorImpl : public ExprVisitorImpl {
- public:
-  SplitArrayListWithActionVisitorImpl(ExprVisitor* p) : ExprVisitorImpl(p) {}
-  static arrow::Status Make(ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
-    auto impl = std::make_shared<SplitArrayListWithActionVisitorImpl>(p);
-    *out = impl;
-    return arrow::Status::OK();
-  }
-  arrow::Status Init() override {
-    if (initialized_) {
-      return arrow::Status::OK();
-    }
-    if (p_->action_name_list_.empty()) {
-      return arrow::Status::Invalid(
-          "ExprVisitor::SplitArrayListWithAction have empty action_name_list, "
-          "this "
-          "is invalid.");
-    }
-
-    std::vector<std::shared_ptr<arrow::DataType>> type_list;
-    for (auto col_name : p_->action_param_list_) {
-      std::shared_ptr<arrow::Field> field;
-      int col_id;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, col_name, &col_id, &field));
-      p_->result_fields_.push_back(field);
-      col_id_list_.push_back(col_id);
-      type_list.push_back(field->type());
-    }
-    RETURN_NOT_OK(extra::SplitArrayListWithActionKernel::Make(
-        &p_->ctx_, p_->action_name_list_, type_list, &kernel_));
-    initialized_ = true;
-    finish_return_type_ = ArrowComputeResultType::Batch;
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Eval() override {
-    switch (p_->dependency_result_type_) {
-      case ArrowComputeResultType::Array: {
-        ArrayList col_list;
-        for (auto col_id : col_id_list_) {
-          if (col_id >= p_->in_record_batch_->num_columns()) {
-            return arrow::Status::Invalid(
-                "SplitArrayListWithActionVisitorImpl Eval col_id is bigger than input "
-                "batch numColumns.");
-          }
-          auto col = p_->in_record_batch_->column(col_id);
-          col_list.push_back(col);
-        }
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(col_list, p_->in_array_));
-        p_->dependency_result_type_ = ArrowComputeResultType::None;
-      } break;
-      default:
-        return arrow::Status::NotImplemented(
-            "SplitArrayListWithActionVisitorImpl: Does not support this type of input.");
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Finish() override {
-    RETURN_NOT_OK(ExprVisitorImpl::Finish());
-    switch (finish_return_type_) {
-      case ArrowComputeResultType::Batch: {
-        RETURN_NOT_OK(kernel_->Finish(&p_->result_batch_));
-        p_->return_type_ = ArrowComputeResultType::Batch;
-      } break;
-      default: {
-        return arrow::Status::NotImplemented(
-            "SplitArrayListWithActionVisitorImpl only support finish_return_type as "
-            "Batch.");
-        break;
-      }
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
-                                   std::shared_ptr<ResultIteratorBase>* out) override {
-    switch (finish_return_type_) {
-      case ArrowComputeResultType::Batch: {
-        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
-        TIME_MICRO_OR_RAISE(p_->elapse_time_,
-                            kernel_->MakeResultIterator(schema, &iter_out));
-        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
-        p_->return_type_ = ArrowComputeResultType::BatchIterator;
-      } break;
-      default:
-        return arrow::Status::Invalid(
-            "SplitArrayListWithActionVisitorImpl Finish does not support dependency type "
-            "other than Batch.");
-    }
-    return arrow::Status::OK();
-  }
-
- private:
-  std::vector<int> col_id_list_;
-};
-
-////////////////////////// AggregateVisitorImpl ///////////////////////
-class AggregateVisitorImpl : public ExprVisitorImpl {
- public:
-  AggregateVisitorImpl(ExprVisitor* p, std::string func_name)
-      : ExprVisitorImpl(p), func_name_(func_name) {}
-  static arrow::Status Make(ExprVisitor* p, std::string func_name,
-                            std::shared_ptr<ExprVisitorImpl>* out) {
-    auto impl = std::make_shared<AggregateVisitorImpl>(p, func_name);
-    *out = impl;
-    return arrow::Status::OK();
-  }
-  arrow::Status Init() override {
-    if (initialized_) {
-      return arrow::Status::OK();
-    }
-    for (auto col_name : p_->param_field_names_) {
-      std::shared_ptr<arrow::Field> field;
-      int col_id;
-      RETURN_NOT_OK(GetColumnIdAndFieldByName(p_->schema_, col_name, &col_id, &field));
-      p_->result_fields_.push_back(field);
-      col_id_list_.push_back(col_id);
-    }
-    auto data_type = p_->result_fields_[0]->type();
-
-    if (func_name_.compare("sum") == 0) {
-      RETURN_NOT_OK(extra::SumArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("count") == 0) {
-      RETURN_NOT_OK(extra::CountArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("sum_count") == 0) {
-      p_->result_fields_.push_back(arrow::field("cnt", arrow::int64()));
-      RETURN_NOT_OK(extra::SumCountArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("sum_count_merge") == 0) {
-      RETURN_NOT_OK(extra::SumArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-      RETURN_NOT_OK(extra::SumArrayKernel::Make(&p_->ctx_, p_->result_fields_[1]->type(),
-                                                &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("avgByCount") == 0) {
-      p_->result_fields_.erase(p_->result_fields_.end() - 1);
-      RETURN_NOT_OK(extra::AvgByCountArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("min") == 0) {
-      RETURN_NOT_OK(extra::MinArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("max") == 0) {
-      RETURN_NOT_OK(extra::MaxArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("stddev_samp_partial") == 0) {
-      p_->result_fields_.push_back(arrow::field("avg", arrow::int64()));
-      p_->result_fields_.push_back(arrow::field("m2", arrow::int64()));
-      RETURN_NOT_OK(
-          extra::StddevSampPartialArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    } else if (func_name_.compare("stddev_samp_final") == 0) {
-      p_->result_fields_.erase(p_->result_fields_.end() - 1);
-      p_->result_fields_.erase(p_->result_fields_.end() - 1);
-      RETURN_NOT_OK(
-          extra::StddevSampFinalArrayKernel::Make(&p_->ctx_, data_type, &kernel_));
-      kernel_list_.push_back(kernel_);
-    }
-    initialized_ = true;
-    finish_return_type_ = ArrowComputeResultType::Batch;
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Eval() override {
-    switch (p_->dependency_result_type_) {
-      case ArrowComputeResultType::None: {
-        ArrayList in;
-        for (auto col_id : col_id_list_) {
-          if (col_id >= p_->in_record_batch_->num_columns()) {
-            return arrow::Status::Invalid(
-                "AggregateVisitorImpl Eval col_id is bigger than input "
-                "batch numColumns.");
-          }
-          auto col = p_->in_record_batch_->column(col_id);
-          in.push_back(col);
-        }
-        for (int i = 0; i < kernel_list_.size(); i++) {
-          if (kernel_list_.size() > 1) {
-            RETURN_NOT_OK(kernel_list_[i]->Evaluate({in[i]}));
-          } else {
-            RETURN_NOT_OK(kernel_list_[i]->Evaluate(in));
-          }
-        }
-      } break;
-      default:
-        return arrow::Status::NotImplemented(
-            "AggregateVisitorImpl: Does not support this type of input.");
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Finish() override {
-    RETURN_NOT_OK(ExprVisitorImpl::Finish());
-    switch (finish_return_type_) {
-      case ArrowComputeResultType::Batch: {
-        for (auto kernel : kernel_list_) {
-          RETURN_NOT_OK(kernel->Finish(&p_->result_batch_));
-        }
-        p_->return_type_ = ArrowComputeResultType::Batch;
-      } break;
-      default: {
-        return arrow::Status::NotImplemented(
-            "AggregateVisitorImpl only support finish_return_type as "
-            "Array.");
-        break;
-      }
-    }
-    return arrow::Status::OK();
-  }
-
- private:
-  std::vector<int> col_id_list_;
-  std::string func_name_;
-  std::vector<std::shared_ptr<extra::KernalBase>> kernel_list_;
-};
-
 class WindowVisitorImpl : public ExprVisitorImpl {
  public:
   WindowVisitorImpl(ExprVisitor* p, std::vector<std::string> window_function_names,
@@ -1213,6 +994,84 @@ class ConcatArrayListVisitorImpl : public ExprVisitorImpl {
       default:
         return arrow::Status::Invalid(
             "ConcatArrayListVisitorImpl MakeResultIterator does not support "
+            "dependency type other than Batch.");
+    }
+    return arrow::Status::OK();
+  }
+
+ private:
+  std::shared_ptr<gandiva::Node> root_node_;
+  std::vector<std::shared_ptr<arrow::Field>> field_list_;
+  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
+};
+
+////////////////////////// HashAggregateArraysImpl ///////////////////////
+class HashAggregateArraysImpl : public ExprVisitorImpl {
+ public:
+  HashAggregateArraysImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                          std::shared_ptr<gandiva::Node> root_node,
+                          std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                          ExprVisitor* p)
+      : root_node_(root_node),
+        field_list_(field_list),
+        ret_fields_(ret_fields),
+        ExprVisitorImpl(p) {
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
+  }
+  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> field_list,
+                            std::shared_ptr<gandiva::Node> root_node,
+                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
+    auto impl =
+        std::make_shared<HashAggregateArraysImpl>(field_list, root_node, ret_fields, p);
+    *out = impl;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Init() override {
+    if (initialized_) {
+      return arrow::Status::OK();
+    }
+    auto function_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(root_node_);
+    auto field_node_list =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[0])
+            ->children();
+    auto action_node_list =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[1])
+            ->children();
+
+    gandiva::NodeVector result_field_node_list;
+    gandiva::NodeVector result_expr_node_list;
+    if (function_node->children().size() == 4) {
+      result_field_node_list =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[2])
+              ->children();
+      result_expr_node_list =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[3])
+              ->children();
+    }
+    RETURN_NOT_OK(extra::HashAggregateKernel::Make(
+        &p_->ctx_, field_node_list, action_node_list, result_field_node_list,
+        result_expr_node_list, &kernel_));
+    p_->signature_ = kernel_->GetSignature();
+    initialized_ = true;
+    finish_return_type_ = ArrowComputeResultType::BatchIterator;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
+                                   std::shared_ptr<ResultIteratorBase>* out) override {
+    switch (finish_return_type_) {
+      case ArrowComputeResultType::BatchIterator: {
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
+        TIME_MICRO_OR_RAISE(p_->elapse_time_,
+                            kernel_->MakeResultIterator(schema, &iter_out));
+        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
+        p_->return_type_ = ArrowComputeResultType::Batch;
+      } break;
+      default:
+        return arrow::Status::Invalid(
+            "HashAggregateArraysImpl MakeResultIterator does not support "
             "dependency type other than Batch.");
     }
     return arrow::Status::OK();

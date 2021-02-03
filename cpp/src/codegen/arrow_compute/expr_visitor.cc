@@ -348,6 +348,9 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     } else if (child_func_name.compare("ConcatArrayList") == 0) {
       RETURN_NOT_OK(
           ConcatArrayListVisitorImpl::Make(field_list, func_node, ret_fields, p, &impl_));
+    } else if (child_func_name.compare("hashAggregateArrays") == 0) {
+      RETURN_NOT_OK(
+          HashAggregateArraysImpl::Make(field_list, func_node, ret_fields, p, &impl_));
     }
     goto finish;
   }
@@ -463,20 +466,6 @@ unrecognizedFail:
 
 arrow::Status ExprVisitor::MakeExprVisitorImpl(const std::string& func_name,
                                                ExprVisitor* p) {
-  if (func_name.compare("splitArrayListWithAction") == 0) {
-    RETURN_NOT_OK(SplitArrayListWithActionVisitorImpl::Make(p, &impl_));
-    goto finish;
-  }
-  if (func_name.compare("sum") == 0 || func_name.compare("count") == 0 ||
-      func_name.compare("unique") == 0 || func_name.compare("append") == 0 ||
-      func_name.compare("sum_count") == 0 || func_name.compare("avgByCount") == 0 ||
-      func_name.compare("min") == 0 || func_name.compare("max") == 0 ||
-      func_name.compare("stddev_samp_partial") == 0 ||
-      func_name.compare("stddev_samp_final") == 0 ||
-      func_name.compare("sum_count_merge") == 0) {
-    RETURN_NOT_OK(AggregateVisitorImpl::Make(p, func_name, &impl_));
-    goto finish;
-  }
   if (func_name.compare("encodeArray") == 0) {
     RETURN_NOT_OK(EncodeVisitorImpl::Make(p, 0, &impl_));
     goto finish;

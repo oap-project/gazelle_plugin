@@ -13,6 +13,7 @@ class GandivaProjector {
   GandivaProjector(arrow::compute::FunctionContext* ctx, gandiva::SchemaPtr input_schema,
                    gandiva::ExpressionVector exprs);
   arrow::Status Evaluate(arrow::ArrayVector* in);
+  arrow::ArrayVector Evaluate(const arrow::ArrayVector& in);
 
  private:
   class Impl;

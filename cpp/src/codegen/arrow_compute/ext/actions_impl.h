@@ -52,6 +52,7 @@ class ActionBase {
   virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
                                std::function<arrow::Status(uint32_t)>* on_valid,
                                std::function<arrow::Status()>* on_null);
+  virtual arrow::Status Evaluate(const arrow::ArrayVector& in);
   virtual arrow::Status Evaluate(int dest_group_id);
   virtual arrow::Status Evaluate(int dest_group_id, void* data);
   virtual arrow::Status Evaluate(int dest_group_id, void* data1, void* data2);

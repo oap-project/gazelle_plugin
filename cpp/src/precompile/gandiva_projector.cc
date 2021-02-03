@@ -21,6 +21,17 @@ class GandivaProjector::Impl {
     RETURN_NOT_OK(gandiva::Projector::Make(schema_, exprs, configuration, &projector_));
     return arrow::Status::OK();
   }
+
+  arrow::ArrayVector Evaluate(const arrow::ArrayVector& in) {
+    arrow::ArrayVector outputs;
+    if (in.size() > 0) {
+      auto length = in[0]->length();
+      auto in_batch = arrow::RecordBatch::Make(schema_, length, in);
+      THROW_NOT_OK(projector_->Evaluate(*in_batch.get(), ctx_->memory_pool(), &outputs));
+    }
+    return outputs;
+  }
+
   arrow::Status Evaluate(arrow::ArrayVector* in) {
     if ((*in).size() > 0) {
       arrow::ArrayVector outputs;
@@ -45,5 +56,9 @@ GandivaProjector::GandivaProjector(arrow::compute::FunctionContext* ctx,
 }
 
 arrow::Status GandivaProjector::Evaluate(arrow::ArrayVector* in) {
+  return impl_->Evaluate(in);
+}
+
+arrow::ArrayVector GandivaProjector::Evaluate(const arrow::ArrayVector& in) {
   return impl_->Evaluate(in);
 }
