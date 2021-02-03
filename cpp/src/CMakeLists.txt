@@ -237,6 +237,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/basic_physical_kernels.cc
         codegen/arrow_compute/ext/expression_codegen_visitor.cc
         codegen/arrow_compute/ext/typed_node_visitor.cc
+        shuffle/splitter.cc
         precompile/hash_map.cc
         precompile/sparse_hash_map.cc
         precompile/builder.cc
