@@ -206,15 +206,16 @@ arrow::Status MakeExprVector(JNIEnv* env, jbyteArray exprs_arr,
 
 jbyteArray ToSchemaByteArray(JNIEnv* env, std::shared_ptr<arrow::Schema> schema) {
   arrow::Status status;
-  std::shared_ptr<arrow::Buffer> buffer;
-  status = arrow::ipc::SerializeSchema(*schema.get(), nullptr,
-                                       arrow::default_memory_pool(), &buffer);
+  //std::shared_ptr<arrow::Buffer> buffer;
+  arrow::Result<std::shared_ptr<arrow::Buffer>> maybe_buffer;
+  maybe_buffer = arrow::ipc::SerializeSchema(*schema.get(),
+                                       arrow::default_memory_pool());
   if (!status.ok()) {
     std::string error_message =
         "Unable to convert schema to byte array, err is " + status.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
-
+  auto buffer = *std::move(maybe_buffer);
   jbyteArray out = env->NewByteArray(buffer->size());
   auto src = reinterpret_cast<const jbyte*>(buffer->data());
   env->SetByteArrayRegion(out, 0, buffer->size(), src);

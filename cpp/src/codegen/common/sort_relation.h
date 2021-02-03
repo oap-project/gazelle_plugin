@@ -44,7 +44,8 @@ class SortRelation {
     sort_relation_key_list_ = sort_relation_key_list;
     sort_relation_payload_list_ = sort_relation_payload_list;
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
-    arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf_);
+    auto maybe_buffer =  arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf_ = *std::move(maybe_buffer);
     indices_begin_ = reinterpret_cast<ArrayItemIndexS*>(indices_buf_->mutable_data());
     uint64_t idx = 0;
     int array_id = 0;

@@ -197,7 +197,7 @@ class Splitter::PartitionWriter {
   arrow::Status WriteSchemaPayload(arrow::io::OutputStream* os) {
     ARROW_ASSIGN_OR_RAISE(auto payload, splitter_->GetSchemaPayload());
     int32_t metadata_length = 0;  // unused
-    RETURN_NOT_OK(arrow::ipc::internal::WriteIpcPayload(
+    RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
         *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
     return arrow::Status::OK();
   }
@@ -206,7 +206,7 @@ class Splitter::PartitionWriter {
                                         int32_t partition_id) {
     int32_t metadata_length = 0;  // unused
     for (auto& payload : splitter_->partition_cached_recordbatch_[partition_id_]) {
-      RETURN_NOT_OK(arrow::ipc::internal::WriteIpcPayload(
+      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
           *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
       payload = nullptr;
     }
@@ -451,7 +451,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
       }
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
-    auto payload = std::make_shared<arrow::ipc::internal::IpcPayload>();
+    auto payload = std::make_shared<arrow::ipc::internal::IpcPayloadWriter>();
     TIME_NANO_OR_RAISE(total_compress_time_,
                        arrow::ipc::internal::GetRecordBatchPayload(
                            *batch, options_.ipc_write_options, payload.get()));
@@ -1048,12 +1048,12 @@ std::string Splitter::NextSpilledFileDir() {
   return spilled_file_dir;
 }
 
-arrow::Result<std::shared_ptr<arrow::ipc::internal::IpcPayload>>
+arrow::Result<std::shared_ptr<arrow::ipc::internal::IpcPayloadWriter>>
 Splitter::GetSchemaPayload() {
   if (schema_payload_ != nullptr) {
     return schema_payload_;
   }
-  schema_payload_ = std::make_shared<arrow::ipc::internal::IpcPayload>();
+  schema_payload_ = std::make_shared<arrow::ipc::internal::IpcPayloadWriter>();
   arrow::ipc::DictionaryMemo dict_memo;  // unused
   RETURN_NOT_OK(arrow::ipc::internal::GetSchemaPayload(
       *schema_, options_.ipc_write_options, &dict_memo, schema_payload_.get()));

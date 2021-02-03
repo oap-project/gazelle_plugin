@@ -25,6 +25,7 @@
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 
+#include <cmath>
 #include <chrono>
 #include <cstring>
 #include <fstream>
