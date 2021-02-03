@@ -43,3 +43,4 @@ cmake-build-release/
 *flymake*
 *.kdev4
 *.swp
+scalastyle-output.xml

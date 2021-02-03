@@ -138,6 +138,7 @@
               <goal>compile</goal>
               <goal>testCompile</goal>
             </goals>
+            <phase>process-sources</phase>
           </execution>
         </executions>
         <configuration>

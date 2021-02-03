@@ -42,30 +42,6 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-writable-vector-source</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>copy-resources</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/generated-sources/copied/java/</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>${project.basedir}/../../../oap-native-sql/core/src/main/java/</directory>
-                                    <includes>
-                                        <include>**/ArrowWritableColumnVector.java</include>
-                                    </includes>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
                 <executions>
@@ -78,7 +54,6 @@
                         <configuration>
                             <sources>
                                 <source>${project.basedir}/src/main/java</source>
-                                <source>${project.build.directory}/generated-sources/copied/java/</source>
                             </sources>
                         </configuration>
                     </execution>
