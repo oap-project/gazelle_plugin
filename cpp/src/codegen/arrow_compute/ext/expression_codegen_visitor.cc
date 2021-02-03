@@ -633,6 +633,18 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
   auto index_pair = GetFieldIndex(this_field, field_list_v_);
   auto index = index_pair.first;
   auto arg_id = index_pair.second;
+  if (index == -1 && arg_id == -1) {
+    std::stringstream field_list_ss;
+    for (auto field_list : field_list_v_) {
+      field_list_ss << "[";
+      for (auto tmp_field : field_list) {
+        field_list_ss << tmp_field->name() << ",";
+      }
+      field_list_ss << "],";
+    }
+    return arrow::Status::Invalid(this_field->name(), " is not found in field_list ",
+                                  field_list_ss.str());
+  }
   if (is_smj_ && (*input_list_).empty()) {
     ///// For inputs are SortRelation /////
     codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +

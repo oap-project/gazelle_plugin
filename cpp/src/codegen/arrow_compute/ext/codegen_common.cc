@@ -271,6 +271,13 @@ std::string GetParameterList(std::vector<std::string> parameter_list_in, bool co
   }
 }
 
+std::string str_tolower(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::tolower(c); }  // correct
+  );
+  return s;
+}
+
 std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
                                   std::vector<gandiva::FieldVector> field_list_v) {
   int arg_id = 0;
@@ -279,7 +286,7 @@ std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
   for (auto field_list : field_list_v) {
     arg_id = 0;
     for (auto field : field_list) {
-      if (field->name() == target_field->name()) {
+      if (str_tolower(field->name()) == str_tolower(target_field->name())) {
         found = true;
         break;
       }
@@ -289,6 +296,9 @@ std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
       break;
     }
     index += 1;
+  }
+  if (!found) {
+    return std::make_pair(-1, -1);
   }
   return std::make_pair(index, arg_id);
 }
@@ -569,7 +579,8 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     std::cout << cmd << std::endl;
     /*cmd = "ls -R -l " + GetTempPath() + "; cat " + logfile;
     system(cmd.c_str());*/
-    exit(EXIT_FAILURE);
+    return arrow::Status::Invalid("compilation failed, see ", logfile);
+    // exit(EXIT_FAILURE);
   }
   cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
         signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so";

@@ -185,9 +185,9 @@ class HashAggregateKernel::Impl {
     // 2. create key_hash_project_node and prepare_gandiva_project_node_list
 
     // 3. create cpp codes prepare_project
-    std::vector<std::string> input_list;
     int idx = 0;
     for (auto node : prepare_function_list) {
+      std::vector<std::string> input_list;
       std::shared_ptr<ExpressionCodegenVisitor> project_node_visitor;
       auto is_local = false;
       RETURN_NOT_OK(MakeExpressionCodegenVisitor(node, &input, {input_field_list_}, level,
