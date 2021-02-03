@@ -1721,11 +1721,11 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
       }
       MakeCmpFunction(
           projected_, projected_field_list_, projected_key_idx_list, sort_directions_, 
-          nulls_order_, cmp_functions_);
+          nulls_order_, NaN_check_, cmp_functions_);
     } else {
       MakeCmpFunction(
           cached_, key_field_list_, key_index_list_, sort_directions_, 
-          nulls_order_, cmp_functions_);
+          nulls_order_, NaN_check_, cmp_functions_);
     }
     Sort(indices_begin, indices_end);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
