@@ -21,8 +21,10 @@ import java.io.IOException
 
 import com.google.common.annotations.VisibleForTesting
 import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, ShuffleSplitterJniWrapper, SplitResult}
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.memory.MemoryConsumer
@@ -130,9 +132,16 @@ class ColumnarShuffleWriter[K, V](
 
         val startTime = System.nanoTime()
 
+        val existingIntType: Boolean = if (firstRecordBatch) {
+          // Check whether the recordbatch contain the Int data type.
+          val arrowSchema = ConverterUtils.getSchemaFromBytesBuf(dep.nativePartitioning.getSchema)
+          import scala.collection.JavaConverters._
+          arrowSchema.getFields.asScala.find(_.getType.getTypeID == ArrowTypeID.Int).nonEmpty
+        } else false
+
         // Choose the compress type based on the compress size of the first record batch.
         if (firstRecordBatch && conf.getBoolean("spark.shuffle.compress", true) &&
-          customizedCompressCodec != defaultCompressionCodec) {
+          customizedCompressCodec != defaultCompressionCodec && existingIntType) {
           // Compute the default compress size
           jniWrapper.setCompressType(nativeSplitter, defaultCompressionCodec)
           val defaultCompressedSize = jniWrapper.split(
