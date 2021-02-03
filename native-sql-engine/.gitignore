@@ -1,0 +1,10 @@
+**/target/**
+*.class
+*.iml
+
+# logs
+*.log
+
+# IDEA config files
+.idea/
+*.iml
