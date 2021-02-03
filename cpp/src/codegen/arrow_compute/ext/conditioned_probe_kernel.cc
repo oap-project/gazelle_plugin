@@ -226,6 +226,7 @@ class ConditionedProbeKernel::Impl {
       // chendi: But we still use name unsafe_row_${id} to pass key data
       prepare_ss << GetCTypeString(right_key_project_codegen_[0]->result()->type()) << " "
                  << unsafe_row_name << ";" << std::endl;
+      prepare_ss << "bool " << unsafe_row_name << "_validity = false;" << std::endl;
       do_unsafe_row = false;
     } else {
       std::stringstream unsafe_row_define_ss;
@@ -256,6 +257,7 @@ class ConditionedProbeKernel::Impl {
       } else {
         prepare_ss << "if (" << validity_name << ") {" << std::endl;
         prepare_ss << unsafe_row_name << " = " << key_name << ";" << std::endl;
+        prepare_ss << unsafe_row_name << "_validity = true;" << std::endl;
         prepare_ss << "}" << std::endl;
       }
 
@@ -1450,8 +1452,9 @@ class ConditionedProbeKernel::Impl {
     auto range_index_name = "range_" + std::to_string(hash_relation_id_) + "_i";
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (key_hash_field_list_.size() == 1) {
-      codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
-               << hash_relation_id_ << ");" << std::endl;
+      codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+               << hash_relation_name << "->Get(unsafe_row_" << hash_relation_id_
+               << "):-1;" << std::endl;
     } else {
       codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
                << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1493,8 +1496,9 @@ class ConditionedProbeKernel::Impl {
     codes_ss << "std::vector<ArrayItemIndex> " << item_index_list_name << ";"
              << std::endl;
     if (key_hash_field_list_.size() == 1) {
-      codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
-               << hash_relation_id_ << ");" << std::endl;
+      codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+               << hash_relation_name << "->Get(unsafe_row_" << hash_relation_id_
+               << "):-1;" << std::endl;
     } else {
       codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
                << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1538,8 +1542,9 @@ class ConditionedProbeKernel::Impl {
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
-                 << hash_relation_id_ << ");" << std::endl;
+        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                 << hash_relation_name << "->Get(unsafe_row_" << hash_relation_id_
+                 << "):-1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1547,8 +1552,9 @@ class ConditionedProbeKernel::Impl {
       }
     } else {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(unsafe_row_"
-                 << hash_relation_id_ << ");" << std::endl;
+        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                 << hash_relation_name << "->IfExists(unsafe_row_" << hash_relation_id_
+                 << "):-1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1598,8 +1604,9 @@ class ConditionedProbeKernel::Impl {
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
-                 << hash_relation_id_ << ");" << std::endl;
+        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                 << hash_relation_name << "->Get(unsafe_row_" << hash_relation_id_
+                 << "):-1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1607,8 +1614,9 @@ class ConditionedProbeKernel::Impl {
       }
     } else {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(unsafe_row_"
-                 << hash_relation_id_ << ");" << std::endl;
+        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                 << hash_relation_name << "->IfExists(unsafe_row_" << hash_relation_id_
+                 << "):-1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1660,8 +1668,9 @@ class ConditionedProbeKernel::Impl {
     codes_ss << "int32_t " << index_name << ";" << std::endl;
     if (cond_check) {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = " << hash_relation_name << "->Get(unsafe_row_"
-                 << hash_relation_id_ << ");" << std::endl;
+        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                 << hash_relation_name << "->Get(unsafe_row_" << hash_relation_id_
+                 << "):-1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1669,8 +1678,9 @@ class ConditionedProbeKernel::Impl {
       }
     } else {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = " << hash_relation_name << "->IfExists(unsafe_row_"
-                 << hash_relation_id_ << ");" << std::endl;
+        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                 << hash_relation_name << "->IfExists(unsafe_row_" << hash_relation_id_
+                 << "):-1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
