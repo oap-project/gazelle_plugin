@@ -28,6 +28,8 @@ case class ColumnarNumaBindingInfo(
 class ColumnarPluginConfig(conf: SQLConf) {
   val enableColumnarSort: Boolean =
     conf.getConfString("spark.sql.columnar.sort", "false").toBoolean
+  val enableColumnarCodegenSort: Boolean =
+    conf.getConfString("spark.sql.columnar.codegen.sort", "true").toBoolean
   val enableColumnarNaNCheck: Boolean =
     conf.getConfString("spark.sql.columnar.nanCheck", "false").toBoolean
   val enableColumnarBroadcastJoin: Boolean =
