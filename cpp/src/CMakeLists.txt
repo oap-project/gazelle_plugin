@@ -152,7 +152,7 @@ if(BENCHMARKS)
   add_definitions(-DBENCHMARK_FILE_PATH="file://${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/source_files/")
 macro(package_add_benchmark TESTNAME)
   add_executable(${TESTNAME} ${ARGN})
-  target_link_libraries(${TESTNAME} gtest gmock gtest_main spark_columnar_jni parquet ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(${TESTNAME} gtest gmock gtest_main spark_columnar_jni ${CMAKE_THREAD_LIBS_INIT})
   target_include_directories(${TESTNAME} PUBLIC ${source_root_directory})
   gtest_discover_tests(${TESTNAME}
     WORKING_DIRECTORY ${PROJECT_DIR}
@@ -171,7 +171,6 @@ if(DEBUG)
 endif()
 
 find_library(ARROW_LIB arrow)
-find_library(PARQUET_LIB parquet)
 find_library(GANDIVA_LIB gandiva)
 
 if(NOT ARROW_LIB)
@@ -180,10 +179,6 @@ endif()
 
 if(NOT GANDIVA_LIB)
     message(FATAL_ERROR "Gandiva library not found")
-endif()
-
-if(NOT PARQUET_LIB)
-    message(FATAL_ERROR "Parquet library not found")
 endif()
 
 set(CODEGEN_HEADERS
@@ -217,7 +212,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attrib
 set(SPARK_COLUMNAR_PLUGIN_SRCS
         jni/jni_wrapper.cc
         ${PROTO_SRCS}
-        data_source/parquet/adapter.cc
         proto/protobuf_utils.cc
         codegen/common/relation.cc
         codegen/expr_visitor.cc
