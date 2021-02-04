@@ -1695,6 +1695,13 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
 
     @Override
+    final void setNulls(int rowId, int count) {
+      for (int i = 0; i < count; i++) {
+        writer.setNull(rowId + i);
+      }
+    }
+
+    @Override
     final void setBytes(int rowId, int count, byte[] src, int srcIndex) {
       writer.setSafe(rowId, src, srcIndex, count);
     }
@@ -1717,6 +1724,13 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     @Override
     final void setNull(int rowId) {
       writer.setNull(rowId);
+    }
+
+    @Override
+    final void setNulls(int rowId, int count) {
+      for (int i = 0; i < count; i++) {
+        writer.setNull(rowId + i);
+      }
     }
   }
 
@@ -1744,6 +1758,13 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     final void setNull(int rowId) {
       writer.setNull(rowId);
     }
+
+    @Override
+    final void setNulls(int rowId, int count) {
+      for (int i = 0; i < count; i++) {
+        writer.setNull(rowId + i);
+      }
+    }
   }
 
   private static class TimestampWriter extends ArrowVectorWriter {
@@ -1769,6 +1790,13 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     @Override
     final void setNull(int rowId) {
       writer.setNull(rowId);
+    }
+
+    @Override
+    final void setNulls(int rowId, int count) {
+      for (int i = 0; i < count; i++) {
+        writer.setNull(rowId + i);
+      }
     }
   }
 
