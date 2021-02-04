@@ -50,8 +50,9 @@ import org.apache.spark.sql.execution.vectorized.MutableColumnarRow
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.types.{DecimalType, StringType, StructType}
+import org.apache.spark.sql.types._
 import org.apache.spark.unsafe.KVIterator
+import scala.collection.JavaConverters._
 
 import scala.collection.Iterator
 
@@ -136,19 +137,29 @@ case class ColumnarHashAggregateExec(
         nativeIterator.close
       }
 
+      var numRowsInput = 0
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         var processed = false
+        var skip_native = false
+        var count_num_row = 0
         def process: Unit = {
           while (iter.hasNext) {
             val cb = iter.next()
             numInputBatches += 1
             if (cb.numRows != 0) {
+              numRowsInput += cb.numRows
               val beforeEval = System.nanoTime()
-              val input_rb =
-                ConverterUtils.createArrowRecordBatch(cb)
-              nativeIterator.processAndCacheOne(hash_aggr_input_schema, input_rb)
-              ConverterUtils.releaseArrowRecordBatch(input_rb)
+              if (hash_aggr_input_schema.getFields.size == 0) {
+                // This is a special case used by only do count literal
+                count_num_row += cb.numRows
+                skip_native = true
+              } else {
+                val input_rb =
+                  ConverterUtils.createArrowRecordBatch(cb)
+                nativeIterator.processAndCacheOne(hash_aggr_input_schema, input_rb)
+                ConverterUtils.releaseArrowRecordBatch(input_rb)
+              }
               eval_elapse += System.nanoTime() - beforeEval
             }
           }
@@ -156,26 +167,50 @@ case class ColumnarHashAggregateExec(
         }
         override def hasNext: Boolean = {
           if (!processed) process
-          nativeIterator.hasNext
+          if (skip_native) {
+            count_num_row > 0
+          } else {
+            nativeIterator.hasNext
+          }
         }
 
         override def next(): ColumnarBatch = {
           if (!processed) process
           val beforeEval = System.nanoTime()
-          val output_rb = nativeIterator.next
-          if (output_rb == null) {
-            eval_elapse += System.nanoTime() - beforeEval
+          if (skip_native) {
+            // special handling for only count literal in this operator
+            val out_res = count_num_row
+            count_num_row = 0
             val resultColumnVectors =
               ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+            resultColumnVectors.foreach { v =>
+              {
+                val numRows = v.dataType match {
+                  case t: IntegerType =>
+                    out_res.asInstanceOf[Number].intValue
+                  case t: LongType =>
+                    out_res.asInstanceOf[Number].longValue
+                }
+                v.put(0, numRows)
+              }
+            }
+            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+          } else {
+            val output_rb = nativeIterator.next
+            if (output_rb == null) {
+              eval_elapse += System.nanoTime() - beforeEval
+              val resultColumnVectors =
+                ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+              return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+            }
+            val outputNumRows = output_rb.getLength
+            val output = ConverterUtils.fromArrowRecordBatch(hash_aggr_out_schema, output_rb)
+            ConverterUtils.releaseArrowRecordBatch(output_rb)
+            eval_elapse += System.nanoTime() - beforeEval
+            numOutputRows += outputNumRows
+            numOutputBatches += 1
+            new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
           }
-          val outputNumRows = output_rb.getLength
-          val output = ConverterUtils.fromArrowRecordBatch(hash_aggr_out_schema, output_rb)
-          ConverterUtils.releaseArrowRecordBatch(output_rb)
-          eval_elapse += System.nanoTime() - beforeEval
-          numOutputRows += outputNumRows
-          numOutputBatches += 1
-          new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
         }
       }
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
@@ -201,7 +236,7 @@ case class ColumnarHashAggregateExec(
       try {
         ConverterUtils.checkIfTypeSupported(expr.dataType)
       } catch {
-        case e : UnsupportedOperationException =>
+        case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
             s"${expr.dataType} is not supported in ColumnarAggregation")
       }

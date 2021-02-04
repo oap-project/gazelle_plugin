@@ -78,6 +78,10 @@ arrow::Status ActionBase::Submit(const std::shared_ptr<arrow::Array>& in,
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
+arrow::Status ActionBase::EvaluateCountLiteral(const int& len) {
+  return arrow::Status::NotImplemented("ActionBase EvaluateCountLiteral is abstract.");
+}
+
 arrow::Status ActionBase::Evaluate(int dest_group_id) {
   return arrow::Status::NotImplemented("ActionBase Evaluate is abstract.");
 }
@@ -287,8 +291,7 @@ class CountAction : public ActionBase {
     std::cout << "Construct CountAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
-                       &array_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
   }
@@ -470,13 +473,18 @@ class CountLiteralAction : public ActionBase {
     return arrow::Status::OK();
   }
 
-  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+  arrow::Status EvaluateCountLiteral(const int& len) {
     if (cache_.empty()) {
       cache_.resize(1, 0);
       length_ = 1;
     }
-    cache_[0] += (in[0]->length() - in[0]->null_count()) * arg_;
+    cache_[0] += len;
     return arrow::Status::OK();
+  }
+
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    return arrow::Status::NotImplemented(
+        "CountLiteralAction Non-Groupby Evaluate is unsupported.");
   }
 
   arrow::Status Evaluate(int dest_group_id) {
@@ -2379,14 +2387,14 @@ arrow::Status MakeUniqueAction(arrow::compute::FunctionContext* ctx,
 
 arrow::Status MakeCountAction(arrow::compute::FunctionContext* ctx,
                               std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountAction<arrow::UInt64Type>>(ctx);
+  auto action_ptr = std::make_shared<CountAction<arrow::Int64Type>>(ctx);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
 arrow::Status MakeCountLiteralAction(arrow::compute::FunctionContext* ctx, int arg,
                                      std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountLiteralAction<arrow::UInt64Type>>(ctx, arg);
+  auto action_ptr = std::make_shared<CountLiteralAction<arrow::Int64Type>>(ctx, arg);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }

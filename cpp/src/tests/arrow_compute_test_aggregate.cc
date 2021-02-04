@@ -50,6 +50,8 @@ TEST(TestArrowCompute, AggregateTest) {
   auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg_0}, int64());
   auto n_stddev = TreeExprBuilder::MakeFunction("action_stddev_samp_final",
                                                 {arg_2, arg_3, arg_4}, float64());
+  auto n_count_literal =
+      TreeExprBuilder::MakeFunction("action_countLiteral_1", {}, int64());
 
   auto f_sum = field("sum", int64());
   auto f_count = field("count", int64());
@@ -58,12 +60,14 @@ TEST(TestArrowCompute, AggregateTest) {
   auto f_min = field("min", int64());
   auto f_max = field("max", int64());
   auto f_stddev = field("stddev", float64());
+  auto f_count_literal = field("count_all", int64());
   auto f_res = field("res", int32());
 
   auto n_proj = TreeExprBuilder::MakeFunction(
       "aggregateExpressions", {arg_0, arg_1, arg_2, arg_3, arg_4}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_sum, n_count, n_sum_count, n_avg, n_min, n_max, n_stddev},
+      "aggregateActions",
+      {n_sum, n_count, n_sum_count, n_avg, n_min, n_max, n_stddev, n_count_literal},
       uint32());
 
   auto n_aggr =
@@ -72,8 +76,8 @@ TEST(TestArrowCompute, AggregateTest) {
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3, f4});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_sum, f_count, f_sum, f_count,
-                                                   f_avg, f_min,   f_max, f_stddev};
+  std::vector<std::shared_ptr<Field>> ret_types = {
+      f_sum, f_count, f_sum, f_count, f_avg, f_min, f_max, f_stddev, f_count_literal};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::FunctionContext ctx;
@@ -107,7 +111,7 @@ TEST(TestArrowCompute, AggregateTest) {
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::vector<std::string> expected_result_string = {
-      "[221]", "[39]", "[221]", "[39]", "[4.40724]", "[1]", "[10]", "[17.2996]"};
+      "[221]", "[39]", "[221]", "[39]", "[4.40724]", "[1]", "[10]", "[17.2996]", "[40]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

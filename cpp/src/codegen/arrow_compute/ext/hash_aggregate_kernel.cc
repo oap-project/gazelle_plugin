@@ -132,9 +132,12 @@ class HashAggregateKernel::Impl {
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
     // 1. create pre project
-    auto pre_process_expr_list = GetGandivaKernel(prepare_function_list_);
-    auto pre_process_projector = std::make_shared<GandivaProjector>(
-        ctx_, arrow::schema(input_field_list_), pre_process_expr_list);
+    std::shared_ptr<GandivaProjector> pre_process_projector;
+    if (!prepare_function_list_.empty()) {
+      auto pre_process_expr_list = GetGandivaKernel(prepare_function_list_);
+      pre_process_projector = std::make_shared<GandivaProjector>(
+          ctx_, arrow::schema(input_field_list_), pre_process_expr_list);
+    }
 
     // 2. action_impl_list
     std::vector<std::shared_ptr<ActionBase>> action_impl_list;
@@ -573,6 +576,8 @@ class HashAggregateKernel::Impl {
       arrow::ArrayVector in;
       if (pre_process_projector_) {
         in = pre_process_projector_->Evaluate(orig_in);
+      } else {
+        in = orig_in;
       }
 
       // 2.1 handle no groupby scenario
@@ -584,7 +589,13 @@ class HashAggregateKernel::Impl {
           for (auto idx : action_prepare_index_list_[i]) {
             cols.push_back(in[idx]);
           }
-          RETURN_NOT_OK(action->Evaluate(cols));
+          if (cols.empty()) {
+            // There is a special case, when we need to do no groupby count literal
+            RETURN_NOT_OK(action->EvaluateCountLiteral(in[0]->length()));
+
+          } else {
+            RETURN_NOT_OK(action->Evaluate(cols));
+          }
         }
         total_out_length_ = 1;
         return arrow::Status::OK();
@@ -716,6 +727,8 @@ class HashAggregateKernel::Impl {
       arrow::ArrayVector in;
       if (pre_process_projector_) {
         in = pre_process_projector_->Evaluate(orig_in);
+      } else {
+        in = orig_in;
       }
 
       // 2. handle multiple keys
