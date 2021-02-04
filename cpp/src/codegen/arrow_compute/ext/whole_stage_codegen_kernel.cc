@@ -62,7 +62,7 @@ class WholeStageCodeGenKernel::Impl {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
-    return wscg_kernel_->MakeResultIterator(schema, out);
+    return wscg_kernel_->MakeResultIterator(schema, gandiva_projector_list_, out);
   }
 
   std::string GetSignature() { return signature_; }
@@ -74,7 +74,11 @@ class WholeStageCodeGenKernel::Impl {
   std::shared_ptr<CodeGenBase> wscg_kernel_;
   std::string signature_;
   bool is_smj_ = false;
+  bool is_aggr_ = false;
+  std::string aggr_finish_condition_;
   bool enable_time_metrics_;
+  std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list_;
+  std::vector<std::string> aggr_out_length_idxs;
 
   arrow::Status GetArguments(std::shared_ptr<gandiva::Node> node, int i,
                              gandiva::NodeVector* node_list) {
@@ -183,6 +187,28 @@ class WholeStageCodeGenKernel::Impl {
               ->children();
       RETURN_NOT_OK(
           FilterKernel::Make(ctx_, field_node_list, function_node->children()[1], out));
+    } else if (func_name.compare("hashAggregateArrays") == 0) {
+      is_aggr_ = true;
+      auto field_node_list =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[0])
+              ->children();
+      auto action_node_list =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[1])
+              ->children();
+
+      gandiva::NodeVector result_field_node_list;
+      gandiva::NodeVector result_expr_node_list;
+      if (function_node->children().size() == 4) {
+        result_field_node_list =
+            std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[2])
+                ->children();
+        result_expr_node_list =
+            std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[3])
+                ->children();
+      }
+      RETURN_NOT_OK(HashAggregateKernel::Make(ctx_, field_node_list, action_node_list,
+                                              result_field_node_list,
+                                              result_expr_node_list, out));
     } else {
       return arrow::Status::NotImplemented("Not supported function name:", func_name);
     }
@@ -271,7 +297,6 @@ class WholeStageCodeGenKernel::Impl {
     std::stringstream define_ss;
     codes_ss << BaseCodes() << std::endl;
     codes_ss << R"(#include "precompile/builder.h")" << std::endl;
-    codes_ss << R"(#include <iostream>)" << std::endl;
     codes_ss << R"(#include "utils/macros.h")" << std::endl;
     std::vector<std::string> headers;
     for (auto codegen_ctx : codegen_ctx_list) {
@@ -280,9 +305,17 @@ class WholeStageCodeGenKernel::Impl {
           headers.push_back(header);
         }
       }
+      if (codegen_ctx->gandiva_projector)
+        gandiva_projector_list_.push_back(codegen_ctx->gandiva_projector);
     }
     for (auto header : headers) {
       codes_ss << header << std::endl;
+    }
+
+    if (is_aggr_) {
+      for (auto codegen_ctx : codegen_ctx_list) {
+        aggr_finish_condition_ += codegen_ctx->aggregate_finish_condition_codes;
+      }
     }
 
     codes_ss << R"(
@@ -291,10 +324,12 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
  public:
   TypedWholeStageCodeGenImpl(arrow::compute::FunctionContext *ctx) : ctx_(ctx) {}
   ~TypedWholeStageCodeGenImpl() {}
+
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
+      std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>> *out) override {
-    *out = std::make_shared<WholeStageCodeGenResultIterator>(ctx_, schema);
+    *out = std::make_shared<WholeStageCodeGenResultIterator>(ctx_, gandiva_projector_list, schema);
     return arrow::Status::OK();
   }
 
@@ -303,9 +338,16 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
   class WholeStageCodeGenResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     WholeStageCodeGenResultIterator(arrow::compute::FunctionContext* ctx,
+                                    std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list,
                                     const std::shared_ptr<arrow::Schema>& result_schema)
-        : ctx_(ctx), result_schema_(result_schema) {)";
-    codes_ss << GetBuilderInitializeCodes(output_field_list) << std::endl;
+        : ctx_(ctx), result_schema_(result_schema), gandiva_projector_list_(gandiva_projector_list) {)";
+    if (!is_aggr_) {
+      codes_ss << GetBuilderInitializeCodes(output_field_list) << std::endl;
+    } else {
+      for (auto codegen_ctx : codegen_ctx_list) {
+        codes_ss << codegen_ctx->aggregate_prepare_codes << std::endl;
+      }
+    }
     codes_ss << "}" << std::endl;
 
     codes_ss << "arrow::Status GetMetrics(std::shared_ptr<Metrics>* out) override {"
@@ -336,7 +378,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     }
 )" << std::endl;
 
-    if (!is_smj_) {
+    if (!is_aggr_ && !is_smj_) {
       codes_ss
           << R"(arrow::Status Process(const std::vector<std::shared_ptr<arrow::Array>>& in,
                           std::shared_ptr<arrow::RecordBatch>* out,
@@ -344,10 +386,23 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
         override {)"
           << std::endl;
     } else {
-      codes_ss << R"(bool HasNext() override { return !should_stop_; })" << std::endl;
-      codes_ss << R"(arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out)
+      if (is_aggr_ && !is_smj_) {
+        codes_ss
+            << R"(arrow::Status ProcessAndCacheOne(const std::vector<std::shared_ptr<arrow::Array>>& in,
+                          const std::shared_ptr<arrow::Array>& selection = nullptr)
         override {)"
-               << std::endl;
+            << std::endl;
+      } else if (is_smj_) {
+        codes_ss << R"(bool HasNext() override { return !should_stop_; })" << std::endl;
+        codes_ss << R"(arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out)
+        override {)"
+                 << std::endl;
+        codes_ss << "uint64_t out_length = 0;" << std::endl;
+        if (is_aggr_) {
+          codes_ss << "int gp_idx = 0;" << std::endl;
+          codes_ss << "if(!" << aggr_finish_condition_ << ") {";
+        }
+      }
       codes_ss << "  int i = 0;" << std::endl;
     }
 
@@ -368,7 +423,6 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
           for (int i = 0; i < length; i++) {
     )" << std::endl;
     } else {
-      codes_ss << "uint64_t out_length = 0;" << std::endl;
       codes_ss << "while (!should_stop_ && out_length < 10000) {" << std::endl;
     }
     // input preparation
@@ -415,11 +469,14 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
                  << std::endl;
       }
       codes_ss << codegen_ctx->process_codes << std::endl;
-      codes_ss << "codegen_out_length_" << tmp_idx << " += 1;" << std::endl;
+      if (codegen_ctx->aggregate_finish_condition_codes.empty())
+        codes_ss << "codegen_out_length_" << tmp_idx << " += 1;" << std::endl;
+      else
+        aggr_out_length_idxs.push_back("codegen_out_length_" + std::to_string(tmp_idx));
     }
 
     codes_ss << GetProcessMaterializeCodes(codegen_ctx_list.back()) << std::endl;
-    codes_ss << "out_length += 1;" << std::endl;
+    if (!is_aggr_) codes_ss << "out_length += 1;" << std::endl;
     for (int ctx_idx = codegen_ctx_list.size() - 1; ctx_idx >= 0; ctx_idx--) {
       auto codegen_ctx = codegen_ctx_list[ctx_idx];
       codes_ss << codegen_ctx->finish_codes << std::endl;
@@ -431,23 +488,51 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       }
     }
     codes_ss << "} // end of for loop" << std::endl;
-    codes_ss << GetProcessFinishCodes(output_field_list) << std::endl;
-    codes_ss << R"(
-      *out = arrow::RecordBatch::Make(result_schema_, out_length, {)" +
-                    GetProcessOutListCodes(output_field_list) + R"(});
-      return arrow::Status::OK();
+    if (is_aggr_ && !is_smj_) {
+      codes_ss << "return arrow::Status::OK();" << std::endl;
+      codes_ss << "} // End of ProcessAndCacheOne" << std::endl << std::endl;
+      codes_ss << "bool HasNext() override { return !should_stop_; }" << std::endl;
+      codes_ss
+          << "arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) override {"
+          << std::endl;
+      codes_ss << "uint64_t out_length = 0;" << std::endl;
+      codes_ss << "int gp_idx = 0;" << std::endl;
+    } else if (is_aggr_ && is_smj_) {
+      codes_ss << "} // end of if do_hash_aggr_finish_condition" << std::endl;
+    } else {
+      codes_ss << GetProcessFinishCodes(output_field_list) << std::endl;
     }
+    std::stringstream output_arr_list_ss;
+    if (is_aggr_) {
+      int idx = 0;
+      for (auto codegen_ctx : codegen_ctx_list) {
+        codes_ss << codegen_ctx->aggregate_finish_codes << std::endl;
+        if (!codegen_ctx->aggregate_finish_codes.empty())
+          codes_ss << aggr_out_length_idxs[idx++] << " = " << aggr_finish_condition_
+                   << "_offset;" << std::endl;
+      }
+      output_arr_list_ss << aggr_finish_condition_ << "_out";
+    } else {
+      output_arr_list_ss << "{" << GetProcessOutListCodes(output_field_list) << "}";
+    }
+    codes_ss << "*out = arrow::RecordBatch::Make(result_schema_, out_length, "
+             << output_arr_list_ss.str() << ");" << std::endl;
+    codes_ss << "return arrow::Status::OK();" << std::endl;
+    codes_ss << "} // end of function" << std::endl;
 
-   private:
+    codes_ss << R"(
+    private:
     arrow::compute::FunctionContext* ctx_;
     bool should_stop_ = false;
+    std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list_;
     std::shared_ptr<arrow::Schema> result_schema_;)"
              << std::endl;
+
     codes_ss << define_ss.str();
     for (auto codegen_ctx : codegen_ctx_list) {
       codes_ss << codegen_ctx->definition_codes << std::endl;
     }
-    codes_ss << GetBuilderDefinitionCodes(output_field_list) << std::endl;
+    if (!is_aggr_) codes_ss << GetBuilderDefinitionCodes(output_field_list) << std::endl;
     for (auto codegen_ctx : codegen_ctx_list) {
       for (auto func_codes : codegen_ctx->function_list) {
         codes_ss << func_codes << std::endl;

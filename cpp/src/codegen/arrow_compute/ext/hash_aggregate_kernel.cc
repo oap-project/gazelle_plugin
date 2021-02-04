@@ -32,8 +32,10 @@
 #include "codegen/arrow_compute/ext/codegen_common.h"
 #include "codegen/arrow_compute/ext/codegen_node_visitor.h"
 #include "codegen/arrow_compute/ext/codegen_register.h"
+#include "codegen/arrow_compute/ext/expression_codegen_visitor.h"
 #include "codegen/arrow_compute/ext/kernels_ext.h"
 #include "codegen/arrow_compute/ext/typed_action_codegen_impl.h"
+#include "precompile/gandiva_projector.h"
 #include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
@@ -46,487 +48,421 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 class HashAggregateKernel::Impl {
  public:
   Impl(arrow::compute::FunctionContext* ctx,
-       std::vector<std::shared_ptr<arrow::Field>> input_field_list,
+       std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
        std::vector<std::shared_ptr<gandiva::Node>> action_list,
-       std::shared_ptr<arrow::Schema> result_schema)
-      : ctx_(ctx),
-        input_field_list_(input_field_list),
-        action_list_(action_list),
-        result_schema_(result_schema) {
+       std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
+       std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list)
+      : ctx_(ctx), action_list_(action_list) {
     // if there is projection inside aggregate, we need to extract them into
     // projector_list
-    auto status = PrepareActionCodegen();
-    if (status.ok()) {
-      THROW_NOT_OK(LoadJITFunction());
+    for (auto node : input_field_list) {
+      input_field_list_.push_back(
+          std::dynamic_pointer_cast<gandiva::FieldNode>(node)->field());
     }
-  }
-  virtual arrow::Status LoadJITFunction() {
-    // generate ddl signature
-    std::stringstream func_args_ss;
-    func_args_ss << "[HashAggregate]";
-    func_args_ss << "[input_schema]";
-    for (auto field : input_field_list_) {
-      func_args_ss << field->type()->ToString() << "|";
-    }
-    func_args_ss << "[ordinal]";
-    for (auto ordinal : input_ordinal_list_) {
-      func_args_ss << ordinal << "|";
-    }
-    func_args_ss << "[actions]";
-    for (auto action : action_list_) {
-      std::shared_ptr<CodeGenRegister> node_tmp;
-      RETURN_NOT_OK(MakeCodeGenRegister(action, &node_tmp));
-      func_args_ss << node_tmp->GetFingerprint() << "|";
-    }
-    func_args_ss << "[output_schema]";
-    for (auto field : result_schema_->fields()) {
-      func_args_ss << field->type()->ToString() << "|";
-    }
-
-#ifdef DEBUG
-    std::cout << "func_args_ss is " << func_args_ss.str() << std::endl;
-#endif
-
-    std::stringstream signature_ss;
-    signature_ss << std::hex << std::hash<std::string>{}(func_args_ss.str());
-    signature_ = signature_ss.str();
-#ifdef DEBUG
-    std::cout << "signature is " << signature_ << std::endl;
-#endif
-
-    auto file_lock = FileSpinLock();
-    auto status = LoadLibrary(signature_, ctx_, &hash_aggregater_);
-    if (!status.ok()) {
-      // process
-      try {
-        auto codes = ProduceCodes();
-        // compile codes
-        RETURN_NOT_OK(CompileCodes(codes, signature_));
-        RETURN_NOT_OK(LoadLibrary(signature_, ctx_, &hash_aggregater_));
-      } catch (const std::runtime_error& error) {
-        FileSpinUnLock(file_lock);
-        throw error;
+    if (result_field_node_list.size() == result_expr_node_list.size()) {
+      auto tmp_size = result_field_node_list.size();
+      bool no_result_project = true;
+      for (int i = 0; i < tmp_size; i++) {
+        if (result_field_node_list[i]->ToString() !=
+            result_expr_node_list[i]->ToString()) {
+          no_result_project = false;
+          break;
+        }
       }
+      if (no_result_project) return;
     }
-    FileSpinUnLock(file_lock);
-    return arrow::Status::OK();
-  }
-
-  virtual arrow::Status Evaluate(const ArrayList& in) {
-    if (projector_) {
-      auto length = in.size() > 0 ? in[0]->length() : 0;
-      arrow::ArrayVector outputs;
-      auto in_batch = arrow::RecordBatch::Make(original_input_schema_, length, in);
-      RETURN_NOT_OK(projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
-      RETURN_NOT_OK(hash_aggregater_->Evaluate(in, outputs));
-    } else {
-      arrow::ArrayVector dummy_outputs;
-      RETURN_NOT_OK(hash_aggregater_->Evaluate(in, dummy_outputs));
+    for (auto node : result_field_node_list) {
+      result_field_list_.push_back(
+          std::dynamic_pointer_cast<gandiva::FieldNode>(node)->field());
     }
-    return arrow::Status::OK();
+    result_expr_list_ = result_expr_node_list;
   }
 
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
-    RETURN_NOT_OK(hash_aggregater_->MakeResultIterator(schema, out));
     return arrow::Status::OK();
   }
 
-  virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out) {
-    return arrow::Status::OK();
-  }
+  std::string GetSignature() { return ""; }
 
-  std::string GetSignature() { return signature_; }
+  arrow::Status DoCodeGen(
+      int level,
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+          input,
+      std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
+    auto codegen_ctx = std::make_shared<CodeGenContext>();
 
- protected:
-  std::string signature_;
-  std::vector<std::shared_ptr<arrow::Field>> input_field_list_;
-  std::shared_ptr<arrow::Schema> original_input_schema_;
-  std::vector<std::shared_ptr<gandiva::Node>> action_list_;
-  std::shared_ptr<arrow::Schema> result_schema_;
-  std::shared_ptr<CodeGenBase> hash_aggregater_;
-  arrow::compute::FunctionContext* ctx_;
-  std::vector<std::shared_ptr<arrow::Field>> field_list_;
-  std::shared_ptr<gandiva::Projector> projector_;
-  std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list_;
-  std::vector<std::pair<gandiva::NodePtr, std::string>> key_list_;
-  std::vector<std::string> input_ordinal_list_;
+    codegen_ctx->header_codes.push_back(
+        R"(#include "codegen/arrow_compute/ext/array_item_index.h")");
+    codegen_ctx->header_codes.push_back(
+        R"(#include "codegen/arrow_compute/ext/actions_impl.h")");
 
-  arrow::Status PrepareActionCodegen() {
-    std::vector<gandiva::ExpressionPtr> expr_list;
-    int index = 0;
-    for (auto func_node : action_list_) {
-      std::shared_ptr<CodeGenNodeVisitor> codegen_visitor;
-      std::shared_ptr<ActionCodeGen> action_codegen;
-      RETURN_NOT_OK(MakeCodeGenNodeVisitor(func_node, input_field_list_, &action_codegen,
-                                           &codegen_visitor));
-      if (!action_codegen) {
-        // some action use field not in input schema
-        // This is happened when spark pass none field.
-        return arrow::Status::Invalid("some action field is not exists in input schema");
-      }
-      action_impl_list_.push_back(action_codegen);
-      if (action_codegen->IsPreProjected()) {
-        auto expr = action_codegen->GetProjectorExpr();
-        // chendi: We need to use index in project output to replace project name
-        action_codegen->WithProjectIndex(index++);
-        expr_list.push_back(expr);
-      }
-    }
-    RETURN_NOT_OK(GetInputOrdinalList(action_impl_list_, &input_ordinal_list_));
-    RETURN_NOT_OK(GetGroupKey(action_impl_list_, &key_list_));
-    if (key_list_.size() > 1) {
-      std::vector<gandiva::NodePtr> key_expr_list;
-      for (auto key : key_list_) {
-        key_expr_list.push_back(key.first);
-      }
-      auto expr = GetConcatedKernel(key_expr_list);
-      expr_list.push_back(expr);
-    }
-    if (!expr_list.empty()) {
-      original_input_schema_ = arrow::schema(input_field_list_);
-      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-      THROW_NOT_OK(gandiva::Projector::Make(original_input_schema_, expr_list,
-                                            configuration, &projector_));
-    }
-    return arrow::Status::OK();
-  }
+    std::vector<std::string> prepare_list;
+    // 1.0 prepare aggregate input expressions
+    std::stringstream prepare_ss;
+    std::stringstream define_ss;
+    std::stringstream aggr_prepare_ss;
+    std::stringstream finish_ss;
+    std::stringstream finish_condition_ss;
+    std::stringstream process_ss;
+    std::stringstream action_list_define_function_ss;
+    std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list;
+    std::vector<std::vector<int>> action_prepare_index_list;
 
-  virtual std::string ProduceCodes() {
-    int indice = 0;
+    std::vector<int> key_index_list;
+    std::vector<gandiva::NodePtr> prepare_function_list;
+    std::vector<gandiva::NodePtr> key_node_list;
+    std::vector<gandiva::FieldPtr> key_hash_field_list;
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        project_output_list;
 
-    std::vector<std::string> cached_list;
-    std::vector<std::string> typed_input_list;
-    std::vector<std::string> typed_group_input_list;
-    std::vector<std::string> result_cached_list;
-
-    std::stringstream evaluate_get_typed_array_ss;
-    std::stringstream compute_on_exists_ss;
-    std::stringstream compute_on_new_ss;
-    std::stringstream cached_define_ss;
-    std::stringstream on_finish_ss;
-    std::stringstream result_cached_define_ss;
-    std::vector<std::string> result_cached_parameter_list;
-    std::vector<std::string> result_cached_array_list;
-    std::stringstream result_cached_prepare_ss;
-    std::stringstream result_cached_to_builder_ss;
-    std::stringstream result_cached_to_array_ss;
-    std::stringstream result_cached_array_ss;
-    for (auto action : action_impl_list_) {
-      auto func_sig_list = action->GetVariablesList();
-      auto evaluate_get_typed_array_list = action->GetTypedInputList();
-      auto compute_on_exists_prepare_list = action->GetOnExistsPrepareCodesList();
-      auto compute_on_new_prepare_list = action->GetOnNewPrepareCodesList();
-      auto compute_on_exists_list = action->GetOnExistsCodesList();
-      auto compute_on_new_list = action->GetOnNewCodesList();
-      auto cached_define_list = action->GetVariablesDefineList();
-      int i = 0;
-      for (auto sig : func_sig_list) {
-        if (std::find(cached_list.begin(), cached_list.end(), sig) == cached_list.end()) {
-          cached_list.push_back(sig);
-          auto tmp_typed_name = evaluate_get_typed_array_list[i].first;
-          if (tmp_typed_name != "" &&
-              std::find(typed_input_list.begin(), typed_input_list.end(),
-                        tmp_typed_name) == typed_input_list.end()) {
-            if (std::find(typed_group_input_list.begin(), typed_group_input_list.end(),
-                          tmp_typed_name) == typed_group_input_list.end()) {
-              evaluate_get_typed_array_ss << evaluate_get_typed_array_list[i].second
-                                          << std::endl;
-            }
-
-            if (!action->IsGroupBy()) {
-              typed_input_list.push_back(tmp_typed_name);
-            } else {
-              typed_group_input_list.push_back(tmp_typed_name);
-            }
-            compute_on_exists_ss << compute_on_exists_prepare_list[i] << std::endl;
-            compute_on_new_ss << compute_on_new_prepare_list[i] << std::endl;
-          }
-          compute_on_exists_ss << compute_on_exists_list[i] << std::endl;
-          compute_on_new_ss << compute_on_new_list[i] << std::endl;
-          cached_define_ss << cached_define_list[i] << std::endl;
-        }
-        i++;
-      }
-      auto result_variables_list = action->GetFinishVariablesList();
-      auto on_finish_list = action->GetOnFinishCodesList();
-      auto result_cached_define_list = action->GetFinishVariablesDefineList();
-      auto result_cached_parameter_list_tmp = action->GetFinishVariablesParameterList();
-      auto result_cached_prepare_list = action->GetFinishVariablesPrepareList();
-      auto result_cached_to_builder_list = action->GetFinishVariablesToBuilderList();
-      auto result_cached_to_array_list = action->GetFinishVariablesToArrayList();
-      auto result_cached_array_list_tmp = action->GetFinishVariablesArrayList();
-      i = 0;
-      for (auto sig : result_variables_list) {
-        if (std::find(result_cached_list.begin(), result_cached_list.end(), sig) ==
-            result_cached_list.end()) {
-          result_cached_list.push_back(sig);
-          on_finish_ss << on_finish_list[i] << std::endl;
-          result_cached_define_ss << result_cached_define_list[i] << std::endl;
-          result_cached_parameter_list.push_back(result_cached_parameter_list_tmp[i]);
-          result_cached_prepare_ss << result_cached_prepare_list[i] << std::endl;
-          result_cached_to_builder_ss << result_cached_to_builder_list[i] << std::endl;
-          result_cached_to_array_ss << result_cached_to_array_list[i] << std::endl;
-        }
-        result_cached_array_list.push_back(result_cached_array_list_tmp[i]);
-        i++;
-      }
-    }
-    auto evaluate_get_typed_array_str = evaluate_get_typed_array_ss.str();
-    for (auto input : typed_group_input_list) {
-      if (std::find(typed_input_list.begin(), typed_input_list.end(), input) ==
-          typed_input_list.end())
-        typed_input_list.push_back(input);
-    }
-    auto typed_input_parameter_str = GetParameterList(typed_input_list);
-    auto compute_on_exists_str = compute_on_exists_ss.str();
-    auto compute_on_new_str = compute_on_new_ss.str();
-    auto impl_cached_define_str = cached_define_ss.str();
-    auto on_finish_str = on_finish_ss.str();
-    auto on_finish_cached_parameter_str = GetParameterList(result_cached_list, false);
-    auto result_cached_parameter_str =
-        GetParameterList(result_cached_parameter_list, false);
-    auto result_cached_prepare_str = result_cached_prepare_ss.str();
-    auto result_cached_define_str = result_cached_define_ss.str();
-    auto result_cached_to_builder_str = result_cached_to_builder_ss.str();
-    auto result_cached_to_array_str = result_cached_to_array_ss.str();
-    auto result_cached_array_str = GetParameterList(result_cached_array_list, false);
-
-    bool multiple_cols = (key_list_.size() > 1);
-    std::string concat_kernel;
-    std::string hash_map_include_str = R"(#include "precompile/sparse_hash_map.h")";
-    std::string hash_map_type_str =
-        "SparseHashMap<" + GetCTypeString(arrow::int64()) + ">";
-    std::string hash_map_define_str =
-        "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
-    std::string evaluate_get_typed_key_array_str;
-    std::string evaluate_get_typed_key_method_str;
-    if (!multiple_cols) {
-      auto key_type = key_list_[0].first->return_type();
-      if (key_type->id() == arrow::Type::STRING) {
-        hash_map_type_str = GetTypeString(arrow::utf8(), "") + "HashMap";
-        hash_map_include_str = R"(#include "precompile/hash_map.h")";
+    // 1. Get action list and action_prepare_project_list
+    for (auto node : action_list_) {
+      auto func_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(node);
+      auto func_name = func_node->descriptor()->name();
+      std::shared_ptr<arrow::DataType> type;
+      if (func_node->children().size() > 0) {
+        type = func_node->children()[0]->return_type();
       } else {
-        hash_map_type_str = "SparseHashMap<" + GetCTypeString(key_type) + ">";
+        type = func_node->return_type();
       }
-      hash_map_define_str =
-          "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
-      evaluate_get_typed_key_array_str = "auto typed_array = std::make_shared<" +
-                                         GetTypeString(key_type, "Array") + ">(" +
-                                         key_list_[0].second + ");\n";
-      if (key_type->id() != arrow::Type::STRING) {
-        evaluate_get_typed_key_method_str = "GetView";
+      if (func_name.compare(0, 7, "action_") == 0) {
+        action_name_list.push_back(std::make_pair(func_name, type));
+        std::vector<int> child_prepare_idxs;
+        if (func_name.compare(0, 20, "action_countLiteral_") == 0) {
+          action_prepare_index_list.push_back(child_prepare_idxs);
+          continue;
+        }
+        for (auto child_node : func_node->children()) {
+          bool found = false;
+          for (int i = 0; i < prepare_function_list.size(); i++) {
+            auto tmp_node = prepare_function_list[i];
+            if (tmp_node->ToString() == child_node->ToString()) {
+              child_prepare_idxs.push_back(i);
+              if (func_name == "action_groupby") {
+                key_index_list.push_back(i);
+                key_node_list.push_back(child_node);
+              }
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            if (func_name == "action_groupby") {
+              key_index_list.push_back(prepare_function_list.size());
+              key_node_list.push_back(child_node);
+            }
+            child_prepare_idxs.push_back(prepare_function_list.size());
+            prepare_function_list.push_back(child_node);
+          }
+        }
+        action_prepare_index_list.push_back(child_prepare_idxs);
       } else {
-        evaluate_get_typed_key_method_str = "GetString";
+        THROW_NOT_OK(arrow::Status::Invalid("Expected some with action_ prefix."));
       }
-    } else {
-      evaluate_get_typed_key_array_str =
-          "auto typed_array = "
-          "std::make_shared<Int64Array>(projected_batch.back());\n";
-      evaluate_get_typed_key_method_str = "GetView";
     }
 
-    return BaseCodes() + R"(
-#include <math.h>
-#include <limits>
-#include "precompile/builder.h"
-)" + hash_map_include_str +
-           R"(  
-using namespace sparkcolumnarplugin::precompile;
+    if (key_node_list.size() > 1 ||
+        (key_node_list.size() > 0 &&
+         key_node_list[0]->return_type()->id() == arrow::Type::STRING)) {
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
+      aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
+                      << GetTypeString(arrow::utf8(), "")
+                      << "HashMap>(ctx_->memory_pool());" << std::endl;
+      define_ss << "std::shared_ptr<" << GetTypeString(arrow::utf8(), "")
+                << "HashMap> aggr_hash_table_" << level << ";" << std::endl;
 
-class TypedGroupbyHashAggregateImpl : public CodeGenBase {
- public:
-  TypedGroupbyHashAggregateImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
-    hash_table_ = )" +
-           hash_map_define_str + R"(
-  }
+    } else if (key_node_list.size() > 0) {
+      auto type = key_node_list[0]->return_type();
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/sparse_hash_map.h")");
+      aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
+                      << "SparseHashMap<" << GetCTypeString(type)
+                      << ">>(ctx_->memory_pool());" << std::endl;
+      define_ss << "std::shared_ptr<SparseHashMap<" << GetCTypeString(type)
+                << ">> aggr_hash_table_" << level << ";" << std::endl;
+    }
+    // 2. create key_hash_project_node and prepare_gandiva_project_node_list
 
-  arrow::Status Evaluate(const ArrayList& in, const ArrayList& projected_batch) override {
-    )" + evaluate_get_typed_array_str +
-           evaluate_get_typed_key_array_str +
-           R"(
-    auto insert_on_found = [this)" +
-           typed_input_parameter_str + R"(](int32_t i) {
-      )" + compute_on_exists_str +
-           R"(
-    };
-    auto insert_on_not_found = [this)" +
-           typed_input_parameter_str + R"(](int32_t i) {
-      )" + compute_on_new_str +
-           R"(
-      num_groups_ ++;
-    };
+    // 3. create cpp codes prepare_project
+    int idx = 0;
+    for (auto node : prepare_function_list) {
+      std::vector<std::string> input_list;
+      std::shared_ptr<ExpressionCodegenVisitor> project_node_visitor;
+      auto is_local = false;
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(node, &input, {input_field_list_}, level,
+                                                 var_id, is_local, &input_list,
+                                                 &project_node_visitor, false));
+      auto key_name = project_node_visitor->GetResult();
+      auto validity_name = project_node_visitor->GetPreCheck();
 
-    cur_id_ = 0;
-    int memo_index = 0;
-    if (typed_array->null_count() == 0) {
-      for (; cur_id_ < typed_array->length(); cur_id_++) {
-        hash_table_->GetOrInsert(typed_array->)" +
-           evaluate_get_typed_key_method_str + R"((cur_id_), [](int32_t){},
-                                 [](int32_t){}, &memo_index);
-        if (memo_index < num_groups_) {
-          insert_on_found(memo_index);
-        } else {
-          insert_on_not_found(memo_index);
+      project_output_list.push_back(std::make_pair(
+          std::make_pair(key_name, project_node_visitor->GetPrepare()), nullptr));
+      for (auto header : project_node_visitor->GetHeaders()) {
+        if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
+                      header) == codegen_ctx->header_codes.end()) {
+          codegen_ctx->header_codes.push_back(header);
         }
       }
+      idx++;
+    }
+
+    // 4. create cpp codes for key_hash_project
+    if (key_index_list.size() > 0) {
+      auto unsafe_row_name = "aggr_key_" + std::to_string(level);
+      auto unsafe_row_name_validity = unsafe_row_name + "_validity";
+      if (key_index_list.size() == 1) {
+        auto i = key_index_list[0];
+        prepare_ss << project_output_list[i].first.second << std::endl;
+        project_output_list[i].first.second = "";
+        prepare_ss << "auto " << unsafe_row_name << " = "
+                   << project_output_list[i].first.first << ";" << std::endl;
+        prepare_ss << "auto " << unsafe_row_name_validity << " = "
+                   << project_output_list[i].first.first << "_validity;" << std::endl;
+      } else {
+        codegen_ctx->header_codes.push_back(
+            R"(#include "third_party/row_wise_memory/unsafe_row.h")");
+        std::stringstream unsafe_row_define_ss;
+        unsafe_row_define_ss << "std::shared_ptr<UnsafeRow> " << unsafe_row_name
+                             << "_unsafe_row = std::make_shared<UnsafeRow>("
+                             << key_index_list.size() << ");" << std::endl;
+        codegen_ctx->unsafe_row_prepare_codes = unsafe_row_define_ss.str();
+        prepare_ss << "auto " << unsafe_row_name_validity << " = "
+                   << "true;" << std::endl;
+        prepare_ss << unsafe_row_name << "_unsafe_row->reset();" << std::endl;
+        int idx = 0;
+        for (auto i : key_index_list) {
+          prepare_ss << project_output_list[i].first.second << std::endl;
+          project_output_list[i].first.second = "";
+          auto key_name = project_output_list[i].first.first;
+          auto validity_name = key_name + "_validity";
+          prepare_ss << "if (" << validity_name << ") {" << std::endl;
+          prepare_ss << "appendToUnsafeRow(" << unsafe_row_name << "_unsafe_row.get(), "
+                     << idx << ", " << key_name << ");" << std::endl;
+          prepare_ss << "} else {" << std::endl;
+          prepare_ss << "setNullAt(" << unsafe_row_name << "_unsafe_row.get(), " << idx
+                     << ");" << std::endl;
+          prepare_ss << "}" << std::endl;
+          idx++;
+        }
+        prepare_ss << "auto " << unsafe_row_name << " = std::string(" << unsafe_row_name
+                   << "_unsafe_row->data, " << unsafe_row_name << "_unsafe_row->cursor);"
+                   << std::endl;
+      }
+    }
+
+    // 5. create codes for hash aggregate GetOrInsert
+    std::vector<std::string> action_name_str_list;
+    std::vector<std::string> action_type_str_list;
+    for (auto action_pair : action_name_list) {
+      action_name_str_list.push_back("\"" + action_pair.first + "\"");
+      action_type_str_list.push_back("arrow::" +
+                                     GetArrowTypeDefString(action_pair.second));
+    }
+
+    define_ss << "std::vector<std::shared_ptr<ActionBase>> aggr_action_list_" << level
+              << ";" << std::endl;
+    define_ss << "bool do_hash_aggr_finish_" << level << " = false;" << std::endl;
+    define_ss << "uint64_t do_hash_aggr_finish_" << level << "_offset = 0;" << std::endl;
+    define_ss << "int do_hash_aggr_finish_" << level << "_num_groups = -1;" << std::endl;
+    aggr_prepare_ss << "std::vector<std::string> action_name_list_" << level << " = {"
+                    << GetParameterList(action_name_str_list, false) << "};" << std::endl;
+    aggr_prepare_ss << "auto action_type_list_" << level << " = {"
+                    << GetParameterList(action_type_str_list, false) << "};" << std::endl;
+    aggr_prepare_ss << "PrepareActionList(action_name_list_" << level
+                    << ", action_type_list_" << level << ", &aggr_action_list_" << level
+                    << ");" << std::endl;
+    std::stringstream action_codes_ss;
+    int action_idx = 0;
+    for (auto idx_v : action_prepare_index_list) {
+      for (auto i : idx_v) {
+        action_codes_ss << project_output_list[i].first.second << std::endl;
+        project_output_list[i].first.second = "";
+      }
+      if (idx_v.size() > 0)
+        action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                        << "_validity) {" << std::endl;
+      std::vector<std::string> parameter_list;
+      for (auto i : idx_v) {
+        parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+      }
+      action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
+                      << "]->Evaluate(memo_index" << GetParameterList(parameter_list)
+                      << "));" << std::endl;
+      if (idx_v.size() > 0) {
+        action_codes_ss << "} else {" << std::endl;
+        action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
+                        << "]->EvaluateNull(memo_index));" << std::endl;
+        action_codes_ss << "}" << std::endl;
+      }
+      action_idx++;
+    }
+    process_ss << "int memo_index = 0;" << std::endl;
+
+    if (key_index_list.size() > 0) {
+      process_ss << "if (!aggr_key_" << level << "_validity) {" << std::endl;
+      process_ss << "  memo_index = aggr_hash_table_" << level
+                 << "->GetOrInsertNull([](int){}, [](int){});" << std::endl;
+      process_ss << " } else {" << std::endl;
+      process_ss << "   aggr_hash_table_" << level << "->GetOrInsert(aggr_key_" << level
+                 << ",[](int){}, [](int){}, &memo_index);" << std::endl;
+      process_ss << " }" << std::endl;
+      process_ss << action_codes_ss.str() << std::endl;
+      process_ss << "if (memo_index > do_hash_aggr_finish_" << level << "_num_groups) {"
+                 << std::endl;
+      process_ss << "do_hash_aggr_finish_" << level << "_num_groups = memo_index;"
+                 << std::endl;
+      process_ss << "}" << std::endl;
     } else {
-      for (; cur_id_ < typed_array->length(); cur_id_++) {
-        if (typed_array->IsNull(cur_id_)) {
-          memo_index = hash_table_->GetOrInsertNull([](int32_t){}, [](int32_t){});
-          if (memo_index < num_groups_) {
-            insert_on_found(memo_index);
-          } else {
-            insert_on_not_found(memo_index);
-          }
-        } else {
-          hash_table_->GetOrInsert(typed_array->)" +
-           evaluate_get_typed_key_method_str + R"((cur_id_),
-                                   [](int32_t){}, [](int32_t){},
-                                   &memo_index);
-        if (memo_index < num_groups_) {
-          insert_on_found(memo_index);
-        } else {
-          insert_on_not_found(memo_index);
-        }
-        }
+      process_ss << action_codes_ss.str() << std::endl;
+    }
+
+    action_list_define_function_ss
+        << "arrow::Status PrepareActionList(std::vector<std::string> action_name_list, "
+           "std::vector<std::shared_ptr<arrow::DataType>> type_list,"
+           "std::vector<std::shared_ptr<ActionBase>> *action_list) {"
+        << std::endl;
+    action_list_define_function_ss << R"(
+    int type_id = 0;
+    for (int action_id = 0; action_id < action_name_list.size(); action_id++) {
+      std::shared_ptr<ActionBase> action;
+      if (action_name_list[action_id].compare("action_groupby") == 0) {
+        RETURN_NOT_OK(MakeUniqueAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_count") == 0) {
+        RETURN_NOT_OK(MakeCountAction(ctx_, &action));
+      } else if (action_name_list[action_id].compare("action_sum") == 0) {
+        RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_avg") == 0) {
+        RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_min") == 0) {
+        RETURN_NOT_OK(MakeMinAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_max") == 0) {
+        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_sum_count") == 0) {
+        RETURN_NOT_OK(MakeSumCountAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_sum_count_merge") == 0) {
+        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_avgByCount") == 0) {
+        RETURN_NOT_OK(MakeAvgByCountAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare(0, 20, "action_countLiteral_") ==
+                 0) {
+        int arg = std::stoi(action_name_list[action_id].substr(20));
+        RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, &action));
+      } else if (action_name_list[action_id].compare("action_stddev_samp_partial") ==
+                 0) {
+        RETURN_NOT_OK(MakeStddevSampPartialAction(ctx_, type_list[type_id], &action));
+      } else if (action_name_list[action_id].compare("action_stddev_samp_final") == 0) {
+        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, type_list[type_id], &action));
+      } else {
+        return arrow::Status::NotImplemented(action_name_list[action_id],
+                                             " is not implementetd.");
       }
+      type_id += 1;
+      (*action_list).push_back(action);
     }
     return arrow::Status::OK();
-  }
+    )" << std::endl;
+    action_list_define_function_ss << "}" << std::endl;
 
-  arrow::Status MakeResultIterator(
-      std::shared_ptr<arrow::Schema> schema,
-      std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
-        for (auto i = 0; i < num_groups_; i++) {)" +
-           on_finish_str + R"(
-        }
-      *out = std::make_shared<HashAggregationResultIterator>(
-        ctx_, schema, num_groups_,)" +
-           on_finish_cached_parameter_str + R"(
-    );
+    // 6. create all input evaluated finish codes
+    finish_ss << "do_hash_aggr_finish_" << level << " = true;" << std::endl;
+    finish_ss << "should_stop_ = false;" << std::endl;
+    finish_ss << "std::vector<std::shared_ptr<arrow::Array>> do_hash_aggr_finish_"
+              << level << "_out;" << std::endl;
+    finish_ss << "if(do_hash_aggr_finish_" << level << ") {";
+    for (int i = 0; i < action_idx; i++) {
+      finish_ss << "aggr_action_list_" << level << "[" << i
+                << "]->Finish(do_hash_aggr_finish_" << level
+                << "_offset, 10000, &do_hash_aggr_finish_" << level << "_out);"
+                << std::endl;
+    }
+    finish_ss << "if (do_hash_aggr_finish_" << level << "_out.size() > 0) {" << std::endl;
+    finish_ss << "auto tmp_arr = std::make_shared<Array>(do_hash_aggr_finish_" << level
+              << "_out[0]);" << std::endl;
+    finish_ss << "out_length += tmp_arr->length();" << std::endl;
+    finish_ss << "do_hash_aggr_finish_" << level << "_offset += tmp_arr->length();"
+              << std::endl;
+    finish_ss << "}" << std::endl;
+    finish_ss << "if (out_length == 0 || do_hash_aggr_finish_" << level
+              << "_num_groups < do_hash_aggr_finish_" << level << "_offset) {"
+              << std::endl;
+    finish_ss << "should_stop_ = true;" << std::endl;
+    finish_ss << "}" << std::endl;
+    finish_ss << "}" << std::endl;
+
+    // 7. Do GandivaProjector if result_expr_list is not empty
+    if (!result_expr_list_.empty()) {
+      codegen_ctx->gandiva_projector = std::make_shared<GandivaProjector>(
+          ctx_, arrow::schema(result_field_list_), GetGandivaKernel(result_expr_list_));
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/gandiva_projector.h")");
+      finish_ss << "RETURN_NOT_OK(gandiva_projector_list_[gp_idx++]->Evaluate(&do_hash_"
+                   "aggr_finish_"
+                << level << "_out));" << std::endl;
+    }
+
+    finish_condition_ss << "do_hash_aggr_finish_" << level;
+
+    codegen_ctx->function_list.push_back(action_list_define_function_ss.str());
+    codegen_ctx->prepare_codes += prepare_ss.str();
+    codegen_ctx->process_codes += process_ss.str();
+    codegen_ctx->definition_codes += define_ss.str();
+    codegen_ctx->aggregate_prepare_codes += aggr_prepare_ss.str();
+    codegen_ctx->aggregate_finish_codes += finish_ss.str();
+    codegen_ctx->aggregate_finish_condition_codes += finish_condition_ss.str();
+    // set join output list for next kernel.
+    ///////////////////////////////
+    *codegen_ctx_out = codegen_ctx;
+
     return arrow::Status::OK();
   }
 
  private:
-  )" + impl_cached_define_str +
-           R"(
   arrow::compute::FunctionContext* ctx_;
-  uint64_t num_groups_ = 0;
-  uint64_t cur_id_ = 0;
-  std::shared_ptr<)" +
-           hash_map_type_str + R"(> hash_table_;
+  arrow::MemoryPool* pool_;
+  std::string signature_;
 
-  class HashAggregationResultIterator : public ResultIterator<arrow::RecordBatch> {
-   public:
-    HashAggregationResultIterator(
-      arrow::compute::FunctionContext* ctx,
-      std::shared_ptr<arrow::Schema> schema,
-      uint64_t num_groups,
-   )" + result_cached_parameter_str +
-           R"(): ctx_(ctx), result_schema_(schema), total_length_(num_groups) {
-     )" + result_cached_prepare_str +
-           R"(
-    }
-
-    std::string ToString() override { return "HashAggregationResultIterator"; }
-
-    bool HasNext() override {
-      if (offset_ >= total_length_) {
-        return false;
-      }
-      return true;
-    }
-
-    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
-      auto length = (total_length_ - offset_) > )" +
-           std::to_string(GetBatchSize()) + R"( ? )" + std::to_string(GetBatchSize()) +
-           R"( : (total_length_ - offset_);
-      uint64_t count = 0;
-      while (count < length) {
-        )" +
-           result_cached_to_builder_str + R"(
-        count ++;
-      }
-      offset_ += length;
-      )" + result_cached_to_array_str +
-           R"(
-      *out = arrow::RecordBatch::Make(result_schema_, length, {)" +
-           result_cached_array_str + R"(});
-      return arrow::Status::OK();
-    }
-
-   private:
-   )" + result_cached_define_str +
-           R"(
-    uint64_t offset_ = 0;
-    const uint64_t total_length_;
-    std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::FunctionContext* ctx_;
-  };
-};
-
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
-                            std::shared_ptr<CodeGenBase>* out) {
-  *out = std::make_shared<TypedGroupbyHashAggregateImpl>(ctx);
-}
-
-    )";
-  }
-
-  arrow::Status GetInputOrdinalList(
-      std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list,
-      std::vector<std::string>* input_ordinal_list) {
-    for (auto action : action_impl_list) {
-      for (auto name : action->GetInputDataNameList()) {
-        input_ordinal_list->push_back(name);
-      }
-    }
-    return arrow::Status::OK();
-  }
-  arrow::Status GetGroupKey(
-      std::vector<std::shared_ptr<ActionCodeGen>> action_impl_list,
-      std::vector<std::pair<gandiva::NodePtr, std::string>>* key_index_list) {
-    for (auto action : action_impl_list) {
-      if (action->IsGroupBy()) {
-        key_index_list->push_back(std::make_pair(action->GetInputFieldList()[0],
-                                                 action->GetInputDataNameList()[0]));
-        // std::cout << action->GetInputFieldList()[0]->ToString() << std::endl;
-      }
-    }
-    return arrow::Status::OK();
-  }
+  std::vector<std::shared_ptr<arrow::Field>> input_field_list_;
+  std::vector<std::shared_ptr<gandiva::Node>> action_list_;
+  std::vector<std::shared_ptr<arrow::Field>> result_field_list_;
+  std::vector<std::shared_ptr<gandiva::Node>> result_expr_list_;
 };
 
 arrow::Status HashAggregateKernel::Make(
     arrow::compute::FunctionContext* ctx,
-    std::vector<std::shared_ptr<arrow::Field>> input_field_list,
+    std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
-    std::shared_ptr<arrow::Schema> result_schema, std::shared_ptr<KernalBase>* out) {
-  *out = std::make_shared<HashAggregateKernel>(ctx, input_field_list, action_list,
-                                               result_schema);
+    std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
+    std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list,
+    std::shared_ptr<KernalBase>* out) {
+  *out = std::make_shared<HashAggregateKernel>(
+      ctx, input_field_list, action_list, result_field_node_list, result_expr_node_list);
   return arrow::Status::OK();
 }
 
 HashAggregateKernel::HashAggregateKernel(
     arrow::compute::FunctionContext* ctx,
-    std::vector<std::shared_ptr<arrow::Field>> input_field_list,
+    std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
-    std::shared_ptr<arrow::Schema> result_schema) {
-  impl_.reset(new Impl(ctx, input_field_list, action_list, result_schema));
+    std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
+    std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list) {
+  impl_.reset(new Impl(ctx, input_field_list, action_list, result_field_node_list,
+                       result_expr_node_list));
   kernel_name_ = "HashAggregateKernelKernel";
 }
 #undef PROCESS_SUPPORTED_TYPES
-
-arrow::Status HashAggregateKernel::Evaluate(const ArrayList& in) {
-  return impl_->Evaluate(in);
-}
 
 arrow::Status HashAggregateKernel::MakeResultIterator(
     std::shared_ptr<arrow::Schema> schema,
     std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
   return impl_->MakeResultIterator(schema, out);
+}
+
+arrow::Status HashAggregateKernel::DoCodeGen(
+    int level,
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+        input,
+    std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
+  return impl_->DoCodeGen(level, input, codegen_ctx_out, var_id);
 }
 
 std::string HashAggregateKernel::GetSignature() { return impl_->GetSignature(); }

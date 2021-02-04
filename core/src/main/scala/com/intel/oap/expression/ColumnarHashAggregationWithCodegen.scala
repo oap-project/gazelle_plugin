@@ -58,7 +58,7 @@ import scala.collection.immutable.List
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.Map
 
-class ColumnarGroupbyHashAggregation(
+class ColumnarHashAggregationWithCodegen(
     aggregator: ExpressionEvaluator,
     aggregateAttributeArrowSchema: Schema,
     resultArrowSchema: Schema,
@@ -199,144 +199,9 @@ class ColumnarGroupbyHashAggregation(
 
 }
 
-object ColumnarGroupbyHashAggregation extends Logging {
-  val resultType = CodeGeneration.getResultType()
+object ColumnarHashAggregationWithCodegen extends Logging {
   var inputAttrQueue: scala.collection.mutable.Queue[Attribute] = _
-  var columnarAggregation: ColumnarGroupbyHashAggregation = _
-  var originalInputArrowSchema: Schema = _
-  var nativeExpressionNode: ExpressionTree = _
-  var aggregateAttributeArrowSchema: Schema = _
-  var resultArrowSchema: Schema = _
-  var aggregateToResultProjector: ColumnarProjection = _
-  var aggregateToResultOrdinalList: List[Int] = _
-  var aggregateAttributeList: Seq[Attribute] = _
-
-  var aggregator: ExpressionEvaluator = _
-
-  def init(
-      groupingExpressions: Seq[NamedExpression],
-      originalInputAttributes: Seq[Attribute],
-      aggregateExpressions: Seq[AggregateExpression],
-      aggregateAttributes: Seq[Attribute],
-      resultExpressions: Seq[NamedExpression],
-      output: Seq[Attribute],
-      _numInputBatches: SQLMetric,
-      _numOutputBatches: SQLMetric,
-      _numOutputRows: SQLMetric,
-      _aggrTime: SQLMetric,
-      _totalTime: SQLMetric,
-      _sparkConf: SparkConf): Unit = {
-    val numInputBatches = _numInputBatches
-    val numOutputBatches = _numOutputBatches
-    val numOutputRows = _numOutputRows
-    val aggrTime = _aggrTime
-    val totalTime = _totalTime
-    val sparkConf = _sparkConf
-
-    // build gandiva projection here.
-    ColumnarPluginConfig.getConf(sparkConf)
-
-    val mode = if (aggregateExpressions.size > 0) {
-      aggregateExpressions(0).mode
-    } else {
-      null
-    }
-
-    aggregateAttributeList = aggregateAttributes
-
-    val originalInputFieldList = originalInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(s"Decimal type is not supported in ColumnarGroupbyHashAggregation.")
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
-    originalInputArrowSchema = new Schema(originalInputFieldList.asJava)
-
-    //////////////// Project original input to aggregateExpression input //////////////////
-    // 1. create grouping native Expression
-    val resultField = Field.nullable("res", resultType)
-    var i: Int = 0
-    val groupingAttributes = groupingExpressions.map(expr => {
-      ConverterUtils.getAttrFromExpr(expr).toAttribute
-    })
-    val groupingNativeFuncNodes =
-      groupingExpressions.toList.map(expr => {
-        val funcNode = getColumnarFuncNode(expr)
-        TreeBuilder
-          .makeFunction(
-            "action_groupby",
-            Lists.newArrayList(funcNode),
-            resultType /*this arg won't be used*/ )
-      })
-
-    // 2. create aggregate native Expression
-    // we need to remove who is in grouping and from partial mode AggregateExpression
-    val partialProjectOrdinalList = ListBuffer[Int]()
-    aggregateExpressions.zipWithIndex.foreach{case(expr, index) => expr.mode match {
-      case Partial => {
-        val internalExpressionList = expr.aggregateFunction.children
-        val ordinalList = ColumnarProjection.binding(originalInputAttributes, internalExpressionList, index, skipLiteral = false)
-        ordinalList.foreach{i => {
-          partialProjectOrdinalList += i
-        }}
-      }
-      case _ => {}
-    }}
-    val inputAttrs = originalInputAttributes.zipWithIndex
-      .filter{case(attr, i) => !groupingAttributes.contains(attr) && !partialProjectOrdinalList.toList.contains(i)}.map(_._1)
-    inputAttrQueue = scala.collection.mutable.Queue(inputAttrs: _*)
-    val aggrNativeFuncNodes =
-      aggregateExpressions.toList.map(expr => getColumnarFuncNode(expr))
-
-    // 3. map aggregateAttribute to aggregateExpression
-    val allAggregateResultAttributes: List[Attribute] = 
-      groupingAttributes.toList ::: getAttrForAggregateExpr(aggregateExpressions)
-    val aggregateAttributeFieldList =
-      allAggregateResultAttributes.map(attr => {
-        Field
-          .nullable(
-            s"${attr.name}#${attr.exprId.id}",
-            CodeGeneration.getResultType(attr.dataType))
-      })
-    aggregateAttributeArrowSchema = new Schema(aggregateAttributeFieldList.asJava)
-    val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
-
-    // 4. create nativeAggregate evaluator
-    val nativeSchemaNode = TreeBuilder.makeFunction(
-      "codegen_schema",
-      originalInputFieldList
-        .map(field => {
-          TreeBuilder.makeField(field)
-        })
-        .asJava,
-      resultType /*dummy ret type, won't be used*/ )
-    val nativeAggrNode = TreeBuilder.makeFunction(
-      "hashAggregateArrays",
-      nativeFuncNodes.asJava,
-      resultType /*dummy ret type, won't be used*/ )
-    val nativeCodeGenNode = TreeBuilder.makeFunction(
-      "codegen_withOneInput",
-      Lists.newArrayList(nativeAggrNode, nativeSchemaNode),
-      resultType /*dummy ret type, won't be used*/ )
-    nativeExpressionNode = TreeBuilder.makeExpression(nativeCodeGenNode, resultField)
-
-    // 4. map grouping and aggregate result to FinalResult
-    aggregateToResultProjector = ColumnarProjection.create(
-      allAggregateResultAttributes,
-      resultExpressions,
-      skipLiteral = false,
-      renameResult = false)
-    aggregateToResultOrdinalList = aggregateToResultProjector.getOrdinalList
-    val resultAttributes = aggregateToResultProjector.output
-    resultArrowSchema = new Schema(
-      resultAttributes
-        .map(attr => {
-          Field.nullable(
-            s"${attr.name}#${attr.exprId.id}",
-            CodeGeneration.getResultType(attr.dataType))
-        })
-        .asJava)
-  }
+  val resultType = CodeGeneration.getResultType()
 
   def getColumnarFuncNode(expr: Expression): TreeNode = {
     if (expr.isInstanceOf[AttributeReference] && expr
@@ -349,7 +214,7 @@ object ColumnarGroupbyHashAggregation extends Logging {
       ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
     if (columnarExpr.dataType.isInstanceOf[DecimalType])
       throw new UnsupportedOperationException(
-        s"Decimal type is not supported in ColumnarGroupbyHashAggregation.")
+        s"Decimal type is not supported in ColumnarHashAggregationWithCodegen.")
     var inputList: java.util.List[Field] = Lists.newArrayList()
     val (node, _resultType) =
       columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(inputList)
@@ -372,7 +237,10 @@ object ColumnarGroupbyHashAggregation extends Logging {
               List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
                 getColumnarFuncNode(attr))
             TreeBuilder
-              .makeFunction("action_sum_count_merge", childrenColumnarFuncNodeList.asJava, resultType)
+              .makeFunction(
+                "action_sum_count_merge",
+                childrenColumnarFuncNodeList.asJava,
+                resultType)
           case Final =>
             val childrenColumnarFuncNodeList =
               List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
@@ -403,7 +271,7 @@ object ColumnarGroupbyHashAggregation extends Logging {
             if (aggregateFunc.children(0).isInstanceOf[Literal]) {
               TreeBuilder.makeFunction(
                 s"action_countLiteral_${aggregateFunc.children(0)}",
-                childrenColumnarFuncNodeList.asJava,
+                Lists.newArrayList(),
                 resultType)
             } else {
               TreeBuilder
@@ -444,16 +312,20 @@ object ColumnarGroupbyHashAggregation extends Logging {
           case Partial =>
             val childrenColumnarFuncNodeList =
               aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
-            TreeBuilder.makeFunction("action_stddev_samp_partial",
-              childrenColumnarFuncNodeList.asJava, resultType)
+            TreeBuilder.makeFunction(
+              "action_stddev_samp_partial",
+              childrenColumnarFuncNodeList.asJava,
+              resultType)
           case PartialMerge =>
             throw new UnsupportedOperationException("not currently supported: PartialMerge.")
           case Final =>
             val childrenColumnarFuncNodeList =
-              List(inputAttrQueue.dequeue, inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
-                getColumnarFuncNode(attr))
-            TreeBuilder.makeFunction("action_stddev_samp_final",
-              childrenColumnarFuncNodeList.asJava, resultType)
+              List(inputAttrQueue.dequeue, inputAttrQueue.dequeue, inputAttrQueue.dequeue)
+                .map(attr => getColumnarFuncNode(attr))
+            TreeBuilder.makeFunction(
+              "action_stddev_samp_final",
+              childrenColumnarFuncNodeList.asJava,
+              resultType)
           case other =>
             throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
@@ -462,7 +334,9 @@ object ColumnarGroupbyHashAggregation extends Logging {
     }
   }
 
-  def getAttrForAggregateExpr(aggregateExpressions: Seq[AggregateExpression]): List[Attribute] = {
+  def getAttrForAggregateExpr(
+      aggregateExpressions: Seq[AggregateExpression],
+      aggregateAttributeList: Seq[Attribute]): List[Attribute] = {
     var aggregateAttr = new ListBuffer[Attribute]()
     val size = aggregateExpressions.size
     var res_index = 0
@@ -471,112 +345,118 @@ object ColumnarGroupbyHashAggregation extends Logging {
       val mode = exp.mode
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {
-        case Average(_) => mode match {
-          case Partial => {
-            val avg = aggregateFunc.asInstanceOf[Average]
-            val aggBufferAttr = avg.inputAggBufferAttributes
-            for (index <- 0 until aggBufferAttr.size) {
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-              aggregateAttr += attr
+        case Average(_) =>
+          mode match {
+            case Partial => {
+              val avg = aggregateFunc.asInstanceOf[Average]
+              val aggBufferAttr = avg.inputAggBufferAttributes
+              for (index <- 0 until aggBufferAttr.size) {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+                aggregateAttr += attr
+              }
+              res_index += 2
             }
-            res_index += 2
-          }
-          case PartialMerge => {
-            val avg = aggregateFunc.asInstanceOf[Average]
-            val aggBufferAttr = avg.inputAggBufferAttributes
-            for (index <- 0 until aggBufferAttr.size) {
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-              aggregateAttr += attr
+            case PartialMerge => {
+              val avg = aggregateFunc.asInstanceOf[Average]
+              val aggBufferAttr = avg.inputAggBufferAttributes
+              for (index <- 0 until aggBufferAttr.size) {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+                aggregateAttr += attr
+              }
+              res_index += 1
             }
-            res_index += 1
-          }
-          case Final => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            res_index += 1
-          }
-          case other =>
-            throw new UnsupportedOperationException(s"not currently supported: $other.")
-        }
-        case Sum(_) => mode match {
-          case Partial | PartialMerge => {
-            val sum = aggregateFunc.asInstanceOf[Sum]
-            val aggBufferAttr = sum.inputAggBufferAttributes
-            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-            aggregateAttr += attr
-            res_index += 1
-          }
-          case Final => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            res_index += 1
-          }
-          case other =>
-            throw new UnsupportedOperationException(s"not currently supported: $other.")
-        }
-        case Count(_) => mode match {
-          case Partial | PartialMerge => {
-            val count = aggregateFunc.asInstanceOf[Count]
-            val aggBufferAttr = count.inputAggBufferAttributes
-            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-            aggregateAttr += attr
-            res_index += 1
-          }
-          case Final => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            res_index += 1
-          }
-          case other =>
-            throw new UnsupportedOperationException(s"not currently supported: $other.")
-        }
-        case Max(_) => mode match {
-          case Partial | PartialMerge => {
-            val max = aggregateFunc.asInstanceOf[Max]
-            val aggBufferAttr = max.inputAggBufferAttributes
-            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-            aggregateAttr += attr
-            res_index += 1
-          }
-          case Final => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            res_index += 1
-          }
-          case other =>
-            throw new UnsupportedOperationException(s"not currently supported: $other.")
-        }
-        case Min(_) => mode match {
-          case Partial | PartialMerge => {
-            val min = aggregateFunc.asInstanceOf[Min]
-            val aggBufferAttr = min.inputAggBufferAttributes
-            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-            aggregateAttr += attr
-            res_index += 1
-          }
-          case Final => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            res_index += 1
-          }
-          case other =>
-            throw new UnsupportedOperationException(s"not currently supported: $other.")
-        }
-        case StddevSamp(_) => mode match {
-          case Partial => {
-            val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
-            val aggBufferAttr = stddevSamp.inputAggBufferAttributes
-            for (index <- 0 until aggBufferAttr.size) {
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-              aggregateAttr += attr
+            case Final => {
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
             }
-            res_index += 3
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-          case PartialMerge => {
-            throw new UnsupportedOperationException("not currently supported: PartialMerge.")
+        case Sum(_) =>
+          mode match {
+            case Partial | PartialMerge => {
+              val sum = aggregateFunc.asInstanceOf[Sum]
+              val aggBufferAttr = sum.inputAggBufferAttributes
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              aggregateAttr += attr
+              res_index += 1
+            }
+            case Final => {
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
+            }
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-          case Final => {
-            aggregateAttr += aggregateAttributeList(res_index)
-            res_index += 1
+        case Count(_) =>
+          mode match {
+            case Partial | PartialMerge => {
+              val count = aggregateFunc.asInstanceOf[Count]
+              val aggBufferAttr = count.inputAggBufferAttributes
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              aggregateAttr += attr
+              res_index += 1
+            }
+            case Final => {
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
+            }
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-          case other =>
-            throw new UnsupportedOperationException(s"not currently supported: $other.")
-        }
+        case Max(_) =>
+          mode match {
+            case Partial | PartialMerge => {
+              val max = aggregateFunc.asInstanceOf[Max]
+              val aggBufferAttr = max.inputAggBufferAttributes
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              aggregateAttr += attr
+              res_index += 1
+            }
+            case Final => {
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
+            }
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
+          }
+        case Min(_) =>
+          mode match {
+            case Partial | PartialMerge => {
+              val min = aggregateFunc.asInstanceOf[Min]
+              val aggBufferAttr = min.inputAggBufferAttributes
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              aggregateAttr += attr
+              res_index += 1
+            }
+            case Final => {
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
+            }
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
+          }
+        case StddevSamp(_) =>
+          mode match {
+            case Partial => {
+              val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
+              val aggBufferAttr = stddevSamp.inputAggBufferAttributes
+              for (index <- 0 until aggBufferAttr.size) {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+                aggregateAttr += attr
+              }
+              res_index += 3
+            }
+            case PartialMerge => {
+              throw new UnsupportedOperationException("not currently supported: PartialMerge.")
+            }
+            case Final => {
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
+            }
+            case other =>
+              throw new UnsupportedOperationException(s"not currently supported: $other.")
+          }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }
@@ -584,86 +464,126 @@ object ColumnarGroupbyHashAggregation extends Logging {
     aggregateAttr.toList
   }
 
-  def prebuild(
+  def prepareKernelFunction(
       groupingExpressions: Seq[NamedExpression],
       originalInputAttributes: Seq[Attribute],
       aggregateExpressions: Seq[AggregateExpression],
       aggregateAttributes: Seq[Attribute],
       resultExpressions: Seq[NamedExpression],
       output: Seq[Attribute],
-      numInputBatches: SQLMetric,
-      numOutputBatches: SQLMetric,
-      numOutputRows: SQLMetric,
-      aggrTime: SQLMetric,
-      totalTime: SQLMetric,
-      sparkConf: SparkConf): String = synchronized {
-    init(
-      groupingExpressions,
-      originalInputAttributes,
-      aggregateExpressions,
-      aggregateAttributes,
-      resultExpressions,
-      output,
-      numInputBatches,
-      numOutputBatches,
-      numOutputRows,
-      aggrTime,
-      totalTime,
-      sparkConf)
-    aggregator = new ExpressionEvaluator()
-    val signature = aggregator.build(
-      originalInputArrowSchema,
-      Lists.newArrayList(nativeExpressionNode),
-      aggregateAttributeArrowSchema,
-      true)
-    aggregator.close
-    signature
-  }
+      sparkConf: SparkConf): TreeNode = {
+    // build gandiva projection here.
+    ColumnarPluginConfig.getConf(sparkConf)
 
-  def create(
-      groupingExpressions: Seq[NamedExpression],
-      originalInputAttributes: Seq[Attribute],
-      aggregateExpressions: Seq[AggregateExpression],
-      aggregateAttributes: Seq[Attribute],
-      resultExpressions: Seq[NamedExpression],
-      output: Seq[Attribute],
-      listJars: Seq[String],
-      numInputBatches: SQLMetric,
-      numOutputBatches: SQLMetric,
-      numOutputRows: SQLMetric,
-      aggrTime: SQLMetric,
-      totalTime: SQLMetric,
-      sparkConf: SparkConf): ColumnarGroupbyHashAggregation = synchronized {
-    init(
-      groupingExpressions,
-      originalInputAttributes,
-      aggregateExpressions,
-      aggregateAttributes,
+    val mode = if (aggregateExpressions.size > 0) {
+      aggregateExpressions(0).mode
+    } else {
+      null
+    }
+
+    val originalInputFieldList = originalInputAttributes.toList.map(attr => {
+      if (attr.dataType.isInstanceOf[DecimalType])
+        throw new UnsupportedOperationException(
+          s"Decimal type is not supported in ColumnarHashAggregationWithCodegen.")
+      Field
+        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    })
+
+    //////////////// Project original input to aggregateExpression input //////////////////
+    // 1. create grouping native Expression
+    val resultField = Field.nullable("res", resultType)
+    var i: Int = 0
+    val groupingAttributes = groupingExpressions.map(expr => {
+      ConverterUtils.getAttrFromExpr(expr).toAttribute
+    })
+    val groupingNativeFuncNodes =
+      groupingExpressions.toList.map(expr => {
+        val funcNode = getColumnarFuncNode(expr)
+        TreeBuilder
+          .makeFunction(
+            "action_groupby",
+            Lists.newArrayList(funcNode),
+            resultType /*this arg won't be used*/ )
+      })
+
+    // 2. create aggregate native Expression
+    // we need to remove who is in grouping and from partial mode AggregateExpression
+    val partialProjectOrdinalList = ListBuffer[Int]()
+    aggregateExpressions.zipWithIndex.foreach {
+      case (expr, index) =>
+        expr.mode match {
+          case Partial => {
+            val internalExpressionList = expr.aggregateFunction.children
+            val ordinalList = ColumnarProjection.binding(
+              originalInputAttributes,
+              internalExpressionList,
+              index,
+              skipLiteral = false)
+            ordinalList.foreach { i =>
+              {
+                partialProjectOrdinalList += i
+              }
+            }
+          }
+          case _ => {}
+        }
+    }
+    val inputAttrs = originalInputAttributes.zipWithIndex
+      .filter {
+        case (attr, i) =>
+          !groupingAttributes.contains(attr) && !partialProjectOrdinalList.toList.contains(i)
+      }
+      .map(_._1)
+    inputAttrQueue = scala.collection.mutable.Queue(inputAttrs: _*)
+    val aggrNativeFuncNodes =
+      aggregateExpressions.toList.map(expr => getColumnarFuncNode(expr))
+
+    // 3. map aggregateAttribute to aggregateExpression
+    val allAggregateResultAttributes: List[Attribute] =
+      groupingAttributes.toList ::: getAttrForAggregateExpr(
+        aggregateExpressions,
+        aggregateAttributes)
+    val aggregateAttributeFieldList =
+      allAggregateResultAttributes.map(attr => {
+        Field
+          .nullable(
+            s"${attr.name}#${attr.exprId.id}",
+            CodeGeneration.getResultType(attr.dataType))
+      })
+    val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
+
+    // 4. prepare after aggregate result expressions
+    val resultExprFuncNodes = resultExpressions.toList.map(expr => getColumnarFuncNode(expr))
+
+    // 5. create nativeAggregate evaluator
+    val nativeSchemaNode = TreeBuilder.makeFunction(
+      "inputSchema",
+      originalInputFieldList
+        .map(field => TreeBuilder.makeField(field))
+        .asJava,
+      resultType /*dummy ret type, won't be used*/ )
+    val aggrActionNode = TreeBuilder.makeFunction(
+      "aggregateActions",
+      nativeFuncNodes.asJava,
+      resultType /*dummy ret type, won't be used*/ )
+    val aggregateResultNode = TreeBuilder.makeFunction(
+      "resultSchema",
+      aggregateAttributeFieldList
+        .map(field => TreeBuilder.makeField(field))
+        .asJava,
+      resultType /*dummy ret type, won't be used*/ )
+    val resultExprNode = TreeBuilder.makeFunction(
+      "resultExpression",
+      resultExprFuncNodes.asJava,
+      resultType /*dummy ret type, won't be used*/ )
+    val resultProjectNode = ColumnarConditionProjector.prepareKernelFunction(
+      null,
       resultExpressions,
-      output,
-      numInputBatches,
-      numOutputBatches,
-      numOutputRows,
-      aggrTime,
-      totalTime,
-      sparkConf)
-    aggregator = new ExpressionEvaluator(listJars.toList.asJava)
-    aggregator.build(
-      originalInputArrowSchema,
-      Lists.newArrayList(nativeExpressionNode),
-      aggregateAttributeArrowSchema,
-      true)
-    new ColumnarGroupbyHashAggregation(
-      aggregator,
-      aggregateAttributeArrowSchema,
-      resultArrowSchema,
-      aggregateToResultProjector,
-      aggregateToResultOrdinalList,
-      numInputBatches,
-      numOutputBatches,
-      numOutputRows,
-      aggrTime,
-      totalTime,
-      sparkConf)
+      allAggregateResultAttributes)
+    TreeBuilder.makeFunction(
+      "hashAggregateArrays",
+      Lists.newArrayList(nativeSchemaNode, aggrActionNode, aggregateResultNode, resultExprNode),
+      resultType /*dummy ret type, won't be used*/ )
+
   }
 }

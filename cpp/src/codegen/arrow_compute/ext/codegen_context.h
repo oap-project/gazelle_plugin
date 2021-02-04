@@ -20,6 +20,8 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
+class GandivaProjector;
+
 struct CodeGenContext {
   std::vector<std::string> header_codes;
   std::string relation_prepare_codes;
@@ -28,8 +30,12 @@ struct CodeGenContext {
   std::string process_codes;
   std::string finish_codes;
   std::string definition_codes;
+  std::string aggregate_prepare_codes;
+  std::string aggregate_finish_condition_codes;
+  std::string aggregate_finish_codes;
   std::vector<std::string> function_list;
   std::vector<
       std::pair<std::pair<std::string, std::string>, std::shared_ptr<arrow::DataType>>>
       output_list;
+  std::shared_ptr<GandivaProjector> gandiva_projector;
 };

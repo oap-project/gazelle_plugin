@@ -327,11 +327,7 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     const std::string& func_name, std::shared_ptr<gandiva::FunctionNode> func_node,
     std::vector<std::shared_ptr<arrow::Field>> field_list,
     std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p) {
-  if (func_name.compare("hashAggregateArrays") == 0) {
-    RETURN_NOT_OK(HashAggregateArraysVisitorImpl::Make(field_list, func_node->children(),
-                                                       ret_fields, p, &impl_));
-    goto finish;
-  } else if (func_name.compare(0, 17, "wholestagecodegen") == 0) {
+  if (func_name.compare(0, 17, "wholestagecodegen") == 0) {
     RETURN_NOT_OK(
         WholeStageCodeGenVisitorImpl::Make(field_list, func_node, ret_fields, p, &impl_));
     goto finish;
@@ -448,7 +444,7 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
       join_type = 3;
     } else if (func_name.compare("conditionedJoinArraysExistence") == 0) {
       join_type = 4;
-    }else if (func_name.compare("conditionedJoinArraysFullOuter") == 0) {
+    } else if (func_name.compare("conditionedJoinArraysFullOuter") == 0) {
       join_type = 5;
     }
     RETURN_NOT_OK(ConditionedJoinArraysVisitorImpl::Make(

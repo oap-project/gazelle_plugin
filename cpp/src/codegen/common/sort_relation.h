@@ -85,6 +85,7 @@ class SortRelation {
   int GetSameKeyRange() {
     if (range_cache_ != -1) return range_cache_;
     int range = 0;
+    if (!CheckRangeBound(range)) return range;
     bool is_same = true;
     while (is_same) {
       if (CheckRangeBound(range + 1)) {

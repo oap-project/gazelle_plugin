@@ -271,6 +271,13 @@ std::string GetParameterList(std::vector<std::string> parameter_list_in, bool co
   }
 }
 
+std::string str_tolower(std::string s) {
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::tolower(c); }  // correct
+  );
+  return s;
+}
+
 std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
                                   std::vector<gandiva::FieldVector> field_list_v) {
   int arg_id = 0;
@@ -279,7 +286,7 @@ std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
   for (auto field_list : field_list_v) {
     arg_id = 0;
     for (auto field : field_list) {
-      if (field->name() == target_field->name()) {
+      if (str_tolower(field->name()) == str_tolower(target_field->name())) {
         found = true;
         break;
       }
@@ -289,6 +296,9 @@ std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
       break;
     }
     index += 1;
+  }
+  if (!found) {
+    return std::make_pair(-1, -1);
   }
   return std::make_pair(index, arg_id);
 }
@@ -302,6 +312,28 @@ gandiva::ExpressionVector GetGandivaKernel(std::vector<gandiva::NodePtr> key_lis
     project_list.push_back(expr);
   }
   return project_list;
+}
+
+gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list,
+                                       std::vector<int> key_index_list) {
+  // This Project should be do upon GetGandivaKernel
+  // So we need to treat inside functionNode as fieldNode.
+  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
+  std::shared_ptr<arrow::DataType> ret_type;
+  auto seed = gandiva::TreeExprBuilder::MakeLiteral((int32_t)0);
+  gandiva::NodePtr func_node;
+  ret_type = arrow::int32();
+  int idx = 0;
+  for (auto key : key_list) {
+    auto field_node = gandiva::TreeExprBuilder::MakeField(arrow::field(
+        "projection_key_" + std::to_string(key_index_list[idx++]), key->return_type()));
+    func_node =
+        gandiva::TreeExprBuilder::MakeFunction("hash32", {field_node, seed}, ret_type);
+    seed = func_node;
+  }
+  func_node_list.push_back(func_node);
+  return gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
+                                                  arrow::field("hash_key", ret_type));
 }
 
 gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list) {
@@ -547,7 +579,8 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     std::cout << cmd << std::endl;
     /*cmd = "ls -R -l " + GetTempPath() + "; cat " + logfile;
     system(cmd.c_str());*/
-    exit(EXIT_FAILURE);
+    return arrow::Status::Invalid("compilation failed, see ", logfile);
+    // exit(EXIT_FAILURE);
   }
   cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
         signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so";
