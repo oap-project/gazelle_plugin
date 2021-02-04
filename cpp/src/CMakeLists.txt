@@ -172,7 +172,6 @@ if(DEBUG)
 endif()
 
 find_library(ARROW_LIB arrow)
-find_library(PARQUET_LIB parquet)
 find_library(GANDIVA_LIB gandiva)
 
 if(NOT ARROW_LIB)
@@ -181,10 +180,6 @@ endif()
 
 if(NOT GANDIVA_LIB)
     message(FATAL_ERROR "Gandiva library not found")
-endif()
-
-if(NOT PARQUET_LIB)
-    message(FATAL_ERROR "Parquet library not found")
 endif()
 
 set(CODEGEN_HEADERS
