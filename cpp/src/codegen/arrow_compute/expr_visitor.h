@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 #include <gandiva/node.h>
 #include <gandiva/node_visitor.h>
@@ -113,15 +113,15 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
                                   const gandiva::FunctionNode& node,
                                   std::shared_ptr<ExprVisitor>* out);
 
-  ExprVisitor(arrow::compute::FunctionContext ctx,
+  ExprVisitor(arrow::compute::ExecContext ctx,
               std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name,
               std::vector<std::string> param_field_names,
               std::shared_ptr<ExprVisitor> dependency,
               std::shared_ptr<gandiva::Node> finish_func);
 
-  ExprVisitor(arrow::compute::FunctionContext ctx, std::string func_name);
+  ExprVisitor(arrow::compute::ExecContext ctx, std::string func_name);
 
-  ExprVisitor(arrow::compute::FunctionContext ctx,
+  ExprVisitor(arrow::compute::ExecContext ctx,
               std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name);
 
   ~ExprVisitor() {
@@ -226,7 +226,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::vector<std::shared_ptr<arrow::Field>> result_fields_;
 
   // Long live variables
-  arrow::compute::FunctionContext ctx_;
+  arrow::compute::ExecContext ctx_;
   std::shared_ptr<ExprVisitorImpl> impl_;
   std::shared_ptr<ExprVisitor> finish_visitor_;
   bool initialized_ = false;

@@ -87,7 +87,7 @@ using enable_if_number_or_date = std::enable_if_t<is_number_or_date<DataType>::v
 template <typename DataType>
 class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public AppenderBase {
  public:
-  ArrayAppender(arrow::compute::FunctionContext* ctx, AppenderType type = left)
+  ArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
@@ -165,7 +165,7 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
   using CType = typename arrow::TypeTraits<DataType>::CType;
   std::unique_ptr<BuilderType_> builder_;
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   AppenderType type_;
   bool has_null_ = false;
 };
@@ -174,7 +174,7 @@ template <typename DataType>
 class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     : public AppenderBase {
  public:
-  ArrayAppender(arrow::compute::FunctionContext* ctx, AppenderType type = left)
+  ArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
@@ -251,7 +251,7 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
   std::unique_ptr<BuilderType_> builder_;
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   AppenderType type_;
   bool has_null_ = false;
 };
@@ -259,7 +259,7 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
 template <typename DataType>
 class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public AppenderBase {
  public:
-  ArrayAppender(arrow::compute::FunctionContext* ctx, AppenderType type = left)
+  ArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
@@ -338,7 +338,7 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
   std::unique_ptr<BuilderType_> builder_;
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   AppenderType type_;
   bool has_null_ = false;
 };
@@ -358,7 +358,7 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)
-static arrow::Status MakeAppender(arrow::compute::FunctionContext* ctx,
+static arrow::Status MakeAppender(arrow::compute::ExecContext* ctx,
                                   std::shared_ptr<arrow::DataType> type,
                                   AppenderBase::AppenderType appender_type,
                                   std::shared_ptr<AppenderBase>* out) {

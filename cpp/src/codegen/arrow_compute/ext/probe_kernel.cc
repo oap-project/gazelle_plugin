@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
@@ -55,7 +55,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  ConditionedProbeArrays  ////////////////
 class ConditionedProbeArraysKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
        const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
        const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -113,7 +113,7 @@ class ConditionedProbeArraysKernel::Impl {
  private:
   using ArrayType = typename arrow::TypeTraits<arrow::Int64Type>::ArrayType;
 
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<CodeGenBase> prober_;
   std::shared_ptr<gandiva::Projector> left_projector_;
   std::shared_ptr<gandiva::Projector> right_projector_;
@@ -124,7 +124,7 @@ class ConditionedProbeArraysKernel::Impl {
   class ProjectedProberResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     ProjectedProberResultIterator(
-        arrow::compute::FunctionContext* ctx,
+        arrow::compute::ExecContext* ctx,
         const std::shared_ptr<gandiva::Projector>& right_projector,
         const std::shared_ptr<arrow::Schema>& right_schema,
         const std::shared_ptr<ResultIterator<arrow::RecordBatch>>& prober_res_iter)
@@ -149,7 +149,7 @@ class ConditionedProbeArraysKernel::Impl {
     }
 
    private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     std::shared_ptr<gandiva::Projector> right_projector_;
     std::shared_ptr<arrow::Schema> right_schema_;
     std::shared_ptr<ResultIterator<arrow::RecordBatch>> prober_res_iter_;
@@ -1080,7 +1080,7 @@ using namespace sparkcolumnarplugin::precompile;
 
 class TypedProberImpl : public CodeGenBase {
  public:
-  TypedProberImpl(arrow::compute::FunctionContext *ctx) : ctx_(ctx) {
+  TypedProberImpl(arrow::compute::ExecContext *ctx) : ctx_(ctx) {
     hash_table_ = )" +
            hash_map_define_str +
            (multiple_cols ? R"(
@@ -1154,7 +1154,7 @@ private:
   uint64_t cur_array_id_ = 0;
   uint64_t cur_id_ = 0;
   uint64_t num_items_ = 0;
-  arrow::compute::FunctionContext *ctx_;
+  arrow::compute::ExecContext *ctx_;
   std::shared_ptr<HashArraysKernel> hash_kernel_;
   std::shared_ptr<)" +
            hash_map_type_str + R"(> hash_table_;
@@ -1166,7 +1166,7 @@ private:
   class ProberResultIterator : public ResultIterator<arrow::RecordBatch> {
   public:
     ProberResultIterator(
-        arrow::compute::FunctionContext *ctx,
+        arrow::compute::ExecContext *ctx,
         std::shared_ptr<arrow::Schema> schema,
         std::shared_ptr<HashArraysKernel> hash_kernel,
         std::shared_ptr<)" +
@@ -1207,7 +1207,7 @@ private:
     }
 
   private:
-    arrow::compute::FunctionContext *ctx_;
+    arrow::compute::ExecContext *ctx_;
     std::shared_ptr<arrow::Schema> result_schema_;
     std::shared_ptr<HashArraysKernel> hash_kernel_;
     std::shared_ptr<)" +
@@ -1221,7 +1221,7 @@ private:
   };
 };
 
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
+extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<CodeGenBase> *out) {
   *out = std::make_shared<TypedProberImpl>(ctx);
 }
@@ -1230,7 +1230,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
 };
 
 arrow::Status ConditionedProbeArraysKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
     const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
     const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -1245,7 +1245,7 @@ arrow::Status ConditionedProbeArraysKernel::Make(
 }
 
 ConditionedProbeArraysKernel::ConditionedProbeArraysKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
     const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
     const std::shared_ptr<gandiva::Node>& func_node, int join_type,

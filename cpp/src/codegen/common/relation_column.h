@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 

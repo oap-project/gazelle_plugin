@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
@@ -121,7 +121,7 @@ using is_number_alike =
 
 class HashRelation {
  public:
-  HashRelation(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {}
+  HashRelation(arrow::compute::ExecContext* ctx) : ctx_(ctx) {}
 
   HashRelation(
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_list) {
@@ -129,7 +129,7 @@ class HashRelation {
   }
 
   HashRelation(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
       int key_size = -1)
       : HashRelation(hash_relation_column) {
@@ -413,7 +413,7 @@ class HashRelation {
 
  protected:
   bool unsafe_set = false;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   uint64_t num_arrays_ = 0;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
   unsafeHashMap* hash_table_ = nullptr;
@@ -475,6 +475,6 @@ arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
                                      std::shared_ptr<HashRelationColumn>* out);
 
 arrow::Status MakeHashRelation(
-    uint32_t key_type_id, arrow::compute::FunctionContext* ctx,
+    uint32_t key_type_id, arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
     std::shared_ptr<HashRelation>* out);

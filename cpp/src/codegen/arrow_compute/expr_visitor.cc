@@ -184,7 +184,7 @@ arrow::Status ExprVisitor::Make(arrow::MemoryPool* memory_pool,
                                 std::shared_ptr<ExprVisitor> dependency,
                                 std::shared_ptr<gandiva::Node> finish_func,
                                 std::shared_ptr<ExprVisitor>* out) {
-  auto expr = std::make_shared<ExprVisitor>(arrow::compute::FunctionContext(memory_pool),
+  auto expr = std::make_shared<ExprVisitor>(arrow::compute::ExecContext(memory_pool),
                                             schema_ptr, func_name, param_field_names,
                                             dependency, finish_func);
   RETURN_NOT_OK(expr->MakeExprVisitorImpl(func_name, expr.get()));
@@ -198,7 +198,7 @@ arrow::Status ExprVisitor::Make(arrow::MemoryPool* memory_pool,
                                 std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                                 std::shared_ptr<ExprVisitor>* out) {
   auto func_name = node->descriptor()->name();
-  *out = std::make_shared<ExprVisitor>(arrow::compute::FunctionContext(memory_pool),
+  *out = std::make_shared<ExprVisitor>(arrow::compute::ExecContext(memory_pool),
                                        func_name);
   if (func_name.compare(0, 17, "wholestagecodegen") == 0) {
     auto function_node =
@@ -265,7 +265,7 @@ arrow::Status ExprVisitor::MakeWindow(
   if (func_name != "window") {
     return arrow::Status::Invalid("window's Gandiva function name mismatch");
   }
-  *out = std::make_shared<ExprVisitor>(arrow::compute::FunctionContext(memory_pool),
+  *out = std::make_shared<ExprVisitor>(arrow::compute::ExecContext(memory_pool),
                                        schema_ptr, func_name);
   std::vector<std::shared_ptr<gandiva::FunctionNode>> window_functions;
   std::shared_ptr<gandiva::FunctionNode> partition_spec;
@@ -299,7 +299,7 @@ arrow::Status ExprVisitor::MakeWindow(
   return arrow::Status::OK();
 }
 
-ExprVisitor::ExprVisitor(arrow::compute::FunctionContext ctx,
+ExprVisitor::ExprVisitor(arrow::compute::ExecContext ctx,
                          std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name,
                          std::vector<std::string> param_field_names,
                          std::shared_ptr<ExprVisitor> dependency,
@@ -316,10 +316,10 @@ ExprVisitor::ExprVisitor(arrow::compute::FunctionContext ctx,
   }
 }
 
-ExprVisitor::ExprVisitor(arrow::compute::FunctionContext ctx, std::string func_name)
+ExprVisitor::ExprVisitor(arrow::compute::ExecContext ctx, std::string func_name)
     : ctx_(std::move(ctx)), func_name_(func_name) {}
 
-ExprVisitor::ExprVisitor(arrow::compute::FunctionContext ctx,
+ExprVisitor::ExprVisitor(arrow::compute::ExecContext ctx,
                          std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name)
     : ctx_(std::move(ctx)), schema_(schema_ptr), func_name_(func_name) {}
 

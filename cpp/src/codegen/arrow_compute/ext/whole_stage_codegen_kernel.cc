@@ -16,7 +16,7 @@
  */
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/pretty_print.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
@@ -47,7 +47,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  WholeStageCodeGen  ////////////////
 class WholeStageCodeGenKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
        std::shared_ptr<gandiva::Node> root_node,
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
@@ -68,7 +68,7 @@ class WholeStageCodeGenKernel::Impl {
   std::string GetSignature() { return signature_; }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::vector<std::shared_ptr<KernalBase>> kernel_list_;
   std::shared_ptr<CodeGenBase> wscg_kernel_;
@@ -322,7 +322,7 @@ class WholeStageCodeGenKernel::Impl {
 using namespace sparkcolumnarplugin::precompile;
 class TypedWholeStageCodeGenImpl : public CodeGenBase {
  public:
-  TypedWholeStageCodeGenImpl(arrow::compute::FunctionContext *ctx) : ctx_(ctx) {}
+  TypedWholeStageCodeGenImpl(arrow::compute::ExecContext *ctx) : ctx_(ctx) {}
   ~TypedWholeStageCodeGenImpl() {}
 
   arrow::Status MakeResultIterator(
@@ -334,11 +334,10 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   class WholeStageCodeGenResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    WholeStageCodeGenResultIterator(arrow::compute::FunctionContext* ctx,
-                                    std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list,
+    WholeStageCodeGenResultIterator(arrow::compute::ExecContext* ctx,
                                     const std::shared_ptr<arrow::Schema>& result_schema)
         : ctx_(ctx), result_schema_(result_schema), gandiva_projector_list_(gandiva_projector_list) {)";
     if (!is_aggr_) {
@@ -522,7 +521,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
 
     codes_ss << R"(
     private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     bool should_stop_ = false;
     std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list_;
     std::shared_ptr<arrow::Schema> result_schema_;)"
@@ -548,7 +547,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     codes_ss << "};" << std::endl;
     codes_ss << "};" << std::endl;
     codes_ss << R"(
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
+extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<CodeGenBase> *out) {
   *out = std::make_shared<TypedWholeStageCodeGenImpl>(ctx);
 })";
@@ -633,7 +632,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
 };
 
 arrow::Status WholeStageCodeGenKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
@@ -644,7 +643,7 @@ arrow::Status WholeStageCodeGenKernel::Make(
 }
 
 WholeStageCodeGenKernel::WholeStageCodeGenKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list) {

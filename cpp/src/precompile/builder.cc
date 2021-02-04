@@ -1,7 +1,7 @@
 #include "precompile/builder.h"
 
 #include <arrow/builder.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/util/decimal.h>
 
 #include <iostream>

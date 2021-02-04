@@ -218,7 +218,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attrib
 set(SPARK_COLUMNAR_PLUGIN_SRCS
         jni/jni_wrapper.cc
         ${PROTO_SRCS}
-        data_source/parquet/adapter.cc
         proto/protobuf_utils.cc
         codegen/common/relation.cc
         codegen/expr_visitor.cc
@@ -237,7 +236,8 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/basic_physical_kernels.cc
         codegen/arrow_compute/ext/expression_codegen_visitor.cc
         codegen/arrow_compute/ext/typed_node_visitor.cc
-        shuffle/splitter.cc
+        codegen/arrow_compute/ext/window_kernel.cc
+        codegen/arrow_compute/ext/sort_kernel.cc
         precompile/hash_map.cc
         precompile/sparse_hash_map.cc
         precompile/builder.cc

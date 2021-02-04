@@ -21,7 +21,7 @@
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_primitive.h>
 #include <arrow/array/concatenate.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/compute/kernel.h>
 #include <arrow/pretty_print.h>
 #include <arrow/status.h>
@@ -69,7 +69,7 @@ class EncodeArrayKernel::Impl {
 template <typename InType, typename MemoTableType>
 class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
  public:
-  EncodeArrayTypedImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  EncodeArrayTypedImpl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     hash_table_ = std::make_shared<MemoTableType>(ctx_->memory_pool());
     builder_ = std::make_shared<arrow::Int32Builder>(ctx_->memory_pool());
   }
@@ -106,18 +106,18 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
 
  private:
   using ArrayType = typename arrow::TypeTraits<InType>::ArrayType;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<MemoTableType> hash_table_;
   std::shared_ptr<arrow::Int32Builder> builder_;
 };
 
-arrow::Status EncodeArrayKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status EncodeArrayKernel::Make(arrow::compute::ExecContext* ctx,
                                       std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<EncodeArrayKernel>(ctx);
   return arrow::Status::OK();
 }
 
-EncodeArrayKernel::EncodeArrayKernel(arrow::compute::FunctionContext* ctx) {
+EncodeArrayKernel::EncodeArrayKernel(arrow::compute::ExecContext* ctx) {
   ctx_ = ctx;
   kernel_name_ = "EncodeArrayKernel";
 }
@@ -167,7 +167,7 @@ arrow::Status EncodeArrayKernel::Evaluate(const std::shared_ptr<arrow::Array>& i
 ///////////////  HashAggrArray  ////////////////
 class HashArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx) {
     // create a new result array type here
@@ -224,14 +224,14 @@ class HashArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<gandiva::Projector> projector;
   std::shared_ptr<arrow::Schema> schema_;
   arrow::MemoryPool* pool_;
 };
 
 arrow::Status HashArrayKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<HashArrayKernel>(ctx, type_list);
@@ -239,7 +239,7 @@ arrow::Status HashArrayKernel::Make(
 }
 
 HashArrayKernel::HashArrayKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
   kernel_name_ = "HashArrayKernel";
@@ -253,7 +253,7 @@ arrow::Status HashArrayKernel::Evaluate(const ArrayList& in,
 ///////////////  ConcatArray  ////////////////
 class ConcatArrayKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx) {
     pool_ = ctx_->memory_pool();
@@ -289,13 +289,13 @@ class ConcatArrayKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::unique_ptr<arrow::StringBuilder> builder_;
   arrow::MemoryPool* pool_;
 };
 
 arrow::Status ConcatArrayKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<ConcatArrayKernel>(ctx, type_list);
@@ -303,7 +303,7 @@ arrow::Status ConcatArrayKernel::Make(
 }
 
 ConcatArrayKernel::ConcatArrayKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
   kernel_name_ = "ConcatArrayKernel";
@@ -317,7 +317,7 @@ arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
 ///////////////  ConcatArray  ////////////////
 class CachedRelationKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type)
       : ctx_(ctx),
         result_schema_(result_schema),
@@ -377,7 +377,7 @@ class CachedRelationKernel::Impl {
   int col_num_;
   int result_type_;
   arrow::MemoryPool* pool_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::unique_ptr<arrow::StringBuilder> builder_;
   std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
   std::shared_ptr<arrow::Schema> result_schema_;
@@ -402,7 +402,7 @@ class CachedRelationKernel::Impl {
 };
 
 arrow::Status CachedRelationKernel::Make(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<CachedRelationKernel>(ctx, result_schema, key_field_list,
@@ -411,7 +411,7 @@ arrow::Status CachedRelationKernel::Make(
 }
 
 CachedRelationKernel::CachedRelationKernel(
-    arrow::compute::FunctionContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type) {
   impl_.reset(new Impl(ctx, result_schema, key_field_list, result_type));
   kernel_name_ = "CachedRelationKernel";
@@ -432,7 +432,7 @@ std::string CachedRelationKernel::GetSignature() { return ""; }
 ///////////////  ConcatArrayList  ////////////////
 class ConcatArrayListKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
        std::shared_ptr<gandiva::Node> root_node,
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
@@ -461,13 +461,13 @@ class ConcatArrayListKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::vector<arrow::ArrayVector> cached_;
   int total_num_row_ = 0;
   int total_num_batch_ = 0;
   class ConcatArrayListResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    ConcatArrayListResultIterator(arrow::compute::FunctionContext* ctx,
+    ConcatArrayListResultIterator(arrow::compute::ExecContext* ctx,
                                   std::shared_ptr<arrow::Schema> result_schema,
                                   const std::vector<arrow::ArrayVector>& cached)
         : ctx_(ctx), result_schema_(result_schema), cached_(cached) {
@@ -519,7 +519,7 @@ class ConcatArrayListKernel::Impl {
     }
 
    private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     std::vector<arrow::ArrayVector> cached_;
     std::shared_ptr<arrow::Schema> result_schema_;
     int batch_size_;
@@ -529,7 +529,7 @@ class ConcatArrayListKernel::Impl {
 };
 
 arrow::Status ConcatArrayListKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
@@ -540,7 +540,7 @@ arrow::Status ConcatArrayListKernel::Make(
 }
 
 ConcatArrayListKernel::ConcatArrayListKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list) {

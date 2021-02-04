@@ -16,7 +16,7 @@
  */
 
 #pragma once
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/type.h>
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
@@ -81,7 +81,7 @@ std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
 
 arrow::Status CompileCodes(std::string codes, std::string signature);
 
-arrow::Status LoadLibrary(std::string signature, arrow::compute::FunctionContext* ctx,
+arrow::Status LoadLibrary(std::string signature, arrow::compute::ExecContext* ctx,
                           std::shared_ptr<CodeGenBase>* out);
 }  // namespace extra
 }  // namespace arrowcompute

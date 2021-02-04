@@ -18,13 +18,7 @@
 #include "codegen/arrow_compute/ext/actions_impl.h"
 
 #include <arrow/builder.h>
-#include <arrow/compute/context.h>
 #include <arrow/compute/kernel.h>
-#include <arrow/compute/kernels/count.h>
-#include <arrow/compute/kernels/hash.h>
-#include <arrow/compute/kernels/mean.h>
-#include <arrow/compute/kernels/minmax.h>
-#include <arrow/compute/kernels/sum.h>
 #include <arrow/pretty_print.h>
 #include <arrow/scalar.h>
 #include <arrow/type_traits.h>
@@ -125,7 +119,7 @@ uint64_t ActionBase::GetResultLength() { return 0; }
 template <typename DataType, typename CType>
 class UniqueAction : public ActionBase {
  public:
-  UniqueAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  UniqueAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct UniqueAction" << std::endl;
 #endif
@@ -272,7 +266,7 @@ class UniqueAction : public ActionBase {
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   int row_id_ = 0;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ArrayType> in_;
   // output
   std::unique_ptr<BuilderType> builder_;
@@ -286,7 +280,7 @@ class UniqueAction : public ActionBase {
 template <typename DataType>
 class CountAction : public ActionBase {
  public:
-  CountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  CountAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct CountAction" << std::endl;
 #endif
@@ -354,9 +348,10 @@ class CountAction : public ActionBase {
       cache_.resize(1, 0);
       length_ = 1;
     }
-    arrow::compute::Datum output;
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
-    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &output));
+    arrow::Datum output;
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NULL);
+    auto maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
+    output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_[0] += typed_scalar->value;
     return arrow::Status::OK();
@@ -410,7 +405,7 @@ class CountAction : public ActionBase {
   using ResBuilderType = typename arrow::TypeTraits<arrow::Int64Type>::BuilderType;
   using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   int32_t row_id;
   // result
@@ -424,7 +419,7 @@ class CountAction : public ActionBase {
 template <typename DataType>
 class CountLiteralAction : public ActionBase {
  public:
-  CountLiteralAction(arrow::compute::FunctionContext* ctx, int arg)
+  CountLiteralAction(arrow::compute::ExecContext* ctx, int arg)
       : ctx_(ctx), arg_(arg) {
 #ifdef DEBUG
     std::cout << "Construct CountLiteralAction" << std::endl;
@@ -534,7 +529,7 @@ class CountLiteralAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   int arg_;
   // result
   using CType = typename arrow::TypeTraits<DataType>::CType;
@@ -547,7 +542,7 @@ class CountLiteralAction : public ActionBase {
 template <typename DataType>
 class MinAction : public ActionBase {
  public:
-  MinAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  MinAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MinAction" << std::endl;
 #endif
@@ -632,9 +627,10 @@ class MinAction : public ActionBase {
       length_ = 1;
     }
 
-    arrow::compute::Datum minMaxOut;
+    arrow::Datum minMaxOut;
     arrow::compute::MinMaxOptions option;
-    RETURN_NOT_OK(arrow::compute::MinMax(ctx_, option, *in[0].get(), &minMaxOut));
+    auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
+    minMaxOut = *std::move(maybe_minMaxOut);
     if (!minMaxOut.is_collection()) {
       return arrow::Status::Invalid("MinMax return an invalid result.");
     }
@@ -710,7 +706,7 @@ class MinAction : public ActionBase {
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
 
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
@@ -725,7 +721,7 @@ class MinAction : public ActionBase {
 template <typename DataType>
 class MaxAction : public ActionBase {
  public:
-  MaxAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  MaxAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MaxAction" << std::endl;
 #endif
@@ -810,9 +806,10 @@ class MaxAction : public ActionBase {
       length_ = 1;
     }
 
-    arrow::compute::Datum minMaxOut;
+    arrow::Datum minMaxOut;
     arrow::compute::MinMaxOptions option;
-    RETURN_NOT_OK(arrow::compute::MinMax(ctx_, option, *in[0].get(), &minMaxOut));
+    auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
+    minMaxOut = *std::move(maybe_minMaxOut);
     if (!minMaxOut.is_collection()) {
       return arrow::Status::Invalid("MinMax return an invalid result.");
     }
@@ -887,7 +884,7 @@ class MaxAction : public ActionBase {
   using ScalarType = typename arrow::TypeTraits<DataType>::ScalarType;
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
@@ -902,7 +899,7 @@ class MaxAction : public ActionBase {
 template <typename DataType>
 class SumAction : public ActionBase {
  public:
-  SumAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  SumAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct SumAction" << std::endl;
 #endif
@@ -977,8 +974,9 @@ class SumAction : public ActionBase {
       cache_validity_.resize(1, false);
       length_ = 1;
     }
-    arrow::compute::Datum output;
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    arrow::Datum output;
+    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);
+    output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_[0] += typed_scalar->value;
     if (!cache_validity_[0]) cache_validity_[0] = true;
@@ -1040,7 +1038,7 @@ class SumAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   CType* data_;
   int row_id;
@@ -1055,7 +1053,7 @@ class SumAction : public ActionBase {
 template <typename DataType>
 class AvgAction : public ActionBase {
  public:
-  AvgAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  AvgAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
                        arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
@@ -1135,13 +1133,15 @@ class AvgAction : public ActionBase {
       cache_validity_.resize(1, false);
       length_ = 1;
     }
-    arrow::compute::Datum output;
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    arrow::Datum output;
+    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);
+    output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
-    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &output));
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NULL);
+    maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
+    output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
@@ -1212,7 +1212,7 @@ class AvgAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   CType* data_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
@@ -1227,7 +1227,7 @@ class AvgAction : public ActionBase {
 template <typename DataType>
 class SumCountAction : public ActionBase {
  public:
-  SumCountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  SumCountAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
@@ -1310,13 +1310,15 @@ class SumCountAction : public ActionBase {
       cache_count_.resize(1, 0);
       length_ = 1;
     }
-    arrow::compute::Datum output;
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    arrow::Datum output;
+    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);
+    output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
-    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &output));
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NULL);
+    maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
+    output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
@@ -1385,7 +1387,7 @@ class SumCountAction : public ActionBase {
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
   std::unique_ptr<arrow::Int64Builder> count_builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   CType* data_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
@@ -1399,7 +1401,7 @@ class SumCountAction : public ActionBase {
 template <typename DataType>
 class SumCountMergeAction : public ActionBase {
  public:
-  SumCountMergeAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  SumCountMergeAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
@@ -1483,12 +1485,14 @@ class SumCountMergeAction : public ActionBase {
       cache_count_.resize(1, 0);
       length_ = 1;
     }
-    arrow::compute::Datum output;
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    arrow::Datum output;
+    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);
+    output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[1].get(), &output));
+    maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);
+    output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
@@ -1558,7 +1562,7 @@ class SumCountMergeAction : public ActionBase {
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
   std::unique_ptr<arrow::Int64Builder> count_builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   double* data_sum_;
   int64_t* data_count_;
   int row_id;
@@ -1574,7 +1578,7 @@ class SumCountMergeAction : public ActionBase {
 template <typename DataType>
 class AvgByCountAction : public ActionBase {
  public:
-  AvgByCountAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  AvgByCountAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
                        arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
@@ -1654,12 +1658,14 @@ class AvgByCountAction : public ActionBase {
       cache_validity_.resize(1, false);
       length_ = 1;
     }
-    arrow::compute::Datum output;
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    arrow::Datum output;
+    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);
+    output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[1].get(), &output));
+    maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);
+    output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
@@ -1739,7 +1745,7 @@ class AvgByCountAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   double* data_sum_;
   int64_t* data_count_;
   int row_id;
@@ -1756,7 +1762,7 @@ class AvgByCountAction : public ActionBase {
 template <typename DataType>
 class StddevSampPartialAction : public ActionBase {
  public:
-  StddevSampPartialAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  StddevSampPartialAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     std::unique_ptr<arrow::ArrayBuilder> avg_builder;
     std::unique_ptr<arrow::ArrayBuilder> m2_builder;
@@ -1865,10 +1871,10 @@ class StddevSampPartialAction : public ActionBase {
       length_ = 1;
     }
 
-    /*arrow::compute::Datum sum_out;
-    arrow::compute::Datum cnt_out;
-    arrow::compute::Datum mean_out;
-    arrow::compute::Datum m2_out;
+    /*arrow::Datum sum_out;
+    arrow::Datum cnt_out;
+    arrow::Datum mean_out;
+    arrow::Datum m2_out;
     arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
     RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &sum_out));
     RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &cnt_out));
@@ -1988,8 +1994,8 @@ class StddevSampPartialAction : public ActionBase {
   }
 
   /*arrow::Status getM2(arrow::compute::FunctionContext* ctx,
-                      const arrow::compute::Datum& value,
-                      const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
+                      const arrow::Datum& value,
+                      const arrow::Datum& mean, arrow::Datum* out) {
     using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
     using MeanScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
     using ValueCType = typename arrow::TypeTraits<ValueType>::CType;
@@ -2015,8 +2021,8 @@ class StddevSampPartialAction : public ActionBase {
   }
 
   arrow::Status M2(arrow::compute::FunctionContext* ctx, const arrow::Array& array,
-                   const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
-    arrow::compute::Datum value = array.data();
+                   const arrow::Datum& mean, arrow::Datum* out) {
+    arrow::Datum value = array.data();
     auto data_type = value.type();
 
     if (data_type == nullptr)
@@ -2038,7 +2044,7 @@ class StddevSampPartialAction : public ActionBase {
   std::unique_ptr<arrow::DoubleBuilder> avg_builder_;
   std::unique_ptr<arrow::DoubleBuilder> m2_builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   CType* data_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
@@ -2054,7 +2060,7 @@ class StddevSampPartialAction : public ActionBase {
 template <typename DataType>
 class StddevSampFinalAction : public ActionBase {
  public:
-  StddevSampFinalAction(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  StddevSampFinalAction(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(),
                        arrow::TypeTraits<arrow::DoubleType>::type_singleton(), &builder);
@@ -2155,9 +2161,9 @@ class StddevSampFinalAction : public ActionBase {
       length_ = 1;
     }
 
-    arrow::compute::Datum cnt_out;
-    arrow::compute::Datum avg_out;
-    arrow::compute::Datum m2_out;
+    arrow::Datum cnt_out;
+    arrow::Datum avg_out;
+    arrow::Datum m2_out;
     RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &cnt_out));
     RETURN_NOT_OK(
         updateValue(ctx_, *in[0].get(), *in[1].get(), *in[2].get(), &avg_out, &m2_out));
@@ -2252,10 +2258,10 @@ class StddevSampFinalAction : public ActionBase {
   }
 
   /*arrow::Status getAvgM2(arrow::compute::FunctionContext* ctx,
-                         const arrow::compute::Datum& cnt_value,
-                         const arrow::compute::Datum& avg_value,
-                         const arrow::compute::Datum& m2_value,
-                         arrow::compute::Datum* avg_out, arrow::compute::Datum* m2_out) {
+                         const arrow::Datum& cnt_value,
+                         const arrow::Datum& avg_value,
+                         const arrow::Datum& m2_value,
+                         arrow::Datum* avg_out, arrow::Datum* m2_out) {
     using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
     using MeanScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
     using ValueCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
@@ -2303,11 +2309,11 @@ class StddevSampFinalAction : public ActionBase {
 
   arrow::Status updateValue(arrow::compute::FunctionContext* ctx,
                             const arrow::Array& cnt_array, const arrow::Array& avg_array,
-                            const arrow::Array& m2_array, arrow::compute::Datum* avg_out,
-                            arrow::compute::Datum* m2_out) {
-    arrow::compute::Datum cnt_value = cnt_array.data();
-    arrow::compute::Datum avg_value = avg_array.data();
-    arrow::compute::Datum m2_value = m2_array.data();
+                            const arrow::Array& m2_array, arrow::Datum* avg_out,
+                            arrow::Datum* m2_out) {
+    arrow::Datum cnt_value = cnt_array.data();
+    arrow::Datum avg_value = avg_array.data();
+    arrow::Datum m2_value = m2_array.data();
     auto cnt_data_type = cnt_value.type();
     if (cnt_data_type == nullptr)
       return arrow::Status::Invalid("Datum must be array-like");
@@ -2326,7 +2332,7 @@ class StddevSampFinalAction : public ActionBase {
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
   // input
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   double* data_count_;
   double* data_avg_;
   double* data_m2_;
@@ -2355,7 +2361,7 @@ class StddevSampFinalAction : public ActionBase {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)
 
-arrow::Status MakeUniqueAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeUniqueAction(arrow::compute::ExecContext *ctx,
                                std::shared_ptr<arrow::DataType> type,
                                std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2385,21 +2391,19 @@ arrow::Status MakeUniqueAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeCountAction(arrow::compute::FunctionContext* ctx,
-                              std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountAction<arrow::Int64Type>>(ctx);
+arrow::Status MakeCountAction(arrow::compute::ExecContext *ctx, std::shared_ptr<ActionBase> *out) {
+  auto action_ptr = std::make_shared<CountAction<arrow::UInt64Type>>(ctx);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
-arrow::Status MakeCountLiteralAction(arrow::compute::FunctionContext* ctx, int arg,
-                                     std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountLiteralAction<arrow::Int64Type>>(ctx, arg);
+arrow::Status MakeCountLiteralAction(arrow::compute::ExecContext *ctx, int arg, std::shared_ptr<ActionBase> *out) {
+  auto action_ptr = std::make_shared<CountLiteralAction<arrow::UInt64Type>>(ctx, arg);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeSumAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2416,7 +2420,7 @@ arrow::Status MakeSumAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeAvgAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeAvgAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2433,7 +2437,7 @@ arrow::Status MakeAvgAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeMinAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeMinAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2450,7 +2454,7 @@ arrow::Status MakeMinAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeMaxAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeMaxAction(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2467,7 +2471,7 @@ arrow::Status MakeMaxAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumCountAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeSumCountAction(arrow::compute::ExecContext *ctx,
                                  std::shared_ptr<arrow::DataType> type,
                                  std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2484,7 +2488,7 @@ arrow::Status MakeSumCountAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumCountMergeAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeSumCountMergeAction(arrow::compute::ExecContext *ctx,
                                       std::shared_ptr<arrow::DataType> type,
                                       std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2501,7 +2505,7 @@ arrow::Status MakeSumCountMergeAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeAvgByCountAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeAvgByCountAction(arrow::compute::ExecContext *ctx,
                                    std::shared_ptr<arrow::DataType> type,
                                    std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2518,7 +2522,7 @@ arrow::Status MakeAvgByCountAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeStddevSampPartialAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeStddevSampPartialAction(arrow::compute::ExecContext *ctx,
                                           std::shared_ptr<arrow::DataType> type,
                                           std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
@@ -2535,7 +2539,7 @@ arrow::Status MakeStddevSampPartialAction(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeStddevSampFinalAction(arrow::compute::FunctionContext* ctx,
+arrow::Status MakeStddevSampFinalAction(arrow::compute::ExecContext *ctx,
                                         std::shared_ptr<arrow::DataType> type,
                                         std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {

@@ -18,7 +18,7 @@
 #pragma once
 
 #include <arrow/buffer.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
@@ -36,7 +36,7 @@ using sparkcolumnarplugin::precompile::TypeTraits;
 class SortRelation {
  public:
   SortRelation(
-      arrow::compute::FunctionContext* ctx, uint64_t items_total,
+      arrow::compute::ExecContext* ctx, uint64_t items_total,
       const std::vector<int>& size_array,
       const std::vector<std::shared_ptr<RelationColumn>>& sort_relation_key_list,
       const std::vector<std::shared_ptr<RelationColumn>>& sort_relation_payload_list)
@@ -117,7 +117,7 @@ class SortRelation {
   }
 
  protected:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Buffer> indices_buf_;
   ArrayItemIndexS* indices_begin_;
   const uint64_t items_total_;

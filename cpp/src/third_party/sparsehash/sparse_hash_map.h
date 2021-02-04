@@ -1,4 +1,4 @@
-#include <arrow/compute/context.h>
+#include <arrow/memory_pool.h>
 #include <arrow/status.h>
 
 #include "sparsehash/dense_hash_map"

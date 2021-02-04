@@ -38,7 +38,7 @@ namespace extra {
 
 std::string BaseCodes() {
   return R"(
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
 
 #include "codegen/arrow_compute/ext/code_generator_base.h"
@@ -615,7 +615,7 @@ std::string exec(const char* cmd) {
   return result;
 }
 
-arrow::Status LoadLibrary(std::string signature, arrow::compute::FunctionContext* ctx,
+arrow::Status LoadLibrary(std::string signature, arrow::compute::ExecContext* ctx,
                           std::shared_ptr<CodeGenBase>* out) {
   std::string outpath = GetTempPath() + "/tmp";
   std::string prefix = "/spark-columnar-plugin-codegen-";
@@ -637,7 +637,7 @@ arrow::Status LoadLibrary(std::string signature, arrow::compute::FunctionContext
   // loading symbol from library and assign to pointer
   // (to be cast to function pointer later)
 
-  void (*MakeCodeGen)(arrow::compute::FunctionContext * ctx,
+  void (*MakeCodeGen)(arrow::compute::ExecContext * ctx,
                       std::shared_ptr<CodeGenBase> * out);
   *(void**)(&MakeCodeGen) = dlsym(dynlib, "MakeCodeGen");
   const char* dlsym_error = dlerror();

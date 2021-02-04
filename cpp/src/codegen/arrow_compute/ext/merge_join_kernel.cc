@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
@@ -54,7 +54,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  ConditionedJoinArrays  ////////////////
 class ConditionedJoinArraysKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
        const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
        const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -101,7 +101,7 @@ class ConditionedJoinArraysKernel::Impl {
  private:
   using ArrayType = typename arrow::TypeTraits<arrow::Int64Type>::ArrayType;
 
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<CodeGenBase> prober_;
   std::string signature_;
 
@@ -1354,7 +1354,7 @@ list_item it;
 
 class TypedProberImpl : public CodeGenBase {
  public:
-  TypedProberImpl(arrow::compute::FunctionContext *ctx) : ctx_(ctx) {
+  TypedProberImpl(arrow::compute::ExecContext *ctx) : ctx_(ctx) {
   }
   ~TypedProberImpl() {}
 
@@ -1384,7 +1384,7 @@ private:
   uint64_t cur_id_ = 0;
   uint64_t idx = 0;
   uint64_t num_items_ = 0;
-  arrow::compute::FunctionContext *ctx_;
+  arrow::compute::ExecContext *ctx_;
   std::vector<list_item> left_list_;
   std::vector<int64_t> idx_to_arrarid_;
   )" + impl_cached_define_str +
@@ -1393,7 +1393,7 @@ private:
   class ProberResultIterator : public ResultIterator<arrow::RecordBatch> {
   public:
     ProberResultIterator(
-        arrow::compute::FunctionContext *ctx,
+        arrow::compute::ExecContext *ctx,
         std::shared_ptr<arrow::Schema> schema,
         std::vector<list_item>* left_list,
         std::vector<int64_t> *idx_to_arrarid)" +
@@ -1440,7 +1440,7 @@ private:
     }
 
   private:
-    arrow::compute::FunctionContext *ctx_;
+    arrow::compute::ExecContext *ctx_;
     std::shared_ptr<arrow::Schema> result_schema_;
     std::vector<list_item>* left_list_;
     std::shared_ptr<FVector> left_it;
@@ -1456,7 +1456,7 @@ private:
   };
 };
 
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
+extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
                             std::shared_ptr<CodeGenBase> *out) {
   *out = std::make_shared<TypedProberImpl>(ctx);
 }
@@ -1465,7 +1465,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext *ctx,
 };
 
 arrow::Status ConditionedJoinArraysKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
     const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
     const std::shared_ptr<gandiva::Node>& func_node, int join_type,
@@ -1480,7 +1480,7 @@ arrow::Status ConditionedJoinArraysKernel::Make(
 }
 
 ConditionedJoinArraysKernel::ConditionedJoinArraysKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& left_key_list,
     const std::vector<std::shared_ptr<arrow::Field>>& right_key_list,
     const std::shared_ptr<gandiva::Node>& func_node, int join_type,

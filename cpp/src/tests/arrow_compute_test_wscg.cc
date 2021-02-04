@@ -105,7 +105,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSingleInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -252,7 +252,7 @@ TEST(TestArrowComputeWSCG, WSCGTestProjectKeyInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -412,7 +412,7 @@ TEST(TestArrowComputeWSCG, WSCGTestProjectFilterKeyInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -538,7 +538,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -673,7 +673,7 @@ TEST(TestArrowComputeWSCG, WSCGTestTwoStringInnerJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -801,7 +801,7 @@ TEST(TestArrowComputeWSCG, WSCGTestOuterJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -930,7 +930,7 @@ TEST(TestArrowComputeWSCG, WSCGTestAntiJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -1057,7 +1057,7 @@ TEST(TestArrowComputeWSCG, WSCGTestAntiJoinWithCondition) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -1178,7 +1178,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -1306,7 +1306,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoinWithCondition) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -1432,7 +1432,7 @@ TEST(TestArrowComputeWSCG, WSCGTestExistenceJoin) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -1572,7 +1572,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiJoinWithCoalesce) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
@@ -1696,7 +1696,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringInnerMergeJoin) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), arrow::schema({}), {mergeJoin_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_join, true));
@@ -1850,7 +1850,7 @@ TEST(TestArrowComputeWSCG, WSCGTestInnerMergeJoin) {
   auto schema_table_1 = arrow::schema({table1_f0});
   auto schema_table = arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), arrow::schema({}), {mergeJoin_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0}, &expr_join, true));
@@ -2013,7 +2013,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringOuterMergeJoin) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), arrow::schema({}), {mergeJoin_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_join, true));
@@ -2174,7 +2174,7 @@ TEST(TestArrowComputeWSCG, WSCGTestAntiMergeJoin) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1}, &expr_join,
                                     true));
@@ -2330,7 +2330,7 @@ TEST(TestArrowComputeWSCG, WSCGTestAntiMergeJoinWithCondition) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1}, &expr_join,
                                     true));
@@ -2483,7 +2483,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiMergeJoin) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1}, &expr_join,
                                     true));
@@ -2641,7 +2641,7 @@ TEST(TestArrowComputeWSCG, WSCGTestSemiMergeJoinWithCondition) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1}, &expr_join,
                                     true));
@@ -2797,7 +2797,7 @@ TEST(TestArrowComputeWSCG, WSCGTestExistenceMergeJoin) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1, f_exist},
                                     &expr_join, true));
@@ -2959,7 +2959,7 @@ TEST(TestArrowComputeWSCG, WSCGTestExistenceMergeJoinWithCondition) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1, f_exist},
                                     &expr_join, true));
@@ -3122,7 +3122,7 @@ TEST(TestArrowComputeWSCG, WSCGTestTwoKeysOuterMergeJoin) {
   auto schema_table =
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), arrow::schema({}), {mergeJoin_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_join, true));
@@ -3321,7 +3321,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistence) {
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
   auto schema_table_2 = arrow::schema({table2_f0});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1, f_exist},
                                     &expr_join, true));
@@ -3547,7 +3547,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
   auto schema_table_2 = arrow::schema({table2_f0, table2_f1});
   std::shared_ptr<CodeGenerator> expr_join;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), arrow::schema({}),
                                     {mergeJoin_expr}, {table1_f0, table1_f1, f_exist},
                                     &expr_join, true));
