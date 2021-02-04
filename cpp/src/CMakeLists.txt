@@ -238,6 +238,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/typed_node_visitor.cc
         codegen/arrow_compute/ext/window_kernel.cc
         codegen/arrow_compute/ext/sort_kernel.cc
+        codegen/arrow_compute/ext/kernels_ext.cc
         precompile/hash_map.cc
         precompile/sparse_hash_map.cc
         precompile/builder.cc

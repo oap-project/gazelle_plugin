@@ -75,7 +75,7 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
   }
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in,
                          std::shared_ptr<arrow::Array>* out) {
-    // arrow::compute::Datum input_datum(in);
+    // arrow::Datum input_datum(in);
     // RETURN_NOT_OK(arrow::compute::Group<InType>(ctx_, input_datum, hash_table_, out));
     // we should put items into hashmap
     builder_->Reset();
