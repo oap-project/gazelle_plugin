@@ -50,7 +50,7 @@ class ColumnarDataSourceRDD(
     inputSize: SQLMetric,
     tmp_dir: String)
     extends RDD[ColumnarBatch](sc, Nil) {
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sc.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
 
   override protected def getPartitions: Array[Partition] = {
     inputPartitions.zipWithIndex.map {

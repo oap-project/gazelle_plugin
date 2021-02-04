@@ -58,7 +58,7 @@ class ColumnarShuffleWriter[K, V](
   private val nativeBufferSize =
     conf.getInt("spark.sql.execution.arrow.maxRecordsPerBatch", 4096)
   private val compressionCodec = if (conf.getBoolean("spark.shuffle.compress", true)) {
-    if (ColumnarPluginConfig.getConf(conf).columnarShuffleUseCustomizedCompression) {
+    if (ColumnarPluginConfig.getConf.columnarShuffleUseCustomizedCompression) {
       "fastpfor"
     } else {
       conf.get("spark.io.compression.codec", "lz4")
@@ -66,7 +66,7 @@ class ColumnarShuffleWriter[K, V](
   } else {
     "uncompressed"
   }
-  private val preferSpill = ColumnarPluginConfig.getConf(conf).columnarShufflePreferSpill
+  private val preferSpill = ColumnarPluginConfig.getConf.columnarShufflePreferSpill
 
   private val jniWrapper = new ShuffleSplitterJniWrapper()
 

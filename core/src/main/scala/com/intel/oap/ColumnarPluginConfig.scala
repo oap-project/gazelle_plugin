@@ -18,66 +18,67 @@
 package com.intel.oap
 
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.internal.SQLConf
 
 case class ColumnarNumaBindingInfo(
     enableNumaBinding: Boolean,
     totalCoreRange: Array[String] = null,
     numCoresPerExecutor: Int = -1) {}
 
-class ColumnarPluginConfig(conf: SparkConf) {
+class ColumnarPluginConfig(conf: SQLConf) {
   val enableColumnarSort: Boolean =
-    conf.getBoolean("spark.sql.columnar.sort", defaultValue = false)
+    conf.getConfString("spark.sql.columnar.sort", "false").toBoolean
   val enableColumnarNaNCheck: Boolean =
-    conf.getBoolean("spark.sql.columnar.nanCheck", defaultValue = false)
+    conf.getConfString("spark.sql.columnar.nanCheck", "false").toBoolean
   val enableColumnarBroadcastJoin: Boolean =
-    conf.getBoolean("spark.sql.columnar.sort.broadcastJoin", defaultValue = true)
+    conf.getConfString("spark.sql.columnar.sort.broadcastJoin", "true").toBoolean
   val enableColumnarWindow: Boolean =
-    conf.getBoolean("spark.sql.columnar.window", defaultValue = true)
+    conf.getConfString("spark.sql.columnar.window", "true").toBoolean
   val enableColumnarSortMergeJoin: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.sortmergejoin", defaultValue = false)
+    conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "false").toBoolean
   val enablePreferColumnar: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.preferColumnar", defaultValue = false)
+    conf.getConfString("spark.oap.sql.columnar.preferColumnar", "false").toBoolean
   val enableJoinOptimizationReplace: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.joinOptimizationReplace", defaultValue = false)
+    conf.getConfString("spark.oap.sql.columnar.joinOptimizationReplace", "false").toBoolean
   val joinOptimizationThrottle: Integer =
-    conf.getInt("spark.oap.sql.columnar.joinOptimizationLevel", defaultValue = 6)
+    conf.getConfString("spark.oap.sql.columnar.joinOptimizationLevel", "6").toInt
   val enableColumnarWholeStageCodegen: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true)
+    conf.getConfString("spark.oap.sql.columnar.wholestagecodegen", "true").toBoolean
   val enableColumnarShuffle: Boolean = conf
-    .get("spark.shuffle.manager", "sort")
+    .getConfString("spark.shuffle.manager", "sort")
     .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager")
   val batchSize: Int =
-    conf.getInt("spark.sql.execution.arrow.maxRecordsPerBatch", defaultValue = 10000)
+    conf.getConfString("spark.sql.execution.arrow.maxRecordsPerBatch", "10000").toInt
   val enableMetricsTime: Boolean =
-    conf.getBoolean(
+    conf.getConfString(
       "spark.oap.sql.columnar.wholestagecodegen.breakdownTime",
-      defaultValue = false)
+      "false").toBoolean
   val tmpFile: String =
-    conf.getOption("spark.sql.columnar.tmp_dir").getOrElse(null)
+    conf.getConfString("spark.sql.columnar.tmp_dir", null)
   @deprecated val broadcastCacheTimeout: Int =
-    conf.getInt("spark.sql.columnar.sort.broadcast.cache.timeout", defaultValue = -1)
+    conf.getConfString("spark.sql.columnar.sort.broadcast.cache.timeout", "-1").toInt
   val hashCompare: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.hashCompare", defaultValue = false)
+    conf.getConfString("spark.oap.sql.columnar.hashCompare", "false").toBoolean
   // Whether to spill the partition buffers when buffers are full.
   // If false, the partition buffers will be cached in memory first,
   // and the cached buffers will be spilled when reach maximum memory.
   val columnarShufflePreferSpill: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.shuffle.preferSpill", defaultValue = true)
+    conf.getConfString("spark.oap.sql.columnar.shuffle.preferSpill", "true").toBoolean
   val columnarShuffleUseCustomizedCompression: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.shuffle.customizedCompression", defaultValue = false)
+    conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression", "false").toBoolean
   val isTesting: Boolean =
-    conf.getBoolean("spark.oap.sql.columnar.testing", defaultValue = false)
+    conf.getConfString("spark.oap.sql.columnar.testing", "false").toBoolean
   val numaBindingInfo: ColumnarNumaBindingInfo = {
     val enableNumaBinding: Boolean =
-      conf.getBoolean("spark.oap.sql.columnar.numaBinding", defaultValue = false)
-    if (enableNumaBinding == false) {
+      conf.getConfString("spark.oap.sql.columnar.numaBinding", "false").toBoolean
+    if (!enableNumaBinding) {
       ColumnarNumaBindingInfo(false)
     } else {
-      val tmp = conf.getOption("spark.oap.sql.columnar.coreRange").getOrElse(null)
+      val tmp = conf.getConfString("spark.oap.sql.columnar.coreRange", null)
       if (tmp == null) {
         ColumnarNumaBindingInfo(false)
       } else {
-        val numCores = conf.getInt("spark.executor.cores", defaultValue = 1)
+        val numCores = conf.getConfString("spark.executor.cores", "1").toInt
         val coreRangeList: Array[String] = tmp.split('|').map(_.trim)
         ColumnarNumaBindingInfo(true, coreRangeList, numCores)
       }
@@ -89,21 +90,22 @@ class ColumnarPluginConfig(conf: SparkConf) {
 object ColumnarPluginConfig {
   var ins: ColumnarPluginConfig = null
   var random_temp_dir_path: String = null
-  def getConf(conf: SparkConf): ColumnarPluginConfig = synchronized {
-    if (ins == null) {
-      ins = new ColumnarPluginConfig(conf)
-      ins
-    } else {
-      ins
-    }
-  }
+
+  /**
+   * @deprecated We should avoid caching this value in entire JVM. us
+   */
+  @Deprecated
   def getConf: ColumnarPluginConfig = synchronized {
     if (ins == null) {
-      throw new IllegalStateException("ColumnarPluginConfig is not initialized yet")
-    } else {
-      ins
+      ins = getSessionConf
     }
+    ins
   }
+
+  def getSessionConf: ColumnarPluginConfig = {
+    new ColumnarPluginConfig(SQLConf.get)
+  }
+
   def getBatchSize: Int = synchronized {
     if (ins == null) {
       10000

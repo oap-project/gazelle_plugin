@@ -72,7 +72,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     with ColumnarCodegenSupport {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
 
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
@@ -281,7 +281,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildPlan = p.getBuildPlan
           val buildInputByteBuf = buildPlan.executeBroadcast[ColumnarHashedRelation]()
           curRDD.mapPartitions { iter =>
-            ColumnarPluginConfig.getConf(sparkConf)
+            ColumnarPluginConfig.getConf
             ExecutorManager.tryTaskSet(numaBindingInfo)
             // received broadcast value contain a hashmap and raw recordBatch
             val beforeFetch = System.nanoTime()
@@ -413,7 +413,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
 
     curRDD.mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
-      ColumnarPluginConfig.getConf(sparkConf)
+      ColumnarPluginConfig.getConf
       val execTempDir = ColumnarPluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
         logWarning(s"Get Codegened library Jar ${jarUrl}")

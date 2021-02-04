@@ -55,7 +55,7 @@ case class ColumnarBroadcastHashJoinExec(
     with HashJoin {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
@@ -431,7 +431,7 @@ case class ColumnarBroadcastHashJoinExec(
 
     streamedPlan.executeColumnar().mapPartitions { streamIter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
-      ColumnarPluginConfig.getConf(sparkConf)
+      ColumnarPluginConfig.getConf
       val execTempDir = ColumnarPluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
         logWarning(s"Get Codegened library Jar ${jarUrl}")

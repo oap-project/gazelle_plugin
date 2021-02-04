@@ -70,7 +70,7 @@ case class ColumnarShuffledHashJoinExec(
     with HashJoin {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf(sparkContext.getConf).numaBindingInfo
+  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
@@ -237,7 +237,7 @@ case class ColumnarShuffledHashJoinExec(
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
 // we will use previous codegen join to handle joins with condition
     if (condition.isDefined) {
-      val enableHashCollisionCheck = ColumnarPluginConfig.getConf(sparkConf).hashCompare
+      val enableHashCollisionCheck = ColumnarPluginConfig.getConf.hashCompare
       val hashTableType = if (enableHashCollisionCheck) 1 else 0
       return getCodeGenIterator(hashTableType)
     }
@@ -256,7 +256,7 @@ case class ColumnarShuffledHashJoinExec(
       ExecutorManager.tryTaskSet(numaBindingInfo)
       val hashRelationKernel = new ExpressionEvaluator()
       val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
-      val enableHashCollisionCheck = ColumnarPluginConfig.getConf(sparkConf).hashCompare
+      val enableHashCollisionCheck = ColumnarPluginConfig.getConf.hashCompare
       val hashTableType = if (enableHashCollisionCheck) 1 else 0
       val hash_relation_function =
         ColumnarConditionedProbeJoin
@@ -455,7 +455,7 @@ case class ColumnarShuffledHashJoinExec(
       streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
         (streamIter, buildIter) =>
           ExecutorManager.tryTaskSet(numaBindingInfo)
-          ColumnarPluginConfig.getConf(sparkConf)
+          ColumnarPluginConfig.getConf
           val execTempDir = ColumnarPluginConfig.getTempFile
           val jarList = listJars.map(jarUrl => {
             logWarning(s"Get Codegened library Jar ${jarUrl}")
@@ -555,7 +555,7 @@ case class ColumnarShuffledHashJoinExec(
       streamedPlan.executeColumnar().zipPartitions(buildPlan.executeColumnar()) {
         (streamIter, buildIter) =>
           ExecutorManager.tryTaskSet(numaBindingInfo)
-          ColumnarPluginConfig.getConf(sparkConf)
+          ColumnarPluginConfig.getConf
           val execTempDir = ColumnarPluginConfig.getTempFile
           val jarList = listJars.map(jarUrl => {
             logWarning(s"Get Codegened library Jar ${jarUrl}")

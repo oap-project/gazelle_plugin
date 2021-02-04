@@ -79,7 +79,7 @@ class ColumnarSortMergeJoin(
     streamProjector: ColumnarProjection,
     streamKeyProjectOrdinalList: List[Int])
     extends Logging {
-  ColumnarPluginConfig.getConf(sparkConf)
+  ColumnarPluginConfig.getConf
   var probe_iterator: BatchIterator = _
   var build_cb: ColumnarBatch = null
   var last_cb: ColumnarBatch = null
@@ -250,7 +250,7 @@ object ColumnarSortMergeJoin extends Logging {
     val totaltime_sortmergejoin = _totaltime_sortmergejoin
     val numOutputRows = _numOutputRows
     val sparkConf = _sparkConf
-    ColumnarPluginConfig.getConf(sparkConf)
+    ColumnarPluginConfig.getConf
     // TODO
     val l_input_schema: List[Attribute] = left.output.toList
     val r_input_schema: List[Attribute] = right.output.toList

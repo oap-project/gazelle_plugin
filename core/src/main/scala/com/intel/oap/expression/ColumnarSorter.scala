@@ -232,7 +232,7 @@ object ColumnarSorter extends Logging {
       sparkConf: SparkConf,
       result_type: Int = 0): TreeNode = {
     logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
-    val NaNCheck = ColumnarPluginConfig.getConf(sparkConf).enableColumnarNaNCheck
+    val NaNCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
     /////////////// Prepare ColumnarSorter //////////////
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr)

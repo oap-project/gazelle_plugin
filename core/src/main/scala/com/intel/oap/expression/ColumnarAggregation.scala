@@ -74,7 +74,7 @@ class ColumnarAggregation(
     sparkConf: SparkConf)
     extends Logging {
   // build gandiva projection here.
-  ColumnarPluginConfig.getConf(sparkConf)
+  ColumnarPluginConfig.getConf
   var elapseTime_make: Long = 0
   var rowId: Int = 0
   var processedNumRows: Int = 0

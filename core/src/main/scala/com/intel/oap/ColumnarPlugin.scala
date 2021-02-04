@@ -33,7 +33,7 @@ import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
-  val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getConf(conf)
+  val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
   val testing: Boolean = columnarConf.isTesting
 
@@ -288,7 +288,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 }
 
 case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
-  val columnarConf = ColumnarPluginConfig.getConf(conf)
+  val columnarConf = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
@@ -319,10 +319,14 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   def columnarEnabled =
     session.sqlContext.getConf("org.apache.spark.example.columnar.enabled", "true").trim.toBoolean
   def conf = session.sparkContext.getConf
-  val rowGuardOverrides = ColumnarGuardRule(conf)
-  val preOverrides = ColumnarPreOverrides(conf)
-  val postOverrides = ColumnarPostOverrides(conf)
-  val collapseOverrides = ColumnarCollapseCodegenStages(conf)
+
+  // Do not create rules in class initialization as we should access SQLConf while creating the rules. At this time
+  // SQLConf may not be there yet.
+  def rowGuardOverrides = ColumnarGuardRule(conf)
+  def preOverrides = ColumnarPreOverrides(conf)
+  def postOverrides = ColumnarPostOverrides(conf)
+  def collapseOverrides = ColumnarCollapseCodegenStages(conf)
+
   var isSupportAdaptive: Boolean = true
 
   private def supportAdaptive(plan: SparkPlan): Boolean = {
@@ -344,8 +348,9 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
   override def preColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
       isSupportAdaptive = supportAdaptive(plan)
-      preOverrides.setAdaptiveSupport(isSupportAdaptive)
-      preOverrides(rowGuardOverrides(plan))
+      val rule = preOverrides
+      rule.setAdaptiveSupport(isSupportAdaptive)
+      rule(rowGuardOverrides(plan))
     } else {
       plan
     }
@@ -353,8 +358,9 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   override def postColumnarTransitions: Rule[SparkPlan] = plan => {
     if (columnarEnabled) {
-      postOverrides.setAdaptiveSupport(isSupportAdaptive)
-      val tmpPlan = postOverrides(plan)
+      val rule = postOverrides
+      rule.setAdaptiveSupport(isSupportAdaptive)
+      val tmpPlan = rule(plan)
       collapseOverrides(tmpPlan)
     } else {
       plan
