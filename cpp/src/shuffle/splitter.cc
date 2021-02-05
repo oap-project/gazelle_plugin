@@ -326,7 +326,18 @@ arrow::Status Splitter::Init() {
   auto& ipc_write_options = options_.ipc_write_options;
   ipc_write_options.memory_pool = options_.memory_pool;
   ipc_write_options.use_threads = false;
-  ipc_write_options.compression = options_.compression_type;
+
+  if (options_.compression_type == arrow::Compression::FASTPFOR) {
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+    
+  } else if (options_.compression_type == arrow::Compression::LZ4) {
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::LZ4));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
+  }
 
   return arrow::Status::OK();
 }
@@ -451,9 +462,9 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
       }
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
-    auto payload = std::make_shared<arrow::ipc::internal::IpcPayloadWriter>();
+    auto payload = std::make_shared<arrow::ipc::IpcPayload>();
     TIME_NANO_OR_RAISE(total_compress_time_,
-                       arrow::ipc::internal::GetRecordBatchPayload(
+                       arrow::ipc::GetRecordBatchPayload(
                            *batch, options_.ipc_write_options, payload.get()));
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
@@ -1048,15 +1059,15 @@ std::string Splitter::NextSpilledFileDir() {
   return spilled_file_dir;
 }
 
-arrow::Result<std::shared_ptr<arrow::ipc::internal::IpcPayloadWriter>>
+arrow::Result<std::shared_ptr<arrow::ipc::IpcPayload>>
 Splitter::GetSchemaPayload() {
   if (schema_payload_ != nullptr) {
     return schema_payload_;
   }
-  schema_payload_ = std::make_shared<arrow::ipc::internal::IpcPayloadWriter>();
-  arrow::ipc::DictionaryMemo dict_memo;  // unused
-  RETURN_NOT_OK(arrow::ipc::internal::GetSchemaPayload(
-      *schema_, options_.ipc_write_options, &dict_memo, schema_payload_.get()));
+  schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
+  arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
+  RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(
+      *schema_, options_.ipc_write_options, dict_file_mapper, schema_payload_.get()));
   return schema_payload_;
 }
 

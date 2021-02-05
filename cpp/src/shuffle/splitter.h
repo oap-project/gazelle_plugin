@@ -149,7 +149,7 @@ class Splitter {
 
   std::string NextSpilledFileDir();
 
-  arrow::Result<std::shared_ptr<arrow::ipc::internal::IpcPayloadWriter>> GetSchemaPayload();
+  arrow::Result<std::shared_ptr<arrow::ipc::IpcPayload>> GetSchemaPayload();
 
   class PartitionWriter;
 
@@ -165,7 +165,7 @@ class Splitter {
       partition_binary_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
       partition_large_binary_builders_;
-  std::vector<std::vector<std::shared_ptr<arrow::ipc::internal::IpcPayloadWriter>>>
+  std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
       partition_cached_recordbatch_;
   std::vector<int64_t> partition_cached_recordbatch_size_;  // in bytes
 
@@ -205,7 +205,7 @@ class Splitter {
   std::shared_ptr<arrow::io::FileOutputStream> data_file_os_;
 
   // shared by all partition writers
-  std::shared_ptr<arrow::ipc::internal::IpcPayloadWriter> schema_payload_;
+  std::shared_ptr<arrow::ipc::IpcPayload> schema_payload_;
 };
 
 class RoundRobinSplitter : public Splitter {
