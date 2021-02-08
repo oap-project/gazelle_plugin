@@ -17,6 +17,7 @@
 
 #pragma once
 #include "codegen/common/result_iterator.h"
+#include "precompile/array.h"
 
 class SortRelation;
 class GandivaProjector;
@@ -43,6 +44,10 @@ class CodeGenBase {
   virtual arrow::Status Finish(std::shared_ptr<arrow::Array> in,
                                std::shared_ptr<arrow::Array>* out) {
     return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
+  }
+
+  virtual arrow::Status FinishInternal(std::shared_ptr<precompile::FixedSizeBinaryArray>* out) {
+    return arrow::Status::NotImplemented("CodeGenBase FinishInternal is an abstract interface.");
   }
 
   virtual arrow::Status MakeResultIterator(
