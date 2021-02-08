@@ -18,6 +18,15 @@
 #include "codegen/arrow_compute/ext/actions_impl.h"
 
 #include <arrow/builder.h>
+#include <arrow/compute/context.h>
+#include <arrow/compute/kernel.h>
+#include <arrow/compute/kernels/count.h>
+#include <arrow/compute/kernels/hash.h>
+#include <arrow/compute/kernels/mean.h>
+#include <arrow/compute/kernels/minmax.h>
+#include <arrow/compute/kernels/sum.h>
+#include <arrow/pretty_print.h>
+#include <arrow/scalar.h>
 #include <arrow/type_traits.h>
 
 namespace sparkcolumnarplugin {
@@ -69,7 +78,15 @@ arrow::Status ActionBase::Submit(const std::shared_ptr<arrow::Array>& in,
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
+arrow::Status ActionBase::EvaluateCountLiteral(const int& len) {
+  return arrow::Status::NotImplemented("ActionBase EvaluateCountLiteral is abstract.");
+}
+
 arrow::Status ActionBase::Evaluate(int dest_group_id) {
+  return arrow::Status::NotImplemented("ActionBase Evaluate is abstract.");
+}
+
+arrow::Status ActionBase::Evaluate(const arrow::ArrayVector& in) {
   return arrow::Status::NotImplemented("ActionBase Evaluate is abstract.");
 }
 
@@ -274,8 +291,7 @@ class CountAction : public ActionBase {
     std::cout << "Construct CountAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
-                       &array_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
   }
@@ -333,6 +349,19 @@ class CountAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_.empty()) {
+      cache_.resize(1, 0);
+      length_ = 1;
+    }
+    arrow::compute::Datum output;
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
+    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &output));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
+    cache_[0] += typed_scalar->value;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -377,14 +406,15 @@ class CountAction : public ActionBase {
   }
 
  private:
-  using ResArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
-  using ResBuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+  using ResArrayType = typename arrow::TypeTraits<arrow::Int64Type>::ArrayType;
+  using ResBuilderType = typename arrow::TypeTraits<arrow::Int64Type>::BuilderType;
+  using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   // input
   arrow::compute::FunctionContext* ctx_;
   std::shared_ptr<arrow::Array> in_;
   int32_t row_id;
   // result
-  using CType = typename arrow::TypeTraits<DataType>::CType;
+  using CType = typename arrow::TypeTraits<arrow::Int64Type>::CType;
   std::vector<CType> cache_;
   std::unique_ptr<ResBuilderType> builder_;
   uint64_t length_ = 0;
@@ -441,6 +471,20 @@ class CountLiteralAction : public ActionBase {
     }
     cache_.resize(max_group_id, 0);
     return arrow::Status::OK();
+  }
+
+  arrow::Status EvaluateCountLiteral(const int& len) {
+    if (cache_.empty()) {
+      cache_.resize(1, 0);
+      length_ = 1;
+    }
+    cache_[0] += len;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    return arrow::Status::NotImplemented(
+        "CountLiteralAction Non-Groupby Evaluate is unsupported.");
   }
 
   arrow::Status Evaluate(int dest_group_id) {
@@ -581,6 +625,33 @@ class MinAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+
+    arrow::compute::Datum minMaxOut;
+    arrow::compute::MinMaxOptions option;
+    RETURN_NOT_OK(arrow::compute::MinMax(ctx_, option, *in[0].get(), &minMaxOut));
+    if (!minMaxOut.is_collection()) {
+      return arrow::Status::Invalid("MinMax return an invalid result.");
+    }
+    auto col = minMaxOut.collection();
+    if (col.size() < 2) {
+      return arrow::Status::Invalid("MinMax return an invalid result.");
+    }
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(col[0].scalar());
+    if (!cache_validity_[0]) {
+      cache_validity_[0] = true;
+      cache_[0] = typed_scalar->value;
+    } else {
+      if (cache_[0] > typed_scalar->value) cache_[0] = typed_scalar->value;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -635,6 +706,7 @@ class MinAction : public ActionBase {
 
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
+  using ScalarType = typename arrow::TypeTraits<DataType>::ScalarType;
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
 
   // input
@@ -731,6 +803,33 @@ class MaxAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+
+    arrow::compute::Datum minMaxOut;
+    arrow::compute::MinMaxOptions option;
+    RETURN_NOT_OK(arrow::compute::MinMax(ctx_, option, *in[0].get(), &minMaxOut));
+    if (!minMaxOut.is_collection()) {
+      return arrow::Status::Invalid("MinMax return an invalid result.");
+    }
+    auto col = minMaxOut.collection();
+    if (col.size() < 2) {
+      return arrow::Status::Invalid("MinMax return an invalid result.");
+    }
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(col[1].scalar());
+    if (!cache_validity_[0]) {
+      cache_validity_[0] = true;
+      cache_[0] = typed_scalar->value;
+    } else {
+      if (cache_[0] < typed_scalar->value) cache_[0] = typed_scalar->value;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -785,6 +884,7 @@ class MaxAction : public ActionBase {
 
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
+  using ScalarType = typename arrow::TypeTraits<DataType>::ScalarType;
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::FunctionContext* ctx_;
@@ -871,6 +971,20 @@ class SumAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+    arrow::compute::Datum output;
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
+    cache_[0] += typed_scalar->value;
+    if (!cache_validity_[0]) cache_validity_[0] = true;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -921,6 +1035,7 @@ class SumAction : public ActionBase {
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
@@ -1013,6 +1128,27 @@ class AvgAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_sum_.resize(1, 0);
+      cache_count_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+    arrow::compute::Datum output;
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
+    cache_sum_[0] += typed_scalar->value;
+
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
+    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &output));
+    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    cache_count_[0] += count_typed_scalar->value;
+
+    if (!cache_validity_[0]) cache_validity_[0] = true;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -1070,6 +1206,8 @@ class AvgAction : public ActionBase {
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
@@ -1080,7 +1218,7 @@ class AvgAction : public ActionBase {
   int row_id;
   // result
   std::vector<double> cache_sum_;
-  std::vector<uint64_t> cache_count_;
+  std::vector<int64_t> cache_count_;
   std::vector<bool> cache_validity_;
   uint64_t length_ = 0;
 };
@@ -1166,6 +1304,25 @@ class SumCountAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_sum_.empty()) {
+      cache_sum_.resize(1, 0);
+      cache_count_.resize(1, 0);
+      length_ = 1;
+    }
+    arrow::compute::Datum output;
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
+    cache_sum_[0] += typed_scalar->value;
+
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
+    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &output));
+    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    cache_count_[0] += count_typed_scalar->value;
+
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -1221,6 +1378,8 @@ class SumCountAction : public ActionBase {
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
@@ -1318,6 +1477,24 @@ class SumCountMergeAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_sum_.empty()) {
+      cache_sum_.resize(1, 0);
+      cache_count_.resize(1, 0);
+      length_ = 1;
+    }
+    arrow::compute::Datum output;
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
+    cache_sum_[0] += typed_scalar->value;
+
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[1].get(), &output));
+    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    cache_count_[0] += count_typed_scalar->value;
+
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
     if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -1374,6 +1551,8 @@ class SumCountMergeAction : public ActionBase {
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
@@ -1468,6 +1647,26 @@ class AvgByCountAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_sum_.resize(1, 0);
+      cache_count_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+    arrow::compute::Datum output;
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &output));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
+    cache_sum_[0] += typed_scalar->value;
+
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[1].get(), &output));
+    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    cache_count_[0] += count_typed_scalar->value;
+
+    if (!cache_validity_[0]) cache_validity_[0] = true;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -1534,6 +1733,8 @@ class AvgByCountAction : public ActionBase {
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
@@ -1655,6 +1856,43 @@ class StddevSampPartialAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_m2_.resize(1, 0);
+      cache_sum_.resize(1, 0);
+      cache_count_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+
+    /*arrow::compute::Datum sum_out;
+    arrow::compute::Datum cnt_out;
+    arrow::compute::Datum mean_out;
+    arrow::compute::Datum m2_out;
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_ALL);
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &sum_out));
+    RETURN_NOT_OK(arrow::compute::Count(ctx_, option, *in[0].get(), &cnt_out));
+    RETURN_NOT_OK(arrow::compute::Mean(ctx_, *in[0].get(), &mean_out));
+    RETURN_NOT_OK(M2(ctx_, *in[0].get(), mean_out, &m2_out));
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(sum_out.scalar());
+    cache_sum_[0] += typed_scalar->value;
+
+    typed_scalar = std::dynamic_pointer_cast<ScalarType>(cnt_out.scalar());
+    cache_count_[0] += typed_scalar->value;
+
+    typed_scalar = std::dynamic_pointer_cast<ScalarType>(m2_out.scalar());
+    cache_m2_[0] += typed_scalar->value;*/
+    auto len = in[0]->length();
+    auto typed_in_0 = std::dynamic_pointer_cast<ArrayType>(in[0]);
+    for (int i = 0; i < len; i++) {
+      auto v = typed_in_0->GetView(i);
+      RETURN_NOT_OK(Evaluate(0, (void*)&v));
+    }
+
+    if (!cache_validity_[0]) cache_validity_[0] = true;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -1749,9 +1987,51 @@ class StddevSampPartialAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  /*arrow::Status getM2(arrow::compute::FunctionContext* ctx,
+                      const arrow::compute::Datum& value,
+                      const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
+    using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
+    using MeanScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
+    using ValueCType = typename arrow::TypeTraits<ValueType>::CType;
+    std::shared_ptr<arrow::Scalar> mean_scalar = mean.scalar();
+    auto mean_typed_scalar = std::dynamic_pointer_cast<MeanScalarType>(mean_scalar);
+    double mean_res = mean_typed_scalar->value * 1.0;
+    double m2_res = 0;
+
+    if (!value.is_array()) {
+      return arrow::Status::Invalid("AggregateKernel expects Array");
+    }
+    auto array = value.make_array();
+    auto typed_array = std::static_pointer_cast<arrow::NumericArray<DataType>>(array);
+    const ValueCType* input = typed_array->raw_values();
+    for (int64_t i = 0; i < (*array).length(); i++) {
+      auto val = input[i];
+      if (val) {
+        m2_res += (input[i] * 1.0 - mean_res) * (input[i] * 1.0 - mean_res);
+      }
+    }
+    *out = arrow::MakeScalar(m2_res);
+    return arrow::Status::OK();
+  }
+
+  arrow::Status M2(arrow::compute::FunctionContext* ctx, const arrow::Array& array,
+                   const arrow::compute::Datum& mean, arrow::compute::Datum* out) {
+    arrow::compute::Datum value = array.data();
+    auto data_type = value.type();
+
+    if (data_type == nullptr)
+      return arrow::Status::Invalid("Datum must be array-like");
+    else if (!is_integer(data_type->id()) && !is_floating(data_type->id()))
+      return arrow::Status::Invalid("Datum must contain a NumericType");
+    RETURN_NOT_OK(getM2<DataType>(ctx, value, mean, out));
+    return arrow::Status::OK();
+  }*/
+
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
+  using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> count_builder_;
@@ -1866,6 +2146,45 @@ class StddevSampFinalAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    /*if (cache_validity_.empty()) {
+      cache_avg_.resize(1, 0);
+      cache_m2_.resize(1, 0);
+      cache_count_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+
+    arrow::compute::Datum cnt_out;
+    arrow::compute::Datum avg_out;
+    arrow::compute::Datum m2_out;
+    RETURN_NOT_OK(arrow::compute::Sum(ctx_, *in[0].get(), &cnt_out));
+    RETURN_NOT_OK(
+        updateValue(ctx_, *in[0].get(), *in[1].get(), *in[2].get(), &avg_out, &m2_out));
+
+    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(cnt_out.scalar());
+    cache_count_[0] += typed_scalar->value;
+
+    typed_scalar = std::dynamic_pointer_cast<ScalarType>(avg_out.scalar());
+    cache_avg_[0] += typed_scalar->value;
+
+    typed_scalar = std::dynamic_pointer_cast<ScalarType>(m2_out.scalar());
+    cache_m2_[0] += typed_scalar->value;*/
+
+    auto len = in[0]->length();
+    auto typed_in_0 = std::dynamic_pointer_cast<arrow::DoubleArray>(in[0]);
+    auto typed_in_1 = std::dynamic_pointer_cast<arrow::DoubleArray>(in[1]);
+    auto typed_in_2 = std::dynamic_pointer_cast<arrow::DoubleArray>(in[2]);
+    for (int i = 0; i < len; i++) {
+      auto v1 = typed_in_0->GetView(i);
+      auto v2 = typed_in_1->GetView(i);
+      auto v3 = typed_in_2->GetView(i);
+      RETURN_NOT_OK(Evaluate(0, (void*)&v1, (void*)&v2, (void*)&v3));
+    }
+    if (!cache_validity_[0]) cache_validity_[0] = true;
+    return arrow::Status::OK();
+  }
+
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2, void* data3) {
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
@@ -1932,10 +2251,77 @@ class StddevSampFinalAction : public ActionBase {
     return arrow::Status::OK();
   }
 
+  /*arrow::Status getAvgM2(arrow::compute::FunctionContext* ctx,
+                         const arrow::compute::Datum& cnt_value,
+                         const arrow::compute::Datum& avg_value,
+                         const arrow::compute::Datum& m2_value,
+                         arrow::compute::Datum* avg_out, arrow::compute::Datum* m2_out) {
+    using MeanCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
+    using MeanScalarType = typename arrow::TypeTraits<arrow::DoubleType>::ScalarType;
+    using ValueCType = typename arrow::TypeTraits<arrow::DoubleType>::CType;
+
+    if (!(cnt_value.is_array() && avg_value.is_array() && m2_value.is_array())) {
+      return arrow::Status::Invalid("AggregateKernel expects Array datum");
+    }
+
+    auto cnt_array = cnt_value.make_array();
+    auto avg_array = avg_value.make_array();
+    auto m2_array = m2_value.make_array();
+
+    auto cnt_typed_array = std::static_pointer_cast<arrow::DoubleArray>(cnt_array);
+    auto avg_typed_array = std::static_pointer_cast<arrow::DoubleArray>(avg_array);
+    auto m2_typed_array = std::static_pointer_cast<arrow::DoubleArray>(m2_array);
+    const ValueCType* cnt_input = cnt_typed_array->raw_values();
+    const MeanCType* avg_input = avg_typed_array->raw_values();
+    const MeanCType* m2_input = m2_typed_array->raw_values();
+
+    double cnt_res = 0;
+    double avg_res = 0;
+    double m2_res = 0;
+    for (int64_t i = 0; i < (*cnt_array).length(); i++) {
+      double cnt_val = cnt_input[i];
+      double avg_val = avg_input[i];
+      double m2_val = m2_input[i];
+      if (i == 0) {
+        cnt_res = cnt_val;
+        avg_res = avg_val;
+        m2_res = m2_val;
+      } else {
+        if (cnt_val > 0) {
+          double delta = avg_val - avg_res;
+          double deltaN = (cnt_res + cnt_val) > 0 ? delta / (cnt_res + cnt_val) : 0;
+          avg_res += deltaN * cnt_val;
+          m2_res += (m2_val + delta * deltaN * cnt_res * cnt_val);
+          cnt_res += cnt_val;
+        }
+      }
+    }
+    *avg_out = arrow::MakeScalar(avg_res);
+    *m2_out = arrow::MakeScalar(m2_res);
+    return arrow::Status::OK();
+  }
+
+  arrow::Status updateValue(arrow::compute::FunctionContext* ctx,
+                            const arrow::Array& cnt_array, const arrow::Array& avg_array,
+                            const arrow::Array& m2_array, arrow::compute::Datum* avg_out,
+                            arrow::compute::Datum* m2_out) {
+    arrow::compute::Datum cnt_value = cnt_array.data();
+    arrow::compute::Datum avg_value = avg_array.data();
+    arrow::compute::Datum m2_value = m2_array.data();
+    auto cnt_data_type = cnt_value.type();
+    if (cnt_data_type == nullptr)
+      return arrow::Status::Invalid("Datum must be array-like");
+    else if (!is_integer(cnt_data_type->id()) && !is_floating(cnt_data_type->id()))
+      return arrow::Status::Invalid("Datum must contain a NumericType");
+    RETURN_NOT_OK(getAvgM2(ctx, cnt_value, avg_value, m2_value, avg_out, m2_out));
+    return arrow::Status::OK();
+  }*/
+
  private:
   using CType = typename arrow::TypeTraits<DataType>::CType;
   using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
   using ResDataType = typename FindAccumulatorType<DataType>::Type;
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
   using ResCType = typename arrow::TypeTraits<ResDataType>::CType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   std::unique_ptr<arrow::DoubleBuilder> builder_;
@@ -2001,14 +2387,14 @@ arrow::Status MakeUniqueAction(arrow::compute::FunctionContext* ctx,
 
 arrow::Status MakeCountAction(arrow::compute::FunctionContext* ctx,
                               std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountAction<arrow::UInt64Type>>(ctx);
+  auto action_ptr = std::make_shared<CountAction<arrow::Int64Type>>(ctx);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
 arrow::Status MakeCountLiteralAction(arrow::compute::FunctionContext* ctx, int arg,
                                      std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountLiteralAction<arrow::UInt64Type>>(ctx, arg);
+  auto action_ptr = std::make_shared<CountLiteralAction<arrow::Int64Type>>(ctx, arg);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }

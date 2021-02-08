@@ -474,19 +474,14 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             def process: Unit = {
               while (iter.hasNext) {
                 val cb = iter.next()
-                if (cb.numRows == 0) {
-                  val resultColumnVectors =
-                    ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-                  return new ColumnarBatch(
-                    resultColumnVectors.map(_.asInstanceOf[ColumnVector]),
-                    0)
+                if (cb.numRows != 0) {
+                  val beforeEval = System.nanoTime()
+                  val input_rb =
+                    ConverterUtils.createArrowRecordBatch(cb)
+                  nativeIterator.processAndCacheOne(resCtx.inputSchema, input_rb)
+                  ConverterUtils.releaseArrowRecordBatch(input_rb)
+                  eval_elapse += System.nanoTime() - beforeEval
                 }
-                val beforeEval = System.nanoTime()
-                val input_rb =
-                  ConverterUtils.createArrowRecordBatch(cb)
-                nativeIterator.processAndCacheOne(resCtx.inputSchema, input_rb)
-                ConverterUtils.releaseArrowRecordBatch(input_rb)
-                eval_elapse += System.nanoTime() - beforeEval
               }
               processed = true
             }
