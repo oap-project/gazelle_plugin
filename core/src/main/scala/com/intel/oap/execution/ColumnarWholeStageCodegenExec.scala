@@ -157,6 +157,13 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     var idx = metrics.output_length_list.size - 1
     var child_process_time: Long = 0
     while (idx >= 0 && curChild.isInstanceOf[ColumnarCodegenSupport]) {
+      if (curChild.isInstanceOf[ColumnarConditionProjectExec]) {
+        // see if this condition projector did filter, if so, we need to skip metrics
+        val condProj = curChild.asInstanceOf[ColumnarConditionProjectExec]
+        if (condProj.condition != null && (condProj.projectList != null && condProj.projectList.size != 0)) {
+          idx -= 1
+        }
+      }
       curChild
         .asInstanceOf[ColumnarCodegenSupport]
         .updateMetrics(
