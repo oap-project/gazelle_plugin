@@ -232,8 +232,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = "substr_" + std::to_string(cur_func_id);
     check_str_ = GetValidityName(codes_str_);
     std::stringstream prepare_ss;
-    prepare_ss << "auto " << codes_str_ << " = " << ss.str() << ";" << std::endl;
-    prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
+    prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
+    prepare_ss << "bool " << check_str_ << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "if (" << check_str_ << ")" << std::endl;
+    prepare_ss << codes_str_ << " = " << ss.str() << ";" << std::endl;
     prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("upper") == 0) {
     std::stringstream prepare_ss;
@@ -884,15 +887,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   }
   prepare_ss << "};" << std::endl;
 
-  std::stringstream ss;
-  ss << child_visitor->GetPreCheck() << " && "
-     << "std::find(in_list_" << cur_func_id << ".begin(), in_list_" << cur_func_id
-     << ".end(), " << child_visitor->GetResult() << ") != "
-     << "in_list_" << cur_func_id << ".end()";
-  codes_str_ = ss.str();
-  prepare_str_ = prepare_ss.str();
+  prepare_ss << child_visitor->GetPrepare();
+  codes_str_ = "is_in_list_" + std::to_string(cur_func_id);
+  check_str_ = GetValidityName(codes_str_);
+
+  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck() << ";"
+             << std::endl;
+  prepare_ss << "bool " << codes_str_ << " = false;" << std::endl;
+  prepare_ss << "if (" << check_str_ << ") " << std::endl;
+  prepare_ss << codes_str_ << " = std::find(in_list_" << cur_func_id
+             << ".begin(), in_list_" << cur_func_id << ".end(), "
+             << child_visitor->GetResult() << ") != "
+             << "in_list_" << cur_func_id << ".end();";
+  prepare_str_ += prepare_ss.str();
+
   field_type_ = child_visitor->GetFieldType();
-  prepare_str_ += child_visitor->GetPrepare();
   for (auto header : child_visitor->GetHeaders()) {
     if (std::find(header_list_.begin(), header_list_.end(), header) ==
         header_list_.end()) {
@@ -924,15 +933,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   }
   prepare_ss << "};" << std::endl;
 
-  std::stringstream ss;
-  ss << child_visitor->GetPreCheck() << " && "
-     << "std::find(in_list_" << cur_func_id << ".begin(), in_list_" << cur_func_id
-     << ".end(), " << child_visitor->GetResult() << ") != "
-     << "in_list_" << cur_func_id << ".end()";
-  codes_str_ = ss.str();
-  prepare_str_ = prepare_ss.str();
+  prepare_ss << child_visitor->GetPrepare();
+  codes_str_ = "is_in_list_" + std::to_string(cur_func_id);
+  check_str_ = GetValidityName(codes_str_);
+
+  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck() << ";"
+             << std::endl;
+  prepare_ss << "bool " << codes_str_ << " = false;" << std::endl;
+  prepare_ss << "if (" << check_str_ << ") " << std::endl;
+  prepare_ss << codes_str_ << " = std::find(in_list_" << cur_func_id
+             << ".begin(), in_list_" << cur_func_id << ".end(), "
+             << child_visitor->GetResult() << ") != "
+             << "in_list_" << cur_func_id << ".end();";
+  prepare_str_ += prepare_ss.str();
+
   field_type_ = child_visitor->GetFieldType();
-  prepare_str_ += child_visitor->GetPrepare();
   for (auto header : child_visitor->GetHeaders()) {
     if (std::find(header_list_.begin(), header_list_.end(), header) ==
         header_list_.end()) {
@@ -964,15 +979,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   }
   prepare_ss << "};" << std::endl;
 
-  std::stringstream ss;
-  ss << child_visitor->GetPreCheck() << " && "
-     << "std::find(in_list_" << cur_func_id << ".begin(), in_list_" << cur_func_id
-     << ".end(), " << child_visitor->GetResult() << ") != "
-     << "in_list_" << cur_func_id << ".end()";
-  codes_str_ = ss.str();
-  prepare_str_ = prepare_ss.str();
+  prepare_ss << child_visitor->GetPrepare();
+  codes_str_ = "is_in_list_" + std::to_string(cur_func_id);
+  check_str_ = GetValidityName(codes_str_);
+
+  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck() << ";"
+             << std::endl;
+  prepare_ss << "bool " << codes_str_ << " = false;" << std::endl;
+  prepare_ss << "if (" << check_str_ << ") " << std::endl;
+  prepare_ss << codes_str_ << " = std::find(in_list_" << cur_func_id
+             << ".begin(), in_list_" << cur_func_id << ".end(), "
+             << child_visitor->GetResult() << ") != "
+             << "in_list_" << cur_func_id << ".end();";
+  prepare_str_ += prepare_ss.str();
+
   field_type_ = child_visitor->GetFieldType();
-  prepare_str_ += child_visitor->GetPrepare();
   for (auto header : child_visitor->GetHeaders()) {
     if (std::find(header_list_.begin(), header_list_.end(), header) ==
         header_list_.end()) {
