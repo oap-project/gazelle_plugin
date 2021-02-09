@@ -110,6 +110,26 @@ For initial microbenchmark performance, we add 10 fields up with spark, data siz
 
 ![Performance](./docs/image/performance.png)
 
+For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
+All the testing environment for Decision Support Benchmark1&2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
+* Decision Support Benchmark1 is a query set modified from [TPC-H benchmark](http://tpc.org/tpch/default5.asp). We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
+Overall, the result shows a 1.49X performance speed up from OAP v1.0-Native SQL Engine comparing to Vanilla SPARK 3.0.0.
+We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Native SQL Engine. The performance boost ratio may depend on the individual query.
+
+![Performance](./docs/image/decision_support_bench1_result_in_total.png)
+
+![Performance](./docs/image/decision_support_bench1_result_by_query.png)
+
+* Decision Support Benchmark2 is a query set modified from [TPC-DS benchmark](http://tpc.org/tpcds/default5.asp). We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
+We pick up 10 queries which can be fully supported in OAP v1.0-Native SQL Engine and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.
+
+![Performance](./docs/image/decision_support_bench2_result_in_total.png)
+
+![Performance](./docs/image/decision_support_bench2_result_by_query.png)
+
+Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with native SQL Engine first and check the DAG or log file to see if all the operators can be supported in OAP-Native SQL Engine.
+
+
 ## Coding Style
 
 * For Java code, we used [google-java-format](https://github.com/google/google-java-format)
