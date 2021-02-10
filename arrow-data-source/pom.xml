@@ -143,6 +143,7 @@
               <goal>compile</goal>
               <goal>testCompile</goal>
             </goals>
+            <phase>process-sources</phase>
           </execution>
         </executions>
         <configuration>
@@ -163,7 +164,7 @@
           <failOnWarning>false</failOnWarning>
           <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
           <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
-          <configLocation>scalastyle-config.xml</configLocation>
+          <configLocation>${user.dir}/scalastyle-config.xml</configLocation>
           <outputFile>${project.basedir}/target/scalastyle-output.xml</outputFile>
           <inputEncoding>${project.build.sourceEncoding}</inputEncoding>
           <outputEncoding>${project.reporting.outputEncoding}</outputEncoding>

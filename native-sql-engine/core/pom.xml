@@ -141,12 +141,12 @@
     <dependency>
       <artifactId>spark-arrow-datasource-common</artifactId>
       <groupId>com.intel.oap</groupId>
-      <version>1.1.0</version>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <artifactId>spark-arrow-datasource-standard</artifactId>
       <groupId>com.intel.oap</groupId>
-      <version>1.1.0</version>
+      <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -168,7 +168,7 @@
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.binary.version}</artifactId>
-      <version>3.0.6</version>
+      <version>3.0.8</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -368,7 +368,7 @@
           <failOnWarning>false</failOnWarning>
           <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
           <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
-          <configLocation>${project.basedir}/lib/scalastyle_config.xml</configLocation>
+          <configLocation>${user.dir}/scalastyle-config.xml</configLocation>
           <outputFile>${project.basedir}/scalastyle-output.xml</outputFile>
           <outputEncoding>UTF-8</outputEncoding>
         </configuration>
@@ -383,7 +383,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.1.1</version>
         <configuration>
           <failOnViolation>false</failOnViolation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
