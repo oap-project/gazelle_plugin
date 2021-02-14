@@ -331,6 +331,22 @@ arrow::Status Splitter::Init() {
   return arrow::Status::OK();
 }
 
+int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
+  auto payload = std::make_shared<arrow::ipc::internal::IpcPayload>();
+  auto result = arrow::ipc::internal::GetRecordBatchPayload(
+                           rb, options_.ipc_write_options, payload.get());
+  if (result.ok()) {
+    return payload.get()->body_length;
+  } else {
+    result.UnknownError("Failed to get the compressed size.");
+    return -1;
+  }
+}
+
+void Splitter::SetCompressType(arrow::Compression::type compressed_type) {
+  options_.ipc_write_options.compression = compressed_type;
+}
+
 arrow::Status Splitter::Split(const arrow::RecordBatch& rb) {
   EVAL_START("split", options_.thread_id)
   RETURN_NOT_OK(ComputeAndCountPartitionId(rb));

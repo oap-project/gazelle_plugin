@@ -17,12 +17,17 @@
 
 package com.intel.oap.vectorized;
 
+import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
+import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.ipc.message.MessageResult;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DictionaryUtility;
@@ -36,9 +41,14 @@ import java.util.*;
  * ArrowRecordBatches.
  */
 public class ArrowCompressedStreamReader extends ArrowStreamReader {
+  private String compressType;
 
   public ArrowCompressedStreamReader(InputStream in, BufferAllocator allocator) {
     super(in, allocator);
+  }
+
+  public String GetCompressType() {
+    return compressType;
   }
 
   protected void initialize() throws IOException {
@@ -58,6 +68,47 @@ public class ArrowCompressedStreamReader extends ArrowStreamReader {
     this.root = new VectorSchemaRoot(schema, vectors, 0);
     this.loader = new CompressedVectorLoader(root);
     this.dictionaries = Collections.unmodifiableMap(dictionaries);
+  }
+
+  /**
+   * Load the next ArrowRecordBatch to the vector schema root if available.
+   *
+   * @return true if a batch was read, false on EOS
+   * @throws IOException on error
+   */
+  public boolean loadNextBatch() throws IOException {
+    prepareLoadNextBatch();
+    MessageResult result = messageReader.readNext();
+
+    // Reached EOS
+    if (result == null) {
+      return false;
+    }
+    // Get the compress type from customMetadata. Currently the customMetadata only have one entry.
+    compressType = result.getMessage().customMetadata(0).value();
+
+    if (result.getMessage().headerType() == MessageHeader.RecordBatch) {
+      ArrowBuf bodyBuffer = result.getBodyBuffer();
+
+      // For zero-length batches, need an empty buffer to deserialize the batch
+      if (bodyBuffer == null) {
+        bodyBuffer = allocator.getEmpty();
+      }
+
+      ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
+      loadRecordBatch(batch);
+      checkDictionaries();
+      return true;
+    } else if (result.getMessage().headerType() == MessageHeader.DictionaryBatch) {
+      // if it's dictionary message, read dictionary message out and continue to read unless get a batch or eos.
+      ArrowDictionaryBatch dictionaryBatch = readDictionary(result);
+      loadDictionary(dictionaryBatch);
+      loadedDictionaryCount++;
+      return loadNextBatch();
+    } else {
+      throw new IOException("Expected RecordBatch or DictionaryBatch but header was " +
+        result.getMessage().headerType());
+    }
   }
 
   @Override

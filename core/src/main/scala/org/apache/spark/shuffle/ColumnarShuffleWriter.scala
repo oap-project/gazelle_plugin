@@ -21,8 +21,10 @@ import java.io.IOException
 
 import com.google.common.annotations.VisibleForTesting
 import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, ShuffleSplitterJniWrapper, SplitResult}
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.memory.MemoryConsumer
@@ -57,12 +59,11 @@ class ColumnarShuffleWriter[K, V](
   private val localDirs = blockManager.diskBlockManager.localDirs.mkString(",")
   private val nativeBufferSize =
     conf.getInt("spark.sql.execution.arrow.maxRecordsPerBatch", 4096)
-  private val compressionCodec = if (conf.getBoolean("spark.shuffle.compress", true)) {
-    if (ColumnarPluginConfig.getConf.columnarShuffleUseCustomizedCompression) {
-      "fastpfor"
-    } else {
-      conf.get("spark.io.compression.codec", "lz4")
-    }
+
+  private val customizedCompressCodec =
+    ColumnarPluginConfig.getConf.columnarShuffleUseCustomizedCompressionCodec
+  private val defaultCompressionCodec = if (conf.getBoolean("spark.shuffle.compress", true)) {
+    conf.get("spark.io.compression.codec", "lz4")
   } else {
     "uncompressed"
   }
@@ -75,6 +76,8 @@ class ColumnarShuffleWriter[K, V](
   private var splitResult: SplitResult = _
 
   private var partitionLengths: Array[Long] = _
+
+  private var firstRecordBatch: Boolean = true
 
   @throws[IOException]
   override def write(records: Iterator[Product2[K, V]]): Unit = {
@@ -90,7 +93,7 @@ class ColumnarShuffleWriter[K, V](
       nativeSplitter = jniWrapper.make(
         dep.nativePartitioning,
         nativeBufferSize,
-        compressionCodec,
+        defaultCompressionCodec,
         dataTmp.getAbsolutePath,
         blockManager.subDirsPerLocalDir,
         localDirs,
@@ -128,7 +131,39 @@ class ColumnarShuffleWriter[K, V](
         dep.dataSize.add(bufSizes.sum)
 
         val startTime = System.nanoTime()
-        jniWrapper.split(nativeSplitter, cb.numRows, bufAddrs.toArray, bufSizes.toArray)
+
+        val existingIntType: Boolean = if (firstRecordBatch) {
+          // Check whether the recordbatch contain the Int data type.
+          val arrowSchema = ConverterUtils.getSchemaFromBytesBuf(dep.nativePartitioning.getSchema)
+          import scala.collection.JavaConverters._
+          arrowSchema.getFields.asScala.find(_.getType.getTypeID == ArrowTypeID.Int).nonEmpty
+        } else false
+
+        // Choose the compress type based on the compress size of the first record batch.
+        if (firstRecordBatch && conf.getBoolean("spark.shuffle.compress", true) &&
+          customizedCompressCodec != defaultCompressionCodec && existingIntType) {
+          // Compute the default compress size
+          jniWrapper.setCompressType(nativeSplitter, defaultCompressionCodec)
+          val defaultCompressedSize = jniWrapper.split(
+            nativeSplitter, cb.numRows, bufAddrs.toArray, bufSizes.toArray, firstRecordBatch)
+
+          // Compute the custom compress size.
+          jniWrapper.setCompressType(nativeSplitter, customizedCompressCodec)
+          val customizedCompressedSize = jniWrapper.split(
+            nativeSplitter, cb.numRows, bufAddrs.toArray, bufSizes.toArray, firstRecordBatch)
+
+          // Choose the compress algorithm based on the compress size.
+          if (customizedCompressedSize != -1 && defaultCompressedSize != -1) {
+            if (customizedCompressedSize > defaultCompressedSize) {
+              jniWrapper.setCompressType(nativeSplitter, defaultCompressionCodec)
+            }
+          } else {
+            logError("Failed to compute the compress size in the first record batch")
+          }
+        }
+        firstRecordBatch = false
+
+        jniWrapper.split(nativeSplitter, cb.numRows, bufAddrs.toArray, bufSizes.toArray, firstRecordBatch)
         dep.splitTime.add(System.nanoTime() - startTime)
         dep.numInputRows.add(cb.numRows)
         writeMetrics.incRecordsWritten(1)

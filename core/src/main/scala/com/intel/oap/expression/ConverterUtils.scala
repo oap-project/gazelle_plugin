@@ -456,6 +456,12 @@ object ConverterUtils extends Logging {
     out.toByteArray
   }
 
+  @throws[IOException]
+  def getSchemaFromBytesBuf(schema: Array[Byte]): Schema = {
+    val in: ByteArrayInputStream = new ByteArrayInputStream(schema)
+    MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)))
+  }
+
   @throws[GandivaException]
   def getExprListBytesBuf(exprs: List[ExpressionTree]): Array[Byte] = {
     val builder: ExpressionList.Builder = GandivaTypes.ExpressionList.newBuilder
