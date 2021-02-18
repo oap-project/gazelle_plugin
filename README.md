@@ -106,10 +106,6 @@ The result should showup on Spark console and you can check the DAG diagram with
 
 ## Performance data
 
-For initial microbenchmark performance, we add 10 fields up with spark, data size is 200G data
-
-![Performance](./docs/image/performance.png)
-
 For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
 All the testing environment for Decision Support Benchmark1&2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
 * Decision Support Benchmark1 is a query set modified from [TPC-H benchmark](http://tpc.org/tpch/default5.asp). We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
