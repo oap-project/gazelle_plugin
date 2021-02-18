@@ -1,9 +1,8 @@
-package com.intel.oap.tpch
+package com.intel.oap.tpc.h
 
 import java.io.File
 
 import com.intel.oap.tags.CommentOnContextPR
-import com.intel.oap.tpch.TPCHSuite.stdoutLog
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
 import org.codehaus.jackson.map.ObjectMapper
@@ -26,7 +25,7 @@ class GitHubActionEntries extends FunSuite {
       }
 
       val repoSlug = System.getenv("GITHUB_REPOSITORY")
-      stdoutLog("Reading essential env variables... " +
+      println("Reading essential env variables... " +
           "Envs: GITHUB_REPOSITORY: %s" .format(repoSlug))
 
       if (StringUtils.isEmpty(repoSlug)) {
@@ -34,7 +33,7 @@ class GitHubActionEntries extends FunSuite {
       }
 
       val eventPath = System.getenv("PREVIOUS_EVENT_PATH")
-      stdoutLog("Reading essential env variables... " +
+      println("Reading essential env variables... " +
           "Envs: PREVIOUS_EVENT_PATH: %s" .format(eventPath))
 
       if (StringUtils.isEmpty(eventPath)) {

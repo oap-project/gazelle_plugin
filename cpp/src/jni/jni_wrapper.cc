@@ -1604,14 +1604,14 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_oap_tpch_MallocUtils_mallocTrim(JNIEnv* env, jobject obj) {
+Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env, jobject obj) {
 //  malloc_stats_print(statsPrint, nullptr, nullptr);
   std::cout << "Calling malloc_trim... " << std::endl;
   malloc_trim(0);
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_oap_tpch_MallocUtils_mallocStats(JNIEnv* env, jobject obj) {
+Java_com_intel_oap_tpc_MallocUtils_mallocStats(JNIEnv* env, jobject obj) {
 //  malloc_stats_print(statsPrint, nullptr, nullptr);
   std::cout << "Calling malloc_stats... " << std::endl;
   malloc_stats();
