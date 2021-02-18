@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.tpch;
+package com.intel.oap.tpc;
 
 import com.intel.oap.vectorized.JniUtils;
 
@@ -35,10 +35,10 @@ public class MallocUtils {
    * Visible for testing: Try turning back allocated native memory to OS. This might have no effect
    * when using Jemalloc.
    */
-  static native void mallocTrim();
+  public static native void mallocTrim();
 
   /**
    * Visible for testing: Print malloc statistics.
    */
-  static native void mallocStats();
+  public static native void mallocStats();
 }
