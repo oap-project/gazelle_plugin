@@ -52,6 +52,10 @@ object TPCRunner {
         })
         .map(f => f.getName)
         .map(n => n.substring(0, n.lastIndexOf(suffix)))
+        .sortBy(s => {
+          // fill with leading zeros
+          "%s%s".format(new String((0 until 16 - s.length).map(_ => '0').toArray), s)
+        })
         .toList
   }
 

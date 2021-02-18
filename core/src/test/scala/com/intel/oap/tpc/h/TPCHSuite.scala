@@ -167,7 +167,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
               MallocUtils.mallocTrim()
               System.gc()
               System.gc()
-              writeCommentLine("  Query %d: %s".format(i, genReportLine()))
+              writeCommentLine("  Query %s: %s".format(i, genReportLine()))
               ramMonitor.writeImage("RAM Usage History (TPC-H)" +
                   (if (StringUtils.isEmpty(comment)) "" else " - %s".format(comment)), commentImageOutputPath)
             })
