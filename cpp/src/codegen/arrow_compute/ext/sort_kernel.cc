@@ -1187,7 +1187,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
 
     // This class is used to copy a piece of memory from the sorted ArrayData 
-    // to a result array.
+    // to a result array. 
+    // It can be used only in sorted data because of null count calculation.
     template <typename KeyType>
     class SliceImpl {
      public:
@@ -1224,6 +1225,18 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         }
       }
 
+      arrow::Status Slice(arrow::ArrayData* out) {
+        const auto& buffer_0 = in_.buffers[0];
+        const auto& buffer_1 = in_.buffers[1];
+        if (out_data_.null_count) {
+          SliceBitmap(buffer_0, &out_data_.buffers[0]);
+        }
+        SliceBuffer(buffer_1, &out_data_.buffers[1]);
+        *out = std::move(out_data_);
+        return arrow::Status::OK();
+      }
+
+     private:
       /// offset, length pair for representing a Range of a buffer or array
       struct Range {
         int64_t offset, length;
@@ -1245,25 +1258,21 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         bool AllSet() const { return data == nullptr; }
       };
 
-      arrow::Result<std::shared_ptr<arrow::Buffer>> SliceBufferImpl(
-          const std::shared_ptr<arrow::Buffer>& buffer) {
-        ARROW_ASSIGN_OR_RAISE(auto out, AllocateBuffer(size * length_, pool_));
-        auto out_data = out->mutable_data();
+      arrow::Status SliceBuffer(const std::shared_ptr<arrow::Buffer>& buffer, 
+                                std::shared_ptr<arrow::Buffer>* out) {
+        ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(size * length_, pool_));
+        auto out_data = (*out)->mutable_data();
         auto data_begin = buffer->data();
         std::memcpy(out_data, data_begin + size * offset_, size * length_);
-        return std::move(out);
+        return arrow::Status::OK();
       }
 
-      arrow::Status SliceBuffer(const std::shared_ptr<arrow::Buffer>& buffer) {
-        return SliceBufferImpl(buffer).Value(&out_data_.buffers[1]);
-      }
-
-      arrow::Result<std::shared_ptr<arrow::Buffer>> SliceBitmapImpl(
-          const Bitmap& bitmap) {
+      arrow::Status SliceBitmapImpl(
+          const Bitmap& bitmap, std::shared_ptr<arrow::Buffer>* out) {
         auto length = bitmap.range.length;
         auto offset = bitmap.range.offset;
-        ARROW_ASSIGN_OR_RAISE(auto out, AllocateBitmap(length, pool_));
-        uint8_t* dst = out->mutable_data();
+        ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
+        uint8_t* dst = (*out)->mutable_data();
 
         int64_t bitmap_offset = 0;
         if (bitmap.AllSet()) {
@@ -1277,27 +1286,34 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
           dst[length_ / 8] &= preceding_bits;
         }
-        return std::move(out);
-      }
-
-      arrow::Status SliceBitmap(const std::shared_ptr<arrow::Buffer>& buffer) {
-        Range range(size * offset_, size * length_);
-        Bitmap bitmap = Bitmap(buffer, range);
-        return SliceBitmapImpl(bitmap).Value(&out_data_.buffers[0]);
-      }
-
-      arrow::Status Slice(arrow::ArrayData* out) {
-        const auto& buffer_0 = in_.buffers[0];
-        const auto& buffer_1 = in_.buffers[1];
-        if (out_data_.null_count) {
-          SliceBitmap(buffer_0);
-        }
-        SliceBuffer(buffer_1);
-        *out = std::move(out_data_);
         return arrow::Status::OK();
       }
 
-     private:
+      arrow::Status SliceBitmap(const std::shared_ptr<arrow::Buffer>& buffer,
+                                std::shared_ptr<arrow::Buffer>* out) {
+        Range range(size * offset_, size * length_);
+        Bitmap bitmap = Bitmap(buffer, range);
+
+        auto length = bitmap.range.length;
+        auto offset = bitmap.range.offset;
+        ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
+        uint8_t* dst = (*out)->mutable_data();
+
+        int64_t bitmap_offset = 0;
+        if (bitmap.AllSet()) {
+          arrow::BitUtil::SetBitsTo(dst, offset, length, true);
+        } else {
+          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset,
+                                      false);
+        }
+
+        // finally (if applicable) zero out any trailing bits
+        if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
+          dst[length_ / 8] &= preceding_bits;
+        }
+        return arrow::Status::OK();
+      }
+
       arrow::ArrayData in_;
       arrow::ArrayData out_data_;
       arrow::MemoryPool* pool_;
@@ -1314,7 +1330,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       arrow::ArrayData result_data = *result_arr_->data();
       arrow::ArrayData out_data;
       SliceImpl<CTYPE>(result_data, ctx_->memory_pool(), length, total_offset_,
-                       nulls_total_, nulls_first_, total_length_).Slice(&out_data);
+                       nulls_total_, nulls_first_, total_length_).Slice(&out_data);              
       std::shared_ptr<arrow::Array> out_0 =
           MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       total_offset_ += length;
