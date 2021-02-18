@@ -2172,7 +2172,9 @@ class SortMultiplekeyCodegenKernel  : public SortArraysToIndicesKernel::Impl {
 
     std::string cached_insert_str = GetCachedInsert();
 
-    std::string comp_func_str = GetCompFunction();
+    std::string comp_func_str = GetCompFunction(true);
+
+    std::string comp_func_str_without_null = GetCompFunction(false);
 
     std::string sort_func_str = GetSortFunction();
 
@@ -2212,6 +2214,7 @@ class TypedSorterImpl : public CodeGenBase {
     // we should support nulls first and nulls last here
     // we should also support desc and asc here
     )" + comp_func_str +
+         comp_func_str_without_null +
            R"(
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
@@ -2246,6 +2249,8 @@ class TypedSorterImpl : public CodeGenBase {
   arrow::compute::FunctionContext* ctx_;
   uint64_t num_batches_ = 0;
   uint64_t items_total_ = 0;
+  // If all batches has no null value, has_null_ will remain false
+  bool has_null_ = false;
 };
 
 extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
@@ -2259,16 +2264,24 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     std::stringstream ss;
     for (int i = 0; i < key_index_list_.size(); i++) {
       ss << "cached_" << i << "_.push_back(std::make_shared<ArrayType_" << i 
-         << ">(in[" << i << "]));" << std::endl;
+         << ">(in[" << i << "]));\n"
+         // update has_null_
+         << "if (!has_null_ && cached_" << i << "_[cached_" << i 
+         << "_.size() - 1]->null_count() > 0) {"
+         << "has_null_ = true;}" << std::endl;
     }
     return ss.str();
   }
   std::string GetSortFunction() {
-    return "gfx::timsort(indices_begin, indices_begin + "
-           "items_total_, "
-           "comp);";
+    std::stringstream ss;
+    ss << "if (has_null_) {\n"
+       << "gfx::timsort(indices_begin, indices_begin + items_total_, comp);} else {\n" 
+       << "gfx::timsort(indices_begin, indices_begin + items_total_, comp_without_null);}"
+       << std::endl;
+    return ss.str();
+
   }
-  std::string GetCompFunction() {
+  std::string GetCompFunction(bool has_null) {
     std::stringstream ss;
     bool projected;
     if (key_projector_) {
@@ -2276,10 +2289,16 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     } else {
       projected = false;
     }
-    ss << "auto comp = [this](ArrayItemIndexS x, ArrayItemIndexS y) {"
-       << GetCompFunction_(0, projected, key_field_list_,
-                           projected_types_, sort_directions_, nulls_order_)
-       << "};";
+    if (has_null) {
+      ss << "auto comp = [this](ArrayItemIndexS x, ArrayItemIndexS y) {"
+         << GetCompFunction_(0, projected, key_field_list_,
+                             projected_types_, sort_directions_, nulls_order_);
+    } else {
+      ss << "auto comp_without_null = [this](ArrayItemIndexS x, ArrayItemIndexS y) {"
+         << GetCompFunction_Without_Null_(0, projected, key_field_list_,
+                                          projected_types_, sort_directions_);
+    }
+    ss << "};\n";
     return ss.str();
   }
   std::string GetCompFunction_(
@@ -2310,13 +2329,19 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
     auto is_x_null = array + std::to_string(cur_key_idx) + "_[x.array_id]->IsNull(x.id)";
     auto is_y_null = array + std::to_string(cur_key_idx) + "_[y.array_id]->IsNull(y.id)";
+    auto x_null_count = 
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->null_count() > 0";
+    auto y_null_count = 
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->null_count() > 0";
+    auto x_null = "(" + x_null_count + " && " + is_x_null + " )";  
+    auto y_null = "(" + y_null_count + " && " + is_y_null + " )";
     auto is_x_nan = "std::isnan(" + x_num_value + ")";
     auto is_y_nan = "std::isnan(" + y_num_value + ")";
 
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
     // We need to determine the position of nulls.
-    ss << "if (" << is_x_null << ") {\n";
+    ss << "if (" << x_null << ") {\n";
     // If value accessed from x is null, return true to make nulls first.
     if (nulls_first) {
       ss << "return true;\n}";
@@ -2324,7 +2349,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
       ss << "return false;\n}";
     }
     // If value accessed from y is null, return false to make nulls first.
-    ss << " else if (" << is_y_null << ") {\n";
+    ss << " else if (" << y_null << ") {\n";
     if (nulls_first) {
       ss << "return false;\n}";
     } else {
@@ -2373,22 +2398,113 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     // clear the contents of stringstream
     ss.str(std::string());
     if (data_type->id() == arrow::Type::STRING) {
-      ss << "if ((" << is_x_null << " && " << is_y_null << ") || (" << x_str_value
+      ss << "if ((" << x_null << " && " << y_null << ") || (" << x_str_value
          << " == " << y_str_value << ")) {";
     } else {
       if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                          data_type->id() == arrow::Type::FLOAT)) {
         // need to check NaN
-        ss << "if ((" << is_x_null << " && " << is_y_null << ") || (" << is_x_nan
+        ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan
            << " && " << is_y_nan << ") || (" << x_num_value << " == " << y_num_value
            << ")) {";
       } else {
-        ss << "if ((" << is_x_null << " && " << is_y_null << ") || (" << x_num_value
+        ss << "if ((" << x_null << " && " << y_null << ") || (" << x_num_value
            << " == " << y_num_value << ")) {";
       }
     }
     ss << GetCompFunction_(cur_key_idx + 1, projected, key_field_list, 
                            projected_types, sort_directions, nulls_order)
+       << "} else { " << comp_str << "}";
+    return ss.str();
+  }
+  std::string GetCompFunction_Without_Null_(
+      int cur_key_idx, bool projected,
+      const std::vector<std::shared_ptr<arrow::Field>>& key_field_list,
+      const std::vector<std::shared_ptr<arrow::DataType>>& projected_types,
+      const std::vector<bool>& sort_directions) {
+    std::string comp_str;
+    bool asc = sort_directions[cur_key_idx];
+    std::shared_ptr<arrow::DataType> data_type;
+    std::string array;
+    // if projected, use projected batch to compare, and use projected type
+    array = "cached_";
+    if (projected) {
+      data_type = projected_types[cur_key_idx];
+    } else {
+      data_type = key_field_list[cur_key_idx]->type();
+    }
+
+    auto x_num_value =
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
+    auto x_str_value =
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetString(x.id)";
+    auto y_num_value =
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
+    auto y_str_value =
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
+    auto is_x_nan = "std::isnan(" + x_num_value + ")";
+    auto is_y_nan = "std::isnan(" + y_num_value + ")";
+
+    // Multiple keys sorting w/ nulls first/last is supported.
+    std::stringstream ss;
+    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
+    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+                       data_type->id() == arrow::Type::FLOAT)) {
+      ss << "if (" << is_x_nan << ") {\n";
+      if (asc) {
+        ss << "return false;\n}";
+      } else {
+        ss << "return true;\n}";
+      }
+      ss << "else if (" << is_y_nan << ") {\n";
+      if (asc) {
+        ss << "return true;\n}";
+      } else {
+        ss << "return false;\n}";
+      }
+      // If values accessed from x and y are both not nan
+      ss << " else {\n";
+    }
+
+    // Multiple keys sorting w/ different ordering is supported.
+    // For string type of data, GetString should be used instead of GetView.
+    if (asc) {
+      if (data_type->id() == arrow::Type::STRING) {
+        ss << "return " << x_str_value << " < " << y_str_value << ";\n";
+      } else {
+        ss << "return " << x_num_value << " < " << y_num_value << ";\n";
+      }
+    } else {
+      if (data_type->id() == arrow::Type::STRING) {
+        ss << "return " << x_str_value << " > " << y_str_value << ";\n";
+      } else {
+        ss << "return " << x_num_value << " > " << y_num_value << ";\n";
+      }
+    }
+    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+                       data_type->id() == arrow::Type::FLOAT)) {
+      ss << "}" << std::endl; 
+    }
+    comp_str = ss.str();
+    if ((cur_key_idx + 1) == sort_directions.size()) {
+      return comp_str;
+    }
+    // clear the contents of stringstream
+    ss.str(std::string());
+    if (data_type->id() == arrow::Type::STRING) {
+      ss << "if (" << x_str_value << " == " << y_str_value << ") {";
+    } else {
+      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
+                         data_type->id() == arrow::Type::FLOAT)) {
+        // need to check NaN
+        ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" 
+           << x_num_value << " == " << y_num_value << ")) {";
+      } else {
+        ss << "if (" << x_num_value << " == " << y_num_value << ") {";
+      }
+    }
+    ss << GetCompFunction_Without_Null_(cur_key_idx + 1, projected, key_field_list, 
+                                        projected_types, sort_directions)
        << "} else { " << comp_str << "}";
     return ss.str();
   }
