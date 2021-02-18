@@ -62,7 +62,7 @@ jobs:
       - name: Run Maven tests
         run: |
           cd core/
-          mvn test -B -DmembersOnlySuites=com.intel.oap.tpch -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
+          mvn test -B -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
         env:
           MAVEN_OPTS: "-Xmx2048m"
           COMMENT_CONTENT_PATH: "/tmp/comment.md"

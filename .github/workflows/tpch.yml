@@ -56,7 +56,7 @@ jobs:
       - name: Run Maven tests - BHJ
         run: |
           cd core/
-          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
           MAVEN_OPTS: "-Xmx1G"
@@ -66,7 +66,7 @@ jobs:
       - name: Run Maven tests - SMJ
         run: |
           cd core/
-          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
           MAVEN_OPTS: "-Xmx1G"
@@ -86,3 +86,4 @@ jobs:
         with:
           name: pr_event
           path: ${{steps.output-envs.outputs.event_path}}
+
