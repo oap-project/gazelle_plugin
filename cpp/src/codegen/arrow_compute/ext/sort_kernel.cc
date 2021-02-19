@@ -1330,7 +1330,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       arrow::ArrayData result_data = *result_arr_->data();
       arrow::ArrayData out_data;
       SliceImpl<CTYPE>(result_data, ctx_->memory_pool(), length, total_offset_,
-                       nulls_total_, nulls_first_, total_length_).Slice(&out_data);              
+                       nulls_total_, nulls_first_, total_length_).Slice(&out_data);
       std::shared_ptr<arrow::Array> out_0 =
           MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
       total_offset_ += length;

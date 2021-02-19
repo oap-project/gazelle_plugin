@@ -79,7 +79,7 @@ class ArrayAppender {};
 
 template <typename T>
 using is_number_or_date = std::integral_constant<bool, arrow::is_number_type<T>::value ||
-                                                           arrow::is_date_type<T>::value>;
+                                                       arrow::is_date_type<T>::value>;
 
 template <typename DataType, typename R = void>
 using enable_if_number_or_date = std::enable_if_t<is_number_or_date<DataType>::value, R>;
@@ -111,7 +111,8 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
   }
 
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
-    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+    if (has_null_ && cached_arr_[array_id]->null_count() > 0 && 
+        cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
     } else {
       RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
@@ -122,7 +123,8 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
                        int repeated) override {
     if (repeated == 0) return arrow::Status::OK();
-    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+    if (has_null_ && cached_arr_[array_id]->null_count() > 0 && 
+        cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNulls(repeated));
     } else {
       auto val = cached_arr_[array_id]->GetView(item_id);
@@ -135,7 +137,8 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
 
   arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
     for (auto tmp : index_list) {
-      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+      if (has_null_ && cached_arr_[tmp.array_id]->null_count() > 0 && 
+          cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
         RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
@@ -195,7 +198,8 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   }
 
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
-    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+    if (has_null_ && cached_arr_[array_id]->null_count() > 0 && 
+        cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
     } else {
       RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
@@ -206,7 +210,8 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
                        int repeated) override {
     if (repeated == 0) return arrow::Status::OK();
-    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+    if (has_null_ && cached_arr_[array_id]->null_count() > 0 && 
+        cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNulls(repeated));
     } else {
       auto val = cached_arr_[array_id]->GetView(item_id);
@@ -219,7 +224,8 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
 
   arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
     for (auto tmp : index_list) {
-      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+      if (has_null_ && cached_arr_[tmp.array_id]->null_count() > 0 && 
+          cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
         RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
@@ -277,7 +283,8 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   }
 
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
-    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+    if (has_null_ && cached_arr_[array_id]->null_count() > 0 && 
+        cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
     } else {
       RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
@@ -288,7 +295,8 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
                        int repeated) override {
     if (repeated == 0) return arrow::Status::OK();
-    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+    if (has_null_ && cached_arr_[array_id]->null_count() > 0 && 
+        cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNulls(repeated));
     } else {
       auto val = cached_arr_[array_id]->GetView(item_id);
@@ -301,7 +309,8 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
 
   arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
     for (auto tmp : index_list) {
-      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+      if (has_null_ && cached_arr_[tmp.array_id]->null_count() > 0 && 
+          cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
         RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
