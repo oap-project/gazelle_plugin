@@ -318,7 +318,8 @@ class TypedSorterImpl : public CodeGenBase {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
-    RETURN_NOT_OK(arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf));
+    auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf = *std::move(maybe_buffer);
 
     ArrayItemIndexS* indices_begin =
         reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());

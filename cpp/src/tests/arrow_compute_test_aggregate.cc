@@ -80,7 +80,7 @@ TEST(TestArrowCompute, AggregateTest) {
       f_sum, f_count, f_sum, f_count, f_avg, f_min, f_max, f_stddev, f_count_literal};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(
       CreateCodeGenerator(ctx.memory_pool(), sch, {aggr_expr}, ret_types, &expr, true));
 
@@ -190,7 +190,7 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(
       CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -265,7 +265,7 @@ TEST(TestArrowCompute, GroupByCountAll) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(
       CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true))
 
@@ -364,7 +364,7 @@ TEST(TestArrowCompute, GroupByTwoAggregateTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(
       CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -465,7 +465,7 @@ TEST(TestArrowCompute, GroupByHashAggregateWithCaseWhenTest) {
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(
       CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;

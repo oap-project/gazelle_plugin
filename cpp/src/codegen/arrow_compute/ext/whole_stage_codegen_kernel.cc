@@ -338,6 +338,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
   class WholeStageCodeGenResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     WholeStageCodeGenResultIterator(arrow::compute::ExecContext* ctx,
+                                    std::vector<std::shared_ptr<GandivaProjector>> gandiva_projector_list,
                                     const std::shared_ptr<arrow::Schema>& result_schema)
         : ctx_(ctx), result_schema_(result_schema), gandiva_projector_list_(gandiva_projector_list) {)";
     if (!is_aggr_) {

@@ -349,7 +349,7 @@ class CountAction : public ActionBase {
       length_ = 1;
     }
     arrow::Datum output;
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NULL);
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
     auto maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
@@ -631,19 +631,14 @@ class MinAction : public ActionBase {
     arrow::compute::MinMaxOptions option;
     auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
     minMaxOut = *std::move(maybe_minMaxOut);
-    if (!minMaxOut.is_collection()) {
-      return arrow::Status::Invalid("MinMax return an invalid result.");
-    }
-    auto col = minMaxOut.collection();
-    if (col.size() < 2) {
-      return arrow::Status::Invalid("MinMax return an invalid result.");
-    }
-    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(col[0].scalar());
+    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
+
+    auto& typed_scalar = static_cast<const ScalarType&>(*value.value[0]);
     if (!cache_validity_[0]) {
       cache_validity_[0] = true;
-      cache_[0] = typed_scalar->value;
+      cache_[0] = typed_scalar.value;
     } else {
-      if (cache_[0] > typed_scalar->value) cache_[0] = typed_scalar->value;
+      if (cache_[0] > typed_scalar.value) cache_[0] = typed_scalar.value;
     }
     return arrow::Status::OK();
   }
@@ -810,19 +805,14 @@ class MaxAction : public ActionBase {
     arrow::compute::MinMaxOptions option;
     auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
     minMaxOut = *std::move(maybe_minMaxOut);
-    if (!minMaxOut.is_collection()) {
-      return arrow::Status::Invalid("MinMax return an invalid result.");
-    }
-    auto col = minMaxOut.collection();
-    if (col.size() < 2) {
-      return arrow::Status::Invalid("MinMax return an invalid result.");
-    }
-    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(col[1].scalar());
+    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
+
+    auto& typed_scalar = static_cast<const ScalarType&>(*value.value[1]);
     if (!cache_validity_[0]) {
       cache_validity_[0] = true;
-      cache_[0] = typed_scalar->value;
+      cache_[0] = typed_scalar.value;
     } else {
-      if (cache_[0] < typed_scalar->value) cache_[0] = typed_scalar->value;
+      if (cache_[0] < typed_scalar.value) cache_[0] = typed_scalar.value;
     }
     return arrow::Status::OK();
   }
@@ -1139,7 +1129,7 @@ class AvgAction : public ActionBase {
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NULL);
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
     maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
@@ -1316,7 +1306,7 @@ class SumCountAction : public ActionBase {
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NULL);
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
     maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
