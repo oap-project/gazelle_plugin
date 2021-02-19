@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "third_party/function.h"
+
 #include <arrow/compute/context.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
@@ -41,17 +43,17 @@ class ActionBase {
   virtual int RequiredColNum() { return 1; }
 
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
-                               std::function<arrow::Status(int)>* on_valid,
-                               std::function<arrow::Status()>* on_null);
+                               func::function<arrow::Status(int)>* on_valid,
+                               func::function<arrow::Status()>* on_null);
   virtual arrow::Status Submit(std::vector<std::shared_ptr<arrow::Array>> in,
-                               std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
-                               std::function<arrow::Status()>* on_null);
+                               func::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
+                               func::function<arrow::Status()>* on_null);
   virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
                                std::stringstream* ss,
-                               std::function<arrow::Status(int)>* out);
+                               func::function<arrow::Status(int)>* out);
   virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
-                               std::function<arrow::Status(uint32_t)>* on_valid,
-                               std::function<arrow::Status()>* on_null);
+                               func::function<arrow::Status(uint32_t)>* on_valid,
+                               func::function<arrow::Status()>* on_null);
   virtual arrow::Status EvaluateCountLiteral(const int& len);
   virtual arrow::Status Evaluate(const arrow::ArrayVector& in);
   virtual arrow::Status Evaluate(int dest_group_id);

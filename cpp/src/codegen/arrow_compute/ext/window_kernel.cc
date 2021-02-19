@@ -111,8 +111,8 @@ arrow::Status WindowAggregateFunctionKernel::Evaluate(const ArrayList &in) {
 
   ArrayList action_input_data;
   action_input_data.push_back(in[0]);
-  std::function<arrow::Status(int)> func;
-  std::function<arrow::Status()> null_func;
+  func::function<arrow::Status(int)> func;
+  func::function<arrow::Status()> null_func;
   RETURN_NOT_OK(action_->Get()->Submit(action_input_data, max_group_id, &func, &null_func));
 
   for (int row_id = 0; row_id < group_id_array->length(); row_id++) {

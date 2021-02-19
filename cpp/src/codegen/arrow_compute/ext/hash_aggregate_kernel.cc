@@ -630,8 +630,8 @@ class HashAggregateKernel::Impl {
 
       total_out_length_ = max_group_id_ + 1;
       // 4. prepare action func and evaluate
-      std::vector<std::function<arrow::Status(int)>> eval_func_list;
-      std::vector<std::function<arrow::Status()>> eval_null_func_list;
+      std::vector<func::function<arrow::Status(int)>> eval_func_list;
+      std::vector<func::function<arrow::Status()>> eval_null_func_list;
       arrow::ArrayVector cols;
       for (int i = 0; i < action_impl_list_.size(); i++) {
         auto action = action_impl_list_[i];
@@ -639,8 +639,8 @@ class HashAggregateKernel::Impl {
         for (auto idx : action_prepare_index_list_[i]) {
           cols.push_back(in[idx]);
         }
-        std::function<arrow::Status(int)> func;
-        std::function<arrow::Status()> null_func;
+        func::function<arrow::Status(int)> func;
+        func::function<arrow::Status()> null_func;
         action->Submit(cols, max_group_id_, &func, &null_func);
         eval_func_list.push_back(func);
         eval_null_func_list.push_back(null_func);
@@ -787,8 +787,8 @@ class HashAggregateKernel::Impl {
 
       total_out_length_ = max_group_id_ + 1;
       // 4. prepare action func and evaluate
-      std::vector<std::function<arrow::Status(int)>> eval_func_list;
-      std::vector<std::function<arrow::Status()>> eval_null_func_list;
+      std::vector<func::function<arrow::Status(int)>> eval_func_list;
+      std::vector<func::function<arrow::Status()>> eval_null_func_list;
       arrow::ArrayVector cols;
       for (int i = 0; i < action_impl_list_.size(); i++) {
         auto action = action_impl_list_[i];
@@ -796,8 +796,8 @@ class HashAggregateKernel::Impl {
         for (auto idx : action_prepare_index_list_[i]) {
           cols.push_back(in[idx]);
         }
-        std::function<arrow::Status(int)> func;
-        std::function<arrow::Status()> null_func;
+        func::function<arrow::Status(int)> func;
+        func::function<arrow::Status()> null_func;
         action->Submit(cols, max_group_id_, &func, &null_func);
         eval_func_list.push_back(func);
         eval_null_func_list.push_back(null_func);
