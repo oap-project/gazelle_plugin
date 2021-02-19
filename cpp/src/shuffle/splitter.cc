@@ -343,8 +343,8 @@ arrow::Status Splitter::Init() {
 }
 
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
-  auto payload = std::make_shared<arrow::ipc::internal::IpcPayload>();
-  auto result = arrow::ipc::internal::GetRecordBatchPayload(
+  auto payload = std::make_shared<arrow::ipc::IpcPayload>();
+  auto result = arrow::ipc::GetRecordBatchPayload(
                            rb, options_.ipc_write_options, payload.get());
   if (result.ok()) {
     return payload.get()->body_length;
