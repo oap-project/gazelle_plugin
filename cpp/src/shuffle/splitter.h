@@ -69,7 +69,7 @@ class Splitter {
    */
   arrow::Status SpillPartition(int32_t partition_id);
 
-  void SetCompressType(arrow::Compression::type compressed_type);
+  arrow::Status SetCompressType(arrow::Compression::type compressed_type);
 
   /**
    * Spill for fixed size of partition data

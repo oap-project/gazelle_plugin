@@ -354,8 +354,19 @@ int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
   }
 }
 
-void Splitter::SetCompressType(arrow::Compression::type compressed_type) {
-  options_.ipc_write_options.compression = compressed_type;
+arrow::Status Splitter::SetCompressType(arrow::Compression::type compressed_type) {
+   if (compressed_type == arrow::Compression::FASTPFOR) {
+    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+    
+  } else if (compressed_type == arrow::Compression::LZ4) {
+    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::LZ4));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
+  }
+  return arrow::Status::OK();
 }
 
 arrow::Status Splitter::Split(const arrow::RecordBatch& rb) {
