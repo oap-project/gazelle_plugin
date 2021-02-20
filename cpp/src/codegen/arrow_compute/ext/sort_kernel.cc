@@ -449,66 +449,59 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     auto y_null = "(" + y_null_count + " && " + is_y_null + " )";
     auto is_x_nan = "std::isnan(" + x_num_value + ")";
     auto is_y_nan = "std::isnan(" + y_num_value + ")";
+    auto prefix_cmp = asc ? "return x.prefix < y.prefix;" : "return x.prefix > y.prefix;";
 
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
-    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
-      if (asc) {
-        ss << "return x.prefix < y.prefix;";
+    // We need to determine the position of nulls.
+    ss << "if (" << x_null << ") {\n";
+    // If value accessed from x is null, return true to make nulls first.
+    if (nulls_first) {
+      ss << "return true;\n}";
+    } else {
+      ss << "return false;\n}";
+    }
+    // If value accessed from y is null, return false to make nulls first.
+    ss << " else if (" << y_null << ") {\n";
+    if (nulls_first) {
+      ss << "return false;\n}";
+    } else {
+      ss << "return true;\n}";
+    }
+    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
+    if (data_type->id() == arrow::Type::DOUBLE || data_type->id() == arrow::Type::FLOAT) {
+      if (NaN_check_) {
+        ss << "else if (" << is_x_nan << ") {\n";
+        if (asc) {
+          ss << "return false;\n}";
+        } else {
+          ss << "return true;\n}";
+        }
+        ss << "else if (" << is_y_nan << ") {\n";
+        if (asc) {
+          ss << "return true;\n}";
+        } else {
+          ss << "return false;\n}";
+        }
+      }
+    }
+
+    // If values accessed from x and y are both not null
+    ss << " else {\n";
+
+    // Multiple keys sorting w/ different ordering is supported.
+    // For string type of data, GetString should be used instead of GetView.
+    if (asc) {
+      if (data_type->id() == arrow::Type::STRING) {
+        ss << "return " << x_str_value << " < " << y_str_value << ";\n}\n";
       } else {
-        ss << "return x.prefix > y.prefix;";
+        ss << "return " << x_num_value << " < " << y_num_value << ";\n}\n";
       }
     } else {
-      // We need to determine the position of nulls.
-      ss << "if (" << x_null << ") {\n";
-      // If value accessed from x is null, return true to make nulls first.
-      if (nulls_first) {
-        ss << "return true;\n}";
+      if (data_type->id() == arrow::Type::STRING) {
+        ss << "return " << x_str_value << " > " << y_str_value << ";\n}\n";
       } else {
-        ss << "return false;\n}";
-      }
-      // If value accessed from y is null, return false to make nulls first.
-      ss << " else if (" << y_null << ") {\n";
-      if (nulls_first) {
-        ss << "return false;\n}";
-      } else {
-        ss << "return true;\n}";
-      }
-      // If datatype is floating, we need to do partition for NaN if NaN check is enabled
-      if (data_type->id() == arrow::Type::DOUBLE || data_type->id() == arrow::Type::FLOAT) {
-        if (NaN_check_) {
-          ss << "else if (" << is_x_nan << ") {\n";
-          if (asc) {
-            ss << "return false;\n}";
-          } else {
-            ss << "return true;\n}";
-          }
-          ss << "else if (" << is_y_nan << ") {\n";
-          if (asc) {
-            ss << "return true;\n}";
-          } else {
-            ss << "return false;\n}";
-          }
-        }
-      }
-
-      // If values accessed from x and y are both not null
-      ss << " else {\n";
-
-      // Multiple keys sorting w/ different ordering is supported.
-      // For string type of data, GetString should be used instead of GetView.
-      if (asc) {
-        if (data_type->id() == arrow::Type::STRING) {
-          ss << "return " << x_str_value << " < " << y_str_value << ";\n}\n";
-        } else {
-          ss << "return " << x_num_value << " < " << y_num_value << ";\n}\n";
-        }
-      } else {
-        if (data_type->id() == arrow::Type::STRING) {
-          ss << "return " << x_str_value << " > " << y_str_value << ";\n}\n";
-        } else {
-          ss << "return " << x_num_value << " > " << y_num_value << ";\n}\n";
-        }
+        ss << "return " << x_num_value << " > " << y_num_value << ";\n}\n";
       }
     }
     comp_str = ss.str();
@@ -523,22 +516,24 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     } else {
       if (cur_key_idx == 0) {
         ss << "if (x.prefix == y.prefix) {";
+      }
+      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
+                         data_type->id() == arrow::Type::FLOAT)) {
+        // need to check NaN
+        ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan
+           << " && " << is_y_nan << ") || (" << x_num_value << " == " << y_num_value
+           << ")) {";
       } else {
-        if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
-                           data_type->id() == arrow::Type::FLOAT)) {
-          // need to check NaN
-          ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan
-            << " && " << is_y_nan << ") || (" << x_num_value << " == " << y_num_value
-            << ")) {";
-        } else {
-          ss << "if ((" << x_null << " && " << y_null << ") || (" << x_num_value
-            << " == " << y_num_value << ")) {";
-        }
+        ss << "if ((" << x_null << " && " << y_null << ") || (" << x_num_value
+           << " == " << y_num_value << ")) {";
       }
     }
     ss << GetCompFunction_(cur_key_idx + 1, projected, key_field_list, 
                            projected_types, sort_directions, nulls_order)
        << "} else { " << comp_str << "}";
+    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
+      ss << "} else {" << prefix_cmp << "}";
+    }
     return ss.str();
   }
 
@@ -569,54 +564,47 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
     auto is_x_nan = "std::isnan(" + x_num_value + ")";
     auto is_y_nan = "std::isnan(" + y_num_value + ")";
-
+    auto prefix_cmp = asc ? "return x.prefix < y.prefix;" : "return x.prefix > y.prefix;";
+    
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
-    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
+    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
+    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+                       data_type->id() == arrow::Type::FLOAT)) {
+      ss << "if (" << is_x_nan << ") {\n";
       if (asc) {
-        ss << "return x.prefix < y.prefix;";
+        ss << "return false;\n}";
       } else {
-        ss << "return x.prefix > y.prefix;";
+        ss << "return true;\n}";
+      }
+      ss << "else if (" << is_y_nan << ") {\n";
+      if (asc) {
+        ss << "return true;\n}";
+      } else {
+        ss << "return false;\n}";
+      }
+      // If values accessed from x and y are both not nan
+      ss << " else {\n";
+    }
+
+    // Multiple keys sorting w/ different ordering is supported.
+    // For string type of data, GetString should be used instead of GetView.
+    if (asc) {
+      if (data_type->id() == arrow::Type::STRING) {
+        ss << "return " << x_str_value << " < " << y_str_value << ";\n";
+      } else {
+        ss << "return " << x_num_value << " < " << y_num_value << ";\n";
       }
     } else {
-      // If datatype is floating, we need to do partition for NaN if NaN check is enabled
-      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
-                        data_type->id() == arrow::Type::FLOAT)) {
-        ss << "if (" << is_x_nan << ") {\n";
-        if (asc) {
-          ss << "return false;\n}";
-        } else {
-          ss << "return true;\n}";
-        }
-        ss << "else if (" << is_y_nan << ") {\n";
-        if (asc) {
-          ss << "return true;\n}";
-        } else {
-          ss << "return false;\n}";
-        }
-        // If values accessed from x and y are both not nan
-        ss << " else {\n";
-      }
-
-      // Multiple keys sorting w/ different ordering is supported.
-      // For string type of data, GetString should be used instead of GetView.
-      if (asc) {
-        if (data_type->id() == arrow::Type::STRING) {
-          ss << "return " << x_str_value << " < " << y_str_value << ";\n";
-        } else {
-          ss << "return " << x_num_value << " < " << y_num_value << ";\n";
-        }
+      if (data_type->id() == arrow::Type::STRING) {
+        ss << "return " << x_str_value << " > " << y_str_value << ";\n";
       } else {
-        if (data_type->id() == arrow::Type::STRING) {
-          ss << "return " << x_str_value << " > " << y_str_value << ";\n";
-        } else {
-          ss << "return " << x_num_value << " > " << y_num_value << ";\n";
-        }
+        ss << "return " << x_num_value << " > " << y_num_value << ";\n";
       }
-      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
-                        data_type->id() == arrow::Type::FLOAT)) {
-        ss << "}" << std::endl; 
-      }
+    }
+    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+                       data_type->id() == arrow::Type::FLOAT)) {
+      ss << "}" << std::endl; 
     }
     comp_str = ss.str();
     if ((cur_key_idx + 1) == sort_directions.size()) {
@@ -630,20 +618,22 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     } else {
       if (cur_key_idx == 0) {
         ss << "if (x.prefix == y.prefix) {";
+      }
+      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
+                         data_type->id() == arrow::Type::FLOAT)) {
+        // need to check NaN
+        ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" 
+           << x_num_value << " == " << y_num_value << ")) {";
       } else {
-        if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
-                           data_type->id() == arrow::Type::FLOAT)) {
-          // need to check NaN
-          ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" 
-            << x_num_value << " == " << y_num_value << ")) {";
-        } else {
-          ss << "if (" << x_num_value << " == " << y_num_value << ") {";
-        }
+        ss << "if (" << x_num_value << " == " << y_num_value << ") {";
       }
     }
     ss << GetCompFunction_Without_Null_(cur_key_idx + 1, projected, key_field_list, 
                                         projected_types, sort_directions)
        << "} else { " << comp_str << "}";
+    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
+      ss << "} else {" << prefix_cmp << "}";
+    }
     return ss.str();
   }
 

@@ -1487,7 +1487,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegen) {
   auto NaN_check = TreeExprBuilder::MakeFunction(
       "NaN_check", {true_literal}, uint32());
   auto do_codegen = TreeExprBuilder::MakeFunction(
-      "codegen", {true_literal}, uint32());
+      "codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices", 
       {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
