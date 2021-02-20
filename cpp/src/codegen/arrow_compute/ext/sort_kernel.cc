@@ -281,6 +281,10 @@ class SortArraysToIndicesKernel::Impl {
     std::string cached_variables_define_str =
         GetCachedVariablesDefine(key_typed_codegen_list);
 
+    std::string prefix_define_str = GetPrefixDefine();
+
+    std::string prefix_cal_str = GetPrefixCalculation();
+
     return BaseCodes() + R"(
 #include <arrow/buffer.h>
 
@@ -291,6 +295,7 @@ class SortArraysToIndicesKernel::Impl {
 #include "codegen/common/sort_relation.h"
 #include "precompile/builder.h"
 #include "precompile/type.h"
+#include "precompile/prefix.h"
 #include "third_party/ska_sort.hpp"
 #include "third_party/timsort.hpp"
 using namespace sparkcolumnarplugin::precompile;
@@ -324,12 +329,14 @@ class TypedSorterImpl : public CodeGenBase {
     ArrayItemIndexS* indices_begin =
         reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
+    )" + prefix_define_str + R"(
 
     int64_t indices_i = 0;
     for (int array_id = 0; array_id < num_batches_; array_id++) {
       for (int64_t i = 0; i < length_list_[array_id]; i++) {
         (indices_begin + indices_i)->array_id = array_id;
         (indices_begin + indices_i)->id = i;
+        )" + prefix_cal_str + R"(
         indices_i++;
       }
     }
@@ -445,55 +452,63 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
 
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
-    // We need to determine the position of nulls.
-    ss << "if (" << x_null << ") {\n";
-    // If value accessed from x is null, return true to make nulls first.
-    if (nulls_first) {
-      ss << "return true;\n}";
-    } else {
-      ss << "return false;\n}";
-    }
-    // If value accessed from y is null, return false to make nulls first.
-    ss << " else if (" << y_null << ") {\n";
-    if (nulls_first) {
-      ss << "return false;\n}";
-    } else {
-      ss << "return true;\n}";
-    }
-    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
-    if (data_type->id() == arrow::Type::DOUBLE || data_type->id() == arrow::Type::FLOAT) {
-      if (NaN_check_) {
-        ss << "else if (" << is_x_nan << ") {\n";
-        if (asc) {
-          ss << "return false;\n}";
-        } else {
-          ss << "return true;\n}";
-        }
-        ss << "else if (" << is_y_nan << ") {\n";
-        if (asc) {
-          ss << "return true;\n}";
-        } else {
-          ss << "return false;\n}";
-        }
-      }
-    }
-
-    // If values accessed from x and y are both not null
-    ss << " else {\n";
-
-    // Multiple keys sorting w/ different ordering is supported.
-    // For string type of data, GetString should be used instead of GetView.
-    if (asc) {
-      if (data_type->id() == arrow::Type::STRING) {
-        ss << "return " << x_str_value << " < " << y_str_value << ";\n}\n";
+    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
+      if (asc) {
+        ss << "return x.prefix < y.prefix;";
       } else {
-        ss << "return " << x_num_value << " < " << y_num_value << ";\n}\n";
+        ss << "return x.prefix > y.prefix;";
       }
     } else {
-      if (data_type->id() == arrow::Type::STRING) {
-        ss << "return " << x_str_value << " > " << y_str_value << ";\n}\n";
+      // We need to determine the position of nulls.
+      ss << "if (" << x_null << ") {\n";
+      // If value accessed from x is null, return true to make nulls first.
+      if (nulls_first) {
+        ss << "return true;\n}";
       } else {
-        ss << "return " << x_num_value << " > " << y_num_value << ";\n}\n";
+        ss << "return false;\n}";
+      }
+      // If value accessed from y is null, return false to make nulls first.
+      ss << " else if (" << y_null << ") {\n";
+      if (nulls_first) {
+        ss << "return false;\n}";
+      } else {
+        ss << "return true;\n}";
+      }
+      // If datatype is floating, we need to do partition for NaN if NaN check is enabled
+      if (data_type->id() == arrow::Type::DOUBLE || data_type->id() == arrow::Type::FLOAT) {
+        if (NaN_check_) {
+          ss << "else if (" << is_x_nan << ") {\n";
+          if (asc) {
+            ss << "return false;\n}";
+          } else {
+            ss << "return true;\n}";
+          }
+          ss << "else if (" << is_y_nan << ") {\n";
+          if (asc) {
+            ss << "return true;\n}";
+          } else {
+            ss << "return false;\n}";
+          }
+        }
+      }
+
+      // If values accessed from x and y are both not null
+      ss << " else {\n";
+
+      // Multiple keys sorting w/ different ordering is supported.
+      // For string type of data, GetString should be used instead of GetView.
+      if (asc) {
+        if (data_type->id() == arrow::Type::STRING) {
+          ss << "return " << x_str_value << " < " << y_str_value << ";\n}\n";
+        } else {
+          ss << "return " << x_num_value << " < " << y_num_value << ";\n}\n";
+        }
+      } else {
+        if (data_type->id() == arrow::Type::STRING) {
+          ss << "return " << x_str_value << " > " << y_str_value << ";\n}\n";
+        } else {
+          ss << "return " << x_num_value << " > " << y_num_value << ";\n}\n";
+        }
       }
     }
     comp_str = ss.str();
@@ -506,15 +521,19 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
       ss << "if ((" << x_null << " && " << y_null << ") || (" << x_str_value
          << " == " << y_str_value << ")) {";
     } else {
-      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
-                         data_type->id() == arrow::Type::FLOAT)) {
-        // need to check NaN
-        ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan
-           << " && " << is_y_nan << ") || (" << x_num_value << " == " << y_num_value
-           << ")) {";
+      if (cur_key_idx == 0) {
+        ss << "if (x.prefix == y.prefix) {";
       } else {
-        ss << "if ((" << x_null << " && " << y_null << ") || (" << x_num_value
-           << " == " << y_num_value << ")) {";
+        if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
+                           data_type->id() == arrow::Type::FLOAT)) {
+          // need to check NaN
+          ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan
+            << " && " << is_y_nan << ") || (" << x_num_value << " == " << y_num_value
+            << ")) {";
+        } else {
+          ss << "if ((" << x_null << " && " << y_null << ") || (" << x_num_value
+            << " == " << y_num_value << ")) {";
+        }
       }
     }
     ss << GetCompFunction_(cur_key_idx + 1, projected, key_field_list, 
@@ -553,43 +572,51 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
 
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
-    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
-    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
-                       data_type->id() == arrow::Type::FLOAT)) {
-      ss << "if (" << is_x_nan << ") {\n";
+    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
       if (asc) {
-        ss << "return false;\n}";
+        ss << "return x.prefix < y.prefix;";
       } else {
-        ss << "return true;\n}";
-      }
-      ss << "else if (" << is_y_nan << ") {\n";
-      if (asc) {
-        ss << "return true;\n}";
-      } else {
-        ss << "return false;\n}";
-      }
-      // If values accessed from x and y are both not nan
-      ss << " else {\n";
-    }
-
-    // Multiple keys sorting w/ different ordering is supported.
-    // For string type of data, GetString should be used instead of GetView.
-    if (asc) {
-      if (data_type->id() == arrow::Type::STRING) {
-        ss << "return " << x_str_value << " < " << y_str_value << ";\n";
-      } else {
-        ss << "return " << x_num_value << " < " << y_num_value << ";\n";
+        ss << "return x.prefix > y.prefix;";
       }
     } else {
-      if (data_type->id() == arrow::Type::STRING) {
-        ss << "return " << x_str_value << " > " << y_str_value << ";\n";
-      } else {
-        ss << "return " << x_num_value << " > " << y_num_value << ";\n";
+      // If datatype is floating, we need to do partition for NaN if NaN check is enabled
+      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+                        data_type->id() == arrow::Type::FLOAT)) {
+        ss << "if (" << is_x_nan << ") {\n";
+        if (asc) {
+          ss << "return false;\n}";
+        } else {
+          ss << "return true;\n}";
+        }
+        ss << "else if (" << is_y_nan << ") {\n";
+        if (asc) {
+          ss << "return true;\n}";
+        } else {
+          ss << "return false;\n}";
+        }
+        // If values accessed from x and y are both not nan
+        ss << " else {\n";
       }
-    }
-    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
-                       data_type->id() == arrow::Type::FLOAT)) {
-      ss << "}" << std::endl; 
+
+      // Multiple keys sorting w/ different ordering is supported.
+      // For string type of data, GetString should be used instead of GetView.
+      if (asc) {
+        if (data_type->id() == arrow::Type::STRING) {
+          ss << "return " << x_str_value << " < " << y_str_value << ";\n";
+        } else {
+          ss << "return " << x_num_value << " < " << y_num_value << ";\n";
+        }
+      } else {
+        if (data_type->id() == arrow::Type::STRING) {
+          ss << "return " << x_str_value << " > " << y_str_value << ";\n";
+        } else {
+          ss << "return " << x_num_value << " > " << y_num_value << ";\n";
+        }
+      }
+      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+                        data_type->id() == arrow::Type::FLOAT)) {
+        ss << "}" << std::endl; 
+      }
     }
     comp_str = ss.str();
     if ((cur_key_idx + 1) == sort_directions.size()) {
@@ -597,16 +624,21 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     }
     // clear the contents of stringstream
     ss.str(std::string());
+
     if (data_type->id() == arrow::Type::STRING) {
       ss << "if (" << x_str_value << " == " << y_str_value << ") {";
     } else {
-      if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
-                         data_type->id() == arrow::Type::FLOAT)) {
-        // need to check NaN
-        ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" 
-           << x_num_value << " == " << y_num_value << ")) {";
+      if (cur_key_idx == 0) {
+        ss << "if (x.prefix == y.prefix) {";
       } else {
-        ss << "if (" << x_num_value << " == " << y_num_value << ") {";
+        if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
+                           data_type->id() == arrow::Type::FLOAT)) {
+          // need to check NaN
+          ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" 
+            << x_num_value << " == " << y_num_value << ")) {";
+        } else {
+          ss << "if (" << x_num_value << " == " << y_num_value << ") {";
+        }
       }
     }
     ss << GetCompFunction_Without_Null_(cur_key_idx + 1, projected, key_field_list, 
@@ -621,6 +653,22 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     for (auto codegen : shuffle_typed_codegen_list) {
       ss << codegen->GetCachedVariablesDefine() << std::endl;
     }
+    return ss.str();
+  }
+
+  std::string GetPrefixDefine() {
+    std::stringstream ss;
+    ss << "auto prefixCalculator = "
+       << "std::make_shared<PrefixCalculator<ArrayType_0>>(cached_0_, "
+       << sort_directions_[0] << " ,"<< nulls_order_[0] << ");\n"
+       << "uint64_t prefix = 0;\n";
+    return ss.str();
+  }
+
+  std::string GetPrefixCalculation() {
+    std::stringstream ss;
+    ss << "prefixCalculator->calPrefix<ArrayType_0>(array_id, i, prefix);\n"
+       << "(indices_begin + indices_i)->prefix = prefix;\n";
     return ss.str();
   }
 
