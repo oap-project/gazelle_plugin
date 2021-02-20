@@ -45,6 +45,7 @@ public class NativeSQLMemoryConsumer extends MemoryConsumer {
         }
         long granted = acquireMemory(size);
         if (granted < size) {
+            freeMemory(granted);
             throw new OutOfMemoryException("Not enough spark off-heap execution memory. " +
                     "Acquired: " + size + ", granted: " + granted + ". " +
                     "Try tweaking config option spark.memory.offHeap.size to " +

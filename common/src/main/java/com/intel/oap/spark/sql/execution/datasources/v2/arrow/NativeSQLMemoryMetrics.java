@@ -17,30 +17,28 @@
 
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow;
 
-import org.apache.arrow.memory.ReservationListener;
+import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Reserve Spark managed memory.
- */
-public class SparkManagedReservationListener implements ReservationListener {
+public final class NativeSQLMemoryMetrics {
+    private final AtomicLong peak = new AtomicLong(0L);
+    private final AtomicLong total = new AtomicLong(0L);
 
-    private final NativeSQLMemoryConsumer consumer;
-    private final NativeSQLMemoryMetrics metrics;
-
-    public SparkManagedReservationListener(NativeSQLMemoryConsumer consumer, NativeSQLMemoryMetrics metrics) {
-        this.consumer = consumer;
-        this.metrics = metrics;
+    public void inc(long bytes) {
+        final long total = this.total.addAndGet(bytes);
+        long prev_peak;
+        do {
+            prev_peak = this.peak.get();
+            if (total <= prev_peak) {
+                break;
+            }
+        } while (!this.peak.compareAndSet(prev_peak, total));
     }
 
-    @Override
-    public void reserve(long size) {
-        consumer.acquire(size);
-        metrics.inc(size);
+    public long peak() {
+        return peak.get();
     }
 
-    @Override
-    public void unreserve(long size) {
-        consumer.free(size);
-        metrics.inc(-size);
+    public long total() {
+        return total.get();
     }
 }

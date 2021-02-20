@@ -17,12 +17,12 @@
 
 package org.apache.spark.sql.execution.datasources.v2.arrow
 
+import java.util
 import java.util.UUID
 
 import scala.collection.JavaConverters._
 
-import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{NativeSQLMemoryConsumer, SparkManagedAllocationListener, SparkManagedReservationListener, Spiller}
-import java.util
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow._
 import org.apache.arrow.dataset.jni.NativeMemoryPool
 import org.apache.arrow.memory.{BaseAllocator, BufferAllocator}
 
@@ -37,10 +37,13 @@ object SparkMemoryUtils {
       throw new IllegalStateException("Creating TaskMemoryResources instance out of Spark task")
     }
 
+    val sharedMetrics = new NativeSQLMemoryMetrics()
+
     val defaultAllocator: BaseAllocator = {
       val globalAlloc = globalAllocator()
       val al = new SparkManagedAllocationListener(
-        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP))
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
+        sharedMetrics)
       val parent = globalAlloc
       parent.newChildAllocator("Spark Managed Allocator - " +
         UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BaseAllocator]
@@ -48,7 +51,8 @@ object SparkMemoryUtils {
 
     val defaultMemoryPool: NativeMemoryPool = {
       val rl = new SparkManagedReservationListener(
-        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP))
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
+        sharedMetrics)
       NativeMemoryPool.createListenable(rl)
     }
 
@@ -60,7 +64,8 @@ object SparkMemoryUtils {
 
     def createSpillableMemoryPool(spiller: Spiller): NativeMemoryPool = {
       val rl = new SparkManagedReservationListener(
-        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller))
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
+        sharedMetrics)
       val pool = NativeMemoryPool.createListenable(rl)
       memoryPools.add(pool)
       pool
@@ -68,7 +73,8 @@ object SparkMemoryUtils {
 
     def createSpillableAllocator(spiller: Spiller): BaseAllocator = {
       val al = new SparkManagedAllocationListener(
-        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller))
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
+        sharedMetrics)
       val parent = globalAllocator()
       val alloc = parent.newChildAllocator("Spark Managed Allocator - " +
         UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BaseAllocator]
@@ -163,6 +169,7 @@ object SparkMemoryUtils {
               taskToResourcesMap.synchronized {
                 val resources = taskToResourcesMap.remove(context)
                 resources.release()
+                context.taskMetrics().incPeakExecutionMemory(resources.sharedMetrics.peak())
               }
             }
           })

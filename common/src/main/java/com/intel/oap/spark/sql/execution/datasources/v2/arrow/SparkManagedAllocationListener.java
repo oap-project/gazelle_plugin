@@ -22,18 +22,22 @@ import org.apache.arrow.memory.AllocationListener;
 public class SparkManagedAllocationListener implements AllocationListener {
 
     private final NativeSQLMemoryConsumer consumer;
+    private final NativeSQLMemoryMetrics metrics;
 
-    public SparkManagedAllocationListener(NativeSQLMemoryConsumer consumer) {
+    public SparkManagedAllocationListener(NativeSQLMemoryConsumer consumer, NativeSQLMemoryMetrics metrics) {
         this.consumer = consumer;
+        this.metrics = metrics;
     }
 
     @Override
     public void onPreAllocation(long size) {
         consumer.acquire(size);
+        metrics.inc(size);
     }
 
     @Override
     public void onRelease(long size) {
         consumer.free(size);
+        metrics.inc(-size);
     }
 }
