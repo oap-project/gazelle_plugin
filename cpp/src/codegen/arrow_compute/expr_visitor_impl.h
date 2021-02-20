@@ -211,11 +211,23 @@ class WindowVisitorImpl : public ExprVisitorImpl {
           auto col = p_->in_record_batch_->column(col_id);
           in1.push_back(col);
         }
+#ifdef DEBUG
+        std::cout << "[window kernel] Calling concat_kernel_->Evaluate(in1, &out1) on batch... " << std::endl;
+#endif
         RETURN_NOT_OK(concat_kernel_->Evaluate(in1, &out1));
+#ifdef DEBUG
+        std::cout << "[window kernel] Finished. " << std::endl;
+#endif
       }
 
       std::shared_ptr<arrow::Array> in2 = out1;
+#ifdef DEBUG
+      std::cout << "[window kernel] Calling partition_kernel_->Evaluate(in2, &out2) on batch... " << std::endl;
+#endif
       RETURN_NOT_OK(partition_kernel_->Evaluate(in2, &out2));
+#ifdef DEBUG
+      std::cout << "[window kernel] Finished. " << std::endl;
+#endif
     }
 
     for (int func_id = 0; func_id < window_function_names_.size(); func_id++) {
@@ -230,7 +242,13 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         in3.push_back(col);
       }
       in3.push_back(out2);
+#ifdef DEBUG
+      std::cout << "[window kernel] Calling function_kernels_.at(func_id)->Evaluate(in3) on batch... " << std::endl;
+#endif
       RETURN_NOT_OK(function_kernels_.at(func_id)->Evaluate(in3));
+#ifdef DEBUG
+      std::cout << "[window kernel] Finished. " << std::endl;
+#endif
     }
     return arrow::Status::OK();
   }

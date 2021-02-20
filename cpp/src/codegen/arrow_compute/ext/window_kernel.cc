@@ -250,6 +250,12 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
   std::vector<ArrayList> values;
   std::vector<std::shared_ptr<arrow::Int32Array>> group_ids;
 
+#ifdef DEBUG
+  std::cout << "[window kernel] Entering Rank Kernel's finish method... " << std::endl;
+#endif
+#ifdef DEBUG
+  std::cout << "[window kernel] Splitting all input batches to key/value batches... " << std::endl;
+#endif
   for (auto batch : input_cache_) {
     ArrayList values_batch;
     for (int i = 0; i < type_list_.size() + 1; i++) {
@@ -263,7 +269,13 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
     }
     values.push_back(values_batch);
   }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
 
+#ifdef DEBUG
+  std::cout << "[window kernel] Calculating max group ID... " << std::endl;
+#endif
   int32_t max_group_id = 0;
   for (int i = 0; i < group_ids.size(); i++) {
     auto slice = group_ids.at(i);
@@ -276,12 +288,19 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
       }
     }
   }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
   // initialize partitions to be sorted
   std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> partitions_to_sort;
   for (int i = 0; i <= max_group_id; i++) {
     partitions_to_sort.emplace_back();
   }
 
+#ifdef DEBUG
+  std::cout << "[window kernel] Creating indexed array based on group IDs... " << std::endl;
+#endif
   for (int i = 0; i < group_ids.size(); i++) {
     auto slice = group_ids.at(i);
     for (int j = 0; j < slice->length(); j++) {
@@ -292,19 +311,32 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
       partitions_to_sort.at(partition_id).push_back(std::make_shared<ArrayItemIndex>(i, j));
     }
   }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+
   std::vector<std::vector<std::shared_ptr<ArrayItemIndex>>> sorted_partitions;
   RETURN_NOT_OK(SortToIndicesPrepare(values));
   for (int i = 0; i <= max_group_id; i++) {
     std::vector<std::shared_ptr<ArrayItemIndex>> partition = partitions_to_sort.at(i);
     std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition;
+#ifdef DEBUG
+    std::cout << "[window kernel] Sorting a single partition... " << std::endl;
+#endif
     RETURN_NOT_OK(SortToIndicesFinish(partition, &sorted_partition));
-    sorted_partitions.push_back(sorted_partition);
+#ifdef DEBUG
+    std::cout << "[window kernel] Finished. " << std::endl;
+#endif
+    sorted_partitions.push_back(std::move(sorted_partition));
   }
   int32_t **rank_array = new int32_t*[group_ids.size()];
   for (int i = 0; i < group_ids.size(); i++) {
     *(rank_array + i) = new int32_t[group_ids.at(i)->length()];
   }
   for (int i = 0; i <= max_group_id; i++) {
+#ifdef DEBUG
+    std::cout << "[window kernel] Generating rank result on a single partition... " << std::endl;
+#endif
     std::vector<std::shared_ptr<ArrayItemIndex>> sorted_partition = sorted_partitions.at(i);
     int assumed_rank = 0;
     for (int j = 0; j < sorted_partition.size(); j++) {
@@ -344,7 +376,14 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
       }
       rank_array[index->array_id][index->id] = assumed_rank;
     }
+#ifdef DEBUG
+    std::cout << "[window kernel] Finished. " << std::endl;
+#endif
   }
+
+#ifdef DEBUG
+  std::cout << "[window kernel] Building overall associated rank results... " << std::endl;
+#endif
   for (int i = 0; i < input_cache_.size(); i++) {
     auto batch = input_cache_.at(i);
     auto group_id_column_slice = batch.at(type_list_.size());
@@ -357,8 +396,11 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
     RETURN_NOT_OK(rank_builder->Finish(&rank_slice));
     out->push_back(rank_slice);
   }
+#ifdef DEBUG
+  std::cout << "[window kernel] Finished. " << std::endl;
+#endif
   for (int i = 0; i < group_ids.size(); i++) {
-    delete *(rank_array + i);
+    delete[] *(rank_array + i);
   }
   delete[] rank_array;
   return arrow::Status::OK();
@@ -404,15 +446,12 @@ arrow::Status WindowRankKernel::SortToIndicesFinish(std::vector<std::shared_ptr<
   std::vector<std::shared_ptr<ArrayItemIndex>> decoded_out;
   RETURN_NOT_OK(DecodeIndices(out, &decoded_out));
   *offsets = decoded_out;
-#ifdef DEBUG
-  std::cout << "RANK: partition sorted: " << out->ToString() << std::endl;
-#endif
   return arrow::Status::OK();
   // todo sort algorithm
 }
 
 template<typename ArrayType>
-arrow::Status WindowRankKernel::AreTheSameValue(std::vector<ArrayList> values, int column, std::shared_ptr<ArrayItemIndex> i, std::shared_ptr<ArrayItemIndex> j, bool* out) {
+arrow::Status WindowRankKernel::AreTheSameValue(const std::vector<ArrayList>& values, int column, std::shared_ptr<ArrayItemIndex> i, std::shared_ptr<ArrayItemIndex> j, bool* out) {
   auto typed_array_i = std::dynamic_pointer_cast<ArrayType>(values.at(i->array_id).at(column));
   auto typed_array_j = std::dynamic_pointer_cast<ArrayType>(values.at(j->array_id).at(column));
   *out = (typed_array_i->GetView(i->id) == typed_array_j->GetView(j->id));
