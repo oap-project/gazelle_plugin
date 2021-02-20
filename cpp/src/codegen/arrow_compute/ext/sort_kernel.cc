@@ -393,11 +393,12 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
       projected = false;
     }
     if (has_null) {
-      ss << "auto comp = [this](ArrayItemIndexS x, ArrayItemIndexS y) {"
+      ss << "auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {"
          << GetCompFunction_(0, projected, key_field_list_,
                              projected_types_, sort_directions_, nulls_order_);
     } else {
-      ss << "auto comp_without_null = [this](ArrayItemIndexS x, ArrayItemIndexS y) {"
+      ss << "auto comp_without_null = "
+         << "[this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {"
          << GetCompFunction_Without_Null_(0, projected, key_field_list_,
                                           projected_types_, sort_directions_);
     }
@@ -1357,7 +1358,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
                  });
       }
     } else {
-      auto comp = [this](ArrayItemIndexS& x, ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
         return cached_key_[x.array_id]->GetView(x.id) >
                cached_key_[y.array_id]->GetView(y.id);
       };
@@ -1375,7 +1376,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, int64_t num_nan)
       -> typename std::enable_if_t<std::is_same<T, std::string>::value> {
     if (asc_) {
-      auto comp = [this](ArrayItemIndexS& x, ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
         return cached_key_[x.array_id]->GetString(x.id) <
                cached_key_[y.array_id]->GetString(y.id);
       };
@@ -1385,7 +1386,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
         std::sort(indices_begin, indices_begin + items_total_ - nulls_total_, comp);
       }
     } else {
-      auto comp = [this](ArrayItemIndexS& x, ArrayItemIndexS& y) {
+      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
         return cached_key_[x.array_id]->GetString(x.id) >
                cached_key_[y.array_id]->GetString(y.id);
       };
@@ -1540,7 +1541,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
 
   auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int keys_num = sort_directions_.size();
-    auto comp = [this, &keys_num](ArrayItemIndexS x, ArrayItemIndexS y) {
+    auto comp = [this, &keys_num](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
         return compareRow(x.array_id, x.id, y.array_id, y.id, keys_num);};
     gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
