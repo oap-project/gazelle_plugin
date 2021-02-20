@@ -47,24 +47,24 @@
 /**
                  The Overall Implementation of Sort Kernel
  * In general, there are four kenels to use when sorting for different data.
-   They are SortInplaceKernel, SortOnekeyKernel, SortArraysToIndicesKernel 
-   and SortMultiplekeyKernel.
- * If sorting for one non-string and non-bool col without payload, SortInplaceKernel
-   is used. In this kernel, ska_sort is used for asc direciton, and std sort is used 
-   for desc direciton. Data is partitioned to null, NaN (for double and float only) 
-   and valid value before sort.
- * If sorting for single key with payload, and one string or bool col without payload,
-   SortOnekeyKernel is used. In this kernel, ska_sort is used for asc direciton,
-   and std sort is used for desc direciton. Data is partitioned to null, NaN (for
-   double and float only) and valid value before sort.
- * If sorting for multiple keys, there are two kernels to use. When enabling codegen,
- * SortArraysToIndicesKernel is used, which will do codegen. When disabling codegen, 
- * SortMultiplekeyKernel is used, which uses std::function to do comparison. In both 
- * kernels, timsort is used.
- * Projection is supported in all the four kernels. If projection is required,
-   projection is completed before sort, and the projected cols are used to do
-   comparison.
-   FIXME: 1. datatype change after projection is not supported in Inplace.
+   SortArraysToIndicesKernel::Impl is the base class, and other three kernels, including 
+   SortInplaceKernel, SortOnekeyKernel and SortMultiplekeyKernel, extend it.
+ * Usage:
+   SortInplaceKernel is used when sorting for one non-string and non-bool col without 
+   payload.
+   SortOnekeyKernel is used when sorting for single key with payload, and one string 
+   or bool col without payload.
+   SortMultiplekeyKernel is used when sorting for multiple keys and codegen is disabled.
+   SortArraysToIndicesKernel::Impl is used when sorting for multiple keys and codegen 
+   is enabled.
+ * In these kernels, usually ska_sort is used for asc direciton, and std sort is used 
+   for desc direciton. Timsort is used in multiple-key sort.
+ * Before sorting, projection and partition can be conducted.
+   If projection is required, it is completed before sorting, and the projected cols are 
+   used to do comparison.
+   If partition is required, null, NaN(for double and float only) and valid value are
+   partitioned before sorting.
+   FIXME: 1. datatype change after projection is not supported in SortInplaceKernel.
 **/
 
 namespace sparkcolumnarplugin {
@@ -100,7 +100,7 @@ class SortArraysToIndicesKernel::Impl {
     for (auto field : key_field_list) {
       auto indices = result_schema->GetAllFieldIndices(field->name());
       if (indices.size() != 1) {
-        std::cout << "[ERROR] SortMultiplekeyCodegenKernel can't find key "
+        std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
                   << field->ToString() << " from " << result_schema->ToString()
                   << std::endl;
         throw;
