@@ -26,10 +26,15 @@ arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
   snprintf(buffer, charsNeeded, "%.*f", (int)scale, nextafter(val, val + 0.5));
   auto decimal_str = std::string(buffer);
   free(buffer);
-  return arrow::Decimal128(decimal_str);
+  return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
 }
 
 arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_scale,
                               int32_t new_scale) {
   return in.Rescale(original_scale, new_scale).ValueOrDie();
+}
+
+double castFloatFromDecimal(arrow::Decimal128 val, int32_t scale) {
+  std::string str = val.ToString(scale);
+  return atof(str.c_str());
 }

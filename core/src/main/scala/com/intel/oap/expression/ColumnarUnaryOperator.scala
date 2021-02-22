@@ -249,11 +249,7 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     // since spark will call toPrecision in checkOverFlow and rescale from zero, we need to re-calculate result dataType here
-    val childScale: Int = childType match {
-      case d: ArrowType.Decimal => d.getScale
-      case _ => 0
-    }
-    val newDataType = DecimalType(dataType.precision, dataType.scale + childScale)
+    val newDataType = DecimalType(dataType.precision, dataType.scale)
     val resType = CodeGeneration.getResultType(newDataType)
     val funcNode = TreeBuilder.makeFunction(
       "castDECIMAL",

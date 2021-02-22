@@ -1,8 +1,8 @@
 #pragma once
 
 #include <arrow/type_fwd.h>
-
-#include "arrow/util/string_view.h"  // IWYU pragma: export
+#include <arrow/util/decimal.h>
+#include <arrow/util/string_view.h>  // IWYU pragma: export
 
 namespace sparkcolumnarplugin {
 namespace precompile {
@@ -130,8 +130,11 @@ class FixedSizeBinaryArray {
  public:
   FixedSizeBinaryArray(const std::shared_ptr<arrow::Array>&);
   arrow::util::string_view GetView(int64_t i) const {
-    return arrow::util::string_view(reinterpret_cast<const char*>(raw_value_[i]),
+    return arrow::util::string_view(reinterpret_cast<const char*>(GetValue(i)),
                                     byte_width_);
+  }
+  const uint8_t* GetValue(int64_t i) const {
+    return raw_value_ + (i + offset_) * byte_width_;
   }
   bool IsNull(int64_t i) const {
     i += offset_;
@@ -156,6 +159,10 @@ class FixedSizeBinaryArray {
 class Decimal128Array : public FixedSizeBinaryArray {
  public:
   Decimal128Array(const std::shared_ptr<arrow::Array>& in) : FixedSizeBinaryArray(in) {}
+  arrow::Decimal128 GetView(int64_t i) const {
+    const arrow::Decimal128 value(GetValue(i));
+    return value;
+  }
 };
 
 arrow::Status MakeFixedSizeBinaryArray(const std::shared_ptr<arrow::FixedSizeBinaryType>&,
