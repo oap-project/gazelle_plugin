@@ -19,6 +19,7 @@ package com.intel.oap.tpc.ds
 
 import java.io.{File, IOException}
 
+import com.intel.oap.tpc.TableGen
 import com.intel.oap.tpc.ds.TPCDSTableGen._
 import io.trino.tpcds.Results.constructResults
 import io.trino.tpcds._
@@ -29,7 +30,8 @@ import org.apache.spark.sql.{Column, Row, SparkSession}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-class TPCDSTableGen(val spark: SparkSession, scale: Double, path: String) extends Serializable {
+class TPCDSTableGen(val spark: SparkSession, scale: Double, path: String)
+    extends Serializable with TableGen {
 
   def writeParquetTable(name: String, rows: List[Row]): Unit = {
     if (name.equals("dbgen_version")) {
@@ -91,9 +93,9 @@ class TPCDSTableGen(val spark: SparkSession, scale: Double, path: String) extend
         .save(path + File.separator + tableName)
   }
 
-  def gen(): Unit = {
+  override def gen(): Unit = {
     val options = new Options()
-    options.scale = 0.01D
+    options.scale = scale
     val session = options.toSession
     val tableGenerator = new Gen(session)
     Table.getBaseTables.forEach { t =>
@@ -103,7 +105,9 @@ class TPCDSTableGen(val spark: SparkSession, scale: Double, path: String) extend
         writeParquetTable(t.getChild.getName, c)
       }
     }
+  }
 
+  override def createTables(): Unit = {
     val files = new File(path).listFiles()
     files.foreach(file => {
       println("Creating catalog table: " + file.getName)

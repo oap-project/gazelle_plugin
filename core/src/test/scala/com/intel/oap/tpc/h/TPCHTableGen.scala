@@ -20,12 +20,14 @@ package com.intel.oap.tpc.h
 import java.io.File
 import java.sql.Date
 
+import com.intel.oap.tpc.TableGen
 import io.trino.tpch._
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Row, SaveMode, SparkSession}
 
-class TPCHTableGen(val spark: SparkSession, scale: Double, path: String) extends Serializable {
+class TPCHTableGen(val spark: SparkSession, scale: Double, path: String)
+    extends Serializable with TableGen {
 
   // lineitem
   private def lineItemGenerator = { () =>
@@ -297,7 +299,7 @@ class TPCHTableGen(val spark: SparkSession, scale: Double, path: String) extends
         .parquet(path + File.separator + tableName)
   }
 
-  def gen(): Unit = {
+  override def gen(): Unit = {
     generate(path, "lineitem", lineItemSchema, lineItemGenerator, lineItemParser)
     generate(path, "customer", customerSchema, customerGenerator, customerParser)
     generate(path, "orders", orderSchema, orderGenerator, orderParser)
@@ -306,6 +308,9 @@ class TPCHTableGen(val spark: SparkSession, scale: Double, path: String) extends
     generate(path, "nation", nationSchema, nationGenerator, nationParser)
     generate(path, "part", partSchema, partGenerator, partParser)
     generate(path, "region", regionSchema, regionGenerator, regionParser)
+  }
+
+  override def createTables(): Unit = {
     val files = new File(path).listFiles()
     files.foreach(file => {
       println("Creating catalog table: " + file.getName)
