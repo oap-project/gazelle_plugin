@@ -20,13 +20,14 @@
 Thanks for opening a pull request!
 
 Could you open an issue for this pull request on Github Issues?
-https://github.com/Intel-bigdata/OAP/issues
 
-Then could you also rename ***pull request title*** and ***commit log*** in the following format?
+https://github.com/oap-project/native-sql-engine/issues
 
-    [OAP-${ISSUES_ID}][optional:${MUDULENAME}] ${detailed message}
+Then could you also rename ***commit message*** and ***pull request title*** in the following format?
+
+    [NSE-${ISSUES_ID}] ${detailed message}
 
 See also:
 
-  * [Other pull requests](https://github.com/Intel-bigdata/OAP/pulls/)
+  * [Other pull requests](https://github.com/oap-project/native-sql-engine/pulls/)
 

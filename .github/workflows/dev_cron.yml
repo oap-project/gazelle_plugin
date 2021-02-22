@@ -15,49 +15,44 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Dev Cron
+name: Dev PR
 
 on:
-  push:
-    paths:
-      - '.github/workflows/dev_cron.yml'
-  pull_request:
-    paths:
-      - '.github/workflows/dev_cron.yml'
-  schedule:
-    - cron: |
-        */15 * * * *
+
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
 
 jobs:
-
-  issues-link:
-    if: github.repository == 'Intel-bigdata/OAP'
-    name: issues link
+  process:
+    name: Process
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
-      - name: Comment
-        uses: actions/github-script@master
+      - uses: actions/checkout@v2
+
+      - name: Comment Issues link
+        if: |
+          github.event_name == 'pull_request_target' &&
+            (github.event.action == 'opened' ||
+             github.event.action == 'edited')
+        uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const path = ".github/workflows/dev_cron/issues_link.js";
-            const script = fs.readFileSync(path).toString();
-            eval(script);
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_cron/issues_link.js`);
+            script({github, context});
 
-  title-check:
-    if: github.repository == 'Intel-bigdata/OAP'
-    name: Title check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Check
-        uses: actions/github-script@master
+      - name: Check title
+        if: |
+          github.event_name == 'pull_request_target' &&
+            (github.event.action == 'opened' ||
+             github.event.action == 'edited')
+        uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs = require("fs");
-            const path = ".github/workflows/dev_cron/title_check.js";
-            const script = fs.readFileSync(path).toString();
-            eval(script);
+            const script = require(`${process.env.GITHUB_WORKSPACE}/.github/workflows/dev_cron/title_check.js`);
+            script({github, context});
+

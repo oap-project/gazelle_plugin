@@ -15,23 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-console.log("title-check");
-
 const fs = require("fs");
-
-const {owner: owner, repo: repo} = context.repo;
 
 function haveISSUESID(title) {
   if (!title) {
     return false;
   }
-  return /^\[OAP-\d+\]/.test(title);
+  return /^\[NSE-\d+\]/.test(title);
 }
 
-async function commentOpenISSUESIssue(pullRequestNumber) {
+async function commentOpenISSUESIssue(github, context, pullRequestNumber) {
   const {data: comments} = await github.issues.listComments({
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     per_page: 1
   });
@@ -41,23 +37,17 @@ async function commentOpenISSUESIssue(pullRequestNumber) {
   const commentPath = ".github/workflows/dev_cron/title_check.md";
   const comment = fs.readFileSync(commentPath).toString();
   await github.issues.createComment({
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     body: comment
   });
 }
 
-(async () => {
-  const {data: pulls} = await github.pulls.list({
-    owner: owner,
-    repo: repo,
-  });
-  pulls.forEach(async (pull) => {
-    const pullRequestNumber = pull.number;
-    const title = pull.title;
-    if (!haveISSUESID(title)) {
-      await commentOpenISSUESIssue(pullRequestNumber);
-    }
-  });
-})();
+module.exports = async ({github, context}) => {
+  const pullRequestNumber = context.payload.number;
+  const title = context.payload.pull_request.title;
+  if (!haveISSUESID(title)) {
+    await commentOpenISSUESIssue(github, context, pullRequestNumber);
+  }
+};
