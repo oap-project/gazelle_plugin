@@ -15,13 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-const {owner: owner, repo: repo} = context.repo;
-
 function detectISSUESID(title) {
   if (!title) {
     return null;
   }
-  const matched = /^\[OAP-\d+\]/.exec(title);
+  const matched = /^\[ADS-\d+\]/.exec(title);
   if (!matched) {
     return null;
   }
@@ -29,10 +27,10 @@ function detectISSUESID(title) {
   return issues_number;
 }
 
-async function haveComment(pullRequestNumber, body) {
+async function haveComment(github, context, pullRequestNumber, body) {
   const options = {
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     page: 1
   };
@@ -49,30 +47,24 @@ async function haveComment(pullRequestNumber, body) {
   return false;
 }
 
-async function commentISSUESURL(pullRequestNumber, issuesID) {
-  const issuesURL = `https://github.com/Intel-bigdata/OAP/issues/${issuesID}`;
-  if (await haveComment(pullRequestNumber, issuesURL)) {
+async function commentISSUESURL(github, context, pullRequestNumber, issuesID) {
+  const issuesURL = `https://github.com/oap-project/arrow-data-source/issues/${issuesID}`;
+  if (await haveComment(github, context, pullRequestNumber, issuesURL)) {
     return;
   }
   await github.issues.createComment({
-    owner: owner,
-    repo: repo,
+    owner: context.repo.owner,
+    repo: context.repo.repo,
     issue_number: pullRequestNumber,
     body: issuesURL
   });
 }
 
-(async () => {
-  const {data: pulls} = await github.pulls.list({
-    owner: owner,
-    repo: repo,
-  });
-  pulls.forEach(async (pull) => {
-    const pullRequestNumber = pull.number;
-    const title = pull.title;
-    const issuesID = detectISSUESID(title);
-    if (issuesID) {
-      await commentISSUESURL(pullRequestNumber, issuesID);
-    }
-  });
-})();
+module.exports = async ({github, context}) => {
+  const pullRequestNumber = context.payload.number;
+  const title = context.payload.pull_request.title;
+  const issuesID = detectISSUESID(title);
+  if (issuesID) {
+    await commentISSUESURL(github, context, pullRequestNumber, issuesID);
+  }
+};
