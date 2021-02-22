@@ -6,8 +6,8 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "third_party/gandiva/types.h"
 #include "third_party/gandiva/decimal_ops.h"
+#include "third_party/gandiva/types.h"
 
 int32_t castDATE32(int32_t in) { return castDATE_int32(in); }
 int64_t castDATE64(int32_t in) { return castDATE_date32(in); }
@@ -36,7 +36,7 @@ double castFloatFromDecimal(arrow::Decimal128 val, int32_t scale) {
 }
 
 arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,
-                              int32_t original_scale, int32_t new_precision, 
+                              int32_t original_scale, int32_t new_precision,
                               int32_t new_scale) {
   bool overflow = false;
   gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
@@ -47,8 +47,8 @@ arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,
   return arrow::Decimal128(out);
 }
 
-arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision, 
-                         int32_t left_scale, arrow::Decimal128 right, 
+arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
+                         int32_t left_scale, arrow::Decimal128 right,
                          int32_t right_precision, int32_t right_scale,
                          int32_t out_precision, int32_t out_scale) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
