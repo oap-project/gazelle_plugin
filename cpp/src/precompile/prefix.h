@@ -18,6 +18,7 @@
 #pragma once
 
 #include "array.h"
+#include <byteswap.h>
 
 namespace sparkcolumnarplugin {
 namespace precompile {
@@ -25,9 +26,10 @@ namespace precompile {
 template <typename ArrayType>
 class PrefixCalculator {
  public:
-  PrefixCalculator(const std::vector<std::shared_ptr<ArrayType>>& in, 
-                   bool asc, bool nulls_first) 
-   : in_(in), nullAsLeast_(nulls_first) {}
+  PrefixCalculator(const std::vector<std::shared_ptr<ArrayType>>& in, bool nulls_first) 
+   : in_(in), nullAsLeast_(nulls_first) {
+     isLittleEndien_ = isCPULittleEndian();
+   }
   
   ~PrefixCalculator() {}
 
@@ -57,6 +59,49 @@ class PrefixCalculator {
   template <typename T>
   auto calPrefix(int array_id, int64_t id, uint64_t& prefix) -> 
       typename std::enable_if_t<std::is_same<T, StringArray>::value> {
+    uint64_t mask = 0;
+    if (in_[array_id]->null_count() > 0 && in_[array_id]->IsNull(id)) {
+      if (nullAsLeast_) {
+        prefix = 0;
+      } else {
+        prefix = UINT64_MAX;
+      }
+    } else {
+      std::string val = in_[array_id]->GetString(id);
+      uint32_t bytes = val.size();
+      if (isLittleEndien_) {
+        if (bytes >= 8) {
+          memcpy(&prefix, val.c_str(), sizeof prefix);
+        } else if (bytes > 4) {
+          memcpy(&prefix, val.c_str(), sizeof prefix);
+          mask = (1L << (8 - bytes) * 8) - 1;
+        } else if (bytes > 0) {
+          uint32_t tmp = 0;
+          memcpy(&tmp, val.c_str(), sizeof tmp);
+          prefix = (uint64_t)tmp;
+          mask = (1L << (8 - bytes) * 8) - 1;
+        } else {
+          prefix = 0;
+        }
+        prefix = bswap_64(prefix);
+      } else {
+        if (bytes >= 8) {
+          memcpy(&prefix, val.c_str(), sizeof prefix);
+        } else if (bytes > 4) {
+          memcpy(&prefix, val.c_str(), sizeof prefix);
+          mask = (1L << (8 - bytes) * 8) - 1;
+        } else if (bytes > 0) {
+          uint32_t tmp = 0;
+          memcpy(&tmp, val.c_str(), sizeof tmp);
+          prefix = (uint64_t)tmp;
+          prefix = prefix << 32;
+          mask = (1L << (8 - bytes) * 8) - 1;
+        } else {
+          prefix = 0;
+        }
+      }
+      prefix &= ~mask;
+    }
   }
 
   template <typename T>
@@ -82,8 +127,22 @@ class PrefixCalculator {
     return bits;
   }
 
+  // This method is used to check CPU is Little-endian or Big-endian.
+  bool isCPULittleEndian() {
+    union {
+      uint32_t a;
+      uint8_t b;
+    } c;
+    
+    c.a = 1;
+    // True: Little-endian
+    // False: Big-endian
+    return (c.b == 1);
+  }
+
   std::vector<std::shared_ptr<ArrayType>> in_;
   bool nullAsLeast_;
+  bool isLittleEndien_;
 };
 
 }  // namespace precompile

@@ -510,13 +510,13 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     }
     // clear the contents of stringstream
     ss.str(std::string());
+    if (cur_key_idx == 0) {
+      ss << "if (x.prefix == y.prefix) {";
+    }
     if (data_type->id() == arrow::Type::STRING) {
       ss << "if ((" << x_null << " && " << y_null << ") || (" << x_str_value
          << " == " << y_str_value << ")) {";
     } else {
-      if (cur_key_idx == 0) {
-        ss << "if (x.prefix == y.prefix) {";
-      }
       if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                          data_type->id() == arrow::Type::FLOAT)) {
         // need to check NaN
@@ -531,7 +531,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     ss << GetCompFunction_(cur_key_idx + 1, projected, key_field_list, 
                            projected_types, sort_directions, nulls_order)
        << "} else { " << comp_str << "}";
-    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
+    if (cur_key_idx == 0) {
       ss << "} else {" << prefix_cmp << "}";
     }
     return ss.str();
@@ -613,12 +613,12 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     // clear the contents of stringstream
     ss.str(std::string());
 
+    if (cur_key_idx == 0) {
+      ss << "if (x.prefix == y.prefix) {";
+    }
     if (data_type->id() == arrow::Type::STRING) {
       ss << "if (" << x_str_value << " == " << y_str_value << ") {";
     } else {
-      if (cur_key_idx == 0) {
-        ss << "if (x.prefix == y.prefix) {";
-      }
       if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                          data_type->id() == arrow::Type::FLOAT)) {
         // need to check NaN
@@ -631,7 +631,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     ss << GetCompFunction_Without_Null_(cur_key_idx + 1, projected, key_field_list, 
                                         projected_types, sort_directions)
        << "} else { " << comp_str << "}";
-    if (cur_key_idx == 0 && data_type->id() != arrow::Type::STRING) {
+    if (cur_key_idx == 0) {
       ss << "} else {" << prefix_cmp << "}";
     }
     return ss.str();
@@ -650,7 +650,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
     std::stringstream ss;
     ss << "auto prefixCalculator = "
        << "std::make_shared<PrefixCalculator<ArrayType_0>>(cached_0_, "
-       << sort_directions_[0] << " ,"<< nulls_order_[0] << ");\n"
+       << nulls_order_[0] << ");\n"
        << "uint64_t prefix = 0;\n";
     return ss.str();
   }

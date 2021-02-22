@@ -1826,5 +1826,117 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaNWithoutCodegen) {
   }
 }
 
+TEST(TestArrowComputeSort, SortTestMultipleKeysStringPrefix) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", utf8());
+  auto f1 = field("f1", float64());
+  auto f2 = field("f2", float64());
+  auto f3 = field("f3", uint32());
+  auto arg_0 = TreeExprBuilder::MakeField(f0);
+  auto arg_1 = TreeExprBuilder::MakeField(f1);
+  auto arg_2 = TreeExprBuilder::MakeField(f2);
+  auto true_literal = TreeExprBuilder::MakeLiteral(true);
+  auto false_literal = TreeExprBuilder::MakeLiteral(false);
+  auto f_res = field("res", uint32());
+  auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
+  auto f_indices = field("indices", indices_type);
+
+  auto n_key_func = TreeExprBuilder::MakeFunction(
+      "key_function", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction(
+      "key_field", {arg_0, arg_1, arg_2}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction(
+      "sort_directions", {true_literal, false_literal, true_literal}, uint32());
+  auto n_nulls_order = TreeExprBuilder::MakeFunction(
+      "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction(
+      "NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {true_literal}, uint32());
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort = TreeExprBuilder::MakeFunction(
+      "standalone", {n_sort_to_indices}, uint32());
+  auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
+
+  auto sch = arrow::schema({f0, f1, f2, f3});
+  std::vector<std::shared_ptr<Field>> ret_types = {f0, f1, f2, f3};
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<CodeGenerator> sort_expr;
+  arrow::compute::FunctionContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
+
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
+
+  std::vector<std::string> input_data_string = {R"([null, "a", "a", "b", "b","b", "b"])",
+                                                "[8, NaN, 4, 50, 52, 32, 11]",
+                                                "[11, NaN, 5, 51, null, 33, 12]",
+                                                "[1, 3, 5, 10, null, 13, 2]"};
+  MakeInputBatch(input_data_string, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  std::vector<std::string> input_data_string_2 = {R"(["a", "a", null, "b", "b", "a", "b"])",
+                                                  "[1, 14, NaN, 42, 6, null, 2]",
+                                                  "[2, null, 44, 43, 7, 34, 3]",
+                                                  "[9, 7, 5, 1, 5, null, 17]"};
+  MakeInputBatch(input_data_string_2, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  std::vector<std::string> input_data_string_3 = {R"(["a", "a", "b", "b", "b","b", "b"])",
+                                                  "[3, 64, 8, 7, 9, 8, NaN]",
+                                                  "[4, 65, 16, 8, 10, 20, 34]",
+                                                  "[8, 6, 2, 3, 10, 12, 15]"};
+  MakeInputBatch(input_data_string_3, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  std::vector<std::string> input_data_string_4 = {R"(["a", "a", "a", "b", "b","b", "b"])",
+                                                  "[23, 17, 41, 18, 20, 35, 30]",
+                                                  "[24, 18, 42, NaN, 21, 36, 31]",
+                                                  "[15, 16, 2, 51, null, 33, 12]"};
+  MakeInputBatch(input_data_string_4, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  std::vector<std::string> input_data_string_5 = {R"(["a", "b", "a", "b", "b","b", "b"])",
+                                                  "[37, null, 22, 13, 8, 59, 21]",
+                                                  "[38, 67, 23, 14, null, 60, 22]",
+                                                  "[16, 17, 5, 15, 9, null, 19]"};
+  MakeInputBatch(input_data_string_5, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  ////////////////////////////////// calculation ///////////////////////////////////
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {
+      R"(["a","a","a","a","a","a","a","a","a","a","a","a","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b","b",null,null])",
+      "[null, NaN, 64, 41, 37, 23, 22, 17, 14, 4, 3, 1, null, NaN, 59, 52, 50, 42, 35, 32,  "
+      "30, 21, 20, 18, 13, 11, 9, 8, 8, 8, 7, 6, 2, NaN, 8]",
+      "[34, NaN, 65, 42, 38, 24, 23, 18, null, 5, 4, 2, 67, 34, 60, null, 51, 43, 36, "
+      "33, 31, 22, 21, NaN, 14, 12, 10, null, 16, 20, 8, 7, 3, 44, 11]",
+      "[null, 3, 6, 2, 16, 15, 5, 16, 7, 5, 8, 9, 17, 15, null, null, 10, 1, 33, 13, "
+      "12, 19, null, 51, 15, 2, 10, 9, 2, 12, 3, 5, 17, 5, 1]"};
+
+  MakeInputBatch(expected_result_string, sch, &expected_result);
+
+  for (auto batch : input_batch_list) {
+    ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
+  }
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
+  std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
+  ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
+
+  std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+
+  if (sort_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
