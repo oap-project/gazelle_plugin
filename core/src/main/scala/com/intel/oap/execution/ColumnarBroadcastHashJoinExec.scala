@@ -34,6 +34,7 @@ import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils}
+import org.apache.spark.sql.types.DecimalType
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -87,6 +88,8 @@ case class ColumnarBroadcastHashJoinExec(
     for (attr <- streamedPlan.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (attr.dataType.isInstanceOf[DecimalType])
+          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
@@ -96,6 +99,8 @@ case class ColumnarBroadcastHashJoinExec(
     for (attr <- buildPlan.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (attr.dataType.isInstanceOf[DecimalType])
+          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(

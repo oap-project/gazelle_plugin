@@ -53,6 +53,7 @@ import com.intel.oap.vectorized.ExpressionEvaluator
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide}
+import org.apache.spark.sql.types.DecimalType
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
@@ -346,6 +347,9 @@ case class ColumnarSortMergeJoinExec(
     for (attr <- left.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (attr.dataType.isInstanceOf[DecimalType])
+          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
+
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(

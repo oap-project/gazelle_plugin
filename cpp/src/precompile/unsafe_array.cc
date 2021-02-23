@@ -40,7 +40,9 @@ namespace precompile {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::StringType)
+  PROCESS(arrow::StringType)             \
+  PROCESS(arrow::Decimal128Type)
+
 arrow::Status MakeUnsafeArray(std::shared_ptr<arrow::DataType> type, int idx,
                               const std::shared_ptr<arrow::Array>& in,
                               std::shared_ptr<UnsafeArray>* out) {
@@ -53,7 +55,8 @@ arrow::Status MakeUnsafeArray(std::shared_ptr<arrow::DataType> type, int idx,
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     default: {
-      std::cout << "MakeUnsafeArray type not supported, type is " << type << std::endl;
+      std::cout << "MakeUnsafeArray type not supported, type is " << type->ToString()
+                << std::endl;
     } break;
   }
   return arrow::Status::OK();

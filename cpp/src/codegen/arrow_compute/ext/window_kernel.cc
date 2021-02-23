@@ -36,9 +36,9 @@ class WindowAggregateFunctionKernel::ActionFactory {
                             std::shared_ptr<ActionFactory> *out) {
     std::shared_ptr<ActionBase> action;
     if (action_name == "sum") {
-      RETURN_NOT_OK(MakeSumAction(ctx, type, &action));
+      RETURN_NOT_OK(MakeSumAction(ctx, type, {type}, &action));
     } else if (action_name == "avg") {
-      RETURN_NOT_OK(MakeAvgAction(ctx, type, &action));
+      RETURN_NOT_OK(MakeAvgAction(ctx, type, {type}, &action));
     } else {
       return arrow::Status::Invalid("window aggregate function: unsupported action name: " + action_name);
     }

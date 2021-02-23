@@ -67,51 +67,64 @@ class ActionBase {
   virtual uint64_t GetResultLength();
 };
 
-arrow::Status MakeUniqueAction(arrow::compute::ExecContext* ctx,
-                               std::shared_ptr<arrow::DataType> type,
-                               std::shared_ptr<ActionBase>* out);
+arrow::Status MakeUniqueAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeCountAction(arrow::compute::ExecContext* ctx,
+                              std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
                               std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeCountLiteralAction(arrow::compute::ExecContext* ctx, int arg,
-                                     std::shared_ptr<ActionBase>* out);
+arrow::Status MakeCountLiteralAction(
+    arrow::compute::ExecContext* ctx, int arg,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
                             std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
                             std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
                             std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
                             std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeSumCountAction(arrow::compute::ExecContext* ctx,
-                                 std::shared_ptr<arrow::DataType> type,
-                                 std::shared_ptr<ActionBase>* out);
+arrow::Status MakeSumCountAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeSumCountMergeAction(arrow::compute::ExecContext* ctx,
-                                      std::shared_ptr<arrow::DataType> type,
-                                      std::shared_ptr<ActionBase>* out);
+arrow::Status MakeSumCountMergeAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeAvgByCountAction(arrow::compute::ExecContext* ctx,
-                                   std::shared_ptr<arrow::DataType> type,
-                                   std::shared_ptr<ActionBase>* out);
+arrow::Status MakeAvgByCountAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeStddevSampPartialAction(arrow::compute::ExecContext* ctx,
-                                          std::shared_ptr<arrow::DataType> type,
-                                          std::shared_ptr<ActionBase>* out);
+arrow::Status MakeStddevSampPartialAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeStddevSampFinalAction(arrow::compute::ExecContext* ctx,
-                                        std::shared_ptr<arrow::DataType> type,
-                                        std::shared_ptr<ActionBase>* out);
+arrow::Status MakeStddevSampFinalAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen
