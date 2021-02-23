@@ -18,7 +18,7 @@
 package com.intel.oap.expression;
 
 import java.io.*;
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;

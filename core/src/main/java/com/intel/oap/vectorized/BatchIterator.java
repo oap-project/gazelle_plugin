@@ -21,7 +21,7 @@ import java.io.IOException;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import java.util.List;
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import java.io.ByteArrayOutputStream;
 import java.nio.channels.Channels;
 import org.apache.arrow.gandiva.evaluator.SelectionVectorInt16;

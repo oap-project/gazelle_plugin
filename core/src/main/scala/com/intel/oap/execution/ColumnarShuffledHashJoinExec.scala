@@ -45,7 +45,7 @@ import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
-import io.netty.buffer.ArrowBuf
+import org.apache.arrow.memory.ArrowBuf
 import com.google.common.collect.Lists
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.ExpressionEvaluator

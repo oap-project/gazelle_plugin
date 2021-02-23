@@ -17,14 +17,14 @@
 
 package com.intel.oap.vectorized;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.arrow.memory.*;
 import org.apache.arrow.util.Preconditions;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,7 +105,7 @@ public class AdaptorReferenceManager implements ReferenceManager {
     final long derivedBufferAddress = sourceBuffer.memoryAddress() + index;
 
     // create new ArrowBuf
-    final ArrowBuf derivedBuf = new ArrowBuf(this, null, length, derivedBufferAddress, false);
+    final ArrowBuf derivedBuf = new ArrowBuf(this, null, length, derivedBufferAddress);
 
     return derivedBuf;
   }

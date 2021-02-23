@@ -17,7 +17,7 @@
 
 package com.intel.oap.vectorized;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import java.lang.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;

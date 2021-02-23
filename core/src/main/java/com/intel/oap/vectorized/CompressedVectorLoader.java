@@ -26,7 +26,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 
 /** Loads compressed buffers into vectors. */
 public class CompressedVectorLoader extends VectorLoader {
@@ -49,7 +49,7 @@ public class CompressedVectorLoader extends VectorLoader {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
     for (FieldVector fieldVector : root.getFieldVectors()) {
-      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, null);
     }
     root.setRootRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
