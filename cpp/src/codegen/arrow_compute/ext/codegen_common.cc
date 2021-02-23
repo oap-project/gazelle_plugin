@@ -548,6 +548,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     env_gcc_ = "gcc";
   }
   std::string env_gcc = std::string(env_gcc_);
+  std::string env_ccache_prefix = "CCACHE_NOHASHDIR=1 CCACHE_BASEDIR=" + GetTempPath() + " ";
 
   const char* env_arrow_dir = std::getenv("LIBARROW_DIR");
   std::string arrow_header;
@@ -562,49 +563,35 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     arrow_lib2 = " -L" + std::string(env_arrow_dir) + "/lib ";
   }
   // compile the code
-  std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
+  std::string base_dir = GetTempPath();
+  chdir(base_dir.c_str());
+  std::string cmd = "";
+  cmd += env_ccache_prefix + env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
                     nativesql_header + nativesql_header_2 + " -c " +
-                     cppfile  + " -o "+ tmplibfile + " -O3 -march=native -fPIC 2> " + logfile;
+                     cppfile  + " -o "+ tmplibfile + " -O3 -march=native -fPIC && ";
 
-  std::string link_cmd = env_gcc +  arrow_lib + arrow_lib2 + nativesql_lib +
-                     tmplibfile + " -o " + libfile + " -lspark_columnar_jni -shared 2>> " + logfile;
+  // linking
+  cmd += env_gcc + arrow_lib + arrow_lib2 + nativesql_lib +
+                     tmplibfile + " -o " + libfile + " -lspark_columnar_jni -shared && ";
+
+  // package
+  cmd += "cd " + outpath + " && jar -cf spark-columnar-plugin-codegen-precompile-" +
+        signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so 2>" + logfile;
+
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
-  std::cout << cmd << std::endl;
-  std::cout << link_cmd << std::endl;
   int ret;
   int elapse_time = 0;
   TIME_MICRO(elapse_time, ret, system(cmd.c_str()));
-  TIME_MICRO(elapse_time, ret, system(link_cmd.c_str()));
 #ifdef DEBUG
   std::cout << "CodeGeneration took " << TIME_TO_STRING(elapse_time) << std::endl;
 #endif
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
     std::cout << "compilation failed, see " << logfile << std::endl;
     std::cout << cmd << std::endl;
-    /*cmd = "ls -R -l " + GetTempPath() + "; cat " + logfile;
-    system(cmd.c_str());*/
     return arrow::Status::Invalid("compilation failed, see ", logfile);
-    // exit(EXIT_FAILURE);
   }
-  cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
-        signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so";
-#ifdef DEBUG
-  std::cout << cmd << std::endl;
-#endif
-  ret = system(cmd.c_str());
-  if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
-    exit(EXIT_FAILURE);
-  }
-
-  struct stat tstat;
-  ret = stat(libfile.c_str(), &tstat);
-  if (ret == -1) {
-    std::cout << "stat failed: " << strerror(errno) << std::endl;
-    exit(EXIT_FAILURE);
-  }
-
   return arrow::Status::OK();
 }
 
