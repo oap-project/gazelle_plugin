@@ -523,6 +523,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   mkdir(outpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   std::string prefix = "/spark-columnar-plugin-codegen-";
   std::string cppfile = outpath + prefix + signature + ".cc";
+  std::string tmplibfile = outpath + prefix + signature + ".o";
   std::string libfile = outpath + prefix + signature + ".so";
   std::string jarfile = outpath + prefix + signature + ".jar";
   std::string logfile = outpath + prefix + signature + ".log";
@@ -562,15 +563,20 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
   // compile the code
   std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
-                    arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
-                    nativesql_lib + cppfile + " -o " + libfile +
-                    " -O3 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
+                    nativesql_header + nativesql_header_2 + " -c " +
+                     cppfile  + " -o "+ tmplibfile + " -O3 -march=native -fPIC 2> " + logfile;
+
+  std::string link_cmd = env_gcc +  arrow_lib + arrow_lib2 + nativesql_lib +
+                     tmplibfile + " -o " + libfile + " -lspark_columnar_jni -shared 2>> " + logfile;
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
+  std::cout << cmd << std::endl;
+  std::cout << link_cmd << std::endl;
   int ret;
   int elapse_time = 0;
   TIME_MICRO(elapse_time, ret, system(cmd.c_str()));
+  TIME_MICRO(elapse_time, ret, system(link_cmd.c_str()));
 #ifdef DEBUG
   std::cout << "CodeGeneration took " << TIME_TO_STRING(elapse_time) << std::endl;
 #endif
