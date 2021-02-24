@@ -17,7 +17,7 @@
 
 package com.intel.oap.expression
 
-import io.netty.buffer.ArrowBuf
+import org.apache.arrow.memory.ArrowBuf
 import java.util.ArrayList
 import java.util.Collections
 import java.util.concurrent.TimeUnit._
