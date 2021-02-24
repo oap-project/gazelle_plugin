@@ -78,7 +78,8 @@ using namespace sparkcolumnarplugin::precompile;
 class SortArraysToIndicesKernel::Impl {
  public:
   Impl() {}
-  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+  Impl(arrow::compute::ExecContext* ctx,
+       std::shared_ptr<arrow::Schema> result_schema,
        std::shared_ptr<gandiva::Projector> key_projector,
        std::vector<std::shared_ptr<arrow::DataType>> projected_types,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
@@ -638,7 +639,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    SorterResultIterator(arrow::compute::FunctionContext* ctx,
+    SorterResultIterator(arrow::compute::ExecContext* ctx,
                          std::shared_ptr<arrow::Schema> schema,
                          std::shared_ptr<FixedSizeBinaryArray> indices_in,
                          std::vector<arrow::ArrayVector>& cached)
@@ -705,7 +706,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     uint64_t offset_ = 0;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     uint64_t batch_size_;
     int col_num_;
     ArrayItemIndexS* indices_begin_;
@@ -1087,8 +1088,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         if (bitmap.AllSet()) {
           arrow::BitUtil::SetBitsTo(dst, offset, length, true);
         } else {
-          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset,
-                                      false);
+          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset);
         }
 
         // finally (if applicable) zero out any trailing bits
@@ -1564,8 +1564,8 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
-    auto maybe_buf = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
-    indices_buf = *std::move(maybe_buf);
+    auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf = *std::move(maybe_buffer);
     ArrayItemIndexS* indices_begin = 
       reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
