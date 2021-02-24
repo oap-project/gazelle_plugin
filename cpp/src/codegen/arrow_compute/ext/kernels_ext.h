@@ -290,7 +290,7 @@ class WindowRankKernel : public KernalBase {
       std::vector<std::shared_ptr<ArrayItemIndex>>* offsets);
 
   template <typename ArrayType>
-  arrow::Status AreTheSameValue(std::vector<ArrayList> values, int column,
+  arrow::Status AreTheSameValue(const std::vector<ArrayList>& values, int column,
                                 std::shared_ptr<ArrayItemIndex> i,
                                 std::shared_ptr<ArrayItemIndex> j, bool* out);
 

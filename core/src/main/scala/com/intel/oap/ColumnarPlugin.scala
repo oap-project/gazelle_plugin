@@ -220,11 +220,17 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 
     case plan: WindowExec =>
       if (columnarConf.enableColumnarWindow) {
-        val child = plan.child match {
+        val sortRemoved = plan.child match {
           case sort: SortExec => // remove ordering requirements
             replaceWithColumnarPlan(sort.child)
           case _ =>
             replaceWithColumnarPlan(plan.child)
+        }
+        // disable CoalesceBatchesExec to reduce Netty direct memory usage
+        val coalesceBatchRemoved = sortRemoved match {
+          case s: CoalesceBatchesExec =>
+            s.child
+          case _ => sortRemoved
         }
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
         try {
@@ -232,7 +238,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,
-            child)
+            coalesceBatchRemoved)
         } catch {
           case _: Throwable =>
             logInfo("Columnar Window: Falling back to regular Window...")

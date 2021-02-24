@@ -425,7 +425,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
   }
   std::string GetCompFunction(std::vector<int> sort_key_index_list) {
     std::stringstream ss;
-    ss << "auto comp = [this](ArrayItemIndex x, ArrayItemIndex y) {"
+    ss << "auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {"
        << GetCompFunction_(0, sort_key_index_list) << "};";
     return ss.str();
   }
@@ -655,8 +655,9 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
                  [this](auto& x) -> decltype(auto){ return cached_key_[x.array_id]->GetView(x.id); });
       }
     } else {
-      auto comp = [this](ArrayItemIndex x, ArrayItemIndex y) {
-        return cached_key_[x.array_id]->GetView(x.id) > cached_key_[y.array_id]->GetView(y.id);};
+      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
+        return cached_key_[x.array_id]->GetView(x.id) > cached_key_[y.array_id]->GetView(y.id);
+      };
       if (nulls_first_) {
         std::sort(indices_begin + nulls_total, indices_begin + items_total, comp);
       } else {

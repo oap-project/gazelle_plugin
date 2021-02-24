@@ -57,7 +57,9 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   override def beforeAll(): Unit = {
     super.beforeAll()
     LogManager.getRootLogger.setLevel(Level.WARN)
-    new TPCDSTableGen(spark, 0.1D, TPCDS_WRITE_PATH).gen()
+    val tGen = new TPCDSTableGen(spark, 0.01D, TPCDS_WRITE_PATH)
+    tGen.gen()
+    tGen.createTables()
     runner = new TPCRunner(spark, TPCDS_QUERIES_RESOURCE)
   }
 
@@ -81,6 +83,10 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     runner.runTPCQuery("q86", 1, true)
     runner.runTPCQuery("q89", 1, true)
     runner.runTPCQuery("q98", 1, true)
+  }
+
+  test("window query") {
+    runner.runTPCQuery("q67", 1, true)
   }
 }
 

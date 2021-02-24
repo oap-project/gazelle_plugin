@@ -72,7 +72,9 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
   override def beforeAll(): Unit = {
     super.beforeAll()
     LogManager.getRootLogger.setLevel(Level.WARN)
-    new TPCHTableGen(spark, 0.1D, TPCH_WRITE_PATH).gen()
+    val tGen = new TPCHTableGen(spark, 0.1D, TPCH_WRITE_PATH)
+    tGen.gen()
+    tGen.createTables()
     runner = new TPCRunner(spark, TPCH_QUERIES_RESOURCE)
   }
 
