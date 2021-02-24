@@ -281,18 +281,19 @@ class SortArraysToIndicesKernel::Impl {
     std::string cached_variables_define_str =
         GetCachedVariablesDefine(key_typed_codegen_list);
 
-    return BaseCodes() + R"(
-#include <arrow/buffer.h>
-
-#include <algorithm>
-#include <cmath>
-
-#include "codegen/arrow_compute/ext/array_item_index.h"
-#include "codegen/common/sort_relation.h"
-#include "precompile/builder.h"
-#include "precompile/type.h"
-#include "third_party/ska_sort.hpp"
-#include "third_party/timsort.hpp"
+//    return BaseCodes() + R"(
+//#include <arrow/buffer.h>
+//
+//#include <algorithm>
+//#include <cmath>
+//
+//#include "codegen/arrow_compute/ext/array_item_index.h"
+//#include "codegen/common/sort_relation.h"
+//#include "precompile/builder.h"
+//#include "precompile/type.h"
+//#include "third_party/ska_sort.hpp"
+//#include "third_party/timsort.hpp"
+return R"(
 using namespace sparkcolumnarplugin::precompile;
 
 class TypedSorterImpl : public CodeGenBase {

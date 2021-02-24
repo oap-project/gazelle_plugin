@@ -542,13 +542,15 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   out.flush();
   out.close();
 
+
+  std::string libwscgfile = GetTempPath() + "/nativesql_include/precompile/libwscg.hpp";
   // compile the code
   const char* env_gcc_ = std::getenv("CC");
   if (env_gcc_ == nullptr) {
     env_gcc_ = "gcc";
   }
   std::string env_gcc = std::string(env_gcc_);
-  std::string env_ccache_prefix = "CCACHE_NOHASHDIR=1 CCACHE_BASEDIR=" + GetTempPath() + " ";
+  std::string env_ccache_prefix = "CCACHE_SLOPPINESS=pch_defines,file_macro,time_macros,include_file_mtime CCACHE_NOHASHDIR=1 CCACHE_BASEDIR=" + GetTempPath() + " ";
 
   const char* env_arrow_dir = std::getenv("LIBARROW_DIR");
   std::string arrow_header;
@@ -565,7 +567,10 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   // compile the code
   std::string base_dir = GetTempPath();
   chdir(base_dir.c_str());
-  std::string cmd = "";
+  std::string cmd = env_ccache_prefix + env_gcc +" -std=c++14 -Wno-deprecated-declarations " + arrow_header +
+                    nativesql_header + nativesql_header_2 + " -c " +
+                     libwscgfile + " -O3 -march=native -fPIC && ";;
+
   cmd += env_ccache_prefix + env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
                     nativesql_header + nativesql_header_2 + " -c " +
                      cppfile  + " -o "+ tmplibfile + " -O3 -march=native -fPIC && ";
