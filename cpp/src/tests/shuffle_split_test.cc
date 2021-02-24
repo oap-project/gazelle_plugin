@@ -123,8 +123,9 @@ class SplitterTest : public ::testing::Test {
 
     auto cntx = arrow::compute::ExecContext();
     std::shared_ptr<arrow::RecordBatch> res;
-    ASSERT_NOT_OK(arrow::compute::Take(&cntx, *input_batch, *take_idx,
-                                       arrow::compute::TakeOptions{}, &res));
+    auto maybe_res = arrow::compute::Take(*input_batch, *take_idx,
+                                       arrow::compute::TakeOptions{}, &cntx);
+    res = *std::move(maybe_res);
     return res;
   }
 
