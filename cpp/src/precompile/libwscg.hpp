@@ -33,7 +33,6 @@ using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
 #include "codegen/common/sort_relation.h"
 #include "third_party/row_wise_memory/unsafe_row.h"
 
-#include "precompile/builder.h"
 #include "precompile/type.h"
 #include "third_party/ska_sort.hpp"
 #include "third_party/timsort.hpp"
@@ -43,3 +42,7 @@ using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
 
 #include <algorithm>
 #include <cmath>
+
+#include <tuple>
+#include <numeric>
+using namespace sparkcolumnarplugin::precompile;

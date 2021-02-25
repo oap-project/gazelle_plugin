@@ -1190,8 +1190,7 @@ typedef )" + item_content_str + " item_content;";
     std::vector<std::string> content_tuple_types;
 
     if (multiple_cols) {
-      list_tiem_str = R"(
-        #include <tuple>)";
+      list_tiem_str = "";
 
       for (auto& key : left_key_index_list) {
         tuple_types.push_back("std::shared_ptr<" + GetTypeString(left_field_list[key]->type(), "Array") + ">");
@@ -1291,13 +1290,14 @@ typedef )" + item_content_str + " item_content;";
     auto make_list_str = GetListStr(multiple_cols, left_key_index_list.size());
     auto make_list_content_str = GetListContentStr(multiple_cols, left_key_index_list.size());
 
-    return BaseCodes() + R"(
-#include "codegen/arrow_compute/ext/array_item_index.h"
-#include "precompile/builder.h"
-#include <numeric>
-using namespace sparkcolumnarplugin::precompile;
-)" + hash_map_include_str +
-           R"(
+//    return BaseCodes() + R"(
+//#include "codegen/arrow_compute/ext/array_item_index.h"
+//#include "precompile/builder.h"
+//#include <numeric>
+//using namespace sparkcolumnarplugin::precompile;
+//)" + hash_map_include_str +
+    return R"(#include "precompile/libwscg.hpp"
+)" + hash_map_include_str + R"(
 class FVector {
 
 public:
