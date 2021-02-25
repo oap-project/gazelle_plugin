@@ -112,6 +112,7 @@ add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
                    VERBATIM)
 
 add_custom_target(jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
+add_dependencies(jni_proto protobuf::libprotobuf)
 set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
 set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
 
@@ -133,7 +134,7 @@ if(TESTS)
   find_package(GTest)
 macro(package_add_test TESTNAME)
   add_executable(${TESTNAME} ${ARGN})
-  target_link_libraries(${TESTNAME} gtest gmock gtest_main spark_columnar_jni dl ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni dl ${CMAKE_THREAD_LIBS_INIT})
   target_include_directories(${TESTNAME} PUBLIC ${source_root_directory})
   gtest_discover_tests(${TESTNAME}
     WORKING_DIRECTORY ${PROJECT_DIR}
@@ -152,7 +153,7 @@ if(BENCHMARKS)
   add_definitions(-DBENCHMARK_FILE_PATH="file://${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/source_files/")
 macro(package_add_benchmark TESTNAME)
   add_executable(${TESTNAME} ${ARGN})
-  target_link_libraries(${TESTNAME} gtest gmock gtest_main spark_columnar_jni parquet ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni parquet ${CMAKE_THREAD_LIBS_INIT})
   target_include_directories(${TESTNAME} PUBLIC ${source_root_directory})
   gtest_discover_tests(${TESTNAME}
     WORKING_DIRECTORY ${PROJECT_DIR}
