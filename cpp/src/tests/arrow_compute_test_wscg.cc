@@ -3558,6 +3558,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
   auto n_nulls_order =
       TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
   auto result_type = TreeExprBuilder::MakeFunction(
       "result_type", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
   auto n_key_func_left = TreeExprBuilder::MakeFunction(
@@ -3566,7 +3567,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
       "key_field", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_sort_to_indices_left = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, result_type},
+      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
       uint32());
   auto n_sort_left =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_left}, uint32());
@@ -3592,7 +3593,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
       "key_field", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_sort_to_indices_right = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, result_type},
+      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
       uint32());
   auto n_sort_right =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_right}, uint32());
@@ -3619,7 +3620,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
   auto n_sort_to_indices_left_2 =
       TreeExprBuilder::MakeFunction("sortArraysToIndices",
                                     {n_key_func_left_2, n_key_field_left_2, n_dir,
-                                     n_nulls_order, NaN_check, result_type},
+                                     n_nulls_order, NaN_check, do_codegen, result_type},
                                     uint32());
   auto n_sort_left_2 =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_left_2}, uint32());
@@ -4279,6 +4280,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
   auto n_nulls_order =
       TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
   auto result_type = TreeExprBuilder::MakeFunction(
       "result_type", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
   auto n_key_func_left = TreeExprBuilder::MakeFunction(
@@ -4287,7 +4289,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
       "key_field", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_sort_to_indices_left = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, result_type},
+      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
       uint32());
   auto n_sort_left =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_left}, uint32());
@@ -4313,7 +4315,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
       "key_field", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_sort_to_indices_right = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, result_type},
+      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
       uint32());
   auto n_sort_right =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_right}, uint32());
