@@ -36,7 +36,7 @@ using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
 #include "precompile/type.h"
 #include "third_party/ska_sort.hpp"
 #include "third_party/timsort.hpp"
-
+#include "precompile/gandiva.h"
 
 #include <arrow/buffer.h>
 

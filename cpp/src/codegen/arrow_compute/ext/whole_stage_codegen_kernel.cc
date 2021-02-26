@@ -299,16 +299,16 @@ class WholeStageCodeGenKernel::Impl {
     //codes_ss << BaseCodes() << std::endl;
     //codes_ss << R"(#include "precompile/builder.h")" << std::endl;
     //codes_ss << R"(#include "utils/macros.h")" << std::endl;
-    //std::vector<std::string> headers;
-    //for (auto codegen_ctx : codegen_ctx_list) {
-    //  for (auto header : codegen_ctx->header_codes) {
-    //    if (std::find(headers.begin(), headers.end(), header) == headers.end()) {
-    //      headers.push_back(header);
-    //    }
-    //  }
-    //  if (codegen_ctx->gandiva_projector)
-    //    gandiva_projector_list_.push_back(codegen_ctx->gandiva_projector);
-    //}
+    std::vector<std::string> headers;
+    for (auto codegen_ctx : codegen_ctx_list) {
+      for (auto header : codegen_ctx->header_codes) {
+        if (std::find(headers.begin(), headers.end(), header) == headers.end()) {
+          headers.push_back(header);
+        }
+      }
+      if (codegen_ctx->gandiva_projector)
+        gandiva_projector_list_.push_back(codegen_ctx->gandiva_projector);
+    }
     //for (auto header : headers) {
     //  codes_ss << header << std::endl;
     //}
