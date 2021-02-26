@@ -294,6 +294,7 @@ class SortArraysToIndicesKernel::Impl {
 //#include "third_party/ska_sort.hpp"
 //#include "third_party/timsort.hpp"
 return R"(
+#include "precompile/libwscg.hpp"
 using namespace sparkcolumnarplugin::precompile;
 
 class TypedSorterImpl : public CodeGenBase {
