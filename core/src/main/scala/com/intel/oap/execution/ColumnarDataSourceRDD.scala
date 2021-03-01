@@ -22,17 +22,14 @@ import com.intel.oap.vectorized._
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util._
-import org.apache.spark.sql.connector.read.{
-  InputPartition,
-  PartitionReader,
-  PartitionReaderFactory
-}
+import org.apache.spark.sql.connector.read.{InputPartition, PartitionReader, PartitionReaderFactory}
 import org.apache.spark.sql.execution.datasources.{FilePartition, PartitionedFile}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 import org.apache.spark.sql.execution.datasources.v2.VectorizedFilePartitionReaderHandler
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.datasources.v2.parquet.ParquetPartitionReaderFactory
+import org.apache.spark.sql.util.OASPackageBridge._
 
 class DataSourceRDDPartition(val index: Int, val inputPartition: InputPartition)
     extends Partition
@@ -84,6 +81,8 @@ class ColumnarDataSourceRDD(
     val rddId = this
     SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => reader.close())
     val iter = new Iterator[Any] {
+      private val inputMetrics = TaskContext.get().taskMetrics().inputMetrics
+
       private[this] var valuePrepared = false
 
       override def hasNext: Boolean = {
@@ -108,7 +107,21 @@ class ColumnarDataSourceRDD(
           throw new java.util.NoSuchElementException("End of stream")
         }
         valuePrepared = false
-        reader.get()
+        val value = reader.get()
+        val bytes: Long = value match {
+          case batch: ColumnarBatch =>
+            (0 until batch.numCols()).map { i =>
+              val vector = Option(batch.column(i))
+              vector.map {
+                case av: ArrowWritableColumnVector =>
+                  av.getValueVector.getBufferSize.toLong
+                case _ => 0L
+              }.sum
+            }.sum
+          case _ => 0L
+        }
+        inputMetrics.bridgeIncBytesRead(bytes)
+        value
       }
     }
     val closeableColumnarBatchIterator = new CloseableColumnBatchIterator(
