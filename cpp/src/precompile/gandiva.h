@@ -29,12 +29,49 @@ arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
   return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
 }
 
-arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_scale,
-                              int32_t new_scale) {
-  return in.Rescale(original_scale, new_scale).ValueOrDie();
-}
-
 double castFloatFromDecimal(arrow::Decimal128 val, int32_t scale) {
   std::string str = val.ToString(scale);
   return atof(str.c_str());
+}
+
+arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_scale,
+                              int32_t new_precision, int32_t new_scale) {
+  double value = castFloatFromDecimal(in, original_scale);
+  return castDECIMAL(value, new_precision, new_scale);
+}
+
+arrow::Decimal128 add(arrow::Decimal128 left, int32_t left_scale, 
+                      arrow::Decimal128 right, int32_t right_scale,
+                      int32_t out_precision, int32_t out_scale) {
+  double left_val = castFloatFromDecimal(left, left_scale);
+  double right_val = castFloatFromDecimal(right, right_scale);
+  double res = left_val + right_val;
+  return castDECIMAL(res, out_precision, out_scale);
+}
+
+arrow::Decimal128 subtract(arrow::Decimal128 left, int32_t left_scale, 
+                           arrow::Decimal128 right, int32_t right_scale,
+                           int32_t out_precision, int32_t out_scale) {
+  double left_val = castFloatFromDecimal(left, left_scale);
+  double right_val = castFloatFromDecimal(right, right_scale);
+  double res = left_val - right_val;
+  return castDECIMAL(res, out_precision, out_scale);
+}
+
+arrow::Decimal128 multiply(arrow::Decimal128 left, int32_t left_scale, 
+                           arrow::Decimal128 right, int32_t right_scale,
+                           int32_t out_precision, int32_t out_scale) {
+  double left_val = castFloatFromDecimal(left, left_scale);
+  double right_val = castFloatFromDecimal(right, right_scale);
+  double res = left_val * right_val;
+  return castDECIMAL(res, out_precision, out_scale);
+}
+
+arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_scale, 
+                         arrow::Decimal128 right, int32_t right_scale,
+                         int32_t out_precision, int32_t out_scale) {
+  double left_val = castFloatFromDecimal(left, left_scale);
+  double right_val = castFloatFromDecimal(right, right_scale);
+  double res = left_val / right_val;
+  return castDECIMAL(res, out_precision, out_scale);
 }

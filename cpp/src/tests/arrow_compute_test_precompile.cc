@@ -21,6 +21,7 @@
 
 #include "precompile/array.h"
 #include "tests/test_utils.h"
+#include "precompile/gandiva.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -41,5 +42,25 @@ TEST(TestArrowCompute, BooleanArrayTest) {
     }
   }
 }
+
+TEST(TestArrowCompute, ArithmeticDecimalTest) {
+  auto left = arrow::Decimal128("32342423.012875");
+  auto right = arrow::Decimal128("2347.012874535");
+  int32_t left_scale = 6;
+  int32_t right_scale = 9;
+  int32_t out_precision = 22;
+  int32_t out_scale = 10;
+  auto res = castDECIMAL(left, left_scale, out_precision, out_scale);
+  std::cout << "castDECIMAL res is: " << res.ToString(out_scale) << std::endl;
+  res = add(left, left_scale, right, right_scale, out_precision, out_scale);
+  std::cout << "add res is: " << res.ToString(out_scale) << std::endl;
+  res = subtract(left, left_scale, right, right_scale, out_precision, out_scale);
+  std::cout << "subtract res is: " << res.ToString(out_scale) << std::endl;
+  res = multiply(left, left_scale, right, right_scale, out_precision, out_scale);
+  std::cout << "multiply res is: " << res.ToString(out_scale) << std::endl;
+  res = divide(left, left_scale, right, right_scale, out_precision, out_scale);
+  std::cout << "divide res is: " << res.ToString(out_scale) << std::endl;
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
