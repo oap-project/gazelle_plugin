@@ -83,7 +83,13 @@
       <artifactId>spark-network-shuffle_${scala.binary.version}</artifactId>
       <version>${spark.version}</version>
       <scope>test</scope>
-    </dependency>
+   </dependency>
+    <dependency>
+       <groupId>org.apache.arrow</groupId>
+       <artifactId>arrow-memory-netty</artifactId>
+       <version>3.0.0</version>
+       <scope>runtime</scope>
+    </dependency> 
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>

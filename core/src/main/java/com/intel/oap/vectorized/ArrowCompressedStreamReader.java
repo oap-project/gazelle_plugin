@@ -17,6 +17,7 @@
 
 package com.intel.oap.vectorized;
 
+import org.apache.arrow.flatbuf.CompressionType;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
@@ -84,8 +85,6 @@ public class ArrowCompressedStreamReader extends ArrowStreamReader {
     if (result == null) {
       return false;
     }
-    // Get the compress type from customMetadata. Currently the customMetadata only have one entry.
-    compressType = result.getMessage().customMetadata(0).value();
 
     if (result.getMessage().headerType() == MessageHeader.RecordBatch) {
       ArrowBuf bodyBuffer = result.getBodyBuffer();
@@ -96,6 +95,14 @@ public class ArrowCompressedStreamReader extends ArrowStreamReader {
       }
 
       ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
+      String codecName = CompressionType.name(batch.getBodyCompression().getCodec());
+
+      if (codecName.equals("LZ4_FRAME")) {
+        compressType = "lz4";
+      } else {
+        compressType = codecName;
+      }
+
       loadRecordBatch(batch);
       checkDictionaries();
       return true;

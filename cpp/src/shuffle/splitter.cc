@@ -331,9 +331,9 @@ arrow::Status Splitter::Init() {
     ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
     arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
     
-  } else if (options_.compression_type == arrow::Compression::LZ4) {
+  } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
     ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-    arrow::util::Codec::CreateInt32(arrow::Compression::LZ4));
+    arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
   } else {
     ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
     arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
@@ -359,9 +359,9 @@ arrow::Status Splitter::SetCompressType(arrow::Compression::type compressed_type
     ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
     arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
     
-  } else if (compressed_type == arrow::Compression::LZ4) {
+  } else if (compressed_type == arrow::Compression::LZ4_FRAME) {
     ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
-    arrow::util::Codec::CreateInt32(arrow::Compression::LZ4));
+    arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
   } else {
     ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
     arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );

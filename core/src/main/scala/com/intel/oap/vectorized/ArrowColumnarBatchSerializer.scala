@@ -70,6 +70,7 @@ private class ArrowColumnarBatchSerializerInstance(
         SparkEnv.get.conf.getBoolean("spark.shuffle.compress", true)
 
       private val allocator: BufferAllocator = SparkMemoryUtils.contextAllocator()
+        .newChildAllocator("ArrowColumnarBatch deserialize", 0, Long.MaxValue)
 
       private var reader: ArrowStreamReader = _
       private var root: VectorSchemaRoot = _

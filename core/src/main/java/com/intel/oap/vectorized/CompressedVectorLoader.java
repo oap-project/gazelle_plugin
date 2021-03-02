@@ -49,7 +49,7 @@ public class CompressedVectorLoader extends VectorLoader {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
     for (FieldVector fieldVector : root.getFieldVectors()) {
-      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, null);
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
     }
     root.setRootRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {

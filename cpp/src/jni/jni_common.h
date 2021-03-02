@@ -225,12 +225,13 @@ jbyteArray ToSchemaByteArray(JNIEnv* env, std::shared_ptr<arrow::Schema> schema)
 arrow::Result<arrow::Compression::type> GetCompressionType(JNIEnv* env,
                                                            jstring codec_jstr) {
   auto codec_l = env->GetStringUTFChars(codec_jstr, JNI_FALSE);
+  
   std::string codec_u;
   std::transform(codec_l, codec_l + std::strlen(codec_l), std::back_inserter(codec_u),
-                 ::toupper);
+                 ::tolower);
 
   ARROW_ASSIGN_OR_RAISE(auto compression_type,
-                        arrow::util::Codec::GetCompressionType(codec_u))
+                        arrow::util::Codec::GetCompressionType(codec_u));              
 
   if (compression_type == arrow::Compression::LZ4) {
     compression_type = arrow::Compression::LZ4_FRAME;
