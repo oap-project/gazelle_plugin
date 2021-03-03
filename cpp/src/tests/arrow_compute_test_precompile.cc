@@ -48,17 +48,14 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   auto right = arrow::Decimal128("2347.012874535");
   int32_t left_scale = 6;
   int32_t right_scale = 9;
+  int32_t left_precision = 14;
+  int32_t right_precision = 13;
   int32_t out_precision = 22;
   int32_t out_scale = 10;
   auto res = castDECIMAL(left, left_scale, out_precision, out_scale);
   std::cout << "castDECIMAL res is: " << res.ToString(out_scale) << std::endl;
-  res = add(left, left_scale, right, right_scale, out_precision, out_scale);
-  std::cout << "add res is: " << res.ToString(out_scale) << std::endl;
-  res = subtract(left, left_scale, right, right_scale, out_precision, out_scale);
-  std::cout << "subtract res is: " << res.ToString(out_scale) << std::endl;
-  res = multiply(left, left_scale, right, right_scale, out_precision, out_scale);
-  std::cout << "multiply res is: " << res.ToString(out_scale) << std::endl;
-  res = divide(left, left_scale, right, right_scale, out_precision, out_scale);
+   res = divide(left, left_precision, left_scale, right, right_precision, right_scale, 
+                out_precision, out_scale);
   std::cout << "divide res is: " << res.ToString(out_scale) << std::endl;
 }
 

@@ -7,6 +7,7 @@
 #include <type_traits>
 
 #include "third_party/gandiva/types.h"
+#include "third_party/gandiva/decimal_ops.h"
 
 int32_t castDATE32(int32_t in) { return castDATE_int32(in); }
 int64_t castDATE64(int32_t in) { return castDATE_date32(in); }
@@ -40,38 +41,15 @@ arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_scale,
   return castDECIMAL(value, new_precision, new_scale);
 }
 
-arrow::Decimal128 add(arrow::Decimal128 left, int32_t left_scale, 
-                      arrow::Decimal128 right, int32_t right_scale,
-                      int32_t out_precision, int32_t out_scale) {
-  double left_val = castFloatFromDecimal(left, left_scale);
-  double right_val = castFloatFromDecimal(right, right_scale);
-  double res = left_val + right_val;
-  return castDECIMAL(res, out_precision, out_scale);
-}
-
-arrow::Decimal128 subtract(arrow::Decimal128 left, int32_t left_scale, 
-                           arrow::Decimal128 right, int32_t right_scale,
-                           int32_t out_precision, int32_t out_scale) {
-  double left_val = castFloatFromDecimal(left, left_scale);
-  double right_val = castFloatFromDecimal(right, right_scale);
-  double res = left_val - right_val;
-  return castDECIMAL(res, out_precision, out_scale);
-}
-
-arrow::Decimal128 multiply(arrow::Decimal128 left, int32_t left_scale, 
-                           arrow::Decimal128 right, int32_t right_scale,
-                           int32_t out_precision, int32_t out_scale) {
-  double left_val = castFloatFromDecimal(left, left_scale);
-  double right_val = castFloatFromDecimal(right, right_scale);
-  double res = left_val * right_val;
-  return castDECIMAL(res, out_precision, out_scale);
-}
-
-arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_scale, 
-                         arrow::Decimal128 right, int32_t right_scale,
+arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision, 
+                         int32_t left_scale, arrow::Decimal128 right, 
+                         int32_t right_precision, int32_t right_scale,
                          int32_t out_precision, int32_t out_scale) {
-  double left_val = castFloatFromDecimal(left, left_scale);
-  double right_val = castFloatFromDecimal(right, right_scale);
-  double res = left_val / right_val;
-  return castDECIMAL(res, out_precision, out_scale);
+  gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
+  gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
+  bool overflow;
+  int64_t context = 0;
+  arrow::BasicDecimal128 out =
+      gandiva::decimalops::Divide(context, x, y, out_precision, out_scale, &overflow);
+  return arrow::Decimal128(out);
 }
