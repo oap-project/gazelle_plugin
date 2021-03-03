@@ -456,7 +456,7 @@ class ColumnarUnscaledValue(child: Expression, original: Expression)
   buildCheck()
 
   def buildCheck(): Unit = {
-    if (!child.dataType.isInstanceOf[DecimalType]) {
+    if (!child.dataType.isInstanceOf[DecimalType] && !child.dataType.isInstanceOf[LongType]) {
       throw new UnsupportedOperationException(
         s"${child.dataType} is not supported in ColumnarUnscaledValue")
     }
@@ -467,6 +467,9 @@ class ColumnarUnscaledValue(child: Expression, original: Expression)
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val resultType = new ArrowType.Int(64, true)
+    if (child.dataType.isInstanceOf[LongType]) {
+      return (child_node, resultType)
+    }
     val childDataType = child.dataType.asInstanceOf[DecimalType]
     val m = ConverterUtils.powerOfTen(childDataType.scale)
     val increaseScaleNode =
@@ -477,6 +480,43 @@ class ColumnarUnscaledValue(child: Expression, original: Expression)
     val funcNode =
       TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(increaseScaleNode), resultType)
     (funcNode, resultType)
+  }
+}
+
+class ColumnarMakeDecimal(
+    child: Expression,
+    precision: Int,
+    scale: Int,
+    nullOnOverflow: Boolean,
+    original: Expression)
+    extends MakeDecimal(child: Expression, precision: Int, scale: Int, nullOnOverflow: Boolean)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    if (!child.dataType.isInstanceOf[LongType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarMakeDecimal")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val origType = new ArrowType.Decimal(precision, 0, 128)
+    val resultType = new ArrowType.Decimal(precision, scale, 128)
+    val m = ConverterUtils.powerOfTen(scale)
+    val decimalNode =
+      TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node), origType)
+    val reducedScaleNode =
+      TreeBuilder.makeFunction(
+        "divide",
+        Lists.newArrayList(decimalNode, TreeBuilder.makeDecimalLiteral(m._1, m._2, m._3)),
+        resultType)
+    (reducedScaleNode, resultType)
   }
 }
 
@@ -499,6 +539,8 @@ object ColumnarUnaryOperator {
       new ColumnarCast(child, c.dataType, c.timeZoneId, c)
     case u: UnscaledValue =>
       new ColumnarUnscaledValue(child, u)
+    case u: MakeDecimal =>
+      new ColumnarMakeDecimal(child, u.precision, u.scale, u.nullOnOverflow, u)
     case n: BitwiseNot =>
       new ColumnarBitwiseNot(child, n)
     case a: KnownFloatingPointNormalized =>

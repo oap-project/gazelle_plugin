@@ -21,6 +21,7 @@ T round2(T val, int precision = 2) {
   free(buffer);
   return static_cast<T>(result);
 }
+
 arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
   int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)scale, val);
   char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
@@ -30,9 +31,26 @@ arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
   return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
 }
 
+arrow::Decimal128 castDECIMALNullOnOverflow(double val, int32_t precision,
+                                            int32_t scale) {
+  int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)scale, val);
+  char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
+  snprintf(buffer, charsNeeded, "%.*f", (int)scale, nextafter(val, val + 0.5));
+  auto decimal_str = std::string(buffer);
+  free(buffer);
+  return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
+}
+
+std::string castStringFromDecimal(arrow::Decimal128 val, int32_t scale) {
+  return val.ToString(scale);
+}
+
 double castFloatFromDecimal(arrow::Decimal128 val, int32_t scale) {
-  std::string str = val.ToString(scale);
-  return atof(str.c_str());
+  return val.ToDouble(scale);
+}
+
+int64_t castLongFromDecimal(arrow::Decimal128 val, int32_t scale) {
+  return static_cast<int64_t>(val.ToDouble(scale));
 }
 
 arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,

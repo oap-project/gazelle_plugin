@@ -349,7 +349,6 @@ case class ColumnarSortMergeJoinExec(
         ConverterUtils.checkIfTypeSupported(attr.dataType)
         if (attr.dataType.isInstanceOf[DecimalType])
           throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
-
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
@@ -359,6 +358,8 @@ case class ColumnarSortMergeJoinExec(
     for (attr <- right.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (attr.dataType.isInstanceOf[DecimalType])
+          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(

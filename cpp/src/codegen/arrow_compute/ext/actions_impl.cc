@@ -2660,7 +2660,9 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         cache_sum_[i] = 0;
       } else {
         cache_validity_[i] = true;
-        cache_sum_[i] = cache_sum_[i].Rescale(scale_, res_scale_).ValueOrDie();
+        if (res_scale_ > scale_) {
+          cache_sum_[i] = cache_sum_[i].Rescale(scale_, res_scale_).ValueOrDie();
+        }
         cache_sum_[i] /= cache_count_[i];
       }
     }
@@ -2689,8 +2691,10 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         cache_sum_[i + offset] = 0;
       } else {
         cache_validity_[i + offset] = true;
-        cache_sum_[i + offset] =
-            cache_sum_[i + offset].Rescale(scale_, res_scale_).ValueOrDie();
+        if (res_scale_ > scale_) {
+          cache_sum_[i + offset] =
+              cache_sum_[i + offset].Rescale(scale_, res_scale_).ValueOrDie();
+        }
         cache_sum_[i + offset] /= cache_count_[i + offset];
       }
     }

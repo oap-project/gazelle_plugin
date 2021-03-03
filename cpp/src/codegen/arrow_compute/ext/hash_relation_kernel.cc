@@ -25,8 +25,8 @@
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 
-#include <cmath>
 #include <chrono>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -76,6 +76,7 @@ class HashRelationKernel::Impl {
       builder_type_ = std::stoi(builder_type_str);
     }
     if (builder_type_ == 0) {
+      // builder_type_ == 0 will be abandoned in near future, won't support decimal here.
       if (key_nodes.size() == 1) {
         auto key_node = key_nodes[0];
         std::shared_ptr<TypedNodeVisitor> node_visitor;
@@ -215,7 +216,8 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::StringType)
+  PROCESS(arrow::StringType)             \
+  PROCESS(arrow::Decimal128Type)
         if (project_outputs.size() == 1) {
           switch (project_outputs[0]->type_id()) {
 #define PROCESS(InType)                                                       \

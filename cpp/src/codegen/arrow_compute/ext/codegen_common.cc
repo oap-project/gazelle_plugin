@@ -232,7 +232,7 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<bool>";
       else
         return template_name + "<" + prefix + "Boolean" + tail + ">";
-    case arrow::DecimalType::type_id:
+    case arrow::Decimal128Type::type_id:
       if (tail.empty())
         return template_name + "<arrow::Decimal128>";
       else

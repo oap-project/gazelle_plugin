@@ -434,7 +434,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
         std::dynamic_pointer_cast<gandiva::LiteralNode>(nan_func_node->children()[0]);
     NaN_check_ = arrow::util::get<bool>(NaN_lit_node->holder());
     // sixth child specifies whether to do codegen for mutiple-key sort
-    auto codegen_func_node = 
+    auto codegen_func_node =
         std::dynamic_pointer_cast<gandiva::FunctionNode>(children[5]);
     auto codegen_lit_node =
         std::dynamic_pointer_cast<gandiva::LiteralNode>(codegen_func_node->children()[0]);
@@ -1098,97 +1098,6 @@ class HashAggregateArraysImpl : public ExprVisitorImpl {
  private:
   std::shared_ptr<gandiva::Node> root_node_;
   std::vector<std::shared_ptr<arrow::Field>> field_list_;
-  std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
-};
-
-////////////////////////// CodegenProbeArraysVisitorImpl ///////////////////////
-class CodegenProbeArraysVisitorImpl : public ExprVisitorImpl {
- public:
-  CodegenProbeArraysVisitorImpl(
-      std::vector<std::shared_ptr<arrow::Field>> left_key_list,
-      std::vector<std::shared_ptr<arrow::Field>> right_key_list,
-      std::shared_ptr<gandiva::Node> func_node, int join_type,
-      std::vector<std::shared_ptr<arrow::Field>> left_field_list,
-      std::vector<std::shared_ptr<arrow::Field>> right_field_list,
-      std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p)
-      : left_key_list_(left_key_list),
-        right_key_list_(right_key_list),
-        join_type_(join_type),
-        func_node_(func_node),
-        left_field_list_(left_field_list),
-        right_field_list_(right_field_list),
-        ret_fields_(ret_fields),
-        ExprVisitorImpl(p) {}
-  static arrow::Status Make(std::vector<std::shared_ptr<arrow::Field>> left_key_list,
-                            std::vector<std::shared_ptr<arrow::Field>> right_key_list,
-                            std::shared_ptr<gandiva::Node> func_node, int join_type,
-                            std::vector<std::shared_ptr<arrow::Field>> left_field_list,
-                            std::vector<std::shared_ptr<arrow::Field>> right_field_list,
-                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-                            ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
-    auto impl = std::make_shared<CodegenProbeArraysVisitorImpl>(
-        left_key_list, right_key_list, func_node, join_type, left_field_list,
-        right_field_list, ret_fields, p);
-    *out = impl;
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Init() override {
-    if (initialized_) {
-      return arrow::Status::OK();
-    }
-    RETURN_NOT_OK(extra::ConditionedProbeArraysKernel::Make(
-        &p_->ctx_, left_key_list_, right_key_list_, func_node_, join_type_,
-        left_field_list_, right_field_list_, arrow::schema(ret_fields_), &kernel_));
-    p_->signature_ = kernel_->GetSignature();
-    initialized_ = true;
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Eval() override {
-    switch (p_->dependency_result_type_) {
-      case ArrowComputeResultType::None: {
-        ArrayList in;
-        for (int i = 0; i < p_->in_record_batch_->num_columns(); i++) {
-          in.push_back(p_->in_record_batch_->column(i));
-        }
-        TIME_MICRO_OR_RAISE(p_->elapse_time_, kernel_->Evaluate(in));
-        finish_return_type_ = ArrowComputeResultType::BatchIterator;
-      } break;
-      default:
-        return arrow::Status::NotImplemented(
-            "ConditionedProbeArraysVisitorImpl: Does not support this type of "
-            "input.");
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
-                                   std::shared_ptr<ResultIteratorBase>* out) override {
-    switch (finish_return_type_) {
-      case ArrowComputeResultType::BatchIterator: {
-        std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter_out;
-        TIME_MICRO_OR_RAISE(p_->elapse_time_,
-                            kernel_->MakeResultIterator(schema, &iter_out));
-        *out = std::dynamic_pointer_cast<ResultIteratorBase>(iter_out);
-        p_->return_type_ = ArrowComputeResultType::Batch;
-      } break;
-      default:
-        return arrow::Status::Invalid(
-            "ConditionedProbeArraysVisitorImpl MakeResultIterator does not support "
-            "dependency type other than Batch.");
-    }
-    return arrow::Status::OK();
-  }
-
- private:
-  int col_id_;
-  int join_type_;
-  std::shared_ptr<gandiva::Node> func_node_;
-  std::vector<std::shared_ptr<arrow::Field>> left_key_list_;
-  std::vector<std::shared_ptr<arrow::Field>> right_key_list_;
-  std::vector<std::shared_ptr<arrow::Field>> left_field_list_;
-  std::vector<std::shared_ptr<arrow::Field>> right_field_list_;
   std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
 };
 

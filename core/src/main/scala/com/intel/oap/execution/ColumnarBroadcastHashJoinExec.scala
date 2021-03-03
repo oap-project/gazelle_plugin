@@ -88,8 +88,8 @@ case class ColumnarBroadcastHashJoinExec(
     for (attr <- streamedPlan.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
-        if (attr.dataType.isInstanceOf[DecimalType])
-          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
+        //if (attr.dataType.isInstanceOf[DecimalType])
+        //  throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
@@ -99,8 +99,8 @@ case class ColumnarBroadcastHashJoinExec(
     for (attr <- buildPlan.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
-        if (attr.dataType.isInstanceOf[DecimalType])
-          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
+        //if (attr.dataType.isInstanceOf[DecimalType])
+        //  throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(

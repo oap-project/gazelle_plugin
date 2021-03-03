@@ -61,8 +61,6 @@ case class ColumnarExpandExec(
     for (attr <- originalInputAttributes) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
-        if (attr.dataType.isInstanceOf[DecimalType])
-          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
