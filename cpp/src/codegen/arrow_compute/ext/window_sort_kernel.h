@@ -308,7 +308,8 @@ class TypedSorterImpl : public CodeGenBase {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
     int64_t buf_size = items_total * sizeof(ArrayItemIndex);
-    RETURN_NOT_OK(arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf));
+    auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf = *std::move(maybe_buffer);
 
     // start to partition not_null with null
     ArrayItemIndex* indices_begin =
@@ -610,8 +611,6 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     int64_t buf_size = items_total * sizeof(ArrayItemIndex);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
-    //RETURN_NOT_OK(arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf));
-    // start to partition not_null with null
     ArrayItemIndex* indices_begin =
         reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
     ArrayItemIndex* indices_end = indices_begin + items_total;
