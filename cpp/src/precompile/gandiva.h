@@ -35,10 +35,13 @@ double castFloatFromDecimal(arrow::Decimal128 val, int32_t scale) {
   return atof(str.c_str());
 }
 
-arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_scale,
-                              int32_t new_precision, int32_t new_scale) {
-  double value = castFloatFromDecimal(in, original_scale);
-  return castDECIMAL(value, new_precision, new_scale);
+arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,
+                              int32_t original_scale, int32_t new_precision, 
+                              int32_t new_scale) {
+  bool overflow;
+  gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
+  auto out = gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
+  return arrow::Decimal128(out);
 }
 
 arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision, 

@@ -372,10 +372,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       // if not casting from Decimal
       fix_ss << ", " << decimal_type->precision() << ", " << decimal_type->scale();
     } else {
+      // if casting from Decimal
       auto childType =
           std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
-      fix_ss << ", " << childType->scale() << ", " << decimal_type->precision() << ", " 
-             << decimal_type->scale();
+      fix_ss << ", " << childType->precision() << ", " << childType->scale() << ", " 
+             << decimal_type->precision() << ", " << decimal_type->scale();
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
