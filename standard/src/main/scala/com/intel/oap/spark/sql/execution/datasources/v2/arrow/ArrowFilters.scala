@@ -105,13 +105,13 @@ object ArrowFilters {
       case EqualTo(attribute, value) =>
         createComparisonNode("equal", attribute, value)
       case GreaterThan(attribute, value) =>
-        createComparisonNode("greaterThan", attribute, value)
+        createComparisonNode("greater", attribute, value)
       case GreaterThanOrEqual(attribute, value) =>
-        createComparisonNode("greaterThanOrEqual", attribute, value)
+        createComparisonNode("greater_equal", attribute, value)
       case LessThan(attribute, value) =>
-        createComparisonNode("lessThan", attribute, value)
+        createComparisonNode("less", attribute, value)
       case LessThanOrEqual(attribute, value) =>
-        createComparisonNode("lessThanOrEqual", attribute, value)
+        createComparisonNode("less_equal", attribute, value)
       case Not(child) =>
         createNotNode(child)
       case And(left, right) =>

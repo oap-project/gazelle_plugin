@@ -27,6 +27,7 @@ class ArrowOptions(@transient private val parameters: CaseInsensitiveMap[String]
   val originalFormat = parameters
     .get(ArrowOptions.KEY_ORIGINAL_FORMAT)
     .getOrElse(ArrowOptions.DEFAULT_ORIGINAL_FORMAT)
+  @deprecated
   val filesystem = parameters
     .get(ArrowOptions.KEY_FILESYSTEM)
     .getOrElse(ArrowOptions.DEFAULT_FILESYSTEM)
@@ -35,6 +36,7 @@ class ArrowOptions(@transient private val parameters: CaseInsensitiveMap[String]
 object ArrowOptions {
   val KEY_ORIGINAL_FORMAT = "originalFormat"
   val DEFAULT_ORIGINAL_FORMAT = "parquet"
+  @deprecated
   val KEY_FILESYSTEM = "filesystem"
   val DEFAULT_FILESYSTEM = "hdfs"
 }

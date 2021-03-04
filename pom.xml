@@ -17,7 +17,7 @@
     <scala.version>2.12.10</scala.version>
     <scala.binary.version>2.12</scala.binary.version>
     <spark.version>3.0.0</spark.version>
-    <arrow.version>0.17.0</arrow.version>
+    <arrow.version>3.0.0</arrow.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -39,6 +39,11 @@
   </pluginRepositories>
 
   <dependencies>
+    <dependency>
+      <groupId>org.apache.arrow</groupId>
+      <artifactId>arrow-memory-netty</artifactId>
+      <version>${arrow.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-dataset</artifactId>

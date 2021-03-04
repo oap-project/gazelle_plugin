@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow._
 import org.apache.arrow.dataset.jni.NativeMemoryPool
-import org.apache.arrow.memory.{BaseAllocator, BufferAllocator}
+import org.apache.arrow.memory.BufferAllocator
 
 import org.apache.spark.TaskContext
 import org.apache.spark.memory.TaskMemoryManager
@@ -38,15 +38,15 @@ object SparkMemoryUtils {
     }
 
     val sharedMetrics = new NativeSQLMemoryMetrics()
+    val defaultAllocator: BufferAllocator = {
 
-    val defaultAllocator: BaseAllocator = {
       val globalAlloc = globalAllocator()
       val al = new SparkManagedAllocationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
         sharedMetrics)
       val parent = globalAlloc
       parent.newChildAllocator("Spark Managed Allocator - " +
-        UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BaseAllocator]
+        UUID.randomUUID().toString, al, 0, parent.getLimit)
     }
 
     val defaultMemoryPool: NativeMemoryPool = {
@@ -71,13 +71,13 @@ object SparkMemoryUtils {
       pool
     }
 
-    def createSpillableAllocator(spiller: Spiller): BaseAllocator = {
+    def createSpillableAllocator(spiller: Spiller): BufferAllocator = {
       val al = new SparkManagedAllocationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
         sharedMetrics)
       val parent = globalAllocator()
       val alloc = parent.newChildAllocator("Spark Managed Allocator - " +
-        UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BaseAllocator]
+        UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BufferAllocator]
       allocators.add(alloc)
       alloc
     }
@@ -180,7 +180,7 @@ object SparkMemoryUtils {
     }
   }
 
-  def globalAllocator(): BaseAllocator = {
+  def globalAllocator(): BufferAllocator = {
     org.apache.spark.sql.util.ArrowUtils.rootAllocator
   }
 
@@ -188,7 +188,7 @@ object SparkMemoryUtils {
     NativeMemoryPool.getDefault
   }
 
-  def createSpillableAllocator(spiller: Spiller): BaseAllocator = {
+  def createSpillableAllocator(spiller: Spiller): BufferAllocator = {
     if (!inSparkTask()) {
       throw new IllegalStateException("Spiller must be used in a Spark task")
     }
@@ -202,7 +202,7 @@ object SparkMemoryUtils {
     getTaskMemoryResources().createSpillableMemoryPool(spiller)
   }
 
-  def contextAllocator(): BaseAllocator = {
+  def contextAllocator(): BufferAllocator = {
     val globalAlloc = globalAllocator()
     if (!inSparkTask()) {
       return globalAlloc

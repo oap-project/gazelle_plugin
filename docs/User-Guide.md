@@ -19,7 +19,7 @@ Please make sure you have already installed the software in your system.
 4. maven 3.1.1 or higher version
 5. Hadoop 2.7.5 or higher version
 6. Spark 3.0.0 or higher version
-7. Intel Optimized Arrow 0.17.0
+7. Intel Optimized Arrow 3.0.0
 
 ### Building by Conda
 
