@@ -38,9 +38,12 @@ double castFloatFromDecimal(arrow::Decimal128 val, int32_t scale) {
 arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,
                               int32_t original_scale, int32_t new_precision, 
                               int32_t new_scale) {
-  bool overflow;
+  bool overflow = false;
   gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
   auto out = gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
+  if (overflow) {
+    throw std::overflow_error("castDECIMAL overflowed!");
+  }
   return arrow::Decimal128(out);
 }
 
@@ -50,9 +53,11 @@ arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
                          int32_t out_precision, int32_t out_scale) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
-  bool overflow;
-  int64_t context = 0;
+  bool overflow = false;
   arrow::BasicDecimal128 out =
-      gandiva::decimalops::Divide(context, x, y, out_precision, out_scale, &overflow);
+      gandiva::decimalops::Divide(0, x, y, out_precision, out_scale, &overflow);
+  if (overflow) {
+    throw std::overflow_error("Decimal divide overflowed!");
+  }
   return arrow::Decimal128(out);
 }

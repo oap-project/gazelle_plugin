@@ -16,4 +16,5 @@
 # under the License.
 
 set(THIRDPARTY_GANDIVA_SRCS
+    third_party/gandiva/decimal_ops.cc
     third_party/gandiva/time.cc PARENT_SCOPE)

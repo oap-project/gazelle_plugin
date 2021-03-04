@@ -53,10 +53,10 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   int32_t out_precision = 22;
   int32_t out_scale = 10;
   auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
-  std::cout << "castDECIMAL res is: " << res.ToString(out_scale) << std::endl;
+  ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
   res = divide(left, left_precision, left_scale, right, right_precision, right_scale, 
                out_precision, out_scale);
-  std::cout << "divide res is: " << res.ToString(out_scale) << std::endl;
+  ASSERT_EQ(res, arrow::Decimal128("13780.2495094037"));
 }
 
 }  // namespace codegen
