@@ -16,7 +16,7 @@
  */
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/pretty_print.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
@@ -25,6 +25,7 @@
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 
+#include <cmath>
 #include <chrono>
 #include <cstring>
 #include <fstream>
@@ -48,7 +49,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  WholeStageCodeGen  ////////////////
 class HashRelationKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
        std::shared_ptr<gandiva::Node> root_node,
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
@@ -258,7 +259,7 @@ class HashRelationKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::vector<std::shared_ptr<arrow::Field>> input_field_list_;
   std::vector<std::shared_ptr<arrow::Field>> output_field_list_;
@@ -298,7 +299,7 @@ class HashRelationKernel::Impl {
 };  // namespace extra
 
 arrow::Status HashRelationKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
@@ -309,7 +310,7 @@ arrow::Status HashRelationKernel::Make(
 }
 
 HashRelationKernel::HashRelationKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list) {

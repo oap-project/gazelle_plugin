@@ -31,23 +31,21 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/array.h"
-#include "arrow/buffer.h"
-#include "arrow/builder.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/buffer_builder.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/checked_cast.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/ubsan.h"
 
 #define XXH_INLINE_ALL
-#define XXH_PRIVATE_API
-#define XXH_NAMESPACE arrow_hashing_
 
-#include "third_party/arrow/vendored/xxhash/xxhash.h"
+#include "arrow/vendored/xxhash.h"  // IWYU pragma: keep
 
 namespace arrow {
 namespace internal {
@@ -692,7 +690,8 @@ class BinaryMemoTable : public MemoTable {
     DCHECK_LE(start, size());
 
     const builder_offset_type* offsets = binary_builder_.offsets_data();
-    const builder_offset_type delta = offsets[start];
+    const builder_offset_type delta =
+        start < binary_builder_.length() ? offsets[start] : 0;
     for (int32_t i = start; i < size(); ++i) {
       const builder_offset_type adjusted_offset = offsets[i] - delta;
       Offset cast_offset = static_cast<Offset>(adjusted_offset);
@@ -841,6 +840,11 @@ struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>
 template <typename T>
 struct HashTraits<T, enable_if_t<has_string_view<T>::value &&
                                  !std::is_base_of<LargeBinaryType, T>::value>> {
+  using MemoTableType = BinaryMemoTable<BinaryBuilder>;
+};
+
+template <typename T>
+struct HashTraits<T, enable_if_decimal<T>> {
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };
 

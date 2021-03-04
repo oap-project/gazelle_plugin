@@ -18,7 +18,7 @@
 #pragma once
 
 #include <arrow/buffer.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
@@ -36,7 +36,7 @@ using sparkcolumnarplugin::precompile::TypeTraits;
 class SortRelation {
  public:
   SortRelation(
-      arrow::compute::FunctionContext* ctx, uint64_t items_total,
+      arrow::compute::ExecContext* ctx, uint64_t items_total,
       const std::vector<int>& size_array,
       const std::vector<std::shared_ptr<RelationColumn>>& sort_relation_key_list,
       const std::vector<std::shared_ptr<RelationColumn>>& sort_relation_payload_list)
@@ -44,7 +44,8 @@ class SortRelation {
     sort_relation_key_list_ = sort_relation_key_list;
     sort_relation_payload_list_ = sort_relation_payload_list;
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
-    arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf_);
+    auto maybe_buffer =  arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf_ = *std::move(maybe_buffer);
     indices_begin_ = reinterpret_cast<ArrayItemIndexS*>(indices_buf_->mutable_data());
     uint64_t idx = 0;
     int array_id = 0;
@@ -116,7 +117,7 @@ class SortRelation {
   }
 
  protected:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Buffer> indices_buf_;
   ArrayItemIndexS* indices_begin_;
   const uint64_t items_total_;

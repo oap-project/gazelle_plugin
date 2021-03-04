@@ -43,7 +43,7 @@ import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.ArrowType
 
-import io.netty.buffer.ArrowBuf
+import org.apache.arrow.memory.ArrowBuf
 import scala.collection.JavaConverters._
 
 class ColumnarConditionProjector(

@@ -1,7 +1,7 @@
 #include "precompile/gandiva_projector.h"
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+
 #include <arrow/record_batch.h>
 #include <arrow/type_fwd.h>
 #include <gandiva/projector.h>
@@ -10,7 +10,7 @@
 
 class GandivaProjector::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx, gandiva::SchemaPtr input_schema,
+  Impl(arrow::compute::ExecContext* ctx, gandiva::SchemaPtr input_schema,
        gandiva::ExpressionVector exprs)
       : ctx_(ctx) {
     THROW_NOT_OK(Make(input_schema, exprs));
@@ -44,12 +44,12 @@ class GandivaProjector::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   gandiva::SchemaPtr schema_;
   std::shared_ptr<gandiva::Projector> projector_;
 };
 
-GandivaProjector::GandivaProjector(arrow::compute::FunctionContext* ctx,
+GandivaProjector::GandivaProjector(arrow::compute::ExecContext* ctx,
                                    gandiva::SchemaPtr input_schema,
                                    gandiva::ExpressionVector exprs) {
   impl_ = std::make_shared<Impl>(ctx, input_schema, exprs);

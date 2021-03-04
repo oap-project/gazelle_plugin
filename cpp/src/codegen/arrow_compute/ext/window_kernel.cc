@@ -31,7 +31,7 @@ class WindowAggregateFunctionKernel::ActionFactory {
   }
 
   static arrow::Status Make(std::string action_name,
-                            arrow::compute::FunctionContext *ctx,
+                            arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::shared_ptr<ActionFactory> *out) {
     std::shared_ptr<ActionBase> action;
@@ -54,7 +54,7 @@ class WindowAggregateFunctionKernel::ActionFactory {
   std::shared_ptr<ActionBase> action_;
 };
 
-arrow::Status WindowAggregateFunctionKernel::Make(arrow::compute::FunctionContext *ctx,
+arrow::Status WindowAggregateFunctionKernel::Make(arrow::compute::ExecContext *ctx,
                                                   std::string function_name,
                                                   std::vector<std::shared_ptr<arrow::DataType>> type_list,
                                                   std::shared_ptr<arrow::DataType> result_type,
@@ -74,7 +74,7 @@ arrow::Status WindowAggregateFunctionKernel::Make(arrow::compute::FunctionContex
   return arrow::Status::OK();
 }
 
-WindowAggregateFunctionKernel::WindowAggregateFunctionKernel(arrow::compute::FunctionContext *ctx,
+WindowAggregateFunctionKernel::WindowAggregateFunctionKernel(arrow::compute::ExecContext *ctx,
                                                              std::vector<std::shared_ptr<arrow::DataType>> type_list,
                                                              std::shared_ptr<arrow::DataType> result_type,
                                                              std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids,
@@ -182,7 +182,7 @@ arrow::Status WindowAggregateFunctionKernel::Finish0(ArrayList *out) {
   return arrow::Status::OK();
 }
 
-WindowRankKernel::WindowRankKernel(arrow::compute::FunctionContext *ctx,
+WindowRankKernel::WindowRankKernel(arrow::compute::ExecContext *ctx,
                                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                                    std::shared_ptr<WindowSortKernel::Impl> sorter,
                                    bool desc) {
@@ -192,7 +192,7 @@ WindowRankKernel::WindowRankKernel(arrow::compute::FunctionContext *ctx,
   desc_ = desc;
 }
 
-arrow::Status WindowRankKernel::Make(arrow::compute::FunctionContext *ctx,
+arrow::Status WindowRankKernel::Make(arrow::compute::ExecContext *ctx,
                                      std::string function_name,
                                      std::vector<std::shared_ptr<arrow::DataType>> type_list,
                                      std::shared_ptr<KernalBase> *out,

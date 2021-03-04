@@ -16,9 +16,7 @@
  */
 
 #include <arrow/array/concatenate.h>
-#include <arrow/compute/context.h>
-#include <arrow/compute/kernels/sort_to_indices.h>
-#include <arrow/compute/kernels/take.h>
+#include <arrow/compute/api.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -73,7 +71,7 @@ class AppenderBase {
 template <class DataType>
 class ArrayAppender : public AppenderBase {
  public:
-  ArrayAppender(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {
+  ArrayAppender(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(
         ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(), &array_builder);
@@ -113,14 +111,14 @@ class ArrayAppender : public AppenderBase {
   using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
   std::unique_ptr<BuilderType_> builder_;
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
 };
 
 ///////////////  SortArraysToIndices  ////////////////
 class WindowSortKernel::Impl {
  public:
   Impl() {}
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
        std::shared_ptr<arrow::Schema> result_schema, bool nulls_first, bool asc)
       : ctx_(ctx), nulls_first_(nulls_first), asc_(asc) {
@@ -191,7 +189,7 @@ class WindowSortKernel::Impl {
 
  protected:
   std::shared_ptr<CodeGenBase> sorter;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::string signature_;
   bool nulls_first_;
   bool asc_;
@@ -291,7 +289,7 @@ using namespace sparkcolumnarplugin::precompile;
 
 class TypedSorterImpl : public CodeGenBase {
  public:
-  TypedSorterImpl(arrow::compute::FunctionContext* ctx) : ctx_(ctx) {}
+  TypedSorterImpl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {}
 
   arrow::Status Evaluate(const ArrayList& in) override {
     num_batches_++;
@@ -310,7 +308,8 @@ class TypedSorterImpl : public CodeGenBase {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
     int64_t buf_size = items_total * sizeof(ArrayItemIndex);
-    RETURN_NOT_OK(arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf));
+    auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf = *std::move(maybe_buffer);
 
     // start to partition not_null with null
     ArrayItemIndex* indices_begin =
@@ -355,12 +354,12 @@ class TypedSorterImpl : public CodeGenBase {
  private:
   )" + cached_variables_define_str +
         R"(
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   uint64_t num_batches_ = 0;
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    SorterResultIterator(arrow::compute::FunctionContext* ctx,
+    SorterResultIterator(arrow::compute::ExecContext* ctx,
                        std::shared_ptr<FixedSizeBinaryArray> indices_in,
    )" + result_iter_param_define_str +
         R"(): ctx_(ctx), total_length_(indices_in->length()), indices_in_cache_(indices_in) {
@@ -404,11 +403,11 @@ class TypedSorterImpl : public CodeGenBase {
     ArrayItemIndex* indices_begin_;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
   };
 };
 
-extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
+extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<CodeGenBase>* out) {
   *out = std::make_shared<TypedSorterImpl>(ctx);
 }
@@ -568,7 +567,7 @@ extern "C" void MakeCodeGen(arrow::compute::FunctionContext* ctx,
 template <typename DATATYPE, typename CTYPE>
 class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
  public:
-  WindowSortOnekeyKernel(arrow::compute::FunctionContext* ctx,
+  WindowSortOnekeyKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                    std::shared_ptr<arrow::Schema> result_schema,
                    bool nulls_first, bool asc)
@@ -610,8 +609,8 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
     int64_t buf_size = items_total * sizeof(ArrayItemIndex);
-    RETURN_NOT_OK(arrow::AllocateBuffer(ctx_->memory_pool(), buf_size, &indices_buf));
-    // start to partition not_null with null
+    auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
+    indices_buf = *std::move(maybe_buffer);
     ArrayItemIndex* indices_begin =
         reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
     ArrayItemIndex* indices_end = indices_begin + items_total;
@@ -689,7 +688,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   //using ArrayType_key = arrow::UInt32Array;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
   std::vector<arrow::ArrayVector> cached_;
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   std::shared_ptr<arrow::Schema> result_schema_;
   bool nulls_first_;
   bool asc_;
@@ -711,7 +710,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   PROCESS(arrow::DoubleType)
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-    SorterResultIterator(arrow::compute::FunctionContext* ctx,
+    SorterResultIterator(arrow::compute::ExecContext* ctx,
                          std::shared_ptr<arrow::Schema> schema,
                          std::shared_ptr<arrow::Schema> result_schema,
                          std::shared_ptr<FixedSizeBinaryArray> indices_in,
@@ -795,7 +794,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> schema_;
     std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     uint64_t batch_size_;
     uint64_t col_num_;
     ArrayItemIndex* indices_begin_;
@@ -809,7 +808,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
 };
 
 arrow::Status WindowSortKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
     std::shared_ptr<arrow::Schema> result_schema, std::shared_ptr<KernalBase>* out,
     bool nulls_first, bool asc) {
@@ -829,7 +828,7 @@ arrow::Status WindowSortKernel::Make(
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)
 WindowSortKernel::WindowSortKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
     std::shared_ptr<arrow::Schema> result_schema, bool nulls_first, bool asc) {
   if (key_field_list.size() == 1) {

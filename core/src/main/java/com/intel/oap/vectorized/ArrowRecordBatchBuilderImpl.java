@@ -21,13 +21,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.NativeUnderlyingMemory;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 /** ArrowRecordBatchBuilderImpl used to wrap native returned data into an ArrowRecordBatch. */
@@ -62,11 +62,11 @@ public class ArrowRecordBatchBuilderImpl {
 
     List<ArrowBuf> buffers = new ArrayList<ArrowBuf>();
     for (ArrowBufBuilder tmp : recordBatchBuilder.bufferBuilders) {
-      BaseAllocator allocator = SparkMemoryUtils.contextAllocator();
+      BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
       NativeUnderlyingMemory am = new Underlying(allocator, tmp.size,
           tmp.nativeInstanceId, tmp.memoryAddress);
       BufferLedger ledger = am.associate(allocator);
-      buffers.add(new ArrowBuf(ledger, null, tmp.size, tmp.memoryAddress, false));
+      buffers.add(new ArrowBuf(ledger, null, tmp.size, tmp.memoryAddress));
     }
     try {
       return new ArrowRecordBatch(recordBatchBuilder.length, nodes, buffers);
@@ -78,7 +78,7 @@ public class ArrowRecordBatchBuilderImpl {
   private static class Underlying extends NativeUnderlyingMemory {
     private final long nativeInstanceId;
 
-    public Underlying(BaseAllocator accountingAllocator, int size,
+    public Underlying(BufferAllocator accountingAllocator, int size,
                       long nativeInstanceId, long address) {
       super(accountingAllocator, size, nativeInstanceId, address);
       this.nativeInstanceId = nativeInstanceId;

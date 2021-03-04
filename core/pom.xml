@@ -25,7 +25,7 @@
   <properties>
     <cpp.dir>../cpp/</cpp.dir>
     <cpp.build.dir>../cpp/build/releases/</cpp.build.dir>
-    <arrow.version>0.17.0</arrow.version>
+    <arrow.version>3.0.0</arrow.version>
     <spark.version>3.0.0</spark.version>
     <scala.binary.version>2.12</scala.binary.version>
     <scala.version>2.12.8</scala.version>
@@ -83,10 +83,16 @@
       <artifactId>spark-network-shuffle_${scala.binary.version}</artifactId>
       <version>${spark.version}</version>
       <scope>test</scope>
+   </dependency>
+    <dependency>
+       <groupId>org.apache.arrow</groupId>
+       <artifactId>arrow-memory-netty</artifactId>
+       <version>3.0.0</version>
+       <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>
-      <artifactId>arrow-memory</artifactId>
+      <artifactId>arrow-memory-core</artifactId>
       <version>${arrow.version}</version>
       <exclusions>
         <exclusion>

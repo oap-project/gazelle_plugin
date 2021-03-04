@@ -63,7 +63,7 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -151,7 +151,7 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastAsc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -239,7 +239,7 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsFirstDesc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -327,7 +327,7 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastDesc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -415,7 +415,7 @@ TEST(TestArrowComputeSort, SortTestInplaceAsc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -503,7 +503,7 @@ TEST(TestArrowComputeSort, SortTestInplaceDesc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -590,7 +590,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -684,7 +684,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -777,7 +777,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -870,7 +870,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -966,7 +966,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyBooleanDesc) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -1064,7 +1064,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1155,7 +1155,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -1246,7 +1246,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaN) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1, f2, f3};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -1387,7 +1387,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
   auto ret_schema = arrow::schema(ret_types);
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -1499,7 +1499,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegen) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1, f2, f3};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -1640,7 +1640,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegenWithProjection) {
   auto ret_schema = arrow::schema(ret_types);
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 
@@ -1752,7 +1752,7 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaNWithoutCodegen) {
   std::vector<std::shared_ptr<Field>> ret_types = {f0, f1, f2, f3};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
 

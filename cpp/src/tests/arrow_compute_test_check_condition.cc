@@ -16,7 +16,7 @@
  */
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/ipc/json_simple.h>
 #include <arrow/record_batch.h>
 #include <dlfcn.h>
@@ -760,7 +760,7 @@ return )" + func_node_visitor->GetResult() +
   std::vector<std::shared_ptr<arrow::Array>> projected_1;
   std::shared_ptr<Projector> projector;
   if (!project_node_list.empty()) {
-    arrow::compute::FunctionContext ctx;
+    arrow::compute::ExecContext ctx;
     auto configuration = ConfigurationBuilder().DefaultConfiguration();
     ASSERT_NOT_OK(
         Projector::Make(schema_table_0, project_node_list, configuration, &projector));
@@ -866,7 +866,7 @@ return )" + func_node_visitor->GetResult() +
   std::vector<std::shared_ptr<arrow::Array>> projected_1;
   std::shared_ptr<Projector> projector;
   if (!project_node_list.empty()) {
-    arrow::compute::FunctionContext ctx;
+    arrow::compute::ExecContext ctx;
     auto configuration = ConfigurationBuilder().DefaultConfiguration();
     ASSERT_NOT_OK(
         Projector::Make(schema_table_0, project_node_list, configuration, &projector));

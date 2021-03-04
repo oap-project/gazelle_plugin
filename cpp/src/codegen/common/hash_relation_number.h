@@ -30,7 +30,7 @@ class TypedHashRelation<DataType, enable_if_number<DataType>> : public HashRelat
  public:
   using T = typename TypeTraits<DataType>::CType;
   TypedHashRelation(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
       : HashRelation(hash_relation_column) {
     hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());

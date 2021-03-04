@@ -16,7 +16,7 @@
  */
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
 #include <arrow/status.h>
@@ -53,7 +53,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  ConditionedProbe  ////////////////
 class ConditionedProbeKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const gandiva::NodeVector& left_key_node_list,
        const gandiva::NodeVector& right_key_node_list,
        const gandiva::NodeVector& left_schema_node_list,
@@ -325,7 +325,7 @@ class ConditionedProbeKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::string signature_;
   int join_type_;
@@ -356,7 +356,7 @@ class ConditionedProbeKernel::Impl {
   class ConditionedProbeResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     ConditionedProbeResultIterator(
-        arrow::compute::FunctionContext* ctx, std::vector<int> right_key_index_list,
+        arrow::compute::ExecContext* ctx, std::vector<int> right_key_index_list,
         std::shared_ptr<arrow::DataType> key_type, int join_type,
         std::vector<gandiva::ExpressionVector> right_key_project_list,
         gandiva::FieldVector result_schema,
@@ -1419,7 +1419,7 @@ class ConditionedProbeKernel::Impl {
       std::vector<std::shared_ptr<AppenderBase>> appender_list_;
     };
 
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     int join_type_;
     std::vector<int> right_key_index_list_;
     // used for hash key to hashMap probe
@@ -1813,7 +1813,7 @@ class ConditionedProbeKernel::Impl {
 };  // namespace extra
 
 arrow::Status ConditionedProbeKernel::Make(
-    arrow::compute::FunctionContext* ctx, const gandiva::NodeVector& left_key_list,
+    arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_list,
     const gandiva::NodeVector& right_key_list,
     const gandiva::NodeVector& left_schema_list,
     const gandiva::NodeVector& right_schema_list, const gandiva::NodePtr& condition,
@@ -1827,7 +1827,7 @@ arrow::Status ConditionedProbeKernel::Make(
 }
 
 ConditionedProbeKernel::ConditionedProbeKernel(
-    arrow::compute::FunctionContext* ctx, const gandiva::NodeVector& left_key_list,
+    arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_list,
     const gandiva::NodeVector& right_key_list,
     const gandiva::NodeVector& left_schema_list,
     const gandiva::NodeVector& right_schema_list, const gandiva::NodePtr& condition,

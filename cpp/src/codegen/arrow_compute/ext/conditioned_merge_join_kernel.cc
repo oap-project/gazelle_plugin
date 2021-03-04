@@ -16,7 +16,7 @@
  */
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
 #include <arrow/status.h>
@@ -49,7 +49,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  ConditionedProbe  ////////////////
 class ConditionedMergeJoinKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const gandiva::NodeVector& left_key_node_list,
        const gandiva::NodeVector& right_key_node_list,
        const gandiva::NodeVector& left_schema_node_list,
@@ -275,7 +275,7 @@ class ConditionedMergeJoinKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::string signature_;
   int join_type_;
@@ -887,7 +887,7 @@ class ConditionedMergeJoinKernel::Impl {
 };
 
 arrow::Status ConditionedMergeJoinKernel::Make(
-    arrow::compute::FunctionContext* ctx, const gandiva::NodeVector& left_key_list,
+    arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_list,
     const gandiva::NodeVector& right_key_list,
     const gandiva::NodeVector& left_schema_list,
     const gandiva::NodeVector& right_schema_list, const gandiva::NodePtr& condition,
@@ -900,7 +900,7 @@ arrow::Status ConditionedMergeJoinKernel::Make(
 }
 
 ConditionedMergeJoinKernel::ConditionedMergeJoinKernel(
-    arrow::compute::FunctionContext* ctx, const gandiva::NodeVector& left_key_list,
+    arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_list,
     const gandiva::NodeVector& right_key_list,
     const gandiva::NodeVector& left_schema_list,
     const gandiva::NodeVector& right_schema_list, const gandiva::NodePtr& condition,

@@ -109,7 +109,7 @@ arrow::Status MakeRelationColumn(uint32_t data_type_id,
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)
 arrow::Status MakeHashRelation(
-    uint32_t key_type_id, arrow::compute::FunctionContext* ctx,
+    uint32_t key_type_id, arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
     std::shared_ptr<HashRelation>* out) {
   switch (key_type_id) {

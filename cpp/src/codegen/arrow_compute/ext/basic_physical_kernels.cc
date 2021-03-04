@@ -16,7 +16,7 @@
  */
 
 #include <arrow/array.h>
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/pretty_print.h>
 #include <arrow/status.h>
 #include <arrow/type.h>
@@ -47,7 +47,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  Project  ////////////////
 class ProjectKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const gandiva::NodeVector& input_field_node_list,
        const gandiva::NodeVector& project_list)
       : ctx_(ctx), project_list_(project_list) {
@@ -106,14 +106,14 @@ class ProjectKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::string signature_;
   gandiva::NodeVector project_list_;
   gandiva::FieldVector input_field_list_;
 };
 
-arrow::Status ProjectKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status ProjectKernel::Make(arrow::compute::ExecContext* ctx,
                                   const gandiva::NodeVector& input_field_node_list,
                                   const gandiva::NodeVector& project_list,
                                   std::shared_ptr<KernalBase>* out) {
@@ -121,7 +121,7 @@ arrow::Status ProjectKernel::Make(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-ProjectKernel::ProjectKernel(arrow::compute::FunctionContext* ctx,
+ProjectKernel::ProjectKernel(arrow::compute::ExecContext* ctx,
                              const gandiva::NodeVector& input_field_node_list,
                              const gandiva::NodeVector& project_list) {
   impl_.reset(new Impl(ctx, input_field_node_list, project_list));
@@ -147,7 +147,7 @@ arrow::Status ProjectKernel::DoCodeGen(
 ///////////////  Filter  ////////////////
 class FilterKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        const gandiva::NodeVector& input_field_node_list,
        const gandiva::NodePtr& condition)
       : ctx_(ctx), condition_(condition) {
@@ -206,14 +206,14 @@ class FilterKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::string signature_;
   gandiva::NodePtr condition_;
   gandiva::FieldVector input_field_list_;
 };
 
-arrow::Status FilterKernel::Make(arrow::compute::FunctionContext* ctx,
+arrow::Status FilterKernel::Make(arrow::compute::ExecContext* ctx,
                                  const gandiva::NodeVector& input_field_node_list,
                                  const gandiva::NodePtr& condition,
                                  std::shared_ptr<KernalBase>* out) {
@@ -221,7 +221,7 @@ arrow::Status FilterKernel::Make(arrow::compute::FunctionContext* ctx,
   return arrow::Status::OK();
 }
 
-FilterKernel::FilterKernel(arrow::compute::FunctionContext* ctx,
+FilterKernel::FilterKernel(arrow::compute::ExecContext* ctx,
                            const gandiva::NodeVector& input_field_node_list,
                            const gandiva::NodePtr& condition) {
   impl_.reset(new Impl(ctx, input_field_node_list, condition));

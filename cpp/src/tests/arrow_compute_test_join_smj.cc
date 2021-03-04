@@ -64,7 +64,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
@@ -170,7 +170,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
@@ -280,7 +280,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -382,7 +382,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -489,7 +489,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -596,7 +596,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
@@ -706,7 +706,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
 
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
       schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
@@ -816,7 +816,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -920,7 +920,7 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingExistenceJoin) {
       arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
-  arrow::compute::FunctionContext ctx;
+  arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
       schema_table_0, {probeArrays_expr},
       {table1_f0, field("table1_exists", boolean()), table1_f1}, &expr_probe, true));

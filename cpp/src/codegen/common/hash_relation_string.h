@@ -34,7 +34,7 @@ class TypedHashRelation<DataType, enable_if_string_like<DataType>> : public Hash
  public:
   using T = std::string;
   TypedHashRelation(
-      arrow::compute::FunctionContext* ctx,
+      arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
       : HashRelation(hash_relation_column) {
     hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());

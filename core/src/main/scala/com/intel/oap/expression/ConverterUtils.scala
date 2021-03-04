@@ -23,7 +23,8 @@ import java.nio.ByteBuffer
 import java.util.ArrayList
 
 import com.intel.oap.vectorized.ArrowWritableColumnVector
-import io.netty.buffer.{ArrowBuf, ByteBufAllocator, ByteBufOutputStream}
+import org.apache.arrow.memory.ArrowBuf
+import io.netty.buffer.{ByteBufAllocator, ByteBufOutputStream}
 import org.apache.arrow.flatbuf.MessageHeader
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression.ExpressionTree

@@ -26,7 +26,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 
 /** Loads compressed buffers into vectors. */
 public class CompressedVectorLoader extends VectorLoader {
@@ -49,6 +49,11 @@ public class CompressedVectorLoader extends VectorLoader {
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
     for (FieldVector fieldVector : root.getFieldVectors()) {
+      // When support Fastpfor algorithm, we can not use the existing decompress
+      // implementation in arrow 3.0 java side. Because we only use the Fastpfor to
+      // compress the int data type and the other data types still use the LZ4 algorithm in the record batch.
+      // So here we remove the codec parameter when call the loadBuffers() method in VectorLoader.
+      // And the decompress function is done in ShuffleDecompressionJniWrapper#decompress() method.
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes);
     }
     root.setRootRowCount(recordBatch.getLength());

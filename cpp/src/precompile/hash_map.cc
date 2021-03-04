@@ -1,6 +1,6 @@
 #include "precompile/hash_map.h"
 
-#include <arrow/compute/context.h>
+#include <arrow/compute/api.h>
 #include <arrow/status.h>
 
 #include <iostream>

@@ -19,7 +19,7 @@ package com.intel.oap.vectorized;
 
 import com.intel.oap.ColumnarPluginConfig;
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller;
-import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.ArrowBuf;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;

@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <arrow/compute/context.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -50,7 +49,7 @@ using precompile::StringHashMap;
 ///////////////  SortArraysToIndices  ////////////////
 class HashAggregateKernel::Impl {
  public:
-  Impl(arrow::compute::FunctionContext* ctx,
+  Impl(arrow::compute::ExecContext* ctx,
        std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
        std::vector<std::shared_ptr<gandiva::Node>> action_list,
        std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
@@ -486,7 +485,7 @@ class HashAggregateKernel::Impl {
   }
 
  private:
-  arrow::compute::FunctionContext* ctx_;
+  arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::string signature_;
 
@@ -552,7 +551,7 @@ class HashAggregateKernel::Impl {
     using T = typename arrow::TypeTraits<DataType>::CType;
     using ArrayType = typename arrow::TypeTraits<DataType>::ArrayType;
     HashAggregateResultIterator(
-        arrow::compute::FunctionContext* ctx, gandiva::SchemaPtr result_schema,
+        arrow::compute::ExecContext* ctx, gandiva::SchemaPtr result_schema,
         std::vector<int>& key_index_list,
         const std::vector<std::vector<int>>& action_prepare_index_list,
         std::shared_ptr<GandivaProjector> pre_process_projector,
@@ -682,7 +681,7 @@ class HashAggregateKernel::Impl {
     }
 
    private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     std::vector<std::shared_ptr<ActionBase>> action_impl_list_;
     std::shared_ptr<SparseHashMap<T>> aggr_hash_table_;
     const std::vector<int>& key_index_list_;
@@ -700,7 +699,7 @@ class HashAggregateKernel::Impl {
       : public ResultIterator<arrow::RecordBatch> {
    public:
     HashAggregateResultIterator(
-        arrow::compute::FunctionContext* ctx, gandiva::SchemaPtr result_schema,
+        arrow::compute::ExecContext* ctx, gandiva::SchemaPtr result_schema,
         const std::vector<int>& key_index_list,
         const std::vector<std::vector<int>>& action_prepare_index_list,
         std::shared_ptr<GandivaProjector> pre_process_projector,
@@ -839,7 +838,7 @@ class HashAggregateKernel::Impl {
     }
 
    private:
-    arrow::compute::FunctionContext* ctx_;
+    arrow::compute::ExecContext* ctx_;
     std::vector<std::shared_ptr<ActionBase>> action_impl_list_;
     std::shared_ptr<StringHashMap> aggr_hash_table_;
     const std::vector<int>& key_index_list_;
@@ -854,7 +853,7 @@ class HashAggregateKernel::Impl {
   };
 };
 arrow::Status HashAggregateKernel::Make(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
     std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
@@ -866,7 +865,7 @@ arrow::Status HashAggregateKernel::Make(
 }
 
 HashAggregateKernel::HashAggregateKernel(
-    arrow::compute::FunctionContext* ctx,
+    arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
     std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,

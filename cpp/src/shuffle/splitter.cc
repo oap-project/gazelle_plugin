@@ -197,7 +197,7 @@ class Splitter::PartitionWriter {
   arrow::Status WriteSchemaPayload(arrow::io::OutputStream* os) {
     ARROW_ASSIGN_OR_RAISE(auto payload, splitter_->GetSchemaPayload());
     int32_t metadata_length = 0;  // unused
-    RETURN_NOT_OK(arrow::ipc::internal::WriteIpcPayload(
+    RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
         *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
     return arrow::Status::OK();
   }
@@ -206,7 +206,7 @@ class Splitter::PartitionWriter {
                                         int32_t partition_id) {
     int32_t metadata_length = 0;  // unused
     for (auto& payload : splitter_->partition_cached_recordbatch_[partition_id_]) {
-      RETURN_NOT_OK(arrow::ipc::internal::WriteIpcPayload(
+      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
           *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
       payload = nullptr;
     }
@@ -326,14 +326,25 @@ arrow::Status Splitter::Init() {
   auto& ipc_write_options = options_.ipc_write_options;
   ipc_write_options.memory_pool = options_.memory_pool;
   ipc_write_options.use_threads = false;
-  ipc_write_options.compression = options_.compression_type;
+
+  if (options_.compression_type == arrow::Compression::FASTPFOR) {
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+    
+  } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+    arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
+  }
 
   return arrow::Status::OK();
 }
 
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
-  auto payload = std::make_shared<arrow::ipc::internal::IpcPayload>();
-  auto result = arrow::ipc::internal::GetRecordBatchPayload(
+  auto payload = std::make_shared<arrow::ipc::IpcPayload>();
+  auto result = arrow::ipc::GetRecordBatchPayload(
                            rb, options_.ipc_write_options, payload.get());
   if (result.ok()) {
     return payload.get()->body_length;
@@ -343,8 +354,19 @@ int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
   }
 }
 
-void Splitter::SetCompressType(arrow::Compression::type compressed_type) {
-  options_.ipc_write_options.compression = compressed_type;
+arrow::Status Splitter::SetCompressType(arrow::Compression::type compressed_type) {
+   if (compressed_type == arrow::Compression::FASTPFOR) {
+    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+    
+  } else if (compressed_type == arrow::Compression::LZ4_FRAME) {
+    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
+    arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
+    arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
+  }
+  return arrow::Status::OK();
 }
 
 arrow::Status Splitter::Split(const arrow::RecordBatch& rb) {
@@ -451,9 +473,9 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
       }
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
-    auto payload = std::make_shared<arrow::ipc::internal::IpcPayload>();
+    auto payload = std::make_shared<arrow::ipc::IpcPayload>();
     TIME_NANO_OR_RAISE(total_compress_time_,
-                       arrow::ipc::internal::GetRecordBatchPayload(
+                       arrow::ipc::GetRecordBatchPayload(
                            *batch, options_.ipc_write_options, payload.get()));
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
@@ -1048,15 +1070,15 @@ std::string Splitter::NextSpilledFileDir() {
   return spilled_file_dir;
 }
 
-arrow::Result<std::shared_ptr<arrow::ipc::internal::IpcPayload>>
+arrow::Result<std::shared_ptr<arrow::ipc::IpcPayload>>
 Splitter::GetSchemaPayload() {
   if (schema_payload_ != nullptr) {
     return schema_payload_;
   }
-  schema_payload_ = std::make_shared<arrow::ipc::internal::IpcPayload>();
-  arrow::ipc::DictionaryMemo dict_memo;  // unused
-  RETURN_NOT_OK(arrow::ipc::internal::GetSchemaPayload(
-      *schema_, options_.ipc_write_options, &dict_memo, schema_payload_.get()));
+  schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
+  arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
+  RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(
+      *schema_, options_.ipc_write_options, dict_file_mapper, schema_payload_.get()));
   return schema_payload_;
 }
 
