@@ -37,7 +37,7 @@ jobs:
         run: |
           sudo apt-get install libgtest-dev
           cd /usr/src/gtest
-          sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON
+          sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local
           sudo make
           sudo make install
           sudo apt-get install google-mock
