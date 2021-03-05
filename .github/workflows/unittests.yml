@@ -39,16 +39,14 @@ jobs:
           cd /usr/src/gtest
           sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local
           sudo make
-          sudo make install
           sudo apt-get install google-mock
-          ls -l /usr/local/lib/
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
           git clone https://github.com/oap-project/arrow.git
           cd arrow && git checkout arrow-3.0.0-oap && cd cpp
           mkdir build && cd build
-          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/local && make -j2
+          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
           sudo make install
       - name: Run unit tests
         run: |
