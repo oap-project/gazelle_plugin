@@ -1918,5 +1918,103 @@ TEST(TestArrowComputeSort, SortTestOneKeyDecimal) {
   }
 }
 
+TEST(TestArrowComputeSort, SortTestMulKeyDecimalCodegen) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", std::make_shared<arrow::Decimal128Type>(10, 4));
+  auto f1 = field("f1", std::make_shared<arrow::Decimal128Type>(16, 5));
+  auto f2 = field("f2", std::make_shared<arrow::Decimal128Type>(12, 3));
+  auto f3 = field("f3", std::make_shared<arrow::Decimal128Type>(14, 2));
+  auto arg_0 = TreeExprBuilder::MakeField(f0);
+  auto arg_1 = TreeExprBuilder::MakeField(f1);
+  auto arg_2 = TreeExprBuilder::MakeField(f2);
+  auto arg_3 = TreeExprBuilder::MakeField(f3);
+  auto true_literal = TreeExprBuilder::MakeLiteral(true);
+  auto false_literal = TreeExprBuilder::MakeLiteral(false);
+
+  auto f_res = field("res", uint32());
+
+  auto n_key_func = TreeExprBuilder::MakeFunction(
+      "key_function", {arg_0, arg_1}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction(
+      "key_field", {arg_0, arg_1}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction(
+      "sort_directions", {true_literal, false_literal}, uint32());
+  auto n_nulls_order = TreeExprBuilder::MakeFunction(
+      "sort_nulls_order", {false_literal, true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction(
+      "NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {true_literal}, uint32());
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndices", 
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort = TreeExprBuilder::MakeFunction(
+      "standalone", {n_sort_to_indices}, uint32());
+  auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
+
+  auto sch = arrow::schema({f0, f1, f2, f3});
+  std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<CodeGenerator> sort_expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), sch, {sortArrays_expr}, ret_types, &sort_expr, true));
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
+  std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
+  std::vector<std::string> input_data_string = {
+    R"(["132311.4456", "1311.4456", null, "311.4656", null, "811.4656", "532311.4446"])",
+    R"(["132361.44356", "1211.44256", "3311.44256", "3191.46156", "211.46536", "341.46526", "5311.44446"])",
+    R"(["1361.443", "12.442", "33.442", "39191.461", "2711.465", "3041.465", "11.444"])",
+    R"(["132361.44", "1211.44", "3311.44", "3191.46", "211.46", "341.46", "5311.44"])"};
+  MakeInputBatch(input_data_string, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+  std::vector<std::string> input_data_string_2 = {
+    R"(["832311.4456", "5511.4456", "324311.4456", "11.4656", "121.4656", "861.4656", "6311.4446"])",
+    R"(["661.44544", null, "8311.44123", "2.46545", "1.46654", "8341.46453", "11.44234"])",
+    R"(["8411.446", "5011.446", "324311.456", "191.456", "121.466", "8619.456", "69311.446"])",
+    R"(["820911.46", "551.45", "324311.46", "191.46", "121.46", "8961.46", "63171.44"])",
+    };
+  MakeInputBatch(input_data_string_2, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+//   std::vector<std::string> input_data_string_3 = {
+//     R"(["p", "q", "o", "e", null, null, "l"])",
+//     R"(["a", "c", "e", "f", "g","j", null])"};
+//   MakeInputBatch(input_data_string_3, sch, &input_batch);
+//   input_batch_list.push_back(input_batch);
+//   std::vector<std::string> input_data_string_4 = {
+//     R"(["q", "w", "z", "x", "y", null, "u"])",
+//     R"(["a", "c", "e", "f", "g","j", "h"])"};
+//   MakeInputBatch(input_data_string_4, sch, &input_batch);
+//   input_batch_list.push_back(input_batch);
+//   std::vector<std::string> input_data_string_5 = {
+//     R"(["a", "c", "b", "d", null, null, null])",
+//     R"(["a", null, "e", "f", "g","j", "h"])"};
+//   MakeInputBatch(input_data_string_5, sch, &input_batch);
+//   input_batch_list.push_back(input_batch);
+  ////////////////////////////////// calculation ///////////////////////////////////
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {
+    R"(["132311.4456", "1311.4456", "32311.4456", "311.4656", null, null, "532311.4446"])",
+    R"(["132361.44356", "1211.44256", "3311.44256", "3191.46156", null, null, "5311.44446"])",
+    R"(["132311.445", "1311.446", "32311.456", "311.656", null, null, "532311.446"])",
+    R"(["132361.44", "1211.46", "3311.44", "3191.46", null, null, "5311.46"])"};
+  MakeInputBatch(expected_result_string, sch, &expected_result);
+  for (auto batch : input_batch_list) {
+    ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
+  }
+  ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
+  auto sort_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          sort_result_iterator_base);
+  std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  if (sort_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
