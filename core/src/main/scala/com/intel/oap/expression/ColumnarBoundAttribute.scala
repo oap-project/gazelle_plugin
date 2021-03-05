@@ -42,8 +42,10 @@ class ColumnarBoundReference(ordinal: Int, dataType: DataType, nullable: Boolean
       ConverterUtils.checkIfTypeSupported(dataType)
     } catch {
       case e : UnsupportedOperationException =>
-        throw new UnsupportedOperationException(
-          s"${dataType} is not supported in ColumnarBoundReference.")
+        if (!dataType.isInstanceOf[DecimalType]) {
+          throw new UnsupportedOperationException(
+            s"${dataType} is not supported in ColumnarBoundReference.")
+        }
     }
   }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {

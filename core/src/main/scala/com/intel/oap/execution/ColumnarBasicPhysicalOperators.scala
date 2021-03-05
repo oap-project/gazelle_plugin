@@ -27,8 +27,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
+import org.apache.spark.sql.types.{DecimalType, StructType}
 import org.apache.spark.util.ExecutorManager
 import org.apache.spark.sql.util.StructTypeFWD
 import org.apache.spark.{SparkConf, TaskContext}
@@ -70,8 +70,10 @@ case class ColumnarConditionProjectExec(
         ConverterUtils.checkIfTypeSupported(attr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarConditionProjector.")
+          if (!attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in ColumnarConditionProjector.")
+          }
       }
     })
     // check expr
@@ -80,8 +82,10 @@ case class ColumnarConditionProjectExec(
         ConverterUtils.checkIfTypeSupported(condExpr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          throw new UnsupportedOperationException(
-            s"${condExpr.dataType} is not supported in ColumnarConditionProjector.")
+          if (!condExpr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${condExpr.dataType} is not supported in ColumnarConditionProjector.")
+          }
       }
       ColumnarExpressionConverter.replaceWithColumnarExpression(condExpr)
     }
@@ -91,8 +95,10 @@ case class ColumnarConditionProjectExec(
           ConverterUtils.checkIfTypeSupported(expr.dataType)
         } catch {
           case e : UnsupportedOperationException =>
-            throw new UnsupportedOperationException(
-              s"${expr.dataType} is not supported in ColumnarConditionProjector.")
+            if (!expr.dataType.isInstanceOf[DecimalType]) {
+              throw new UnsupportedOperationException(
+                s"${expr.dataType} is not supported in ColumnarConditionProjector.")
+            }
         }
         ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
       }

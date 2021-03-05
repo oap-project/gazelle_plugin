@@ -277,20 +277,33 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              func_name.compare("castDECIMAL") != 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
-    std::stringstream fix_ss;
-    if (node.return_type()->id() == arrow::Type::DOUBLE ||
-        node.return_type()->id() == arrow::Type::FLOAT) {
-      fix_ss << " * 1.0 ";
-    }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = static_cast<" << GetCTypeString(node.return_type())
-               << ">(" << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
-               << std::endl;
+    
+    auto childNode = node.children().at(0);
+    if (childNode->return_type()->id() != arrow::Type::DECIMAL) {
+      // if not casting form Decimal
+      std::stringstream fix_ss;
+      if (node.return_type()->id() == arrow::Type::DOUBLE ||
+          node.return_type()->id() == arrow::Type::FLOAT) {
+        fix_ss << " * 1.0 ";
+      }
+      prepare_ss << codes_str_ << " = static_cast<" << GetCTypeString(node.return_type())
+                << ">(" << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+                << std::endl;
+    } else {
+      // if casting From Decimal
+      auto decimal_type =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+      prepare_ss << codes_str_ << " = static_cast<" << GetCTypeString(node.return_type())
+                 << ">(castFloatFromDecimal(" << child_visitor_list[0]->GetResult() 
+                 << ", " << decimal_type->scale() << "));" << std::endl;
+      header_list_.push_back(R"(#include "precompile/gandiva.h")");
+    }
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
@@ -354,11 +367,16 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream fix_ss;
     auto decimal_type =
         std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
-    if (!child_visitor_list[0]->decimal_scale_.empty()) {
-      fix_ss << ", " << child_visitor_list[0]->decimal_scale_ << ", "
-             << decimal_type->scale();
-    } else {
+    auto childNode = node.children().at(0);
+    if (childNode->return_type()->id() != arrow::Type::DECIMAL) {
+      // if not casting from Decimal
       fix_ss << ", " << decimal_type->precision() << ", " << decimal_type->scale();
+    } else {
+      // if casting from Decimal
+      auto childType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+      fix_ss << ", " << childType->precision() << ", " << childType->scale() << ", " 
+             << decimal_type->precision() << ", " << decimal_type->scale();
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
@@ -382,11 +400,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream fix_ss;
     auto decimal_type =
         std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
-    if (!child_visitor_list[0]->decimal_scale_.empty()) {
-      fix_ss << ", 0, " << decimal_type->scale();
-    } else {
-      fix_ss << ", " << decimal_type->precision() << ", " << decimal_type->scale();
-    }
+    auto childNode = node.children().at(0);
+    auto childType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+    fix_ss << ", " << childType->scale() << ", " << decimal_type->precision() << ", " 
+           << decimal_type->scale();
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -466,6 +484,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("add") == 0) {
     codes_str_ = "add_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
+    std::stringstream fix_ss;
+    fix_ss << child_visitor_list[0]->GetResult() << " + "
+           << child_visitor_list[1]->GetResult();
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -474,8 +495,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " + "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -486,6 +506,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("subtract") == 0) {
     codes_str_ = "subtract_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
+    std::stringstream fix_ss;
+    fix_ss << child_visitor_list[0]->GetResult() << " - "
+           << child_visitor_list[1]->GetResult();
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -494,8 +517,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " - "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -506,6 +528,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("multiply") == 0) {
     codes_str_ = "multiply_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
+    std::stringstream fix_ss;
+    fix_ss << child_visitor_list[0]->GetResult() << " * "
+           << child_visitor_list[1]->GetResult();
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -514,8 +539,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " * "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -526,6 +550,25 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("divide") == 0) {
     codes_str_ = "divide_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
+    std::stringstream fix_ss;
+    if (node.return_type()->id() != arrow::Type::DECIMAL) {
+      fix_ss << child_visitor_list[0]->GetResult() << " / "
+             << child_visitor_list[1]->GetResult();
+    } else {
+      auto leftNode = node.children().at(0);
+      auto rightNode = node.children().at(1);
+      auto leftType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(leftNode->return_type());
+      auto rightType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(rightNode->return_type());
+      auto resType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+      fix_ss << "divide(" << child_visitor_list[0]->GetResult() << ", "
+             << leftType->precision() << ", " << leftType->scale() << ", " 
+             << child_visitor_list[1]->GetResult() << ", " 
+             << rightType->precision() << ", " << rightType->scale() << ", " 
+             << resType->precision() << ", " << resType->scale() << ")";
+    }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -534,8 +577,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " / "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {

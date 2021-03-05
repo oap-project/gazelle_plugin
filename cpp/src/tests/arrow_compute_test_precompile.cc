@@ -21,6 +21,7 @@
 
 #include "precompile/array.h"
 #include "tests/test_utils.h"
+#include "precompile/gandiva.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -41,5 +42,22 @@ TEST(TestArrowCompute, BooleanArrayTest) {
     }
   }
 }
+
+TEST(TestArrowCompute, ArithmeticDecimalTest) {
+  auto left = arrow::Decimal128("32342423.012875");
+  auto right = arrow::Decimal128("2347.012874535");
+  int32_t left_scale = 6;
+  int32_t right_scale = 9;
+  int32_t left_precision = 14;
+  int32_t right_precision = 13;
+  int32_t out_precision = 22;
+  int32_t out_scale = 10;
+  auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
+  ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
+  res = divide(left, left_precision, left_scale, right, right_precision, right_scale, 
+               out_precision, out_scale);
+  ASSERT_EQ(res, arrow::Decimal128("13780.2495094037"));
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin
