@@ -56,8 +56,8 @@ jobs:
       - name: Install Arrow datasource
         run: |
           cd /tmp
-          git clone https://github.com/zhztheplayer/arrow-data-source.git
-          cd arrow-data-source && git checkout arrow-3.0.0-rebase
+          git clone https://github.com/oap-project/arrow-data-source.git
+          cd arrow-data-source
           mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DskipTests
       - name: Run Maven tests
         run: |
