@@ -52,10 +52,8 @@ class ColumnarCaseWhen(
         ConverterUtils.checkIfTypeSupported(expr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          if (!expr.dataType.isInstanceOf[DecimalType]) {
-            throw new UnsupportedOperationException(
-              s"${dataType} is not supported in ColumnarCaseWhen")
-          }
+          throw new UnsupportedOperationException(
+            s"${dataType} is not supported in ColumnarCaseWhen")
       })
   }
 

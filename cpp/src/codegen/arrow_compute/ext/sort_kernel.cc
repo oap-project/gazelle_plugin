@@ -785,12 +785,26 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   // This function is used for non-float and non-double data without null value.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
-      typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
+      typename std::enable_if_t<!std::is_floating_point<TYPE>::value && 
+                                !std::is_same<TYPE, arrow::Decimal128>::value> {
     if (asc_) {
       ska_sort(indices_begin, indices_end);
     } else {
       auto desc_comp = [this](TYPE& x, TYPE& y) { return x > y; };
       std::sort(indices_begin, indices_end, desc_comp);
+    }
+  }
+
+    // This function is used for non-float and non-double data without null value.
+  template <typename TYPE>
+  auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
+      typename std::enable_if_t<std::is_same<TYPE, arrow::Decimal128>::value> {
+    if (asc_) {
+      auto comp = [this](TYPE& x, TYPE& y) { return x < y; };
+      std::sort(indices_begin, indices_end, comp);
+    } else {
+      auto comp = [this](TYPE& x, TYPE& y) { return x > y; };
+      std::sort(indices_begin, indices_end, comp);
     }
   }
 
@@ -867,7 +881,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   // We should do partition for null.
   template <typename TYPE, typename ArrayType>
   auto Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) ->
-      typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
+      typename std::enable_if_t<!std::is_floating_point<TYPE>::value && 
+                                !std::is_same<TYPE, arrow::Decimal128>::value> {
     std::iota(indices_begin, indices_end, 0);
     if (asc_) {
       if (nulls_first_) {
@@ -901,14 +916,55 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
   }
 
+  template <typename TYPE, typename ArrayType>
+  auto Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) ->
+      typename std::enable_if_t<std::is_same<TYPE, arrow::Decimal128>::value> {
+    std::iota(indices_begin, indices_end, 0);
+    if (asc_) {
+      auto comp = [&values](uint64_t left, uint64_t right) {
+        return values.GetView(left) < values.GetView(right);
+      };
+      if (nulls_first_) {
+        auto nulls_end = std::partition(indices_begin, indices_end, 
+            [&values](uint64_t ind) { return values.IsNull(ind); });
+        std::sort(nulls_end, indices_end, comp);
+      } else {
+        auto nulls_begin = std::partition(indices_begin, indices_end, 
+            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        std::sort(indices_begin, nulls_begin, comp);
+      }
+    } else {
+      auto comp = [&values](uint64_t left, uint64_t right) {
+        return values.GetView(left) > values.GetView(right);
+      };
+      if (nulls_first_) {
+        auto nulls_end = std::partition(indices_begin, indices_end,
+            [&values](uint64_t ind) { return values.IsNull(ind); });
+        std::sort(nulls_end, indices_end, comp);
+      } else {
+        auto nulls_begin = std::partition(indices_begin, indices_end,
+            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        std::sort(indices_begin, nulls_begin, comp);
+      }
+    }
+  }
+
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
     RETURN_NOT_OK(
         arrow::Concatenate(cached_0_, ctx_->memory_pool(), &concatenated_array_));
-    if (nulls_total_ > 0) {
+    if (nulls_total_ == 0) {
+      // Function SortNoNull is used.
+      CTYPE* indices_begin = concatenated_array_->data()->GetMutableValues<CTYPE>(1);
+      CTYPE* indices_end = indices_begin + concatenated_array_->length();
+
+      SortNoNull<CTYPE>(indices_begin, indices_end);
+      *out = std::make_shared<SorterResultIterator>(ctx_, schema, concatenated_array_,
+                                                    nulls_first_, asc_);
+    } else {
       // Function Sort is used.
-      auto typed_array = std::dynamic_pointer_cast<ArrayType_0>(concatenated_array_);
+      auto typed_array = std::make_shared<ArrayType_0>(concatenated_array_);
       std::shared_ptr<arrow::Array> indices_out;
 
       int64_t buf_size = typed_array->length() * sizeof(uint64_t);
@@ -923,24 +979,16 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       std::shared_ptr<arrow::Array> sort_out;
       arrow::compute::TakeOptions options;
       auto maybe_sort_out = arrow::compute::Take(*concatenated_array_.get(),
-                                         *indices_out.get(), options, ctx_);
+                                                 *indices_out.get(), options, ctx_);
       sort_out = *std::move(maybe_sort_out);
       *out = std::make_shared<SorterResultIterator>(ctx_, schema, sort_out, nulls_first_,
                                                     asc_);
-    } else {
-      // Function SortNoNull is used.
-      CTYPE* indices_begin = concatenated_array_->data()->GetMutableValues<CTYPE>(1);
-      CTYPE* indices_end = indices_begin + concatenated_array_->length();
-
-      SortNoNull<CTYPE>(indices_begin, indices_end);
-      *out = std::make_shared<SorterResultIterator>(ctx_, schema, concatenated_array_,
-                                                    nulls_first_, asc_);
     }
     return arrow::Status::OK();
   }
 
  private:
-  using ArrayType_0 = typename arrow::TypeTraits<DATATYPE>::ArrayType;
+  using ArrayType_0 = typename TypeTraits<DATATYPE>::ArrayType;
   arrow::ArrayVector cached_0_;
   std::shared_ptr<arrow::Array> concatenated_array_;
   arrow::compute::ExecContext* ctx_;
@@ -1131,10 +1179,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
    private:
     using ArrayType_0 = typename arrow::TypeTraits<DATATYPE>::ArrayType;
     using BuilderType_0 = typename arrow::TypeTraits<DATATYPE>::BuilderType;
-    std::shared_ptr<arrow::DataType> data_type_0 =
-        arrow::TypeTraits<DATATYPE>::type_singleton();
     std::shared_ptr<arrow::Array> result_arr_;
-
     uint64_t total_offset_ = 0;
     uint64_t valid_offset_ = 0;
     const uint64_t total_length_;
@@ -1731,19 +1776,24 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
 #ifdef DEBUG
     std::cout << "UseSortInplace" << std::endl;
 #endif
-    switch (key_field_list[0]->type()->id()) {
-#define PROCESS(InType)                                                               \
-  case InType::type_id: {                                                             \
-    using CType = typename arrow::TypeTraits<InType>::CType;                          \
-    impl_.reset(new SortInplaceKernel<InType, CType>(                                 \
-        ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check)); \
-  } break;
-      PROCESS_SUPPORTED_TYPES(PROCESS)
-#undef PROCESS
-      default: {
-        std::cout << "SortInplaceKernel type not supported, type is "
-                  << key_field_list[0]->type() << std::endl;
-      } break;
+    if (key_field_list[0]->type()->id() == arrow::Type::DECIMAL128) {
+      impl_.reset(new SortInplaceKernel<arrow::Decimal128Type, arrow::Decimal128>(
+          ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check));
+    } else {
+      switch (key_field_list[0]->type()->id()) {
+  #define PROCESS(InType)                                                               \
+    case InType::type_id: {                                                             \
+      using CType = typename arrow::TypeTraits<InType>::CType;                          \
+      impl_.reset(new SortInplaceKernel<InType, CType>(                                 \
+          ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check)); \
+    } break;
+        PROCESS_SUPPORTED_TYPES(PROCESS)
+  #undef PROCESS
+        default: {
+          std::cout << "SortInplaceKernel type not supported, type is "
+                    << key_field_list[0]->type() << std::endl;
+        } break;
+      }
     }
   } else if (key_field_list.size() == 1 && result_schema->num_fields() >= 1) {
     // Will use SortOnekey when:
@@ -1757,12 +1807,16 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
         impl_.reset(new SortOnekeyKernel<arrow::StringType>(
             ctx, result_schema, key_projector, key_field_list, sort_directions,
             nulls_order, NaN_check));
+      } else if (projected_types[0]->id() == arrow::Type::DECIMAL128) {
+        impl_.reset(new SortOnekeyKernel<arrow::Decimal128Type>(
+            ctx, result_schema, key_projector, key_field_list, sort_directions,
+            nulls_order, NaN_check));
       } else {
         switch (projected_types[0]->id()) {
 #define PROCESS(InType)                                                                \
   case InType::type_id: {                                                              \
     using CType = typename arrow::TypeTraits<InType>::CType;                           \
-    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector, \
+    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector,        \
                                                     key_field_list, sort_directions,   \
                                                     nulls_order, NaN_check));          \
   } break;
@@ -1789,9 +1843,9 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
 #define PROCESS(InType)                                                                \
   case InType::type_id: {                                                              \
     using CType = typename arrow::TypeTraits<InType>::CType;                           \
-    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector, \
-                                             key_field_list, sort_directions,   \
-                                             nulls_order, NaN_check));          \
+    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector,        \
+                                             key_field_list, sort_directions,          \
+                                             nulls_order, NaN_check));                 \
   } break;
           PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS

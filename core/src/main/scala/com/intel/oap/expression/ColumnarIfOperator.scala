@@ -43,13 +43,9 @@ class ColumnarIf(predicate: Expression, trueValue: Expression,
       ConverterUtils.checkIfTypeSupported(falseValue.dataType)
     } catch {
       case e : UnsupportedOperationException =>
-        if (!predicate.dataType.isInstanceOf[DecimalType] ||
-            !trueValue.dataType.isInstanceOf[DecimalType] ||
-            !falseValue.dataType.isInstanceOf[DecimalType]) {
-          throw new UnsupportedOperationException(
-            s"${predicate.dataType} or ${trueValue.dataType} or ${falseValue.dataType} " +
-            s"is not supported in ColumnarIf")
-        }
+        throw new UnsupportedOperationException(
+          s"${predicate.dataType} or ${trueValue.dataType} or ${falseValue.dataType} " +
+          s"is not supported in ColumnarIf")
     }
   }
 

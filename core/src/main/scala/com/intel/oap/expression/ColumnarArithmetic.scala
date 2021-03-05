@@ -273,11 +273,8 @@ object ColumnarBinaryArithmetic {
       ConverterUtils.checkIfTypeSupported(right.dataType)
     } catch {
       case e : UnsupportedOperationException =>
-        if (!left.dataType.isInstanceOf[DecimalType] ||
-            !right.dataType.isInstanceOf[DecimalType]) {
-          throw new UnsupportedOperationException(
-            s"${left.dataType} or ${right.dataType} is not supported in ColumnarBinaryArithmetic")
-        }
+        throw new UnsupportedOperationException(
+          s"${left.dataType} or ${right.dataType} is not supported in ColumnarBinaryArithmetic")
     }
   }
 }
