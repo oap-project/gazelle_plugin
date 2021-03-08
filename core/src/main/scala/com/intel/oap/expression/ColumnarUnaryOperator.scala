@@ -336,25 +336,26 @@ class ColumnarCast(
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castBYTE")
       }
     } else if (datatype == IntegerType) {
-      val supported = List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType)
-      if (supported.indexOf(child.dataType) == -1) {
+      val supported =
+        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType, DecimalType)
+      if (supported.indexOf(child.dataType) == -1 && !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castINT")
       }
     } else if (datatype == LongType) {
-      val supported = List(IntegerType, FloatType, DoubleType, DateType)
+      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castBIGINT")
       }
     } else if (datatype == FloatType) {
-      val supported = List(IntegerType, LongType, DoubleType)
-      if (supported.indexOf(child.dataType) == -1) {
+      val supported = List(IntegerType, LongType, DoubleType, DecimalType)
+      if (supported.indexOf(child.dataType) == -1 && !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castFLOAT4")
       }
     } else if (datatype == DoubleType) {
-      val supported = List(IntegerType, LongType, FloatType)
+      val supported = List(IntegerType, LongType, FloatType, DecimalType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
@@ -414,8 +415,16 @@ class ColumnarCast(
         TreeBuilder.makeFunction("castBYTE", Lists.newArrayList(child_node), resultType)
       (funcNode, resultType)
     } else if (dataType == IntegerType) {
-      val funcNode =
-        TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node), resultType)
+      val funcNode = child.dataType match {
+        case d: DecimalType =>
+          val long_node = TreeBuilder.makeFunction(
+            "castBIGINT",
+            Lists.newArrayList(child_node),
+            new ArrowType.Int(64, true))
+          TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), resultType)
+        case other =>
+          TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node), resultType)
+      }
       (funcNode, resultType)
     } else if (dataType == LongType) {
       val funcNode =
@@ -423,8 +432,16 @@ class ColumnarCast(
       (funcNode, resultType)
       //(child_node, childType)
     } else if (dataType == FloatType) {
-      val funcNode =
-        TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node), resultType)
+      val funcNode = child.dataType match {
+        case d: DecimalType =>
+          val double_node = TreeBuilder.makeFunction(
+            "castFLOAT8",
+            Lists.newArrayList(child_node),
+            new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))
+          TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(double_node), resultType)
+        case other =>
+          TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node), resultType)
+      }
       (funcNode, resultType)
     } else if (dataType == DoubleType) {
       val funcNode =

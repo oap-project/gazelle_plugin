@@ -226,6 +226,18 @@ object ConverterUtils extends Logging {
   def convertFromNetty(
       attributes: Seq[Attribute],
       data: Array[Array[Byte]]): Iterator[ColumnarBatch] = {
+    if (data.size == 0) {
+      return new Iterator[ColumnarBatch] {
+        override def hasNext: Boolean = false
+        override def next(): ColumnarBatch = {
+          val resultStructType = StructType(
+            attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+          return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+        }
+      }
+    }
     new Iterator[ColumnarBatch] {
       var array_id = 0
       val allocator = ArrowWritableColumnVector.getOffRecordAllocator
