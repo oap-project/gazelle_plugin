@@ -264,9 +264,7 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
   buildCheck()
 
   def buildCheck(): Unit = {
-    val supportedTypes = List(IntegerType, LongType, FloatType, DoubleType, StringType)
-    if (supportedTypes.indexOf(child.dataType) == -1 &&
-        !child.dataType.isInstanceOf[DecimalType]) {
+    if (!child.dataType.isInstanceOf[DecimalType]) {
       throw new UnsupportedOperationException(
         s"${child.dataType} is not supported in ColumnarCheckOverflow")
     }
