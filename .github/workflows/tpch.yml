@@ -35,6 +35,7 @@ jobs:
           version: latest
       - run: sudo swapoff -a
       - run: free
+      - run: sudo apt-get update
       - run: sudo apt-get install cmake
       - run: sudo apt-get install libboost-all-dev
       - name: Install OAP optimized Arrow
