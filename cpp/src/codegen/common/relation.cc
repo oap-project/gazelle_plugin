@@ -71,6 +71,7 @@ arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)         \
   PROCESS(arrow::StringType)
 arrow::Status MakeRelationColumn(uint32_t data_type_id,
                                  std::shared_ptr<RelationColumn>* out) {

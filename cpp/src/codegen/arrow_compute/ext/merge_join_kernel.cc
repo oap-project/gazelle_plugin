@@ -234,9 +234,16 @@ class ConditionedJoinArraysKernel::Impl {
     }
     std::string GetResultIteratorPrepare() {
       std::stringstream ss;
+      if (data_type_->id() == arrow::Type::DECIMAL) {
+        ss << "builder_" << indice_ << "_ = std::make_shared<"
+                 << GetTypeString(data_type_, "Builder")
+                 << ">(arrow::" << GetArrowTypeDefString(data_type_)
+                 << ", ctx_->memory_pool());" << std::endl;
+      } else {
       ss << "builder_" << indice_ << "_ = std::make_shared<"
          << GetTypeString(data_type_, "Builder") << ">(ctx_->memory_pool());"
          << std::endl;
+      }
       return ss.str();
     }
     std::string GetProcessFinish() {

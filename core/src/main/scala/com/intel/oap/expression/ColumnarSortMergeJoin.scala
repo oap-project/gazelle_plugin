@@ -671,9 +671,6 @@ object ColumnarSortMergeJoin extends Logging {
       conditionOption: Option[Expression]): TreeNode = {
     /////// Build side ///////
     val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
@@ -687,9 +684,6 @@ object ColumnarSortMergeJoin extends Logging {
     })
     /////// Streamed side ///////
     val streamedInputFieldList: List[Field] = streamedInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
