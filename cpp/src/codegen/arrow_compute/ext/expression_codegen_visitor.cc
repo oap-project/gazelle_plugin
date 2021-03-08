@@ -382,8 +382,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
-  } else if (func_name.compare("castDECIMAL") == 0 ||
-             func_name.compare("castDECIMALNullOnOverflow") == 0) {
+  } else if (func_name.compare("castDECIMAL") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
     std::stringstream fix_ss;
@@ -408,6 +407,36 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << codes_str_ << " = " << func_name << "("
                << child_visitor_list[0]->GetResult() << fix_ss.str() << ");" << std::endl;
+    prepare_ss << "}" << std::endl;
+
+    for (int i = 0; i < 1; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    prepare_str_ += prepare_ss.str();
+    check_str_ = validity;
+    header_list_.push_back(R"(#include "precompile/gandiva.h")");
+  } else if (func_name.compare("castDECIMALNullOnOverflow") == 0) {
+    codes_str_ = func_name + "_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
+    std::stringstream fix_ss;
+    auto decimal_type =
+        std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+    auto childNode = node.children().at(0);
+    auto childType =
+        std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+    fix_ss << ", " << childType->precision() << ", " << childType->scale() << ", "
+           << decimal_type->precision() << ", " << decimal_type->scale() << ", &overflow";
+    
+    std::stringstream prepare_ss;
+    prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+               << std::endl;
+    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "if (" << validity << ") {" << std::endl;
+    prepare_ss << "bool overflow = false;" << std::endl;
+    prepare_ss << codes_str_ << " = " << func_name << "("
+               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");" << std::endl;
+    prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {

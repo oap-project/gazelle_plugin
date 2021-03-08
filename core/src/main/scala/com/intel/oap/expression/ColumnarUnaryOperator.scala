@@ -283,8 +283,12 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
     val newDataType =
       DecimalType(dataType.precision, dataType.scale)
     val resType = CodeGeneration.getResultType(newDataType)
+    var function = "castDECIMAL"
+    if(nullOnOverflow) {
+      function = "castDECIMALNullOnOverflow"
+    }
     val funcNode =
-      TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node), resType)
+      TreeBuilder.makeFunction(function, Lists.newArrayList(child_node), resType)
     (funcNode, resType)
   }
 }

@@ -31,15 +31,15 @@ arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
   return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
 }
 
-arrow::Decimal128 castDECIMALNullOnOverflow(double val, int32_t precision,
-                                            int32_t scale) {
-  int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)scale, val);
-  char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
-  snprintf(buffer, charsNeeded, "%.*f", (int)scale, nextafter(val, val + 0.5));
-  auto decimal_str = std::string(buffer);
-  free(buffer);
-  return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
-}
+// arrow::Decimal128 castDECIMALNullOnOverflow(double val, int32_t precision,
+//                                             int32_t scale) {
+//   int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)scale, val);
+//   char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
+//   snprintf(buffer, charsNeeded, "%.*f", (int)scale, nextafter(val, val + 0.5));
+//   auto decimal_str = std::string(buffer);
+//   free(buffer);
+//   return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
+// }
 
 std::string castStringFromDecimal(arrow::Decimal128 val, int32_t scale) {
   return val.ToString(scale);
@@ -61,6 +61,21 @@ arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,
   auto out = gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
   if (overflow) {
     throw std::overflow_error("castDECIMAL overflowed!");
+  }
+  return arrow::Decimal128(out);
+}
+
+arrow::Decimal128 castDECIMALNullOnOverflow(arrow::Decimal128 in, 
+                                            int32_t original_precision,
+                                            int32_t original_scale, 
+                                            int32_t new_precision,
+                                            int32_t new_scale,
+                                            bool* overflow_) {
+  bool overflow = false;
+  gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
+  auto out = gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
+  if (overflow) {
+    *overflow_ = true;
   }
   return arrow::Decimal128(out);
 }
