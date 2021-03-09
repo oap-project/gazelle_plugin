@@ -160,11 +160,12 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.isSkewJoin)
         case plan: WindowExec =>
           if (!enableColumnarWindow) return false
-          new ColumnarWindowExec(
+          val window = ColumnarWindowExec.create(
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,
             plan.child)
+          window
         case p =>
           p
       }

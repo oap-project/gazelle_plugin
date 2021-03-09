@@ -134,10 +134,17 @@ class WindowAggregateFunctionKernel : public KernalBase {
                             std::shared_ptr<KernalBase>* out);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
-  template <typename ArrowType>
-  arrow::Status Finish0(ArrayList* out);
 
  private:
+  template<typename ValueType, typename BuilderType, typename ArrayType>
+  arrow::Status Finish0(ArrayList* out, std::shared_ptr<arrow::DataType> data_type);
+
+  template<typename ValueType, typename BuilderType>
+  typename arrow::enable_if_decimal128<ValueType, arrow::Result<std::shared_ptr<BuilderType>>> createBuilder(std::shared_ptr<arrow::DataType> data_type);
+
+  template<typename ValueType, typename BuilderType>
+  typename arrow::enable_if_number<ValueType, arrow::Result<std::shared_ptr<BuilderType>>> createBuilder(std::shared_ptr<arrow::DataType> data_type);
+
   arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ActionFactory> action_;
   std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids_;

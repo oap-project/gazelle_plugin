@@ -88,6 +88,34 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   test("window query") {
     runner.runTPCQuery("q67", 1, true)
   }
+
+  test("window function with non-decimal input") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, SUM(i_category_id)" +
+            " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window function with decimal input") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, SUM(i_current_price)" +
+        " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window function with decimal input 2") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, RANK()" +
+        " OVER (PARTITION BY i_class_id ORDER BY i_current_price) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window function with decimal input 3") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, AVG(i_current_price)" +
+        " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
 }
 
 object TPCDSSuite {

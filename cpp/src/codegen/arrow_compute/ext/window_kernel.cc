@@ -33,12 +33,13 @@ class WindowAggregateFunctionKernel::ActionFactory {
   static arrow::Status Make(std::string action_name,
                             arrow::compute::ExecContext *ctx,
                             std::shared_ptr<arrow::DataType> type,
+                            std::shared_ptr<arrow::DataType> return_type,
                             std::shared_ptr<ActionFactory> *out) {
     std::shared_ptr<ActionBase> action;
     if (action_name == "sum") {
-      RETURN_NOT_OK(MakeSumAction(ctx, type, {type}, &action));
+      RETURN_NOT_OK(MakeSumAction(ctx, type, {return_type}, &action));
     } else if (action_name == "avg") {
-      RETURN_NOT_OK(MakeAvgAction(ctx, type, {type}, &action));
+      RETURN_NOT_OK(MakeAvgAction(ctx, type, {return_type}, &action));
     } else {
       return arrow::Status::Invalid("window aggregate function: unsupported action name: " + action_name);
     }
@@ -65,7 +66,7 @@ arrow::Status WindowAggregateFunctionKernel::Make(arrow::compute::ExecContext *c
   std::shared_ptr<ActionFactory> action;
 
   if (function_name == "sum" || function_name == "avg") {
-    RETURN_NOT_OK(ActionFactory::Make(function_name, ctx, type_list[0], &action));
+    RETURN_NOT_OK(ActionFactory::Make(function_name, ctx, type_list[0], result_type, &action));
   } else {
     return arrow::Status::Invalid("window function not supported: " + function_name);
   }
@@ -127,45 +128,48 @@ arrow::Status WindowAggregateFunctionKernel::Evaluate(const ArrayList &in) {
   return arrow::Status::OK();
 }
 
-#define PROCESS_SUPPORTED_TYPES(PROCESS) \
-  PROCESS(arrow::UInt8Type)              \
-  PROCESS(arrow::Int8Type)               \
-  PROCESS(arrow::UInt16Type)             \
-  PROCESS(arrow::Int16Type)              \
-  PROCESS(arrow::UInt32Type)             \
-  PROCESS(arrow::Int32Type)              \
-  PROCESS(arrow::UInt64Type)             \
-  PROCESS(arrow::Int64Type)              \
-  PROCESS(arrow::FloatType)              \
-  PROCESS(arrow::DoubleType)
+#define PROCESS_SUPPORTED_TYPES_WINDOW(PROC) \
+  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)              \
+  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)                 \
+  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array)           \
+  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)              \
+  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array)           \
+  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)              \
+  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array)           \
+  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)              \
+  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)              \
+  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)           \
+  PROC(arrow::Decimal128Type, arrow::Decimal128Builder, arrow::Decimal128Array)
 
 arrow::Status WindowAggregateFunctionKernel::Finish(ArrayList *out) {
   std::shared_ptr<arrow::DataType> value_type = result_type_;
   switch (value_type->id()) {
-#define PROCESS(NUMERIC_TYPE)                                                      \
-  case NUMERIC_TYPE::type_id: {                                                    \
-    RETURN_NOT_OK(Finish0<NUMERIC_TYPE>(out));                                     \
+
+#define PROCESS(VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE)                                     \
+  case VALUE_TYPE::type_id: {                                                             \
+    RETURN_NOT_OK((Finish0<VALUE_TYPE, BUILDER_TYPE, ARRAY_TYPE>(out, value_type)));      \
   } break;
-    PROCESS_SUPPORTED_TYPES(PROCESS)
+
+    PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
 #undef PROCESS
-    default:return arrow::Status::Invalid("window function: unsupported input type");
+    default: return arrow::Status::Invalid("window function: unsupported input type: " + value_type->name());
   }
   return arrow::Status::OK();
 }
 
-template<typename ArrowType>
-arrow::Status WindowAggregateFunctionKernel::Finish0(ArrayList *out) {
+template<typename ValueType, typename BuilderType, typename ArrayType>
+arrow::Status WindowAggregateFunctionKernel::Finish0(ArrayList *out, std::shared_ptr<arrow::DataType> data_type) {
   ArrayList action_output;
   RETURN_NOT_OK(action_->Get()->Finish(&action_output));
   if (action_output.size() != 1) {
     return arrow::Status::Invalid("window function: got invalid result from corresponding action");
   }
 
-  auto action_output_values = std::dynamic_pointer_cast<arrow::NumericArray<ArrowType >>(action_output.at(0));
+  auto action_output_values = std::dynamic_pointer_cast<ArrayType>(action_output.at(0));
 
   for (const auto &accumulated_group_ids_single_part : accumulated_group_ids_) {
-    std::unique_ptr<arrow::NumericBuilder<ArrowType>> output_builder
-        = std::make_unique<arrow::NumericBuilder<ArrowType >>(ctx_->memory_pool());
+    std::shared_ptr<BuilderType> output_builder;
+    ARROW_ASSIGN_OR_RAISE(output_builder, (createBuilder<ValueType, BuilderType>(data_type)))
 
     for (int i = 0; i < accumulated_group_ids_single_part->length(); i++) {
       if (accumulated_group_ids_single_part->IsNull(i)) {
@@ -180,6 +184,18 @@ arrow::Status WindowAggregateFunctionKernel::Finish0(ArrayList *out) {
     (*out).push_back(out_array);
   }
   return arrow::Status::OK();
+}
+
+template<typename ValueType, typename BuilderType>
+typename arrow::enable_if_decimal128<ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
+    WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> data_type) {
+  return std::make_shared<BuilderType>(data_type, ctx_->memory_pool());
+}
+
+template<typename ValueType, typename BuilderType>
+typename arrow::enable_if_number<ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
+    WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> data_type) {
+  return std::make_shared<BuilderType>(ctx_->memory_pool());
 }
 
 WindowRankKernel::WindowRankKernel(arrow::compute::ExecContext *ctx,
@@ -215,15 +231,15 @@ arrow::Status WindowRankKernel::Make(arrow::compute::ExecContext *ctx,
                                                                      result_schema, nulls_first, asc));
     } else {
       switch (key_field->type()->id()) {
-#define PROCESS(InType)                                                       \
+#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                                                      \
   case InType::type_id: {                                                     \
-    using CType = typename arrow::TypeTraits<InType>::CType;                  \
+    using CType = typename TypeTraits<InType>::CType;                  \
     sorter.reset(new WindowSortOnekeyKernel<InType, CType>(ctx, key_fields, result_schema, nulls_first, asc));  \
   } break;
-        PROCESS_SUPPORTED_TYPES(PROCESS)
+        PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
 #undef PROCESS
         default: {
-          std::cout << "WindowSortOnekeyKernel type not supported, type is "
+          std::cout << "WindowRankKernel type not supported, type is "
                     << key_field->type() << std::endl;
         }
           break;
@@ -352,12 +368,11 @@ arrow::Status WindowRankKernel::Finish(ArrayList *out) {
         bool s;
         std::shared_ptr<arrow::DataType> type = type_list_.at(column_id);
         switch (type->id()) {
-#define PROCESS(InType)                                                       \
+#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                                                       \
   case InType::type_id: {                                                     \
-    using ArrayType = typename arrow::TypeTraits<InType>::ArrayType;                  \
-      RETURN_NOT_OK(AreTheSameValue<ArrayType>(values, column_id, index, last_index, &s));  \
+      RETURN_NOT_OK(AreTheSameValue<ARRAY_TYPE>(values, column_id, index, last_index, &s));  \
   } break;
-          PROCESS_SUPPORTED_TYPES(PROCESS)
+          PROCESS_SUPPORTED_TYPES_WINDOW(PROCESS)
 #undef PROCESS
           default: {
             std::cout << "WindowRankKernel: type not supported: "
@@ -457,6 +472,8 @@ arrow::Status WindowRankKernel::AreTheSameValue(const std::vector<ArrayList>& va
   *out = (typed_array_i->GetView(i->id) == typed_array_j->GetView(j->id));
   return arrow::Status::OK();
 }
+
+#undef PROCESS_SUPPORTED_TYPES_WINDOW
 
 }
 }

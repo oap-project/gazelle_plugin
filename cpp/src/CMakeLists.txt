@@ -116,6 +116,10 @@ add_dependencies(jni_proto protobuf::libprotobuf)
 set(PROTO_SRCS "${PROTO_OUTPUT_DIR}/Exprs.pb.cc")
 set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
 
+if(DEBUG)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -DDEBUG -DDEBUG_LEVEL_1 -DDEBUG_LEVEL_2")
+endif()
+
 if(USE_AVX512)
   # Only enable additional instruction sets if they are supported
   message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
@@ -165,10 +169,6 @@ endmacro()
   ENABLE_TESTING()
   add_custom_target(benchmark ${CMAKE_CTEST_COMMAND} -R BenchmarkArrowCompute --output-on-failure)
   add_subdirectory(benchmarks)
-endif()
-
-if(DEBUG)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0 -DDEBUG -DDEBUG_LEVEL_1 -DDEBUG_LEVEL_2")
 endif()
 
 find_library(ARROW_LIB arrow)
