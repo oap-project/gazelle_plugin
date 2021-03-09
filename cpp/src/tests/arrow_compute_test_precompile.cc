@@ -54,6 +54,15 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   int32_t out_scale = 10;
   auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
   ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
+  res = add(left, left_precision, left_scale, right, right_precision, right_scale,
+            17, 9);
+  ASSERT_EQ(res, arrow::Decimal128("32344770.025749535"));
+  res = subtract(left, left_precision, left_scale, right, right_precision, right_scale,
+                 17, 9);
+  ASSERT_EQ(res, arrow::Decimal128("32340076.000000465"));
+  res = multiply(left, left_precision, left_scale, right, right_precision, right_scale,
+                 28, 15);             
+  ASSERT_EQ(res, arrow::Decimal128("75908083204.874689064638125"));
   res = divide(left, left_precision, left_scale, right, right_precision, right_scale,
                out_precision, out_scale);
   ASSERT_EQ(res, arrow::Decimal128("13780.2495094037"));

@@ -53,10 +53,8 @@ class ColumnarCoalesce(exps: Seq[Expression], original: Expression)
         ConverterUtils.checkIfTypeSupported(expr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          if (!expr.dataType.isInstanceOf[DecimalType]) {
-            throw new UnsupportedOperationException(
-              s"${expr.dataType} is not supported in ColumnarCoalesce")
-          }
+          throw new UnsupportedOperationException(
+            s"${expr.dataType} is not supported in ColumnarCoalesce")
       }
     )
   }

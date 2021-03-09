@@ -70,10 +70,8 @@ case class ColumnarConditionProjectExec(
         ConverterUtils.checkIfTypeSupported(attr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          if (!attr.dataType.isInstanceOf[DecimalType]) {
-            throw new UnsupportedOperationException(
-              s"${attr.dataType} is not supported in ColumnarConditionProjector.")
-          }
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarConditionProjector.")
       }
     })
     // check expr
@@ -82,10 +80,8 @@ case class ColumnarConditionProjectExec(
         ConverterUtils.checkIfTypeSupported(condExpr.dataType)
       } catch {
         case e : UnsupportedOperationException =>
-          if (!condExpr.dataType.isInstanceOf[DecimalType]) {
-            throw new UnsupportedOperationException(
-              s"${condExpr.dataType} is not supported in ColumnarConditionProjector.")
-          }
+          throw new UnsupportedOperationException(
+            s"${condExpr.dataType} is not supported in ColumnarConditionProjector.")
       }
       ColumnarExpressionConverter.replaceWithColumnarExpression(condExpr)
     }
@@ -95,10 +91,8 @@ case class ColumnarConditionProjectExec(
           ConverterUtils.checkIfTypeSupported(expr.dataType)
         } catch {
           case e : UnsupportedOperationException =>
-            if (!expr.dataType.isInstanceOf[DecimalType]) {
-              throw new UnsupportedOperationException(
-                s"${expr.dataType} is not supported in ColumnarConditionProjector.")
-            }
+            throw new UnsupportedOperationException(
+              s"${expr.dataType} is not supported in ColumnarConditionProjector.")
         }
         ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
       }

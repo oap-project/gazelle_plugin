@@ -264,9 +264,7 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
   buildCheck()
 
   def buildCheck(): Unit = {
-    val supportedTypes = List(IntegerType, LongType, FloatType, DoubleType, StringType)
-    if (supportedTypes.indexOf(child.dataType) == -1 &&
-        !child.dataType.isInstanceOf[DecimalType]) {
+    if (!child.dataType.isInstanceOf[DecimalType]) {
       throw new UnsupportedOperationException(
         s"${child.dataType} is not supported in ColumnarCheckOverflow")
     }
@@ -283,8 +281,12 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
     val newDataType =
       DecimalType(dataType.precision, dataType.scale)
     val resType = CodeGeneration.getResultType(newDataType)
+    var function = "castDECIMAL"
+    if(nullOnOverflow) {
+      function = "castDECIMALNullOnOverflow"
+    }
     val funcNode =
-      TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node), resType)
+      TreeBuilder.makeFunction(function, Lists.newArrayList(child_node), resType)
     (funcNode, resType)
   }
 }
