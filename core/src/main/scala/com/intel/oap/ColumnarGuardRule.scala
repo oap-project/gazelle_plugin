@@ -60,14 +60,16 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           new ColumnarBatchScanExec(plan.output, plan.scan)
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
-            logWarning(s"FileSourceScanExec ${plan.nodeName} supports columnar, " +
-              s"may causing columnar conversion exception")
+            logWarning(
+              s"FileSourceScanExec ${plan.nodeName} supports columnar, " +
+                s"may causing columnar conversion exception")
           }
           plan
         case plan: InMemoryTableScanExec =>
           if (plan.supportsColumnar) {
-            logWarning(s"InMemoryTableScanExec ${plan.nodeName} supports columnar, " +
-              s"may causing columnar conversion exception")
+            logWarning(
+              s"InMemoryTableScanExec ${plan.nodeName} supports columnar, " +
+                s"may causing columnar conversion exception")
           }
           plan
         case plan: ProjectExec =>
@@ -168,7 +170,19 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
       }
     } catch {
       case e: UnsupportedOperationException =>
-        System.out.println(s"Fall back to use row-based operators, error is ${e.getMessage}")
+        plan match {
+          case plan: HashAggregateExec =>
+            val queryInfo =
+              s"HashAggr groupingExpressions is ${plan.groupingExpressions.toList.map(g =>
+                (g.dataType, g))}\naggregateExpressions is ${plan.aggregateExpressions.toList
+                .map(a => (a.dataType, a))}\nresultExpressions is ${plan.resultExpressions.toList
+                .map(e => (e.dataType, e))}"
+            System.out.println(queryInfo)
+          case other => {}
+        }
+        System.out.println(
+          s"Fall back to use row-based operators, error is ${e.getMessage}, original sparkplan is ${plan.getClass}(${plan.children.toList
+            .map(_.getClass)})")
         return false
     }
     return true

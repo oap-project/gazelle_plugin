@@ -68,7 +68,11 @@ class HashAggregateKernel::Impl {
       auto func_name = func_node->descriptor()->name();
       std::shared_ptr<arrow::DataType> type;
       if (func_node->children().size() > 0) {
-        type = func_node->children()[0]->return_type();
+        if (func_name == "action_stddev_samp_final") {
+          type = func_node->children()[1]->return_type();
+        } else {
+          type = func_node->children()[0]->return_type();
+        }
       } else {
         type = func_node->return_type();
       }
@@ -108,6 +112,10 @@ class HashAggregateKernel::Impl {
       }
     }
 
+    for (auto node : result_field_node_list) {
+      result_field_list_.push_back(
+          std::dynamic_pointer_cast<gandiva::FieldNode>(node)->field());
+    }
     if (result_field_node_list.size() == result_expr_node_list.size()) {
       auto tmp_size = result_field_node_list.size();
       bool no_result_project = true;
@@ -119,10 +127,6 @@ class HashAggregateKernel::Impl {
         }
       }
       if (no_result_project) return;
-    }
-    for (auto node : result_field_node_list) {
-      result_field_list_.push_back(
-          std::dynamic_pointer_cast<gandiva::FieldNode>(node)->field());
     }
     result_expr_list_ = result_expr_node_list;
   }
@@ -140,7 +144,11 @@ class HashAggregateKernel::Impl {
 
     // 2. action_impl_list
     std::vector<std::shared_ptr<ActionBase>> action_impl_list;
-    RETURN_NOT_OK(PrepareActionList(action_name_list_, &action_impl_list));
+    gandiva::DataTypeVector res_type_list;
+    for (auto field : result_field_list_) {
+      res_type_list.push_back(field->type());
+    }
+    RETURN_NOT_OK(PrepareActionList(action_name_list_, res_type_list, &action_impl_list));
 
     // 3. create post project
     std::shared_ptr<GandivaProjector> post_process_projector;
@@ -174,7 +182,8 @@ class HashAggregateKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)
       switch (type->id()) {
 #define PROCESS(InType)                                                   \
   case TypeTraits<InType>::type_id: {                                     \
@@ -186,7 +195,7 @@ class HashAggregateKernel::Impl {
 #undef PROCESS
         default: {
           return arrow::Status::NotImplemented(
-              "HashAggregateResultIterator doesn't suppoty type ", type->ToString());
+              "HashAggregateResultIterator doesn't support type ", type->ToString());
         } break;
       }
 #undef PROCESS_SUPPORTED_TYPES
@@ -230,10 +239,19 @@ class HashAggregateKernel::Impl {
         project_output_list;
 
     // 1. Get action list and action_prepare_project_list
+    if (key_node_list.size() > 0 &&
+        key_node_list[0]->return_type()->id() == arrow::Type::DECIMAL128) {
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
+      aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
+                      << GetTypeString(key_node_list[0]->return_type(), "")
+                      << "HashMap>(ctx_->memory_pool());" << std::endl;
+      define_ss << "std::shared_ptr<"
+                << GetTypeString(key_node_list[0]->return_type(), "")
+                << "HashMap> aggr_hash_table_" << level << ";" << std::endl;
 
-    if (key_node_list.size() > 1 ||
-        (key_node_list.size() > 0 &&
-         key_node_list[0]->return_type()->id() == arrow::Type::STRING)) {
+    } else if (key_node_list.size() > 1 ||
+               (key_node_list.size() > 0 &&
+                key_node_list[0]->return_type()->id() == arrow::Type::STRING)) {
       codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(arrow::utf8(), "")
@@ -328,6 +346,10 @@ class HashAggregateKernel::Impl {
                                      GetArrowTypeDefString(action_pair.second));
     }
 
+    std::vector<std::string> res_type_str_list;
+    for (auto field : result_field_list_) {
+      res_type_str_list.push_back("arrow::" + GetArrowTypeDefString(field->type()));
+    }
     define_ss << "std::vector<std::shared_ptr<ActionBase>> aggr_action_list_" << level
               << ";" << std::endl;
     define_ss << "bool do_hash_aggr_finish_" << level << " = false;" << std::endl;
@@ -337,9 +359,11 @@ class HashAggregateKernel::Impl {
                     << GetParameterList(action_name_str_list, false) << "};" << std::endl;
     aggr_prepare_ss << "auto action_type_list_" << level << " = {"
                     << GetParameterList(action_type_str_list, false) << "};" << std::endl;
+    aggr_prepare_ss << "auto res_type_list_" << level << " = {"
+                    << GetParameterList(res_type_str_list, false) << "};" << std::endl;
     aggr_prepare_ss << "PrepareActionList(action_name_list_" << level
-                    << ", action_type_list_" << level << ", &aggr_action_list_" << level
-                    << ");" << std::endl;
+                    << ", action_type_list_" << level << ", res_type_list_" << level
+                    << ", &aggr_action_list_" << level << ");" << std::endl;
     std::stringstream action_codes_ss;
     int action_idx = 0;
     for (auto idx_v : action_prepare_index_list) {
@@ -388,39 +412,65 @@ class HashAggregateKernel::Impl {
     action_list_define_function_ss
         << "arrow::Status PrepareActionList(std::vector<std::string> action_name_list, "
            "std::vector<std::shared_ptr<arrow::DataType>> type_list,"
+           "std::vector<std::shared_ptr<arrow::DataType>> result_field_list,"
            "std::vector<std::shared_ptr<ActionBase>> *action_list) {"
         << std::endl;
     action_list_define_function_ss << R"(
     int type_id = 0;
+    int result_id = 0;
     for (int action_id = 0; action_id < action_name_list.size(); action_id++) {
       std::shared_ptr<ActionBase> action;
       if (action_name_list[action_id].compare("action_groupby") == 0) {
-        RETURN_NOT_OK(MakeUniqueAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeUniqueAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_count") == 0) {
-        RETURN_NOT_OK(MakeCountAction(ctx_, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeCountAction(ctx_, res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_sum") == 0) {
-        RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_avg") == 0) {
-        RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_min") == 0) {
-        RETURN_NOT_OK(MakeMinAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeMinAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_max") == 0) {
-        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_sum_count") == 0) {
-        RETURN_NOT_OK(MakeSumCountAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
+        result_id += 2;
+        RETURN_NOT_OK(MakeSumCountAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_sum_count_merge") == 0) {
-        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
+        result_id += 2;
+        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_avgByCount") == 0) {
-        RETURN_NOT_OK(MakeAvgByCountAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeAvgByCountAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare(0, 20, "action_countLiteral_") ==
                  0) {
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
         int arg = std::stoi(action_name_list[action_id].substr(20));
-        RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, &action));
+        RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_stddev_samp_partial") ==
                  0) {
-        RETURN_NOT_OK(MakeStddevSampPartialAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1], result_field_list[result_id + 2]};
+        result_id += 3;
+        RETURN_NOT_OK(MakeStddevSampPartialAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_stddev_samp_final") == 0) {
-        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, type_list[type_id], &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, type_list[type_id], res_type_list, &action));
       } else {
         return arrow::Status::NotImplemented(action_name_list[action_id],
                                              " is not implementetd.");
@@ -503,36 +553,71 @@ class HashAggregateKernel::Impl {
 
   arrow::Status PrepareActionList(
       std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
+      std::vector<gandiva::DataTypePtr> result_field_list,
       std::vector<std::shared_ptr<ActionBase>>* action_list) {
+    int result_id = 0;
     for (int action_id = 0; action_id < action_name_list.size(); action_id++) {
       std::shared_ptr<ActionBase> action;
       auto action_name = action_name_list[action_id].first;
       auto action_input_type = action_name_list[action_id].second;
       if (action_name.compare("action_groupby") == 0) {
-        RETURN_NOT_OK(MakeUniqueAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeUniqueAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_count") == 0) {
-        RETURN_NOT_OK(MakeCountAction(ctx_, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeCountAction(ctx_, res_type_list, &action));
       } else if (action_name.compare("action_sum") == 0) {
-        RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avg") == 0) {
-        RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_min") == 0) {
-        RETURN_NOT_OK(MakeMinAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeMinAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_max") == 0) {
-        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_sum_count") == 0) {
-        RETURN_NOT_OK(MakeSumCountAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id],
+                              result_field_list[result_id + 1]};
+        result_id += 2;
+        RETURN_NOT_OK(
+            MakeSumCountAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_sum_count_merge") == 0) {
-        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id],
+                              result_field_list[result_id + 1]};
+        result_id += 2;
+        RETURN_NOT_OK(
+            MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avgByCount") == 0) {
-        RETURN_NOT_OK(MakeAvgByCountAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(
+            MakeAvgByCountAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare(0, 20, "action_countLiteral_") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
         int arg = std::stoi(action_name.substr(20));
-        RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, &action));
+        RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, res_type_list, &action));
       } else if (action_name.compare("action_stddev_samp_partial") == 0) {
-        RETURN_NOT_OK(MakeStddevSampPartialAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id],
+                              result_field_list[result_id + 1],
+                              result_field_list[result_id + 2]};
+        result_id += 3;
+        RETURN_NOT_OK(
+            MakeStddevSampPartialAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_stddev_samp_final") == 0) {
-        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, &action));
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(
+            MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list, &action));
       } else {
         return arrow::Status::NotImplemented(action_name, " is not implementetd.");
       }
@@ -846,6 +931,157 @@ class HashAggregateKernel::Impl {
     std::shared_ptr<GandivaProjector> pre_process_projector_;
     std::shared_ptr<GandivaProjector> post_process_projector_;
     std::shared_ptr<UnsafeRow> aggr_key_unsafe_row;
+    std::shared_ptr<arrow::Schema> result_schema_;
+    int max_group_id_ = -1;
+    int offset_ = 0;
+    int total_out_length_ = 0;
+  };
+
+  template <typename DataType>
+  class HashAggregateResultIterator<DataType, precompile::enable_if_decimal<DataType>>
+      : public ResultIterator<arrow::RecordBatch> {
+   public:
+    using T = arrow::Decimal128;
+    using ArrayType = precompile::Decimal128Array;
+    HashAggregateResultIterator(
+        arrow::compute::ExecContext* ctx, gandiva::SchemaPtr result_schema,
+        std::vector<int>& key_index_list,
+        const std::vector<std::vector<int>>& action_prepare_index_list,
+        std::shared_ptr<GandivaProjector> pre_process_projector,
+        std::shared_ptr<GandivaProjector> post_process_projector,
+        std::vector<std::shared_ptr<ActionBase>> action_impl_list)
+        : ctx_(ctx),
+          result_schema_(result_schema),
+          key_index_list_(key_index_list),
+          action_prepare_index_list_(action_prepare_index_list),
+          pre_process_projector_(pre_process_projector),
+          post_process_projector_(post_process_projector),
+          action_impl_list_(action_impl_list) {
+      aggr_hash_table_ =
+          std::make_shared<precompile::Decimal128HashMap>(ctx->memory_pool());
+    }
+
+    arrow::Status ProcessAndCacheOne(
+        const std::vector<std::shared_ptr<arrow::Array>>& orig_in,
+        const std::shared_ptr<arrow::Array>& selection = nullptr) override {
+      if (orig_in.size() == 0 || orig_in[0]->length() == 0) return arrow::Status::OK();
+      // 1. do pre process and prepare action_func
+      arrow::ArrayVector in;
+      if (pre_process_projector_) {
+        in = pre_process_projector_->Evaluate(orig_in);
+      } else {
+        in = orig_in;
+      }
+
+      // 2.1 handle no groupby scenario
+      if (key_index_list_.size() == 0) {
+        arrow::ArrayVector cols;
+        for (int i = 0; i < action_impl_list_.size(); i++) {
+          auto action = action_impl_list_[i];
+          cols.clear();
+          for (auto idx : action_prepare_index_list_[i]) {
+            cols.push_back(in[idx]);
+          }
+          if (cols.empty()) {
+            // There is a special case, when we need to do no groupby count literal
+            RETURN_NOT_OK(action->EvaluateCountLiteral(in[0]->length()));
+
+          } else {
+            RETURN_NOT_OK(action->Evaluate(cols));
+          }
+        }
+        total_out_length_ = 1;
+        return arrow::Status::OK();
+      }
+
+      // 2.2 Get each row's group by key
+      auto typed_key_in = std::make_shared<ArrayType>(in[key_index_list_[0]]);
+      auto length = in[0]->length();
+
+      std::vector<int> indices;
+      indices.resize(length, -1);
+
+      for (int i = 0; i < length; i++) {
+        auto aggr_key = typed_key_in->GetView(i);
+        auto aggr_key_validity =
+            typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
+
+        // 3. get key from hash_table
+        int memo_index = 0;
+        if (!aggr_key_validity) {
+          memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
+        } else {
+          aggr_hash_table_->GetOrInsert(
+              aggr_key, [](int) {}, [](int) {}, &memo_index);
+        }
+
+        if (memo_index > max_group_id_) {
+          max_group_id_ = memo_index;
+        }
+        indices[i] = memo_index;
+      }
+
+      total_out_length_ = max_group_id_ + 1;
+      // 4. prepare action func and evaluate
+      std::vector<std::function<arrow::Status(int)>> eval_func_list;
+      std::vector<std::function<arrow::Status()>> eval_null_func_list;
+      arrow::ArrayVector cols;
+      for (int i = 0; i < action_impl_list_.size(); i++) {
+        auto action = action_impl_list_[i];
+        cols.clear();
+        for (auto idx : action_prepare_index_list_[i]) {
+          cols.push_back(in[idx]);
+        }
+        std::function<arrow::Status(int)> func;
+        std::function<arrow::Status()> null_func;
+        action->Submit(cols, max_group_id_, &func, &null_func);
+        eval_func_list.push_back(func);
+        eval_null_func_list.push_back(null_func);
+      }
+
+      for (auto memo_index : indices) {
+        if (memo_index == -1) {
+          for (auto eval_func : eval_null_func_list) {
+            RETURN_NOT_OK(eval_func());
+          }
+        } else {
+          for (auto eval_func : eval_func_list) {
+            RETURN_NOT_OK(eval_func(memo_index));
+          }
+        }
+      }
+
+      return arrow::Status::OK();
+    }
+
+    bool HasNext() { return offset_ < total_out_length_; }
+
+    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
+      uint64_t out_length = 0;
+      int gp_idx = 0;
+      std::vector<std::shared_ptr<arrow::Array>> outputs;
+      for (auto action : action_impl_list_) {
+        action->Finish(offset_, 10000, &outputs);
+      }
+      if (outputs.size() > 0) {
+        out_length += outputs[0]->length();
+        offset_ += outputs[0]->length();
+      }
+      if (post_process_projector_) {
+        RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
+      }
+      *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
+      return arrow::Status::OK();
+    }
+
+   private:
+    arrow::compute::ExecContext* ctx_;
+    std::vector<std::shared_ptr<ActionBase>> action_impl_list_;
+    std::shared_ptr<precompile::Decimal128HashMap> aggr_hash_table_;
+    const std::vector<int>& key_index_list_;
+    const std::vector<std::vector<int>>& action_prepare_index_list_;
+    std::shared_ptr<GandivaProjector> pre_process_projector_;
+    std::shared_ptr<GandivaProjector> post_process_projector_;
     std::shared_ptr<arrow::Schema> result_schema_;
     int max_group_id_ = -1;
     int offset_ = 0;

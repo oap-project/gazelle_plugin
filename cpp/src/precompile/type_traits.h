@@ -38,14 +38,28 @@ using is_number_like =
     std::integral_constant<bool, is_number_type<T>::value || is_boolean_type<T>::value>;
 
 template <typename T>
+using is_decimal_type = std::is_base_of<arrow::DecimalType, T>;
+
+template <typename T>
 using is_number_like_type =
     std::integral_constant<bool, is_number_like<T>::value || is_date_type<T>::value>;
+
+template <typename T>
+using is_number_or_decimal_type =
+    std::integral_constant<bool,
+                           is_number_like_type<T>::value || is_decimal_type<T>::value>;
 
 template <typename T>
 using enable_if_boolean = std::enable_if_t<is_boolean_type<T>::value>;
 
 template <typename T>
 using enable_if_number = std::enable_if_t<is_number_like_type<T>::value>;
+
+template <typename T>
+using enable_if_decimal = std::enable_if_t<is_decimal_type<T>::value>;
+
+template <typename T>
+using enable_if_number_or_decimal = std::enable_if_t<is_number_or_decimal_type<T>::value>;
 
 template <typename T>
 using is_base_binary_type = std::is_base_of<arrow::BaseBinaryType, T>;
@@ -62,9 +76,10 @@ struct PrecompileType {
   ///
   /// This enumeration provides a quick way to interrogate the category
   /// of a DataType instance.
+
   enum type {
     /// A NULL type having no physical storage
-    NA,
+    NA = 0,
 
     /// Boolean as 1 bit, LSB bit-packed ordering
     BOOL,
@@ -129,12 +144,20 @@ struct PrecompileType {
     /// nanoseconds since midnight
     TIME64,
 
-    /// YEAR_MONTH or DAY_TIME interval in SQL style
-    INTERVAL,
+    /// YEAR_MONTH interval in SQL style
+    INTERVAL_MONTHS,
 
-    /// Precision- and scale-based decimal type. Storage type depends on the
-    /// parameters.
-    DECIMAL,
+    /// DAY_TIME interval in SQL style
+    INTERVAL_DAY_TIME,
+
+    /// Precision- and scale-based decimal type with 128 bits.
+    DECIMAL128,
+
+    /// Defined for backward-compatibility.
+    DECIMAL = DECIMAL128,
+
+    /// Precision- and scale-based decimal type with 256 bits.
+    DECIMAL256,
 
     /// A list of some logical data type
     LIST,
@@ -142,8 +165,11 @@ struct PrecompileType {
     /// Struct of logical types
     STRUCT,
 
-    /// Unions of logical types
-    UNION,
+    /// Sparse unions of logical types
+    SPARSE_UNION,
+
+    /// Dense unions of logical types
+    DENSE_UNION,
 
     /// Dictionary-encoded type, also called "categorical" or "factor"
     /// in other programming languages. Holds the dictionary value
@@ -171,7 +197,10 @@ struct PrecompileType {
     LARGE_BINARY,
 
     /// Like LIST, but with 64-bit offsets
-    LARGE_LIST
+    LARGE_LIST,
+
+    // Leave this at the end
+    MAX_ID
   };
 };
 
@@ -267,6 +296,12 @@ struct TypeTraits<arrow::StringType> {
   static constexpr PrecompileType::type type_id = PrecompileType::STRING;
   using ArrayType = StringArray;
   using CType = std::string;
+};
+template <>
+struct TypeTraits<arrow::Decimal128Type> {
+  static constexpr PrecompileType::type type_id = PrecompileType::DECIMAL128;
+  using ArrayType = Decimal128Array;
+  using CType = arrow::Decimal128;
 };
 
 }  // namespace precompile

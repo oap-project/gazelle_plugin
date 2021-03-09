@@ -58,9 +58,6 @@ object ColumnarConditionedProbeJoin extends Logging {
       builder_type: Int = 0,
       is_broadcast: Boolean = false): TreeNode = {
     val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
@@ -107,16 +104,10 @@ object ColumnarConditionedProbeJoin extends Logging {
       conditionOption: Option[Expression],
       builder_type: Int = 0): TreeNode = {
     val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })
     val streamInputFieldList: List[Field] = streamInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarShuffledHashJoin.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })

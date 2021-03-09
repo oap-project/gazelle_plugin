@@ -33,8 +33,22 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
-import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
-import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
+import org.apache.arrow.vector.ipc.message.{
+  ArrowFieldNode,
+  ArrowRecordBatch,
+  IpcOption,
+  MessageChannelReader,
+  MessageResult,
+  MessageSerializer
+}
+import org.apache.arrow.vector.ipc.message.{
+  ArrowFieldNode,
+  ArrowRecordBatch,
+  IpcOption,
+  MessageChannelReader,
+  MessageResult,
+  MessageSerializer
+}
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
@@ -123,12 +137,9 @@ object ConverterUtils extends Logging {
         MessageSerializer.serialize(channel, schema, option)
       }
       val batch = ConverterUtils
-          .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector))
+        .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector))
       try {
-        MessageSerializer.serialize(
-          channel,
-          batch,
-          option)
+        MessageSerializer.serialize(channel, batch, option)
       } finally {
         batch.close()
       }
@@ -215,6 +226,18 @@ object ConverterUtils extends Logging {
   def convertFromNetty(
       attributes: Seq[Attribute],
       data: Array[Array[Byte]]): Iterator[ColumnarBatch] = {
+    if (data.size == 0) {
+      return new Iterator[ColumnarBatch] {
+        override def hasNext: Boolean = false
+        override def next(): ColumnarBatch = {
+          val resultStructType = StructType(
+            attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+          return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+        }
+      }
+    }
     new Iterator[ColumnarBatch] {
       var array_id = 0
       val allocator = ArrowWritableColumnVector.getOffRecordAllocator
@@ -471,16 +494,59 @@ object ConverterUtils extends Logging {
   }
 
   def checkIfTypeSupported(dt: DataType): Unit = dt match {
-    case BooleanType =>
-    case ByteType =>
-    case ShortType =>
-    case IntegerType =>
-    case LongType =>
-    case FloatType =>
-    case DoubleType =>
-    case StringType =>
-    case DateType =>
+    case d: BooleanType =>
+    case d: ByteType =>
+    case d: ShortType =>
+    case d: IntegerType =>
+    case d: LongType =>
+    case d: FloatType =>
+    case d: DoubleType =>
+    case d: StringType =>
+    case d: DateType =>
+    case d: DecimalType =>
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
+  }
+
+  def powerOfTen(pow: Int): (String, Int, Int) = {
+    val POWERS_OF_10: Array[(String, Int, Int)] = Array(
+      ("1", 1, 0),
+      ("10", 2, 0),
+      ("100", 3, 0),
+      ("1000", 4, 0),
+      ("10000", 5, 0),
+      ("100000", 6, 0),
+      ("1000000", 7, 0),
+      ("10000000", 8, 0),
+      ("100000000", 9, 0),
+      ("1000000000", 10, 0),
+      ("10000000000", 11, 0),
+      ("100000000000", 12, 0),
+      ("1000000000000", 13, 0),
+      ("10000000000000", 14, 0),
+      ("100000000000000", 15, 0),
+      ("1000000000000000", 16, 0),
+      ("10000000000000000", 17, 0),
+      ("100000000000000000", 18, 0),
+      ("1000000000000000000", 19, 0),
+      ("10000000000000000000", 20, 0),
+      ("100000000000000000000", 21, 0),
+      ("1000000000000000000000", 22, 0),
+      ("10000000000000000000000", 23, 0),
+      ("100000000000000000000000", 24, 0),
+      ("1000000000000000000000000", 25, 0),
+      ("10000000000000000000000000", 26, 0),
+      ("100000000000000000000000000", 27, 0),
+      ("1000000000000000000000000000", 28, 0),
+      ("10000000000000000000000000000", 29, 0),
+      ("100000000000000000000000000000", 30, 0),
+      ("1000000000000000000000000000000", 31, 0),
+      ("10000000000000000000000000000000", 32, 0),
+      ("100000000000000000000000000000000", 33, 0),
+      ("1000000000000000000000000000000000", 34, 0),
+      ("10000000000000000000000000000000000", 35, 0),
+      ("100000000000000000000000000000000000", 36, 0),
+      ("1000000000000000000000000000000000000", 37, 0))
+    POWERS_OF_10(pow)
   }
 }

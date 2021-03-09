@@ -308,6 +308,18 @@ case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       replaceWithColumnarPlan(child)
     case ColumnarToRowExec(child: CoalesceBatchesExec) =>
       plan.withNewChildren(Seq(replaceWithColumnarPlan(child.child)))
+    case r: SparkPlan
+        if !r.isInstanceOf[QueryStageExec] && !r.supportsColumnar && r.children.exists(c =>
+          c.isInstanceOf[ColumnarToRowExec]) =>
+      // This is a fix for when DPP and AQE both enabled, ColumnarExchange maybe child as a Row SparkPlan
+      val children = r.children.map(c =>
+        c match {
+          case c: ColumnarToRowExec =>
+            c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+          case other =>
+            replaceWithColumnarPlan(other)
+        })
+      r.withNewChildren(children)
     case p =>
       val children = p.children.map(replaceWithColumnarPlan)
       p.withNewChildren(children)

@@ -30,6 +30,7 @@
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
+using sparkcolumnarplugin::precompile::enable_if_number_or_decimal;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
@@ -53,7 +54,7 @@ template <typename T, typename Enable = void>
 class TypedHashRelationColumn {};
 
 template <typename DataType>
-class TypedHashRelationColumn<DataType, enable_if_number<DataType>>
+class TypedHashRelationColumn<DataType, enable_if_number_or_decimal<DataType>>
     : public HashRelationColumn {
  public:
   using T = typename TypeTraits<DataType>::CType;
@@ -111,11 +112,6 @@ class TypedHashRelationColumn<DataType, enable_if_string_like<DataType>>
   std::vector<std::shared_ptr<StringArray>> array_vector_;
   bool has_null_ = false;
 };
-
-template <typename T>
-using is_number_alike =
-    std::integral_constant<bool, std::is_arithmetic<T>::value ||
-                                     std::is_floating_point<T>::value>;
 
 /////////////////////////////////////////////////////////////////////////
 
@@ -251,7 +247,7 @@ class HashRelation {
   }
 
   template <typename CType,
-            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+            typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
   int Get(int32_t v, CType payload) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
@@ -281,7 +277,7 @@ class HashRelation {
   }
 
   template <typename CType,
-            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+            typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
   int IfExists(int32_t v, CType payload) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
@@ -304,7 +300,7 @@ class HashRelation {
   }
 
   template <typename CType,
-            typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
+            typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
   int Get(CType payload) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");

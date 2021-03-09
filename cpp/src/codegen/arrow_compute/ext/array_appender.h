@@ -23,6 +23,9 @@
 #include <vector>
 
 #include "codegen/arrow_compute/ext/array_item_index.h"
+#include "precompile/type_traits.h"
+
+using sparkcolumnarplugin::precompile::enable_if_decimal;
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -343,6 +346,88 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   bool has_null_ = false;
 };
 
+template <typename DataType>
+class ArrayAppender<DataType, enable_if_decimal<DataType>> : public AppenderBase {
+ public:
+  ArrayAppender(arrow::compute::ExecContext* ctx,
+                std::shared_ptr<arrow::DataType> data_type, AppenderType type = left)
+      : ctx_(ctx), type_(type) {
+    std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), data_type, &array_builder);
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+  }
+  ~ArrayAppender() {}
+
+  AppenderType GetType() override { return type_; }
+  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
+    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
+    cached_arr_.emplace_back(typed_arr_);
+    if (typed_arr_->null_count() > 0) has_null_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status PopArray() override {
+    cached_arr_.pop_back();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNull());
+    } else {
+      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
+                       int repeated) override {
+    if (repeated == 0) return arrow::Status::OK();
+    if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
+      RETURN_NOT_OK(builder_->AppendNulls(repeated));
+    } else {
+      auto val = cached_arr_[array_id]->GetView(item_id);
+      for (int i = 0; i < repeated; i++) {
+        RETURN_NOT_OK(builder_->Append(val));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Append(const std::vector<ArrayItemIndex>& index_list) {
+    for (auto tmp : index_list) {
+      if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
+        RETURN_NOT_OK(builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+
+  arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
+    auto status = builder_->Finish(out_);
+    return status;
+  }
+
+  arrow::Status Reset() override {
+    builder_->Reset();
+    return arrow::Status::OK();
+  }
+
+ private:
+  using BuilderType_ = typename arrow::TypeTraits<DataType>::BuilderType;
+  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
+  std::unique_ptr<BuilderType_> builder_;
+  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
+  arrow::compute::ExecContext* ctx_;
+  AppenderType type_;
+  bool has_null_ = false;
+};
+
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
   PROCESS(arrow::BooleanType)            \
   PROCESS(arrow::UInt8Type)              \
@@ -370,8 +455,14 @@ static arrow::Status MakeAppender(arrow::compute::ExecContext* ctx,
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
+    case arrow::Decimal128Type::type_id: {
+      auto app_ptr = std::make_shared<ArrayAppender<arrow::Decimal128Type>>(
+          ctx, type, appender_type);
+      *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);
+    } break;
     default: {
-      std::cout << "MakeAppender type not supported, type is " << type << std::endl;
+      return arrow::Status::NotImplemented("MakeAppender type not supported, type is ",
+                                           type->ToString());
     } break;
   }
   return arrow::Status::OK();

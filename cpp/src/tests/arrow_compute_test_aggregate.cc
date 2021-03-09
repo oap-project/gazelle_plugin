@@ -69,9 +69,24 @@ TEST(TestArrowCompute, AggregateTest) {
       "aggregateActions",
       {n_sum, n_count, n_sum_count, n_avg, n_min, n_max, n_stddev, n_count_literal},
       uint32());
-
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_sum_count), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max), TreeExprBuilder::MakeField(f_stddev),
+       TreeExprBuilder::MakeField(f_count_literal)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_sum_count), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max), TreeExprBuilder::MakeField(f_stddev),
+       TreeExprBuilder::MakeField(f_count_literal)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
@@ -252,9 +267,16 @@ TEST(TestArrowCompute, GroupByCountAll) {
   auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0}, uint32());
   auto n_action =
       TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby, n_count}, uint32());
-
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_count)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_count)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
@@ -350,9 +372,23 @@ TEST(TestArrowCompute, GroupByTwoAggregateTest) {
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions",
       {n_groupby, n_groupby_5, n_sum_count, n_min, n_max, n_avg, n_stddev}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_unique_1),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_unique_1),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+      uint32());
 
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
@@ -452,9 +488,17 @@ TEST(TestArrowCompute, GroupByHashAggregateWithCaseWhenTest) {
       {TreeExprBuilder::MakeField(f_0), TreeExprBuilder::MakeField(f_1)}, uint32());
   auto n_action =
       TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby, n_sum}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_sum)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_sum)},
+      uint32());
 
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 

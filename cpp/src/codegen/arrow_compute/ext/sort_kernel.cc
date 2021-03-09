@@ -655,7 +655,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       for (int i = 0; i < col_num_; i++) {
         auto field = schema->field(i);
         std::shared_ptr<AppenderBase> appender;
-        MakeAppender(ctx_, field->type(), appender_type, &appender);
+        THROW_NOT_OK(MakeAppender(ctx_, field->type(), appender_type, &appender));
         appender_list_.push_back(appender);
       }
       for (int i = 0; i < col_num_; i++) {

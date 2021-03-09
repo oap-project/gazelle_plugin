@@ -20,8 +20,8 @@
 #include <gtest/gtest.h>
 
 #include "precompile/array.h"
-#include "tests/test_utils.h"
 #include "precompile/gandiva.h"
+#include "tests/test_utils.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -54,7 +54,7 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   int32_t out_scale = 10;
   auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
   ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
-  res = divide(left, left_precision, left_scale, right, right_precision, right_scale, 
+  res = divide(left, left_precision, left_scale, right, right_precision, right_scale,
                out_precision, out_scale);
   ASSERT_EQ(res, arrow::Decimal128("13780.2495094037"));
 }

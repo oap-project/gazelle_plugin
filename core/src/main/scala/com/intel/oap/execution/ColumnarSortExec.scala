@@ -44,6 +44,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.types.DecimalType
 
 /**
  * Columnar Based SortExec.
@@ -93,8 +94,10 @@ case class ColumnarSortExec(
     for (attr <- output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (attr.dataType.isInstanceOf[DecimalType])
+          throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
-        case e : UnsupportedOperationException =>
+        case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
             s"${attr.dataType} is not supported in ColumnarSorter.")
       }
@@ -155,9 +158,8 @@ case class ColumnarSortExec(
   /***********************************************************/
   def getCodeGenSignature =
     if (sortOrder.exists(expr =>
-        bindReference(
-          ConverterUtils.getAttrFromExpr(expr.child), child.output, true)
-          .isInstanceOf[BoundReference])) {
+          bindReference(ConverterUtils.getAttrFromExpr(expr.child), child.output, true)
+            .isInstanceOf[BoundReference])) {
       ColumnarSorter.prebuild(
         sortOrder,
         child.output,

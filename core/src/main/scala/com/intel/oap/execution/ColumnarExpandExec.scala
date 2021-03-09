@@ -32,6 +32,7 @@ import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.types.DecimalType
 
 case class ColumnarExpandExec(
     projections: Seq[Seq[Expression]],
@@ -55,14 +56,13 @@ case class ColumnarExpandExec(
 
   def buildCheck(): Unit = {
     // build check for projection
-    projections.foreach(proj =>
-      ColumnarProjection.buildCheck(originalInputAttributes, proj))
+    projections.foreach(proj => ColumnarProjection.buildCheck(originalInputAttributes, proj))
     //check type
     for (attr <- originalInputAttributes) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
       } catch {
-        case e : UnsupportedOperationException =>
+        case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
             s"${attr.dataType} is not supported in ColumnarExpandExec.")
       }
@@ -129,8 +129,8 @@ case class ColumnarExpandExec(
         }
       }
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((tc: TaskContext) => {
-          close
-        })
+        close
+      })
       new CloseableColumnBatchIterator(res)
     }
   }

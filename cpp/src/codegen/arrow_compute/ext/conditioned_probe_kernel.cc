@@ -53,8 +53,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  ConditionedProbe  ////////////////
 class ConditionedProbeKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& left_key_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_node_list,
        const gandiva::NodeVector& right_key_node_list,
        const gandiva::NodeVector& left_schema_node_list,
        const gandiva::NodeVector& right_schema_node_list,
@@ -488,6 +487,8 @@ class ConditionedProbeKernel::Impl {
         }
       } else {
         // if hash_map_type == 0, we use TypedHashRelation
+        // when hash_map_type == 0, we won't check actual value ifEqual, this code block
+        // will be removed in near future
         switch (key_type_->id()) {
 #define PROCESS(InType)                                                                  \
   case InType::type_id: {                                                                \
@@ -621,7 +622,8 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)
     class UnsafeInnerProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeInnerProbeFunction(std::shared_ptr<HashRelation> hash_relation,
@@ -639,25 +641,25 @@ class ConditionedProbeKernel::Impl {
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
           switch (key_payloads[0]->type_id()) {
-#define PROCESS(InType)                                                      \
-  case TypeTraits<InType>::type_id: {                                        \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;             \
-    auto typed_first_key_arr = std::make_shared<ArrayType>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                            \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        return hash_relation_->Get(typed_key_array->GetView(i),              \
-                                   typed_first_key_arr->GetView(i));         \
-      };                                                                     \
-    } else {                                                                 \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        if (typed_first_key_arr->IsNull(i)) {                                \
-          return hash_relation_->GetNull();                                  \
-        } else {                                                             \
-          return hash_relation_->Get(typed_key_array->GetView(i),            \
-                                     typed_first_key_arr->GetView(i));       \
-        }                                                                    \
-      };                                                                     \
-    }                                                                        \
+#define PROCESS(InType)                                                       \
+  case TypeTraits<InType>::type_id: {                                         \
+    using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
+    auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
+    if (typed_first_key_arr->null_count() == 0) {                             \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        return hash_relation_->Get(typed_key_array->GetView(i),               \
+                                   typed_first_key_arr->GetView(i));          \
+      };                                                                      \
+    } else {                                                                  \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        if (typed_first_key_arr->IsNull(i)) {                                 \
+          return hash_relation_->GetNull();                                   \
+        } else {                                                              \
+          return hash_relation_->Get(typed_key_array->GetView(i),             \
+                                     typed_first_key_arr->GetView(i));        \
+        }                                                                     \
+      };                                                                      \
+    }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -739,7 +741,8 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)
     class UnsafeOuterProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeOuterProbeFunction(std::shared_ptr<HashRelation> hash_relation,
@@ -756,25 +759,25 @@ class ConditionedProbeKernel::Impl {
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
           switch (key_payloads[0]->type_id()) {
-#define PROCESS(InType)                                                      \
-  case TypeTraits<InType>::type_id: {                                        \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;             \
-    auto typed_first_key_arr = std::make_shared<ArrayType>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                            \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        return hash_relation_->Get(typed_key_array->GetView(i),              \
-                                   typed_first_key_arr->GetView(i));         \
-      };                                                                     \
-    } else {                                                                 \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        if (typed_first_key_arr->IsNull(i)) {                                \
-          return hash_relation_->GetNull();                                  \
-        } else {                                                             \
-          return hash_relation_->Get(typed_key_array->GetView(i),            \
-                                     typed_first_key_arr->GetView(i));       \
-        }                                                                    \
-      };                                                                     \
-    }                                                                        \
+#define PROCESS(InType)                                                       \
+  case TypeTraits<InType>::type_id: {                                         \
+    using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
+    auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
+    if (typed_first_key_arr->null_count() == 0) {                             \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        return hash_relation_->Get(typed_key_array->GetView(i),               \
+                                   typed_first_key_arr->GetView(i));          \
+      };                                                                      \
+    } else {                                                                  \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        if (typed_first_key_arr->IsNull(i)) {                                 \
+          return hash_relation_->GetNull();                                   \
+        } else {                                                              \
+          return hash_relation_->Get(typed_key_array->GetView(i),             \
+                                     typed_first_key_arr->GetView(i));        \
+        }                                                                     \
+      };                                                                      \
+    }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -864,7 +867,8 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)
     class UnsafeAntiProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeAntiProbeFunction(std::shared_ptr<HashRelation> hash_relation,
@@ -881,25 +885,25 @@ class ConditionedProbeKernel::Impl {
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
           switch (key_payloads[0]->type_id()) {
-#define PROCESS(InType)                                                      \
-  case TypeTraits<InType>::type_id: {                                        \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;             \
-    auto typed_first_key_arr = std::make_shared<ArrayType>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                            \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        return hash_relation_->IfExists(typed_key_array->GetView(i),         \
-                                        typed_first_key_arr->GetView(i));    \
-      };                                                                     \
-    } else {                                                                 \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        if (typed_first_key_arr->IsNull(i)) {                                \
-          return hash_relation_->GetNull();                                  \
-        } else {                                                             \
-          return hash_relation_->IfExists(typed_key_array->GetView(i),       \
-                                          typed_first_key_arr->GetView(i));  \
-        }                                                                    \
-      };                                                                     \
-    }                                                                        \
+#define PROCESS(InType)                                                       \
+  case TypeTraits<InType>::type_id: {                                         \
+    using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
+    auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
+    if (typed_first_key_arr->null_count() == 0) {                             \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        return hash_relation_->IfExists(typed_key_array->GetView(i),          \
+                                        typed_first_key_arr->GetView(i));     \
+      };                                                                      \
+    } else {                                                                  \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        if (typed_first_key_arr->IsNull(i)) {                                 \
+          return hash_relation_->GetNull();                                   \
+        } else {                                                              \
+          return hash_relation_->IfExists(typed_key_array->GetView(i),        \
+                                          typed_first_key_arr->GetView(i));   \
+        }                                                                     \
+      };                                                                      \
+    }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -985,7 +989,8 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
         auto typed_key_array = std::dynamic_pointer_cast<arrow::Int32Array>(key_array);
@@ -997,25 +1002,25 @@ class ConditionedProbeKernel::Impl {
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
           switch (key_payloads[0]->type_id()) {
-#define PROCESS(InType)                                                      \
-  case TypeTraits<InType>::type_id: {                                        \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;             \
-    auto typed_first_key_arr = std::make_shared<ArrayType>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                            \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        return hash_relation_->IfExists(typed_key_array->GetView(i),         \
-                                        typed_first_key_arr->GetView(i));    \
-      };                                                                     \
-    } else {                                                                 \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        if (typed_first_key_arr->IsNull(i)) {                                \
-          return hash_relation_->GetNull();                                  \
-        } else {                                                             \
-          return hash_relation_->IfExists(typed_key_array->GetView(i),       \
-                                          typed_first_key_arr->GetView(i));  \
-        }                                                                    \
-      };                                                                     \
-    }                                                                        \
+#define PROCESS(InType)                                                       \
+  case TypeTraits<InType>::type_id: {                                         \
+    using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
+    auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
+    if (typed_first_key_arr->null_count() == 0) {                             \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        return hash_relation_->IfExists(typed_key_array->GetView(i),          \
+                                        typed_first_key_arr->GetView(i));     \
+      };                                                                      \
+    } else {                                                                  \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        if (typed_first_key_arr->IsNull(i)) {                                 \
+          return hash_relation_->GetNull();                                   \
+        } else {                                                              \
+          return hash_relation_->IfExists(typed_key_array->GetView(i),        \
+                                          typed_first_key_arr->GetView(i));   \
+        }                                                                     \
+      };                                                                      \
+    }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -1098,7 +1103,8 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)
     class UnsafeExistenceProbeFunction : public ProbeFunctionBase {
      public:
       UnsafeExistenceProbeFunction(
@@ -1116,25 +1122,25 @@ class ConditionedProbeKernel::Impl {
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
           switch (key_payloads[0]->type_id()) {
-#define PROCESS(InType)                                                      \
-  case TypeTraits<InType>::type_id: {                                        \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;             \
-    auto typed_first_key_arr = std::make_shared<ArrayType>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                            \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        return hash_relation_->IfExists(typed_key_array->GetView(i),         \
-                                        typed_first_key_arr->GetView(i));    \
-      };                                                                     \
-    } else {                                                                 \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {     \
-        if (typed_first_key_arr->IsNull(i)) {                                \
-          return hash_relation_->GetNull();                                  \
-        } else {                                                             \
-          return hash_relation_->IfExists(typed_key_array->GetView(i),       \
-                                          typed_first_key_arr->GetView(i));  \
-        }                                                                    \
-      };                                                                     \
-    }                                                                        \
+#define PROCESS(InType)                                                       \
+  case TypeTraits<InType>::type_id: {                                         \
+    using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
+    auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
+    if (typed_first_key_arr->null_count() == 0) {                             \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        return hash_relation_->IfExists(typed_key_array->GetView(i),          \
+                                        typed_first_key_arr->GetView(i));     \
+      };                                                                      \
+    } else {                                                                  \
+      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
+        if (typed_first_key_arr->IsNull(i)) {                                 \
+          return hash_relation_->GetNull();                                   \
+        } else {                                                              \
+          return hash_relation_->IfExists(typed_key_array->GetView(i),        \
+                                          typed_first_key_arr->GetView(i));   \
+        }                                                                     \
+      };                                                                      \
+    }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS

@@ -81,9 +81,6 @@ class ColumnarHashAggregation(
       }
       var columnarExpr: Expression =
         ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-      if (columnarExpr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarHashAggregation.")
       var inputList: java.util.List[Field] = Lists.newArrayList()
       val (node, _resultType) =
         columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(inputList)
@@ -358,9 +355,6 @@ class ColumnarHashAggregation(
     }
 
     val originalInputFieldList = originalInputAttributes.toList.map(attr => {
-      if (attr.dataType.isInstanceOf[DecimalType])
-        throw new UnsupportedOperationException(
-          s"Decimal type is not supported in ColumnarHashAggregation.")
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
     })

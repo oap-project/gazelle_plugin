@@ -269,6 +269,9 @@ case class ColumnarCollapseCodegenStages(
         } else {
           j.withNewChildren(j.children.map(insertWholeStageCodegen))
         }
+      case s: ColumnarSortExec =>
+        /*If ColumnarSort is not ahead of ColumnarSMJ, we should not do wscg for it*/
+        s.withNewChildren(s.children.map(insertWholeStageCodegen))
       case plan: ColumnarCodegenSupport if supportCodegen(plan) && existsJoins(plan) =>
         ColumnarWholeStageCodegenExec(insertInputAdapter(plan))(
           codegenStageCounter.incrementAndGet())

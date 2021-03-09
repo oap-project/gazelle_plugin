@@ -1007,17 +1007,32 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   private static class DecimalAccessor extends ArrowVectorAccessor {
     private final DecimalVector accessor;
+    int precision = 0;
+    int scale = 0;
 
     DecimalAccessor(DecimalVector vector) {
       super(vector);
       this.accessor = vector;
+      this.precision = vector.getPrecision();
+      this.scale = vector.getScale();
     }
 
     @Override
-    final Decimal getDecimal(int rowId, int precision, int scale) {
+    final Decimal getDecimal(int rowId, int _precision, int _scale) {
       if (isNullAt(rowId))
         return null;
-      return Decimal.apply(accessor.getObject(rowId), precision, scale);
+      return Decimal.apply(accessor.getObject(rowId), _precision, _scale);
+    }
+
+    final Decimal getDecimal(int rowId) {
+      if (isNullAt(rowId))
+        return null;
+      return Decimal.apply(accessor.getObject(rowId), this.precision, this.scale);
+    }
+
+    @Override
+    final UTF8String getUTF8String(int rowId) {
+      return UTF8String.fromString(getDecimal(rowId).toString());
     }
   }
 

@@ -3558,16 +3558,14 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
   auto n_nulls_order =
       TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
-  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
-  auto result_type = TreeExprBuilder::MakeFunction(
-      "result_type", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_key_func_left = TreeExprBuilder::MakeFunction(
       "key_function", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_key_field_left = TreeExprBuilder::MakeFunction(
       "key_field", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_sort_to_indices_left = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
+      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, do_codegen},
       uint32());
   auto n_sort_left =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_left}, uint32());
@@ -3593,7 +3591,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
       "key_field", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_sort_to_indices_right = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
+      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, do_codegen},
       uint32());
   auto n_sort_right =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_right}, uint32());
@@ -3620,7 +3618,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
   auto n_sort_to_indices_left_2 =
       TreeExprBuilder::MakeFunction("sortArraysToIndices",
                                     {n_key_func_left_2, n_key_field_left_2, n_dir,
-                                     n_nulls_order, NaN_check, do_codegen, result_type},
+                                     n_nulls_order, NaN_check, do_codegen},
                                     uint32());
   auto n_sort_left_2 =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_left_2}, uint32());
@@ -3770,8 +3768,20 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
                                               {arg0, arg1, arg2, arg3}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions", {n_sum, n_count, n_sum_count, n_avg, n_stddev}, uint32());
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("child", {n_aggr}, uint32());
   auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
@@ -3863,9 +3873,23 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyHashAggregateTwoKeys) {
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions",
       {n_groupby, n_groupby_5, n_sum_count, n_min, n_max, n_avg, n_stddev}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_unique_1),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_unique_1),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
+       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max),
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+      uint32());
 
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("child", {n_aggr}, uint32());
   auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
@@ -4112,8 +4136,23 @@ TEST(TestArrowComputeWSCG, WSCGTestInnerJoinWithGroupbyAggregate) {
       uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions", {n_groupby, n_sum_count, n_min}, uint32());
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_aggr_result =
+      TreeExprBuilder::MakeFunction("resultSchema",
+                                    {TreeExprBuilder::MakeField(table0_f0_unique),
+                                     TreeExprBuilder::MakeField(table1_f1_sum),
+                                     TreeExprBuilder::MakeField(table1_f1_count),
+                                     TreeExprBuilder::MakeField(table1_f1_min)},
+                                    uint32());
+  auto n_aggr_result_expr =
+      TreeExprBuilder::MakeFunction("resultExpressions",
+                                    {TreeExprBuilder::MakeField(table0_f0_unique),
+                                     TreeExprBuilder::MakeField(table1_f1_sum),
+                                     TreeExprBuilder::MakeField(table1_f1_count),
+                                     TreeExprBuilder::MakeField(table1_f1_min)},
+                                    uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_aggr_result, n_aggr_result_expr},
+      uint32());
   //////////////////////////////////////////////////////////////////////////
   auto n_child =
       TreeExprBuilder::MakeFunction("child", {n_aggr, n_child_probe}, uint32());
@@ -4255,8 +4294,23 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
       uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions", {n_groupby, n_sum_count, n_min}, uint32());
-  auto n_aggr =
-      TreeExprBuilder::MakeFunction("hashAggregateArrays", {n_proj, n_action}, uint32());
+  auto n_aggr_result =
+      TreeExprBuilder::MakeFunction("resultSchema",
+                                    {TreeExprBuilder::MakeField(table0_f2_unique),
+                                     TreeExprBuilder::MakeField(table1_f1_sum),
+                                     TreeExprBuilder::MakeField(table1_f1_count),
+                                     TreeExprBuilder::MakeField(table1_f1_min)},
+                                    uint32());
+  auto n_aggr_result_expr =
+      TreeExprBuilder::MakeFunction("resultExpressions",
+                                    {TreeExprBuilder::MakeField(table0_f2_unique),
+                                     TreeExprBuilder::MakeField(table1_f1_sum),
+                                     TreeExprBuilder::MakeField(table1_f1_count),
+                                     TreeExprBuilder::MakeField(table1_f1_min)},
+                                    uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_aggr_result, n_aggr_result_expr},
+      uint32());
   auto n_child = TreeExprBuilder::MakeFunction("child", {n_aggr, n_child_join}, uint32());
   auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
   auto mergeJoin_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
@@ -4280,16 +4334,14 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
   auto n_nulls_order =
       TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
   auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
-  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
-  auto result_type = TreeExprBuilder::MakeFunction(
-      "result_type", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_key_func_left = TreeExprBuilder::MakeFunction(
       "key_function", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_key_field_left = TreeExprBuilder::MakeFunction(
       "key_field", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_sort_to_indices_left = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
+      {n_key_func_left, n_key_field_left, n_dir, n_nulls_order, NaN_check, do_codegen},
       uint32());
   auto n_sort_left =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_left}, uint32());
@@ -4315,7 +4367,7 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
       "key_field", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_sort_to_indices_right = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, do_codegen, result_type},
+      {n_key_func_right, n_key_field_right, n_dir, n_nulls_order, NaN_check, do_codegen},
       uint32());
   auto n_sort_right =
       TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices_right}, uint32());
