@@ -34,7 +34,7 @@ import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.ArrayType
+import org.apache.spark.sql.types.{ArrayType, DecimalType}
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.ExecutorManager
@@ -61,6 +61,8 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
     "totalTime" -> SQLMetrics
         .createTimingMetric(sparkContext, "totaltime_window"))
+
+  buildCheck()
 
   val numOutputRows = longMetric("numOutputRows")
   val numOutputBatches = longMetric("numOutputBatches")
@@ -114,6 +116,21 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   if (windowFunctions.isEmpty) {
     throw new UnsupportedOperationException("zero window functions" +
         "specified in window")
+  }
+
+  def buildCheck(): Unit = {
+    for (attr <- output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (attr.dataType.isInstanceOf[DecimalType]) {
+          throw new UnsupportedOperationException(s"not supported ${attr.dataType} ")
+        }
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarWindow")
+      }
+    }
   }
 
   override protected def doExecuteColumnar(): RDD[ColumnarBatch] = {
