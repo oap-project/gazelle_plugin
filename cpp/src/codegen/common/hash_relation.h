@@ -305,15 +305,18 @@ class HashRelation {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }
-    if (*(CType*)recent_cached_key_ == payload) return 0;
-    *(CType*)recent_cached_key_ = payload;
+    if (sizeof(payload) <= 8) {
+      if (*(CType*)recent_cached_key_ == payload) return recent_cached_key_probe_res_;
+      *(CType*)recent_cached_key_ = payload;
+    }
     int32_t v = hash32(payload, true);
     auto res = safeLookup(hash_table_, payload, v, &arrayid_list_);
     if (res == -1) {
       arrayid_list_.clear();
+      recent_cached_key_probe_res_ = -1;
       return -1;
     }
-
+    recent_cached_key_probe_res_ = 0;
     return 0;
   }
 
@@ -419,6 +422,7 @@ class HashRelation {
   std::vector<ArrayItemIndex> arrayid_list_;
   int key_size_;
   char recent_cached_key_[8] = {0};
+  int recent_cached_key_probe_res_ = -1;
 
   arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
                        uint32_t id) {
