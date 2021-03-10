@@ -19,7 +19,6 @@
 
 #include <arrow/type.h>
 #include <arrow/array.h>
-#include "third_party/function.h"
 #include "precompile/array.h"
 
 namespace sparkcolumnarplugin {
@@ -35,7 +34,7 @@ class TypedComparator {
 
   ~TypedComparator() {}
 
-  func::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
+  std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
       const arrow::ArrayVector& arrays, bool asc, bool nulls_first) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<ArrayType>> typed_arrays;
@@ -164,7 +163,7 @@ class FloatingComparator {
 
   ~FloatingComparator() {}
 
-  func::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
+  std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
       const arrow::ArrayVector& arrays, bool asc, bool nulls_first, bool nan_check) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<ArrayType>> typed_arrays;
@@ -478,7 +477,7 @@ class StringComparator {
 
   ~StringComparator() {}
 
-  func::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
+  std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
       const arrow::ArrayVector& arrays, bool asc, bool nulls_first) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<arrow::StringArray>> typed_arrays;
@@ -603,7 +602,7 @@ class DecimalComparator {
 
   ~DecimalComparator() {}
 
-  func::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
+  std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
       const arrow::ArrayVector& arrays, bool asc, bool nulls_first) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<Decimal128Array>> typed_arrays;
@@ -741,7 +740,7 @@ static arrow::Status MakeCmpFunction(
     const std::vector<bool>& sort_directions, 
     const std::vector<bool>& nulls_order,
     const bool& nan_check,
-    std::vector<func::function<void(int, int, int64_t, int64_t, int&)>>& cmp_functions) {
+    std::vector<std::function<void(int, int, int64_t, int64_t, int&)>>& cmp_functions) {
   for (int i = 0; i < key_field_list.size(); i++) {
     auto type = key_field_list[i]->type();
     int key_col_id = key_index_list[i];

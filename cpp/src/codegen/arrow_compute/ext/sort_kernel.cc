@@ -1698,7 +1698,7 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   uint64_t num_batches_ = 0;
   uint64_t items_total_ = 0;
   int col_num_;
-  std::vector<func::function<void(int, int, int64_t, int64_t, int&)>> cmp_functions_;
+  std::vector<std::function<void(int, int, int64_t, int64_t, int&)>> cmp_functions_;
 };
 
 arrow::Status SortArraysToIndicesKernel::Make(
