@@ -358,23 +358,42 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FunctionNode& node) {
       prepare_str_ += prepare_ss.str();
       check_str_ = validity;
     } else if (func_name.compare("divide") == 0) {
-      codes_str_ = "divide_" + std::to_string(cur_func_id);
-      auto validity = "divide_validity_" + std::to_string(cur_func_id);
-      std::stringstream prepare_ss;
-      prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
-                 << std::endl;
-      prepare_ss << "bool " << validity << " = (" << child_visitor_list[0]->GetPreCheck()
-                 << " && " << child_visitor_list[1]->GetPreCheck() << ");" << std::endl;
-      prepare_ss << "if (" << validity << ") {" << std::endl;
-      prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " * 1.0 / "
-                 << child_visitor_list[1]->GetResult() << ";" << std::endl;
-      prepare_ss << "}" << std::endl;
+        codes_str_ = "divide_" + std::to_string(cur_func_id);
+        auto validity = codes_str_ + "_validity";
+        std::stringstream fix_ss;
+        if (node.return_type()->id() != arrow::Type::DECIMAL) {
+          fix_ss << child_visitor_list[0]->GetResult() << " / "
+                << child_visitor_list[1]->GetResult();
+        } else {
+          auto leftNode = node.children().at(0);
+          auto rightNode = node.children().at(1);
+          auto leftType =
+              std::dynamic_pointer_cast<arrow::Decimal128Type>(leftNode->return_type());
+          auto rightType =
+              std::dynamic_pointer_cast<arrow::Decimal128Type>(rightNode->return_type());
+          auto resType = std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+          fix_ss << "divide(" << child_visitor_list[0]->GetResult() << ", "
+                << leftType->precision() << ", " << leftType->scale() << ", "
+                << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
+                << ", " << rightType->scale() << ", " << resType->precision() << ", "
+                << resType->scale() << ")";
+        }
+        std::stringstream prepare_ss;
+        prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+                  << std::endl;
+        prepare_ss << "bool " << validity << " = ("
+                  << CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                                      child_visitor_list[1]->GetPreCheck()})
+                  << ");" << std::endl;
+        prepare_ss << "if (" << validity << ") {" << std::endl;
+        prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
+        prepare_ss << "}" << std::endl;
 
-      for (int i = 0; i < 2; i++) {
-        RETURN_NOT_OK(AppendProjectList(child_visitor_list, i));
-      }
-      prepare_str_ += prepare_ss.str();
-      check_str_ = validity;
+        for (int i = 0; i < 2; i++) {
+          prepare_str_ += child_visitor_list[i]->GetPrepare();
+        }
+        prepare_str_ += prepare_ss.str();
+        check_str_ = validity;
     } else {
       RETURN_NOT_OK(ProduceGandivaFunction());
     }
@@ -531,6 +550,13 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::LiteralNode& node) {
     prepare_ss << "auto literal_" << cur_func_id << R"( = ")"
                << gandiva::ToString(node.holder()) << R"(";)" << std::endl;
 
+  } else if (node.return_type()->id() == arrow::Type::DECIMAL) {
+    auto scalar = arrow::util::get<gandiva::DecimalScalar128>(node.holder());
+    auto decimal = arrow::Decimal128(scalar.value());
+    prepare_ss << "auto literal_" << cur_func_id << " = " 
+               << "arrow::Decimal128(\"" << decimal.ToString(scalar.scale()) << "\");"
+               << std::endl;
+    decimal_scale_ = std::to_string(scalar.scale());
   } else {
     prepare_ss << "auto literal_" << cur_func_id << " = "
                << gandiva::ToString(node.holder()) << ";" << std::endl;
@@ -727,6 +753,25 @@ std::string CodeGenNodeVisitor::GetNaNCheckStr(std::string left, std::string rig
      << "(std::isnan(" << right << ")) ? (" << left << func << "1.0 / 0.0) : "
      << "(" << left << func << right << "))";
   return ss.str();
+}
+
+std::string CodeGenNodeVisitor::CombineValidity(
+    std::vector<std::string> validity_list) {
+  bool first = true;
+  std::stringstream out;
+  for (auto validity : validity_list) {
+    if (first) {
+      if (validity.compare("true") != 0) {
+        out << validity;
+        first = false;
+      }
+    } else {
+      if (validity.compare("true") != 0) {
+        out << " && " << validity;
+      }
+    }
+  }
+  return out.str();
 }
 
 }  // namespace extra

@@ -72,7 +72,7 @@ class CodeGenNodeVisitor : public VisitorBase {
     action_impl_->ProduceCodes(action_codegen);
     return arrow::Status::OK();
   }
-
+  std::string CombineValidity(std::vector<std::string> validity_list);
   std::string GetInput();
   std::string GetResult();
   std::string GetResultValidity();
@@ -107,6 +107,7 @@ class CodeGenNodeVisitor : public VisitorBase {
   std::string input_codes_str_;
   std::string check_str_;
   gandiva::ExpressionPtr project_;
+  std::string decimal_scale_;
   std::vector<int>* left_indices_ = nullptr;
   std::vector<std::shared_ptr<arrow::Field>>* left_field_ = nullptr;
   std::vector<int>* right_indices_ = nullptr;

@@ -234,9 +234,16 @@ class ConditionedJoinArraysKernel::Impl {
     }
     std::string GetResultIteratorPrepare() {
       std::stringstream ss;
+      if (data_type_->id() == arrow::Type::DECIMAL) {
+        ss << "builder_" << indice_ << "_ = std::make_shared<"
+                 << GetTypeString(data_type_, "Builder")
+                 << ">(arrow::" << GetArrowTypeDefString(data_type_)
+                 << ", ctx_->memory_pool());" << std::endl;
+      } else {
       ss << "builder_" << indice_ << "_ = std::make_shared<"
          << GetTypeString(data_type_, "Builder") << ">(ctx_->memory_pool());"
          << std::endl;
+      }
       return ss.str();
     }
     std::string GetProcessFinish() {
@@ -1232,6 +1239,7 @@ typedef )" + item_content_str + " item_content;";
     // TODO: fix multi columns case
     std::string condition_check_str;
     if (func_node) {
+      //TODO: move to use new API
       condition_check_str =
           GetConditionCheckFunc(func_node, left_field_list, right_field_list,
                                 &left_cond_index_list, &right_cond_index_list);
@@ -1294,6 +1302,7 @@ typedef )" + item_content_str + " item_content;";
     return BaseCodes() + R"(
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/builder.h"
+#include "precompile/gandiva.h"
 #include <numeric>
 using namespace sparkcolumnarplugin::precompile;
 )" + hash_map_include_str +
