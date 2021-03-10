@@ -34,7 +34,7 @@ import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{ArrayType, DecimalType}
+import org.apache.spark.sql.types.{ArrayType, DataType, DecimalType, DoubleType, LongType}
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.ExecutorManager
@@ -262,9 +262,25 @@ object ColumnarWindowExec {
       ex match {
         case ae: AggregateExpression => ae.withNewChildren(ae.children.map(makeInputProject(_, inputProjects)))
         case ae: WindowExpression => ae.withNewChildren(ae.children.map(makeInputProject(_, inputProjects)))
-        case func @ (_: AggregateFunction | _:WindowFunction) =>
+        case func @ (_: AggregateFunction | _: WindowFunction) =>
           val params = func.children
-          func.withNewChildren(params.map {
+          // rewrite
+          val rewritten = func match {
+            case _: Average =>
+            // rewrite params for AVG
+              params.map {
+                param =>
+                  param.dataType match {
+                    case _: LongType | _: DecimalType =>
+                      Cast(param, DoubleType)
+                    case _ => param
+                  }
+              }
+            case _ => params
+          }
+
+          // alias
+          func.withNewChildren(rewritten.map {
             case param @ (_: Cast | _: UnscaledValue) =>
               val aliasName = "__alias_%d__".format(Random.nextLong())
               val alias = Alias(param, aliasName)()
