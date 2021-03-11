@@ -23,7 +23,7 @@
 
 #include "precompile/type_traits.h"
 
-using sparkcolumnarplugin::precompile::enable_if_number_or_decimal;
+using sparkcolumnarplugin::precompile::enable_if_number_decimal_or_timestamp;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
@@ -45,7 +45,7 @@ template <typename T, typename Enable = void>
 class TypedRelationColumn {};
 
 template <typename DataType>
-class TypedRelationColumn<DataType, enable_if_number_or_decimal<DataType>>
+class TypedRelationColumn<DataType, enable_if_number_decimal_or_timestamp<DataType>>
     : public RelationColumn {
  public:
   using T = typename TypeTraits<DataType>::CType;

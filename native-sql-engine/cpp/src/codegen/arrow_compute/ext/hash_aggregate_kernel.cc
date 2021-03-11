@@ -45,6 +45,7 @@ namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using precompile::StringHashMap;
+using precompile::enable_if_number_or_timestamp;
 
 ///////////////  SortArraysToIndices  ////////////////
 class HashAggregateKernel::Impl {
@@ -183,7 +184,8 @@ class HashAggregateKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::Decimal128Type)
+  PROCESS(arrow::Decimal128Type)         \
+  PROCESS(arrow::TimestampType)
       switch (type->id()) {
 #define PROCESS(InType)                                                   \
   case TypeTraits<InType>::type_id: {                                     \
@@ -632,7 +634,7 @@ class HashAggregateKernel::Impl {
   class HashAggregateResultIterator {};
 
   template <typename DataType>
-  class HashAggregateResultIterator<DataType, enable_if_number<DataType>>
+  class HashAggregateResultIterator<DataType, enable_if_number_or_timestamp<DataType>>
       : public ResultIterator<arrow::RecordBatch> {
    public:
     using T = typename arrow::TypeTraits<DataType>::CType;

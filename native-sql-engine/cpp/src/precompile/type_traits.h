@@ -41,6 +41,9 @@ template <typename T>
 using is_decimal_type = std::is_base_of<arrow::DecimalType, T>;
 
 template <typename T>
+using is_timestamp_type = std::is_same<arrow::TimestampType, T>;
+
+template <typename T>
 using is_number_like_type =
     std::integral_constant<bool, is_number_like<T>::value || is_date_type<T>::value>;
 
@@ -48,6 +51,20 @@ template <typename T>
 using is_number_or_decimal_type =
     std::integral_constant<bool,
                            is_number_like_type<T>::value || is_decimal_type<T>::value>;
+
+template <typename T>
+using is_number_or_timestamp_type =
+    std::integral_constant<bool,
+                           is_number_like_type<T>::value || is_timestamp_type<T>::value>;
+
+template <typename T>
+using enable_if_number_or_timestamp = std::enable_if_t<is_number_or_timestamp_type<T>::value>;
+
+template <typename T>
+using is_number_decimal_or_timestamp_type =
+    std::integral_constant<bool,
+                           is_number_like_type<T>::value || is_decimal_type<T>::value || 
+                           is_timestamp_type<T>::value>;
 
 template <typename T>
 using enable_if_boolean = std::enable_if_t<is_boolean_type<T>::value>;
@@ -60,6 +77,10 @@ using enable_if_decimal = std::enable_if_t<is_decimal_type<T>::value>;
 
 template <typename T>
 using enable_if_number_or_decimal = std::enable_if_t<is_number_or_decimal_type<T>::value>;
+
+template <typename T>
+using enable_if_number_decimal_or_timestamp =
+    std::enable_if_t<is_number_decimal_or_timestamp_type<T>::value>;
 
 template <typename T>
 using is_base_binary_type = std::is_base_of<arrow::BaseBinaryType, T>;
@@ -302,6 +323,12 @@ struct TypeTraits<arrow::Decimal128Type> {
   static constexpr PrecompileType::type type_id = PrecompileType::DECIMAL128;
   using ArrayType = Decimal128Array;
   using CType = arrow::Decimal128;
+};
+template <>
+struct TypeTraits<arrow::TimestampType> {
+  static constexpr PrecompileType::type type_id = PrecompileType::TIMESTAMP;
+  using ArrayType = TimestampArray;
+  using CType = int64_t;
 };
 
 }  // namespace precompile

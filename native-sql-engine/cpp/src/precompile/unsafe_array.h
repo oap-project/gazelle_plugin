@@ -43,7 +43,7 @@ template <typename DataType, typename Enable = void>
 class TypedUnsafeArray {};
 
 template <typename DataType>
-class TypedUnsafeArray<DataType, enable_if_number_or_decimal<DataType>>
+class TypedUnsafeArray<DataType, enable_if_number_decimal_or_timestamp<DataType>>
     : public UnsafeArray {
  public:
   TypedUnsafeArray(int i, const std::shared_ptr<arrow::Array>& in) : idx_(i) {

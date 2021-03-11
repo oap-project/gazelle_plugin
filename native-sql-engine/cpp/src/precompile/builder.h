@@ -49,6 +49,7 @@ TYPED_BUILDER_DEFINE(FloatBuilder, float)
 TYPED_BUILDER_DEFINE(DoubleBuilder, double)
 TYPED_BUILDER_DEFINE(Date32Builder, int32_t)
 TYPED_BUILDER_DEFINE(Date64Builder, int64_t)
+TYPED_BUILDER_DEFINE(TimestampBuilder, int64_t)
 
 class StringBuilder {
  public:

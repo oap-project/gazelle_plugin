@@ -59,6 +59,7 @@ TYPED_NUMERIC_ARRAY_IMPL(FloatArray, float)
 TYPED_NUMERIC_ARRAY_IMPL(DoubleArray, double)
 TYPED_NUMERIC_ARRAY_IMPL(Date32Array, int32_t)
 TYPED_NUMERIC_ARRAY_IMPL(Date64Array, int64_t)
+TYPED_NUMERIC_ARRAY_IMPL(TimestampArray, int64_t)
 #undef TYPED_NUMERIC_ARRAY_IMPL
 
 #define TYPED_BINARY_ARRAY_IMPL(TYPENAME, TYPE)                              \

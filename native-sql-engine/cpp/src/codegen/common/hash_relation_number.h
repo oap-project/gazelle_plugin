@@ -20,13 +20,13 @@
 #include "codegen/common/hash_relation.h"
 #include "precompile/sparse_hash_map.h"
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
-using sparkcolumnarplugin::precompile::enable_if_number;
+using sparkcolumnarplugin::precompile::enable_if_number_or_timestamp;
 using sparkcolumnarplugin::precompile::TypeTraits;
 
 /////////////////////////////////////////////////////////////////////////
 
 template <typename DataType>
-class TypedHashRelation<DataType, enable_if_number<DataType>> : public HashRelation {
+class TypedHashRelation<DataType, enable_if_number_or_timestamp<DataType>> : public HashRelation {
  public:
   using T = typename TypeTraits<DataType>::CType;
   TypedHashRelation(

@@ -41,7 +41,8 @@ namespace precompile {
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)             \
-  PROCESS(arrow::Decimal128Type)
+  PROCESS(arrow::Decimal128Type)         \
+  PROCESS(arrow::TimestampType)
 
 arrow::Status MakeUnsafeArray(std::shared_ptr<arrow::DataType> type, int idx,
                               const std::shared_ptr<arrow::Array>& in,

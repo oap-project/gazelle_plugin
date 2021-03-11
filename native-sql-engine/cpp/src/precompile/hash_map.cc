@@ -106,6 +106,7 @@ TYPED_ARROW_HASH_MAP_IMPL(StringHashMap, StringType, arrow::util::string_view,
                           StringMemoTableType)
 TYPED_ARROW_HASH_MAP_DECIMAL_IMPL(Decimal128HashMap, Decimal128Type, arrow::Decimal128,
                                   DecimalMemoTableType)
+TYPED_ARROW_HASH_MAP_IMPL(TimestampHashMap, TimestampType, int64_t, TimestampMemoTableType)
 #undef TYPED_ARROW_HASH_MAP_IMPL
 
 }  // namespace precompile

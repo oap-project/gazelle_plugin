@@ -368,7 +368,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
         node.return_type()->id() == arrow::Type::DATE32) {
       typed_func_name += "32";
     } else if (node.return_type()->id() == arrow::Type::INT64 ||
-               node.return_type()->id() == arrow::Type::DATE64) {
+               node.return_type()->id() == arrow::Type::DATE64 ||
+               node.return_type()->id() == arrow::Type::TIMESTAMP) {
       typed_func_name += "64";
     } else {
       return arrow::Status::NotImplemented("castDATE doesn't support ",

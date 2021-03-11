@@ -45,6 +45,7 @@ TYPED_HASH_MAP_DEFINE(Date32HashMap, int32_t)
 TYPED_HASH_MAP_DEFINE(Date64HashMap, int64_t)
 TYPED_HASH_MAP_DEFINE(StringHashMap, arrow::util::string_view)
 TYPED_HASH_MAP_DEFINE(Decimal128HashMap, arrow::Decimal128)
+TYPED_HASH_MAP_DEFINE(TimestampHashMap, int64_t)
 #undef TYPED_HASH_MAP_DEFINE
 }  // namespace precompile
 }  // namespace sparkcolumnarplugin

@@ -59,6 +59,8 @@ TYPED_BUILDER_IMPL(FloatBuilder, arrow::float32(), float)
 TYPED_BUILDER_IMPL(DoubleBuilder, arrow::float64(), double)
 TYPED_BUILDER_IMPL(Date32Builder, arrow::date32(), int32_t)
 TYPED_BUILDER_IMPL(Date64Builder, arrow::date64(), int64_t)
+TYPED_BUILDER_IMPL(TimestampBuilder, arrow::timestamp(arrow::TimeUnit::MILLI), int64_t)
+
 #undef TYPED_BUILDER_IMPL
 
 class StringBuilder::Impl : public arrow::StringBuilder {

@@ -79,6 +79,8 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
       return "boolean()";
     case arrow::Decimal128Type::type_id:
       return type->ToString();
+    case arrow::TimestampType::type_id:
+      return "timestamp(arrow::TimeUnit::MILLI)";
     default:
       std::cout << "GetArrowTypeString can't convert " << type->ToString() << std::endl;
       throw;
@@ -116,6 +118,8 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
       return "bool";
     case arrow::Decimal128Type::type_id:
       return "arrow::Decimal128";
+    case arrow::TimestampType::type_id:
+      return "int64_t";
     default:
       std::cout << "GetCTypeString can't convert " << type->ToString() << std::endl;
       throw;
@@ -153,6 +157,8 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       return "Boolean" + tail;
     case arrow::Decimal128Type::type_id:
       return "Decimal128" + tail;
+    case arrow::TimestampType::type_id:
+      return "Timestamp" + tail;
     default:
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
       throw;
@@ -219,7 +225,7 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<" + prefix + "Date32" + tail + ">";
     case arrow::Date64Type::type_id:
       if (tail.empty())
-        return template_name + "<uint64_t>";
+        return template_name + "<int64_t>";
       else
         return template_name + "<" + prefix + "Date64" + tail + ">";
     case arrow::StringType::type_id:
@@ -237,6 +243,11 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<arrow::Decimal128>";
       else
         return template_name + "<" + prefix + "Decimal128" + tail + ">";
+    case arrow::TimestampType::type_id:
+      if (tail.empty())
+        return template_name + "<uint64_t>";
+      else
+        return template_name + "<" + prefix + "Timestamp" + tail + ">";
     default:
       std::cout << "GetTemplateString can't convert " << type->ToString() << std::endl;
       throw;

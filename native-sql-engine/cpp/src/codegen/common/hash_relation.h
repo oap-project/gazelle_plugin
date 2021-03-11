@@ -30,7 +30,7 @@
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
-using sparkcolumnarplugin::precompile::enable_if_number_or_decimal;
+using sparkcolumnarplugin::precompile::enable_if_number_decimal_or_timestamp;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
 using sparkcolumnarplugin::precompile::TypeTraits;
@@ -54,7 +54,7 @@ template <typename T, typename Enable = void>
 class TypedHashRelationColumn {};
 
 template <typename DataType>
-class TypedHashRelationColumn<DataType, enable_if_number_or_decimal<DataType>>
+class TypedHashRelationColumn<DataType, enable_if_number_decimal_or_timestamp<DataType>>
     : public HashRelationColumn {
  public:
   using T = typename TypeTraits<DataType>::CType;

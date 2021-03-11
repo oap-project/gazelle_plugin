@@ -35,7 +35,8 @@
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)             \
-  PROCESS(arrow::Decimal128Type)
+  PROCESS(arrow::Decimal128Type)         \
+  PROCESS(arrow::TimestampType)
 arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
                                      std::shared_ptr<HashRelationColumn>* out) {
   switch (data_type_id) {
@@ -72,7 +73,8 @@ arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::Decimal128Type)         \
-  PROCESS(arrow::StringType)
+  PROCESS(arrow::StringType)             \
+  PROCESS(arrow::TimestampType)
 arrow::Status MakeRelationColumn(uint32_t data_type_id,
                                  std::shared_ptr<RelationColumn>* out) {
   switch (data_type_id) {
@@ -109,7 +111,8 @@ arrow::Status MakeRelationColumn(uint32_t data_type_id,
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
-  PROCESS(arrow::StringType)
+  PROCESS(arrow::StringType)             \
+  PROCESS(arrow::TimestampType)
 arrow::Status MakeHashRelation(
     uint32_t key_type_id, arrow::compute::ExecContext* ctx,
     const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
