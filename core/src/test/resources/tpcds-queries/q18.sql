@@ -3,13 +3,13 @@ SELECT
   ca_country,
   ca_state,
   ca_county,
-  avg(cast(cs_quantity AS DOUBLE)) agg1,
-  avg(cast(cs_list_price AS DOUBLE)) agg2,
-  avg(cast(cs_coupon_amt AS DOUBLE)) agg3,
-  avg(cast(cs_sales_price AS DOUBLE)) agg4,
-  avg(cast(cs_net_profit AS DOUBLE)) agg5,
-  avg(cast(c_birth_year AS DOUBLE)) agg6,
-  avg(cast(cd1.cd_dep_count AS DOUBLE)) agg7
+  avg(cast(cs_quantity AS DECIMAL(12, 2))) agg1,
+  avg(cast(cs_list_price AS DECIMAL(12, 2))) agg2,
+  avg(cast(cs_coupon_amt AS DECIMAL(12, 2))) agg3,
+  avg(cast(cs_sales_price AS DECIMAL(12, 2))) agg4,
+  avg(cast(cs_net_profit AS DECIMAL(12, 2))) agg5,
+  avg(cast(c_birth_year AS DECIMAL(12, 2))) agg6,
+  avg(cast(cd1.cd_dep_count AS DECIMAL(12, 2))) agg7
 FROM catalog_sales, customer_demographics cd1,
   customer_demographics cd2, customer, customer_address, date_dim, item
 WHERE cs_sold_date_sk = d_date_sk AND

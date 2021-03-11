@@ -1,4 +1,4 @@
-SELECT cast(amc AS DOUBLE) / cast(pmc AS DOUBLE) am_pm_ratio
+SELECT cast(amc AS DECIMAL(15, 4)) / cast(pmc AS DECIMAL(15, 4)) am_pm_ratio
 FROM (SELECT count(*) amc
 FROM web_sales, household_demographics, time_dim, web_page
 WHERE ws_sold_time_sk = time_dim.t_time_sk

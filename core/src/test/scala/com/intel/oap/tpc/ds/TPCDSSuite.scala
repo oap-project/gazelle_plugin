@@ -26,7 +26,7 @@ import org.apache.spark.sql.test.SharedSparkSession
 class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "6g"
-  private val TPCDS_QUERIES_RESOURCE = "tpcds-queries-double"
+  private val TPCDS_QUERIES_RESOURCE = "tpcds-queries"
   private val TPCDS_WRITE_PATH = "/tmp/tpcds-generated"
 
   private var runner: TPCRunner = _

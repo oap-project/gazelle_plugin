@@ -41,7 +41,7 @@ import scala.collection.mutable.ArrayBuffer
 class TPCHSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "6g"
-  private val TPCH_QUERIES_RESOURCE = "tpch-queries-double"
+  private val TPCH_QUERIES_RESOURCE = "tpch-queries"
   private val TPCH_WRITE_PATH = "/tmp/tpch-generated"
 
   private var runner: TPCRunner = _
