@@ -6,10 +6,6 @@ A Spark DataSource implementation for reading files into Arrow compatible column
 
 The development of this library is still in progress. As a result some of the functionality may not be constantly stable for being used in production environments that have not been fully considered due to the limited testing capabilities so far.
 
-## Online Documentation
-
-You can find the all the Native SQL Engine documents on the [project web page](https://oap-project.github.io/arrow-data-source/).
-
 ## Build
 
 ### Prerequisite
@@ -27,7 +23,7 @@ Please make sure you have already installed the software in your system.
 
 ### Building by Conda
 
-If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./docs/OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./docs/OAP-Installation-Guide.md), you can find built `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
+If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./OAP-Installation-Guide.md), you can find built `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
 Then you can just skip steps below and jump to [Get Started](#get-started).
 
 ### cmake installation
@@ -213,7 +209,7 @@ spark.sql("SELECT * FROM my_temp_view LIMIT 10").show(10)
 
 To validate if ArrowDataSource works, you can go to the DAG to check if ArrowScan has been used from the above example query.
 
-![Image of ArrowDataSource Validation](./docs/image/arrowdatasource_validation.png)
+![Image of ArrowDataSource Validation](./image/arrowdatasource_validation.png)
 
 
 ## Work together with ParquetDataSource (experimental)

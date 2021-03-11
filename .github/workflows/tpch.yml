@@ -1,0 +1,73 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Native SQL Engine TPC-H Suite
+
+on:
+  pull_request
+
+jobs:
+  ram-usage-test:
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'No RAM Report') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - uses: iterative/setup-cml@v1
+        with:
+          version: latest
+      - run: sudo swapoff -a
+      - run: free
+      - run: sudo apt-get install cmake
+      - run: sudo apt-get install libboost-all-dev
+      - name: Install OAP optimized Arrow
+        run: |
+          cd /tmp
+          git clone https://github.com/intel-bigdata/arrow.git
+          cd arrow && git checkout oap-master && cd cpp
+          mkdir build && cd build
+          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON && make -j2
+          sudo make install
+          cd ../../java
+          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
+      - name: Install Arrow datasource
+        run: |
+          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+      - run: |
+          cd /tmp
+          git clone https://github.com/oap-project/native-sql-engine.git
+          cd native-sql-engine/core/
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs
+        env:
+          MAVEN_OPTS: "-Xmx2048m"
+          COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text.txt"
+          COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image.png"
+          ENABLE_TPCH_TESTS: "true"
+      - run: cml-publish /tmp/comment_image.png --md > /tmp/comment.md
+      - run: echo "::set-output name=event_path::${GITHUB_EVENT_PATH}"
+        id: output-envs
+      - uses: actions/upload-artifact@v2
+        with:
+          name: comment_content
+          path: /tmp/comment.md
+      - uses: actions/upload-artifact@v2
+        with:
+          name: pr_event
+          path: ${{steps.output-envs.outputs.event_path}}
