@@ -26,7 +26,7 @@ import org.apache.spark.sql.test.SharedSparkSession
 class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "6g"
-  private val TPCDS_QUERIES_RESOURCE = "tpcds-queries-double"
+  private val TPCDS_QUERIES_RESOURCE = "tpcds-queries"
   private val TPCDS_WRITE_PATH = "/tmp/tpcds-generated"
 
   private var runner: TPCRunner = _
@@ -87,6 +87,34 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   test("window query") {
     runner.runTPCQuery("q67", 1, true)
+  }
+
+  test("window function with non-decimal input") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, SUM(i_category_id)" +
+            " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window function with decimal input") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, SUM(i_current_price)" +
+        " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window function with decimal input 2") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, RANK()" +
+        " OVER (PARTITION BY i_class_id ORDER BY i_current_price) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window function with decimal input 3") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id, AVG(i_current_price)" +
+        " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
   }
 }
 

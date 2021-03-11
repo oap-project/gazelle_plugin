@@ -27,20 +27,21 @@ import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, NamedExpression, Rank, SortOrder, WindowExpression, WindowFunction}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, Average, Sum}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, MakeDecimal, NamedExpression, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction}
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, AggregateFunction, Average, Sum}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.ArrayType
+import org.apache.spark.sql.types.{ArrayType, DataType, DecimalType, DoubleType, LongType}
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.ExecutorManager
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+import scala.util.Random
 
 class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     partitionSpec: Seq[Expression],
@@ -246,5 +247,108 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     }
 
     override def isComplex: Boolean = false
+  }
+}
+
+object ColumnarWindowExec {
+
+  def createWithProjection(
+      windowExpression: Seq[NamedExpression],
+      partitionSpec: Seq[Expression],
+      orderSpec: Seq[SortOrder],
+      child: SparkPlan): SparkPlan = {
+
+    def makeInputProject(ex: Expression, inputProjects: ListBuffer[NamedExpression]): Expression = {
+      ex match {
+        case ae: AggregateExpression => ae.withNewChildren(ae.children.map(makeInputProject(_, inputProjects)))
+        case ae: WindowExpression => ae.withNewChildren(ae.children.map(makeInputProject(_, inputProjects)))
+        case func @ (_: AggregateFunction | _: WindowFunction) =>
+          val params = func.children
+          // rewrite
+          val rewritten = func match {
+            case _: Average =>
+            // rewrite params for AVG
+              params.map {
+                param =>
+                  param.dataType match {
+                    case _: LongType | _: DecimalType =>
+                      Cast(param, DoubleType)
+                    case _ => param
+                  }
+              }
+            case _ => params
+          }
+
+          // alias
+          func.withNewChildren(rewritten.map {
+            case param @ (_: Cast | _: UnscaledValue) =>
+              val aliasName = "__alias_%d__".format(Random.nextLong())
+              val alias = Alias(param, aliasName)()
+              inputProjects.append(alias)
+              alias.toAttribute
+            case other => other
+          })
+        case other => other
+      }
+    }
+
+    def sameType(from: DataType, to: DataType): Boolean = {
+      if (from == null || to == null) {
+        throw new IllegalArgumentException("null type found during type enforcement")
+      }
+      if (from == to) {
+        return true
+      }
+      DataType.equalsStructurally(from, to)
+    }
+
+    def makeOutputProject(ex: Expression, windows: ListBuffer[NamedExpression], inputProjects: ListBuffer[NamedExpression]): Expression = {
+      val out = ex match {
+        case we: WindowExpression =>
+          val aliasName = "__alias_%d__".format(Random.nextLong())
+          val alias = Alias(makeInputProject(we, inputProjects), aliasName)()
+          windows.append(alias)
+          alias.toAttribute
+        case _ =>
+          ex.withNewChildren(ex.children.map(makeOutputProject(_, windows, inputProjects)))
+      }
+      // forcibly cast to original type against possible rewriting
+      val casted = try {
+        if (sameType(out.dataType, ex.dataType)) {
+          out
+        } else {
+          Cast(out, ex.dataType)
+        }
+      } catch {
+        case t: Throwable =>
+          System.err.println("Warning: " + t.getMessage)
+          Cast(out, ex.dataType)
+      }
+      casted
+    }
+
+    val windows = ListBuffer[NamedExpression]()
+    val inProjectExpressions = ListBuffer[NamedExpression]()
+    val outProjectExpressions = windowExpression.map(e => e.asInstanceOf[Alias])
+        .map { a =>
+          a.withNewChildren(List(makeOutputProject(a.child, windows, inProjectExpressions)))
+              .asInstanceOf[NamedExpression]
+        }
+
+    val inputProject = ColumnarConditionProjectExec(null, child.output ++ inProjectExpressions, child)
+
+    val window = new ColumnarWindowExec(windows, partitionSpec, orderSpec, inputProject)
+
+    val outputProject = ColumnarConditionProjectExec(null, child.output ++ outProjectExpressions, window)
+
+    outputProject
+  }
+
+  def create(
+      windowExpression: Seq[NamedExpression],
+      partitionSpec: Seq[Expression],
+      orderSpec: Seq[SortOrder],
+      child: SparkPlan): SparkPlan = {
+    createWithProjection(windowExpression, partitionSpec, orderSpec, child)
   }
 }

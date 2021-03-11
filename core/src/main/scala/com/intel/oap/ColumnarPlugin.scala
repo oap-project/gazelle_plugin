@@ -67,13 +67,17 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         new ColumnarBatchScanExec(plan.output, plan.scan)
       }
     case plan: ProjectExec =>
-      val columnarPlan = replaceWithColumnarPlan(plan.child)
+      val columnarChild = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      if (columnarPlan.isInstanceOf[ColumnarConditionProjectExec]) {
-        val cur_plan = columnarPlan.asInstanceOf[ColumnarConditionProjectExec]
-        ColumnarConditionProjectExec(cur_plan.condition, plan.projectList, cur_plan.child)
-      } else {
-        ColumnarConditionProjectExec(null, plan.projectList, columnarPlan)
+      columnarChild match {
+        case ch: ColumnarConditionProjectExec =>
+          if (ch.projectList == null) {
+            ColumnarConditionProjectExec(ch.condition, plan.projectList, ch.child)
+          } else {
+            ColumnarConditionProjectExec(null, plan.projectList, columnarChild)
+          }
+        case _ =>
+          ColumnarConditionProjectExec(null, plan.projectList, columnarChild)
       }
     case plan: FilterExec =>
       val child = replaceWithColumnarPlan(plan.child)
@@ -234,11 +238,12 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         }
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
         try {
-          return new ColumnarWindowExec(
+          val window = ColumnarWindowExec.create(
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,
             coalesceBatchRemoved)
+          return window
         } catch {
           case _: Throwable =>
             logInfo("Columnar Window: Falling back to regular Window...")

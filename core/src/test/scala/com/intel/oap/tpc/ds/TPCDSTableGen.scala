@@ -177,21 +177,21 @@ object TPCDSTableGen {
       StructField("cs_promo_sk", LongType),
       StructField("cs_order_number", LongType),
       StructField("cs_quantity", LongType),
-      StructField("cs_wholesale_cost", DoubleType),
-      StructField("cs_list_price", DoubleType),
-      StructField("cs_sales_price", DoubleType),
-      StructField("cs_ext_discount_amt", DoubleType),
-      StructField("cs_ext_sales_price", DoubleType),
-      StructField("cs_ext_wholesale_cost", DoubleType),
-      StructField("cs_ext_list_price", DoubleType),
-      StructField("cs_ext_tax", DoubleType),
-      StructField("cs_coupon_amt", DoubleType),
-      StructField("cs_ext_ship_cost", DoubleType),
-      StructField("cs_net_paid", DoubleType),
-      StructField("cs_net_paid_inc_tax", DoubleType),
-      StructField("cs_net_paid_inc_ship", DoubleType),
-      StructField("cs_net_paid_inc_ship_tax", DoubleType),
-      StructField("cs_net_profit", DoubleType)
+      StructField("cs_wholesale_cost", DecimalType(7, 2)),
+      StructField("cs_list_price", DecimalType(7, 2)),
+      StructField("cs_sales_price", DecimalType(7, 2)),
+      StructField("cs_ext_discount_amt", DecimalType(7, 2)),
+      StructField("cs_ext_sales_price", DecimalType(7, 2)),
+      StructField("cs_ext_wholesale_cost", DecimalType(7, 2)),
+      StructField("cs_ext_list_price", DecimalType(7, 2)),
+      StructField("cs_ext_tax", DecimalType(7, 2)),
+      StructField("cs_coupon_amt", DecimalType(7, 2)),
+      StructField("cs_ext_ship_cost", DecimalType(7, 2)),
+      StructField("cs_net_paid", DecimalType(7, 2)),
+      StructField("cs_net_paid_inc_tax", DecimalType(7, 2)),
+      StructField("cs_net_paid_inc_ship", DecimalType(7, 2)),
+      StructField("cs_net_paid_inc_ship_tax", DecimalType(7, 2)),
+      StructField("cs_net_profit", DecimalType(7, 2))
     ))
   }
   private def catalogReturnsSchema = {
@@ -214,15 +214,15 @@ object TPCDSTableGen {
       StructField("cr_reason_sk", LongType),
       StructField("cr_order_number", LongType),
       StructField("cr_return_quantity", LongType),
-      StructField("cr_return_amount", DoubleType),
-      StructField("cr_return_tax", DoubleType),
-      StructField("cr_return_amt_inc_tax", DoubleType),
-      StructField("cr_fee", DoubleType),
-      StructField("cr_return_ship_cost", DoubleType),
-      StructField("cr_refunded_cash", DoubleType),
-      StructField("cr_reversed_charge", DoubleType),
-      StructField("cr_store_credit", DoubleType),
-      StructField("cr_net_loss", DoubleType)
+      StructField("cr_return_amount", DecimalType(7, 2)),
+      StructField("cr_return_tax", DecimalType(7, 2)),
+      StructField("cr_return_amt_inc_tax", DecimalType(7, 2)),
+      StructField("cr_fee", DecimalType(7, 2)),
+      StructField("cr_return_ship_cost", DecimalType(7, 2)),
+      StructField("cr_refunded_cash", DecimalType(7, 2)),
+      StructField("cr_reversed_charge", DecimalType(7, 2)),
+      StructField("cr_store_credit", DecimalType(7, 2)),
+      StructField("cr_net_loss", DecimalType(7, 2))
     ))
   }
   private def inventorySchema = {
@@ -246,18 +246,18 @@ object TPCDSTableGen {
       StructField("ss_promo_sk", LongType),
       StructField("ss_ticket_number", LongType),
       StructField("ss_quantity", LongType),
-      StructField("ss_wholesale_cost", DoubleType),
-      StructField("ss_list_price", DoubleType),
-      StructField("ss_sales_price", DoubleType),
-      StructField("ss_ext_discount_amt", DoubleType),
-      StructField("ss_ext_sales_price", DoubleType),
-      StructField("ss_ext_wholesale_cost", DoubleType),
-      StructField("ss_ext_list_price", DoubleType),
-      StructField("ss_ext_tax", DoubleType),
-      StructField("ss_coupon_amt", DoubleType),
-      StructField("ss_net_paid", DoubleType),
-      StructField("ss_net_paid_inc_tax", DoubleType),
-      StructField("ss_net_profit", DoubleType)
+      StructField("ss_wholesale_cost", DecimalType(7, 2)),
+      StructField("ss_list_price", DecimalType(7, 2)),
+      StructField("ss_sales_price", DecimalType(7, 2)),
+      StructField("ss_ext_discount_amt", DecimalType(7, 2)),
+      StructField("ss_ext_sales_price", DecimalType(7, 2)),
+      StructField("ss_ext_wholesale_cost", DecimalType(7, 2)),
+      StructField("ss_ext_list_price", DecimalType(7, 2)),
+      StructField("ss_ext_tax", DecimalType(7, 2)),
+      StructField("ss_coupon_amt", DecimalType(7, 2)),
+      StructField("ss_net_paid", DecimalType(7, 2)),
+      StructField("ss_net_paid_inc_tax", DecimalType(7, 2)),
+      StructField("ss_net_profit", DecimalType(7, 2))
     ))
   }
   private def storeReturnsSchema = {
@@ -273,15 +273,15 @@ object TPCDSTableGen {
       StructField("sr_reason_sk", LongType),
       StructField("sr_ticket_number", LongType),
       StructField("sr_return_quantity", LongType),
-      StructField("sr_return_amt", DoubleType),
-      StructField("sr_return_tax", DoubleType),
-      StructField("sr_return_amt_inc_tax", DoubleType),
-      StructField("sr_fee", DoubleType),
-      StructField("sr_return_ship_cost", DoubleType),
-      StructField("sr_refunded_cash", DoubleType),
-      StructField("sr_reversed_charge", DoubleType),
-      StructField("sr_store_credit", DoubleType),
-      StructField("sr_net_loss", DoubleType)
+      StructField("sr_return_amt", DecimalType(7, 2)),
+      StructField("sr_return_tax", DecimalType(7, 2)),
+      StructField("sr_return_amt_inc_tax", DecimalType(7, 2)),
+      StructField("sr_fee", DecimalType(7, 2)),
+      StructField("sr_return_ship_cost", DecimalType(7, 2)),
+      StructField("sr_refunded_cash", DecimalType(7, 2)),
+      StructField("sr_reversed_charge", DecimalType(7, 2)),
+      StructField("sr_store_credit", DecimalType(7, 2)),
+      StructField("sr_net_loss", DecimalType(7, 2))
     ))
   }
   private def webSalesSchema = {
@@ -305,21 +305,21 @@ object TPCDSTableGen {
       StructField("ws_promo_sk", LongType),
       StructField("ws_order_number", LongType),
       StructField("ws_quantity", LongType),
-      StructField("ws_wholesale_cost", DoubleType),
-      StructField("ws_list_price", DoubleType),
-      StructField("ws_sales_price", DoubleType),
-      StructField("ws_ext_discount_amt", DoubleType),
-      StructField("ws_ext_sales_price", DoubleType),
-      StructField("ws_ext_wholesale_cost", DoubleType),
-      StructField("ws_ext_list_price", DoubleType),
-      StructField("ws_ext_tax", DoubleType),
-      StructField("ws_coupon_amt", DoubleType),
-      StructField("ws_ext_ship_cost", DoubleType),
-      StructField("ws_net_paid", DoubleType),
-      StructField("ws_net_paid_inc_tax", DoubleType),
-      StructField("ws_net_paid_inc_ship", DoubleType),
-      StructField("ws_net_paid_inc_ship_tax", DoubleType),
-      StructField("ws_net_profit", DoubleType)
+      StructField("ws_wholesale_cost", DecimalType(7, 2)),
+      StructField("ws_list_price", DecimalType(7, 2)),
+      StructField("ws_sales_price", DecimalType(7, 2)),
+      StructField("ws_ext_discount_amt", DecimalType(7, 2)),
+      StructField("ws_ext_sales_price", DecimalType(7, 2)),
+      StructField("ws_ext_wholesale_cost", DecimalType(7, 2)),
+      StructField("ws_ext_list_price", DecimalType(7, 2)),
+      StructField("ws_ext_tax", DecimalType(7, 2)),
+      StructField("ws_coupon_amt", DecimalType(7, 2)),
+      StructField("ws_ext_ship_cost", DecimalType(7, 2)),
+      StructField("ws_net_paid", DecimalType(7, 2)),
+      StructField("ws_net_paid_inc_tax", DecimalType(7, 2)),
+      StructField("ws_net_paid_inc_ship", DecimalType(7, 2)),
+      StructField("ws_net_paid_inc_ship_tax", DecimalType(7, 2)),
+      StructField("ws_net_profit", DecimalType(7, 2))
     ))
   }
   private def webReturnsSchema = {
@@ -339,15 +339,15 @@ object TPCDSTableGen {
       StructField("wr_reason_sk", LongType),
       StructField("wr_order_number", LongType),
       StructField("wr_return_quantity", LongType),
-      StructField("wr_return_amt", DoubleType),
-      StructField("wr_return_tax", DoubleType),
-      StructField("wr_return_amt_inc_tax", DoubleType),
-      StructField("wr_fee", DoubleType),
-      StructField("wr_return_ship_cost", DoubleType),
-      StructField("wr_refunded_cash", DoubleType),
-      StructField("wr_reversed_charge", DoubleType),
-      StructField("wr_account_credit", DoubleType),
-      StructField("wr_net_loss", DoubleType)
+      StructField("wr_return_amt", DecimalType(7, 2)),
+      StructField("wr_return_tax", DecimalType(7, 2)),
+      StructField("wr_return_amt_inc_tax", DecimalType(7, 2)),
+      StructField("wr_fee", DecimalType(7, 2)),
+      StructField("wr_return_ship_cost", DecimalType(7, 2)),
+      StructField("wr_refunded_cash", DecimalType(7, 2)),
+      StructField("wr_reversed_charge", DecimalType(7, 2)),
+      StructField("wr_account_credit", DecimalType(7, 2)),
+      StructField("wr_net_loss", DecimalType(7, 2))
     ))
   }
   private def callCenterSchema = {
@@ -381,8 +381,8 @@ object TPCDSTableGen {
       StructField("cc_state", StringType),
       StructField("cc_zip", StringType),
       StructField("cc_country", StringType),
-      StructField("cc_gmt_offset", DoubleType),
-      StructField("cc_tax_percentage", DoubleType)
+      StructField("cc_gmt_offset", DecimalType(5, 2)),
+      StructField("cc_tax_percentage", DecimalType(5, 2))
     ))
   }
   private def catalogPageSchema = {
@@ -433,7 +433,7 @@ object TPCDSTableGen {
       StructField("ca_state", StringType),
       StructField("ca_zip", StringType),
       StructField("ca_country", StringType),
-      StructField("ca_gmt_offset", DoubleType),
+      StructField("ca_gmt_offset", DecimalType(5, 2)),
       StructField("ca_location_type", StringType)
     ))
   }
@@ -505,8 +505,8 @@ object TPCDSTableGen {
       StructField("i_rec_start_date", StringType),
       StructField("i_rec_end_date", StringType),
       StructField("i_item_desc", StringType),
-      StructField("i_current_price", DoubleType),
-      StructField("i_wholesale_cost", DoubleType),
+      StructField("i_current_price", DecimalType(7, 2)),
+      StructField("i_wholesale_cost", DecimalType(7, 2)),
       StructField("i_brand_id", LongType),
       StructField("i_brand", StringType),
       StructField("i_class_id", LongType),
@@ -531,7 +531,7 @@ object TPCDSTableGen {
       StructField("p_start_date_sk", LongType),
       StructField("p_end_date_sk", LongType),
       StructField("p_item_sk", LongType),
-      StructField("p_cost", DoubleType),
+      StructField("p_cost", DecimalType(15, 2)),
       StructField("p_response_target", LongType),
       StructField("p_promo_name", StringType),
       StructField("p_channel_dmail", StringType),
@@ -593,8 +593,8 @@ object TPCDSTableGen {
       StructField("s_state", StringType),
       StructField("s_zip", StringType),
       StructField("s_country", StringType),
-      StructField("s_gmt_offset", DoubleType),
-      StructField("s_tax_precentage", DoubleType)
+      StructField("s_gmt_offset", DecimalType(5, 2)),
+      StructField("s_tax_precentage", DecimalType(5, 2))
     ))
   }
   private def timeDimSchema = {
@@ -626,7 +626,7 @@ object TPCDSTableGen {
       StructField("w_state", StringType),
       StructField("w_zip", StringType),
       StructField("w_country", StringType),
-      StructField("w_gmt_offset", DoubleType)
+      StructField("w_gmt_offset", DecimalType(5, 2))
     ))
   }
   private def webPageSchema = {
@@ -674,7 +674,7 @@ object TPCDSTableGen {
       StructField("web_zip", StringType),
       StructField("web_country", StringType),
       StructField("web_gmt_offset", StringType),
-      StructField("web_tax_percentage", DoubleType)
+      StructField("web_tax_percentage", DecimalType(5, 2))
     ))
   }
 }

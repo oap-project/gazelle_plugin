@@ -696,115 +696,6 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   uint64_t num_batches_ = 0;
   uint64_t col_num_;
   int key_id_;
-
-#define PROCESS_SUPPORTED_TYPES(PROCESS) \
-  PROCESS(arrow::UInt8Type)              \
-  PROCESS(arrow::Int8Type)               \
-  PROCESS(arrow::UInt16Type)             \
-  PROCESS(arrow::Int16Type)              \
-  PROCESS(arrow::UInt32Type)             \
-  PROCESS(arrow::Int32Type)              \
-  PROCESS(arrow::UInt64Type)             \
-  PROCESS(arrow::Int64Type)              \
-  PROCESS(arrow::FloatType)              \
-  PROCESS(arrow::DoubleType)
-  class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
-   public:
-    SorterResultIterator(arrow::compute::ExecContext* ctx,
-                         std::shared_ptr<arrow::Schema> schema,
-                         std::shared_ptr<arrow::Schema> result_schema,
-                         std::shared_ptr<FixedSizeBinaryArray> indices_in,
-                         std::vector<arrow::ArrayVector>& cached)
-        : ctx_(ctx),
-          result_schema_(result_schema),
-          indices_in_cache_(indices_in),
-          total_length_(indices_in->length()),
-          cached_in_(cached) {
-      col_num_ = result_schema->num_fields();
-      indices_begin_ = (ArrayItemIndex*)indices_in->value_data();
-      for (uint64_t i = 0; i < col_num_; i++) {
-        auto field = result_schema->field(i);
-        if (field->type()->id() == arrow::Type::STRING) {
-          auto app_ptr = std::make_shared<ArrayAppender<arrow::StringType>>(ctx);
-          auto appender = std::dynamic_pointer_cast<AppenderBase>(app_ptr);
-          appender_list_.push_back(appender);
-        } else {
-          switch (field->type()->id()) {
-#define PROCESS(InType)                                                       \
-  case InType::type_id: {                                                     \
-    auto app_ptr = std::make_shared<ArrayAppender<InType>>(ctx);              \
-    auto appender = std::dynamic_pointer_cast<AppenderBase>(app_ptr);         \
-    appender_list_.push_back(appender);                                       \
-  } break;
-            PROCESS_SUPPORTED_TYPES(PROCESS)
-            default: {
-              std::cout << "WindowSortOnekeyKernel type not supported, type is "
-                        << field->type() << std::endl;
-            } break;
-#undef PROCESS
-          }
-        }
-      }
-      for (int i = 0; i < col_num_; i++) {
-        arrow::ArrayVector array_vector = cached_in_[i];
-        int array_num = array_vector.size();
-        for (int array_id = 0; array_id < array_num; array_id++) {
-          auto arr = array_vector[array_id];
-          appender_list_[i]->AddArray(arr);
-        }
-      }
-      batch_size_ = GetBatchSize();
-    }
-
-    std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
-
-    bool HasNext() override {
-      if (offset_ >= total_length_) {
-        return false;
-      }
-      return true;
-    }
-
-    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
-      auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
-                                                            : (total_length_ - offset_);
-      uint64_t count = 0;
-      for (int i = 0; i < col_num_; i++) {
-        while (count < length) {
-          auto item = indices_begin_ + offset_ + count++;
-          RETURN_NOT_OK(appender_list_[i]->Append(item->array_id, item->id));
-        }
-        count = 0;
-      }
-      offset_ += length;
-      ArrayList arrays;
-      for (int i = 0; i < col_num_; i++) {
-        std::shared_ptr<arrow::Array> out_;
-        RETURN_NOT_OK(appender_list_[i]->Finish(&out_));
-        arrays.push_back(out_);
-        appender_list_[i]->Reset();
-      }
-
-      *out = arrow::RecordBatch::Make(result_schema_, length, arrays);
-      return arrow::Status::OK();
-    }
-
-   private:
-    uint64_t offset_ = 0;
-    const uint64_t total_length_;
-    std::shared_ptr<arrow::Schema> schema_;
-    std::shared_ptr<arrow::Schema> result_schema_;
-    arrow::compute::ExecContext* ctx_;
-    uint64_t batch_size_;
-    uint64_t col_num_;
-    ArrayItemIndex* indices_begin_;
-    std::vector<arrow::ArrayVector> cached_in_;
-    std::vector<std::shared_ptr<arrow::DataType>> type_list_;
-    std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-    std::vector<std::shared_ptr<arrow::Array>> array_list_;
-    std::shared_ptr<FixedSizeBinaryArray> indices_in_cache_;
-  };
-#undef PROCESS_SUPPORTED_TYPES
 };
 
 arrow::Status WindowSortKernel::Make(
@@ -816,17 +707,20 @@ arrow::Status WindowSortKernel::Make(
                                                      nulls_first, asc);
   return arrow::Status::OK();
 }
-#define PROCESS_SUPPORTED_TYPES(PROCESS) \
-  PROCESS(arrow::UInt8Type)              \
-  PROCESS(arrow::Int8Type)               \
-  PROCESS(arrow::UInt16Type)             \
-  PROCESS(arrow::Int16Type)              \
-  PROCESS(arrow::UInt32Type)             \
-  PROCESS(arrow::Int32Type)              \
-  PROCESS(arrow::UInt64Type)             \
-  PROCESS(arrow::Int64Type)              \
-  PROCESS(arrow::FloatType)              \
-  PROCESS(arrow::DoubleType)
+
+#define PROCESS_SUPPORTED_TYPES_WINDOW_SORT(PROC) \
+  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)              \
+  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)                 \
+  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array)           \
+  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)              \
+  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array)           \
+  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)              \
+  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array)           \
+  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)              \
+  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)              \
+  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)           \
+  PROC(arrow::Decimal128Type, arrow::Decimal128Builder, arrow::Decimal128Array)
+
 WindowSortKernel::WindowSortKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
@@ -841,12 +735,12 @@ WindowSortKernel::WindowSortKernel(
                                                                result_schema, nulls_first, asc));
     } else {
       switch (key_field_list[0]->type()->id()) {
-#define PROCESS(InType)                                                       \
+#define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                                                         \
   case InType::type_id: {                                                     \
-    using CType = typename arrow::TypeTraits<InType>::CType;                  \
+    using CType = typename TypeTraits<InType>::CType;                  \
     impl_.reset(new WindowSortOnekeyKernel<InType, CType>(ctx, key_field_list, result_schema, nulls_first, asc));  \
   } break;
-        PROCESS_SUPPORTED_TYPES(PROCESS)
+        PROCESS_SUPPORTED_TYPES_WINDOW_SORT(PROCESS)
 #undef PROCESS
         default: {
           std::cout << "WindowSortOnekeyKernel type not supported, type is "
@@ -864,7 +758,7 @@ WindowSortKernel::WindowSortKernel(
   }
   kernel_name_ = "WindowSortKernel";
 }
-#undef PROCESS_SUPPORTED_TYPES
+#undef PROCESS_SUPPORTED_TYPES_WINDOW_SORT
 
 arrow::Status WindowSortKernel::Evaluate(const ArrayList& in) {
   return impl_->Evaluate(in);
