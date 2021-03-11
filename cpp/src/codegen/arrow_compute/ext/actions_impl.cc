@@ -240,7 +240,7 @@ class UniqueAction : public ActionBase {
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
+      if (cache_validity_[offset + i]) {
         if (!null_flag_[offset + i]) {
           builder_->Append(cache_[offset + i]);
         } else {
@@ -1727,7 +1727,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     }
     cache_sum_.resize(max_group_id, 0);
     cache_count_.resize(max_group_id, 0);
-    cache_validity_.resize(max_group_id + 1, false);
+    cache_validity_.resize(max_group_id, false);
     return arrow::Status::OK();
   }
 
@@ -1799,7 +1799,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
+      if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
       } else {
@@ -1907,7 +1907,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     }
     cache_sum_.resize(max_group_id, 0);
     cache_count_.resize(max_group_id, 0);
-    cache_validity_.resize(max_group_id + 1, false);
+    cache_validity_.resize(max_group_id, false);
     return arrow::Status::OK();
   }
 
@@ -1972,7 +1972,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
+      if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
       } else {
@@ -2157,7 +2157,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
+      if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
       } else {
@@ -2332,7 +2332,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
+      if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
       } else {
