@@ -294,7 +294,7 @@ object ColumnarWindowExec {
 
     def sameType(from: DataType, to: DataType): Boolean = {
       if (from == null || to == null) {
-        return false
+        throw new IllegalArgumentException("null type found during type enforcement")
       }
       if (from == to) {
         return true
@@ -313,10 +313,16 @@ object ColumnarWindowExec {
           ex.withNewChildren(ex.children.map(makeOutputProject(_, windows, inputProjects)))
       }
       // forcibly cast to original type against possible rewriting
-      val casted = if (sameType(out.dataType, ex.dataType)) {
-        out
-      } else {
-        Cast(out, ex.dataType)
+      val casted = try {
+        if (sameType(out.dataType, ex.dataType)) {
+          out
+        } else {
+          Cast(out, ex.dataType)
+        }
+      } catch {
+        case t: Throwable =>
+          System.err.println("Warning: " + t.getMessage)
+          Cast(out, ex.dataType)
       }
       casted
     }
