@@ -292,8 +292,18 @@ object ColumnarWindowExec {
       }
     }
 
+    def sameType(from: DataType, to: DataType): Boolean = {
+      if (from == null || to == null) {
+        return false
+      }
+      if (from == to) {
+        return true
+      }
+      DataType.equalsStructurally(from, to)
+    }
+
     def makeOutputProject(ex: Expression, windows: ListBuffer[NamedExpression], inputProjects: ListBuffer[NamedExpression]): Expression = {
-      ex match {
+      val out = ex match {
         case we: WindowExpression =>
           val aliasName = "__alias_%d__".format(Random.nextLong())
           val alias = Alias(makeInputProject(we, inputProjects), aliasName)()
@@ -302,6 +312,13 @@ object ColumnarWindowExec {
         case _ =>
           ex.withNewChildren(ex.children.map(makeOutputProject(_, windows, inputProjects)))
       }
+      // forcibly cast to original type against possible rewriting
+      val casted = if (sameType(ex.dataType, out.dataType)) {
+        out
+      } else {
+        Cast(out, ex.dataType)
+      }
+      casted
     }
 
     val windows = ListBuffer[NamedExpression]()
