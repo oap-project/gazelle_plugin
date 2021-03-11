@@ -68,5 +68,30 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   ASSERT_EQ(res, arrow::Decimal128("13780.2495094037"));
 }
 
+TEST(TestArrowCompute, ArithmeticComparisonTest) {
+  double v1 = std::numeric_limits<double>::quiet_NaN();
+  double v2 = 1.0;
+  bool res = less_than_with_nan(v1, v2);
+  ASSERT_EQ(res, false);
+  res = less_than_with_nan(v1, v1);
+  ASSERT_EQ(res, false);
+  res = less_than_or_equal_to_with_nan(v1, v2);
+  ASSERT_EQ(res, false);
+  res = less_than_or_equal_to_with_nan(v1, v1);
+  ASSERT_EQ(res, true);
+  res = greater_than_with_nan(v1, v2);
+  ASSERT_EQ(res, true);
+  res = greater_than_with_nan(v1, v1);
+  ASSERT_EQ(res, false);
+  res = greater_than_or_equal_to_with_nan(v1, v2);
+  ASSERT_EQ(res, true);
+  res = greater_than_or_equal_to_with_nan(v1, v1);
+  ASSERT_EQ(res, true);
+  res = equal_with_nan(v1, v2);
+  ASSERT_EQ(res, false);
+  res = equal_with_nan(v1, v1);
+  ASSERT_EQ(res, true);
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin

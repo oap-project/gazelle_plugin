@@ -121,3 +121,71 @@ arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
   }
   return arrow::Decimal128(out);
 }
+
+// A comparison with a NaN always returns false even when comparing with itself.
+// To get the same result as spark, we can regard NaN as big as Infinity when 
+// doing comparison.
+bool less_than_with_nan(double left, double right) {
+  bool left_is_nan = std::isnan(left);
+  bool right_is_nan = std::isnan(right);
+  if (left_is_nan && right_is_nan) {
+    return false;
+  } else if (left_is_nan) {
+    return false;
+  } else if (right_is_nan) {
+    return true;
+  }
+  return left < right;
+}
+
+bool greater_than_with_nan(double left, double right) {
+  bool left_is_nan = std::isnan(left);
+  bool right_is_nan = std::isnan(right);
+  if (left_is_nan && right_is_nan) {
+    return false;
+  } else if (left_is_nan) {
+    return true;
+  } else if (right_is_nan) {
+    return false;
+  }
+  return left > right;
+}
+
+bool less_than_or_equal_to_with_nan(double left, double right) {
+  bool left_is_nan = std::isnan(left);
+  bool right_is_nan = std::isnan(right);
+  if (left_is_nan && right_is_nan) {
+    return true;
+  } else if (left_is_nan) {
+    return false;
+  } else if (right_is_nan) {
+    return true;
+  }
+  return left <= right;
+}
+
+bool greater_than_or_equal_to_with_nan(double left, double right) {
+  bool left_is_nan = std::isnan(left);
+  bool right_is_nan = std::isnan(right);
+  if (left_is_nan && right_is_nan) {
+    return true;
+  } else if (left_is_nan) {
+    return true;
+  } else if (right_is_nan) {
+    return false;
+  }
+  return left >= right;
+}
+
+bool equal_with_nan(double left, double right) {
+  bool left_is_nan = std::isnan(left);
+  bool right_is_nan = std::isnan(right);
+  if (left_is_nan && right_is_nan) {
+    return true;
+  } else if (left_is_nan) {
+    return false;
+  } else if (right_is_nan) {
+    return false;
+  }
+  return left == right;
+}
