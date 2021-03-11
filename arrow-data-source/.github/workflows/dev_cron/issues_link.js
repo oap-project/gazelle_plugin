@@ -19,7 +19,7 @@ function detectISSUESID(title) {
   if (!title) {
     return null;
   }
-  const matched = /^\[ADS-\d+\]/.exec(title);
+  const matched = /^\[NSE-\d+\]/.exec(title);
   if (!matched) {
     return null;
   }
@@ -48,7 +48,7 @@ async function haveComment(github, context, pullRequestNumber, body) {
 }
 
 async function commentISSUESURL(github, context, pullRequestNumber, issuesID) {
-  const issuesURL = `https://github.com/oap-project/arrow-data-source/issues/${issuesID}`;
+  const issuesURL = `https://github.com/oap-project/native-sql-engine/issues/${issuesID}`;
   if (await haveComment(github, context, pullRequestNumber, issuesURL)) {
     return;
   }

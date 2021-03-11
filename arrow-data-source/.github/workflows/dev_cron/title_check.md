@@ -21,13 +21,13 @@ Thanks for opening a pull request!
 
 Could you open an issue for this pull request on Github Issues?
 
-https://github.com/oap-project/arrow-data-source/issues
+https://github.com/oap-project/native-sql-engine/issues
 
 Then could you also rename ***commit message*** and ***pull request title*** in the following format?
 
-    [ADS-${ISSUES_ID}] ${detailed message}
+    [NSE-${ISSUES_ID}] ${detailed message}
 
 See also:
 
-  * [Other pull requests](https://github.com/oap-project/arrow-data-source/pulls/)
+  * [Other pull requests](https://github.com/oap-project/native-sql-engine/pulls/)
 

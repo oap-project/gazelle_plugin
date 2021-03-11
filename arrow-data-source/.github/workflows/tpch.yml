@@ -35,32 +35,48 @@ jobs:
           version: latest
       - run: sudo swapoff -a
       - run: free
+      - run: sudo apt-get update
       - run: sudo apt-get install cmake
       - run: sudo apt-get install libboost-all-dev
       - name: Install OAP optimized Arrow
         run: |
           cd /tmp
-          git clone https://github.com/intel-bigdata/arrow.git
-          cd arrow && git checkout oap-master && cd cpp
+          git clone https://github.com/oap-project/arrow.git
+          cd arrow && git checkout arrow-3.0.0-oap && cd cpp
           mkdir build && cd build
-          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON && make -j2
+          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DARROW_JEMALLOC=OFF && make -j2
           sudo make install
           cd ../../java
           mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
       - name: Install Arrow datasource
         run: |
-          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
-      - run: |
           cd /tmp
-          git clone https://github.com/oap-project/native-sql-engine.git
-          cd native-sql-engine/core/
-          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpch -DtagsToInclude=com.intel.oap.tags.TestAndWriteLogs
+          git clone https://github.com/oap-project/arrow-data-source.git
+          cd arrow-data-source
+          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn
+      - name: Run Maven tests - BHJ
+        run: |
+          cd core/
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
-          MAVEN_OPTS: "-Xmx2048m"
-          COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text.txt"
-          COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image.png"
+          MALLOC_ARENA_MAX: "4"
+          MAVEN_OPTS: "-Xmx1G"
+          COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text_1.txt"
+          COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image_1.png"
           ENABLE_TPCH_TESTS: "true"
-      - run: cml-publish /tmp/comment_image.png --md > /tmp/comment.md
+      - name: Run Maven tests - SMJ
+        run: |
+          cd core/
+          mvn test -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+        env:
+          MALLOC_ARENA_MAX: "4"
+          MAVEN_OPTS: "-Xmx1G"
+          COMMENT_TEXT_OUTPUT_PATH: "/tmp/comment_text_2.txt"
+          COMMENT_IMAGE_OUTPUT_PATH: "/tmp/comment_image_2.png"
+          ENABLE_TPCH_TESTS: "true"
+      - run: |
+          cml-publish /tmp/comment_image_1.png --md > /tmp/comment.md
+          cml-publish /tmp/comment_image_2.png --md >> /tmp/comment.md
       - run: echo "::set-output name=event_path::${GITHUB_EVENT_PATH}"
         id: output-envs
       - uses: actions/upload-artifact@v2
@@ -71,3 +87,4 @@ jobs:
         with:
           name: pr_event
           path: ${{steps.output-envs.outputs.event_path}}
+

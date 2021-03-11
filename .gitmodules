@@ -1,0 +1,3 @@
+[submodule "dep/arrow-data-source"]
+	path = dep/arrow-data-source
+	url = https://github.com/oap-project/arrow-data-source
