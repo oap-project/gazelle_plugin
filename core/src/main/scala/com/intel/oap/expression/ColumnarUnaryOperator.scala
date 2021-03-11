@@ -419,9 +419,14 @@ class ColumnarCast(
     } else if (dataType == IntegerType) {
       val funcNode = child.dataType match {
         case d: DecimalType =>
+          val half_node = TreeBuilder.makeDecimalLiteral("0.5", 2, 1)
+          val round_down_node = TreeBuilder.makeFunction(
+            "subtract",
+            Lists.newArrayList(child_node, half_node),
+            childType)
           val long_node = TreeBuilder.makeFunction(
             "castBIGINT",
-            Lists.newArrayList(child_node),
+            Lists.newArrayList(round_down_node),
             new ArrowType.Int(64, true))
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), resultType)
         case other =>
