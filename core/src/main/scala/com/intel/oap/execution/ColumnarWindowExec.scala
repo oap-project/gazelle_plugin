@@ -313,7 +313,7 @@ object ColumnarWindowExec {
           ex.withNewChildren(ex.children.map(makeOutputProject(_, windows, inputProjects)))
       }
       // forcibly cast to original type against possible rewriting
-      val casted = if (sameType(ex.dataType, out.dataType)) {
+      val casted = if (sameType(out.dataType, ex.dataType)) {
         out
       } else {
         Cast(out, ex.dataType)
