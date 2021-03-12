@@ -759,8 +759,8 @@ static inline bool append(unsafeHashMap* hashMap, UnsafeRow* keyRow, int hashVal
  *
  * return should be a flag of succession of the append.
  **/
-template <typename CType, typename std::enable_if_t<
-                              !std::is_same<CType, arrow::Decimal128>::value>* = nullptr>
+template <typename CType,
+          typename std::enable_if_t<is_number_alike<CType>::value>* = nullptr>
 static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, char* value,
                           size_t value_size) {
   assert(hashMap->keyArray != NULL);
@@ -775,7 +775,7 @@ static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, cha
   char* base = hashMap->bytesMap;
   int klen = 0;
   const int vlen = value_size;
-  const int recordLength = 4 + +klen + vlen + 4;
+  const int recordLength = 4 + klen + vlen + 4;
   char* record = nullptr;
 
   int keySizeInBytes = hashMap->bytesInKeyArray;
@@ -889,7 +889,7 @@ static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, cha
   char* base = hashMap->bytesMap;
   int klen = 0;
   const int vlen = value_size;
-  const int recordLength = 4 + +klen + vlen + 4;
+  const int recordLength = 4 + klen + vlen + 4;
   char* record = nullptr;
 
   int keySizeInBytes = hashMap->bytesInKeyArray;
