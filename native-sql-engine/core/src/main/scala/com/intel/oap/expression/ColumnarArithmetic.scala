@@ -39,11 +39,36 @@ class ColumnarAdd(left: Expression, right: Expression, original: Expression)
     extends Add(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  // If casting between DecimalType, unnecessary cast is skipped to avoid data loss,
+  // because res type of "cast" is actually the res type of "add/subtract".
+  val left_val: Any = left match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+          c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        left
+      }
+    case _ =>
+      left
+  }
+  val right_val: Any = right match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+          c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        right
+      }
+    case _ =>
+      right
+  }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
-      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      left_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     var (right_node, right_type): (TreeNode, ArrowType) =
-      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      right_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
@@ -76,11 +101,34 @@ class ColumnarSubtract(left: Expression, right: Expression, original: Expression
     extends Subtract(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  val left_val: Any = left match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+          c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        left
+      }
+    case _ =>
+      left
+  }
+  val right_val: Any = right match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+          c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        right
+      }
+    case _ =>
+      right
+  }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
-      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      left_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     var (right_node, right_type): (TreeNode, ArrowType) =
-      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      right_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
@@ -113,6 +161,7 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
     extends Multiply(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -150,6 +199,7 @@ class ColumnarDivide(left: Expression, right: Expression, original: Expression)
     extends Divide(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
