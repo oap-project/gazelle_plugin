@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.util
+package org.apache.spark.sql.execution.datasources.parquet
 
-import org.apache.spark.sql.types._
-
-object StructTypeFWD {
-  def merge(left: DataType, right: DataType): DataType = StructType.merge(left, right)
+object ParquetFileFormatIndicator {
+  val OVERWRITTEN_INDICATOR = "Parquet-Overwritten-By-Arrow"
 }

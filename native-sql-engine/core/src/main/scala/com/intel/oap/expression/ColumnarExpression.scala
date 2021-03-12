@@ -15,30 +15,19 @@
  * limitations under the License.
  */
 
-package com.intel.oap.spark.sql.execution.datasources.v2.arrow;
+package com.intel.oap.expression
 
-import java.util.concurrent.atomic.AtomicLong;
+import org.apache.arrow.gandiva.evaluator._
+import org.apache.arrow.gandiva.exceptions.GandivaException
+import org.apache.arrow.gandiva.expression._
+import org.apache.arrow.vector.types.pojo.ArrowType
+import org.apache.arrow.vector.types.pojo.Field
 
-public final class NativeSQLMemoryMetrics {
-    private final AtomicLong peak = new AtomicLong(0L);
-    private final AtomicLong total = new AtomicLong(0L);
+import scala.collection.mutable.ListBuffer
 
-    public void inc(long bytes) {
-        final long total = this.total.addAndGet(bytes);
-        long prev_peak;
-        do {
-            prev_peak = this.peak.get();
-            if (total <= prev_peak) {
-                break;
-            }
-        } while (!this.peak.compareAndSet(prev_peak, total));
-    }
+trait ColumnarExpression {
 
-    public long peak() {
-        return peak.get();
-    }
-
-    public long total() {
-        return total.get();
-    }
+  def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    throw new UnsupportedOperationException(s"Not support doColumnarCodeGen.")
+  }
 }

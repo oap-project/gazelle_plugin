@@ -17,10 +17,6 @@
 
 package com.intel.oap.vectorized;
 
-<<<<<<< HEAD:arrow-data-source/standard/src/main/java/com/intel/oap/vectorized/ArrowWritableColumnVector.java
-=======
-import org.apache.arrow.memory.ArrowBuf;
->>>>>>> nse/master:core/src/main/java/com/intel/oap/vectorized/ArrowWritableColumnVector.java
 import java.lang.*;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;

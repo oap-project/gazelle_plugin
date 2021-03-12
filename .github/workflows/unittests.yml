@@ -51,7 +51,7 @@ jobs:
           sudo make install
       - name: Run unit tests
         run: |
-          cd cpp/
+          cd native-sql-engine/cpp/
           mkdir -p build
           cd build
           cmake .. -DTESTS=1
