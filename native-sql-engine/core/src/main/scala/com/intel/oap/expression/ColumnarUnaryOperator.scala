@@ -282,7 +282,7 @@ class ColumnarCheckOverflow(child: Expression, original: CheckOverflow)
       DecimalType(dataType.precision, dataType.scale)
     val resType = CodeGeneration.getResultType(newDataType)
     var function = "castDECIMAL"
-    if(nullOnOverflow) {
+    if (nullOnOverflow) {
       function = "castDECIMALNullOnOverflow"
     }
     val funcNode =
@@ -419,9 +419,14 @@ class ColumnarCast(
     } else if (dataType == IntegerType) {
       val funcNode = child.dataType match {
         case d: DecimalType =>
+          val half_node = TreeBuilder.makeDecimalLiteral("0.5", 2, 1)
+          val round_down_node = TreeBuilder.makeFunction(
+            "subtract",
+            Lists.newArrayList(child_node, half_node),
+            childType)
           val long_node = TreeBuilder.makeFunction(
             "castBIGINT",
-            Lists.newArrayList(child_node),
+            Lists.newArrayList(round_down_node),
             new ArrowType.Int(64, true))
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), resultType)
         case other =>
@@ -491,11 +496,15 @@ class ColumnarUnscaledValue(child: Expression, original: Expression)
     }
     val childDataType = child.dataType.asInstanceOf[DecimalType]
     val m = ConverterUtils.powerOfTen(childDataType.scale)
+    val multiplyType = DecimalTypeUtil.getResultTypeForOperation(
+      DecimalTypeUtil.OperationType.MULTIPLY,
+      childType.asInstanceOf[ArrowType.Decimal],
+      new ArrowType.Decimal((m._2).toInt, (m._3).toInt, 128))
     val increaseScaleNode =
       TreeBuilder.makeFunction(
         "multiply",
         Lists.newArrayList(child_node, TreeBuilder.makeDecimalLiteral(m._1, m._2, m._3)),
-        childType)
+        multiplyType)
     val funcNode =
       TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(increaseScaleNode), resultType)
     (funcNode, resultType)
