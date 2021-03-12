@@ -347,6 +347,9 @@ object ColumnarConditionProjector extends Logging {
             val (node, resultType) =
               columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(projectInputList)
             val result = Field.nullable("result", resultType)
+            if (node == null) {
+              throw new UnsupportedOperationException(s"")
+            }
             if (s"${node.toProtobuf}".contains("functionNode"))
               should_skip = false
             logDebug(

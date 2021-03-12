@@ -54,22 +54,27 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
     val resultType = new ArrowType.Bool()
     if (value.dataType == StringType) {
       val newlist = hset.toList.map (expr => {
-        expr.toString
-      });
+        expr.asInstanceOf[Literal].value.toString
+      })
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
       (funcNode, resultType)
     } else if (value.dataType == IntegerType) {
       val newlist = hset.toList.map (expr => {
-        expr.asInstanceOf[Integer]
-      });
+        expr match {
+          case integer: Integer =>
+            integer
+          case _ =>
+            expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
+        }
+      })
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionInt32(value_node: TreeNode, Sets.newHashSet(tlist))
       (funcNode, resultType)
     } else if (value.dataType == LongType) {
       val newlist = hset.toList.map (expr => {
-        expr.asInstanceOf[java.lang.Long]
-      });
+        expr.asInstanceOf[Literal].value.asInstanceOf[java.lang.Long]
+      })
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionBigInt(value_node, Sets.newHashSet(tlist))
       (funcNode, resultType)

@@ -184,7 +184,7 @@ class ColumnarAbs(child: Expression, original: Expression)
   buildCheck()
 
   def buildCheck(): Unit = {
-    val supportedTypes = List(FloatType, DoubleType, IntegerType, LongType)
+    val supportedTypes = List(FloatType, DoubleType)
     if (supportedTypes.indexOf(child.dataType) == -1 &&
         !child.dataType.isInstanceOf[DecimalType]) {
       throw new UnsupportedOperationException(

@@ -48,7 +48,7 @@ abstract class InsertIntoTests(
    */
   protected def doInsert(tableName: String, insert: DataFrame, mode: SaveMode = null): Unit
 
-  test("insertInto: append") {
+  ignore("insertInto: append") {
     val t1 = s"${catalogAndNamespace}tbl"
     sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -56,7 +56,7 @@ abstract class InsertIntoTests(
     verifyTable(t1, df)
   }
 
-  test("insertInto: append by position") {
+  ignore("insertInto: append by position") {
     val t1 = s"${catalogAndNamespace}tbl"
     sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -66,7 +66,7 @@ abstract class InsertIntoTests(
     verifyTable(t1, df)
   }
 
-  test("insertInto: append partitioned table") {
+  ignore("insertInto: append partitioned table") {
     val t1 = s"${catalogAndNamespace}tbl"
     withTable(t1) {
       sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -76,7 +76,7 @@ abstract class InsertIntoTests(
     }
   }
 
-  test("insertInto: overwrite non-partitioned table") {
+  ignore("insertInto: overwrite non-partitioned table") {
     val t1 = s"${catalogAndNamespace}tbl"
     sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -86,7 +86,7 @@ abstract class InsertIntoTests(
     verifyTable(t1, df2)
   }
 
-  test("insertInto: overwrite partitioned table in static mode") {
+  ignore("insertInto: overwrite partitioned table in static mode") {
     withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
       val t1 = s"${catalogAndNamespace}tbl"
       sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -100,7 +100,7 @@ abstract class InsertIntoTests(
   }
 
 
-  test("insertInto: overwrite partitioned table in static mode by position") {
+  ignore("insertInto: overwrite partitioned table in static mode by position") {
     withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
       val t1 = s"${catalogAndNamespace}tbl"
       withTable(t1) {
@@ -117,7 +117,7 @@ abstract class InsertIntoTests(
     }
   }
 
-  test("insertInto: fails when missing a column") {
+  ignore("insertInto: fails when missing a column") {
     val t1 = s"${catalogAndNamespace}tbl"
     sql(s"CREATE TABLE $t1 (id bigint, data string, missing string) USING $v2Format")
     val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -130,7 +130,7 @@ abstract class InsertIntoTests(
     assert(exc.getMessage.contains(s"Cannot write to '$tableName', not enough data columns"))
   }
 
-  test("insertInto: fails when an extra column is present") {
+  ignore("insertInto: fails when an extra column is present") {
     val t1 = s"${catalogAndNamespace}tbl"
     withTable(t1) {
       sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
@@ -212,7 +212,7 @@ trait InsertIntoSQLOnlyTests
   }
 
   protected def dynamicOverwriteTest(testName: String)(f: => Unit): Unit = {
-    test(testName) {
+    ignore(testName) {
       try {
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.DYNAMIC.toString) {
           f
@@ -228,7 +228,7 @@ trait InsertIntoSQLOnlyTests
   }
 
   if (includeSQLOnlyTests) {
-    test("InsertInto: when the table doesn't exist") {
+    ignore("InsertInto: when the table doesn't exist") {
       val t1 = s"${catalogAndNamespace}tbl"
       val t2 = s"${catalogAndNamespace}tbl2"
       withTableAndData(t1) { _ =>
@@ -241,7 +241,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: append to partitioned table - static clause") {
+    ignore("InsertInto: append to partitioned table - static clause") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTableAndData(t1) { view =>
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -250,7 +250,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: static PARTITION clause fails with non-partition column") {
+    ignore("InsertInto: static PARTITION clause fails with non-partition column") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTableAndData(t1) { view =>
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (data)")
@@ -266,7 +266,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: dynamic PARTITION clause fails with non-partition column") {
+    ignore("InsertInto: dynamic PARTITION clause fails with non-partition column") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTableAndData(t1) { view =>
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -282,7 +282,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: overwrite - dynamic clause - static mode") {
+    ignore("InsertInto: overwrite - dynamic clause - static mode") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
@@ -313,7 +313,7 @@ trait InsertIntoSQLOnlyTests
     }
     */
 
-    test("InsertInto: overwrite - missing clause - static mode") {
+    ignore("InsertInto: overwrite - missing clause - static mode") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
@@ -344,7 +344,7 @@ trait InsertIntoSQLOnlyTests
     }
      */
 
-    test("InsertInto: overwrite - static clause") {
+    ignore("InsertInto: overwrite - static clause") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTableAndData(t1) { view =>
         sql(s"CREATE TABLE $t1 (id bigint, data string, p1 int) " +
@@ -359,7 +359,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: overwrite - mixed clause - static mode") {
+    ignore("InsertInto: overwrite - mixed clause - static mode") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
@@ -375,7 +375,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: overwrite - mixed clause reordered - static mode") {
+    ignore("InsertInto: overwrite - mixed clause reordered - static mode") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
@@ -391,7 +391,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("InsertInto: overwrite - implicit dynamic partition - static mode") {
+    ignore("InsertInto: overwrite - implicit dynamic partition - static mode") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
@@ -454,7 +454,7 @@ trait InsertIntoSQLOnlyTests
     }
      */
 
-    test("InsertInto: overwrite - multiple static partitions - dynamic mode") {
+    ignore("InsertInto: overwrite - multiple static partitions - dynamic mode") {
       // Since all partitions are provided statically, this should be supported by everyone
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.DYNAMIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
@@ -472,7 +472,7 @@ trait InsertIntoSQLOnlyTests
       }
     }
 
-    test("do not double insert on INSERT INTO collect()") {
+    ignore("do not double insert on INSERT INTO collect()") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTableAndData(t1) { view =>
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")

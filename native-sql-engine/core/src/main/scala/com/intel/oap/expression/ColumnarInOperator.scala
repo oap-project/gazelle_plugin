@@ -65,12 +65,31 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
       val funcNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
       (funcNode, resultType)
     } else if (value.dataType == IntegerType) {
-      val newlist :List[Integer]= list.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
-      });
+      var has_null = false
+      var newlist: List[Integer] = List()
+      list.toList.foreach (expr => {
+        val value = expr.asInstanceOf[Literal].value
+        if (value != null) {
+          newlist = newlist :+ value.asInstanceOf[Integer]
+        } else {
+          has_null = true
+        }
+      })
       val tlist = Lists.newArrayList(newlist:_*);
+      val isnotnullNode = TreeBuilder.makeFunction(
+        "isnotnull", Lists.newArrayList(value_node), resultType)
+      val hasnull = TreeBuilder.makeLiteral(has_null.asInstanceOf[java.lang.Boolean])
+      val trueNode = TreeBuilder.makeLiteral(true.asInstanceOf[java.lang.Boolean])
+      val falseNode = TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
+      val nullNode = TreeBuilder.makeNull(resultType)
 
-      val funcNode = TreeBuilder.makeInExpressionInt32(value_node, Sets.newHashSet(tlist))
+      val hasNullNode = TreeBuilder.makeIf(hasnull, trueNode, falseNode, resultType)
+      val inNode = TreeBuilder.makeInExpressionInt32(value_node, Sets.newHashSet(tlist))
+      val notInNode = TreeBuilder.makeIf(hasNullNode, nullNode, falseNode, resultType)
+
+      val isNotNullBranch = TreeBuilder.makeIf(inNode, trueNode, notInNode, resultType)
+
+      val funcNode = TreeBuilder.makeIf(isnotnullNode, isNotNullBranch, nullNode, resultType)
       (funcNode, resultType)
     } else if (value.dataType == LongType) {
       val newlist :List[java.lang.Long]= list.toList.map (expr => {

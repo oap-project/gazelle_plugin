@@ -203,6 +203,15 @@ class ColumnarEqualNull(left: Expression, right: Expression, original: Expressio
         }
     }
 
+    // EqualNullSafe: returns true if both are null, false if one of the them is null.
+    val resultType = new ArrowType.Bool()
+    val leftIsnotnullNode = TreeBuilder.makeFunction(
+      "isnotnull", Lists.newArrayList(left_node), resultType)
+    val rightIsnotnullNode = TreeBuilder.makeFunction(
+      "isnotnull", Lists.newArrayList(right_node), resultType)
+    val trueNode = TreeBuilder.makeLiteral(true.asInstanceOf[java.lang.Boolean])
+    val falseNode = TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
+
     var function = "equal"
     val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
@@ -212,9 +221,14 @@ class ColumnarEqualNull(left: Expression, right: Expression, original: Expressio
         case _ =>
       }
     }
-    val resultType = new ArrowType.Bool()
-    val funcNode =
-      TreeBuilder.makeFunction(function, Lists.newArrayList(left_node, right_node), resultType)
+    val cmpNode = TreeBuilder.makeFunction(
+        function, Lists.newArrayList(left_node, right_node), resultType)
+    val funcNode = TreeBuilder.makeIf(
+      leftIsnotnullNode,
+      TreeBuilder.makeIf(rightIsnotnullNode, cmpNode, falseNode, resultType),
+      TreeBuilder.makeIf(rightIsnotnullNode, falseNode, trueNode, resultType),
+      resultType)
+
     (funcNode, resultType)
   }
 }

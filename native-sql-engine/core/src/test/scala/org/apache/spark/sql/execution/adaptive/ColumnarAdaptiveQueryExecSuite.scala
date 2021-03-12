@@ -49,6 +49,7 @@ class ColumnarAdaptiveQueryExecSuite
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.sortmergejoin", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
 
   private def runAdaptiveAndVerifyResult(query: String): (SparkPlan, SparkPlan) = {
@@ -135,7 +136,7 @@ class ColumnarAdaptiveQueryExecSuite
     assert(numShuffles === (numLocalReaders.length + numShufflesWithoutLocalReader))
   }
 
-  ignore("Columnar exchange reuse") {
+  test("Columnar exchange reuse") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {

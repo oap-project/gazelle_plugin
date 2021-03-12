@@ -60,16 +60,12 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           new ColumnarBatchScanExec(plan.output, plan.scan)
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
-            logWarning(
-              s"FileSourceScanExec ${plan.nodeName} supports columnar, " +
-                s"may causing columnar conversion exception")
+            return false
           }
           plan
         case plan: InMemoryTableScanExec =>
           if (plan.supportsColumnar) {
-            logWarning(
-              s"InMemoryTableScanExec ${plan.nodeName} supports columnar, " +
-                s"may causing columnar conversion exception")
+            return false
           }
           plan
         case plan: ProjectExec =>

@@ -13,7 +13,7 @@ then
 else
   echo "SPARK_HOME is $spark_home"
 fi
-mvn test -am -DfailIfNoTests=false -Dmaven.test.failure.ignore=true -DargLine="-Dspark.test.home=$spark_home" &> ../tools/log-file.log
+mvn test -am -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -Dmaven.test.failure.ignore=true -DargLine="-Dspark.test.home=$spark_home" &> ../tools/log-file.log
 
 cd ../tools/
 tests_total=0

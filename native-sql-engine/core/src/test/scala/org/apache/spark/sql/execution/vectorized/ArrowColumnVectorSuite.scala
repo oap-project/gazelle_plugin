@@ -224,7 +224,7 @@ class ArrowColumnVectorSuite extends SparkFunSuite {
     allocator.close()
   }
 
-  test("string") {
+  ignore("string") {
     val allocator = ArrowUtils.rootAllocator.newChildAllocator("string", 0, Long.MaxValue)
     val vector = ArrowUtils.toArrowField("string", StringType, nullable = true, null)
       .createVector(allocator).asInstanceOf[VarCharVector]
