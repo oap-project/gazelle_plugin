@@ -170,10 +170,39 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
-        val resultType = DecimalTypeUtil.getResultTypeForOperation(
+        var resultType = DecimalTypeUtil.getResultTypeForOperation(
           DecimalTypeUtil.OperationType.MULTIPLY, l, r)
+        // Scaling down the unnecessary scale for Literal to avoid precision loss
+        val newLeftNode = left match {
+          case literal: ColumnarLiteral =>
+            val leftStr = literal.value.asInstanceOf[Decimal].toDouble.toString
+            val newLeftPrecision = leftStr.length - 1
+            val newLeftScale = leftStr.split('.')(1).length
+            val newLeftType =
+              new ArrowType.Decimal(newLeftPrecision, newLeftScale, 128)
+            resultType = DecimalTypeUtil.getResultTypeForOperation(
+              DecimalTypeUtil.OperationType.MULTIPLY, newLeftType, r)
+            TreeBuilder.makeFunction(
+              "castDECIMAL", Lists.newArrayList(left_node), newLeftType)
+          case _ =>
+            left_node
+        }
+        val newRightNode = right match {
+          case literal: ColumnarLiteral =>
+            val rightStr = literal.value.asInstanceOf[Decimal].toDouble.toString
+            val newRightPrecision = rightStr.length - 1
+            val newRightScale = rightStr.split('.')(1).length
+            val newRightType =
+              new ArrowType.Decimal(newRightPrecision, newRightScale, 128)
+            resultType = DecimalTypeUtil.getResultTypeForOperation(
+              DecimalTypeUtil.OperationType.MULTIPLY, l, newRightType)
+            TreeBuilder.makeFunction(
+              "castDECIMAL", Lists.newArrayList(right_node), newRightType)
+          case _ =>
+            right_node
+        }
         val mulNode = TreeBuilder.makeFunction(
-          "multiply", Lists.newArrayList(left_node, right_node), resultType)
+          "multiply", Lists.newArrayList(newLeftNode, newRightNode), resultType)
         (mulNode, resultType)
       case _ =>
         val resultType = CodeGeneration.getResultType(left_type, right_type)
@@ -208,10 +237,38 @@ class ColumnarDivide(left: Expression, right: Expression, original: Expression)
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
-        val resultType = DecimalTypeUtil.getResultTypeForOperation(
+        var resultType = DecimalTypeUtil.getResultTypeForOperation(
           DecimalTypeUtil.OperationType.DIVIDE, l, r)
+        val newLeftNode = left match {
+          case literal: ColumnarLiteral =>
+            val leftStr = literal.value.asInstanceOf[Decimal].toDouble.toString
+            val newLeftPrecision = leftStr.length - 1
+            val newLeftScale = leftStr.split('.')(1).length
+            val newLeftType =
+              new ArrowType.Decimal(newLeftPrecision, newLeftScale, 128)
+            resultType = DecimalTypeUtil.getResultTypeForOperation(
+              DecimalTypeUtil.OperationType.DIVIDE, newLeftType, r)
+            TreeBuilder.makeFunction(
+              "castDECIMAL", Lists.newArrayList(left_node), newLeftType)
+          case _ =>
+            left_node
+        }
+        val newRightNode = right match {
+          case literal: ColumnarLiteral =>
+            val rightStr = literal.value.asInstanceOf[Decimal].toDouble.toString
+            val newRightPrecision = rightStr.length - 1
+            val newRightScale = rightStr.split('.')(1).length
+            val newRightType =
+              new ArrowType.Decimal(newRightPrecision, newRightScale, 128)
+            resultType = DecimalTypeUtil.getResultTypeForOperation(
+              DecimalTypeUtil.OperationType.DIVIDE, l, newRightType)
+            TreeBuilder.makeFunction(
+              "castDECIMAL", Lists.newArrayList(right_node), newRightType)
+          case _ =>
+            right_node
+        }
         val divNode = TreeBuilder.makeFunction(
-          "divide", Lists.newArrayList(left_node, right_node), resultType)
+          "divide", Lists.newArrayList(newLeftNode, newRightNode), resultType)
         (divNode, resultType)
       case _ =>
         val resultType = CodeGeneration.getResultType(left_type, right_type)
