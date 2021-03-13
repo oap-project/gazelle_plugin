@@ -53,16 +53,9 @@ jobs:
           git clone -b arrow-3.0.0-oap https://github.com/oap-project/arrow.git
           cd arrow/java
           mvn clean install -B -P arrow-jni -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
-      - name: Install Arrow datasource
-        run: |
-          cd /tmp
-          git clone https://github.com/oap-project/arrow-data-source.git
-          cd arrow-data-source
-          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DskipTests
       - name: Run Maven tests
         run: |
-          cd native-sql-engine/core/
-          mvn test -B -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
+          mvn test -B -pl native-sql-engine/core/ -am -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
         env:
           MAVEN_OPTS: "-Xmx2048m"
           COMMENT_CONTENT_PATH: "/tmp/comment.md"
