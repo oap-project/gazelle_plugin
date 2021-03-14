@@ -95,14 +95,15 @@ arrow::Decimal128 subtract(arrow::Decimal128 left, int32_t left_precision,
 arrow::Decimal128 multiply(arrow::Decimal128 left, int32_t left_precision,
                            int32_t left_scale, arrow::Decimal128 right,
                            int32_t right_precision, int32_t right_scale,
-                           int32_t out_precision, int32_t out_scale) {
+                           int32_t out_precision, int32_t out_scale, 
+                           bool* overflow_) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
   bool overflow = false;
   arrow::BasicDecimal128 out =
       gandiva::decimalops::Multiply(x, y, out_precision, out_scale, &overflow);
   if (overflow) {
-    throw std::overflow_error("Decimal multiply overflowed!");
+    *overflow_ = true;
   }
   return arrow::Decimal128(out);
 }
@@ -110,14 +111,15 @@ arrow::Decimal128 multiply(arrow::Decimal128 left, int32_t left_precision,
 arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
                          int32_t left_scale, arrow::Decimal128 right,
                          int32_t right_precision, int32_t right_scale,
-                         int32_t out_precision, int32_t out_scale) {
+                         int32_t out_precision, int32_t out_scale,
+                         bool* overflow_) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
   bool overflow = false;
   arrow::BasicDecimal128 out =
       gandiva::decimalops::Divide(0, x, y, out_precision, out_scale, &overflow);
   if (overflow) {
-    throw std::overflow_error("Decimal divide overflowed!");
+    *overflow_ = true;
   }
   return arrow::Decimal128(out);
 }
