@@ -79,13 +79,10 @@ class libc_allocator_with_realloc {
     // p points to a storage array whose objects have already been destroyed
     // cast to void* to prevent compiler warnings about calling realloc() on
     // an object which cannot be relocated in memory
-    return static_cast<pointer>(
-        realloc(static_cast<void*>(p), n * sizeof(value_type)));
+    return static_cast<pointer>(realloc(static_cast<void*>(p), n * sizeof(value_type)));
   }
 
-  size_type max_size() const {
-    return static_cast<size_type>(-1) / sizeof(value_type);
-  }
+  size_type max_size() const { return static_cast<size_type>(-1) / sizeof(value_type); }
 
   void construct(pointer p, const value_type& val) { new (p) value_type(val); }
   void destroy(pointer p) { p->~value_type(); }

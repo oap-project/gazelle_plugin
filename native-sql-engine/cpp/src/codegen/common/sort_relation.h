@@ -35,20 +35,18 @@ using sparkcolumnarplugin::precompile::TypeTraits;
 
 class SortRelation {
  public:
-  SortRelation(arrow::compute::ExecContext* ctx, uint64_t items_total,
-               const std::vector<int>& size_array,
-               const std::vector<std::shared_ptr<RelationColumn>>&
-                   sort_relation_key_list,
-               const std::vector<std::shared_ptr<RelationColumn>>&
-                   sort_relation_payload_list)
+  SortRelation(
+      arrow::compute::ExecContext* ctx, uint64_t items_total,
+      const std::vector<int>& size_array,
+      const std::vector<std::shared_ptr<RelationColumn>>& sort_relation_key_list,
+      const std::vector<std::shared_ptr<RelationColumn>>& sort_relation_payload_list)
       : ctx_(ctx), items_total_(items_total) {
     sort_relation_key_list_ = sort_relation_key_list;
     sort_relation_payload_list_ = sort_relation_payload_list;
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf_ = *std::move(maybe_buffer);
-    indices_begin_ =
-        reinterpret_cast<ArrayItemIndexS*>(indices_buf_->mutable_data());
+    indices_begin_ = reinterpret_cast<ArrayItemIndexS*>(indices_buf_->mutable_data());
     uint64_t idx = 0;
     int array_id = 0;
     for (auto size : size_array) {
@@ -96,8 +94,7 @@ class SortRelation {
         auto cur_idx_plus_one = GetItemIndexWithShift(range + 1);
         for (auto col : sort_relation_key_list_) {
           if (!(is_same = col->IsEqualTo(cur_idx.array_id, cur_idx.id,
-                                         cur_idx_plus_one.array_id,
-                                         cur_idx_plus_one.id)))
+                                         cur_idx_plus_one.array_id, cur_idx_plus_one.id)))
             break;
         }
       } else {

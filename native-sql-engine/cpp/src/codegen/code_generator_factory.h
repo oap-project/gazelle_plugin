@@ -44,13 +44,11 @@ arrow::Status CreateCodeGenerator(
       break;
     case GANDIVA:
       *out = std::make_shared<gandiva::GandivaCodeGenerator>(
-          schema_ptr, exprs_vector, ret_types, return_when_finish,
-          finish_exprs_vector);
+          schema_ptr, exprs_vector, ret_types, return_when_finish, finish_exprs_vector);
       break;
     case COMPUTE_EXT:
       *out = std::make_shared<computeext::ComputeExtCodeGenerator>(
-          schema_ptr, exprs_vector, ret_types, return_when_finish,
-          finish_exprs_vector);
+          schema_ptr, exprs_vector, ret_types, return_when_finish, finish_exprs_vector);
       break;
     default:
       *out = nullptr;

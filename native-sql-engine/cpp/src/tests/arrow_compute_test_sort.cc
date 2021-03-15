@@ -40,24 +40,18 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {true_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -65,8 +59,8 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -77,8 +71,7 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -86,13 +79,11 @@ TEST(TestArrowComputeSort, SortTestInPlaceNullsFirstAsc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, NaN, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, NaN, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, NaN, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, NaN, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -134,24 +125,18 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastAsc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -159,8 +144,8 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastAsc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -171,8 +156,7 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastAsc) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -180,13 +164,11 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastAsc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, NaN, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, NaN, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, NaN, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, NaN, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -228,24 +210,19 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsFirstDesc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {false_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {true_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir =
+      TreeExprBuilder::MakeFunction("sort_directions", {false_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -253,8 +230,8 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsFirstDesc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -265,8 +242,7 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsFirstDesc) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -274,13 +250,11 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsFirstDesc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, NaN, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, NaN, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, NaN, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, NaN, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -322,24 +296,19 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastDesc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {false_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir =
+      TreeExprBuilder::MakeFunction("sort_directions", {false_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -347,8 +316,8 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastDesc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -359,8 +328,7 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastDesc) {
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -368,13 +336,11 @@ TEST(TestArrowComputeSort, SortTestInplaceNullsLastDesc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, NaN, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, NaN, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, NaN, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, NaN, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -415,24 +381,18 @@ TEST(TestArrowComputeSort, SortTestInplaceAsc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -440,8 +400,8 @@ TEST(TestArrowComputeSort, SortTestInplaceAsc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -460,13 +420,11 @@ TEST(TestArrowComputeSort, SortTestInplaceAsc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, 41, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, 12, 22, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, 12, 22, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -508,24 +466,19 @@ TEST(TestArrowComputeSort, SortTestInplaceDesc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {false_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir =
+      TreeExprBuilder::MakeFunction("sort_directions", {false_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -533,8 +486,8 @@ TEST(TestArrowComputeSort, SortTestInplaceDesc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -553,13 +506,11 @@ TEST(TestArrowComputeSort, SortTestInplaceDesc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, 41, 18, 20, 35, 30]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, 20, 35, 30]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, 12, 22, 13, 8, 59, 21]"};
+  std::vector<std::string> input_data_string_5 = {"[37, 12, 22, 13, 8, 59, 21]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -599,10 +550,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {TreeExprBuilder::MakeLiteral(true)}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
@@ -613,10 +562,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
       "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -624,19 +572,19 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
 
-  std::vector<std::string> input_data_string = {
-      "[10, NaN, 4, 50, 52, 32, 11]", "[11, 13, 5, 51, null, 33, 12]"};
+  std::vector<std::string> input_data_string = {"[10, NaN, 4, 50, 52, 32, 11]",
+                                                "[11, 13, 5, 51, null, 33, 12]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]", "[2, null, 44, 43, 7, 34, 3]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]",
+                                                  "[2, null, 44, 43, 7, 34, 3]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -645,13 +593,13 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, 41, 18, NaN, 35, 30]", "[24, 18, 42, 19, 21, 36, 31]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, NaN, 35, 30]",
+                                                  "[24, 18, 42, 19, 21, 36, 31]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, 22, 13, 8, 59, 21]", "[38, 67, 23, 14, 9, 60, 22]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
+                                                  "[38, 67, 23, 14, 9, 60, 22]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -673,9 +621,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -696,10 +643,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {TreeExprBuilder::MakeLiteral(true)}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
@@ -710,10 +655,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
       "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -721,20 +665,20 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
 
-  std::vector<std::string> input_data_string = {
-      "[10, NaN, 4, 50, 52, 32, 11]", "[11, 13, 5, 51, null, 33, 12]"};
+  std::vector<std::string> input_data_string = {"[10, NaN, 4, 50, 52, 32, 11]",
+                                                "[11, 13, 5, 51, null, 33, 12]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]", "[2, null, 44, 43, 7, 34, 3]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]",
+                                                  "[2, null, 44, 43, 7, 34, 3]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -743,13 +687,13 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, 41, 18, NaN, 35, 30]", "[24, 18, 42, 19, 21, 36, 31]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, NaN, 35, 30]",
+                                                  "[24, 18, 42, 19, 21, 36, 31]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, 22, 13, 8, 59, 21]", "[38, 67, 23, 14, 9, 60, 22]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
+                                                  "[38, 67, 23, 14, 9, 60, 22]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -770,9 +714,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -793,10 +736,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
@@ -807,10 +748,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
       "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -818,20 +758,20 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
 
-  std::vector<std::string> input_data_string = {
-      "[10, NaN, 4, 50, 52, 32, 11]", "[11, 13, 5, 51, null, 33, 12]"};
+  std::vector<std::string> input_data_string = {"[10, NaN, 4, 50, 52, 32, 11]",
+                                                "[11, 13, 5, 51, null, 33, 12]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]", "[2, null, 44, 43, 7, 34, 3]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]",
+                                                  "[2, null, 44, 43, 7, 34, 3]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -840,13 +780,13 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, 41, 18, NaN, 35, 30]", "[24, 18, 42, 19, 21, 36, 31]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, NaN, 35, 30]",
+                                                  "[24, 18, 42, 19, 21, 36, 31]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, 22, 13, 8, 59, 21]", "[38, 67, 23, 14, 9, 60, 22]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
+                                                  "[38, 67, 23, 14, 9, 60, 22]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -868,9 +808,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstDesc) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -891,10 +830,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
@@ -905,10 +842,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
       "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -916,20 +852,20 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
 
-  std::vector<std::string> input_data_string = {
-      "[10, NaN, 4, 50, 52, 32, 11]", "[11, 13, 5, 51, null, 33, 12]"};
+  std::vector<std::string> input_data_string = {"[10, NaN, 4, 50, 52, 32, 11]",
+                                                "[11, 13, 5, 51, null, 33, 12]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {
-      "[1, NaN, 43, 42, 6, null, 2]", "[2, null, 44, 43, 7, 34, 3]"};
+  std::vector<std::string> input_data_string_2 = {"[1, NaN, 43, 42, 6, null, 2]",
+                                                  "[2, null, 44, 43, 7, 34, 3]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -938,13 +874,13 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_4 = {
-      "[23, 17, 41, 18, NaN, 35, 30]", "[24, 18, 42, 19, 21, 36, 31]"};
+  std::vector<std::string> input_data_string_4 = {"[23, 17, 41, 18, NaN, 35, 30]",
+                                                  "[24, 18, 42, 19, 21, 36, 31]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_5 = {
-      "[37, null, 22, 13, 8, 59, 21]", "[38, 67, 23, 14, 9, 60, 22]"};
+  std::vector<std::string> input_data_string_5 = {"[37, null, 22, 13, 8, 59, 21]",
+                                                  "[38, 67, 23, 14, 9, 60, 22]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -966,9 +902,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsLastDesc) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -992,24 +927,19 @@ TEST(TestArrowComputeSort, SortTestOnekeyBooleanDesc) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {false_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {true_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir =
+      TreeExprBuilder::MakeFunction("sort_directions", {false_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -1017,8 +947,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyBooleanDesc) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -1026,32 +956,27 @@ TEST(TestArrowComputeSort, SortTestOnekeyBooleanDesc) {
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
 
   std::vector<std::string> input_data_string = {
-      "[true, false, false, false, true, true, false]",
-      "[1, 2, 3, 4, 5, 6, 7]"};
+      "[true, false, false, false, true, true, false]", "[1, 2, 3, 4, 5, 6, 7]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
   std::vector<std::string> input_data_string_2 = {
-      "[true, true, false, false, false, true, false]",
-      "[4, 2, 6, 0, 1, 4, 12]"};
+      "[true, true, false, false, false, true, false]", "[4, 2, 6, 0, 1, 4, 12]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
   std::vector<std::string> input_data_string_3 = {
-      "[true, true, false, false, false, true, false]",
-      "[6, 12, 16, 10, 11, 41, 2]"};
+      "[true, true, false, false, false, true, false]", "[6, 12, 16, 10, 11, 41, 2]"};
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
   std::vector<std::string> input_data_string_4 = {
-      "[true, true, false, false, false, true, false]",
-      "[8, 22, 45, 12, 78, 12, 32]"};
+      "[true, true, false, false, false, true, false]", "[8, 22, 45, 12, 78, 12, 32]"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
   std::vector<std::string> input_data_string_5 = {
-      "[true, true, false, false, false, true, false]",
-      "[18, 5, 6, 78, 11, 2, 12]"};
+      "[true, true, false, false, false, true, false]", "[18, 5, 6, 78, 11, 2, 12]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
@@ -1100,24 +1025,18 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -1125,8 +1044,8 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -1147,8 +1066,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyStr) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_4 = {
-      R"(["q", "w", "z", "x", "y", null, "u"])",
-      R"(["a", "c", "e", "f", "g","j", "h"])"};
+      R"(["q", "w", "z", "x", "y", null, "u"])", R"(["a", "c", "e", "f", "g","j", "h"])"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_5 = {
@@ -1194,22 +1112,17 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
   auto n_projection = TreeExprBuilder::MakeFunction("upper", {arg_0}, utf8());
   auto n_key_func =
       TreeExprBuilder::MakeFunction("key_function", {n_projection}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -1217,8 +1130,8 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -1239,8 +1152,7 @@ TEST(TestArrowComputeSort, SortTestOneKeyWithProjection) {
   MakeInputBatch(input_data_string_3, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_4 = {
-      R"(["q", "W", "Z", "x", "y", null, "u"])",
-      R"(["a", "c", "e", "f", "g","j", "h"])"};
+      R"(["q", "W", "Z", "x", "y", null, "u"])", R"(["a", "c", "e", "f", "g","j", "h"])"};
   MakeInputBatch(input_data_string_4, sch, &input_batch);
   input_batch_list.push_back(input_batch);
   std::vector<std::string> input_data_string_5 = {
@@ -1285,25 +1197,21 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaN) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func = TreeExprBuilder::MakeFunction(
-      "key_function", {arg_0, arg_1, arg_2}, uint32());
-  auto n_key_field = TreeExprBuilder::MakeFunction(
-      "key_field", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_func =
+      TreeExprBuilder::MakeFunction("key_function", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_field =
+      TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1, arg_2}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {true_literal, false_literal, true_literal}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
-      "sort_nulls_order", {false_literal, true_literal, true_literal},
-      uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
+      "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -1311,8 +1219,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaN) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -1370,9 +1278,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaN) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -1404,28 +1311,24 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
 
   auto isnotnull_0 = TreeExprBuilder::MakeFunction(
       "isnotnull", {TreeExprBuilder::MakeField(f0)}, arrow::boolean());
-  auto coalesce_0 = TreeExprBuilder::MakeIf(
-      isnotnull_0, TreeExprBuilder::MakeField(f0), uint32_node, uint32());
-  auto isnull_0 =
-      TreeExprBuilder::MakeFunction("isnull", {arg_0}, arrow::boolean());
+  auto coalesce_0 = TreeExprBuilder::MakeIf(isnotnull_0, TreeExprBuilder::MakeField(f0),
+                                            uint32_node, uint32());
+  auto isnull_0 = TreeExprBuilder::MakeFunction("isnull", {arg_0}, arrow::boolean());
 
   auto isnotnull_1 = TreeExprBuilder::MakeFunction(
       "isnotnull", {TreeExprBuilder::MakeField(f1)}, arrow::boolean());
-  auto coalesce_1 = TreeExprBuilder::MakeIf(
-      isnotnull_1, TreeExprBuilder::MakeField(f1), str_node, utf8());
-  auto isnull_1 =
-      TreeExprBuilder::MakeFunction("isnull", {arg_1}, arrow::boolean());
+  auto coalesce_1 = TreeExprBuilder::MakeIf(isnotnull_1, TreeExprBuilder::MakeField(f1),
+                                            str_node, utf8());
+  auto isnull_1 = TreeExprBuilder::MakeFunction("isnull", {arg_1}, arrow::boolean());
 
   auto isnotnull_2 = TreeExprBuilder::MakeFunction(
       "isnotnull", {TreeExprBuilder::MakeField(f2)}, arrow::boolean());
-  auto coalesce_2 = TreeExprBuilder::MakeIf(
-      isnotnull_2, TreeExprBuilder::MakeField(f2), uint32_node, uint32());
-  auto isnull_2 =
-      TreeExprBuilder::MakeFunction("isnull", {arg_2}, arrow::boolean());
+  auto coalesce_2 = TreeExprBuilder::MakeIf(isnotnull_2, TreeExprBuilder::MakeField(f2),
+                                            uint32_node, uint32());
+  auto isnull_2 = TreeExprBuilder::MakeFunction("isnull", {arg_2}, arrow::boolean());
 
   auto n_key_func = TreeExprBuilder::MakeFunction(
-      "key_function",
-      {coalesce_0, isnull_0, coalesce_1, isnull_1, coalesce_2, isnull_2},
+      "key_function", {coalesce_0, isnull_0, coalesce_1, isnull_1, coalesce_2, isnull_2},
       uint32());
   auto n_key_field = TreeExprBuilder::MakeFunction(
       "key_field", {arg_0, arg_0, arg_1, arg_1, arg_2, arg_2}, uint32());
@@ -1444,16 +1347,13 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
                                     {false_literal, false_literal, true_literal,
                                      true_literal, true_literal, true_literal},
                                     uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -1462,8 +1362,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -1522,9 +1422,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithProjection) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -1550,25 +1449,21 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegen) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func = TreeExprBuilder::MakeFunction(
-      "key_function", {arg_0, arg_1, arg_2}, uint32());
-  auto n_key_field = TreeExprBuilder::MakeFunction(
-      "key_field", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_func =
+      TreeExprBuilder::MakeFunction("key_function", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_field =
+      TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1, arg_2}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {true_literal, false_literal, true_literal}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
-      "sort_nulls_order", {false_literal, true_literal, true_literal},
-      uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+      "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -1576,8 +1471,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegen) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -1635,9 +1530,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegen) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -1669,28 +1563,24 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegenWithProjection) {
 
   auto isnotnull_0 = TreeExprBuilder::MakeFunction(
       "isnotnull", {TreeExprBuilder::MakeField(f0)}, arrow::boolean());
-  auto coalesce_0 = TreeExprBuilder::MakeIf(
-      isnotnull_0, TreeExprBuilder::MakeField(f0), uint32_node, uint32());
-  auto isnull_0 =
-      TreeExprBuilder::MakeFunction("isnull", {arg_0}, arrow::boolean());
+  auto coalesce_0 = TreeExprBuilder::MakeIf(isnotnull_0, TreeExprBuilder::MakeField(f0),
+                                            uint32_node, uint32());
+  auto isnull_0 = TreeExprBuilder::MakeFunction("isnull", {arg_0}, arrow::boolean());
 
   auto isnotnull_1 = TreeExprBuilder::MakeFunction(
       "isnotnull", {TreeExprBuilder::MakeField(f1)}, arrow::boolean());
-  auto coalesce_1 = TreeExprBuilder::MakeIf(
-      isnotnull_1, TreeExprBuilder::MakeField(f1), str_node, utf8());
-  auto isnull_1 =
-      TreeExprBuilder::MakeFunction("isnull", {arg_1}, arrow::boolean());
+  auto coalesce_1 = TreeExprBuilder::MakeIf(isnotnull_1, TreeExprBuilder::MakeField(f1),
+                                            str_node, utf8());
+  auto isnull_1 = TreeExprBuilder::MakeFunction("isnull", {arg_1}, arrow::boolean());
 
   auto isnotnull_2 = TreeExprBuilder::MakeFunction(
       "isnotnull", {TreeExprBuilder::MakeField(f2)}, arrow::boolean());
-  auto coalesce_2 = TreeExprBuilder::MakeIf(
-      isnotnull_2, TreeExprBuilder::MakeField(f2), uint32_node, uint32());
-  auto isnull_2 =
-      TreeExprBuilder::MakeFunction("isnull", {arg_2}, arrow::boolean());
+  auto coalesce_2 = TreeExprBuilder::MakeIf(isnotnull_2, TreeExprBuilder::MakeField(f2),
+                                            uint32_node, uint32());
+  auto isnull_2 = TreeExprBuilder::MakeFunction("isnull", {arg_2}, arrow::boolean());
 
   auto n_key_func = TreeExprBuilder::MakeFunction(
-      "key_function",
-      {coalesce_0, isnull_0, coalesce_1, isnull_1, coalesce_2, isnull_2},
+      "key_function", {coalesce_0, isnull_0, coalesce_1, isnull_1, coalesce_2, isnull_2},
       uint32());
   auto n_key_field = TreeExprBuilder::MakeFunction(
       "key_field", {arg_0, arg_0, arg_1, arg_1, arg_2, arg_2}, uint32());
@@ -1709,16 +1599,13 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegenWithProjection) {
                                     {false_literal, false_literal, true_literal,
                                      true_literal, true_literal, true_literal},
                                     uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -1727,8 +1614,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegenWithProjection) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -1787,9 +1674,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysWithoutCodegenWithProjection) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -1815,25 +1701,21 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaNWithoutCodegen) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func = TreeExprBuilder::MakeFunction(
-      "key_function", {arg_0, arg_1, arg_2}, uint32());
-  auto n_key_field = TreeExprBuilder::MakeFunction(
-      "key_field", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_func =
+      TreeExprBuilder::MakeFunction("key_function", {arg_0, arg_1, arg_2}, uint32());
+  auto n_key_field =
+      TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1, arg_2}, uint32());
   auto n_dir = TreeExprBuilder::MakeFunction(
       "sort_directions", {true_literal, false_literal, true_literal}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
-      "sort_nulls_order", {false_literal, true_literal, true_literal},
-      uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+      "sort_nulls_order", {false_literal, true_literal, true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -1841,8 +1723,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaNWithoutCodegen) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
@@ -1900,9 +1782,8 @@ TEST(TestArrowComputeSort, SortTestMultipleKeysNaNWithoutCodegen) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  sort_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-          sort_result_iterator_base);
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -1926,24 +1807,18 @@ TEST(TestArrowComputeSort, SortTestOneKeyDecimal) {
   auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
   auto f_indices = field("indices", indices_type);
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1});
@@ -1951,8 +1826,8 @@ TEST(TestArrowComputeSort, SortTestOneKeyDecimal) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -2029,22 +1904,18 @@ TEST(TestArrowComputeSort, SortTestMulKeyDecimalCodegen) {
 
   auto n_key_func =
       TreeExprBuilder::MakeFunction("key_function", {arg_0, arg_1}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction(
-      "sort_directions", {true_literal, false_literal}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions",
+                                             {true_literal, false_literal}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
       "sort_nulls_order", {false_literal, true_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {true_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -2052,8 +1923,8 @@ TEST(TestArrowComputeSort, SortTestMulKeyDecimalCodegen) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -2150,22 +2021,18 @@ TEST(TestArrowComputeSort, SortTestMulKeyDecimalWithoutCodegen) {
 
   auto n_key_func =
       TreeExprBuilder::MakeFunction("key_function", {arg_0, arg_1}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction(
-      "sort_directions", {true_literal, false_literal}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0, arg_1}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions",
+                                             {true_literal, false_literal}, uint32());
   auto n_nulls_order = TreeExprBuilder::MakeFunction(
       "sort_nulls_order", {false_literal, true_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3});
@@ -2173,8 +2040,8 @@ TEST(TestArrowComputeSort, SortTestMulKeyDecimalWithoutCodegen) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -2263,24 +2130,18 @@ TEST(TestArrowComputeSort, SortTestInplaceDecimal) {
 
   auto f_res = field("res", uint32());
 
-  auto n_key_func =
-      TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
-  auto n_key_field =
-      TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
-  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal},
-                                             uint32());
-  auto n_nulls_order = TreeExprBuilder::MakeFunction("sort_nulls_order",
-                                                     {false_literal}, uint32());
-  auto NaN_check =
-      TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
-  auto do_codegen =
-      TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction("sort_directions", {true_literal}, uint32());
+  auto n_nulls_order =
+      TreeExprBuilder::MakeFunction("sort_nulls_order", {false_literal}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {false_literal}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
   auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
       "sortArraysToIndices",
-      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen},
-      uint32());
-  auto n_sort = TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices},
-                                              uint32());
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
   auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
 
   auto sch = arrow::schema({f0});
@@ -2288,8 +2149,8 @@ TEST(TestArrowComputeSort, SortTestInplaceDecimal) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> sort_expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
-                                    ret_types, &sort_expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;

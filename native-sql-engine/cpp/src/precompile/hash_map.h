@@ -20,21 +20,19 @@
 
 namespace sparkcolumnarplugin {
 namespace precompile {
-#define TYPED_HASH_MAP_DEFINE(TYPENAME, TYPE)                               \
-  class TYPENAME {                                                          \
-   public:                                                                  \
-    TYPENAME(arrow::MemoryPool* pool);                                      \
-    arrow::Status GetOrInsert(const TYPE& value, void (*on_found)(int32_t), \
-                              void (*on_not_found)(int32_t),                \
-                              int32_t* out_memo_index);                     \
-    int32_t GetOrInsertNull(void (*on_found)(int32_t),                      \
-                            void (*on_not_found)(int32_t));                 \
-    int32_t Get(const TYPE& value);                                         \
-    int32_t GetNull();                                                      \
-                                                                            \
-   private:                                                                 \
-    class Impl;                                                             \
-    std::shared_ptr<Impl> impl_;                                            \
+#define TYPED_HASH_MAP_DEFINE(TYPENAME, TYPE)                                          \
+  class TYPENAME {                                                                     \
+   public:                                                                             \
+    TYPENAME(arrow::MemoryPool* pool);                                                 \
+    arrow::Status GetOrInsert(const TYPE& value, void (*on_found)(int32_t),            \
+                              void (*on_not_found)(int32_t), int32_t* out_memo_index); \
+    int32_t GetOrInsertNull(void (*on_found)(int32_t), void (*on_not_found)(int32_t)); \
+    int32_t Get(const TYPE& value);                                                    \
+    int32_t GetNull();                                                                 \
+                                                                                       \
+   private:                                                                            \
+    class Impl;                                                                        \
+    std::shared_ptr<Impl> impl_;                                                       \
   };
 
 TYPED_HASH_MAP_DEFINE(Int32HashMap, int32_t)

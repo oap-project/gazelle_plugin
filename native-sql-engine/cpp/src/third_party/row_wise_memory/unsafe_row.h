@@ -101,10 +101,8 @@ using is_number_alike =
     std::integral_constant<bool, std::is_arithmetic<T>::value ||
                                      std::is_floating_point<T>::value>;
 
-template <typename T,
-          typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
-static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
-                                     const T& val) {
+template <typename T, typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
+static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& val) {
   *((T*)(row->data + row->cursor)) = val;
   row->cursor += sizeof(T);
 }

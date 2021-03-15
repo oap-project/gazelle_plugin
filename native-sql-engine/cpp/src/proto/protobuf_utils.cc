@@ -41,8 +41,7 @@ DataTypePtr ProtoTypeToTime32(const exprs::ExtGandivaType& ext_type) {
     case exprs::MILLISEC:
       return arrow::time32(arrow::TimeUnit::MILLI);
     default:
-      std::cerr << "Unknown time unit: " << ext_type.timeunit()
-                << " for time32\n";
+      std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for time32\n";
       return nullptr;
   }
 }
@@ -54,8 +53,7 @@ DataTypePtr ProtoTypeToTime64(const exprs::ExtGandivaType& ext_type) {
     case exprs::NANOSEC:
       return arrow::time64(arrow::TimeUnit::NANO);
     default:
-      std::cerr << "Unknown time unit: " << ext_type.timeunit()
-                << " for time64\n";
+      std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for time64\n";
       return nullptr;
   }
 }
@@ -71,8 +69,7 @@ DataTypePtr ProtoTypeToTimestamp(const exprs::ExtGandivaType& ext_type) {
     case exprs::NANOSEC:
       return arrow::timestamp(arrow::TimeUnit::NANO);
     default:
-      std::cerr << "Unknown time unit: " << ext_type.timeunit()
-                << " for timestamp\n";
+      std::cerr << "Unknown time unit: " << ext_type.timeunit() << " for timestamp\n";
       return nullptr;
   }
 }

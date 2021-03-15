@@ -56,22 +56,19 @@ class TypedActionCodeGenImpl {
     std::stringstream signature_ss;
     std::string name;
     if (input_index_list_.size() == 0) {
-      signature_ss << std::hex
-                   << std::hash<std::string>{}(func_node->ToString());
+      signature_ss << std::hex << std::hash<std::string>{}(func_node->ToString());
       name = "projection_" + signature_ss.str();
     } else {
       std::shared_ptr<CodeGenRegister> node_tmp;
       RETURN_NOT_OK(MakeCodeGenRegister(func_node, &node_tmp));
-      signature_ss << std::hex
-                   << std::hash<std::string>{}(node_tmp->GetFingerprint());
+      signature_ss << std::hex << std::hash<std::string>{}(node_tmp->GetFingerprint());
       name = "projection_" + signature_ss.str();
       for (auto index : input_index_list_) {
         name += "_" + std::to_string(index);
       }
     }
     auto res_field = arrow::field(name, func_node->return_type());
-    named_projector_ =
-        gandiva::TreeExprBuilder::MakeExpression(func_node, res_field);
+    named_projector_ = gandiva::TreeExprBuilder::MakeExpression(func_node, res_field);
 #ifdef DEBUG
     std::cout << "MakeGandivaProjection: " << named_projector_->ToString()
               << ", result_field is " << named_projector_->result()->ToString()
@@ -105,8 +102,7 @@ class TypedActionCodeGenImpl {
       }
       if (input_fields_list_.size() != 0) {
         *action_codegen = std::make_shared<GroupByActionCodeGen>(
-            name, keep, child_list_, input_list_, input_fields_list_,
-            named_projector_);
+            name, keep, child_list_, input_list_, input_fields_list_, named_projector_);
       }
 
     } else if (action_name_.compare("action_sum") == 0) {
@@ -188,8 +184,7 @@ class TypedActionCodeGenImpl {
       *action_codegen = std::make_shared<StddevSampFinalActionCodeGen>(
           name, child_list_, input_list_, input_fields_list_, named_projector_);
     } else {
-      std::cout << "action_name " << action_name_ << " is unrecognized"
-                << std::endl;
+      std::cout << "action_name " << action_name_ << " is unrecognized" << std::endl;
       return arrow::Status::Invalid("Invalid action_name ", action_name_);
     }
     return arrow::Status::OK();

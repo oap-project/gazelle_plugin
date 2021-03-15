@@ -32,9 +32,7 @@ class EpochTimePoint {
 
   int TmYear() const { return static_cast<int>(YearMonthDay().year()) - 1900; }
 
-  int TmMon() const {
-    return static_cast<unsigned int>(YearMonthDay().month()) - 1;
-  }
+  int TmMon() const { return static_cast<unsigned int>(YearMonthDay().month()) - 1; }
 
   int TmYday() const {
     auto to_days = arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
@@ -76,9 +74,8 @@ class EpochTimePoint {
   }
 
   EpochTimePoint AddDays(int num_days) const {
-    auto days_since_epoch =
-        arrow_vendored::date::sys_days{YearMonthDay()} +  // NOLINT
-        arrow_vendored::date::days(num_days);
+    auto days_since_epoch = arrow_vendored::date::sys_days{YearMonthDay()} +  // NOLINT
+                            arrow_vendored::date::days(num_days);
     return EpochTimePoint(
         (days_since_epoch + TimeOfDay().to_duration()).time_since_epoch());
   }
@@ -87,29 +84,24 @@ class EpochTimePoint {
     return EpochTimePoint((tp_ - TimeOfDay().to_duration()).time_since_epoch());
   }
 
-  bool operator==(const EpochTimePoint& other) const {
-    return tp_ == other.tp_;
-  }
+  bool operator==(const EpochTimePoint& other) const { return tp_ == other.tp_; }
 
   int64_t MillisSinceEpoch() const { return tp_.time_since_epoch().count(); }
 
  private:
   arrow_vendored::date::year_month_day YearMonthDay() const {
     return arrow_vendored::date::year_month_day{
-        arrow_vendored::date::floor<arrow_vendored::date::days>(
-            tp_)};  // NOLINT
+        arrow_vendored::date::floor<arrow_vendored::date::days>(tp_)};  // NOLINT
   }
 
-  arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay()
-      const {
+  arrow_vendored::date::time_of_day<std::chrono::milliseconds> TimeOfDay() const {
     auto millis_since_midnight =
         tp_ - arrow_vendored::date::floor<arrow_vendored::date::days>(tp_);
     return arrow_vendored::date::time_of_day<std::chrono::milliseconds>(
         millis_since_midnight);
   }
 
-  std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>
-      tp_;
+  std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> tp_;
 };
 
 #endif  // GANDIVA_EPOCH_TIME_POINT_H

@@ -45,9 +45,7 @@ class Splitter {
       const std::string& short_name, std::shared_ptr<arrow::Schema> schema,
       int num_partitions, SplitOptions options = SplitOptions::Defaults());
 
-  virtual const std::shared_ptr<arrow::Schema>& input_schema() const {
-    return schema_;
-  }
+  virtual const std::shared_ptr<arrow::Schema>& input_schema() const { return schema_; }
 
   /**
    * Split input record batch into partition buffers according to the computed
@@ -98,9 +96,7 @@ class Splitter {
 
   int64_t TotalComputePidTime() const { return total_compute_pid_time_; }
 
-  const std::vector<int64_t>& PartitionLengths() const {
-    return partition_lengths_;
-  }
+  const std::vector<int64_t>& PartitionLengths() const { return partition_lengths_; }
 
   // for testing
   const std::string& DataFile() const { return options_.data_file; }
@@ -114,8 +110,7 @@ class Splitter {
 
   virtual arrow::Status Init();
 
-  virtual arrow::Status ComputeAndCountPartitionId(
-      const arrow::RecordBatch& rb) = 0;
+  virtual arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) = 0;
 
   arrow::Status DoSplit(const arrow::RecordBatch& rb);
 
@@ -131,13 +126,11 @@ class Splitter {
 
   arrow::Status SplitLargeBinaryArray(const arrow::RecordBatch& rb);
 
-  template <typename T,
-            typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
+  template <typename T, typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
             typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
   arrow::Status AppendBinary(
       const std::shared_ptr<ArrayType>& src_arr,
-      const std::vector<std::shared_ptr<BuilderType>>& dst_builders,
-      int64_t num_rows);
+      const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
 
   // Cache the partition buffer/builder as compressed record batch. If reset
   // buffers, the partition buffer/builder will be set to nullptr. Two cases for
@@ -154,8 +147,7 @@ class Splitter {
   arrow::Status AllocateNew(int32_t partition_id, int32_t new_size);
 
   // Allocate new partition buffer/builder. May return OOM status.
-  arrow::Status AllocatePartitionBuffers(int32_t partition_id,
-                                         int32_t new_size);
+  arrow::Status AllocatePartitionBuffers(int32_t partition_id, int32_t new_size);
 
   std::string NextSpilledFileDir();
 
@@ -225,13 +217,11 @@ class RoundRobinSplitter : public Splitter {
       SplitOptions options);
 
  private:
-  RoundRobinSplitter(int32_t num_partitions,
-                     std::shared_ptr<arrow::Schema> schema,
+  RoundRobinSplitter(int32_t num_partitions, std::shared_ptr<arrow::Schema> schema,
                      SplitOptions options)
       : Splitter(num_partitions, std::move(schema), std::move(options)) {}
 
-  arrow::Status ComputeAndCountPartitionId(
-      const arrow::RecordBatch& rb) override;
+  arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) override;
 
   int32_t pid_selection_ = 0;
 };
@@ -249,8 +239,7 @@ class HashSplitter : public Splitter {
 
   arrow::Status CreateProjector(const gandiva::ExpressionVector& expr_vector);
 
-  arrow::Status ComputeAndCountPartitionId(
-      const arrow::RecordBatch& rb) override;
+  arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) override;
 
   std::shared_ptr<gandiva::Projector> projector_;
 };
@@ -268,15 +257,13 @@ class FallbackRangeSplitter : public Splitter {
   }
 
  private:
-  FallbackRangeSplitter(int32_t num_partitions,
-                        std::shared_ptr<arrow::Schema> schema,
+  FallbackRangeSplitter(int32_t num_partitions, std::shared_ptr<arrow::Schema> schema,
                         SplitOptions options)
       : Splitter(num_partitions, std::move(schema), std::move(options)) {}
 
   arrow::Status Init() override;
 
-  arrow::Status ComputeAndCountPartitionId(
-      const arrow::RecordBatch& rb) override;
+  arrow::Status ComputeAndCountPartitionId(const arrow::RecordBatch& rb) override;
 
   std::shared_ptr<arrow::Schema> input_schema_;
 };

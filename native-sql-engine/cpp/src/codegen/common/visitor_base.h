@@ -42,12 +42,10 @@ class VisitorBase : public gandiva::NodeVisitor {
   arrow::Status Visit(const gandiva::InExpressionNode<int>& node) override {
     return arrow::Status::OK();
   }
-  arrow::Status Visit(
-      const gandiva::InExpressionNode<long int>& node) override {
+  arrow::Status Visit(const gandiva::InExpressionNode<long int>& node) override {
     return arrow::Status::OK();
   }
-  arrow::Status Visit(
-      const gandiva::InExpressionNode<std::string>& node) override {
+  arrow::Status Visit(const gandiva::InExpressionNode<std::string>& node) override {
     return arrow::Status::OK();
   }
 };

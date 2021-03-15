@@ -109,8 +109,8 @@ class TypedComparator {
         };
       }
     } else if (nulls_first) {
-      return [=](int left_array_id, int right_array_id, int64_t left_id,
-                 int64_t right_id, int& cmp_res) {
+      return [=](int left_array_id, int right_array_id, int64_t left_id, int64_t right_id,
+                 int& cmp_res) {
         bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                             typed_arrays[left_array_id]->IsNull(left_id);
         bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
@@ -130,8 +130,8 @@ class TypedComparator {
         }
       };
     } else {
-      return [=](int left_array_id, int right_array_id, int64_t left_id,
-                 int64_t right_id, int& cmp_res) {
+      return [=](int left_array_id, int right_array_id, int64_t left_id, int64_t right_id,
+                 int& cmp_res) {
         bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                             typed_arrays[left_array_id]->IsNull(left_id);
         bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
@@ -165,8 +165,7 @@ class FloatingComparator {
   ~FloatingComparator() {}
 
   std::function<void(int, int, int64_t, int64_t, int&)> GetCompareFunc(
-      const arrow::ArrayVector& arrays, bool asc, bool nulls_first,
-      bool nan_check) {
+      const arrow::ArrayVector& arrays, bool asc, bool nulls_first, bool nan_check) {
     uint64_t null_total = 0;
     std::vector<std::shared_ptr<ArrayType>> typed_arrays;
     for (int array_id = 0; array_id < arrays.size(); array_id++) {
@@ -248,9 +247,8 @@ class FloatingComparator {
                      int64_t right_id, int& cmp_res) {
             bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                                 typed_arrays[left_array_id]->IsNull(left_id);
-            bool is_right_null =
-                typed_arrays[right_array_id]->null_count() > 0 &&
-                typed_arrays[right_array_id]->IsNull(right_id);
+            bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
+                                 typed_arrays[right_array_id]->IsNull(right_id);
             if (!is_left_null || !is_right_null) {
               if (is_left_null) {
                 cmp_res = 1;
@@ -281,9 +279,8 @@ class FloatingComparator {
                      int64_t right_id, int& cmp_res) {
             bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                                 typed_arrays[left_array_id]->IsNull(left_id);
-            bool is_right_null =
-                typed_arrays[right_array_id]->null_count() > 0 &&
-                typed_arrays[right_array_id]->IsNull(right_id);
+            bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
+                                 typed_arrays[right_array_id]->IsNull(right_id);
             if (!is_left_null || !is_right_null) {
               if (is_left_null) {
                 cmp_res = 1;
@@ -306,9 +303,8 @@ class FloatingComparator {
                      int64_t right_id, int& cmp_res) {
             bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                                 typed_arrays[left_array_id]->IsNull(left_id);
-            bool is_right_null =
-                typed_arrays[right_array_id]->null_count() > 0 &&
-                typed_arrays[right_array_id]->IsNull(right_id);
+            bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
+                                 typed_arrays[right_array_id]->IsNull(right_id);
             if (!is_left_null || !is_right_null) {
               if (is_left_null) {
                 cmp_res = 0;
@@ -339,9 +335,8 @@ class FloatingComparator {
                      int64_t right_id, int& cmp_res) {
             bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                                 typed_arrays[left_array_id]->IsNull(left_id);
-            bool is_right_null =
-                typed_arrays[right_array_id]->null_count() > 0 &&
-                typed_arrays[right_array_id]->IsNull(right_id);
+            bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
+                                 typed_arrays[right_array_id]->IsNull(right_id);
             if (!is_left_null || !is_right_null) {
               if (is_left_null) {
                 cmp_res = 0;
@@ -489,8 +484,7 @@ class StringComparator {
     std::vector<std::shared_ptr<arrow::StringArray>> typed_arrays;
     for (int array_id = 0; array_id < arrays.size(); array_id++) {
       null_total += arrays[array_id]->null_count();
-      auto typed_array =
-          std::dynamic_pointer_cast<arrow::StringArray>(arrays[array_id]);
+      auto typed_array = std::dynamic_pointer_cast<arrow::StringArray>(arrays[array_id]);
       typed_arrays.push_back(typed_array);
     }
     if (null_total == 0) {
@@ -527,10 +521,8 @@ class StringComparator {
             } else if (is_right_null) {
               cmp_res = 0;
             } else {
-              std::string left =
-                  typed_arrays[left_array_id]->GetString(left_id);
-              std::string right =
-                  typed_arrays[right_array_id]->GetString(right_id);
+              std::string left = typed_arrays[left_array_id]->GetString(left_id);
+              std::string right = typed_arrays[right_array_id]->GetString(right_id);
               if (left != right) {
                 cmp_res = left < right;
               }
@@ -550,10 +542,8 @@ class StringComparator {
             } else if (is_right_null) {
               cmp_res = 1;
             } else {
-              std::string left =
-                  typed_arrays[left_array_id]->GetString(left_id);
-              std::string right =
-                  typed_arrays[right_array_id]->GetString(right_id);
+              std::string left = typed_arrays[left_array_id]->GetString(left_id);
+              std::string right = typed_arrays[right_array_id]->GetString(right_id);
               if (left != right) {
                 cmp_res = left < right;
               }
@@ -562,8 +552,8 @@ class StringComparator {
         };
       }
     } else if (nulls_first) {
-      return [=](int left_array_id, int right_array_id, int64_t left_id,
-                 int64_t right_id, int& cmp_res) {
+      return [=](int left_array_id, int right_array_id, int64_t left_id, int64_t right_id,
+                 int& cmp_res) {
         bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                             typed_arrays[left_array_id]->IsNull(left_id);
         bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
@@ -575,8 +565,7 @@ class StringComparator {
             cmp_res = 0;
           } else {
             std::string left = typed_arrays[left_array_id]->GetString(left_id);
-            std::string right =
-                typed_arrays[right_array_id]->GetString(right_id);
+            std::string right = typed_arrays[right_array_id]->GetString(right_id);
             if (left != right) {
               cmp_res = left > right;
             }
@@ -584,8 +573,8 @@ class StringComparator {
         }
       };
     } else {
-      return [=](int left_array_id, int right_array_id, int64_t left_id,
-                 int64_t right_id, int& cmp_res) {
+      return [=](int left_array_id, int right_array_id, int64_t left_id, int64_t right_id,
+                 int& cmp_res) {
         bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                             typed_arrays[left_array_id]->IsNull(left_id);
         bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
@@ -597,8 +586,7 @@ class StringComparator {
             cmp_res = 1;
           } else {
             std::string left = typed_arrays[left_array_id]->GetString(left_id);
-            std::string right =
-                typed_arrays[right_array_id]->GetString(right_id);
+            std::string right = typed_arrays[right_array_id]->GetString(right_id);
             if (left != right) {
               cmp_res = left > right;
             }
@@ -628,10 +616,8 @@ class DecimalComparator {
       if (asc) {
         return [=](int left_array_id, int right_array_id, int64_t left_id,
                    int64_t right_id, int& cmp_res) {
-          arrow::Decimal128 left =
-              typed_arrays[left_array_id]->GetView(left_id);
-          arrow::Decimal128 right =
-              typed_arrays[right_array_id]->GetView(right_id);
+          arrow::Decimal128 left = typed_arrays[left_array_id]->GetView(left_id);
+          arrow::Decimal128 right = typed_arrays[right_array_id]->GetView(right_id);
           if (left != right) {
             cmp_res = left < right;
           }
@@ -639,10 +625,8 @@ class DecimalComparator {
       } else {
         return [=](int left_array_id, int right_array_id, int64_t left_id,
                    int64_t right_id, int& cmp_res) {
-          arrow::Decimal128 left =
-              typed_arrays[left_array_id]->GetView(left_id);
-          arrow::Decimal128 right =
-              typed_arrays[right_array_id]->GetView(right_id);
+          arrow::Decimal128 left = typed_arrays[left_array_id]->GetView(left_id);
+          arrow::Decimal128 right = typed_arrays[right_array_id]->GetView(right_id);
           if (left != right) {
             cmp_res = left > right;
           }
@@ -662,10 +646,8 @@ class DecimalComparator {
             } else if (is_right_null) {
               cmp_res = 0;
             } else {
-              arrow::Decimal128 left =
-                  typed_arrays[left_array_id]->GetView(left_id);
-              arrow::Decimal128 right =
-                  typed_arrays[right_array_id]->GetView(right_id);
+              arrow::Decimal128 left = typed_arrays[left_array_id]->GetView(left_id);
+              arrow::Decimal128 right = typed_arrays[right_array_id]->GetView(right_id);
               if (left != right) {
                 cmp_res = left < right;
               }
@@ -685,10 +667,8 @@ class DecimalComparator {
             } else if (is_right_null) {
               cmp_res = 1;
             } else {
-              arrow::Decimal128 left =
-                  typed_arrays[left_array_id]->GetView(left_id);
-              arrow::Decimal128 right =
-                  typed_arrays[right_array_id]->GetView(right_id);
+              arrow::Decimal128 left = typed_arrays[left_array_id]->GetView(left_id);
+              arrow::Decimal128 right = typed_arrays[right_array_id]->GetView(right_id);
               if (left != right) {
                 cmp_res = left < right;
               }
@@ -697,8 +677,8 @@ class DecimalComparator {
         };
       }
     } else if (nulls_first) {
-      return [=](int left_array_id, int right_array_id, int64_t left_id,
-                 int64_t right_id, int& cmp_res) {
+      return [=](int left_array_id, int right_array_id, int64_t left_id, int64_t right_id,
+                 int& cmp_res) {
         bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                             typed_arrays[left_array_id]->IsNull(left_id);
         bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
@@ -709,10 +689,8 @@ class DecimalComparator {
           } else if (is_right_null) {
             cmp_res = 0;
           } else {
-            arrow::Decimal128 left =
-                typed_arrays[left_array_id]->GetView(left_id);
-            arrow::Decimal128 right =
-                typed_arrays[right_array_id]->GetView(right_id);
+            arrow::Decimal128 left = typed_arrays[left_array_id]->GetView(left_id);
+            arrow::Decimal128 right = typed_arrays[right_array_id]->GetView(right_id);
             if (left != right) {
               cmp_res = left > right;
             }
@@ -720,8 +698,8 @@ class DecimalComparator {
         }
       };
     } else {
-      return [=](int left_array_id, int right_array_id, int64_t left_id,
-                 int64_t right_id, int& cmp_res) {
+      return [=](int left_array_id, int right_array_id, int64_t left_id, int64_t right_id,
+                 int& cmp_res) {
         bool is_left_null = typed_arrays[left_array_id]->null_count() > 0 &&
                             typed_arrays[left_array_id]->IsNull(left_id);
         bool is_right_null = typed_arrays[right_array_id]->null_count() > 0 &&
@@ -732,10 +710,8 @@ class DecimalComparator {
           } else if (is_right_null) {
             cmp_res = 1;
           } else {
-            arrow::Decimal128 left =
-                typed_arrays[left_array_id]->GetView(left_id);
-            arrow::Decimal128 right =
-                typed_arrays[right_array_id]->GetView(right_id);
+            arrow::Decimal128 left = typed_arrays[left_array_id]->GetView(left_id);
+            arrow::Decimal128 right = typed_arrays[right_array_id]->GetView(right_id);
             if (left != right) {
               cmp_res = left > right;
             }
@@ -761,11 +737,9 @@ class DecimalComparator {
 static arrow::Status MakeCmpFunction(
     const std::vector<arrow::ArrayVector>& array_vectors,
     const std::vector<std::shared_ptr<arrow::Field>>& key_field_list,
-    const std::vector<int>& key_index_list,
-    const std::vector<bool>& sort_directions,
+    const std::vector<int>& key_index_list, const std::vector<bool>& sort_directions,
     const std::vector<bool>& nulls_order, const bool& nan_check,
-    std::vector<std::function<void(int, int, int64_t, int64_t, int&)>>&
-        cmp_functions) {
+    std::vector<std::function<void(int, int, int64_t, int64_t, int&)>>& cmp_functions) {
   for (int i = 0; i < key_field_list.size(); i++) {
     auto type = key_field_list[i]->type();
     int key_col_id = key_index_list[i];
@@ -774,8 +748,7 @@ static arrow::Status MakeCmpFunction(
     bool nulls_first = nulls_order[i];
     if (type->id() == arrow::Type::STRING) {
       auto comparator_ptr = std::make_shared<StringComparator>();
-      cmp_functions.push_back(
-          comparator_ptr->GetCompareFunc(col, asc, nulls_first));
+      cmp_functions.push_back(comparator_ptr->GetCompareFunc(col, asc, nulls_first));
     } else if (type->id() == arrow::Type::DOUBLE) {
       auto comparator_ptr =
           std::make_shared<FloatingComparator<arrow::DoubleType, double>>();
@@ -788,16 +761,14 @@ static arrow::Status MakeCmpFunction(
           comparator_ptr->GetCompareFunc(col, asc, nulls_first, nan_check));
     } else if (type->id() == arrow::Type::DECIMAL128) {
       auto comparator_ptr = std::make_shared<DecimalComparator>();
-      cmp_functions.push_back(
-          comparator_ptr->GetCompareFunc(col, asc, nulls_first));
+      cmp_functions.push_back(comparator_ptr->GetCompareFunc(col, asc, nulls_first));
     } else {
       switch (type->id()) {
-#define PROCESS(InType)                                                       \
-  case InType::type_id: {                                                     \
-    using CType = typename arrow::TypeTraits<InType>::CType;                  \
-    auto comparator_ptr = std::make_shared<TypedComparator<InType, CType>>(); \
-    cmp_functions.push_back(                                                  \
-        comparator_ptr->GetCompareFunc(col, asc, nulls_first));               \
+#define PROCESS(InType)                                                             \
+  case InType::type_id: {                                                           \
+    using CType = typename arrow::TypeTraits<InType>::CType;                        \
+    auto comparator_ptr = std::make_shared<TypedComparator<InType, CType>>();       \
+    cmp_functions.push_back(comparator_ptr->GetCompareFunc(col, asc, nulls_first)); \
   } break;
         PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS

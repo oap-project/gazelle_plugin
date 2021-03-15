@@ -66,23 +66,20 @@ class ConditionedProbeArraysKernel::Impl {
         left_schema_(arrow::schema(left_field_list)),
         right_schema_(arrow::schema(right_field_list)) {
     std::vector<int> left_key_index_list;
-    THROW_NOT_OK(
-        GetIndexList(left_key_list, left_field_list, &left_key_index_list));
+    THROW_NOT_OK(GetIndexList(left_key_list, left_field_list, &left_key_index_list));
     std::vector<int> right_key_index_list;
-    THROW_NOT_OK(
-        GetIndexList(right_key_list, right_field_list, &right_key_index_list));
+    THROW_NOT_OK(GetIndexList(right_key_list, right_field_list, &right_key_index_list));
     std::vector<int> left_shuffle_index_list;
     std::vector<int> right_shuffle_index_list;
-    THROW_NOT_OK(GetIndexListFromSchema(result_schema, left_field_list,
-                                        &left_shuffle_index_list));
+    THROW_NOT_OK(
+        GetIndexListFromSchema(result_schema, left_field_list, &left_shuffle_index_list));
     THROW_NOT_OK(GetIndexListFromSchema(result_schema, right_field_list,
                                         &right_shuffle_index_list));
 
     std::vector<std::pair<int, int>> result_schema_index_list;
     int exist_index = -1;
-    THROW_NOT_OK(GetResultIndexList(result_schema, left_field_list,
-                                    right_field_list, join_type, exist_index,
-                                    &result_schema_index_list));
+    THROW_NOT_OK(GetResultIndexList(result_schema, left_field_list, right_field_list,
+                                    join_type, exist_index, &result_schema_index_list));
 
     THROW_NOT_OK(LoadJITFunction(
         func_node, join_type, left_key_index_list, right_key_index_list,
@@ -95,8 +92,7 @@ class ConditionedProbeArraysKernel::Impl {
     if (left_projector_) {
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch = arrow::RecordBatch::Make(left_schema_, length, in);
-      RETURN_NOT_OK(
-          left_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
+      RETURN_NOT_OK(left_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
     }
     RETURN_NOT_OK(prober_->Evaluate(in, outputs));
     return arrow::Status::OK();
@@ -125,15 +121,13 @@ class ConditionedProbeArraysKernel::Impl {
   std::shared_ptr<arrow::Schema> right_schema_;
   std::string signature_;
 
-  class ProjectedProberResultIterator
-      : public ResultIterator<arrow::RecordBatch> {
+  class ProjectedProberResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     ProjectedProberResultIterator(
         arrow::compute::ExecContext* ctx,
         const std::shared_ptr<gandiva::Projector>& right_projector,
         const std::shared_ptr<arrow::Schema>& right_schema,
-        const std::shared_ptr<ResultIterator<arrow::RecordBatch>>&
-            prober_res_iter)
+        const std::shared_ptr<ResultIterator<arrow::RecordBatch>>& prober_res_iter)
         : ctx_(ctx),
           right_projector_(right_projector),
           right_schema_(right_schema),
@@ -147,8 +141,8 @@ class ConditionedProbeArraysKernel::Impl {
       if (right_projector_) {
         auto length = in.size() > 0 ? in[0]->length() : 0;
         auto in_batch = arrow::RecordBatch::Make(right_schema_, length, in);
-        RETURN_NOT_OK(right_projector_->Evaluate(*in_batch, ctx_->memory_pool(),
-                                                 &outputs));
+        RETURN_NOT_OK(
+            right_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
       }
 
       return prober_res_iter_->Process(in, outputs, out, selection);
@@ -211,8 +205,8 @@ class ConditionedProbeArraysKernel::Impl {
       const std::vector<int>& right_shuffle_index_list,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      const std::vector<std::pair<int, int>>& result_schema_index_list,
-      int exist_index, std::shared_ptr<CodeGenBase>* out) {
+      const std::vector<std::pair<int, int>>& result_schema_index_list, int exist_index,
+      std::shared_ptr<CodeGenBase>* out) {
     // generate ddl signature
     std::stringstream func_args_ss;
     func_args_ss << "<HashJoin>"
@@ -252,8 +246,7 @@ class ConditionedProbeArraysKernel::Impl {
     }
 
 #ifdef DEBUG
-    std::cout << "signature original line is " << func_args_ss.str()
-              << std::endl;
+    std::cout << "signature original line is " << func_args_ss.str() << std::endl;
 #endif
     std::stringstream signature_ss;
     signature_ss << std::hex << std::hash<std::string>{}(func_args_ss.str());
@@ -278,15 +271,13 @@ class ConditionedProbeArraysKernel::Impl {
     } else {
       std::vector<int> left_cond_index_list;
       std::vector<int> right_cond_index_list;
-      std::vector<std::pair<gandiva::DataTypePtr, std::string>>
-          left_projected_batch_list;
+      std::vector<std::pair<gandiva::DataTypePtr, std::string>> left_projected_batch_list;
       std::vector<std::pair<gandiva::DataTypePtr, std::string>>
           right_projected_batch_list;
       if (func_node) {
         GetConditionCheckFunc(func_node, left_field_list, right_field_list,
                               &left_cond_index_list, &right_cond_index_list,
-                              &left_projected_batch_list,
-                              &right_projected_batch_list);
+                              &left_projected_batch_list, &right_projected_batch_list);
       }
     }
     FileSpinUnLock(file_lock);
@@ -295,16 +286,15 @@ class ConditionedProbeArraysKernel::Impl {
 
   class TypedProberCodeGenImpl {
    public:
-    TypedProberCodeGenImpl(std::string indice,
-                           std::shared_ptr<arrow::DataType> data_type,
+    TypedProberCodeGenImpl(std::string indice, std::shared_ptr<arrow::DataType> data_type,
                            bool left = true)
         : indice_(indice), data_type_(data_type), left_(left) {}
     std::string GetImplCachedDefine() {
       std::stringstream ss;
-      ss << "using ArrayType_" << indice_ << " = "
-         << GetTypeString(data_type_, "Array") << ";" << std::endl;
-      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_"
-         << indice_ << "_;" << std::endl;
+      ss << "using ArrayType_" << indice_ << " = " << GetTypeString(data_type_, "Array")
+         << ";" << std::endl;
+      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_" << indice_
+         << "_;" << std::endl;
       return ss.str();
     }
     std::string GetResultIteratorPrepare() {
@@ -317,8 +307,8 @@ class ConditionedProbeArraysKernel::Impl {
     std::string GetProcessFinish() {
       std::stringstream ss;
       ss << "std::shared_ptr<arrow::Array> out_" << indice_ << ";" << std::endl;
-      ss << "RETURN_NOT_OK(builder_" << indice_ << "_->Finish(&out_" << indice_
-         << "));" << std::endl;
+      ss << "RETURN_NOT_OK(builder_" << indice_ << "_->Finish(&out_" << indice_ << "));"
+         << std::endl;
       ss << "builder_" << indice_ << "_->Reset();" << std::endl;
       return ss.str();
     }
@@ -330,17 +320,16 @@ class ConditionedProbeArraysKernel::Impl {
     std::string GetResultIterCachedDefine() {
       std::stringstream ss;
       if (left_) {
-        ss << "std::vector<std::shared_ptr<"
-           << GetTypeString(data_type_, "Array") << ">> cached_" << indice_
-           << "_;" << std::endl;
+        ss << "std::vector<std::shared_ptr<" << GetTypeString(data_type_, "Array")
+           << ">> cached_" << indice_ << "_;" << std::endl;
       } else {
-        ss << "std::shared_ptr<" << GetTypeString(data_type_, "Array")
-           << "> cached_" << indice_ << "_;" << std::endl;
+        ss << "std::shared_ptr<" << GetTypeString(data_type_, "Array") << "> cached_"
+           << indice_ << "_;" << std::endl;
       }
-      ss << "using ArrayType_" << indice_ << " = "
-         << GetTypeString(data_type_, "Array") << ";" << std::endl;
-      ss << "std::shared_ptr<" << GetTypeString(data_type_, "Builder")
-         << "> builder_" << indice_ << "_;" << std::endl;
+      ss << "using ArrayType_" << indice_ << " = " << GetTypeString(data_type_, "Array")
+         << ";" << std::endl;
+      ss << "std::shared_ptr<" << GetTypeString(data_type_, "Builder") << "> builder_"
+         << indice_ << "_;" << std::endl;
       return ss.str();
     }
 
@@ -413,8 +402,8 @@ class ConditionedProbeArraysKernel::Impl {
           left_projected_batch_list) {
     std::stringstream ss;
     for (auto name : left_projected_batch_list) {
-      ss << "std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array")
-         << ">> " << name.second << ";" << std::endl;
+      ss << "std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array") << ">> "
+         << name.second << ";" << std::endl;
     }
     return ss.str();
   }
@@ -468,55 +457,49 @@ class ConditionedProbeArraysKernel::Impl {
   std::string GetProcessRightSet(std::vector<int> indices) {
     std::stringstream ss;
     for (auto i : indices) {
-      ss << "cached_1_" << i << "_ = std::make_shared<ArrayType_1_" << i
-         << ">(in[" << i << "]);" << std::endl;
-    }
-    return ss.str();
-  }
-  std::string GetLeftProjectedSet(
-      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>>
-          name_list) {
-    std::stringstream ss;
-    int i = 0;
-    for (auto name : name_list) {
-      ss << name.second << ".push_back(std::make_shared<"
-         << GetTypeString(name.first, "Array") << ">(projected_batch[" << i++
-         << "]));" << std::endl;
-    }
-    return ss.str();
-  }
-  std::string GetRightProjectedSet(
-      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>>
-          name_list) {
-    std::stringstream ss;
-    int i = 0;
-    for (auto name : name_list) {
-      ss << name.second << " = std::make_shared<"
-         << GetTypeString(name.first, "Array") << ">(projected_batch[" << i++
+      ss << "cached_1_" << i << "_ = std::make_shared<ArrayType_1_" << i << ">(in[" << i
          << "]);" << std::endl;
     }
     return ss.str();
   }
+  std::string GetLeftProjectedSet(
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
+    std::stringstream ss;
+    int i = 0;
+    for (auto name : name_list) {
+      ss << name.second << ".push_back(std::make_shared<"
+         << GetTypeString(name.first, "Array") << ">(projected_batch[" << i++ << "]));"
+         << std::endl;
+    }
+    return ss.str();
+  }
+  std::string GetRightProjectedSet(
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
+    std::stringstream ss;
+    int i = 0;
+    for (auto name : name_list) {
+      ss << name.second << " = std::make_shared<" << GetTypeString(name.first, "Array")
+         << ">(projected_batch[" << i++ << "]);" << std::endl;
+    }
+    return ss.str();
+  }
   std::string GetResultIteratorProjectedParams(
-      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>>
-          name_list) {
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
     std::vector<std::string> param_list;
     for (auto name : name_list) {
       std::stringstream ss;
-      ss << "const std::vector<std::shared_ptr<"
-         << GetTypeString(name.first, "Array") << ">>& "
-         << name.second.substr(0, name.second.size() - 1);
+      ss << "const std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array")
+         << ">>& " << name.second.substr(0, name.second.size() - 1);
       param_list.push_back(ss.str());
     }
     return GetParameterList(param_list);
   }
   std::string GetResultIteratorProjectedSet(
-      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>>
-          name_list) {
+      std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
     std::stringstream ss;
     for (auto name : name_list) {
-      ss << name.second << " = "
-         << name.second.substr(0, name.second.size() - 1) << ";" << std::endl;
+      ss << name.second << " = " << name.second.substr(0, name.second.size() - 1) << ";"
+         << std::endl;
     }
     return ss.str();
   }
@@ -571,10 +554,8 @@ class ConditionedProbeArraysKernel::Impl {
                            const std::vector<int>& right_shuffle_index_list) {
     std::stringstream ss;
     for (auto i : left_shuffle_index_list) {
-      ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
-         << std::endl;
-      ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
-         << std::endl;
+      ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
       ss << "} else {" << std::endl;
       ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
          << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
@@ -582,8 +563,7 @@ class ConditionedProbeArraysKernel::Impl {
     }
     for (auto i : right_shuffle_index_list) {
       ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
-      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
-         << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
       ss << "} else {" << std::endl;
       ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
@@ -624,40 +604,34 @@ class ConditionedProbeArraysKernel::Impl {
     std::stringstream left_valid_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_valid_ss << "if (cached_0_" << i
-                    << "_[tmp.array_id]->null_count()) {" << std::endl;
-      left_valid_ss << "if (cached_0_" << i
-                    << "_[tmp.array_id]->IsNull(tmp.id)) {" << std::endl;
+      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {"
+                    << std::endl;
+      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
+                    << std::endl;
       left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
                     << std::endl;
       left_valid_ss << "} else {" << std::endl;
-      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i
-                    << "_->Append(cached_0_" << i
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
                     << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
       left_valid_ss << "}" << std::endl;
       left_valid_ss << "} else {" << std::endl;
-      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i
-                    << "_->Append(cached_0_" << i
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
                     << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
       left_valid_ss << "}" << std::endl;
-      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
-                   << std::endl;
+      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {"
-                     << std::endl;
+      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
       right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
                      << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
-                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
-                     << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
-                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
-                     << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
@@ -701,24 +675,20 @@ class ConditionedProbeArraysKernel::Impl {
     std::stringstream left_null_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
-                   << std::endl;
+      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {"
-                     << std::endl;
+      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
       right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
                      << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
-                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
-                     << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
-                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
-                     << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
@@ -765,8 +735,7 @@ class ConditionedProbeArraysKernel::Impl {
     for (auto i : right_shuffle_index_list) {
       ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
       ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
-      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
-         << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
       ss << "} else {" << std::endl;
       ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
@@ -805,9 +774,9 @@ class ConditionedProbeArraysKernel::Impl {
         }
   )";
   }
-  std::string GetExistenceJoin(
-      bool cond_check, const std::vector<int>& left_shuffle_index_list,
-      const std::vector<int>& right_shuffle_index_list) {
+  std::string GetExistenceJoin(bool cond_check,
+                               const std::vector<int>& left_shuffle_index_list,
+                               const std::vector<int>& right_shuffle_index_list) {
     std::stringstream right_exist_ss;
     std::stringstream right_not_exist_ss;
     std::stringstream left_valid_ss;
@@ -826,9 +795,8 @@ class ConditionedProbeArraysKernel::Impl {
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
                      << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
-                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
-                     << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
@@ -864,10 +832,9 @@ class ConditionedProbeArraysKernel::Impl {
         }
   )";
   }
-  std::string GetProcessProbe(
-      int join_type, bool cond_check,
-      const std::vector<int>& left_shuffle_index_list,
-      const std::vector<int>& right_shuffle_index_list) {
+  std::string GetProcessProbe(int join_type, bool cond_check,
+                              const std::vector<int>& left_shuffle_index_list,
+                              const std::vector<int>& right_shuffle_index_list) {
     switch (join_type) {
       case 0: { /*Inner Join*/
         return GetInnerJoin(cond_check, left_shuffle_index_list,
@@ -878,12 +845,10 @@ class ConditionedProbeArraysKernel::Impl {
                             right_shuffle_index_list);
       } break;
       case 2: { /*Anti Join*/
-        return GetAntiJoin(cond_check, left_shuffle_index_list,
-                           right_shuffle_index_list);
+        return GetAntiJoin(cond_check, left_shuffle_index_list, right_shuffle_index_list);
       } break;
       case 3: { /*Semi Join*/
-        return GetSemiJoin(cond_check, left_shuffle_index_list,
-                           right_shuffle_index_list);
+        return GetSemiJoin(cond_check, left_shuffle_index_list, right_shuffle_index_list);
       } break;
       case 4: { /*Existence Join*/
         return GetExistenceJoin(cond_check, left_shuffle_index_list,
@@ -902,8 +867,7 @@ class ConditionedProbeArraysKernel::Impl {
       const std::shared_ptr<gandiva::Node>& func_node,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      std::vector<int>* left_out_index_list,
-      std::vector<int>* right_out_index_list,
+      std::vector<int>* left_out_index_list, std::vector<int>* right_out_index_list,
       std::vector<std::pair<gandiva::DataTypePtr, std::string>>*
           left_projected_batch_list,
       std::vector<std::pair<gandiva::DataTypePtr, std::string>>*
@@ -912,10 +876,10 @@ class ConditionedProbeArraysKernel::Impl {
     int func_count = 0;
     std::vector<std::string> input_list;
     std::vector<gandiva::ExpressionPtr> project_node_list;
-    THROW_NOT_OK(MakeCodeGenNodeVisitor(
-        func_node, {left_field_list, right_field_list}, &func_count,
-        &input_list, left_out_index_list, right_out_index_list,
-        &project_node_list, &func_node_visitor));
+    THROW_NOT_OK(MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list},
+                                        &func_count, &input_list, left_out_index_list,
+                                        right_out_index_list, &project_node_list,
+                                        &func_node_visitor));
     std::vector<gandiva::ExpressionPtr> left_project_node_list;
     std::vector<gandiva::ExpressionPtr> right_project_node_list;
     for (auto project : project_node_list) {
@@ -926,23 +890,20 @@ class ConditionedProbeArraysKernel::Impl {
         (*left_projected_batch_list).push_back(std::make_pair(data_type, name));
       } else {
         right_project_node_list.push_back(project);
-        (*right_projected_batch_list)
-            .push_back(std::make_pair(data_type, name));
+        (*right_projected_batch_list).push_back(std::make_pair(data_type, name));
       }
     }
 
     if (!left_project_node_list.empty()) {
       auto schema = arrow::schema(left_field_list);
-      auto configuration =
-          gandiva::ConfigurationBuilder().DefaultConfiguration();
+      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
       auto status = gandiva::Projector::Make(schema, left_project_node_list,
                                              configuration, &left_projector_);
     }
 
     if (!right_project_node_list.empty()) {
       auto schema = arrow::schema(right_field_list);
-      auto configuration =
-          gandiva::ConfigurationBuilder().DefaultConfiguration();
+      auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
       auto status = gandiva::Projector::Make(schema, right_project_node_list,
                                              configuration, &right_projector_);
     }
@@ -959,19 +920,18 @@ class ConditionedProbeArraysKernel::Impl {
   }
   arrow::Status GetTypedProberCodeGen(
       std::string prefix, bool left, const std::vector<int>& index_list,
-      const std::vector<std::shared_ptr<arrow::Field>>& field_list,
-      int exist_index,
+      const std::vector<std::shared_ptr<arrow::Field>>& field_list, int exist_index,
       std::vector<std::shared_ptr<TypedProberCodeGenImpl>>* out_list,
       int join_type = -1) {
     for (auto i : index_list) {
       auto field = field_list[i];
-      auto codegen = std::make_shared<TypedProberCodeGenImpl>(
-          prefix + std::to_string(i), field->type(), left);
+      auto codegen = std::make_shared<TypedProberCodeGenImpl>(prefix + std::to_string(i),
+                                                              field->type(), left);
       (*out_list).push_back(codegen);
     }
     if (join_type == 4 && exist_index != -1) {
-      auto codegen = std::make_shared<TypedProberCodeGenImpl>(
-          prefix + "exists", arrow::boolean(), left);
+      auto codegen = std::make_shared<TypedProberCodeGenImpl>(prefix + "exists",
+                                                              arrow::boolean(), left);
       (*out_list).insert((*out_list).begin() + exist_index, codegen);
     }
     return arrow::Status::OK();
@@ -988,9 +948,8 @@ class ConditionedProbeArraysKernel::Impl {
     std::sort(ret.begin(), ret.end());
     return ret;
   }
-  std::string GetKeyCType(
-      const std::vector<int>& key_index_list,
-      const std::vector<std::shared_ptr<arrow::Field>>& field_list) {
+  std::string GetKeyCType(const std::vector<int>& key_index_list,
+                          const std::vector<std::shared_ptr<arrow::Field>>& field_list) {
     auto field = field_list[key_index_list[0]];
     return GetCTypeString(field->type());
   }
@@ -999,17 +958,16 @@ class ConditionedProbeArraysKernel::Impl {
                             std::string evaluate_encode_join_key_str) {
     std::stringstream ss;
     if (multiple_cols) {
-      ss << "auto concat_kernel_arr_list = {" << evaluate_encode_join_key_str
-         << "};" << std::endl;
+      ss << "auto concat_kernel_arr_list = {" << evaluate_encode_join_key_str << "};"
+         << std::endl;
       ss << "std::shared_ptr<arrow::Array> hash_in;" << std::endl;
       ss << "RETURN_NOT_OK(hash_kernel_->Evaluate(concat_kernel_arr_list, "
             "&hash_in));"
          << std::endl;
-      ss << "auto typed_array = std::make_shared<Int64Array>(hash_in);"
-         << std::endl;
+      ss << "auto typed_array = std::make_shared<Int64Array>(hash_in);" << std::endl;
     } else {
-      ss << "auto typed_array = std::make_shared<" << data_type << ">(in[" << i
-         << "]);" << std::endl;
+      ss << "auto typed_array = std::make_shared<" << data_type << ">(in[" << i << "]);"
+         << std::endl;
     }
     return ss.str();
   }
@@ -1021,21 +979,18 @@ class ConditionedProbeArraysKernel::Impl {
       const std::vector<int>& right_shuffle_index_list,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      const std::vector<std::pair<int, int>>& result_schema_index_list,
-      int exist_index) {
+      const std::vector<std::pair<int, int>>& result_schema_index_list, int exist_index) {
     std::vector<int> left_cond_index_list;
     std::vector<int> right_cond_index_list;
     bool cond_check = false;
     bool multiple_cols = (left_key_index_list.size() > 1);
-    std::string hash_map_include_str =
-        R"(#include "precompile/sparse_hash_map.h")";
+    std::string hash_map_include_str = R"(#include "precompile/sparse_hash_map.h")";
     std::string hash_map_type_str =
         "SparseHashMap<" + GetCTypeString(arrow::int64()) + ">";
     std::string hash_map_define_str =
         "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
     if (!multiple_cols) {
-      if (left_field_list[left_key_index_list[0]]->type()->id() ==
-          arrow::Type::STRING) {
+      if (left_field_list[left_key_index_list[0]]->type()->id() == arrow::Type::STRING) {
         hash_map_type_str =
             GetTypeString(left_field_list[left_key_index_list[0]]->type(), "") +
             "HashMap";
@@ -1043,8 +998,7 @@ class ConditionedProbeArraysKernel::Impl {
       } else {
         hash_map_type_str =
             "SparseHashMap<" +
-            GetCTypeString(left_field_list[left_key_index_list[0]]->type()) +
-            ">";
+            GetCTypeString(left_field_list[left_key_index_list[0]]->type()) + ">";
       }
       hash_map_define_str =
           "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
@@ -1052,77 +1006,63 @@ class ConditionedProbeArraysKernel::Impl {
     std::string condition_check_str;
     std::string left_projected_prepare_str;
     std::string right_projected_prepare_str;
-    std::vector<std::pair<gandiva::DataTypePtr, std::string>>
-        left_projected_batch_list;
-    std::vector<std::pair<gandiva::DataTypePtr, std::string>>
-        right_projected_batch_list;
+    std::vector<std::pair<gandiva::DataTypePtr, std::string>> left_projected_batch_list;
+    std::vector<std::pair<gandiva::DataTypePtr, std::string>> right_projected_batch_list;
     std::vector<std::string> left_projected_batch_name_list;
     if (func_node) {
-      condition_check_str = GetConditionCheckFunc(
-          func_node, left_field_list, right_field_list, &left_cond_index_list,
-          &right_cond_index_list, &left_projected_batch_list,
-          &right_projected_batch_list);
-      left_projected_prepare_str =
-          GetLeftProjectedSet(left_projected_batch_list);
-      right_projected_prepare_str =
-          GetRightProjectedSet(right_projected_batch_list);
+      condition_check_str =
+          GetConditionCheckFunc(func_node, left_field_list, right_field_list,
+                                &left_cond_index_list, &right_cond_index_list,
+                                &left_projected_batch_list, &right_projected_batch_list);
+      left_projected_prepare_str = GetLeftProjectedSet(left_projected_batch_list);
+      right_projected_prepare_str = GetRightProjectedSet(right_projected_batch_list);
       for (auto name : left_projected_batch_list) {
         left_projected_batch_name_list.push_back(name.second);
       }
       cond_check = true;
     }
-    auto process_probe_str =
-        GetProcessProbe(join_type, cond_check, left_shuffle_index_list,
-                        right_shuffle_index_list);
+    auto process_probe_str = GetProcessProbe(
+        join_type, cond_check, left_shuffle_index_list, right_shuffle_index_list);
     auto left_cache_index_list =
         MergeKeyIndexList(left_cond_index_list, left_shuffle_index_list);
     auto right_cache_index_list =
         MergeKeyIndexList(right_cond_index_list, right_shuffle_index_list);
 
-    std::vector<std::shared_ptr<TypedProberCodeGenImpl>>
-        left_cache_codegen_list;
-    std::vector<std::shared_ptr<TypedProberCodeGenImpl>>
-        left_shuffle_codegen_list;
-    std::vector<std::shared_ptr<TypedProberCodeGenImpl>>
-        right_shuffle_codegen_list;
-    GetTypedProberCodeGen("0_", true, left_cache_index_list, left_field_list,
-                          exist_index, &left_cache_codegen_list);
+    std::vector<std::shared_ptr<TypedProberCodeGenImpl>> left_cache_codegen_list;
+    std::vector<std::shared_ptr<TypedProberCodeGenImpl>> left_shuffle_codegen_list;
+    std::vector<std::shared_ptr<TypedProberCodeGenImpl>> right_shuffle_codegen_list;
+    GetTypedProberCodeGen("0_", true, left_cache_index_list, left_field_list, exist_index,
+                          &left_cache_codegen_list);
     GetTypedProberCodeGen("0_", true, left_shuffle_index_list, left_field_list,
                           exist_index, &left_shuffle_codegen_list);
-    GetTypedProberCodeGen("1_", false, right_shuffle_index_list,
-                          right_field_list, exist_index,
-                          &right_shuffle_codegen_list, join_type);
+    GetTypedProberCodeGen("1_", false, right_shuffle_index_list, right_field_list,
+                          exist_index, &right_shuffle_codegen_list, join_type);
     auto join_key_type_list_define_str =
         GetJoinKeyFieldListDefine(left_key_index_list, left_field_list);
-    auto evaluate_cache_insert_str =
-        GetEvaluateCacheInsert(left_cache_index_list);
+    auto evaluate_cache_insert_str = GetEvaluateCacheInsert(left_cache_index_list);
     auto evaluate_encode_join_key_str = GetEncodeJoinKey(left_key_index_list);
-    auto finish_cached_parameter_str =
-        GetFinishCachedParameter(left_cache_index_list) +
-        GetParameterList(left_projected_batch_name_list);
+    auto finish_cached_parameter_str = GetFinishCachedParameter(left_cache_index_list) +
+                                       GetParameterList(left_projected_batch_name_list);
     auto impl_cached_define_str = GetImplCachedDefine(left_cache_codegen_list);
-    auto impl_projected_define_str =
-        GetLeftProjectedDefine(left_projected_batch_list);
+    auto impl_projected_define_str = GetLeftProjectedDefine(left_projected_batch_list);
     auto res_iter_projected_define_str =
         GetRightProjectedDefine(right_projected_batch_list);
-    auto result_iter_params_str =
-        GetResultIteratorParams(left_cache_index_list);
+    auto result_iter_params_str = GetResultIteratorParams(left_cache_index_list);
     auto result_iter_projected_params_str =
         GetResultIteratorProjectedParams(left_projected_batch_list);
     auto result_iter_set_str = GetResultIteratorSet(left_cache_index_list);
     auto result_iter_projected_set_str =
         GetResultIteratorProjectedSet(left_projected_batch_list);
-    auto result_iter_prepare_str = GetResultIteratorPrepare(
-        left_shuffle_codegen_list, right_shuffle_codegen_list);
+    auto result_iter_prepare_str =
+        GetResultIteratorPrepare(left_shuffle_codegen_list, right_shuffle_codegen_list);
     auto process_right_set_str = GetProcessRightSet(right_cache_index_list);
     auto process_encode_join_key_str = GetEncodeJoinKey(right_key_index_list);
     auto process_finish_str =
         GetProcessFinish(left_shuffle_codegen_list, right_shuffle_codegen_list);
-    auto process_out_list_str =
-        GetProcessOutList(result_schema_index_list, left_shuffle_codegen_list,
-                          right_shuffle_codegen_list);
-    auto result_iter_cached_define_str = GetResultIterCachedDefine(
-        left_cache_codegen_list, right_shuffle_codegen_list);
+    auto process_out_list_str = GetProcessOutList(
+        result_schema_index_list, left_shuffle_codegen_list, right_shuffle_codegen_list);
+    auto result_iter_cached_define_str =
+        GetResultIterCachedDefine(left_cache_codegen_list, right_shuffle_codegen_list);
     auto evaluate_get_typed_array_str = GetTypedArray(
         multiple_cols, "0_" + std::to_string(left_key_index_list[0]),
         left_key_index_list[0],
@@ -1240,8 +1180,7 @@ private:
         : ctx_(ctx), result_schema_(schema), hash_kernel_(hash_kernel), hash_table_(hash_table),
           memo_index_to_arrayid_(memo_index_to_arrayid) {
             )" +
-           result_iter_set_str + result_iter_prepare_str +
-           result_iter_projected_set_str +
+           result_iter_set_str + result_iter_prepare_str + result_iter_projected_set_str +
            R"(
     }
 
@@ -1331,9 +1270,7 @@ arrow::Status ConditionedProbeArraysKernel::MakeResultIterator(
   return impl_->MakeResultIterator(schema, out);
 }
 
-std::string ConditionedProbeArraysKernel::GetSignature() {
-  return impl_->GetSignature();
-}
+std::string ConditionedProbeArraysKernel::GetSignature() { return impl_->GetSignature(); }
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

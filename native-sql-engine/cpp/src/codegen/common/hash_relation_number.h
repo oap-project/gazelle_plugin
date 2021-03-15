@@ -26,13 +26,12 @@ using sparkcolumnarplugin::precompile::TypeTraits;
 /////////////////////////////////////////////////////////////////////////
 
 template <typename DataType>
-class TypedHashRelation<DataType, enable_if_number<DataType>>
-    : public HashRelation {
+class TypedHashRelation<DataType, enable_if_number<DataType>> : public HashRelation {
  public:
   using T = typename TypeTraits<DataType>::CType;
-  TypedHashRelation(arrow::compute::ExecContext* ctx,
-                    const std::vector<std::shared_ptr<HashRelationColumn>>&
-                        hash_relation_column)
+  TypedHashRelation(
+      arrow::compute::ExecContext* ctx,
+      const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
       : HashRelation(hash_relation_column) {
     hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());
   }

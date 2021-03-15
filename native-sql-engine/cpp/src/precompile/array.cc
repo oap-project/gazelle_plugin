@@ -29,8 +29,7 @@ Array::Array(const std::shared_ptr<arrow::Array>& in) : cache_(in) {
   raw_value_ = in->data()->buffers[1]->mutable_data();
 }
 
-BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in)
-    : cache_(in) {
+BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in) : cache_(in) {
   offset_ = in->offset();
   length_ = in->length();
   null_count_ = in->null_count();
@@ -81,8 +80,7 @@ TYPED_NUMERIC_ARRAY_IMPL(Date64Array, int64_t)
 TYPED_BINARY_ARRAY_IMPL(StringArray, std::string)
 #undef TYPED_ARROW_ARRAY_IMPL
 
-FixedSizeBinaryArray::FixedSizeBinaryArray(
-    const std::shared_ptr<arrow::Array>& in)
+FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<arrow::Array>& in)
     : cache_(in) {
   offset_ = in->offset();
   length_ = in->length();
@@ -97,8 +95,7 @@ arrow::Status MakeFixedSizeBinaryArray(
     const std::shared_ptr<arrow::FixedSizeBinaryType>& type, int64_t length,
     const std::shared_ptr<arrow::Buffer>& buffer,
     std::shared_ptr<FixedSizeBinaryArray>* out) {
-  auto arrow_out =
-      std::make_shared<arrow::FixedSizeBinaryArray>(type, length, buffer);
+  auto arrow_out = std::make_shared<arrow::FixedSizeBinaryArray>(type, length, buffer);
   *out = std::make_shared<FixedSizeBinaryArray>(arrow_out);
   return arrow::Status::OK();
 }

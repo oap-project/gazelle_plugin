@@ -28,12 +28,11 @@ namespace arrowcompute {
 namespace extra {
 class CodeGenNodeVisitor : public VisitorBase {
  public:
-  CodeGenNodeVisitor(
-      std::shared_ptr<gandiva::Node> func,
-      std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
-      int* func_count, std::vector<std::string>* input_list,
-      std::vector<int>* left_indices, std::vector<int>* right_indices,
-      std::vector<gandiva::ExpressionPtr>* project_list)
+  CodeGenNodeVisitor(std::shared_ptr<gandiva::Node> func,
+                     std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
+                     int* func_count, std::vector<std::string>* input_list,
+                     std::vector<int>* left_indices, std::vector<int>* right_indices,
+                     std::vector<gandiva::ExpressionPtr>* project_list)
       : func_(func),
         field_list_v_(field_list_v),
         func_count_(func_count),
@@ -90,8 +89,7 @@ class CodeGenNodeVisitor : public VisitorBase {
   arrow::Status Visit(const gandiva::BooleanNode& node) override;
   arrow::Status Visit(const gandiva::InExpressionNode<int>& node) override;
   arrow::Status Visit(const gandiva::InExpressionNode<long int>& node) override;
-  arrow::Status Visit(
-      const gandiva::InExpressionNode<std::string>& node) override;
+  arrow::Status Visit(const gandiva::InExpressionNode<std::string>& node) override;
 
  private:
   std::shared_ptr<gandiva::Node> func_;
@@ -119,11 +117,8 @@ class CodeGenNodeVisitor : public VisitorBase {
                                 std::shared_ptr<arrow::Field> field);
   arrow::Status ProduceGandivaFunction();
   arrow::Status AppendProjectList(
-      const std::vector<std::shared_ptr<CodeGenNodeVisitor>>&
-          child_visitor_list,
-      int i);
-  std::string GetNaNCheckStr(std::string left, std::string right,
-                             std::string func);
+      const std::vector<std::shared_ptr<CodeGenNodeVisitor>>& child_visitor_list, int i);
+  std::string GetNaNCheckStr(std::string left, std::string right, std::string func);
 };
 static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,
@@ -131,8 +126,8 @@ static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<TypedActionCodeGenImpl> action_impl,
     std::shared_ptr<CodeGenNodeVisitor>* out) {
   std::vector<std::string> input_list;
-  auto visitor = std::make_shared<CodeGenNodeVisitor>(func, field_list,
-                                                      action_impl, &input_list);
+  auto visitor =
+      std::make_shared<CodeGenNodeVisitor>(func, field_list, action_impl, &input_list);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;
   return arrow::Status::OK();
@@ -143,8 +138,7 @@ static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<ActionCodeGen>* out_action_impl,
     std::shared_ptr<CodeGenNodeVisitor>* out) {
   std::vector<std::string> input_list;
-  auto visitor =
-      std::make_shared<CodeGenNodeVisitor>(func, field_list, &input_list);
+  auto visitor = std::make_shared<CodeGenNodeVisitor>(func, field_list, &input_list);
   RETURN_NOT_OK(visitor->Eval());
   RETURN_NOT_OK(visitor->ProduceCodes(out_action_impl));
   *out = visitor;
@@ -152,14 +146,13 @@ static arrow::Status MakeCodeGenNodeVisitor(
 }
 static arrow::Status MakeCodeGenNodeVisitor(
     std::shared_ptr<gandiva::Node> func,
-    std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
-    int* func_count, std::vector<std::string>* input_list,
-    std::vector<int>* left_indices, std::vector<int>* right_indices,
-    std::vector<gandiva::ExpressionPtr>* project_list,
+    std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v, int* func_count,
+    std::vector<std::string>* input_list, std::vector<int>* left_indices,
+    std::vector<int>* right_indices, std::vector<gandiva::ExpressionPtr>* project_list,
     std::shared_ptr<CodeGenNodeVisitor>* out) {
-  auto visitor = std::make_shared<CodeGenNodeVisitor>(
-      func, field_list_v, func_count, input_list, left_indices, right_indices,
-      project_list);
+  auto visitor =
+      std::make_shared<CodeGenNodeVisitor>(func, field_list_v, func_count, input_list,
+                                           left_indices, right_indices, project_list);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;
   return arrow::Status::OK();

@@ -36,8 +36,7 @@ TEST(TestArrowComputeWindow, DoubleTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
   auto sch = arrow::schema(
       {field("col_int", arrow::int32()), field("col_dou", arrow::float64())});
-  std::vector<std::string> input_data = {"[1, 2, 1]",
-                                         "[35.612, 37.244, 82.664]"};
+  std::vector<std::string> input_data = {"[1, 2, 1]", "[35.612, 37.244, 82.664]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::float64());
@@ -46,14 +45,12 @@ TEST(TestArrowComputeWindow, DoubleTest) {
       TreeExprBuilder::MakeFunction(
           "window",
           {
-              TreeExprBuilder::MakeFunction("sum",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_dou", arrow::float64()))},
-                                            null()),
-              TreeExprBuilder::MakeFunction("partitionSpec",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_int", arrow::int32()))},
-                                            null()),
+              TreeExprBuilder::MakeFunction(
+                  "sum", {TreeExprBuilder::MakeField(field("col_dou", arrow::float64()))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
           },
           binary()),
       res);
@@ -61,14 +58,13 @@ TEST(TestArrowComputeWindow, DoubleTest) {
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res},
-                                    &expr, true))
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
   ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
   ASSERT_NOT_OK(expr->finish(&out))
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_output_data = {
-      "[118.276, 37.244, 118.276]"};
+  std::vector<std::string> expected_output_data = {"[118.276, 37.244, 118.276]"};
 
   MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
@@ -87,14 +83,12 @@ TEST(TestArrowComputeWindow, LongAvgTest) {
       TreeExprBuilder::MakeFunction(
           "window",
           {
-              TreeExprBuilder::MakeFunction("avg",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_long", arrow::int64()))},
-                                            null()),
-              TreeExprBuilder::MakeFunction("partitionSpec",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_int", arrow::int32()))},
-                                            null()),
+              TreeExprBuilder::MakeFunction(
+                  "avg", {TreeExprBuilder::MakeField(field("col_long", arrow::int64()))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
           },
           binary()),
       res);
@@ -102,8 +96,8 @@ TEST(TestArrowComputeWindow, LongAvgTest) {
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res},
-                                    &expr, true))
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
   ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
   ASSERT_NOT_OK(expr->finish(&out))
 
@@ -116,10 +110,10 @@ TEST(TestArrowComputeWindow, LongAvgTest) {
 
 TEST(TestArrowComputeWindow, DecimalTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()),
-                            field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]", "[\"35.612\", \"37.244\", \"82.664\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"82.664\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::decimal128(8, 3));
@@ -130,13 +124,11 @@ TEST(TestArrowComputeWindow, DecimalTest) {
           {
               TreeExprBuilder::MakeFunction(
                   "sum",
-                  {TreeExprBuilder::MakeField(
-                      field("col_dec", arrow::decimal128(8, 3)))},
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
                   null()),
-              TreeExprBuilder::MakeFunction("partitionSpec",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_int", arrow::int32()))},
-                                            null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
           },
           binary()),
       res);
@@ -144,8 +136,8 @@ TEST(TestArrowComputeWindow, DecimalTest) {
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res},
-                                    &expr, true))
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
   ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
   ASSERT_NOT_OK(expr->finish(&out))
 
@@ -160,10 +152,10 @@ TEST(TestArrowComputeWindow, DecimalTest) {
 TEST(TestArrowComputeWindow, DecimalAvgTest) {
   return;  // fixme decimal avg not supported?
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()),
-                            field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]", "[\"35.612\", \"37.244\", \"82.664\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"82.664\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::decimal128(8, 3));
@@ -174,13 +166,11 @@ TEST(TestArrowComputeWindow, DecimalAvgTest) {
           {
               TreeExprBuilder::MakeFunction(
                   "avg",
-                  {TreeExprBuilder::MakeField(
-                      field("col_dec", arrow::decimal128(8, 3)))},
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
                   null()),
-              TreeExprBuilder::MakeFunction("partitionSpec",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_int", arrow::int32()))},
-                                            null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
           },
           binary()),
       res);
@@ -188,8 +178,8 @@ TEST(TestArrowComputeWindow, DecimalAvgTest) {
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res},
-                                    &expr, true))
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
   ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
   ASSERT_NOT_OK(expr->finish(&out))
 
@@ -203,10 +193,10 @@ TEST(TestArrowComputeWindow, DecimalAvgTest) {
 
 TEST(TestArrowComputeWindow, DecimalRankTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()),
-                            field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]", "[\"35.612\", \"37.244\", \"35.613\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"35.613\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::int32());
@@ -217,13 +207,11 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
           {
               TreeExprBuilder::MakeFunction(
                   "rank_desc",
-                  {TreeExprBuilder::MakeField(
-                      field("col_dec", arrow::decimal128(8, 3)))},
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
                   null()),
-              TreeExprBuilder::MakeFunction("partitionSpec",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_int", arrow::int32()))},
-                                            null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
           },
           binary()),
       res);
@@ -231,8 +219,8 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res},
-                                    &expr, true))
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
   ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
   ASSERT_NOT_OK(expr->finish(&out))
 
@@ -245,10 +233,10 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
 
 TEST(TestArrowComputeWindow, DecimalRankTest2) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()),
-                            field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]", "[\"35.612\", \"37.244\", \"35.612\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"35.612\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::int32());
@@ -259,13 +247,11 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
           {
               TreeExprBuilder::MakeFunction(
                   "rank_desc",
-                  {TreeExprBuilder::MakeField(
-                      field("col_dec", arrow::decimal128(8, 3)))},
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
                   null()),
-              TreeExprBuilder::MakeFunction("partitionSpec",
-                                            {TreeExprBuilder::MakeField(field(
-                                                "col_int", arrow::int32()))},
-                                            null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
           },
           binary()),
       res);
@@ -273,8 +259,8 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res},
-                                    &expr, true))
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {f_window}, {res}, &expr, true))
   ASSERT_NOT_OK(expr->evaluate(input_batch, nullptr))
   ASSERT_NOT_OK(expr->finish(&out))
 

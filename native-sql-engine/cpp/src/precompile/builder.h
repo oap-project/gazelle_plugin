@@ -66,8 +66,7 @@ class StringBuilder {
 
 class Decimal128Builder {
  public:
-  Decimal128Builder(std::shared_ptr<arrow::DataType> type,
-                    arrow::MemoryPool* pool);
+  Decimal128Builder(std::shared_ptr<arrow::DataType> type, arrow::MemoryPool* pool);
   arrow::Status Append(arrow::Decimal128 val);
   arrow::Status AppendNull();
   arrow::Status Reserve(int64_t);

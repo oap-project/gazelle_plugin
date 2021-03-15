@@ -54,8 +54,7 @@
 
 #ifdef GFX_TIMSORT_ENABLE_LOG
 #include <iostream>
-#define GFX_TIMSORT_LOG(expr) \
-  (std::clog << "# " << __func__ << ": " << expr << std::endl)
+#define GFX_TIMSORT_LOG(expr) (std::clog << "# " << __func__ << ": " << expr << std::endl)
 #else
 #define GFX_TIMSORT_LOG(expr) ((void)0)
 #endif
@@ -71,7 +70,7 @@ namespace detail {
 // Equivalent to C++20 std::identity
 struct identity {
   template <typename T>
-  constexpr T &&operator()(T &&value) const noexcept {
+  constexpr T&& operator()(T&& value) const noexcept {
     return std::forward<T>(value);
   }
 };
@@ -79,18 +78,17 @@ struct identity {
 // Merge a predicate and a projection function
 template <typename Compare, typename Projection>
 struct projection_compare {
-  projection_compare(Compare comp, Projection proj)
-      : compare(comp), projection(proj) {}
+  projection_compare(Compare comp, Projection proj) : compare(comp), projection(proj) {}
 
   template <typename T, typename U>
-  bool operator()(T &&lhs, U &&rhs) {
+  bool operator()(T&& lhs, U&& rhs) {
 #ifdef __cpp_lib_invoke
-    return static_cast<bool>(
-        std::invoke(compare, std::invoke(projection, std::forward<T>(lhs)),
-                    std::invoke(projection, std::forward<U>(rhs))));
+    return static_cast<bool>(std::invoke(compare,
+                                         std::invoke(projection, std::forward<T>(lhs)),
+                                         std::invoke(projection, std::forward<U>(rhs))));
 #else
-    return static_cast<bool>(compare(projection(std::forward<T>(lhs)),
-                                     projection(std::forward<U>(rhs))));
+    return static_cast<bool>(
+        compare(projection(std::forward<T>(lhs)), projection(std::forward<U>(rhs))));
 #endif
   }
 
@@ -191,10 +189,8 @@ class TimSort {
     while (pending_.size() > 1) {
       diff_t n = pending_.size() - 2;
 
-      if ((n > 0 &&
-           pending_[n - 1].len <= pending_[n].len + pending_[n + 1].len) ||
-          (n > 1 &&
-           pending_[n - 2].len <= pending_[n - 1].len + pending_[n].len)) {
+      if ((n > 0 && pending_[n - 1].len <= pending_[n].len + pending_[n + 1].len) ||
+          (n > 1 && pending_[n - 2].len <= pending_[n - 1].len + pending_[n].len)) {
         if (pending_[n - 1].len < pending_[n + 1].len) {
           --n;
         }
@@ -265,8 +261,8 @@ class TimSort {
   }
 
   template <typename Iter>
-  diff_t gallopLeft(ref_t key, Iter const base, diff_t const len,
-                    diff_t const hint, Compare compare) {
+  diff_t gallopLeft(ref_t key, Iter const base, diff_t const len, diff_t const hint,
+                    Compare compare) {
     GFX_TIMSORT_ASSERT(len > 0);
     GFX_TIMSORT_ASSERT(hint >= 0);
     GFX_TIMSORT_ASSERT(hint < len);
@@ -312,13 +308,12 @@ class TimSort {
     GFX_TIMSORT_ASSERT(lastOfs < ofs);
     GFX_TIMSORT_ASSERT(ofs <= len);
 
-    return std::lower_bound(base + (lastOfs + 1), base + ofs, key, compare) -
-           base;
+    return std::lower_bound(base + (lastOfs + 1), base + ofs, key, compare) - base;
   }
 
   template <typename Iter>
-  diff_t gallopRight(ref_t key, Iter const base, diff_t const len,
-                     diff_t const hint, Compare compare) {
+  diff_t gallopRight(ref_t key, Iter const base, diff_t const len, diff_t const hint,
+                     Compare compare) {
     GFX_TIMSORT_ASSERT(len > 0);
     GFX_TIMSORT_ASSERT(hint >= 0);
     GFX_TIMSORT_ASSERT(hint < len);
@@ -364,8 +359,7 @@ class TimSort {
     GFX_TIMSORT_ASSERT(lastOfs < ofs);
     GFX_TIMSORT_ASSERT(ofs <= len);
 
-    return std::upper_bound(base + (lastOfs + 1), base + ofs, key, compare) -
-           base;
+    return std::upper_bound(base + (lastOfs + 1), base + ofs, key, compare) - base;
   }
 
   static void rotateLeft(iter_t first, iter_t last) {
@@ -587,8 +581,7 @@ class TimSort {
           goto epilogue;
         }
 
-        count2 = len2 - gallopLeft(*(cursor1 - 1), tmp_.begin(), len2, len2 - 1,
-                                   compare);
+        count2 = len2 - gallopLeft(*(cursor1 - 1), tmp_.begin(), len2, len2 - 1, compare);
         if (count2 != 0) {
           dest -= count2;
           cursor2 -= count2;
@@ -632,8 +625,7 @@ class TimSort {
   }
 
   void copy_to_tmp(iter_t const begin, diff_t len) {
-    tmp_.assign(std::make_move_iterator(begin),
-                std::make_move_iterator(begin + len));
+    tmp_.assign(std::make_move_iterator(begin), std::make_move_iterator(begin + len));
   }
 
  public:
@@ -694,8 +686,7 @@ void timsort(RandomAccessIterator const first, RandomAccessIterator const last,
              Compare compare, Projection projection) {
   typedef detail::projection_compare<Compare, Projection> compare_t;
   compare_t comp(std::move(compare), std::move(projection));
-  detail::TimSort<RandomAccessIterator, compare_t>::sort(first, last,
-                                                         std::move(comp));
+  detail::TimSort<RandomAccessIterator, compare_t>::sort(first, last, std::move(comp));
 }
 
 /**
@@ -711,10 +702,8 @@ void timsort(RandomAccessIterator const first, RandomAccessIterator const last,
  * Same as std::stable_sort(first, last).
  */
 template <typename RandomAccessIterator>
-void timsort(RandomAccessIterator const first,
-             RandomAccessIterator const last) {
-  typedef typename std::iterator_traits<RandomAccessIterator>::value_type
-      value_type;
+void timsort(RandomAccessIterator const first, RandomAccessIterator const last) {
+  typedef typename std::iterator_traits<RandomAccessIterator>::value_type value_type;
   gfx::timsort(first, last, std::less<value_type>(), detail::identity());
 }
 
@@ -722,7 +711,7 @@ void timsort(RandomAccessIterator const first,
  * Stably sorts a range with a comparison function and a projection function.
  */
 template <typename RandomAccessRange, typename Compare, typename Projection>
-void timsort(RandomAccessRange &range, Compare compare, Projection projection) {
+void timsort(RandomAccessRange& range, Compare compare, Projection projection) {
   gfx::timsort(std::begin(range), std::end(range), compare, projection);
 }
 
@@ -730,7 +719,7 @@ void timsort(RandomAccessRange &range, Compare compare, Projection projection) {
  * Same as std::stable_sort(std::begin(range), std::end(range), compare).
  */
 template <typename RandomAccessRange, typename Compare>
-void timsort(RandomAccessRange &range, Compare compare) {
+void timsort(RandomAccessRange& range, Compare compare) {
   gfx::timsort(std::begin(range), std::end(range), compare);
 }
 
@@ -738,7 +727,7 @@ void timsort(RandomAccessRange &range, Compare compare) {
  * Same as std::stable_sort(std::begin(range), std::end(range)).
  */
 template <typename RandomAccessRange>
-void timsort(RandomAccessRange &range) {
+void timsort(RandomAccessRange& range) {
   gfx::timsort(std::begin(range), std::end(range));
 }
 

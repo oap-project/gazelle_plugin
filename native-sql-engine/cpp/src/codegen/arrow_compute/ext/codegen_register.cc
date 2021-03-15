@@ -33,8 +33,8 @@ std::string CodeGenRegister::GetFingerprintSignature() {
 }
 arrow::Status CodeGenRegister::Visit(const gandiva::FunctionNode& node) {
   std::stringstream ss;
-  ss << node.descriptor()->return_type()->ToString() << " "
-     << node.descriptor()->name() << " (";
+  ss << node.descriptor()->return_type()->ToString() << " " << node.descriptor()->name()
+     << " (";
   bool skip_comma = true;
   for (auto& child : node.children()) {
     std::shared_ptr<CodeGenRegister> _node;
@@ -99,8 +99,7 @@ arrow::Status CodeGenRegister::Visit(const gandiva::BooleanNode& node) {
 }
 
 template <typename Type>
-std::string InExpressionVisitInternal(
-    const gandiva::InExpressionNode<Type>& node) {
+std::string InExpressionVisitInternal(const gandiva::InExpressionNode<Type>& node) {
   std::stringstream ss;
   std::shared_ptr<CodeGenRegister> _child_node;
   MakeCodeGenRegister(node.eval_expr(), &_child_node);
@@ -118,20 +117,17 @@ std::string InExpressionVisitInternal(
   return ss.str();
 }
 
-arrow::Status CodeGenRegister::Visit(
-    const gandiva::InExpressionNode<int>& node) {
+arrow::Status CodeGenRegister::Visit(const gandiva::InExpressionNode<int>& node) {
   fp_ = InExpressionVisitInternal(node);
   return arrow::Status::OK();
 }
 
-arrow::Status CodeGenRegister::Visit(
-    const gandiva::InExpressionNode<long int>& node) {
+arrow::Status CodeGenRegister::Visit(const gandiva::InExpressionNode<long int>& node) {
   fp_ = InExpressionVisitInternal(node);
   return arrow::Status::OK();
 }
 
-arrow::Status CodeGenRegister::Visit(
-    const gandiva::InExpressionNode<std::string>& node) {
+arrow::Status CodeGenRegister::Visit(const gandiva::InExpressionNode<std::string>& node) {
   fp_ = InExpressionVisitInternal(node);
   return arrow::Status::OK();
 }

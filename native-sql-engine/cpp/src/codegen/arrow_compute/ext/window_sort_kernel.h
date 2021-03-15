@@ -71,11 +71,9 @@ class ArrayAppender : public AppenderBase {
  public:
   ArrayAppender(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(),
-                       arrow::TypeTraits<DataType>::type_singleton(),
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
                        &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~ArrayAppender() {}
 
@@ -124,9 +122,8 @@ class WindowSortKernel::Impl {
     for (auto field : key_field_list) {
       auto indices = result_schema->GetAllFieldIndices(field->name());
       if (indices.size() != 1) {
-        std::cout << "[ERROR] WindowSortKernel::Impl can't find key "
-                  << field->ToString() << " from " << result_schema->ToString()
-                  << std::endl;
+        std::cout << "[ERROR] WindowSortKernel::Impl can't find key " << field->ToString()
+                  << " from " << result_schema->ToString() << std::endl;
         throw;
       }
       key_index_list_.push_back(indices[0]);
@@ -138,8 +135,8 @@ class WindowSortKernel::Impl {
       std::shared_ptr<arrow::Schema> result_schema) {
     // generate ddl signature
     std::stringstream func_args_ss;
-    func_args_ss << "[Sorter]" << (nulls_first_ ? "nulls_first" : "nulls_last")
-                 << "|" << (asc_ ? "asc" : "desc");
+    func_args_ss << "[Sorter]" << (nulls_first_ ? "nulls_first" : "nulls_last") << "|"
+                 << (asc_ ? "asc" : "desc");
     for (auto i : key_index_list_) {
       auto field = result_schema->field(i);
       func_args_ss << "[sort_key_" << i << "]" << field->type()->ToString();
@@ -196,22 +193,20 @@ class WindowSortKernel::Impl {
   std::vector<int> key_index_list_;
   class TypedSorterCodeGenImpl {
    public:
-    TypedSorterCodeGenImpl(std::string indice,
-                           std::shared_ptr<arrow::DataType> data_type,
+    TypedSorterCodeGenImpl(std::string indice, std::shared_ptr<arrow::DataType> data_type,
                            std::string name)
         : indice_(indice), data_type_(data_type), name_(name) {}
     std::string GetCachedVariablesDefine() {
       std::stringstream ss;
-      ss << "using ArrayType_" << indice_ << " = "
-         << GetTypeString(data_type_, "Array") << ";" << std::endl;
-      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_"
-         << indice_ << "_;" << std::endl;
+      ss << "using ArrayType_" << indice_ << " = " << GetTypeString(data_type_, "Array")
+         << ";" << std::endl;
+      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_" << indice_
+         << "_;" << std::endl;
       return ss.str();
     }
     std::string GetResultIterDefine() {
       std::stringstream ss;
-      ss << "cached_" << indice_ << "_ = cached_" << indice_ << ";"
-         << std::endl;
+      ss << "cached_" << indice_ << "_ = cached_" << indice_ << ";" << std::endl;
       ss << "builder_" + indice_ + "_ = std::make_shared<"
          << GetTypeString(data_type_, "Builder") << ">(ctx_->memory_pool());"
          << std::endl;
@@ -222,17 +217,16 @@ class WindowSortKernel::Impl {
     }
     std::string GetResultIterVariables() {
       std::stringstream ss;
-      ss << "using ArrayType_" << indice_
-         << " = " + GetTypeString(data_type_, "Array") << ";" << std::endl;
+      ss << "using ArrayType_" << indice_ << " = " + GetTypeString(data_type_, "Array")
+         << ";" << std::endl;
       ss << "using BuilderType_" << indice_ << " = "
          << GetTypeString(data_type_, "Builder") << ";" << std::endl;
-      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_"
-         << indice_ << "_;" << std::endl;
-      ss << "std::shared_ptr<BuilderType_" << indice_ << "> builder_" << indice_
+      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_" << indice_
          << "_;" << std::endl;
-      ss << "std::shared_ptr<arrow::DataType> data_type_" << indice_
-         << " = arrow::" + GetArrowTypeDefString(data_type_) << ";"
+      ss << "std::shared_ptr<BuilderType_" << indice_ << "> builder_" << indice_ << "_;"
          << std::endl;
+      ss << "std::shared_ptr<arrow::DataType> data_type_" << indice_
+         << " = arrow::" + GetArrowTypeDefString(data_type_) << ";" << std::endl;
       return ss.str();
     }
 
@@ -242,19 +236,16 @@ class WindowSortKernel::Impl {
     std::shared_ptr<arrow::DataType> data_type_;
   };
 
-  virtual std::string ProduceCodes(
-      std::shared_ptr<arrow::Schema> result_schema) {
+  virtual std::string ProduceCodes(std::shared_ptr<arrow::Schema> result_schema) {
     int indice = 0;
-    std::vector<std::shared_ptr<TypedSorterCodeGenImpl>>
-        shuffle_typed_codegen_list;
+    std::vector<std::shared_ptr<TypedSorterCodeGenImpl>> shuffle_typed_codegen_list;
     for (auto field : result_schema->fields()) {
       auto codegen = std::make_shared<TypedSorterCodeGenImpl>(
           std::to_string(indice), field->type(), field->name());
       shuffle_typed_codegen_list.push_back(codegen);
       indice++;
     }
-    std::string cached_insert_str =
-        GetCachedInsert(shuffle_typed_codegen_list.size());
+    std::string cached_insert_str = GetCachedInsert(shuffle_typed_codegen_list.size());
     std::string comp_func_str = GetCompFunction(key_index_list_);
 
     std::string sort_func_str = GetSortFunction(key_index_list_);
@@ -268,11 +259,9 @@ class WindowSortKernel::Impl {
     std::string result_iter_param_define_str =
         GetResultIterParamsDefine(shuffle_typed_codegen_list.size());
 
-    std::string result_iter_define_str =
-        GetResultIterDefine(shuffle_typed_codegen_list);
+    std::string result_iter_define_str = GetResultIterDefine(shuffle_typed_codegen_list);
 
-    std::string typed_build_str =
-        GetTypedBuild(shuffle_typed_codegen_list.size());
+    std::string typed_build_str = GetTypedBuild(shuffle_typed_codegen_list.size());
 
     std::string result_variables_define_str =
         GetResultIterVariables(shuffle_typed_codegen_list);
@@ -280,8 +269,7 @@ class WindowSortKernel::Impl {
     std::string typed_res_array_build_str =
         GetTypedResArrayBuild(shuffle_typed_codegen_list.size());
 
-    std::string typed_res_array_str =
-        GetTypedResArray(shuffle_typed_codegen_list.size());
+    std::string typed_res_array_str = GetTypedResArray(shuffle_typed_codegen_list.size());
 
     return BaseCodes() + R"(
 #include <arrow/array.h>
@@ -388,8 +376,7 @@ class TypedSorterImpl : public CodeGenBase {
 
     arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
       auto length = (total_length_ - offset_) > )" +
-           std::to_string(GetBatchSize()) + R"( ? )" +
-           std::to_string(GetBatchSize()) +
+           std::to_string(GetBatchSize()) + R"( ? )" + std::to_string(GetBatchSize()) +
            R"( : (total_length_ - offset_);
       uint64_t count = 0;
       while (count < length) {
@@ -427,8 +414,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   std::string GetCachedInsert(int shuffle_size) {
     std::stringstream ss;
     for (int i = 0; i < shuffle_size; i++) {
-      ss << "cached_" << i << "_.push_back(std::make_shared<ArrayType_" << i
-         << ">(in[" << i << "]));" << std::endl;
+      ss << "cached_" << i << "_.push_back(std::make_shared<ArrayType_" << i << ">(in["
+         << i << "]));" << std::endl;
     }
     return ss.str();
   }
@@ -439,8 +426,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
        << GetCompFunction_(0, sort_key_index_list) << "};";
     return ss.str();
   }
-  std::string GetCompFunction_(int cur_key_index,
-                               std::vector<int> sort_key_index_list) {
+  std::string GetCompFunction_(int cur_key_index, std::vector<int> sort_key_index_list) {
     std::string comp_str;
 
     auto cur_key_id = sort_key_index_list[cur_key_index];
@@ -479,9 +465,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       return comp_str;
     }
     std::stringstream ss;
-    ss << "if (" << x_value << " == " << y_value << " || (" << is_x_null
-       << " && " << is_y_null << ")) {"
-       << GetCompFunction_(cur_key_index + 1, sort_key_index_list)
+    ss << "if (" << x_value << " == " << y_value << " || (" << is_x_null << " && "
+       << is_y_null << ")) {" << GetCompFunction_(cur_key_index + 1, sort_key_index_list)
        << "} else { " << comp_str << "}";
     return ss.str();
   }
@@ -502,13 +487,12 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       }
     }
     auto params = params_ss.str();
-    ss << "*out = std::make_shared<SorterResultIterator>(ctx_, indices_out, "
-       << params << ");";
+    ss << "*out = std::make_shared<SorterResultIterator>(ctx_, indices_out, " << params
+       << ");";
     return ss.str();
   }
   std::string GetCachedVariablesDefine(
-      std::vector<std::shared_ptr<TypedSorterCodeGenImpl>>
-          shuffle_typed_codegen_list) {
+      std::vector<std::shared_ptr<TypedSorterCodeGenImpl>> shuffle_typed_codegen_list) {
     std::stringstream ss;
     for (auto codegen : shuffle_typed_codegen_list) {
       ss << codegen->GetCachedVariablesDefine() << std::endl;
@@ -519,18 +503,16 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     std::stringstream ss;
     for (int i = 0; i < shuffle_size; i++) {
       if (i + 1 < shuffle_size) {
-        ss << "std::vector<std::shared_ptr<ArrayType_" << i << ">> cached_" << i
-           << "," << std::endl;
+        ss << "std::vector<std::shared_ptr<ArrayType_" << i << ">> cached_" << i << ","
+           << std::endl;
       } else {
-        ss << "std::vector<std::shared_ptr<ArrayType_" << i << ">> cached_"
-           << i;
+        ss << "std::vector<std::shared_ptr<ArrayType_" << i << ">> cached_" << i;
       }
     }
     return ss.str();
   }
   std::string GetResultIterDefine(
-      std::vector<std::shared_ptr<TypedSorterCodeGenImpl>>
-          shuffle_typed_codegen_list) {
+      std::vector<std::shared_ptr<TypedSorterCodeGenImpl>> shuffle_typed_codegen_list) {
     std::stringstream ss;
     std::stringstream field_define_ss;
     for (auto codegen : shuffle_typed_codegen_list) {
@@ -578,8 +560,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     return ss.str();
   }
   std::string GetResultIterVariables(
-      std::vector<std::shared_ptr<TypedSorterCodeGenImpl>>
-          shuffle_typed_codegen_list) {
+      std::vector<std::shared_ptr<TypedSorterCodeGenImpl>> shuffle_typed_codegen_list) {
     std::stringstream ss;
     for (auto codegen : shuffle_typed_codegen_list) {
       ss << codegen->GetResultIterVariables() << std::endl;
@@ -592,14 +573,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
 template <typename DATATYPE, typename CTYPE>
 class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
  public:
-  WindowSortOnekeyKernel(
-      arrow::compute::ExecContext* ctx,
-      std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-      std::shared_ptr<arrow::Schema> result_schema, bool nulls_first, bool asc)
-      : ctx_(ctx),
-        nulls_first_(nulls_first),
-        asc_(asc),
-        result_schema_(result_schema) {
+  WindowSortOnekeyKernel(arrow::compute::ExecContext* ctx,
+                         std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+                         std::shared_ptr<arrow::Schema> result_schema, bool nulls_first,
+                         bool asc)
+      : ctx_(ctx), nulls_first_(nulls_first), asc_(asc), result_schema_(result_schema) {
     auto indices = result_schema->GetAllFieldIndices(key_field_list[0]->name());
     key_id_ = indices[0];
     col_num_ = result_schema->num_fields();
@@ -607,8 +585,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
 
   arrow::Status Evaluate(const ArrayList& in) override {
     num_batches_++;
-    cached_key_.push_back(
-        std::dynamic_pointer_cast<ArrayType_key>(in[key_id_]));
+    cached_key_.push_back(std::dynamic_pointer_cast<ArrayType_key>(in[key_id_]));
     length_list_.push_back(in[key_id_]->length());
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
@@ -693,18 +670,15 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total, indices_begin + items_total,
-                  comp);
+        std::sort(indices_begin + nulls_total, indices_begin + items_total, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total - nulls_total,
-                  comp);
+        std::sort(indices_begin, indices_begin + items_total - nulls_total, comp);
       }
     }
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
-    RETURN_NOT_OK(MakeFixedSizeBinaryType(
-        sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(
-        MakeFixedSizeBinaryArray(out_type, items_total, indices_buf, out));
+        MakeFixedSizeBinaryType(sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
+    RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total, indices_buf, out));
     return arrow::Status::OK();
   }
 
@@ -715,8 +689,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     arrow::UInt64Builder builder;
     auto* index = (ArrayItemIndex*)indices_out->value_data();
     for (int i = 0; i < indices_out->length(); i++) {
-      uint64_t encoded =
-          ((uint64_t)(index->array_id) << 16U) ^ ((uint64_t)(index->id));
+      uint64_t encoded = ((uint64_t)(index->array_id) << 16U) ^ ((uint64_t)(index->id));
       RETURN_NOT_OK(builder.Append(encoded));
       index++;
     }
@@ -742,8 +715,8 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
 arrow::Status WindowSortKernel::Make(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-    std::shared_ptr<arrow::Schema> result_schema,
-    std::shared_ptr<KernalBase>* out, bool nulls_first, bool asc) {
+    std::shared_ptr<arrow::Schema> result_schema, std::shared_ptr<KernalBase>* out,
+    bool nulls_first, bool asc) {
   *out = std::make_shared<WindowSortKernel>(ctx, key_field_list, result_schema,
                                             nulls_first, asc);
   return arrow::Status::OK();
@@ -793,8 +766,7 @@ WindowSortKernel::WindowSortKernel(
     impl_.reset(new Impl(ctx, key_field_list, result_schema, nulls_first, asc));
     auto status = impl_->LoadJITFunction(key_field_list, result_schema);
     if (!status.ok()) {
-      std::cout << "LoadJITFunction failed, msg is " << status.message()
-                << std::endl;
+      std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
       throw;
     }
   }

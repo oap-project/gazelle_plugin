@@ -108,8 +108,7 @@ class HashAggregateKernel::Impl {
         }
         action_prepare_index_list_.push_back(child_prepare_idxs);
       } else {
-        THROW_NOT_OK(
-            arrow::Status::Invalid("Expected some with action_ prefix."));
+        THROW_NOT_OK(arrow::Status::Invalid("Expected some with action_ prefix."));
       }
     }
 
@@ -149,8 +148,7 @@ class HashAggregateKernel::Impl {
     for (auto field : result_field_list_) {
       res_type_list.push_back(field->type());
     }
-    RETURN_NOT_OK(
-        PrepareActionList(action_name_list_, res_type_list, &action_impl_list));
+    RETURN_NOT_OK(PrepareActionList(action_name_list_, res_type_list, &action_impl_list));
 
     // 3. create post project
     std::shared_ptr<GandivaProjector> post_process_projector;
@@ -197,8 +195,7 @@ class HashAggregateKernel::Impl {
 #undef PROCESS
         default: {
           return arrow::Status::NotImplemented(
-              "HashAggregateResultIterator doesn't support type ",
-              type->ToString());
+              "HashAggregateResultIterator doesn't support type ", type->ToString());
         } break;
       }
 #undef PROCESS_SUPPORTED_TYPES
@@ -211,8 +208,7 @@ class HashAggregateKernel::Impl {
 
   arrow::Status DoCodeGen(
       int level,
-      std::vector<
-          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
@@ -233,23 +229,19 @@ class HashAggregateKernel::Impl {
     std::stringstream action_list_define_function_ss;
     std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list =
         action_name_list_;
-    std::vector<std::vector<int>> action_prepare_index_list =
-        action_prepare_index_list_;
+    std::vector<std::vector<int>> action_prepare_index_list = action_prepare_index_list_;
 
     std::vector<int> key_index_list = key_index_list_;
-    std::vector<gandiva::NodePtr> prepare_function_list =
-        prepare_function_list_;
+    std::vector<gandiva::NodePtr> prepare_function_list = prepare_function_list_;
     std::vector<gandiva::NodePtr> key_node_list = key_node_list_;
     std::vector<gandiva::FieldPtr> key_hash_field_list;
-    std::vector<
-        std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
         project_output_list;
 
     // 1. Get action list and action_prepare_project_list
     if (key_node_list.size() > 0 &&
         key_node_list[0]->return_type()->id() == arrow::Type::DECIMAL128) {
-      codegen_ctx->header_codes.push_back(
-          R"(#include "precompile/hash_map.h")");
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(key_node_list[0]->return_type(), "")
                       << "HashMap>(ctx_->memory_pool());" << std::endl;
@@ -260,8 +252,7 @@ class HashAggregateKernel::Impl {
     } else if (key_node_list.size() > 1 ||
                (key_node_list.size() > 0 &&
                 key_node_list[0]->return_type()->id() == arrow::Type::STRING)) {
-      codegen_ctx->header_codes.push_back(
-          R"(#include "precompile/hash_map.h")");
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(arrow::utf8(), "")
                       << "HashMap>(ctx_->memory_pool());" << std::endl;
@@ -270,8 +261,7 @@ class HashAggregateKernel::Impl {
 
     } else if (key_node_list.size() > 0) {
       auto type = key_node_list[0]->return_type();
-      codegen_ctx->header_codes.push_back(
-          R"(#include "precompile/sparse_hash_map.h")");
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/sparse_hash_map.h")");
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << "SparseHashMap<" << GetCTypeString(type)
                       << ">>(ctx_->memory_pool());" << std::endl;
@@ -286,18 +276,16 @@ class HashAggregateKernel::Impl {
       std::vector<std::string> input_list;
       std::shared_ptr<ExpressionCodegenVisitor> project_node_visitor;
       auto is_local = false;
-      RETURN_NOT_OK(MakeExpressionCodegenVisitor(
-          node, &input, {input_field_list_}, level, var_id, is_local,
-          &input_list, &project_node_visitor, false));
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(node, &input, {input_field_list_}, level,
+                                                 var_id, is_local, &input_list,
+                                                 &project_node_visitor, false));
       auto key_name = project_node_visitor->GetResult();
       auto validity_name = project_node_visitor->GetPreCheck();
 
       project_output_list.push_back(std::make_pair(
-          std::make_pair(key_name, project_node_visitor->GetPrepare()),
-          nullptr));
+          std::make_pair(key_name, project_node_visitor->GetPrepare()), nullptr));
       for (auto header : project_node_visitor->GetHeaders()) {
-        if (std::find(codegen_ctx->header_codes.begin(),
-                      codegen_ctx->header_codes.end(),
+        if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                       header) == codegen_ctx->header_codes.end()) {
           codegen_ctx->header_codes.push_back(header);
         }
@@ -316,8 +304,7 @@ class HashAggregateKernel::Impl {
         prepare_ss << "auto " << unsafe_row_name << " = "
                    << project_output_list[i].first.first << ";" << std::endl;
         prepare_ss << "auto " << unsafe_row_name_validity << " = "
-                   << project_output_list[i].first.first << "_validity;"
-                   << std::endl;
+                   << project_output_list[i].first.first << "_validity;" << std::endl;
       } else {
         codegen_ctx->header_codes.push_back(
             R"(#include "third_party/row_wise_memory/unsafe_row.h")");
@@ -336,18 +323,16 @@ class HashAggregateKernel::Impl {
           auto key_name = project_output_list[i].first.first;
           auto validity_name = key_name + "_validity";
           prepare_ss << "if (" << validity_name << ") {" << std::endl;
-          prepare_ss << "appendToUnsafeRow(" << unsafe_row_name
-                     << "_unsafe_row.get(), " << idx << ", " << key_name << ");"
-                     << std::endl;
+          prepare_ss << "appendToUnsafeRow(" << unsafe_row_name << "_unsafe_row.get(), "
+                     << idx << ", " << key_name << ");" << std::endl;
           prepare_ss << "} else {" << std::endl;
-          prepare_ss << "setNullAt(" << unsafe_row_name << "_unsafe_row.get(), "
-                     << idx << ");" << std::endl;
+          prepare_ss << "setNullAt(" << unsafe_row_name << "_unsafe_row.get(), " << idx
+                     << ");" << std::endl;
           prepare_ss << "}" << std::endl;
           idx++;
         }
-        prepare_ss << "auto " << unsafe_row_name
-                   << " = arrow::util::string_view(" << unsafe_row_name
-                   << "_unsafe_row->data, " << unsafe_row_name
+        prepare_ss << "auto " << unsafe_row_name << " = arrow::util::string_view("
+                   << unsafe_row_name << "_unsafe_row->data, " << unsafe_row_name
                    << "_unsafe_row->cursor);" << std::endl;
       }
     }
@@ -363,30 +348,22 @@ class HashAggregateKernel::Impl {
 
     std::vector<std::string> res_type_str_list;
     for (auto field : result_field_list_) {
-      res_type_str_list.push_back("arrow::" +
-                                  GetArrowTypeDefString(field->type()));
+      res_type_str_list.push_back("arrow::" + GetArrowTypeDefString(field->type()));
     }
-    define_ss << "std::vector<std::shared_ptr<ActionBase>> aggr_action_list_"
-              << level << ";" << std::endl;
-    define_ss << "bool do_hash_aggr_finish_" << level << " = false;"
-              << std::endl;
-    define_ss << "uint64_t do_hash_aggr_finish_" << level << "_offset = 0;"
-              << std::endl;
-    define_ss << "int do_hash_aggr_finish_" << level << "_num_groups = -1;"
-              << std::endl;
-    aggr_prepare_ss << "std::vector<std::string> action_name_list_" << level
-                    << " = {" << GetParameterList(action_name_str_list, false)
-                    << "};" << std::endl;
+    define_ss << "std::vector<std::shared_ptr<ActionBase>> aggr_action_list_" << level
+              << ";" << std::endl;
+    define_ss << "bool do_hash_aggr_finish_" << level << " = false;" << std::endl;
+    define_ss << "uint64_t do_hash_aggr_finish_" << level << "_offset = 0;" << std::endl;
+    define_ss << "int do_hash_aggr_finish_" << level << "_num_groups = -1;" << std::endl;
+    aggr_prepare_ss << "std::vector<std::string> action_name_list_" << level << " = {"
+                    << GetParameterList(action_name_str_list, false) << "};" << std::endl;
     aggr_prepare_ss << "auto action_type_list_" << level << " = {"
-                    << GetParameterList(action_type_str_list, false) << "};"
-                    << std::endl;
+                    << GetParameterList(action_type_str_list, false) << "};" << std::endl;
     aggr_prepare_ss << "auto res_type_list_" << level << " = {"
-                    << GetParameterList(res_type_str_list, false) << "};"
-                    << std::endl;
+                    << GetParameterList(res_type_str_list, false) << "};" << std::endl;
     aggr_prepare_ss << "PrepareActionList(action_name_list_" << level
-                    << ", action_type_list_" << level << ", res_type_list_"
-                    << level << ", &aggr_action_list_" << level << ");"
-                    << std::endl;
+                    << ", action_type_list_" << level << ", res_type_list_" << level
+                    << ", &aggr_action_list_" << level << ");" << std::endl;
     std::stringstream action_codes_ss;
     int action_idx = 0;
     for (auto idx_v : action_prepare_index_list) {
@@ -399,17 +376,15 @@ class HashAggregateKernel::Impl {
                         << "_validity) {" << std::endl;
       std::vector<std::string> parameter_list;
       for (auto i : idx_v) {
-        parameter_list.push_back("(void*)&" +
-                                 project_output_list[i].first.first);
+        parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
       }
-      action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "["
-                      << action_idx << "]->Evaluate(memo_index"
-                      << GetParameterList(parameter_list) << "));" << std::endl;
+      action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
+                      << "]->Evaluate(memo_index" << GetParameterList(parameter_list)
+                      << "));" << std::endl;
       if (idx_v.size() > 0) {
         action_codes_ss << "} else {" << std::endl;
-        action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "["
-                        << action_idx << "]->EvaluateNull(memo_index));"
-                        << std::endl;
+        action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
+                        << "]->EvaluateNull(memo_index));" << std::endl;
         action_codes_ss << "}" << std::endl;
       }
       action_idx++;
@@ -421,15 +396,14 @@ class HashAggregateKernel::Impl {
       process_ss << "  memo_index = aggr_hash_table_" << level
                  << "->GetOrInsertNull([](int){}, [](int){});" << std::endl;
       process_ss << " } else {" << std::endl;
-      process_ss << "   aggr_hash_table_" << level << "->GetOrInsert(aggr_key_"
-                 << level << ",[](int){}, [](int){}, &memo_index);"
-                 << std::endl;
+      process_ss << "   aggr_hash_table_" << level << "->GetOrInsert(aggr_key_" << level
+                 << ",[](int){}, [](int){}, &memo_index);" << std::endl;
       process_ss << " }" << std::endl;
       process_ss << action_codes_ss.str() << std::endl;
-      process_ss << "if (memo_index > do_hash_aggr_finish_" << level
-                 << "_num_groups) {" << std::endl;
-      process_ss << "do_hash_aggr_finish_" << level
-                 << "_num_groups = memo_index;" << std::endl;
+      process_ss << "if (memo_index > do_hash_aggr_finish_" << level << "_num_groups) {"
+                 << std::endl;
+      process_ss << "do_hash_aggr_finish_" << level << "_num_groups = memo_index;"
+                 << std::endl;
       process_ss << "}" << std::endl;
     } else {
       process_ss << action_codes_ss.str() << std::endl;
@@ -512,9 +486,8 @@ class HashAggregateKernel::Impl {
     // 6. create all input evaluated finish codes
     finish_ss << "do_hash_aggr_finish_" << level << " = true;" << std::endl;
     finish_ss << "should_stop_ = false;" << std::endl;
-    finish_ss
-        << "std::vector<std::shared_ptr<arrow::Array>> do_hash_aggr_finish_"
-        << level << "_out;" << std::endl;
+    finish_ss << "std::vector<std::shared_ptr<arrow::Array>> do_hash_aggr_finish_"
+              << level << "_out;" << std::endl;
     finish_ss << "if(do_hash_aggr_finish_" << level << ") {";
     for (int i = 0; i < action_idx; i++) {
       finish_ss << "aggr_action_list_" << level << "[" << i
@@ -522,13 +495,12 @@ class HashAggregateKernel::Impl {
                 << "_offset, 10000, &do_hash_aggr_finish_" << level << "_out);"
                 << std::endl;
     }
-    finish_ss << "if (do_hash_aggr_finish_" << level << "_out.size() > 0) {"
-              << std::endl;
-    finish_ss << "auto tmp_arr = std::make_shared<Array>(do_hash_aggr_finish_"
-              << level << "_out[0]);" << std::endl;
+    finish_ss << "if (do_hash_aggr_finish_" << level << "_out.size() > 0) {" << std::endl;
+    finish_ss << "auto tmp_arr = std::make_shared<Array>(do_hash_aggr_finish_" << level
+              << "_out[0]);" << std::endl;
     finish_ss << "out_length += tmp_arr->length();" << std::endl;
-    finish_ss << "do_hash_aggr_finish_" << level
-              << "_offset += tmp_arr->length();" << std::endl;
+    finish_ss << "do_hash_aggr_finish_" << level << "_offset += tmp_arr->length();"
+              << std::endl;
     finish_ss << "}" << std::endl;
     finish_ss << "if (out_length == 0 || do_hash_aggr_finish_" << level
               << "_num_groups < do_hash_aggr_finish_" << level << "_offset) {"
@@ -540,10 +512,8 @@ class HashAggregateKernel::Impl {
     // 7. Do GandivaProjector if result_expr_list is not empty
     if (!result_expr_list_.empty()) {
       codegen_ctx->gandiva_projector = std::make_shared<GandivaProjector>(
-          ctx_, arrow::schema(result_field_list_),
-          GetGandivaKernel(result_expr_list_));
-      codegen_ctx->header_codes.push_back(
-          R"(#include "precompile/gandiva_projector.h")");
+          ctx_, arrow::schema(result_field_list_), GetGandivaKernel(result_expr_list_));
+      codegen_ctx->header_codes.push_back(R"(#include "precompile/gandiva_projector.h")");
       finish_ss << "RETURN_NOT_OK(gandiva_projector_list_[gp_idx++]->Evaluate(&"
                    "do_hash_"
                    "aggr_finish_"
@@ -584,8 +554,7 @@ class HashAggregateKernel::Impl {
   std::vector<std::vector<int>> action_prepare_index_list_;
 
   arrow::Status PrepareActionList(
-      std::vector<std::pair<std::string, gandiva::DataTypePtr>>
-          action_name_list,
+      std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
       std::vector<gandiva::DataTypePtr> result_field_list,
       std::vector<std::shared_ptr<ActionBase>>* action_list) {
     int result_id = 0;
@@ -596,8 +565,7 @@ class HashAggregateKernel::Impl {
       if (action_name.compare("action_groupby") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeUniqueAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeUniqueAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_count") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
@@ -605,61 +573,55 @@ class HashAggregateKernel::Impl {
       } else if (action_name.compare("action_sum") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeSumAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeAvgAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_min") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeMinAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeMinAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_max") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_sum_count") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};
         result_id += 2;
-        RETURN_NOT_OK(MakeSumCountAction(ctx_, action_input_type, res_type_list,
-                                         &action));
+        RETURN_NOT_OK(
+            MakeSumCountAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_sum_count_merge") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};
         result_id += 2;
-        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, action_input_type,
-                                              res_type_list, &action));
+        RETURN_NOT_OK(
+            MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avgByCount") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(MakeAvgByCountAction(ctx_, action_input_type,
-                                           res_type_list, &action));
+        RETURN_NOT_OK(
+            MakeAvgByCountAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare(0, 20, "action_countLiteral_") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         int arg = std::stoi(action_name.substr(20));
-        RETURN_NOT_OK(
-            MakeCountLiteralAction(ctx_, arg, res_type_list, &action));
+        RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, res_type_list, &action));
       } else if (action_name.compare("action_stddev_samp_partial") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1],
                               result_field_list[result_id + 2]};
         result_id += 3;
-        RETURN_NOT_OK(MakeStddevSampPartialAction(ctx_, action_input_type,
-                                                  res_type_list, &action));
+        RETURN_NOT_OK(
+            MakeStddevSampPartialAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_stddev_samp_final") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type,
-                                                res_type_list, &action));
+        RETURN_NOT_OK(
+            MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list, &action));
       } else {
-        return arrow::Status::NotImplemented(action_name,
-                                             " is not implementetd.");
+        return arrow::Status::NotImplemented(action_name, " is not implementetd.");
       }
       (*action_list).push_back(action);
     }
@@ -695,8 +657,7 @@ class HashAggregateKernel::Impl {
     arrow::Status ProcessAndCacheOne(
         const std::vector<std::shared_ptr<arrow::Array>>& orig_in,
         const std::shared_ptr<arrow::Array>& selection = nullptr) override {
-      if (orig_in.size() == 0 || orig_in[0]->length() == 0)
-        return arrow::Status::OK();
+      if (orig_in.size() == 0 || orig_in[0]->length() == 0) return arrow::Status::OK();
       // 1. do pre process and prepare action_func
       arrow::ArrayVector in;
       if (pre_process_projector_) {
@@ -728,8 +689,7 @@ class HashAggregateKernel::Impl {
       }
 
       // 2.2 Get each row's group by key
-      auto typed_key_in =
-          std::dynamic_pointer_cast<ArrayType>(in[key_index_list_[0]]);
+      auto typed_key_in = std::dynamic_pointer_cast<ArrayType>(in[key_index_list_[0]]);
       auto length = in[0]->length();
 
       std::vector<int> indices;
@@ -743,8 +703,7 @@ class HashAggregateKernel::Impl {
         // 3. get key from hash_table
         int memo_index = 0;
         if (!aggr_key_validity) {
-          memo_index =
-              aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
+          memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
           aggr_hash_table_->GetOrInsert(
               aggr_key, [](int) {}, [](int) {}, &memo_index);
@@ -843,16 +802,14 @@ class HashAggregateKernel::Impl {
           action_impl_list_(action_impl_list) {
       aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
       if (key_index_list.size() > 1) {
-        aggr_key_unsafe_row =
-            std::make_shared<UnsafeRow>(key_index_list.size());
+        aggr_key_unsafe_row = std::make_shared<UnsafeRow>(key_index_list.size());
       }
     }
 
     arrow::Status ProcessAndCacheOne(
         const std::vector<std::shared_ptr<arrow::Array>>& orig_in,
         const std::shared_ptr<arrow::Array>& selection = nullptr) override {
-      if (orig_in.size() == 0 || orig_in[0]->length() == 0)
-        return arrow::Status::OK();
+      if (orig_in.size() == 0 || orig_in[0]->length() == 0) return arrow::Status::OK();
       // 1. do pre process and prepare action_func
       arrow::ArrayVector in;
       if (pre_process_projector_) {
@@ -872,8 +829,8 @@ class HashAggregateKernel::Impl {
           payloads.push_back(payload);
         }
       } else {
-        typed_key_in = std::dynamic_pointer_cast<arrow::StringArray>(
-            in[key_index_list_[0]]);
+        typed_key_in =
+            std::dynamic_pointer_cast<arrow::StringArray>(in[key_index_list_[0]]);
       }
 
       // 3. Get each row's group by key
@@ -903,8 +860,7 @@ class HashAggregateKernel::Impl {
         // 3. get key from hash_table
         int memo_index = 0;
         if (!aggr_key_validity) {
-          memo_index =
-              aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
+          memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
           aggr_hash_table_->GetOrInsert(
               aggr_key, [](int) {}, [](int) {}, &memo_index);
@@ -985,8 +941,7 @@ class HashAggregateKernel::Impl {
   };
 
   template <typename DataType>
-  class HashAggregateResultIterator<DataType,
-                                    precompile::enable_if_decimal<DataType>>
+  class HashAggregateResultIterator<DataType, precompile::enable_if_decimal<DataType>>
       : public ResultIterator<arrow::RecordBatch> {
    public:
     using T = arrow::Decimal128;
@@ -1012,8 +967,7 @@ class HashAggregateKernel::Impl {
     arrow::Status ProcessAndCacheOne(
         const std::vector<std::shared_ptr<arrow::Array>>& orig_in,
         const std::shared_ptr<arrow::Array>& selection = nullptr) override {
-      if (orig_in.size() == 0 || orig_in[0]->length() == 0)
-        return arrow::Status::OK();
+      if (orig_in.size() == 0 || orig_in[0]->length() == 0) return arrow::Status::OK();
       // 1. do pre process and prepare action_func
       arrow::ArrayVector in;
       if (pre_process_projector_) {
@@ -1059,8 +1013,7 @@ class HashAggregateKernel::Impl {
         // 3. get key from hash_table
         int memo_index = 0;
         if (!aggr_key_validity) {
-          memo_index =
-              aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
+          memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
           aggr_hash_table_->GetOrInsert(
               aggr_key, [](int) {}, [](int) {}, &memo_index);
@@ -1147,8 +1100,7 @@ arrow::Status HashAggregateKernel::Make(
     std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list,
     std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<HashAggregateKernel>(
-      ctx, input_field_list, action_list, result_field_node_list,
-      result_expr_node_list);
+      ctx, input_field_list, action_list, result_field_node_list, result_expr_node_list);
   return arrow::Status::OK();
 }
 
@@ -1158,8 +1110,8 @@ HashAggregateKernel::HashAggregateKernel(
     std::vector<std::shared_ptr<gandiva::Node>> action_list,
     std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
     std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list) {
-  impl_.reset(new Impl(ctx, input_field_list, action_list,
-                       result_field_node_list, result_expr_node_list));
+  impl_.reset(new Impl(ctx, input_field_list, action_list, result_field_node_list,
+                       result_expr_node_list));
   kernel_name_ = "HashAggregateKernelKernel";
 }
 #undef PROCESS_SUPPORTED_TYPES
@@ -1172,16 +1124,13 @@ arrow::Status HashAggregateKernel::MakeResultIterator(
 
 arrow::Status HashAggregateKernel::DoCodeGen(
     int level,
-    std::vector<
-        std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
         input,
     std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
   return impl_->DoCodeGen(level, input, codegen_ctx_out, var_id);
 }
 
-std::string HashAggregateKernel::GetSignature() {
-  return impl_->GetSignature();
-}
+std::string HashAggregateKernel::GetSignature() { return impl_->GetSignature(); }
 
 }  // namespace extra
 }  // namespace arrowcompute

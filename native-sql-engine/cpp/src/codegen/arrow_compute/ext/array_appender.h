@@ -47,13 +47,12 @@ class AppenderBase {
     return arrow::Status::NotImplemented("AppenderBase PopArray is abstract.");
   }
 
-  virtual arrow::Status Append(const uint16_t& array_id,
-                               const uint16_t& item_id) {
+  virtual arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) {
     return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
   }
 
-  virtual arrow::Status Append(const uint16_t& array_id,
-                               const uint16_t& item_id, int repeated) {
+  virtual arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id,
+                               int repeated) {
     return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
   }
 
@@ -62,8 +61,7 @@ class AppenderBase {
   }
 
   virtual arrow::Status AppendNull() {
-    return arrow::Status::NotImplemented(
-        "AppenderBase AppendNull is abstract.");
+    return arrow::Status::NotImplemented("AppenderBase AppendNull is abstract.");
   }
 
   virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) {
@@ -75,8 +73,7 @@ class AppenderBase {
   }
 
   virtual arrow::Status AppendExistence(bool is_exist) {
-    return arrow::Status::NotImplemented(
-        "AppenderBase AppendExistence is abstract.");
+    return arrow::Status::NotImplemented("AppenderBase AppendExistence is abstract.");
   }
 };
 
@@ -84,26 +81,21 @@ template <typename DataType, typename Enable = void>
 class ArrayAppender {};
 
 template <typename T>
-using is_number_or_date =
-    std::integral_constant<bool, arrow::is_number_type<T>::value ||
-                                     arrow::is_date_type<T>::value>;
+using is_number_or_date = std::integral_constant<bool, arrow::is_number_type<T>::value ||
+                                                           arrow::is_date_type<T>::value>;
 
 template <typename DataType, typename R = void>
-using enable_if_number_or_date =
-    std::enable_if_t<is_number_or_date<DataType>::value, R>;
+using enable_if_number_or_date = std::enable_if_t<is_number_or_date<DataType>::value, R>;
 
 template <typename DataType>
-class ArrayAppender<DataType, enable_if_number_or_date<DataType>>
-    : public AppenderBase {
+class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public AppenderBase {
  public:
   ArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(),
-                       arrow::TypeTraits<DataType>::type_singleton(),
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
                        &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~ArrayAppender() {}
 
@@ -121,8 +113,7 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status Append(const uint16_t& array_id,
-                       const uint16_t& item_id) override {
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
     if (has_null_ && cached_arr_[array_id]->null_count() > 0 &&
         cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
@@ -153,8 +144,7 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>>
           cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
-        RETURN_NOT_OK(
-            builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
       }
     }
     return arrow::Status::OK();
@@ -190,11 +180,9 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   ArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(),
-                       arrow::TypeTraits<DataType>::type_singleton(),
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
                        &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~ArrayAppender() {}
 
@@ -212,8 +200,7 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status Append(const uint16_t& array_id,
-                       const uint16_t& item_id) override {
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
     if (has_null_ && cached_arr_[array_id]->null_count() > 0 &&
         cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
@@ -244,8 +231,7 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
           cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
-        RETURN_NOT_OK(
-            builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
       }
     }
     return arrow::Status::OK();
@@ -274,17 +260,14 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
 };
 
 template <typename DataType>
-class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>>
-    : public AppenderBase {
+class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public AppenderBase {
  public:
   ArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(),
-                       arrow::TypeTraits<DataType>::type_singleton(),
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
                        &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~ArrayAppender() {}
 
@@ -302,8 +285,7 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status Append(const uint16_t& array_id,
-                       const uint16_t& item_id) override {
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
     if (has_null_ && cached_arr_[array_id]->null_count() > 0 &&
         cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
@@ -334,8 +316,7 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>>
           cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
-        RETURN_NOT_OK(
-            builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
       }
     }
     return arrow::Status::OK();
@@ -343,9 +324,7 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>>
 
   arrow::Status AppendNull() override { return builder_->AppendNull(); }
 
-  arrow::Status AppendExistence(bool is_exist) {
-    return builder_->Append(is_exist);
-  }
+  arrow::Status AppendExistence(bool is_exist) { return builder_->Append(is_exist); }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
     auto status = builder_->Finish(out_);
@@ -368,17 +347,14 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>>
 };
 
 template <typename DataType>
-class ArrayAppender<DataType, enable_if_decimal<DataType>>
-    : public AppenderBase {
+class ArrayAppender<DataType, enable_if_decimal<DataType>> : public AppenderBase {
  public:
   ArrayAppender(arrow::compute::ExecContext* ctx,
-                std::shared_ptr<arrow::DataType> data_type,
-                AppenderType type = left)
+                std::shared_ptr<arrow::DataType> data_type, AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), data_type, &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~ArrayAppender() {}
 
@@ -396,8 +372,7 @@ class ArrayAppender<DataType, enable_if_decimal<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status Append(const uint16_t& array_id,
-                       const uint16_t& item_id) override {
+  arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
     if (has_null_ && cached_arr_[array_id]->IsNull(item_id)) {
       RETURN_NOT_OK(builder_->AppendNull());
     } else {
@@ -425,8 +400,7 @@ class ArrayAppender<DataType, enable_if_decimal<DataType>>
       if (has_null_ && cached_arr_[tmp.array_id]->IsNull(tmp.id)) {
         RETURN_NOT_OK(builder_->AppendNull());
       } else {
-        RETURN_NOT_OK(
-            builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
+        RETURN_NOT_OK(builder_->Append(cached_arr_[tmp.array_id]->GetView(tmp.id)));
       }
     }
     return arrow::Status::OK();
@@ -474,11 +448,10 @@ static arrow::Status MakeAppender(arrow::compute::ExecContext* ctx,
                                   AppenderBase::AppenderType appender_type,
                                   std::shared_ptr<AppenderBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                              \
-  case InType::type_id: {                                            \
-    auto app_ptr =                                                   \
-        std::make_shared<ArrayAppender<InType>>(ctx, appender_type); \
-    *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);         \
+#define PROCESS(InType)                                                         \
+  case InType::type_id: {                                                       \
+    auto app_ptr = std::make_shared<ArrayAppender<InType>>(ctx, appender_type); \
+    *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);                    \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -488,8 +461,8 @@ static arrow::Status MakeAppender(arrow::compute::ExecContext* ctx,
       *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);
     } break;
     default: {
-      return arrow::Status::NotImplemented(
-          "MakeAppender type not supported, type is ", type->ToString());
+      return arrow::Status::NotImplemented("MakeAppender type not supported, type is ",
+                                           type->ToString());
     } break;
   }
   return arrow::Status::OK();

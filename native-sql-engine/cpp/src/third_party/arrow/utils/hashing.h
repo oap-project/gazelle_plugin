@@ -80,8 +80,7 @@ template <typename Scalar, uint64_t AlgNum = 0, typename Enable = void>
 struct ScalarHelper : public ScalarHelperBase<Scalar, AlgNum> {};
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    enable_if_t<std::is_integral<Scalar>::value>>
+struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for integers
 
@@ -109,14 +108,12 @@ struct ScalarHelper<Scalar, AlgNum,
   // ScalarHelper specialization for util::string_view
 
   static hash_t ComputeHash(const util::string_view& value) {
-    return ComputeStringHash<AlgNum>(value.data(),
-                                     static_cast<int64_t>(value.size()));
+    return ComputeStringHash<AlgNum>(value.data(), static_cast<int64_t>(value.size()));
   }
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    enable_if_t<std::is_floating_point<Scalar>::value>>
+struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for reals
 
@@ -175,18 +172,16 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
   // slow. Instead, we use hard-coded random secrets.  To maximize cache
   // efficiency, they reuse the same memory area.
   static constexpr unsigned char kXxh3Secrets[XXH3_SECRET_SIZE_MIN + 1] = {
-      0xe7, 0x8b, 0x13, 0xf9, 0xfc, 0xb5, 0x8e, 0xef, 0x81, 0x48, 0x2c, 0xbf,
-      0xf9, 0x9f, 0xc1, 0x1e, 0x43, 0x6d, 0xbf, 0xa6, 0x6d, 0xb5, 0x72, 0xbc,
-      0x97, 0xd8, 0x61, 0x24, 0x0f, 0x12, 0xe3, 0x05, 0x21, 0xf7, 0x5c, 0x66,
-      0x67, 0xa5, 0x65, 0x03, 0x96, 0x26, 0x69, 0xd8, 0x29, 0x20, 0xf8, 0xc7,
-      0xb0, 0x3d, 0xdd, 0x7d, 0x18, 0xa0, 0x60, 0x75, 0x92, 0xa4, 0xce, 0xba,
-      0xc0, 0x77, 0xf4, 0xac, 0xb7, 0x03, 0x53, 0xf0, 0x98, 0xce, 0xe6, 0x2b,
-      0x20, 0xc7, 0x82, 0x91, 0xab, 0xbf, 0x68, 0x5c, 0x62, 0x4d, 0x33, 0xa3,
-      0xe1, 0xb3, 0xff, 0x97, 0x54, 0x4c, 0x44, 0x34, 0xb5, 0xb9, 0x32, 0x4c,
-      0x75, 0x42, 0x89, 0x53, 0x94, 0xd4, 0x9f, 0x2b, 0x76, 0x4d, 0x4e, 0xe6,
-      0xfa, 0x15, 0x3e, 0xc1, 0xdb, 0x71, 0x4b, 0x2c, 0x94, 0xf5, 0xfc, 0x8c,
-      0x89, 0x4b, 0xfb, 0xc1, 0x82, 0xa5, 0x6a, 0x53, 0xf9, 0x4a, 0xba, 0xce,
-      0x1f, 0xc0, 0x97, 0x1a, 0x87};
+      0xe7, 0x8b, 0x13, 0xf9, 0xfc, 0xb5, 0x8e, 0xef, 0x81, 0x48, 0x2c, 0xbf, 0xf9, 0x9f,
+      0xc1, 0x1e, 0x43, 0x6d, 0xbf, 0xa6, 0x6d, 0xb5, 0x72, 0xbc, 0x97, 0xd8, 0x61, 0x24,
+      0x0f, 0x12, 0xe3, 0x05, 0x21, 0xf7, 0x5c, 0x66, 0x67, 0xa5, 0x65, 0x03, 0x96, 0x26,
+      0x69, 0xd8, 0x29, 0x20, 0xf8, 0xc7, 0xb0, 0x3d, 0xdd, 0x7d, 0x18, 0xa0, 0x60, 0x75,
+      0x92, 0xa4, 0xce, 0xba, 0xc0, 0x77, 0xf4, 0xac, 0xb7, 0x03, 0x53, 0xf0, 0x98, 0xce,
+      0xe6, 0x2b, 0x20, 0xc7, 0x82, 0x91, 0xab, 0xbf, 0x68, 0x5c, 0x62, 0x4d, 0x33, 0xa3,
+      0xe1, 0xb3, 0xff, 0x97, 0x54, 0x4c, 0x44, 0x34, 0xb5, 0xb9, 0x32, 0x4c, 0x75, 0x42,
+      0x89, 0x53, 0x94, 0xd4, 0x9f, 0x2b, 0x76, 0x4d, 0x4e, 0xe6, 0xfa, 0x15, 0x3e, 0xc1,
+      0xdb, 0x71, 0x4b, 0x2c, 0x94, 0xf5, 0xfc, 0x8c, 0x89, 0x4b, 0xfb, 0xc1, 0x82, 0xa5,
+      0x6a, 0x53, 0xf9, 0x4a, 0xba, 0xce, 0x1f, 0xc0, 0x97, 0x1a, 0x87};
 
   static_assert(AlgNum < 2, "AlgNum too large");
   static constexpr auto secret = kXxh3Secrets + AlgNum;
@@ -275,8 +270,7 @@ class HashTable {
 
   // The workhorse lookup function
   template <CompareKind CKind, typename CmpFunc>
-  std::pair<uint64_t, bool> Lookup(hash_t h, const Entry* entries,
-                                   uint64_t size_mask,
+  std::pair<uint64_t, bool> Lookup(hash_t h, const Entry* entries, uint64_t size_mask,
                                    CmpFunc&& cmp_func) const {
     static constexpr uint8_t perturb_shift = 5;
 
@@ -289,8 +283,7 @@ class HashTable {
 
     while (true) {
       entry = &entries[index];
-      if (CompareEntry<CKind, CmpFunc>(h, entry,
-                                       std::forward<CmpFunc>(cmp_func))) {
+      if (CompareEntry<CKind, CmpFunc>(h, entry, std::forward<CmpFunc>(cmp_func))) {
         // Found
         return {index, true};
       }
@@ -391,8 +384,7 @@ class MemoTable {
 // The memoization table remembers and allows to look up the insertion
 // index for each key.
 
-template <typename Scalar,
-          template <class> class HashTableTemplateType = HashTable>
+template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
 class ScalarMemoTable : public MemoTable {
  public:
   explicit ScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
@@ -412,8 +404,8 @@ class ScalarMemoTable : public MemoTable {
   }
 
   template <typename Func1, typename Func2>
-  Status GetOrInsert(const Scalar& value, Func1&& on_found,
-                     Func2&& on_not_found, int32_t* out_memo_index) {
+  Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
+                     int32_t* out_memo_index) {
     auto cmp_func = [value](const Payload* payload) -> bool {
       return ScalarHelper<Scalar, 0>::CompareScalars(value, payload->value);
     };
@@ -458,8 +450,7 @@ class ScalarMemoTable : public MemoTable {
   // The number of entries in the memo table +1 if null was added.
   // (which is also 1 + the largest memo index)
   int32_t size() const override {
-    return static_cast<int32_t>(hash_table_.size()) +
-           (GetNull() != kKeyNotFound);
+    return static_cast<int32_t>(hash_table_.size()) + (GetNull() != kKeyNotFound);
   }
 
   // Copy values starting from index `start` into `out_data`
@@ -507,14 +498,12 @@ template <typename Scalar>
 struct SmallScalarTraits<Scalar, enable_if_t<std::is_integral<Scalar>::value>> {
   using Unsigned = typename std::make_unsigned<Scalar>::type;
 
-  static constexpr int32_t cardinality =
-      1U + std::numeric_limits<Unsigned>::max();
+  static constexpr int32_t cardinality = 1U + std::numeric_limits<Unsigned>::max();
 
   static uint32_t AsIndex(Scalar value) { return static_cast<Unsigned>(value); }
 };
 
-template <typename Scalar,
-          template <class> class HashTableTemplateType = HashTable>
+template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
 class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(MemoryPool* pool, int64_t entries = 0) {
@@ -571,17 +560,14 @@ class SmallScalarMemoTable : public MemoTable {
 
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
-  int32_t size() const override {
-    return static_cast<int32_t>(index_to_value_.size());
-  }
+  int32_t size() const override { return static_cast<int32_t>(index_to_value_.size()); }
 
   // Copy values starting from index `start` into `out_data`
   void CopyValues(int32_t start, Scalar* out_data) const {
     DCHECK_GE(start, 0);
     DCHECK_LE(static_cast<size_t>(start), index_to_value_.size());
     int64_t offset = start * static_cast<int32_t>(sizeof(Scalar));
-    memcpy(out_data, index_to_value_.data() + offset,
-           (size() - start) * sizeof(Scalar));
+    memcpy(out_data, index_to_value_.data() + offset, (size() - start) * sizeof(Scalar));
   }
 
   void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }
@@ -590,8 +576,7 @@ class SmallScalarMemoTable : public MemoTable {
 
  protected:
   static constexpr auto cardinality = SmallScalarTraits<Scalar>::cardinality;
-  static_assert(cardinality <= 256,
-                "cardinality too large for direct-addressed table");
+  static_assert(cardinality <= 256, "cardinality too large for direct-addressed table");
 
   uint32_t AsIndex(Scalar value) const {
     return SmallScalarTraits<Scalar>::AsIndex(value);
@@ -611,8 +596,7 @@ class BinaryMemoTable : public MemoTable {
   using builder_offset_type = typename BinaryBuilderT::offset_type;
   explicit BinaryMemoTable(MemoryPool* pool, int64_t entries = 0,
                            int64_t values_size = -1)
-      : hash_table_(pool, static_cast<uint64_t>(entries)),
-        binary_builder_(pool) {
+      : hash_table_(pool, static_cast<uint64_t>(entries)), binary_builder_(pool) {
     const int64_t data_size = (values_size < 0) ? entries * 4 : values_size;
     DCHECK_OK(binary_builder_.Resize(entries));
     DCHECK_OK(binary_builder_.ReserveData(data_size));
@@ -633,9 +617,8 @@ class BinaryMemoTable : public MemoTable {
   }
 
   template <typename Func1, typename Func2>
-  Status GetOrInsert(const void* data, builder_offset_type length,
-                     Func1&& on_found, Func2&& on_not_found,
-                     int32_t* out_memo_index) {
+  Status GetOrInsert(const void* data, builder_offset_type length, Func1&& on_found,
+                     Func2&& on_not_found, int32_t* out_memo_index) {
     hash_t h = ComputeStringHash<0>(data, length);
     auto p = Lookup(h, data, length);
     int32_t memo_index;
@@ -645,11 +628,10 @@ class BinaryMemoTable : public MemoTable {
     } else {
       memo_index = size();
       // Insert string value
-      RETURN_NOT_OK(
-          binary_builder_.Append(static_cast<const char*>(data), length));
+      RETURN_NOT_OK(binary_builder_.Append(static_cast<const char*>(data), length));
       // Insert hash entry
-      RETURN_NOT_OK(hash_table_.Insert(const_cast<HashTableEntry*>(p.first), h,
-                                       {memo_index}));
+      RETURN_NOT_OK(
+          hash_table_.Insert(const_cast<HashTableEntry*>(p.first), h, {memo_index}));
 
       on_not_found(memo_index);
     }
@@ -660,10 +642,9 @@ class BinaryMemoTable : public MemoTable {
   template <typename Func1, typename Func2>
   Status GetOrInsert(const util::string_view& value, Func1&& on_found,
                      Func2&& on_not_found, int32_t* out_memo_index) {
-    return GetOrInsert(value.data(),
-                       static_cast<builder_offset_type>(value.length()),
-                       std::forward<Func1>(on_found),
-                       std::forward<Func2>(on_not_found), out_memo_index);
+    return GetOrInsert(value.data(), static_cast<builder_offset_type>(value.length()),
+                       std::forward<Func1>(on_found), std::forward<Func2>(on_not_found),
+                       out_memo_index);
   }
 
   Status GetOrInsert(const void* data, builder_offset_type length,
@@ -673,8 +654,7 @@ class BinaryMemoTable : public MemoTable {
   }
 
   Status GetOrInsert(const util::string_view& value, int32_t* out_memo_index) {
-    return GetOrInsert(value.data(),
-                       static_cast<builder_offset_type>(value.length()),
+    return GetOrInsert(value.data(), static_cast<builder_offset_type>(value.length()),
                        out_memo_index);
   }
 
@@ -700,8 +680,7 @@ class BinaryMemoTable : public MemoTable {
   // The number of entries in the memo table
   // (which is also 1 + the largest memo index)
   int32_t size() const override {
-    return static_cast<int32_t>(hash_table_.size() +
-                                (GetNull() != kKeyNotFound));
+    return static_cast<int32_t>(hash_table_.size() + (GetNull() != kKeyNotFound));
   }
 
   int64_t values_size() const { return binary_builder_.value_data_length(); }
@@ -723,8 +702,7 @@ class BinaryMemoTable : public MemoTable {
     }
 
     // Copy last value since BinaryBuilder only materializes it on in Finish()
-    *out_data =
-        static_cast<Offset>(binary_builder_.value_data_length() - delta);
+    *out_data = static_cast<Offset>(binary_builder_.value_data_length() - delta);
   }
 
   template <class Offset>
@@ -743,8 +721,7 @@ class BinaryMemoTable : public MemoTable {
 
     // The absolute byte offset of `start` value in the binary buffer.
     const builder_offset_type offset = binary_builder_.offset(start);
-    const auto length =
-        binary_builder_.value_data_length() - static_cast<size_t>(offset);
+    const auto length = binary_builder_.value_data_length() - static_cast<size_t>(offset);
 
     if (out_size != -1) {
       assert(static_cast<int64_t>(length) <= out_size);
@@ -830,8 +807,8 @@ class BinaryMemoTable : public MemoTable {
 
   int32_t null_index_ = kKeyNotFound;
 
-  std::pair<const HashTableEntry*, bool> Lookup(
-      hash_t h, const void* data, builder_offset_type length) const {
+  std::pair<const HashTableEntry*, bool> Lookup(hash_t h, const void* data,
+                                                builder_offset_type length) const {
     auto cmp_func = [=](const Payload* payload) {
       util::string_view lhs = binary_builder_.GetView(payload->memo_index);
       util::string_view rhs(static_cast<const char*>(data), length);
@@ -856,8 +833,7 @@ struct HashTraits<T, enable_if_8bit_int<T>> {
 };
 
 template <typename T>
-struct HashTraits<T,
-                  enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
+struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
 };
@@ -879,10 +855,8 @@ struct HashTraits<T, enable_if_t<std::is_base_of<LargeBinaryType, T>::value>> {
 };
 
 template <typename MemoTableType>
-static inline Status ComputeNullBitmap(MemoryPool* pool,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       int64_t* null_count,
+static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& memo_table,
+                                       int64_t start_offset, int64_t* null_count,
                                        std::shared_ptr<Buffer>* null_bitmap) {
   int64_t dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
   int64_t null_index = memo_table.GetNull();
@@ -893,8 +867,8 @@ static inline Status ComputeNullBitmap(MemoryPool* pool,
   if (null_index != kKeyNotFound && null_index >= start_offset) {
     null_index -= start_offset;
     *null_count = 1;
-    ARROW_ASSIGN_OR_RAISE(
-        *null_bitmap, internal::BitmapAllButOne(pool, dict_length, null_index));
+    ARROW_ASSIGN_OR_RAISE(*null_bitmap,
+                          internal::BitmapAllButOne(pool, dict_length, null_index));
   }
 
   return Status::OK();

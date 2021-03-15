@@ -25,29 +25,25 @@
 namespace sparkcolumnarplugin {
 namespace precompile {
 
-#define TYPED_BUILDER_IMPL(TYPENAME, TYPE, CTYPE)                              \
-  class TYPENAME::Impl : public arrow::TYPENAME {                              \
-   public:                                                                     \
-    Impl(arrow::MemoryPool* pool) : arrow::TYPENAME(TYPE, pool) {}             \
-  };                                                                           \
-                                                                               \
-  TYPENAME::TYPENAME(arrow::MemoryPool* pool) {                                \
-    impl_ = std::make_shared<Impl>(pool);                                      \
-  }                                                                            \
-  arrow::Status TYPENAME::Append(CTYPE value) { return impl_->Append(value); } \
-  arrow::Status TYPENAME::AppendNull() { return impl_->AppendNull(); }         \
-  arrow::Status TYPENAME::Reserve(int64_t length) {                            \
-    return impl_->Reserve(length);                                             \
-  }                                                                            \
-  arrow::Status TYPENAME::AppendNulls(int64_t length) {                        \
-    return impl_->AppendNulls(length);                                         \
-  }                                                                            \
-  arrow::Status TYPENAME::Finish(std::shared_ptr<arrow::Array>* out) {         \
-    return impl_->Finish(out);                                                 \
-  }                                                                            \
-  arrow::Status TYPENAME::Reset() {                                            \
-    impl_->Reset();                                                            \
-    return arrow::Status::OK();                                                \
+#define TYPED_BUILDER_IMPL(TYPENAME, TYPE, CTYPE)                                       \
+  class TYPENAME::Impl : public arrow::TYPENAME {                                       \
+   public:                                                                              \
+    Impl(arrow::MemoryPool* pool) : arrow::TYPENAME(TYPE, pool) {}                      \
+  };                                                                                    \
+                                                                                        \
+  TYPENAME::TYPENAME(arrow::MemoryPool* pool) { impl_ = std::make_shared<Impl>(pool); } \
+  arrow::Status TYPENAME::Append(CTYPE value) { return impl_->Append(value); }          \
+  arrow::Status TYPENAME::AppendNull() { return impl_->AppendNull(); }                  \
+  arrow::Status TYPENAME::Reserve(int64_t length) { return impl_->Reserve(length); }    \
+  arrow::Status TYPENAME::AppendNulls(int64_t length) {                                 \
+    return impl_->AppendNulls(length);                                                  \
+  }                                                                                     \
+  arrow::Status TYPENAME::Finish(std::shared_ptr<arrow::Array>* out) {                  \
+    return impl_->Finish(out);                                                          \
+  }                                                                                     \
+  arrow::Status TYPENAME::Reset() {                                                     \
+    impl_->Reset();                                                                     \
+    return arrow::Status::OK();                                                         \
   }
 
 TYPED_BUILDER_IMPL(BooleanBuilder, arrow::boolean(), bool)

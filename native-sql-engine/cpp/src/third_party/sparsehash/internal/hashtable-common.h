@@ -75,20 +75,19 @@ template <class HashFcn, class = void>
 struct has_is_transparent : std::false_type {};
 
 template <class HashFcn>
-struct has_is_transparent<
-    HashFcn, void_t<typename HashFcn::transparent_key_equal::is_transparent>>
+struct has_is_transparent<HashFcn,
+                          void_t<typename HashFcn::transparent_key_equal::is_transparent>>
     : std::true_type {};
 
 template <class HashFcn, class = void, class = void>
 struct has_transparent_key_equal : std::false_type {};
 
 template <class HashFcn, class Key>
-struct has_transparent_key_equal<
-    HashFcn, Key, void_t<typename HashFcn::transparent_key_equal>>
+struct has_transparent_key_equal<HashFcn, Key,
+                                 void_t<typename HashFcn::transparent_key_equal>>
     : std::true_type {};
 
-template <class HashFcn, class EqualKey,
-          bool = has_transparent_key_equal<HashFcn>::value>
+template <class HashFcn, class EqualKey, bool = has_transparent_key_equal<HashFcn>::value>
 struct key_equal_chosen {
   using type = EqualKey;
 };
@@ -132,8 +131,7 @@ inline bool read_data_internal(Ignored*, FILE* fp, void* data, size_t length) {
 }
 
 template <typename Ignored>
-inline bool write_data_internal(Ignored*, FILE* fp, const void* data,
-                                size_t length) {
+inline bool write_data_internal(Ignored*, FILE* fp, const void* data, size_t length) {
   return fwrite(data, length, 1, fp) == 1;
 }
 
@@ -144,13 +142,11 @@ inline bool write_data_internal(Ignored*, FILE* fp, const void* data,
 // it's only legal to delay the instantiation the way we want to if
 // the istream/ostream is a template type.  So we jump through hoops.
 template <typename ISTREAM>
-inline bool read_data_internal_for_istream(ISTREAM* fp, void* data,
-                                           size_t length) {
+inline bool read_data_internal_for_istream(ISTREAM* fp, void* data, size_t length) {
   return fp->read(reinterpret_cast<char*>(data), length).good();
 }
 template <typename Ignored>
-inline bool read_data_internal(Ignored*, std::istream* fp, void* data,
-                               size_t length) {
+inline bool read_data_internal(Ignored*, std::istream* fp, void* data, size_t length) {
   return read_data_internal_for_istream(fp, data, length);
 }
 
@@ -177,8 +173,7 @@ inline bool read_data_internal(INPUT* fp, void*, void* data, size_t length) {
 // The OUTPUT type needs to support a Write() operation that takes
 // a buffer and a length and returns the number of bytes written.
 template <typename OUTPUT>
-inline bool write_data_internal(OUTPUT* fp, void*, const void* data,
-                                size_t length) {
+inline bool write_data_internal(OUTPUT* fp, void*, const void* data, size_t length) {
   return static_cast<size_t>(fp->Write(data, length)) == length;
 }
 
@@ -222,8 +217,7 @@ bool write_bigendian_number(OUTPUT* fp, IntType value, size_t length) {
   for (size_t i = 0; i < length; ++i) {
     byte = (sizeof(value) <= length - 1 - i)
                ? 0
-               : static_cast<unsigned char>((value >> ((length - 1 - i) * 8)) &
-                                            255);
+               : static_cast<unsigned char>((value >> ((length - 1 - i) * 8)) & 255);
     if (!write_data(fp, &byte, sizeof(byte))) return false;
   }
   return true;
@@ -259,8 +253,7 @@ struct pod_serializer {
 // for sure that the hash is the identity hash.  If it's not, this
 // is needless work (and possibly, though not likely, harmful).
 
-template <typename Key, typename HashFunc, typename SizeType,
-          int HT_MIN_BUCKETS>
+template <typename Key, typename HashFunc, typename SizeType, int HT_MIN_BUCKETS>
 class sh_hashtable_settings : public HashFunc {
  public:
   typedef Key key_type;
@@ -316,9 +309,7 @@ class sh_hashtable_settings : public HashFunc {
   bool use_deleted() const { return use_deleted_; }
   void set_use_deleted(bool t) { use_deleted_ = t; }
 
-  size_type num_ht_copies() const {
-    return static_cast<size_type>(num_ht_copies_);
-  }
+  size_type num_ht_copies() const { return static_cast<size_type>(num_ht_copies_); }
   void inc_num_ht_copies() { ++num_ht_copies_; }
 
   // Reset the enlarge and shrink thresholds
@@ -334,8 +325,7 @@ class sh_hashtable_settings : public HashFunc {
   void set_resizing_parameters(float shrink, float grow) {
     assert(shrink >= 0.0);
     assert(grow <= 1.0);
-    if (shrink > grow / 2.0f)
-      shrink = grow / 2.0f;  // otherwise we thrash hashtable size
+    if (shrink > grow / 2.0f) shrink = grow / 2.0f;  // otherwise we thrash hashtable size
     set_shrink_factor(shrink);
     set_enlarge_factor(grow);
   }
@@ -345,8 +335,7 @@ class sh_hashtable_settings : public HashFunc {
   size_type min_buckets(size_type num_elts, size_type min_buckets_wanted) {
     float enlarge = enlarge_factor();
     size_type sz = HT_MIN_BUCKETS;  // min buckets allowed
-    while (sz < min_buckets_wanted ||
-           num_elts >= static_cast<size_type>(sz * enlarge)) {
+    while (sz < min_buckets_wanted || num_elts >= static_cast<size_type>(sz * enlarge)) {
       // This just prevents overflowing size_type, since sz can exceed
       // max_size() here.
       if (static_cast<size_type>(sz * 2) < sz) {

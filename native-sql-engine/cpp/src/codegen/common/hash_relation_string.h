@@ -30,13 +30,12 @@ using sparkcolumnarplugin::precompile::TypeTraits;
 /////////////////////////////////////////////////////////////////////////
 
 template <typename DataType>
-class TypedHashRelation<DataType, enable_if_string_like<DataType>>
-    : public HashRelation {
+class TypedHashRelation<DataType, enable_if_string_like<DataType>> : public HashRelation {
  public:
   using T = std::string;
-  TypedHashRelation(arrow::compute::ExecContext* ctx,
-                    const std::vector<std::shared_ptr<HashRelationColumn>>&
-                        hash_relation_column)
+  TypedHashRelation(
+      arrow::compute::ExecContext* ctx,
+      const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
       : HashRelation(hash_relation_column) {
     hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
   }
@@ -71,8 +70,7 @@ class TypedHashRelation<DataType, enable_if_string_like<DataType>>
   }
 
  private:
-  arrow::Status Insert(arrow::util::string_view v, uint32_t array_id,
-                       uint32_t id) {
+  arrow::Status Insert(arrow::util::string_view v, uint32_t array_id, uint32_t id) {
     int i;
     RETURN_NOT_OK(hash_table_->GetOrInsert(
         v, [](int32_t i) {}, [](int32_t i) {}, &i));

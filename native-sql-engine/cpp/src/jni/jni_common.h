@@ -62,9 +62,9 @@ static jclass illegal_argument_exception_class;
 //
 // WARNING: ASSIGN_OR_RAISE expands into multiple statements; it cannot be used
 //  in a single statement (e.g. as the body of an if statement without {})!
-#define ARROW_ASSIGN_OR_THROW(lhs, rexpr) \
-  ARROW_ASSIGN_OR_THROW_IMPL(             \
-      ARROW_ASSIGN_OR_THROW_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
+#define ARROW_ASSIGN_OR_THROW(lhs, rexpr)                                              \
+  ARROW_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_THROW_NAME(_error_or_value, __COUNTER__), \
+                             lhs, rexpr);
 
 jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   jclass local_class = env->FindClass(class_name);
@@ -78,8 +78,7 @@ jclass CreateGlobalClassReference(JNIEnv* env, const char* class_name) {
   return global_class;
 }
 
-jmethodID GetMethodID(JNIEnv* env, jclass this_class, const char* name,
-                      const char* sig) {
+jmethodID GetMethodID(JNIEnv* env, jclass this_class, const char* name, const char* sig) {
   jmethodID ret = env->GetMethodID(this_class, name, sig);
   if (ret == nullptr) {
     std::string error_message = "Unable to find method " + std::string(name) +
@@ -94,17 +93,16 @@ jmethodID GetStaticMethodID(JNIEnv* env, jclass this_class, const char* name,
                             const char* sig) {
   jmethodID ret = env->GetStaticMethodID(this_class, name, sig);
   if (ret == nullptr) {
-    std::string error_message = "Unable to find static method " +
-                                std::string(name) + " within signature" +
-                                std::string(sig);
+    std::string error_message = "Unable to find static method " + std::string(name) +
+                                " within signature" + std::string(sig);
     env->ThrowNew(illegal_access_exception_class, error_message.c_str());
   }
   return ret;
 }
 
-arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema,
-                              int num_rows, int64_t* in_buf_addrs,
-                              int64_t* in_buf_sizes, int in_bufs_len,
+arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema, int num_rows,
+                              int64_t* in_buf_addrs, int64_t* in_buf_sizes,
+                              int in_bufs_len,
                               std::shared_ptr<arrow::RecordBatch>* batch) {
   std::vector<std::shared_ptr<arrow::ArrayData>> arrays;
   auto num_fields = schema->num_fields();
@@ -120,8 +118,8 @@ arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema,
     }
     int64_t validity_addr = in_buf_addrs[buf_idx++];
     int64_t validity_size = in_buf_sizes[sz_idx++];
-    auto validity = std::shared_ptr<arrow::Buffer>(new arrow::Buffer(
-        reinterpret_cast<uint8_t*>(validity_addr), validity_size));
+    auto validity = std::shared_ptr<arrow::Buffer>(
+        new arrow::Buffer(reinterpret_cast<uint8_t*>(validity_addr), validity_size));
     buffers.push_back(validity);
 
     if (arrow::is_binary_like(field->type()->id())) {
@@ -132,8 +130,8 @@ arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema,
       // add offsets buffer for variable-len fields.
       int64_t offsets_addr = in_buf_addrs[buf_idx++];
       int64_t offsets_size = in_buf_sizes[sz_idx++];
-      auto offsets = std::shared_ptr<arrow::Buffer>(new arrow::Buffer(
-          reinterpret_cast<uint8_t*>(offsets_addr), offsets_size));
+      auto offsets = std::shared_ptr<arrow::Buffer>(
+          new arrow::Buffer(reinterpret_cast<uint8_t*>(offsets_addr), offsets_size));
       buffers.push_back(offsets);
     }
 
@@ -146,8 +144,7 @@ arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema,
         new arrow::Buffer(reinterpret_cast<uint8_t*>(value_addr), value_size));
     buffers.push_back(data);
 
-    auto array_data =
-        arrow::ArrayData::Make(field->type(), num_rows, std::move(buffers));
+    auto array_data = arrow::ArrayData::Make(field->type(), num_rows, std::move(buffers));
     arrays.push_back(array_data);
   }
 
@@ -186,8 +183,7 @@ arrow::Status MakeExprVector(JNIEnv* env, jbyteArray exprs_arr,
   jsize exprs_len = env->GetArrayLength(exprs_arr);
   jbyte* exprs_bytes = env->GetByteArrayElements(exprs_arr, 0);
 
-  if (!ParseProtobuf(reinterpret_cast<uint8_t*>(exprs_bytes), exprs_len,
-                     &exprs)) {
+  if (!ParseProtobuf(reinterpret_cast<uint8_t*>(exprs_bytes), exprs_len, &exprs)) {
     env->ReleaseByteArrayElements(exprs_arr, exprs_bytes, JNI_ABORT);
     return arrow::Status::UnknownError("Unable to parse");
   }
@@ -198,8 +194,7 @@ arrow::Status MakeExprVector(JNIEnv* env, jbyteArray exprs_arr,
 
     if (root == nullptr) {
       env->ReleaseByteArrayElements(exprs_arr, exprs_bytes, JNI_ABORT);
-      return arrow::Status::UnknownError(
-          "Unable to construct expression object");
+      return arrow::Status::UnknownError("Unable to construct expression object");
     }
 
     expr_vector->push_back(root);
@@ -209,13 +204,11 @@ arrow::Status MakeExprVector(JNIEnv* env, jbyteArray exprs_arr,
   return arrow::Status::OK();
 }
 
-jbyteArray ToSchemaByteArray(JNIEnv* env,
-                             std::shared_ptr<arrow::Schema> schema) {
+jbyteArray ToSchemaByteArray(JNIEnv* env, std::shared_ptr<arrow::Schema> schema) {
   arrow::Status status;
   // std::shared_ptr<arrow::Buffer> buffer;
   arrow::Result<std::shared_ptr<arrow::Buffer>> maybe_buffer;
-  maybe_buffer =
-      arrow::ipc::SerializeSchema(*schema.get(), arrow::default_memory_pool());
+  maybe_buffer = arrow::ipc::SerializeSchema(*schema.get(), arrow::default_memory_pool());
   if (!status.ok()) {
     std::string error_message =
         "Unable to convert schema to byte array, err is " + status.message();
@@ -233,8 +226,8 @@ arrow::Result<arrow::Compression::type> GetCompressionType(JNIEnv* env,
   auto codec_l = env->GetStringUTFChars(codec_jstr, JNI_FALSE);
 
   std::string codec_u;
-  std::transform(codec_l, codec_l + std::strlen(codec_l),
-                 std::back_inserter(codec_u), ::tolower);
+  std::transform(codec_l, codec_l + std::strlen(codec_l), std::back_inserter(codec_u),
+                 ::tolower);
 
   ARROW_ASSIGN_OR_RAISE(auto compression_type,
                         arrow::util::Codec::GetCompressionType(codec_u));
@@ -247,21 +240,19 @@ arrow::Result<arrow::Compression::type> GetCompressionType(JNIEnv* env,
 }
 
 Status DecompressBuffer(const arrow::Buffer& buffer, arrow::util::Codec* codec,
-                        std::shared_ptr<arrow::Buffer>* out,
-                        arrow::MemoryPool* pool) {
+                        std::shared_ptr<arrow::Buffer>* out, arrow::MemoryPool* pool) {
   const uint8_t* data = buffer.data();
   int64_t compressed_size = buffer.size() - sizeof(int64_t);
   int64_t uncompressed_size =
       arrow::BitUtil::FromLittleEndian(arrow::util::SafeLoadAs<int64_t>(data));
 
-  ARROW_ASSIGN_OR_RAISE(auto uncompressed,
-                        AllocateBuffer(uncompressed_size, pool));
+  ARROW_ASSIGN_OR_RAISE(auto uncompressed, AllocateBuffer(uncompressed_size, pool));
 
   int64_t actual_decompressed;
   ARROW_ASSIGN_OR_RAISE(
       actual_decompressed,
-      codec->Decompress(compressed_size, data + sizeof(int64_t),
-                        uncompressed_size, uncompressed->mutable_data()));
+      codec->Decompress(compressed_size, data + sizeof(int64_t), uncompressed_size,
+                        uncompressed->mutable_data()));
   if (actual_decompressed != uncompressed_size) {
     return Status::Invalid("Failed to fully decompress buffer, expected ",
                            uncompressed_size, " bytes but decompressed ",
@@ -272,19 +263,15 @@ Status DecompressBuffer(const arrow::Buffer& buffer, arrow::util::Codec* codec,
 }
 
 Status DecompressBuffersByType(
-    arrow::Compression::type compression,
-    const arrow::ipc::IpcReadOptions& options, const uint8_t* buf_mask,
-    std::vector<std::shared_ptr<arrow::Buffer>>& buffers,
+    arrow::Compression::type compression, const arrow::ipc::IpcReadOptions& options,
+    const uint8_t* buf_mask, std::vector<std::shared_ptr<arrow::Buffer>>& buffers,
     const std::vector<std::shared_ptr<arrow::Field>>& schema_fields) {
   std::unique_ptr<arrow::util::Codec> codec;
   std::unique_ptr<arrow::util::Codec> int32_codec;
   std::unique_ptr<arrow::util::Codec> int64_codec;
-  ARROW_ASSIGN_OR_RAISE(
-      codec, arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
-  ARROW_ASSIGN_OR_RAISE(int32_codec,
-                        arrow::util::Codec::CreateInt32(compression));
-  ARROW_ASSIGN_OR_RAISE(int64_codec,
-                        arrow::util::Codec::CreateInt64(compression));
+  ARROW_ASSIGN_OR_RAISE(codec, arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+  ARROW_ASSIGN_OR_RAISE(int32_codec, arrow::util::Codec::CreateInt32(compression));
+  ARROW_ASSIGN_OR_RAISE(int64_codec, arrow::util::Codec::CreateInt64(compression));
 
   int32_t buffer_idx = 0;
   for (const auto& field : schema_fields) {
@@ -308,8 +295,7 @@ Status DecompressBuffersByType(
       }
       switch (layout.kind) {
         case arrow::DataTypeLayout::BufferKind::FIXED_WIDTH:
-          if (layout.byte_width == 4 &&
-              field->type()->id() != arrow::Type::FLOAT) {
+          if (layout.byte_width == 4 && field->type()->id() != arrow::Type::FLOAT) {
             RETURN_NOT_OK(DecompressBuffer(*buffer, int32_codec.get(), &buffer,
                                            options.memory_pool));
           } else if (layout.byte_width == 8 &&
@@ -317,14 +303,14 @@ Status DecompressBuffersByType(
             RETURN_NOT_OK(DecompressBuffer(*buffer, int64_codec.get(), &buffer,
                                            options.memory_pool));
           } else {
-            RETURN_NOT_OK(DecompressBuffer(*buffer, codec.get(), &buffer,
-                                           options.memory_pool));
+            RETURN_NOT_OK(
+                DecompressBuffer(*buffer, codec.get(), &buffer, options.memory_pool));
           }
           break;
         case arrow::DataTypeLayout::BufferKind::BITMAP:
         case arrow::DataTypeLayout::BufferKind::VARIABLE_WIDTH: {
-          RETURN_NOT_OK(DecompressBuffer(*buffer, codec.get(), &buffer,
-                                         options.memory_pool));
+          RETURN_NOT_OK(
+              DecompressBuffer(*buffer, codec.get(), &buffer, options.memory_pool));
           break;
         }
         case arrow::DataTypeLayout::BufferKind::ALWAYS_NULL:
@@ -339,13 +325,12 @@ Status DecompressBuffersByType(
 }
 
 arrow::Status DecompressBuffers(
-    arrow::Compression::type compression,
-    const arrow::ipc::IpcReadOptions& options, const uint8_t* buf_mask,
-    std::vector<std::shared_ptr<arrow::Buffer>>& buffers,
+    arrow::Compression::type compression, const arrow::ipc::IpcReadOptions& options,
+    const uint8_t* buf_mask, std::vector<std::shared_ptr<arrow::Buffer>>& buffers,
     const std::vector<std::shared_ptr<arrow::Field>>& schema_fields) {
   if (compression == arrow::Compression::FASTPFOR) {
-    RETURN_NOT_OK(DecompressBuffersByType(compression, options, buf_mask,
-                                          buffers, schema_fields));
+    RETURN_NOT_OK(
+        DecompressBuffersByType(compression, options, buf_mask, buffers, schema_fields));
     return arrow::Status::OK();
   }
 
@@ -366,8 +351,8 @@ arrow::Status DecompressBuffers(
           "Likely corrupted message, compressed buffers "
           "are larger than 8 bytes by construction");
     }
-    RETURN_NOT_OK(DecompressBuffer(*buffers[i], codec.get(), &buffers[i],
-                                   options.memory_pool));
+    RETURN_NOT_OK(
+        DecompressBuffer(*buffers[i], codec.get(), &buffers[i], options.memory_pool));
     return arrow::Status::OK();
   };
 

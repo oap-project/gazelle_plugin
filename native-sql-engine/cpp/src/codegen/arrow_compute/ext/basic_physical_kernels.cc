@@ -47,8 +47,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  Project  ////////////////
 class ProjectKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& input_field_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& input_field_node_list,
        const gandiva::NodeVector& project_list)
       : ctx_(ctx), project_list_(project_list) {
     for (auto node : input_field_node_list) {
@@ -67,8 +66,7 @@ class ProjectKernel::Impl {
 
   arrow::Status DoCodeGen(
       int level,
-      std::vector<
-          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
@@ -78,28 +76,25 @@ class ProjectKernel::Impl {
       std::vector<std::string> input_list;
       std::vector<int> indices_list;
       auto is_local = false;
-      RETURN_NOT_OK(MakeExpressionCodegenVisitor(
-          project, &input, {input_field_list_}, -1, var_id, is_local,
-          &input_list, &project_node_visitor));
+      RETURN_NOT_OK(MakeExpressionCodegenVisitor(project, &input, {input_field_list_}, -1,
+                                                 var_id, is_local, &input_list,
+                                                 &project_node_visitor));
       codegen_ctx->process_codes += project_node_visitor->GetPrepare();
       auto name = project_node_visitor->GetResult();
       auto validity = project_node_visitor->GetPreCheck();
 
-      auto output_name = "project_" + std::to_string(level) + "_output_col_" +
-                         std::to_string(idx++);
+      auto output_name =
+          "project_" + std::to_string(level) + "_output_col_" + std::to_string(idx++);
       auto output_validity = output_name + "_validity";
       std::stringstream output_get_ss;
-      output_get_ss << "auto " << output_name << " = " << name << ";"
-                    << std::endl;
+      output_get_ss << "auto " << output_name << " = " << name << ";" << std::endl;
       output_get_ss << "auto " << output_validity << " = " << validity << ";"
                     << std::endl;
 
-      codegen_ctx->output_list.push_back(
-          std::make_pair(std::make_pair(output_name, output_get_ss.str()),
-                         project->return_type()));
+      codegen_ctx->output_list.push_back(std::make_pair(
+          std::make_pair(output_name, output_get_ss.str()), project->return_type()));
       for (auto header : project_node_visitor->GetHeaders()) {
-        if (std::find(codegen_ctx->header_codes.begin(),
-                      codegen_ctx->header_codes.end(),
+        if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                       header) == codegen_ctx->header_codes.end()) {
           codegen_ctx->header_codes.push_back(header);
         }
@@ -117,12 +112,11 @@ class ProjectKernel::Impl {
   gandiva::FieldVector input_field_list_;
 };
 
-arrow::Status ProjectKernel::Make(
-    arrow::compute::ExecContext* ctx,
-    const gandiva::NodeVector& input_field_node_list,
-    const gandiva::NodeVector& project_list, std::shared_ptr<KernalBase>* out) {
-  *out =
-      std::make_shared<ProjectKernel>(ctx, input_field_node_list, project_list);
+arrow::Status ProjectKernel::Make(arrow::compute::ExecContext* ctx,
+                                  const gandiva::NodeVector& input_field_node_list,
+                                  const gandiva::NodeVector& project_list,
+                                  std::shared_ptr<KernalBase>* out) {
+  *out = std::make_shared<ProjectKernel>(ctx, input_field_node_list, project_list);
   return arrow::Status::OK();
 }
 
@@ -143,8 +137,7 @@ std::string ProjectKernel::GetSignature() { return impl_->GetSignature(); }
 
 arrow::Status ProjectKernel::DoCodeGen(
     int level,
-    std::vector<
-        std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
         input,
     std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) {
   return impl_->DoCodeGen(level, input, codegen_ctx, var_id);
@@ -153,8 +146,7 @@ arrow::Status ProjectKernel::DoCodeGen(
 ///////////////  Filter  ////////////////
 class FilterKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& input_field_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& input_field_node_list,
        const gandiva::NodePtr& condition)
       : ctx_(ctx), condition_(condition) {
     for (auto node : input_field_node_list) {
@@ -173,8 +165,7 @@ class FilterKernel::Impl {
 
   arrow::Status DoCodeGen(
       int level,
-      std::vector<
-          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
@@ -182,13 +173,12 @@ class FilterKernel::Impl {
     std::vector<std::string> input_list;
     std::vector<int> indices_list;
     auto is_local = false;
-    RETURN_NOT_OK(MakeExpressionCodegenVisitor(
-        condition_, &input, {input_field_list_}, -1, var_id, is_local,
-        &input_list, &condition_node_visitor));
+    RETURN_NOT_OK(MakeExpressionCodegenVisitor(condition_, &input, {input_field_list_},
+                                               -1, var_id, is_local, &input_list,
+                                               &condition_node_visitor));
     codegen_ctx->process_codes += condition_node_visitor->GetPrepare();
     for (auto header : condition_node_visitor->GetHeaders()) {
-      if (std::find(codegen_ctx->header_codes.begin(),
-                    codegen_ctx->header_codes.end(),
+      if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                     header) == codegen_ctx->header_codes.end()) {
         codegen_ctx->header_codes.push_back(header);
       }
@@ -201,9 +191,9 @@ class FilterKernel::Impl {
     process_ss << "}" << std::endl;
     int idx = 0;
     for (auto field : input_field_list_) {
-      codegen_ctx->output_list.push_back(std::make_pair(
-          std::make_pair(input[idx].first.first, input[idx].first.second),
-          field->type()));
+      codegen_ctx->output_list.push_back(
+          std::make_pair(std::make_pair(input[idx].first.first, input[idx].first.second),
+                         field->type()));
       idx++;
     }
     codegen_ctx->process_codes += process_ss.str();
@@ -221,10 +211,10 @@ class FilterKernel::Impl {
   gandiva::FieldVector input_field_list_;
 };
 
-arrow::Status FilterKernel::Make(
-    arrow::compute::ExecContext* ctx,
-    const gandiva::NodeVector& input_field_node_list,
-    const gandiva::NodePtr& condition, std::shared_ptr<KernalBase>* out) {
+arrow::Status FilterKernel::Make(arrow::compute::ExecContext* ctx,
+                                 const gandiva::NodeVector& input_field_node_list,
+                                 const gandiva::NodePtr& condition,
+                                 std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<FilterKernel>(ctx, input_field_node_list, condition);
   return arrow::Status::OK();
 }
@@ -246,8 +236,7 @@ std::string FilterKernel::GetSignature() { return impl_->GetSignature(); }
 
 arrow::Status FilterKernel::DoCodeGen(
     int level,
-    std::vector<
-        std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
         input,
     std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) {
   return impl_->DoCodeGen(level, input, codegen_ctx, var_id);

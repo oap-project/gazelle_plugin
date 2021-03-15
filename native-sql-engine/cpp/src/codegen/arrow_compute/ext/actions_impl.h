@@ -45,10 +45,9 @@ class ActionBase {
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
                                std::function<arrow::Status(int)>* on_valid,
                                std::function<arrow::Status()>* on_null);
-  virtual arrow::Status Submit(
-      std::vector<std::shared_ptr<arrow::Array>> in,
-      std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
-      std::function<arrow::Status()>* on_null);
+  virtual arrow::Status Submit(std::vector<std::shared_ptr<arrow::Array>> in,
+                               std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
+                               std::function<arrow::Status()>* on_null);
   virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
                                std::stringstream* ss,
                                std::function<arrow::Status(int)>* out);
@@ -64,8 +63,7 @@ class ActionBase {
                                  void* data3);
   virtual arrow::Status EvaluateNull(int dest_group_id);
   virtual arrow::Status Finish(ArrayList* out);
-  virtual arrow::Status Finish(uint64_t offset, uint64_t length,
-                               ArrayList* out);
+  virtual arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out);
   virtual arrow::Status FinishAndReset(ArrayList* out);
   virtual uint64_t GetResultLength();
 };
@@ -75,35 +73,34 @@ arrow::Status MakeUniqueAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeCountAction(
-    arrow::compute::ExecContext* ctx,
-    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+arrow::Status MakeCountAction(arrow::compute::ExecContext* ctx,
+                              std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+                              std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeCountLiteralAction(
     arrow::compute::ExecContext* ctx, int arg,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeSumAction(
-    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
+                            std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+                            std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeAvgAction(
-    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
+                            std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+                            std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeMinAction(
-    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
+                            std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+                            std::shared_ptr<ActionBase>* out);
 
-arrow::Status MakeMaxAction(
-    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
+                            std::shared_ptr<arrow::DataType> type,
+                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+                            std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeSumCountAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,

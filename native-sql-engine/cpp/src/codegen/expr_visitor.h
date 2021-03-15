@@ -32,9 +32,8 @@ class ExprVisitor : public VisitorBase {
  public:
   ExprVisitor() {}
 
-  arrow::Status create(
-      std::vector<std::shared_ptr<gandiva::Expression>> exprs_vector,
-      int* out) {
+  arrow::Status create(std::vector<std::shared_ptr<gandiva::Expression>> exprs_vector,
+                       int* out) {
     arrow::Status status = arrow::Status::OK();
     for (auto expr : exprs_vector) {
       status = expr->root()->Accept(*this);

@@ -30,20 +30,17 @@ template <typename T>
 using is_int64 = std::is_same<int64_t, T>;
 
 template <typename T>
-using enable_if_int64 =
-    typename std::enable_if<is_int64<T>::value, int32_t>::type;
+using enable_if_int64 = typename std::enable_if<is_int64<T>::value, int32_t>::type;
 
 template <typename T>
 using is_string = std::is_same<std::string, T>;
 
 template <typename T>
-using enable_if_string =
-    typename std::enable_if<is_string<T>::value, int32_t>::type;
+using enable_if_string = typename std::enable_if<is_string<T>::value, int32_t>::type;
 
 template <typename T>
 using enable_if_decimal =
-    typename std::enable_if<std::is_same<T, arrow::Decimal128>::value,
-                            int32_t>::type;
+    typename std::enable_if<std::is_same<T, arrow::Decimal128>::value, int32_t>::type;
 template <typename T>
 using is_string_or_decimal =
     std::integral_constant<bool, is_string<T>::value ||
@@ -119,9 +116,9 @@ inline enable_if_string<T> hash32(T val, bool validity, int32_t seed) {
   const int64_t c2 = 0x1b873593ull;
   const int64_t UINT_MASK = 0xffffffffull;
   int64_t lh1 = seed;
-  const int32_t *blocks = reinterpret_cast<const int32_t *>(key);
+  const int32_t* blocks = reinterpret_cast<const int32_t*>(key);
   int nblocks = len / 4;
-  const uint8_t *tail = reinterpret_cast<const uint8_t *>(key + nblocks * 4);
+  const uint8_t* tail = reinterpret_cast<const uint8_t*>(key + nblocks * 4);
   for (int i = 0; i < nblocks; i++) {
     int64_t lk1 = static_cast<int64_t>(blocks[i]);
 
@@ -190,9 +187,9 @@ inline enable_if_decimal<T> hash32(T val, bool validity, int32_t seed) {
   const int64_t c2 = 0x1b873593ull;
   const int64_t UINT_MASK = 0xffffffffull;
   int64_t lh1 = seed;
-  const int32_t *blocks = reinterpret_cast<const int32_t *>(key);
+  const int32_t* blocks = reinterpret_cast<const int32_t*>(key);
   int nblocks = len / 4;
-  const uint8_t *tail = reinterpret_cast<const uint8_t *>(key + nblocks * 4);
+  const uint8_t* tail = reinterpret_cast<const uint8_t*>(key + nblocks * 4);
   for (int i = 0; i < nblocks; i++) {
     int64_t lk1 = static_cast<int64_t>(blocks[i]);
 
@@ -258,10 +255,8 @@ inline int64_t double_to_long_bits(double value) {
 }
 
 template <typename T>
-inline enable_if_not_string_or_decimal<T> hash32(T in, bool validity,
-                                                 int32_t seed) {
-  return validity ? hash32(double_to_long_bits(static_cast<double>(in)), seed)
-                  : seed;
+inline enable_if_not_string_or_decimal<T> hash32(T in, bool validity, int32_t seed) {
+  return validity ? hash32(double_to_long_bits(static_cast<double>(in)), seed) : seed;
 }
 
 template <typename T>

@@ -34,8 +34,8 @@ struct CodeGenContext {
   std::string aggregate_finish_condition_codes;
   std::string aggregate_finish_codes;
   std::vector<std::string> function_list;
-  std::vector<std::pair<std::pair<std::string, std::string>,
-                        std::shared_ptr<arrow::DataType>>>
+  std::vector<
+      std::pair<std::pair<std::string, std::string>, std::shared_ptr<arrow::DataType>>>
       output_list;
   std::shared_ptr<GandivaProjector> gandiva_projector;
 };

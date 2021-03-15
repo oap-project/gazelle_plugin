@@ -32,8 +32,7 @@ template <typename T>
 T round2(T val, int precision = 2) {
   int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)precision, val);
   char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
-  snprintf(buffer, charsNeeded, "%.*f", (int)precision,
-           nextafter(val, val + 0.5));
+  snprintf(buffer, charsNeeded, "%.*f", (int)precision, nextafter(val, val + 0.5));
   double result = atof(buffer);
   free(buffer);
   return static_cast<T>(result);
@@ -65,35 +64,32 @@ arrow::Decimal128 castDECIMAL(arrow::Decimal128 in, int32_t original_precision,
                               int32_t new_scale) {
   bool overflow = false;
   gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
-  auto out =
-      gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
+  auto out = gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
   if (overflow) {
     throw std::overflow_error("castDECIMAL overflowed!");
   }
   return arrow::Decimal128(out);
 }
 
-arrow::Decimal128 castDECIMALNullOnOverflow(
-    arrow::Decimal128 in, int32_t original_precision, int32_t original_scale,
-    int32_t new_precision, int32_t new_scale, bool* overflow_) {
+arrow::Decimal128 castDECIMALNullOnOverflow(arrow::Decimal128 in,
+                                            int32_t original_precision,
+                                            int32_t original_scale, int32_t new_precision,
+                                            int32_t new_scale, bool* overflow_) {
   bool overflow = false;
   gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
-  auto out =
-      gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
+  auto out = gandiva::decimalops::Convert(val, new_precision, new_scale, &overflow);
   if (overflow) {
     *overflow_ = true;
   }
   return arrow::Decimal128(out);
 }
 
-arrow::Decimal128 add(arrow::Decimal128 left, int32_t left_precision,
-                      int32_t left_scale, arrow::Decimal128 right,
-                      int32_t right_precision, int32_t right_scale,
-                      int32_t out_precision, int32_t out_scale) {
+arrow::Decimal128 add(arrow::Decimal128 left, int32_t left_precision, int32_t left_scale,
+                      arrow::Decimal128 right, int32_t right_precision,
+                      int32_t right_scale, int32_t out_precision, int32_t out_scale) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
-  arrow::BasicDecimal128 out =
-      gandiva::decimalops::Add(x, y, out_precision, out_scale);
+  arrow::BasicDecimal128 out = gandiva::decimalops::Add(x, y, out_precision, out_scale);
   return arrow::Decimal128(out);
 }
 
@@ -111,8 +107,7 @@ arrow::Decimal128 subtract(arrow::Decimal128 left, int32_t left_precision,
 arrow::Decimal128 multiply(arrow::Decimal128 left, int32_t left_precision,
                            int32_t left_scale, arrow::Decimal128 right,
                            int32_t right_precision, int32_t right_scale,
-                           int32_t out_precision, int32_t out_scale,
-                           bool* overflow_) {
+                           int32_t out_precision, int32_t out_scale, bool* overflow_) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
   bool overflow = false;
@@ -127,8 +122,7 @@ arrow::Decimal128 multiply(arrow::Decimal128 left, int32_t left_precision,
 arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
                          int32_t left_scale, arrow::Decimal128 right,
                          int32_t right_precision, int32_t right_scale,
-                         int32_t out_precision, int32_t out_scale,
-                         bool* overflow_) {
+                         int32_t out_precision, int32_t out_scale, bool* overflow_) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
   bool overflow = false;

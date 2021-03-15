@@ -124,8 +124,7 @@ typedef enum { XXH_OK = 0, XXH_ERROR } XXH_errorcode;
 #define XXH_PUBLIC_API static
 #endif
 #else
-#if defined(WIN32) && defined(_MSC_VER) && \
-    (defined(XXH_IMPORT) || defined(XXH_EXPORT))
+#if defined(WIN32) && defined(_MSC_VER) && (defined(XXH_IMPORT) || defined(XXH_EXPORT))
 #ifdef XXH_EXPORT
 #define XXH_PUBLIC_API __declspec(dllexport)
 #elif XXH_IMPORT
@@ -161,10 +160,8 @@ typedef enum { XXH_OK = 0, XXH_ERROR } XXH_errorcode;
 #define XXH32_update XXH_NAME2(XXH_NAMESPACE, XXH32_update)
 #define XXH32_digest XXH_NAME2(XXH_NAMESPACE, XXH32_digest)
 #define XXH32_copyState XXH_NAME2(XXH_NAMESPACE, XXH32_copyState)
-#define XXH32_canonicalFromHash \
-  XXH_NAME2(XXH_NAMESPACE, XXH32_canonicalFromHash)
-#define XXH32_hashFromCanonical \
-  XXH_NAME2(XXH_NAMESPACE, XXH32_hashFromCanonical)
+#define XXH32_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH32_canonicalFromHash)
+#define XXH32_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH32_hashFromCanonical)
 #define XXH64 XXH_NAME2(XXH_NAMESPACE, XXH64)
 #define XXH64_createState XXH_NAME2(XXH_NAMESPACE, XXH64_createState)
 #define XXH64_freeState XXH_NAME2(XXH_NAMESPACE, XXH64_freeState)
@@ -172,10 +169,8 @@ typedef enum { XXH_OK = 0, XXH_ERROR } XXH_errorcode;
 #define XXH64_update XXH_NAME2(XXH_NAMESPACE, XXH64_update)
 #define XXH64_digest XXH_NAME2(XXH_NAMESPACE, XXH64_digest)
 #define XXH64_copyState XXH_NAME2(XXH_NAMESPACE, XXH64_copyState)
-#define XXH64_canonicalFromHash \
-  XXH_NAME2(XXH_NAMESPACE, XXH64_canonicalFromHash)
-#define XXH64_hashFromCanonical \
-  XXH_NAME2(XXH_NAMESPACE, XXH64_hashFromCanonical)
+#define XXH64_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH64_canonicalFromHash)
+#define XXH64_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH64_hashFromCanonical)
 #endif
 
 /* *************************************
@@ -184,9 +179,8 @@ typedef enum { XXH_OK = 0, XXH_ERROR } XXH_errorcode;
 #define XXH_VERSION_MAJOR 0
 #define XXH_VERSION_MINOR 7
 #define XXH_VERSION_RELEASE 1
-#define XXH_VERSION_NUMBER                                   \
-  (XXH_VERSION_MAJOR * 100 * 100 + XXH_VERSION_MINOR * 100 + \
-   XXH_VERSION_RELEASE)
+#define XXH_VERSION_NUMBER \
+  (XXH_VERSION_MAJOR * 100 * 100 + XXH_VERSION_MINOR * 100 + XXH_VERSION_RELEASE)
 XXH_PUBLIC_API unsigned XXH_versionNumber(void);
 
 /*-**********************************************************************
@@ -208,8 +202,7 @@ typedef unsigned int XXH32_hash_t;
    predictably.
     Speed on Core 2 Duo @ 3 GHz (single thread, SMHasher benchmark) : 5.4 GB/s
  */
-XXH_PUBLIC_API XXH32_hash_t XXH32(const void* input, size_t length,
-                                  unsigned int seed);
+XXH_PUBLIC_API XXH32_hash_t XXH32(const void* input, size_t length, unsigned int seed);
 
 /*======   Streaming   ======*/
 typedef struct XXH32_state_s XXH32_state_t; /* incomplete type */
@@ -218,10 +211,9 @@ XXH_PUBLIC_API XXH_errorcode XXH32_freeState(XXH32_state_t* statePtr);
 XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dst_state,
                                     const XXH32_state_t* src_state);
 
-XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr,
-                                         unsigned int seed);
-XXH_PUBLIC_API XXH_errorcode XXH32_update(XXH32_state_t* statePtr,
-                                          const void* input, size_t length);
+XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int seed);
+XXH_PUBLIC_API XXH_errorcode XXH32_update(XXH32_state_t* statePtr, const void* input,
+                                          size_t length);
 XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* statePtr);
 
 /*
@@ -253,10 +245,8 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_digest(const XXH32_state_t* statePtr);
 typedef struct {
   unsigned char digest[4];
 } XXH32_canonical_t;
-XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst,
-                                            XXH32_hash_t hash);
-XXH_PUBLIC_API XXH32_hash_t
-XXH32_hashFromCanonical(const XXH32_canonical_t* src);
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash);
+XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src);
 
 /* Default result type for XXH functions are primitive unsigned 32 and 64 bits.
  * The canonical representation uses human-readable write convention, aka
@@ -297,18 +287,16 @@ XXH_PUBLIC_API void XXH64_copyState(XXH64_state_t* dst_state,
 
 XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr,
                                          unsigned long long seed);
-XXH_PUBLIC_API XXH_errorcode XXH64_update(XXH64_state_t* statePtr,
-                                          const void* input, size_t length);
+XXH_PUBLIC_API XXH_errorcode XXH64_update(XXH64_state_t* statePtr, const void* input,
+                                          size_t length);
 XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* statePtr);
 
 /*======   Canonical representation   ======*/
 typedef struct {
   unsigned char digest[8];
 } XXH64_canonical_t;
-XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst,
-                                            XXH64_hash_t hash);
-XXH_PUBLIC_API XXH64_hash_t
-XXH64_hashFromCanonical(const XXH64_canonical_t* src);
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash);
+XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src);
 
 #endif /* XXH_NO_LONG_LONG */
 
@@ -335,9 +323,8 @@ struct XXH32_state_s {
   XXH32_hash_t v4;
   XXH32_hash_t mem32[4];
   XXH32_hash_t memsize;
-  XXH32_hash_t
-      reserved; /* never read nor write, might be removed in a future version */
-};              /* typedef'd to XXH32_state_t */
+  XXH32_hash_t reserved; /* never read nor write, might be removed in a future version */
+};                       /* typedef'd to XXH32_state_t */
 
 #ifndef XXH_NO_LONG_LONG /* remove 64-bit support */
 struct XXH64_state_s {
@@ -424,8 +411,7 @@ struct XXH64_state_s {
 #define XXH3_copyState XXH_NAME2(XXH_NAMESPACE, XXH3_copyState)
 
 #define XXH3_64bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset)
-#define XXH3_64bits_reset_withSeed \
-  XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
+#define XXH3_64bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSeed)
 #define XXH3_64bits_reset_withSecret \
   XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_reset_withSecret)
 #define XXH3_64bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_64bits_update)
@@ -447,8 +433,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits(const void* data, size_t len);
  */
 #define XXH3_SECRET_SIZE_MIN 136
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_withSecret(const void* data, size_t len,
-                                                   const void* secret,
-                                                   size_t secretSize);
+                                                   const void* secret, size_t secretSize);
 
 /* XXH3_64bits_withSeed() :
  * This variant generates on the fly a custom secret,
@@ -518,11 +503,11 @@ XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSeed(XXH3_state_t* statePtr,
  * `secret` is referenced, and must outlive the hash streaming session.
  * secretSize must be >= XXH3_SECRET_SIZE_MIN.
  */
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(
-    XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_reset_withSecret(XXH3_state_t* statePtr,
+                                                          const void* secret,
+                                                          size_t secretSize);
 
-XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update(XXH3_state_t* statePtr,
-                                                const void* input,
+XXH_PUBLIC_API XXH_errorcode XXH3_64bits_update(XXH3_state_t* statePtr, const void* input,
                                                 size_t length);
 XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest(const XXH3_state_t* statePtr);
 
@@ -532,12 +517,10 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest(const XXH3_state_t* statePtr);
 #define XXH128 XXH_NAME2(XXH_NAMESPACE, XXH128)
 #define XXH3_128bits XXH_NAME2(XXH_NAMESPACE, XXH3_128bits)
 #define XXH3_128bits_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSeed)
-#define XXH3_128bits_withSecret \
-  XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
+#define XXH3_128bits_withSecret XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_withSecret)
 
 #define XXH3_128bits_reset XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset)
-#define XXH3_128bits_reset_withSeed \
-  XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
+#define XXH3_128bits_reset_withSeed XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSeed)
 #define XXH3_128bits_reset_withSecret \
   XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_reset_withSecret)
 #define XXH3_128bits_update XXH_NAME2(XXH_NAMESPACE, XXH3_128bits_update)
@@ -545,10 +528,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH3_64bits_digest(const XXH3_state_t* statePtr);
 
 #define XXH128_isEqual XXH_NAME2(XXH_NAMESPACE, XXH128_isEqual)
 #define XXH128_cmp XXH_NAME2(XXH_NAMESPACE, XXH128_cmp)
-#define XXH128_canonicalFromHash \
-  XXH_NAME2(XXH_NAMESPACE, XXH128_canonicalFromHash)
-#define XXH128_hashFromCanonical \
-  XXH_NAME2(XXH_NAMESPACE, XXH128_hashFromCanonical)
+#define XXH128_canonicalFromHash XXH_NAME2(XXH_NAMESPACE, XXH128_canonicalFromHash)
+#define XXH128_hashFromCanonical XXH_NAME2(XXH_NAMESPACE, XXH128_hashFromCanonical)
 #endif
 
 typedef struct {
@@ -556,25 +537,23 @@ typedef struct {
   XXH64_hash_t high64;
 } XXH128_hash_t;
 
-XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len,
-                                    XXH64_hash_t seed);
+XXH_PUBLIC_API XXH128_hash_t XXH128(const void* data, size_t len, XXH64_hash_t seed);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits(const void* data, size_t len);
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(
-    const void* data, size_t len, XXH64_hash_t seed); /* == XXH128() */
-XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret(const void* data,
-                                                     size_t len,
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSeed(const void* data, size_t len,
+                                                   XXH64_hash_t seed); /* == XXH128() */
+XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_withSecret(const void* data, size_t len,
                                                      const void* secret,
                                                      size_t secretSize);
 
 XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset(XXH3_state_t* statePtr);
 XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSeed(XXH3_state_t* statePtr,
                                                          XXH64_hash_t seed);
-XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(
-    XXH3_state_t* statePtr, const void* secret, size_t secretSize);
+XXH_PUBLIC_API XXH_errorcode XXH3_128bits_reset_withSecret(XXH3_state_t* statePtr,
+                                                           const void* secret,
+                                                           size_t secretSize);
 
 XXH_PUBLIC_API XXH_errorcode XXH3_128bits_update(XXH3_state_t* statePtr,
-                                                 const void* input,
-                                                 size_t length);
+                                                 const void* input, size_t length);
 XXH_PUBLIC_API XXH128_hash_t XXH3_128bits_digest(const XXH3_state_t* statePtr);
 
 /* Note : for better performance, following functions should be inlined,
@@ -593,10 +572,8 @@ XXH_PUBLIC_API int XXH128_cmp(const void* h128_1, const void* h128_2);
 typedef struct {
   unsigned char digest[16];
 } XXH128_canonical_t;
-XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst,
-                                             XXH128_hash_t hash);
-XXH_PUBLIC_API XXH128_hash_t
-XXH128_hashFromCanonical(const XXH128_canonical_t* src);
+XXH_PUBLIC_API void XXH128_canonicalFromHash(XXH128_canonical_t* dst, XXH128_hash_t hash);
+XXH_PUBLIC_API XXH128_hash_t XXH128_hashFromCanonical(const XXH128_canonical_t* src);
 
 #endif /* XXH_NO_LONG_LONG */
 

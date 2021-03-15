@@ -99,10 +99,9 @@ static uint32_t inline lookupEmptySlot(MemStat* memstat) {
 
     cnt++;
     if (cnt >= MEM_ALLOC_RECORD_BUF_SIZE) {
-      fprintf(
-          stdout,
-          "alloc item buffer full, too many memory alloc,  resize the allocs "
-          "buffer!!!\n");
+      fprintf(stdout,
+              "alloc item buffer full, too many memory alloc,  resize the allocs "
+              "buffer!!!\n");
       fflush(stdout);
       assert(0);
     }
@@ -120,8 +119,7 @@ static uint32_t inline lookupAllocedSlot(MemStat* memstat, uint64_t addr) {
     cur++;
   }
 
-  fprintf(stdout,
-          "the addrs is not record in this buffer or freeed. addr:%ld\n", addr);
+  fprintf(stdout, "the addrs is not record in this buffer or freeed. addr:%ld\n", addr);
   fflush(stdout);
   assert(0);
   return 0;
@@ -141,9 +139,8 @@ static void inline statMalloc(MemStat* memstat, uint64_t addr, uint32_t size,
   // fflush(stdout);
 }
 
-static void inline statRealloc(MemStat* memstat, uint64_t oldaddr,
-                               uint64_t newaddr, uint32_t newsize,
-                               uint32_t id) {
+static void inline statRealloc(MemStat* memstat, uint64_t oldaddr, uint64_t newaddr,
+                               uint32_t newsize, uint32_t id) {
   if (newaddr == 0 || newsize <= 0) return;
   if (oldaddr == 0) {  // insert a new
     // fprintf(stdout, "realloc-> alloc: %ld ",oldaddr);
@@ -178,12 +175,10 @@ static void inline dumpAllocs(MemStat* memstat) {
   for (i = 0; i < 10; i++) {
     if (memstat->allocs[i].needfree)
       fprintf(stdout, "addr:%llx size:%d id:%d flag:%d\n",
-              (long long unsigned int)memstat->allocs[i].addr,
-              memstat->allocs[i].size, memstat->allocs[i].id,
-              memstat->allocs[i].needfree);
+              (long long unsigned int)memstat->allocs[i].addr, memstat->allocs[i].size,
+              memstat->allocs[i].id, memstat->allocs[i].needfree);
   }
-  fprintf(stdout,
-          "--------------------- end ----------------------------------\n");
+  fprintf(stdout, "--------------------- end ----------------------------------\n");
   fflush(stdout);
 }
 static uint64_t inline sumNonFreedSize(MemStat* memstat, uint32_t* notfreeCnt) {
@@ -201,8 +196,7 @@ static uint64_t inline sumNonFreedSize(MemStat* memstat, uint32_t* notfreeCnt) {
   return sum;
 }
 static void inline dumpMemstat() {
-  fprintf(stdout,
-          "\n--------------------summary-----------------------------------\n");
+  fprintf(stdout, "\n--------------------summary-----------------------------------\n");
   fprintf(stdout, "    allocCnt: %ld  freeCnt: %ld reallocCnt: %ld \n",
           gmemstat->allocCnt, gmemstat->freeCnt, gmemstat->reallocCnt);
   fprintf(stdout, "    createBatch: %ld  freeBatch: %ld \n",
@@ -210,10 +204,8 @@ static void inline dumpMemstat() {
   uint32_t notfreeCnt = 0;
   uint64_t sum;
   sum = sumNonFreedSize(gmemstat, &notfreeCnt);
-  fprintf(stdout, "    non-free-memory-size: %ld non-free-cnt: %d\n", sum,
-          notfreeCnt);
-  fprintf(stdout,
-          "--------------------- end ----------------------------------\n\n");
+  fprintf(stdout, "    non-free-memory-size: %ld non-free-cnt: %d\n", sum, notfreeCnt);
+  fprintf(stdout, "--------------------- end ----------------------------------\n\n");
   if (notfreeCnt > 0) {
     dumpAllocs(gmemstat);
   }
