@@ -21,6 +21,7 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReferences
+import org.apache.spark.sql.types.DecimalType
 object ColumnarExpressionConverter extends Logging {
 
   var check_if_no_calculation = true
@@ -245,12 +246,31 @@ object ColumnarExpressionConverter extends Logging {
           expr)
       case u: UnaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
-        ColumnarUnaryOperator.create(
-          replaceWithColumnarExpression(
-            u.child,
-            attributeSeq,
-            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-          expr)
+        if (!u.isInstanceOf[CheckOverflow] || !u.child.isInstanceOf[Divide]) {
+          ColumnarUnaryOperator.create(
+            replaceWithColumnarExpression(
+              u.child,
+              attributeSeq,
+              convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+            expr)
+        } else {
+          // CheckOverflow[Divide]: pass resType to Divide to avoid precision loss
+          val divide = u.child.asInstanceOf[Divide]
+          val columnarDivide = ColumnarBinaryArithmetic.createDivide(
+            replaceWithColumnarExpression(
+              divide.left,
+              attributeSeq,
+              convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+            replaceWithColumnarExpression(
+              divide.right,
+              attributeSeq,
+              convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+            divide,
+            u.dataType.asInstanceOf[DecimalType])
+          ColumnarUnaryOperator.create(
+            columnarDivide,
+            expr)
+        }
       case oaps: com.intel.oap.expression.ColumnarScalarSubquery =>
         oaps
       case s: org.apache.spark.sql.execution.ScalarSubquery =>
