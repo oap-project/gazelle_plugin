@@ -224,7 +224,8 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
   }
 }
 
-class ColumnarDivide(left: Expression, right: Expression, original: Expression)
+class ColumnarDivide(left: Expression, right: Expression,
+                     original: Expression, resType: DecimalType = null)
     extends Divide(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
@@ -237,8 +238,12 @@ class ColumnarDivide(left: Expression, right: Expression, original: Expression)
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
-        var resultType = DecimalTypeUtil.getResultTypeForOperation(
-          DecimalTypeUtil.OperationType.DIVIDE, l, r)
+        var resultType = if (resType != null) {
+          CodeGeneration.getResultType(resType)
+        } else {
+          DecimalTypeUtil.getResultTypeForOperation(
+            DecimalTypeUtil.OperationType.DIVIDE, l, r)
+        }
         val newLeftNode = left match {
           case literal: ColumnarLiteral =>
             val leftStr = literal.value.asInstanceOf[Decimal].toDouble.toString
@@ -369,6 +374,17 @@ object ColumnarBinaryArithmetic {
         new ColumnarBitwiseOr(left, right, o)
       case x: BitwiseXor =>
         new ColumnarBitwiseXor(left, right, x)
+      case other =>
+        throw new UnsupportedOperationException(s"not currently supported: $other.")
+    }
+  }
+
+  def createDivide(left: Expression, right: Expression,
+                   original: Expression, resType: DecimalType): Expression = {
+    buildCheck(left, right)
+    original match {
+      case d: Divide =>
+        new ColumnarDivide(left, right, d, resType)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
