@@ -44,7 +44,8 @@ class ResultIteratorBase {
   virtual arrow::Status ProcessAndCacheOne(
       const std::vector<std::shared_ptr<arrow::Array>>& in,
       const std::shared_ptr<arrow::Array>& selection = nullptr) {
-    return arrow::Status::NotImplemented("ResultIterator abstract ProcessAndCacheOne()");
+    return arrow::Status::NotImplemented(
+        "ResultIterator abstract ProcessAndCacheOne()");
   }
 };
 
@@ -59,19 +60,22 @@ class ResultIterator : public ResultIteratorBase {
     return arrow::Status::NotImplemented("ResultIterator abstract Next()");
   }
   virtual arrow::Status Process(
-      const std::vector<std::shared_ptr<arrow::Array>>& in, std::shared_ptr<T>* out,
+      const std::vector<std::shared_ptr<arrow::Array>>& in,
+      std::shared_ptr<T>* out,
       const std::shared_ptr<arrow::Array>& selection = nullptr) {
     return arrow::Status::NotImplemented("ResultIterator abstract Process()");
   }
   virtual arrow::Status Process(
       const std::vector<std::shared_ptr<arrow::Array>>& in,
       const std::vector<std::shared_ptr<arrow::Array>>& projected_in,
-      std::shared_ptr<T>* out, const std::shared_ptr<arrow::Array>& selection = nullptr) {
+      std::shared_ptr<T>* out,
+      const std::shared_ptr<arrow::Array>& selection = nullptr) {
     return arrow::Status::NotImplemented("ResultIterator abstract Process()");
   }
   virtual arrow::Status SetDependencies(
       const std::vector<std::shared_ptr<ResultIteratorBase>>&) {
-    return arrow::Status::NotImplemented("ResultIterator abstract SetDependencies()");
+    return arrow::Status::NotImplemented(
+        "ResultIterator abstract SetDependencies()");
   }
   virtual arrow::Status GetResult(std::shared_ptr<arrow::RecordBatch>* out) {
     return arrow::Status::NotImplemented("ResultIterator abstract GetResult()");

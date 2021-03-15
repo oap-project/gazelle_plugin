@@ -55,20 +55,21 @@ TEST(TestArrowCompute, AggregateTest) {
   auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg1}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg1}, uint32());
   auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg1}, uint32());
-  auto n_sum_count = TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
-  auto n_sum_count_merge =
-      TreeExprBuilder::MakeFunction("action_sum_count_merge", {arg1, arg2}, uint32());
-  auto n_avg_by_count =
-      TreeExprBuilder::MakeFunction("action_avgByCount", {arg1, arg2}, uint32());
-  auto n_stddev_partial =
-      TreeExprBuilder::MakeFunction("action_stddev_samp_partial", {arg1}, uint32());
-  auto n_proj =
-      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg1, arg2}, uint32());
-  auto n_action =
-      TreeExprBuilder::MakeFunction("aggregateActions",
-                                    {n_min, n_max, n_sum, n_sum_count, n_sum_count_merge,
-                                     n_avg_by_count, n_stddev_partial},
-                                    uint32());
+  auto n_sum_count =
+      TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
+  auto n_sum_count_merge = TreeExprBuilder::MakeFunction(
+      "action_sum_count_merge", {arg1, arg2}, uint32());
+  auto n_avg_by_count = TreeExprBuilder::MakeFunction("action_avgByCount",
+                                                      {arg1, arg2}, uint32());
+  auto n_stddev_partial = TreeExprBuilder::MakeFunction(
+      "action_stddev_samp_partial", {arg1}, uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
+                                              {arg1, arg2}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction(
+      "aggregateActions",
+      {n_min, n_max, n_sum, n_sum_count, n_sum_count_merge, n_avg_by_count,
+       n_stddev_partial},
+      uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max),
@@ -76,7 +77,8 @@ TEST(TestArrowCompute, AggregateTest) {
        TreeExprBuilder::MakeField(f_count1), TreeExprBuilder::MakeField(f_sum2),
        TreeExprBuilder::MakeField(f_count2), TreeExprBuilder::MakeField(f_avg),
        TreeExprBuilder::MakeField(f_stddev_count),
-       TreeExprBuilder::MakeField(f_stddev_avg), TreeExprBuilder::MakeField(f_stddev_m2)},
+       TreeExprBuilder::MakeField(f_stddev_avg),
+       TreeExprBuilder::MakeField(f_stddev_m2)},
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
@@ -85,11 +87,14 @@ TEST(TestArrowCompute, AggregateTest) {
        TreeExprBuilder::MakeField(f_count1), TreeExprBuilder::MakeField(f_sum2),
        TreeExprBuilder::MakeField(f_count2), TreeExprBuilder::MakeField(f_avg),
        TreeExprBuilder::MakeField(f_stddev_count),
-       TreeExprBuilder::MakeField(f_stddev_avg), TreeExprBuilder::MakeField(f_stddev_m2)},
+       TreeExprBuilder::MakeField(f_stddev_avg),
+       TreeExprBuilder::MakeField(f_stddev_m2)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
-      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
-  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr},
+      uint32());
+  auto n_child =
+      TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
@@ -102,16 +107,17 @@ TEST(TestArrowCompute, AggregateTest) {
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector,
+                                    ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
   std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
   ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
-  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      aggr_result_iterator_base);
+  aggr_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          aggr_result_iterator_base);
 
   ////////////////////// calculation /////////////////////
   std::vector<std::string> input_data = {
@@ -121,7 +127,8 @@ TEST(TestArrowCompute, AggregateTest) {
       "6.888800", "5.768001", "3.768002", "5.768003", "5.768004"])",
       R"([5, 2, 8, 9, 1, 3, 78, 111, 8, 10, 8, 9, 7, 1, 1, 3, 78, 34, 8, 10])"};
   MakeInputBatch(input_data, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   std::vector<std::string> input_data_2 = {
       R"(["7.040001", "7.378700", "8.000000", "3.666700", "9.999999",
@@ -130,7 +137,8 @@ TEST(TestArrowCompute, AggregateTest) {
       "13.000000", "10.090000", "10.000700", "10.000000"])",
       R"([8, 9, 7, 1, 1, 3, 78, 34, 8, 10, 5, 2, 8, 9, 1, 3, 78, 111, 8, 10])"};
   MakeInputBatch(input_data_2, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -177,19 +185,23 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
   auto f_count2 = field("count2", int64());
   auto f_avg = field("avg", decimal128(16, 10));
 
-  auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
+  auto n_groupby =
+      TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
   auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg1}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg1}, uint32());
   auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg1}, uint32());
-  auto n_sum_count = TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
-  auto n_sum_count_merge =
-      TreeExprBuilder::MakeFunction("action_sum_count_merge", {arg1, arg2}, uint32());
-  auto n_avg = TreeExprBuilder::MakeFunction("action_avgByCount", {arg1, arg2}, uint32());
-  auto n_proj =
-      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1, arg2}, uint32());
+  auto n_sum_count =
+      TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
+  auto n_sum_count_merge = TreeExprBuilder::MakeFunction(
+      "action_sum_count_merge", {arg1, arg2}, uint32());
+  auto n_avg = TreeExprBuilder::MakeFunction("action_avgByCount", {arg1, arg2},
+                                             uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
+                                              {arg0, arg1, arg2}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions",
-      {n_groupby, n_min, n_max, n_sum, n_sum_count, n_sum_count_merge, n_avg}, uint32());
+      {n_groupby, n_min, n_max, n_sum, n_sum_count, n_sum_count_merge, n_avg},
+      uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
@@ -212,30 +224,33 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
        TreeExprBuilder::MakeField(f_count2), TreeExprBuilder::MakeField(f_avg)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
-      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
-  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr},
+      uint32());
+  auto n_child =
+      TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
 
   auto sch = arrow::schema({f0, f1, f2});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_multiply, f_min,    f_max,
-                                                   f_sum,    f_sum1,     f_count1, f_sum2,
-                                                   f_count2, f_avg};
+  std::vector<std::shared_ptr<Field>> ret_types = {
+      f_unique, f_multiply, f_min,  f_max,    f_sum,
+      f_sum1,   f_count1,   f_sum2, f_count2, f_avg};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector,
+                                    ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
   std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
   ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
-  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      aggr_result_iterator_base);
+  aggr_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          aggr_result_iterator_base);
 
   ////////////////////// calculation /////////////////////
   std::vector<std::string> input_data = {
@@ -249,7 +264,8 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
       "6.888800", "5.768001", "3.768002", "5.768003", "5.768004"])",
       R"([5, 2, 8, 9, 1, 3, 78, 111, 8, 10, 8, 9, 7, 1, 1, 3, 78, 34, 8, 10])"};
   MakeInputBatch(input_data, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   std::vector<std::string> input_data_2 = {
       R"(["6.010000", "7.378700", "8.000000", "9.666700", "10.000000",
@@ -262,7 +278,8 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
       "13.000000", "10.090000", "10.000700", "10.000000"])",
       R"([8, 9, 7, 1, 1, 3, 78, 34, 8, 10, 5, 2, 8, 9, 1, 3, 78, 111, 8, 10])"};
   MakeInputBatch(input_data_2, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -317,19 +334,23 @@ TEST(TestArrowCompute, GroupByAggregateWSCGTest) {
   auto f_count2 = field("count2", int64());
   auto f_avg = field("avg", decimal128(16, 10));
 
-  auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
+  auto n_groupby =
+      TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
   auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg1}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg1}, uint32());
   auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg1}, uint32());
-  auto n_sum_count = TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
-  auto n_sum_count_merge =
-      TreeExprBuilder::MakeFunction("action_sum_count_merge", {arg1, arg2}, uint32());
-  auto n_avg = TreeExprBuilder::MakeFunction("action_avgByCount", {arg1, arg2}, uint32());
-  auto n_proj =
-      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1, arg2}, uint32());
+  auto n_sum_count =
+      TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
+  auto n_sum_count_merge = TreeExprBuilder::MakeFunction(
+      "action_sum_count_merge", {arg1, arg2}, uint32());
+  auto n_avg = TreeExprBuilder::MakeFunction("action_avgByCount", {arg1, arg2},
+                                             uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
+                                              {arg0, arg1, arg2}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
       "aggregateActions",
-      {n_groupby, n_min, n_max, n_sum, n_sum_count, n_sum_count_merge, n_avg}, uint32());
+      {n_groupby, n_min, n_max, n_sum, n_sum_count, n_sum_count_merge, n_avg},
+      uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
@@ -352,31 +373,34 @@ TEST(TestArrowCompute, GroupByAggregateWSCGTest) {
        TreeExprBuilder::MakeField(f_count2), TreeExprBuilder::MakeField(f_avg)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
-      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr},
+      uint32());
   auto n_child = TreeExprBuilder::MakeFunction("child", {n_aggr}, uint32());
-  auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
+  auto n_wscg =
+      TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
 
   auto sch = arrow::schema({f0, f1, f2});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_multiply, f_min,    f_max,
-                                                   f_sum,    f_sum1,     f_count1, f_sum2,
-                                                   f_count2, f_avg};
+  std::vector<std::shared_ptr<Field>> ret_types = {
+      f_unique, f_multiply, f_min,  f_max,    f_sum,
+      f_sum1,   f_count1,   f_sum2, f_count2, f_avg};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector,
+                                    ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
   std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
   ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
-  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      aggr_result_iterator_base);
+  aggr_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          aggr_result_iterator_base);
 
   ////////////////////// calculation /////////////////////
   std::vector<std::string> input_data = {
@@ -390,7 +414,8 @@ TEST(TestArrowCompute, GroupByAggregateWSCGTest) {
       "6.888800", "5.768001", "3.768002", "5.768003", "5.768004"])",
       R"([5, 2, 8, 9, 1, 3, 78, 111, 8, 10, 8, 9, 7, 1, 1, 3, 78, 34, 8, 10])"};
   MakeInputBatch(input_data, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   std::vector<std::string> input_data_2 = {
       R"(["6.010000", "7.378700", "8.000000", "9.666700", "10.000000",
@@ -403,7 +428,8 @@ TEST(TestArrowCompute, GroupByAggregateWSCGTest) {
       "13.000000", "10.090000", "10.000700", "10.000000"])",
       R"([8, 9, 7, 1, 1, 3, 78, 34, 8, 10, 5, 2, 8, 9, 1, 3, 78, 111, 8, 10])"};
   MakeInputBatch(input_data_2, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;
@@ -447,45 +473,51 @@ TEST(TestArrowCompute, GroupByAggregateWithTwoKeysTest) {
   auto arg0 = TreeExprBuilder::MakeField(f0);
   auto arg1 = TreeExprBuilder::MakeField(f1);
 
-  auto n_groupby_0 = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
-  auto n_groupby_1 = TreeExprBuilder::MakeFunction("action_groupby", {arg1}, uint32());
-  auto n_proj =
-      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions",
-                                                {n_groupby_0, n_groupby_1}, uint32());
-  auto n_result =
-      TreeExprBuilder::MakeFunction("resultSchema",
-                                    {TreeExprBuilder::MakeField(f_unique_decimal),
-                                     TreeExprBuilder::MakeField(f_unique_utf)},
-                                    uint32());
-  auto n_result_expr =
-      TreeExprBuilder::MakeFunction("resultExpressions",
-                                    {TreeExprBuilder::MakeField(f_unique_decimal),
-                                     TreeExprBuilder::MakeField(f_unique_utf)},
-                                    uint32());
+  auto n_groupby_0 =
+      TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
+  auto n_groupby_1 =
+      TreeExprBuilder::MakeFunction("action_groupby", {arg1}, uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
+                                              {arg0, arg1}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction(
+      "aggregateActions", {n_groupby_0, n_groupby_1}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique_decimal),
+       TreeExprBuilder::MakeField(f_unique_utf)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique_decimal),
+       TreeExprBuilder::MakeField(f_unique_utf)},
+      uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
-      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
-  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr},
+      uint32());
+  auto n_child =
+      TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
 
   auto sch = arrow::schema({f0, f1});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_unique_decimal, f_unique_utf};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_unique_decimal,
+                                                   f_unique_utf};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector,
+                                    ret_types, &expr, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
 
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
   std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
   ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
-  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      aggr_result_iterator_base);
+  aggr_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          aggr_result_iterator_base);
 
   ////////////////////// calculation /////////////////////
   std::vector<std::string> input_data = {
@@ -496,7 +528,8 @@ TEST(TestArrowCompute, GroupByAggregateWithTwoKeysTest) {
       R"(["A", "B", "C", "D", "E", "A", "D", "A", "B", "B", 
       "A", "A", "A", "D", "D", "C", "E", "E", "E", "E"])"};
   MakeInputBatch(input_data, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   std::vector<std::string> input_data_2 = {
       R"(["6.010000", "7.378700", "8.000000", "9.666700", "10.000000",
@@ -506,7 +539,8 @@ TEST(TestArrowCompute, GroupByAggregateWithTwoKeysTest) {
       R"(["F", "G", "H", "I", "J", "J", "I", "F", "G", "G",
       "F", "F", "F", "I", "I", "H", "J", "J", "J", "J"])"};
   MakeInputBatch(input_data_2, sch, &input_batch);
-  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  ASSERT_NOT_OK(
+      aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;

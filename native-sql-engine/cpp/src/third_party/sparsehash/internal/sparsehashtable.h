@@ -112,14 +112,15 @@
 #pragma once
 
 #include <assert.h>
-#include <algorithm>    // For swap(), eg
-#include <iterator>     // for iterator tags
-#include <limits>       // for numeric_limits
-#include <utility>      // for pair
-#include <type_traits>  // for remove_const
 #include <sparsehash/internal/hashtable-common.h>
+
+#include <algorithm>               // For swap(), eg
+#include <iterator>                // for iterator tags
+#include <limits>                  // for numeric_limits
 #include <sparsehash/sparsetable>  // IWYU pragma: export
 #include <stdexcept>               // For length_error
+#include <type_traits>             // for remove_const
+#include <utility>                 // for pair
 
 namespace google {
 
@@ -378,14 +379,16 @@ class sparse_hashtable {
   typedef typename value_alloc_type::pointer pointer;
   typedef typename value_alloc_type::const_pointer const_pointer;
   typedef sparse_hashtable_iterator<Value, Key, HashFcn, ExtractKey, SetKey,
-                                    EqualKey, Alloc> iterator;
+                                    EqualKey, Alloc>
+      iterator;
 
-  typedef sparse_hashtable_const_iterator<
-      Value, Key, HashFcn, ExtractKey, SetKey, EqualKey, Alloc> const_iterator;
+  typedef sparse_hashtable_const_iterator<Value, Key, HashFcn, ExtractKey,
+                                          SetKey, EqualKey, Alloc>
+      const_iterator;
 
   typedef sparse_hashtable_destructive_iterator<Value, Key, HashFcn, ExtractKey,
-                                                SetKey, EqualKey,
-                                                Alloc> destructive_iterator;
+                                                SetKey, EqualKey, Alloc>
+      destructive_iterator;
 
   // These come from tr1.  For us they're the same as regular iterators.
   typedef iterator local_iterator;
@@ -951,8 +954,7 @@ class sparse_hashtable {
     }
   }
   template <typename K>
-  std::pair<const_iterator, const_iterator> equal_range(
-      const K& key) const {
+  std::pair<const_iterator, const_iterator> equal_range(const K& key) const {
     const_iterator pos = find(key);  // either an iterator or end
     if (pos == end()) {
       return std::pair<const_iterator, const_iterator>(pos, pos);
@@ -1236,7 +1238,9 @@ class sparse_hashtable {
 
   // Utility functions to access the templated operators
   template <typename K>
-  size_type hash(const K& v) const { return settings.hash(v); }
+  size_type hash(const K& v) const {
+    return settings.hash(v);
+  }
   template <typename K1, typename K2>
   bool equals(const K1& a, const K2& b) const {
     return key_info.equals(a, b);
@@ -1278,4 +1282,4 @@ template <class V, class K, class HF, class ExK, class SetK, class EqK, class A>
 const int sparse_hashtable<V, K, HF, ExK, SetK, EqK, A>::HT_EMPTY_PCT =
     static_cast<int>(
         0.4 * sparse_hashtable<V, K, HF, ExK, SetK, EqK, A>::HT_OCCUPANCY_PCT);
-}
+}  // namespace google

@@ -37,26 +37,31 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+      uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysInner",
-                                                     {n_left_key, n_right_key}, uint32());
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysInner", {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -65,9 +70,10 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -91,7 +97,8 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
-  input_data_2_string = {"[13, 14, 15, 15, 17, 19]", "[13, 14, 15, 15, 17, 19]"};
+  input_data_2_string = {"[13, 14, 15, 15, 17, 19]",
+                         "[13, 14, 15, 15, 17, 19]"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -106,8 +113,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {"[13, 14, 15, 15]", "[13, 14, 15, 15]", "[13, 14, 15, 15]",
-                            "[13, 14, 15, 15]", "[13, 14, 15, 15]"};
+  expected_result_string = {"[13, 14, 15, 15]", "[13, 14, 15, 15]",
+                            "[13, 14, 15, 15]", "[13, 14, 15, 15]",
+                            "[13, 14, 15, 15]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -118,8 +126,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoin) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < table_1.size(); i++) {
     auto right_batch = table_1[i];
@@ -143,26 +152,31 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+      uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysOuter",
-                                                     {n_left_key, n_right_key}, uint32());
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysOuter", {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -171,9 +185,10 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -182,9 +197,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {"[0, 0, 2, 2, 3, 5, 7, 9, 11]",
-                                                "[null, null, 2, 2, 3, 5, 7, 9, 11]",
-                                                "[null, null, 2, 2, 3, 5, 7, 9, 11]"};
+  std::vector<std::string> input_data_string = {
+      "[0, 0, 2, 2, 3, 5, 7, 9, 11]", "[null, null, 2, 2, 3, 5, 7, 9, 11]",
+      "[null, null, 2, 2, 3, 5, 7, 9, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -207,16 +222,18 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[0, 0, null, 2, 2, 3, null, 5, null]", "[null, null, null, 2, 2, 3, null, 5, null]",
-      "[null, null, null, 2, 2, 3, null, 5, null]", "[0, 0, 1, 2, 2, 3, 4, 5, 6]",
-      "[null, null, 1, 2, 2, 3, 4, 5, 6]"};
+      "[0, 0, null, 2, 2, 3, null, 5, null]",
+      "[null, null, null, 2, 2, 3, null, 5, null]",
+      "[null, null, null, 2, 2, 3, null, 5, null]",
+      "[0, 0, 1, 2, 2, 3, 4, 5, 6]", "[null, null, 1, 2, 2, 3, 4, 5, 6]"};
   auto res_sch = arrow::schema({f_res, f_res, f_res, f_res, f_res});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {"[7, null, 9, null, 11, 12]", "[7, null, 9, null, 11, 12]",
-                            "[7, null, 9, null, 11, 12]", "[7, 8, 9, 10, 11, 12]",
-                            "[7, 8, 9, 10, 11, 12]"};
+  expected_result_string = {"[7, null, 9, null, 11, 12]",
+                            "[7, null, 9, null, 11, 12]",
+                            "[7, null, 9, null, 11, 12]",
+                            "[7, 8, 9, 10, 11, 12]", "[7, 8, 9, 10, 11, 12]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -227,8 +244,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingOuterJoin) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -253,26 +271,31 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoin) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+      uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysAnti",
-                                                     {n_left_key, n_right_key}, uint32());
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysAnti", {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -281,8 +304,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -329,8 +353,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoin) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -355,26 +380,31 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoin) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+      uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysSemi",
-                                                     {n_left_key, n_right_key}, uint32());
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysSemi", {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -383,8 +413,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -431,8 +462,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoin) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -457,31 +489,37 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto greater_than_function = TreeExprBuilder::MakeFunction(
-      "greater_than",
-      {TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table1_f1)},
-      arrow::boolean());
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto greater_than_function =
+      TreeExprBuilder::MakeFunction("greater_than",
+                                    {TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    arrow::boolean());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedJoinArraysSemi", {n_left_key, n_right_key, greater_than_function},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysSemi",
+      {n_left_key, n_right_key, greater_than_function}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -490,8 +528,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -499,8 +538,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[2, 2, 3, 5, 7, 9, 11]", "[2, 7, 3, 5, 7, 9, 11]", "[2, 7, 3, 5, 7, 9, 11]"};
+  std::vector<std::string> input_data_string = {"[2, 2, 3, 5, 7, 9, 11]",
+                                                "[2, 7, 3, 5, 7, 9, 11]",
+                                                "[2, 7, 3, 5, 7, 9, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -538,8 +578,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingSemiJoinWithCondition) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -564,31 +605,36 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto greater_than_function = TreeExprBuilder::MakeFunction(
-      "greater_than",
-      {TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table1_f1)},
-      arrow::boolean());
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto greater_than_function =
+      TreeExprBuilder::MakeFunction("greater_than",
+                                    {TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    arrow::boolean());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
       "codegen_left_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedJoinArraysInner", {n_left_key, n_right_key, greater_than_function},
+      "codegen_right_schema", {TreeExprBuilder::MakeField(table1_f0)},
       uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysInner",
+      {n_left_key, n_right_key, greater_than_function}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -597,9 +643,10 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -631,12 +678,14 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
 
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {"[1]", "[10]", "[10]", "[1]", "[1]"};
+  std::vector<std::string> expected_result_string = {"[1]", "[10]", "[10]",
+                                                     "[1]", "[1]"};
   auto res_sch = arrow::schema({f_res, f_res, f_res, f_res, f_res});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {"[9, 10]", "[13, 11]", "[13, 11]", "[9, 10]", "[9, 4]"};
+  expected_result_string = {"[9, 10]", "[13, 11]", "[13, 11]", "[9, 10]",
+                            "[9, 4]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -647,8 +696,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingInnerJoinWithCondition) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < table_1.size(); i++) {
     auto right_batch = table_1[i];
@@ -672,30 +722,35 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   auto table1_f0 = field("table1_f0", utf8());
   auto table1_f1 = field("table1_f1", utf8());
 
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
-  auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
-      uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysInner",
-                                                     {n_left_key, n_right_key}, uint32());
+  auto n_left_key =
+      TreeExprBuilder::MakeFunction("codegen_left_key_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1)},
+                                    uint32());
+  auto n_right_key =
+      TreeExprBuilder::MakeFunction("codegen_right_key_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysInner", {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -707,9 +762,10 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -723,12 +779,13 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  input_data_string = {R"(["f", "j", "n"])", R"(["F", "J", "N"])", "[12, 5, 8]"};
+  input_data_string = {R"(["f", "j", "n"])", R"(["F", "J", "N"])",
+                       "[12, 5, 8]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {R"(["a", "b", "c", "d", "e", "f"])",
-                                                  R"(["A", "B", "C", "D", "E", "F"])"};
+  std::vector<std::string> input_data_2_string = {
+      R"(["a", "b", "c", "d", "e", "f"])", R"(["A", "B", "C", "D", "E", "F"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -742,13 +799,14 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      R"(["a", "b", "c", "e", "f"])", R"(["A", "B", "C", "E", "F"])", "[10, 3, 1, 2, 12]",
-      R"(["a", "b", "c", "e", "f"])", R"(["A", "B", "C", "E", "F"])"};
+      R"(["a", "b", "c", "e", "f"])", R"(["A", "B", "C", "E", "F"])",
+      "[10, 3, 1, 2, 12]", R"(["a", "b", "c", "e", "f"])",
+      R"(["A", "B", "C", "E", "F"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["j","n"])", R"(["J", "N"])", "[5, 8]", R"(["j", "n"])",
-                            R"(["J", "N"])"};
+  expected_result_string = {R"(["j","n"])", R"(["J", "N"])", "[5, 8]",
+                            R"(["j", "n"])", R"(["J", "N"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -759,8 +817,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestWithTwoKeysUsingInnerJoin) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto right_batch = table_1[i];
@@ -784,31 +843,37 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto greater_than_function = TreeExprBuilder::MakeFunction(
-      "greater_than",
-      {TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table1_f1)},
-      arrow::boolean());
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto greater_than_function =
+      TreeExprBuilder::MakeFunction("greater_than",
+                                    {TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    arrow::boolean());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedJoinArraysAnti", {n_left_key, n_right_key, greater_than_function},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysAnti",
+      {n_left_key, n_right_key, greater_than_function}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -817,8 +882,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -850,7 +916,8 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   auto res_sch = arrow::schema({f_res, f_res});
-  std::vector<std::string> expected_result_string = {"[1, 4, 5, 6]", "[1, 4, 5, 6]"};
+  std::vector<std::string> expected_result_string = {"[1, 4, 5, 6]",
+                                                     "[1, 4, 5, 6]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -865,8 +932,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingAntiJoinWithCondition) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto left_batch = table_0[i];
@@ -892,27 +960,32 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingExistenceJoin) {
   auto table1_f0 = field("table1_f0", uint32());
   auto table1_f1 = field("table1_f1", uint32());
 
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
   auto f_exist = field("res", boolean());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+      uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysExistence",
-                                                     {n_left_key, n_right_key}, uint32());
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedJoinArraysExistence", {n_left_key, n_right_key}, uint32());
   auto n_codegen_probe = TreeExprBuilder::MakeFunction(
       "codegen_withTwoInputs", {n_probeArrays, n_left, n_right}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
+  auto probeArrays_expr =
+      TreeExprBuilder::MakeExpression(n_codegen_probe, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -921,9 +994,10 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingExistenceJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
-      {table1_f0, field("table1_exists", boolean()), table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
+      {table1_f0, field("table1_exists", boolean()), table1_f1}, &expr_probe,
+      true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -932,8 +1006,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingExistenceJoin) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[1, 3, 3, 3, 4, 5, 7, 9]", "[1, 3, 3, 3, 4, 5, 7, 9]", "[1, 3, 3, 3, 4, 5, 7, 9]"};
+  std::vector<std::string> input_data_string = {"[1, 3, 3, 3, 4, 5, 7, 9]",
+                                                "[1, 3, 3, 3, 4, 5, 7, 9]",
+                                                "[1, 3, 3, 3, 4, 5, 7, 9]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -975,8 +1050,9 @@ TEST(TestArrowComputeMergeJoin, JoinTestUsingExistenceJoin) {
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> probe_result_iterator;
   std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
-  probe_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      probe_result_iterator_base);
+  probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
 
   for (int i = 0; i < 2; i++) {
     auto right_batch = table_1[i];

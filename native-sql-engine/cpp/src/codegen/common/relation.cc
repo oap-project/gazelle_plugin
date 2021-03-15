@@ -47,8 +47,8 @@ arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     default: {
-      return arrow::Status::NotImplemented("MakeHashRelationColumn doesn't suppoty type ",
-                                           data_type_id);
+      return arrow::Status::NotImplemented(
+          "MakeHashRelationColumn doesn't suppoty type ", data_type_id);
     } break;
   }
 
@@ -84,8 +84,8 @@ arrow::Status MakeRelationColumn(uint32_t data_type_id,
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     default: {
-      return arrow::Status::NotImplemented("MakeRelationColumn doesn't suppoty type ",
-                                           data_type_id);
+      return arrow::Status::NotImplemented(
+          "MakeRelationColumn doesn't suppoty type ", data_type_id);
     } break;
   }
 
@@ -112,20 +112,21 @@ arrow::Status MakeRelationColumn(uint32_t data_type_id,
   PROCESS(arrow::StringType)
 arrow::Status MakeHashRelation(
     uint32_t key_type_id, arrow::compute::ExecContext* ctx,
-    const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column,
+    const std::vector<std::shared_ptr<HashRelationColumn>>&
+        hash_relation_column,
     std::shared_ptr<HashRelation>* out) {
   switch (key_type_id) {
-#define PROCESS(InType)                                                         \
-  case TypeTraits<InType>::type_id: {                                           \
-    auto typed_hash_relation =                                                  \
-        std::make_shared<TypedHashRelation<InType>>(ctx, hash_relation_column); \
-    *out = std::dynamic_pointer_cast<HashRelation>(typed_hash_relation);        \
+#define PROCESS(InType)                                                     \
+  case TypeTraits<InType>::type_id: {                                       \
+    auto typed_hash_relation = std::make_shared<TypedHashRelation<InType>>( \
+        ctx, hash_relation_column);                                         \
+    *out = std::dynamic_pointer_cast<HashRelation>(typed_hash_relation);    \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     default: {
-      return arrow::Status::NotImplemented("MakeHashRelation doesn't suppoty type ",
-                                           key_type_id);
+      return arrow::Status::NotImplemented(
+          "MakeHashRelation doesn't suppoty type ", key_type_id);
     } break;
   }
 

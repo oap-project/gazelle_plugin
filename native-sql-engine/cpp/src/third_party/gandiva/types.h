@@ -21,7 +21,8 @@
 
 #include "gandiva/gdv_function_stubs.h"
 
-// Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
+// Use the same names as in arrow data types. Makes it easy to write
+// pre-processor macros.
 using gdv_boolean = bool;
 using gdv_int8 = int8_t;
 using gdv_int16 = int16_t;
@@ -80,22 +81,23 @@ gdv_int64 hash64(double val, gdv_int64 seed);
 gdv_int64 hash64_buf(const gdv_uint8* buf, int len, gdv_int64 seed);
 gdv_int32 hash32_spark_boolean_int32(gdv_boolean val, gdv_boolean is_valid,
                                      gdv_int32 seed, gdv_boolean seed_valid);
-gdv_int32 hash32_spark_int8_int32(gdv_int8 val, gdv_boolean is_valid, gdv_int32 seed,
-                                  gdv_boolean seed_valid);
-gdv_int32 hash32_spark_int16_int32(gdv_int16 val, gdv_boolean is_valid, gdv_int32 seed,
-                                   gdv_boolean seed_valid);
-gdv_int32 hash32_spark_int32_int32(gdv_int32 val, gdv_boolean is_valid, gdv_int32 seed,
-                                   gdv_boolean seed_valid);
-gdv_int32 hash32_spark_date32_int32(gdv_date32 val, gdv_boolean is_valid, gdv_int32 seed,
-                                    gdv_boolean seed_valid);
+gdv_int32 hash32_spark_int8_int32(gdv_int8 val, gdv_boolean is_valid,
+                                  gdv_int32 seed, gdv_boolean seed_valid);
+gdv_int32 hash32_spark_int16_int32(gdv_int16 val, gdv_boolean is_valid,
+                                   gdv_int32 seed, gdv_boolean seed_valid);
+gdv_int32 hash32_spark_int32_int32(gdv_int32 val, gdv_boolean is_valid,
+                                   gdv_int32 seed, gdv_boolean seed_valid);
+gdv_int32 hash32_spark_date32_int32(gdv_date32 val, gdv_boolean is_valid,
+                                    gdv_int32 seed, gdv_boolean seed_valid);
 gdv_int32 hash32_spark_float32_int32(gdv_float32 val, gdv_boolean is_valid,
                                      gdv_int32 seed, gdv_boolean seed_valid);
-gdv_int32 hash64_spark_int64_int32(gdv_int64 val, gdv_boolean is_valid, gdv_int32 seed,
-                                   gdv_boolean seed_valid);
+gdv_int32 hash64_spark_int64_int32(gdv_int64 val, gdv_boolean is_valid,
+                                   gdv_int32 seed, gdv_boolean seed_valid);
 gdv_int32 hash64_spark_float64_int32(gdv_float64 val, gdv_boolean is_valid,
                                      gdv_int32 seed, gdv_boolean seed_valid);
-gdv_int32 hashbuf_spark_utf8_int32(const gdv_uint8* buf, int len, gdv_boolean is_valid,
-                                   gdv_int32 seed, gdv_boolean seed_valid);
+gdv_int32 hashbuf_spark_utf8_int32(const gdv_uint8* buf, int len,
+                                   gdv_boolean is_valid, gdv_int32 seed,
+                                   gdv_boolean seed_valid);
 
 gdv_int64 timestampaddSecond_int32_timestamp(gdv_int32, gdv_timestamp);
 gdv_int64 timestampaddMinute_int32_timestamp(gdv_int32, gdv_timestamp);
@@ -146,13 +148,16 @@ gdv_int32 mem_compare(const char* left, gdv_int32 left_len, const char* right,
                       gdv_int32 right_len);
 
 gdv_int32 mod_int64_int32(gdv_int64 left, gdv_int32 right);
-gdv_float64 mod_float64_float64(gdv_int64 context, gdv_float64 left, gdv_float64 right);
+gdv_float64 mod_float64_float64(gdv_int64 context, gdv_float64 left,
+                                gdv_float64 right);
 
 gdv_int64 divide_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
 
 gdv_int64 div_int64_int64(gdv_int64 context, gdv_int64 in1, gdv_int64 in2);
-gdv_float32 div_float32_float32(gdv_int64 context, gdv_float32 in1, gdv_float32 in2);
-gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1, gdv_float64 in2);
+gdv_float32 div_float32_float32(gdv_int64 context, gdv_float32 in1,
+                                gdv_float32 in2);
+gdv_float64 div_float64_float64(gdv_int64 context, gdv_float64 in1,
+                                gdv_float64 in2);
 
 gdv_float64 cbrt_int32(gdv_int32);
 gdv_float64 cbrt_int64(gdv_int64);
@@ -195,16 +200,17 @@ gdv_float64 power_float64_float64(gdv_float64, gdv_float64);
 
 gdv_float64 log_int32_int32(gdv_int64 context, gdv_int32 base, gdv_int32 value);
 
-bool starts_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* prefix,
-                           gdv_int32 prefix_len);
-bool ends_with_utf8_utf8(const char* data, gdv_int32 data_len, const char* suffix,
-                         gdv_int32 suffix_len);
-bool is_substr_utf8_utf8(const char* data, gdv_int32 data_len, const char* substr,
-                         gdv_int32 substr_len);
+bool starts_with_utf8_utf8(const char* data, gdv_int32 data_len,
+                           const char* prefix, gdv_int32 prefix_len);
+bool ends_with_utf8_utf8(const char* data, gdv_int32 data_len,
+                         const char* suffix, gdv_int32 suffix_len);
+bool is_substr_utf8_utf8(const char* data, gdv_int32 data_len,
+                         const char* substr, gdv_int32 substr_len);
 
 gdv_int32 utf8_length(gdv_int64 context, const char* data, gdv_int32 data_len);
 
-gdv_date64 castDATE_utf8(int64_t execution_context, const char* input, gdv_int32 length);
+gdv_date64 castDATE_utf8(int64_t execution_context, const char* input,
+                         gdv_int32 length);
 
 gdv_date64 castDATE_int64(gdv_int64 date);
 
@@ -215,9 +221,11 @@ gdv_date32 castDATE_int32(gdv_int32 date);
 gdv_timestamp castTIMESTAMP_utf8(int64_t execution_context, const char* input,
                                  gdv_int32 length);
 gdv_timestamp castTIMESTAMP_date64(gdv_date64);
-const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64, gdv_int32*);
+const char* castVARCHAR_timestamp_int64(int64_t, gdv_timestamp, gdv_int64,
+                                        gdv_int32*);
 
-const char* castVARCHAR_date32_int64(int64_t, gdv_date32, gdv_int64, gdv_int32*);
+const char* castVARCHAR_date32_int64(int64_t, gdv_date32, gdv_int64,
+                                     gdv_int32*);
 
 const char* castVARCHAR_int8_int64(int64_t, gdv_int8, gdv_int64, gdv_int32*);
 
@@ -227,17 +235,20 @@ const char* castVARCHAR_int32_int64(int64_t, gdv_int32, gdv_int64, gdv_int32*);
 
 const char* castVARCHAR_int64_int64(int64_t, gdv_int64, gdv_int64, gdv_int32*);
 
-const char* castVARCHAR_float32_int64(int64_t, gdv_float32, gdv_int64, gdv_int32*);
+const char* castVARCHAR_float32_int64(int64_t, gdv_float32, gdv_int64,
+                                      gdv_int32*);
 
-const char* castVARCHAR_float64_int64(int64_t, gdv_float64, gdv_int64, gdv_int32*);
+const char* castVARCHAR_float64_int64(int64_t, gdv_float64, gdv_int64,
+                                      gdv_int32*);
 
 gdv_int64 truncate_int64_int32(gdv_int64 in, gdv_int32 out_scale);
 
 const char* substr_utf8_int64_int64(gdv_int64 context, const char* input,
                                     gdv_int32 in_len, gdv_int64 offset64,
                                     gdv_int64 length, gdv_int32* out_len);
-const char* substr_utf8_int64(gdv_int64 context, const char* input, gdv_int32 in_len,
-                              gdv_int64 offset64, gdv_int32* out_len);
+const char* substr_utf8_int64(gdv_int64 context, const char* input,
+                              gdv_int32 in_len, gdv_int64 offset64,
+                              gdv_int32* out_len);
 const char* concatOperator_utf8_utf8(gdv_int64 context, const char* left,
                                      gdv_int32 left_len, const char* right,
                                      gdv_int32 right_len, gdv_int32* out_len);
@@ -249,21 +260,21 @@ const char* castVARCHAR_utf8_int64(gdv_int64 context, const char* data,
 const char* lower_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
                        int32_t* out_length);
 
-const char* reverse_utf8(gdv_int64 context, const char* data, gdv_int32 data_len,
-                         int32_t* out_len);
+const char* reverse_utf8(gdv_int64 context, const char* data,
+                         gdv_int32 data_len, int32_t* out_len);
 
-gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str, gdv_int32 sub_str_len,
-                           const char* str, gdv_int32 str_len);
+gdv_int32 locate_utf8_utf8(gdv_int64 context, const char* sub_str,
+                           gdv_int32 sub_str_len, const char* str,
+                           gdv_int32 str_len);
 
 gdv_int32 locate_utf8_utf8_int32(gdv_int64 context, const char* sub_str,
                                  gdv_int32 sub_str_len, const char* str,
                                  gdv_int32 str_len, gdv_int32 start_pos);
 
-const char* replace_with_max_len_utf8_utf8_utf8(gdv_int64 context, const char* text,
-                                                gdv_int32 text_len, const char* from_str,
-                                                gdv_int32 from_str_len,
-                                                const char* to_str, gdv_int32 to_str_len,
-                                                gdv_int32 max_length, gdv_int32* out_len);
+const char* replace_with_max_len_utf8_utf8_utf8(
+    gdv_int64 context, const char* text, gdv_int32 text_len,
+    const char* from_str, gdv_int32 from_str_len, const char* to_str,
+    gdv_int32 to_str_len, gdv_int32 max_length, gdv_int32* out_len);
 
 const char* replace_utf8_utf8_utf8(gdv_int64 context, const char* text,
                                    gdv_int32 text_len, const char* from_str,

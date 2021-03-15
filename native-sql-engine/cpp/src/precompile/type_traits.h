@@ -35,19 +35,21 @@ using is_date_type = std::is_base_of<arrow::DateType, T>;
 
 template <typename T>
 using is_number_like =
-    std::integral_constant<bool, is_number_type<T>::value || is_boolean_type<T>::value>;
+    std::integral_constant<bool, is_number_type<T>::value ||
+                                     is_boolean_type<T>::value>;
 
 template <typename T>
 using is_decimal_type = std::is_base_of<arrow::DecimalType, T>;
 
 template <typename T>
 using is_number_like_type =
-    std::integral_constant<bool, is_number_like<T>::value || is_date_type<T>::value>;
+    std::integral_constant<bool,
+                           is_number_like<T>::value || is_date_type<T>::value>;
 
 template <typename T>
 using is_number_or_decimal_type =
-    std::integral_constant<bool,
-                           is_number_like_type<T>::value || is_decimal_type<T>::value>;
+    std::integral_constant<bool, is_number_like_type<T>::value ||
+                                     is_decimal_type<T>::value>;
 
 template <typename T>
 using enable_if_boolean = std::enable_if_t<is_boolean_type<T>::value>;
@@ -59,7 +61,8 @@ template <typename T>
 using enable_if_decimal = std::enable_if_t<is_decimal_type<T>::value>;
 
 template <typename T>
-using enable_if_number_or_decimal = std::enable_if_t<is_number_or_decimal_type<T>::value>;
+using enable_if_number_or_decimal =
+    std::enable_if_t<is_number_or_decimal_type<T>::value>;
 
 template <typename T>
 using is_base_binary_type = std::is_base_of<arrow::BaseBinaryType, T>;
@@ -287,7 +290,8 @@ struct TypeTraits<arrow::Date64Type> {
 };
 template <>
 struct TypeTraits<arrow::FixedSizeBinaryType> {
-  static constexpr PrecompileType::type type_id = PrecompileType::FIXED_SIZE_BINARY;
+  static constexpr PrecompileType::type type_id =
+      PrecompileType::FIXED_SIZE_BINARY;
   using ArrayType = FixedSizeBinaryArray;
   using CType = uint8_t;
 };

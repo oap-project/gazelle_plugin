@@ -64,8 +64,9 @@ class TypedNodeVisitor : public VisitorBase {
   arrow::Status Visit(const gandiva::BooleanNode& node) override;
 };
 
-static arrow::Status MakeTypedNodeVisitor(std::shared_ptr<gandiva::Node> func,
-                                          std::shared_ptr<TypedNodeVisitor>* out) {
+static arrow::Status MakeTypedNodeVisitor(
+    std::shared_ptr<gandiva::Node> func,
+    std::shared_ptr<TypedNodeVisitor>* out) {
   auto visitor = std::make_shared<TypedNodeVisitor>(func);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;

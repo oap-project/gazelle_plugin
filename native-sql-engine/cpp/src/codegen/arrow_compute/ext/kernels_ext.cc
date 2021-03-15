@@ -76,8 +76,8 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in,
                          std::shared_ptr<arrow::Array>* out) {
     // arrow::Datum input_datum(in);
-    // RETURN_NOT_OK(arrow::compute::Group<InType>(ctx_, input_datum, hash_table_, out));
-    // we should put items into hashmap
+    // RETURN_NOT_OK(arrow::compute::Group<InType>(ctx_, input_datum,
+    // hash_table_, out)); we should put items into hashmap
     builder_->Reset();
     auto typed_array = std::dynamic_pointer_cast<ArrayType>(in);
     auto insert_on_found = [this](int32_t i) { builder_->Append(i); };
@@ -95,8 +95,9 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
         if (typed_array->IsNull(cur_id)) {
           hash_table_->GetOrInsertNull(insert_on_found, insert_on_not_found);
         } else {
-          hash_table_->GetOrInsert(typed_array->GetView(cur_id), insert_on_found,
-                                   insert_on_not_found, &memo_index);
+          hash_table_->GetOrInsert(typed_array->GetView(cur_id),
+                                   insert_on_found, insert_on_not_found,
+                                   &memo_index);
         }
       }
     }
@@ -143,14 +144,16 @@ EncodeArrayKernel::EncodeArrayKernel(arrow::compute::ExecContext* ctx) {
   PROCESS(arrow::StringType)             \
   PROCESS(arrow::FixedSizeBinaryType)    \
   PROCESS(arrow::Decimal128Type)
-arrow::Status EncodeArrayKernel::Evaluate(const std::shared_ptr<arrow::Array>& in,
-                                          std::shared_ptr<arrow::Array>* out) {
+arrow::Status EncodeArrayKernel::Evaluate(
+    const std::shared_ptr<arrow::Array>& in,
+    std::shared_ptr<arrow::Array>* out) {
   if (!impl_) {
     switch (in->type_id()) {
-#define PROCESS(InType)                                                                \
-  case InType::type_id: {                                                              \
-    using MemoTableType = typename arrow::internal::HashTraits<InType>::MemoTableType; \
-    impl_.reset(new EncodeArrayTypedImpl<InType, MemoTableType>(ctx_));                \
+#define PROCESS(InType)                                                 \
+  case InType::type_id: {                                               \
+    using MemoTableType =                                               \
+        typename arrow::internal::HashTraits<InType>::MemoTableType;    \
+    impl_.reset(new EncodeArrayTypedImpl<InType, MemoTableType>(ctx_)); \
   } break;
       PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -180,13 +183,14 @@ class HashArrayKernel::Impl {
       auto field = arrow::field(std::to_string(index), type);
       field_list.push_back(field);
       auto field_node = gandiva::TreeExprBuilder::MakeField(field);
-      auto func_node =
-          gandiva::TreeExprBuilder::MakeFunction("hash64", {field_node}, arrow::int64());
+      auto func_node = gandiva::TreeExprBuilder::MakeFunction(
+          "hash64", {field_node}, arrow::int64());
       func_node_list.push_back(func_node);
       if (func_node_list.size() == 2) {
         auto shift_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "multiply",
-            {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
+            {func_node_list[0],
+             gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
             arrow::int64());
         auto tmp_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "add", {shift_func_node, func_node_list[1]}, arrow::int64());
@@ -195,20 +199,22 @@ class HashArrayKernel::Impl {
       }
       index++;
     }
-    expr = gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
-                                                    arrow::field("res", arrow::int64()));
+    expr = gandiva::TreeExprBuilder::MakeExpression(
+        func_node_list[0], arrow::field("res", arrow::int64()));
 #ifdef DEBUG
     std::cout << expr->ToString() << std::endl;
 #endif
     schema_ = arrow::schema(field_list);
     auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-    auto status = gandiva::Projector::Make(schema_, {expr}, configuration, &projector);
+    auto status =
+        gandiva::Projector::Make(schema_, {expr}, configuration, &projector);
     pool_ = ctx_->memory_pool();
   }
 
   virtual ~Impl() {}
 
-  arrow::Status Evaluate(const ArrayList& in, std::shared_ptr<arrow::Array>* out) {
+  arrow::Status Evaluate(const ArrayList& in,
+                         std::shared_ptr<arrow::Array>* out) {
     auto length = in[0]->length();
     auto num_columns = in.size();
 
@@ -259,11 +265,12 @@ class ConcatArrayKernel::Impl {
     pool_ = ctx_->memory_pool();
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::utf8(), &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<arrow::StringBuilder*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<arrow::StringBuilder*>(
+        array_builder.release()));
   }
 
-  arrow::Status Evaluate(const ArrayList& in, std::shared_ptr<arrow::Array>* out) {
+  arrow::Status Evaluate(const ArrayList& in,
+                         std::shared_ptr<arrow::Array>* out) {
     auto length = in[0]->length();
     std::vector<std::shared_ptr<UnsafeArray>> payloads;
     int i = 0;
@@ -274,13 +281,15 @@ class ConcatArrayKernel::Impl {
     }
 
     builder_->Reset();
-    std::shared_ptr<UnsafeRow> payload = std::make_shared<UnsafeRow>(payloads.size());
+    std::shared_ptr<UnsafeRow> payload =
+        std::make_shared<UnsafeRow>(payloads.size());
     for (int i = 0; i < length; i++) {
       payload->reset();
       for (auto payload_arr : payloads) {
         RETURN_NOT_OK(payload_arr->Append(i, &payload));
       }
-      RETURN_NOT_OK(builder_->Append(payload->data, (int64_t)payload->sizeInBytes()));
+      RETURN_NOT_OK(
+          builder_->Append(payload->data, (int64_t)payload->sizeInBytes()));
     }
 
     RETURN_NOT_OK(builder_->Finish(out));
@@ -317,8 +326,10 @@ arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
 ///////////////  ConcatArray  ////////////////
 class CachedRelationKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
-       std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type)
+  Impl(arrow::compute::ExecContext* ctx,
+       std::shared_ptr<arrow::Schema> result_schema,
+       std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+       int result_type)
       : ctx_(ctx),
         result_schema_(result_schema),
         key_field_list_(key_field_list),
@@ -348,8 +359,9 @@ class CachedRelationKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
-                                   std::shared_ptr<ResultIterator<SortRelation>>* out) {
+  arrow::Status MakeResultIterator(
+      std::shared_ptr<arrow::Schema> schema,
+      std::shared_ptr<ResultIterator<SortRelation>>* out) {
     std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
     int idx = 0;
     for (auto field : result_schema_->fields()) {
@@ -367,8 +379,9 @@ class CachedRelationKernel::Impl {
     for (auto key_id : key_index_list_) {
       key_relation_list.push_back(sort_relation_list[key_id]);
     }
-    auto sort_relation = std::make_shared<SortRelation>(
-        ctx_, items_total_, length_list_, key_relation_list, sort_relation_list);
+    auto sort_relation =
+        std::make_shared<SortRelation>(ctx_, items_total_, length_list_,
+                                       key_relation_list, sort_relation_list);
     *out = std::make_shared<SortRelationResultIterator>(sort_relation);
     return arrow::Status::OK();
   }
@@ -402,17 +415,20 @@ class CachedRelationKernel::Impl {
 };
 
 arrow::Status CachedRelationKernel::Make(
-    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx,
+    std::shared_ptr<arrow::Schema> result_schema,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type,
     std::shared_ptr<KernalBase>* out) {
-  *out = std::make_shared<CachedRelationKernel>(ctx, result_schema, key_field_list,
-                                                result_type);
+  *out = std::make_shared<CachedRelationKernel>(ctx, result_schema,
+                                                key_field_list, result_type);
   return arrow::Status::OK();
 }
 
 CachedRelationKernel::CachedRelationKernel(
-    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
-    std::vector<std::shared_ptr<arrow::Field>> key_field_list, int result_type) {
+    arrow::compute::ExecContext* ctx,
+    std::shared_ptr<arrow::Schema> result_schema,
+    std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+    int result_type) {
   impl_.reset(new Impl(ctx, result_schema, key_field_list, result_type));
   kernel_name_ = "CachedRelationKernel";
 }
@@ -456,7 +472,8 @@ class ConcatArrayListKernel::Impl {
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
-    *out = std::make_shared<ConcatArrayListResultIterator>(ctx_, schema, cached_);
+    *out =
+        std::make_shared<ConcatArrayListResultIterator>(ctx_, schema, cached_);
     return arrow::Status::OK();
   }
 
@@ -465,7 +482,8 @@ class ConcatArrayListKernel::Impl {
   std::vector<arrow::ArrayVector> cached_;
   int total_num_row_ = 0;
   int total_num_batch_ = 0;
-  class ConcatArrayListResultIterator : public ResultIterator<arrow::RecordBatch> {
+  class ConcatArrayListResultIterator
+      : public ResultIterator<arrow::RecordBatch> {
    public:
     ConcatArrayListResultIterator(arrow::compute::ExecContext* ctx,
                                   std::shared_ptr<arrow::Schema> result_schema,
@@ -513,7 +531,8 @@ class ConcatArrayListKernel::Impl {
       }
       int length = concatenated_array_list[0]->length();
 
-      *out = arrow::RecordBatch::Make(result_schema_, length, concatenated_array_list);
+      *out = arrow::RecordBatch::Make(result_schema_, length,
+                                      concatenated_array_list);
       cur_batch_idx_ = end_arr_idx;
       return arrow::Status::OK();
     }
@@ -534,8 +553,8 @@ arrow::Status ConcatArrayListKernel::Make(
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
     std::shared_ptr<KernalBase>* out) {
-  *out = std::make_shared<ConcatArrayListKernel>(ctx, input_field_list, root_node,
-                                                 output_field_list);
+  *out = std::make_shared<ConcatArrayListKernel>(ctx, input_field_list,
+                                                 root_node, output_field_list);
   return arrow::Status::OK();
 }
 

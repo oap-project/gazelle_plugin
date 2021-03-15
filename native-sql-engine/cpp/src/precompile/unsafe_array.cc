@@ -47,16 +47,17 @@ arrow::Status MakeUnsafeArray(std::shared_ptr<arrow::DataType> type, int idx,
                               const std::shared_ptr<arrow::Array>& in,
                               std::shared_ptr<UnsafeArray>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                            \
-  case InType::type_id: {                                                          \
-    auto typed_unsafe_array = std::make_shared<TypedUnsafeArray<InType>>(idx, in); \
-    *out = std::dynamic_pointer_cast<UnsafeArray>(typed_unsafe_array);             \
+#define PROCESS(InType)                                                \
+  case InType::type_id: {                                              \
+    auto typed_unsafe_array =                                          \
+        std::make_shared<TypedUnsafeArray<InType>>(idx, in);           \
+    *out = std::dynamic_pointer_cast<UnsafeArray>(typed_unsafe_array); \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     default: {
-      std::cout << "MakeUnsafeArray type not supported, type is " << type->ToString()
-                << std::endl;
+      std::cout << "MakeUnsafeArray type not supported, type is "
+                << type->ToString() << std::endl;
     } break;
   }
   return arrow::Status::OK();

@@ -18,9 +18,10 @@
 #pragma once
 
 #include <arrow/extension_type.h>
+#include <arrow/ipc/options.h>
 #include <arrow/type.h>
 #include <arrow/util/logging.h>
-#include <arrow/ipc/options.h>
+
 #include <deque>
 
 namespace sparkcolumnarplugin {

@@ -28,13 +28,15 @@ template <typename T>
 using is_int64 = std::is_same<int64_t, T>;
 
 template <typename T>
-using enable_if_int64 = typename std::enable_if<is_int64<T>::value, int64_t>::type;
+using enable_if_int64 =
+    typename std::enable_if<is_int64<T>::value, int64_t>::type;
 
 template <typename T>
 using is_string = std::is_same<std::string, T>;
 
 template <typename T>
-using enable_if_string = typename std::enable_if<is_string<T>::value, int64_t>::type;
+using enable_if_string =
+    typename std::enable_if<is_string<T>::value, int64_t>::type;
 
 template <typename T>
 using is_string_or_int64 =
@@ -98,7 +100,8 @@ static inline int64_t double_to_long_bits(double value) {
 
 template <typename T>
 inline enable_if_not_int64<T> hash64(T in, bool validity, int32_t seed) {
-  return validity ? hash64(double_to_long_bits(static_cast<double>(in)), seed) : seed;
+  return validity ? hash64(double_to_long_bits(static_cast<double>(in)), seed)
+                  : seed;
 }
 
 template <typename T>

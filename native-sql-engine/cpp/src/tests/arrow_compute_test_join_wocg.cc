@@ -49,40 +49,35 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestProjectKeyInnerJoin) {
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto f_res = field("res", uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto f_res = field("res",
+uint32());
 
   auto n_right_project_key = TreeExprBuilder::MakeFunction(
       "castBIGINT", {TreeExprBuilder::MakeField(table1_f0)}, uint64());
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction("codegen_right_key_schema",
-                                                   {n_right_project_key}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_add = TreeExprBuilder::MakeFunction(
-      "add",
-      {TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table1_f1)},
-      uint64());
-  auto n_condition = TreeExprBuilder::MakeFunction(
-      "greater_than", {n_add, TreeExprBuilder::MakeField(table0_f2)}, boolean());
-  auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config, n_condition},
-      uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key =
+TreeExprBuilder::MakeFunction("codegen_right_key_schema", {n_right_project_key},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto n_add =
+TreeExprBuilder::MakeFunction( "add", {TreeExprBuilder::MakeField(table0_f1),
+TreeExprBuilder::MakeField(table1_f1)}, uint64()); auto n_condition =
+TreeExprBuilder::MakeFunction( "greater_than", {n_add,
+TreeExprBuilder::MakeField(table0_f2)}, boolean()); auto n_hash_config =
+TreeExprBuilder::MakeFunction( "build_keys_config_node",
+{TreeExprBuilder::MakeLiteral((int)0)}, uint32()); auto n_probeArrays =
+TreeExprBuilder::MakeFunction( "conditionedProbeArraysInner", {n_left, n_right,
+n_left_key, n_right_key, n_result, n_hash_config, n_condition}, uint32()); auto
+n_standalone = TreeExprBuilder::MakeFunction("standalone", {n_probeArrays},
+uint32());
 
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
@@ -93,8 +88,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestProjectKeyInnerJoin) {
 
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  auto result = CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f1, table0_f2}, &expr_probe, true);
+  auto result = CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+{probeArrays_expr}, {table1_f1, table0_f2}, &expr_probe, true);
 }
 
 TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoin) {
@@ -108,34 +103,32 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoin) {
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto f_res = field("res", uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto f_res = field("res",
+uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key_func = TreeExprBuilder::MakeFunction(
-      "upper", {TreeExprBuilder::MakeField(table1_f0)}, utf8());
-  auto n_right_key = TreeExprBuilder::MakeFunction("codegen_right_key_schema",
-                                                   {n_right_key_func}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key_func = TreeExprBuilder::MakeFunction( "upper",
+{TreeExprBuilder::MakeField(table1_f0)}, utf8()); auto n_right_key =
+TreeExprBuilder::MakeFunction("codegen_right_key_schema", {n_right_key_func},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2),
+TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)},
+uint32()); auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+uint32()); auto n_standalone = TreeExprBuilder::MakeFunction("standalone",
+{n_probeArrays}, uint32());
 
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
@@ -146,16 +139,16 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoin) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -164,15 +157,15 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoin) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {R"(["BJ", "SH", "HZ", "BH", "NY", "SH"])",
-                                                R"(["A", "A", "C", "D", "C", "D"])",
+  std::vector<std::string> input_data_string = {R"(["BJ", "SH", "HZ", "BH",
+"NY", "SH"])", R"(["A", "A", "C", "D", "C", "D"])",
                                                 "[10, 3, 1, 2, 13, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
   input_data_string = {R"(["TK", "SH", "PH", "NJ", "NB", "SZ"])",
-                       R"(["F", "F", "A", "B", "D", "C"])", "[6, 12, 5, 8, 16, 110]"};
-  MakeInputBatch(input_data_string, schema_table_0, &input_batch);
+                       R"(["F", "F", "A", "B", "D", "C"])", "[6, 12, 5, 8, 16,
+110]"}; MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
   std::vector<std::string> input_data_2_string = {
@@ -193,12 +186,12 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoin) {
       R"(["SH", "SH", "SH", "SZ", "BJ", "NY", "HZ"])",
       R"(["A", "D", "F", "C", "A", "C", "C"])", "[3, 11, 12, 110, 10, 13, 1]",
       R"(["sh", "sh", "sh", "sz", "bj", "ny", "hz"])", "[1, 1, 1, 2, 3, 5, 6]"};
-  auto res_sch = arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
-  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  auto res_sch = arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0,
+table1_f1}); MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["PH", "NJ", "SZ"])", R"(["A", "B", "C"])", "[5, 8, 110]",
-                            R"(["ph", "nj", "sz"])", "[7, null, 12]"};
+  expected_result_string = {R"(["PH", "NJ", "SZ"])", R"(["A", "B", "C"])", "[5,
+8, 110]", R"(["ph", "nj", "sz"])", "[7, null, 12]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -241,37 +234,34 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoin) {
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto f_res = field("res", uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto f_res = field("res",
+uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
       "codegen_left_key_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
-      uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1)}, uint32()); auto n_right_key =
+TreeExprBuilder::MakeFunction( "codegen_right_key_schema",
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto n_result =
+TreeExprBuilder::MakeFunction( "result", {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2),
+TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)},
+uint32()); auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+uint32()); auto n_standalone = TreeExprBuilder::MakeFunction("standalone",
+{n_probeArrays}, uint32()); auto probeArrays_expr =
+TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -280,16 +270,16 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoin) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -308,8 +298,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoin) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {R"(["a", "b", "c", "d", "e", "f"])",
-                                                  R"(["A", "B", "C", "D", "F", "F"])"};
+  std::vector<std::string> input_data_2_string = {R"(["a", "b", "c", "d", "e",
+"f"])", R"(["A", "B", "C", "D", "F", "F"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -328,8 +318,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoin) {
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["j", "l", "n"])", R"(["J", "L", "N"])", "[8, 10, 12]",
-                            R"(["j", "l", "n"])", R"(["J", "L", "N"])"};
+  expected_result_string = {R"(["j", "l", "n"])", R"(["J", "L", "N"])", "[8, 10,
+12]", R"(["j", "l", "n"])", R"(["J", "L", "N"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -372,29 +362,27 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOuterJoin) {
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto f_res = field("res", uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto f_res = field("res",
+uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedProbeArraysOuter",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto n_hash_config =
+TreeExprBuilder::MakeFunction( "build_keys_config_node",
+{TreeExprBuilder::MakeLiteral((int)0)}, uint32()); auto n_probeArrays =
+TreeExprBuilder::MakeFunction( "conditionedProbeArraysOuter", {n_left, n_right,
+n_left_key, n_right_key, n_result, n_hash_config}, uint32());
 
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
@@ -407,16 +395,15 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOuterJoin) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table0_f0, table0_f1, table0_f2, table1_f1},
-                                    &expr_probe, true));
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+{probeArrays_expr}, {table0_f0, table0_f1, table0_f2, table1_f1}, &expr_probe,
+true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -500,30 +487,27 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoin) {
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto f_res = field("res", uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto f_res = field("res",
+uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedProbeArraysAnti",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto n_hash_config =
+TreeExprBuilder::MakeFunction( "build_keys_config_node",
+{TreeExprBuilder::MakeLiteral((int)0)}, uint32()); auto n_probeArrays =
+TreeExprBuilder::MakeFunction( "conditionedProbeArraysAnti", {n_left, n_right,
+n_left_key, n_right_key, n_result, n_hash_config}, uint32()); auto n_standalone
+= TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
 
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
@@ -534,15 +518,14 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoin) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+{probeArrays_expr}, {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -622,31 +605,28 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoin) {
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto f_res = field("res", uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto f_res = field("res",
+uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedProbeArraysSemi",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32()); auto n_hash_config =
+TreeExprBuilder::MakeFunction( "build_keys_config_node",
+{TreeExprBuilder::MakeLiteral((int)0)}, uint32()); auto n_probeArrays =
+TreeExprBuilder::MakeFunction( "conditionedProbeArraysSemi", {n_left, n_right,
+n_left_key, n_right_key, n_result, n_hash_config}, uint32()); auto n_standalone
+= TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32()); auto
+probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -654,15 +634,14 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoin) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+{probeArrays_expr}, {table1_f0, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -682,8 +661,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoin) {
   table_0.push_back(input_batch);
 
   std::vector<std::string> input_data_2_string = {"[1, 3, 4, 5, 6]",
-                                                  R"(["BJ", "TY", "NY", "SH", "HZ"])"};
-  MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
+                                                  R"(["BJ", "TY", "NY", "SH",
+"HZ"])"}; MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
   input_data_2_string = {"[7, 8, 9, 10, 11, 12]",
@@ -697,8 +676,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {"[1, 3, 5, 6]",
-                                                     R"(["BJ", "TY", "SH", "HZ"])"};
-  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+                                                     R"(["BJ", "TY", "SH",
+"HZ"])"}; MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
   expected_result_string = {"[8, 10, 12]", R"(["NY", "IT", "TL"])"};
@@ -746,31 +725,30 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoin) {
   auto f_exist = field("res", arrow::boolean());
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(f_exist),
-       TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(f_exist), TreeExprBuilder::MakeField(table1_f1)},
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)},
+uint32()); auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysExistence",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+uint32()); auto n_standalone = TreeExprBuilder::MakeFunction("standalone",
+{n_probeArrays}, uint32()); auto probeArrays_expr =
+TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -779,15 +757,14 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoin) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, f_exist, table1_f1}, &expr_probe, true));
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+{probeArrays_expr}, {table1_f0, f_exist, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -873,31 +850,30 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoin2) {
   auto f_exist = field("res", arrow::boolean());
   auto n_left = TreeExprBuilder::MakeFunction(
       "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
+      {TreeExprBuilder::MakeField(table0_f0),
+TreeExprBuilder::MakeField(table0_f1), TreeExprBuilder::MakeField(table0_f2)},
       uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1)}, uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1),
-       TreeExprBuilder::MakeField(f_exist)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+uint32()); auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+uint32()); auto n_result = TreeExprBuilder::MakeFunction( "result",
+      {TreeExprBuilder::MakeField(table1_f0),
+TreeExprBuilder::MakeField(table1_f1), TreeExprBuilder::MakeField(f_exist)},
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)},
+uint32()); auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysExistence",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone =
-      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
-  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+uint32()); auto n_standalone = TreeExprBuilder::MakeFunction("standalone",
+{n_probeArrays}, uint32()); auto probeArrays_expr =
+TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -906,15 +882,14 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoin2) {
 
   auto n_hash_kernel =
       TreeExprBuilder::MakeFunction("HashRelation", {n_left_key}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
-  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
-  std::shared_ptr<CodeGenerator> expr_build;
-  arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
-  std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1, f_exist}, &expr_probe, true));
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel},
+uint32()); auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash,
+f_res); std::shared_ptr<CodeGenerator> expr_build; arrow::compute::ExecContext
+ctx; ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build,
+true)); std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+{probeArrays_expr}, {table1_f0, table1_f1, f_exist}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -996,36 +971,44 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoinType2) {
   auto table1_f1 = field("table1_f1", utf8());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
-  auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
-      uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left_key =
+      TreeExprBuilder::MakeFunction("codegen_left_key_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1)},
+                                    uint32());
+  auto n_right_key =
+      TreeExprBuilder::MakeFunction("codegen_right_key_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2),
+                                     TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -1037,16 +1020,19 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoinType2) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1065,8 +1051,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoinType2) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {R"(["a", "b", "c", "d", "e", "f"])",
-                                                  R"(["A", "B", "C", "D", "F", "F"])"};
+  std::vector<std::string> input_data_2_string = {
+      R"(["a", "b", "c", "d", "e", "f"])", R"(["A", "B", "C", "D", "F", "F"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -1085,8 +1071,9 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestTwoStringInnerJoinType2) {
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["j", "l", "n"])", R"(["J", "L", "N"])", "[8, 10, 12]",
-                            R"(["j", "l", "n"])", R"(["J", "L", "N"])"};
+  expected_result_string = {R"(["j", "l", "n"])", R"(["J", "L", "N"])",
+                            "[8, 10, 12]", R"(["j", "l", "n"])",
+                            R"(["J", "L", "N"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -1127,31 +1114,39 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOuterJoinType2) {
   auto table1_f1 = field("table1_f1", uint32());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysOuter",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
 
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
@@ -1164,16 +1159,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestOuterJoinType2) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table0_f0, table0_f1, table0_f2, table1_f1},
-                                    &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+      {table0_f0, table0_f1, table0_f2, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1255,30 +1252,37 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType2) {
   auto table1_f1 = field("table1_f1", uint32());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysAnti",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
 
@@ -1291,15 +1295,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType2) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1377,30 +1384,37 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2) {
   auto table1_f1 = field("table1_f1", utf8());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysSemi",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -1411,15 +1425,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1438,8 +1455,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {"[1, 3, 4, 5, 6]",
-                                                  R"(["BJ", "TY", "NY", "SH", "HZ"])"};
+  std::vector<std::string> input_data_2_string = {
+      "[1, 3, 4, 5, 6]", R"(["BJ", "TY", "NY", "SH", "HZ"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -1453,8 +1470,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2) {
   auto res_sch = arrow::schema({table1_f0, table1_f1});
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {"[1, 3, 5, 6]",
-                                                     R"(["BJ", "TY", "SH", "HZ"])"};
+  std::vector<std::string> expected_result_string = {
+      "[1, 3, 5, 6]", R"(["BJ", "TY", "SH", "HZ"])"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -1501,30 +1518,37 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoinType2) {
   ///////////////////////////////////////////
   auto f_res = field("res", uint32());
   auto f_exist = field("res", arrow::boolean());
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(f_exist),
-       TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(f_exist),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysExistence",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -1536,15 +1560,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestExistenceJoinType2) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, f_exist, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+                          {table1_f0, f_exist, table1_f1}, &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1626,30 +1653,37 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2WithUInt64) {
   auto table1_f1 = field("table1_f1", utf8());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysSemi",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -1660,15 +1694,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2WithUInt64) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1687,8 +1724,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2WithUInt64) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {"[1, 3, 4, 5, 6]",
-                                                  R"(["BJ", "TY", "NY", "SH", "HZ"])"};
+  std::vector<std::string> input_data_2_string = {
+      "[1, 3, 4, 5, 6]", R"(["BJ", "TY", "NY", "SH", "HZ"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -1702,8 +1739,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2WithUInt64) {
   auto res_sch = arrow::schema({table1_f0, table1_f1});
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {"[1, 3, 5, 6]",
-                                                     R"(["BJ", "TY", "SH", "HZ"])"};
+  std::vector<std::string> expected_result_string = {
+      "[1, 3, 5, 6]", R"(["BJ", "TY", "SH", "HZ"])"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -1740,7 +1777,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType2WithUInt64) {
 }
 
 TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
-  return; // TODO() fix this test
+  return;  // TODO() fix this test
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", uint16());
   auto table0_f1 = field("table0_f1", uint32());
@@ -1749,30 +1786,37 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
   auto table1_f1 = field("table1_f1", utf8());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -1783,15 +1827,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1810,8 +1857,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {"[1, 3, 4, 5, 6]",
-                                                  R"(["BJ", "TY", "NY", "SH", "HZ"])"};
+  std::vector<std::string> input_data_2_string = {
+      "[1, 3, 4, 5, 6]", R"(["BJ", "TY", "NY", "SH", "HZ"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -1844,7 +1891,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithUInt16) {
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
 
   auto build_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<HashRelation>>(build_result_iterator_base);
+      std::dynamic_pointer_cast<ResultIterator<HashRelation>>(
+          build_result_iterator_base);
   std::shared_ptr<HashRelation> hash_relation;
   ASSERT_NOT_OK(build_result_iterator->Next(&hash_relation));
   hash_relation->TESTGrowAndRehashKeyArray();
@@ -1877,34 +1925,41 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
   auto table1_f1 = field("table1_f1", uint32());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
+      uint32());
   auto n_right_key_func = TreeExprBuilder::MakeFunction(
       "upper", {TreeExprBuilder::MakeField(table1_f0)}, utf8());
-  auto n_right_key = TreeExprBuilder::MakeFunction("codegen_right_key_schema",
-                                                   {n_right_key_func}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {n_right_key_func}, uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2),
+                                     TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
 
@@ -1917,28 +1972,34 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
 
   auto n_hash_kernel_pre = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash_pre =
-      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel_pre}, uint32());
-  auto hashRelation_expr_pre = TreeExprBuilder::MakeExpression(n_hash_pre, f_res);
+  auto n_hash_pre = TreeExprBuilder::MakeFunction(
+      "standalone", {n_hash_kernel_pre}, uint32());
+  auto hashRelation_expr_pre =
+      TreeExprBuilder::MakeExpression(n_hash_pre, f_res);
 
   auto n_hash_config_2 = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)2)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)2)},
+      uint32());
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config_2}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
 
   std::shared_ptr<CodeGenerator> expr_build_pre;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr_pre}, {}, &expr_build_pre, true));
+                                    {hashRelation_expr_pre}, {},
+                                    &expr_build_pre, true));
   std::shared_ptr<CodeGenerator> expr_build;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1947,14 +2008,15 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {R"(["BJ", "SH", "HZ", "BH", "NY", "SH"])",
-                                                R"(["A", "A", "C", "D", "C", "D"])",
-                                                "[10, 3, 1, 2, 13, 11]"};
+  std::vector<std::string> input_data_string = {
+      R"(["BJ", "SH", "HZ", "BH", "NY", "SH"])",
+      R"(["A", "A", "C", "D", "C", "D"])", "[10, 3, 1, 2, 13, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
   input_data_string = {R"(["TK", "SH", "PH", "NJ", "NB", "SZ"])",
-                       R"(["F", "F", "A", "B", "D", "C"])", "[6, 12, 5, 8, 16, 110]"};
+                       R"(["F", "F", "A", "B", "D", "C"])",
+                       "[6, 12, 5, 8, 16, 110]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -1976,12 +2038,14 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
       R"(["SH", "SH", "SH", "SZ", "BJ", "NY", "HZ"])",
       R"(["A", "D", "F", "C", "A", "C", "C"])", "[3, 11, 12, 110, 10, 13, 1]",
       R"(["sh", "sh", "sh", "sz", "bj", "ny", "hz"])", "[1, 1, 1, 2, 3, 5, 6]"};
-  auto res_sch = arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
+  auto res_sch =
+      arrow::schema({table0_f0, table0_f1, table0_f2, table1_f0, table1_f1});
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["PH", "NJ", "SZ"])", R"(["A", "B", "C"])", "[5, 8, 110]",
-                            R"(["ph", "nj", "sz"])", "[7, null, 12]"};
+  expected_result_string = {R"(["PH", "NJ", "SZ"])", R"(["A", "B", "C"])",
+                            "[5, 8, 110]", R"(["ph", "nj", "sz"])",
+                            "[7, null, 12]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -2000,7 +2064,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
       std::dynamic_pointer_cast<ResultIterator<HashRelation>>(
           build_result_iterator_base_pre);
   auto build_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<HashRelation>>(build_result_iterator_base);
+      std::dynamic_pointer_cast<ResultIterator<HashRelation>>(
+          build_result_iterator_base);
   auto probe_result_iterator =
       std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
           probe_result_iterator_base);
@@ -2013,7 +2078,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestStringInnerJoinType2LoadHashRelation) {
   int sizes[3];
   ASSERT_NOT_OK(hash_relation_pre->UnsafeGetHashTableObject(addrs, sizes));
   ASSERT_NOT_OK(hash_relation->UnsafeSetHashTableObject(3, addrs, sizes));
-  ASSERT_NOT_OK(probe_result_iterator->SetDependencies({build_result_iterator_base}));
+  ASSERT_NOT_OK(
+      probe_result_iterator->SetDependencies({build_result_iterator_base}));
   // ASSERT_NOT_OK(probe_result_iterator->SetDependencies({build_result_iterator_base_pre}));
 
   for (int i = 0; i < 2; i++) {
@@ -2039,30 +2105,37 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
   auto table1_f1 = field("table1_f1", utf8());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)},
       uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)},
+      uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -2073,15 +2146,18 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1}, &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1,
+                                    {probeArrays_expr}, {table1_f0, table1_f1},
+                                    &expr_probe, true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -2090,19 +2166,19 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {R"(["10", "3", "1", "2", "3", "1"])",
-                                                "[10, 3, 1, 2, 13, 11]",
-                                                "[10, 3, 1, 2, 13, 11]"};
+  std::vector<std::string> input_data_string = {
+      R"(["10", "3", "1", "2", "3", "1"])", "[10, 3, 1, 2, 13, 11]",
+      "[10, 3, 1, 2, 13, 11]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  input_data_string = {R"(["6", "12", "5", "8", "6", "10"])", "[6, 12, 5, 8, 16, 110]",
-                       "[6, 12, 5, 8, 16, 110]"};
+  input_data_string = {R"(["6", "12", "5", "8", "6", "10"])",
+                       "[6, 12, 5, 8, 16, 110]", "[6, 12, 5, 8, 16, 110]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {R"(["1", "3", "4", "5", "6"])",
-                                                  R"(["BJ", "TY", "NY", "SH", "HZ"])"};
+  std::vector<std::string> input_data_2_string = {
+      R"(["1", "3", "4", "5", "6"])", R"(["BJ", "TY", "NY", "SH", "HZ"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -2122,7 +2198,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["8", "10", "10", "12"])", R"(["NY", "IT", "IT","TL"])"};
+  expected_result_string = {R"(["8", "10", "10", "12"])",
+                            R"(["NY", "IT", "IT","TL"])"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
@@ -2136,7 +2213,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithDecimal) {
   ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
 
   auto build_result_iterator =
-      std::dynamic_pointer_cast<ResultIterator<HashRelation>>(build_result_iterator_base);
+      std::dynamic_pointer_cast<ResultIterator<HashRelation>>(
+          build_result_iterator_base);
   std::shared_ptr<HashRelation> hash_relation;
   ASSERT_NOT_OK(build_result_iterator->Next(&hash_relation));
   hash_relation->TESTGrowAndRehashKeyArray();
@@ -2169,36 +2247,44 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithMultipleDecimal) {
   auto table1_f1 = field("table1_f1", utf8());
 
   ///////////////////////////////////////////
-  auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2)},
-      uint32());
-  auto n_right = TreeExprBuilder::MakeFunction(
-      "codegen_right_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left =
+      TreeExprBuilder::MakeFunction("codegen_left_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2)},
+                                    uint32());
+  auto n_right =
+      TreeExprBuilder::MakeFunction("codegen_right_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto f_res = field("res", uint32());
 
-  auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
-      uint32());
-  auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema",
-      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
-  auto n_result = TreeExprBuilder::MakeFunction(
-      "result",
-      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
-       TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
-      uint32());
+  auto n_left_key =
+      TreeExprBuilder::MakeFunction("codegen_left_key_schema",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1)},
+                                    uint32());
+  auto n_right_key =
+      TreeExprBuilder::MakeFunction("codegen_right_key_schema",
+                                    {TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("result",
+                                    {TreeExprBuilder::MakeField(table0_f0),
+                                     TreeExprBuilder::MakeField(table0_f1),
+                                     TreeExprBuilder::MakeField(table0_f2),
+                                     TreeExprBuilder::MakeField(table1_f0),
+                                     TreeExprBuilder::MakeField(table1_f1)},
+                                    uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
-      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)},
+      uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysInner",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
@@ -2210,16 +2296,19 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithMultipleDecimal) {
 
   auto n_hash_kernel = TreeExprBuilder::MakeFunction(
       "HashRelation", {n_left_key, n_hash_config}, uint32());
-  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto n_hash =
+      TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
   arrow::compute::ExecContext ctx;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
-                                    {hashRelation_expr}, {}, &expr_build, true));
+                                    {hashRelation_expr}, {}, &expr_build,
+                                    true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(
       ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
+      {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe,
+      true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -2238,8 +2327,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithMultipleDecimal) {
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
-  std::vector<std::string> input_data_2_string = {R"(["1", "2", "3", "4", "5", "6"])",
-                                                  R"(["A", "B", "C", "D", "F", "C"])"};
+  std::vector<std::string> input_data_2_string = {
+      R"(["1", "2", "3", "4", "5", "6"])", R"(["A", "B", "C", "D", "F", "C"])"};
   MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
   table_1.push_back(input_batch);
 
@@ -2253,13 +2342,14 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestInnerJoinType2WithMultipleDecimal) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      R"(["1", "2", "6"])", R"(["A", "B", "C"])", "[1, 2, 3]", R"(["1", "2", "6"])",
-      R"(["A", "B", "C"])"};
+      R"(["1", "2", "6"])", R"(["A", "B", "C"])", "[1, 2, 3]",
+      R"(["1", "2", "6"])", R"(["A", "B", "C"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 
-  expected_result_string = {R"(["8", "5", "9"])", R"(["I", "L", "N"])", "[5, 10, 12]",
-                            R"(["8", "5", "9"])", R"(["I", "L", "N"])"};
+  expected_result_string = {R"(["8", "5", "9"])", R"(["I", "L", "N"])",
+                            "[5, 10, 12]", R"(["8", "5", "9"])",
+                            R"(["I", "L", "N"])"};
   MakeInputBatch(expected_result_string, schema_table, &expected_result);
   expected_table.push_back(expected_result);
 

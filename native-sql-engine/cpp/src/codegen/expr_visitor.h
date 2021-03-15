@@ -18,6 +18,7 @@
 #pragma once
 
 #include <iostream>
+
 #include "codegen/code_generator.h"
 #include "codegen/common/visitor_base.h"
 
@@ -31,8 +32,9 @@ class ExprVisitor : public VisitorBase {
  public:
   ExprVisitor() {}
 
-  arrow::Status create(std::vector<std::shared_ptr<gandiva::Expression>> exprs_vector,
-                       int* out) {
+  arrow::Status create(
+      std::vector<std::shared_ptr<gandiva::Expression>> exprs_vector,
+      int* out) {
     arrow::Status status = arrow::Status::OK();
     for (auto expr : exprs_vector) {
       status = expr->root()->Accept(*this);
@@ -46,7 +48,8 @@ class ExprVisitor : public VisitorBase {
 
  private:
   // std::vector<std::string> ac{
-  //    "sum", "max", "min", "count", "getPrepareFunc", "splitArrayList", "encodeArray"};
+  //    "sum", "max", "min", "count", "getPrepareFunc", "splitArrayList",
+  //    "encodeArray"};
   std::vector<std::string> gdv{"add", "substract", "multiply", "divide"};
   std::vector<std::string> ce{};
   int codegen_type;

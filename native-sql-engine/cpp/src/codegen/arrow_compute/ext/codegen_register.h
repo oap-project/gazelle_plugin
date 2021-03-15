@@ -43,14 +43,16 @@ class CodeGenRegister : public VisitorBase {
   arrow::Status Visit(const gandiva::BooleanNode& node) override;
   arrow::Status Visit(const gandiva::InExpressionNode<int>& node) override;
   arrow::Status Visit(const gandiva::InExpressionNode<long int>& node) override;
-  arrow::Status Visit(const gandiva::InExpressionNode<std::string>& node) override;
+  arrow::Status Visit(
+      const gandiva::InExpressionNode<std::string>& node) override;
 
  private:
   std::shared_ptr<gandiva::Node> func_;
   std::string fp_;
 };
-static arrow::Status MakeCodeGenRegister(std::shared_ptr<gandiva::Node> func,
-                                         std::shared_ptr<CodeGenRegister>* out) {
+static arrow::Status MakeCodeGenRegister(
+    std::shared_ptr<gandiva::Node> func,
+    std::shared_ptr<CodeGenRegister>* out) {
   auto visitor = std::make_shared<CodeGenRegister>(func);
   RETURN_NOT_OK(visitor->Eval());
   *out = visitor;

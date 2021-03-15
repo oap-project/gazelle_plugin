@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#pragma once
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
 
@@ -31,8 +33,8 @@ class SparseHashMap {
     dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
   }
   template <typename Func1, typename Func2>
-  arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
-                            int32_t* out_memo_index) {
+  arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found,
+                            Func2&& on_not_found, int32_t* out_memo_index) {
     if (dense_map_.find(value) == dense_map_.end()) {
       auto index = size_++;
       dense_map_[value] = index;

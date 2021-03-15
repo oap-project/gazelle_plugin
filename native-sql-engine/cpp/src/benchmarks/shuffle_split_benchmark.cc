@@ -26,7 +26,9 @@
 #include <parquet/arrow/reader.h>
 #include <parquet/file_reader.h>
 #include <shuffle/splitter.h>
+
 #include <chrono>
+
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
 #include "tests/test_utils.h"
@@ -43,7 +45,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
   void GetRecordBatchReader(const std::string& input_file) {
     std::shared_ptr<arrow::fs::FileSystem> fs;
     std::string file_name;
-    ARROW_ASSIGN_OR_THROW(fs, arrow::fs::FileSystemFromUriOrPath(input_file, &file_name))
+    ARROW_ASSIGN_OR_THROW(
+        fs, arrow::fs::FileSystemFromUriOrPath(input_file, &file_name))
 
     ARROW_ASSIGN_OR_THROW(file, fs->OpenInputFile(file_name));
 
@@ -68,8 +71,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
       column_indices.push_back(i);
     }
 
-    ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
-                                                       &record_batch_reader));
+    ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(
+        row_group_indices, column_indices, &record_batch_reader));
   }
   void SetUp() override {
     // read input from parquet file
@@ -89,7 +92,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
       if (field->name() == "l_partkey") {
         auto node = gandiva::TreeExprBuilder::MakeField(field);
         expr_vector.push_back(gandiva::TreeExprBuilder::MakeExpression(
-            std::move(node), arrow::field("res_" + field->name(), field->type())));
+            std::move(node),
+            arrow::field("res_" + field->name(), field->type())));
       }
     }
   }
@@ -110,11 +114,13 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     options.compression_type = compression_type;
     options.buffer_size = buffer_size;
     if (!expr_vector.empty()) {
-      ARROW_ASSIGN_OR_THROW(splitter, Splitter::Make("hash", schema, num_partitions,
-                                                     expr_vector, std::move(options)));
+      ARROW_ASSIGN_OR_THROW(
+          splitter, Splitter::Make("hash", schema, num_partitions, expr_vector,
+                                   std::move(options)));
     } else {
       ARROW_ASSIGN_OR_THROW(
-          splitter, Splitter::Make("rr", schema, num_partitions, std::move(options)));
+          splitter,
+          Splitter::Make("rr", schema, num_partitions, std::move(options)));
     }
 
     std::shared_ptr<arrow::RecordBatch> record_batch;
@@ -124,7 +130,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     int64_t split_time = 0;
 
     do {
-      TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      TIME_NANO_OR_THROW(elapse_read,
+                         record_batch_reader->ReadNext(&record_batch));
       if (record_batch) {
         TIME_NANO_OR_THROW(split_time, splitter->Split(*record_batch));
         num_batches += 1;
@@ -136,7 +143,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     for (int i = 1; i < input_files.size(); ++i) {
       GetRecordBatchReader(input_files[i]);
       do {
-        TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+        TIME_NANO_OR_THROW(elapse_read,
+                           record_batch_reader->ReadNext(&record_batch));
         if (record_batch) {
           TIME_NANO_OR_THROW(split_time, splitter->Split(*record_batch));
           num_batches += 1;
@@ -148,10 +156,10 @@ class BenchmarkShuffleSplit : public ::testing::Test {
 
     TIME_NANO_OR_THROW(split_time, splitter->Stop());
 
-    std::cout << "Setting num_partitions to " << num_partitions << ", buffer_size to "
-              << buffer_size << std::endl;
-    std::cout << "Total batches read:  " << num_batches << ", total rows: " << num_rows
-              << std::endl;
+    std::cout << "Setting num_partitions to " << num_partitions
+              << ", buffer_size to " << buffer_size << std::endl;
+    std::cout << "Total batches read:  " << num_batches
+              << ", total rows: " << num_rows << std::endl;
 
 #define BYTES_TO_STRING(bytes)                                              \
   (bytes > 1 << 20 ? (bytes * 1.0 / (1 << 20))                              \
@@ -159,29 +167,37 @@ class BenchmarkShuffleSplit : public ::testing::Test {
       << (bytes > 1 << 20 ? "MiB" : (bytes > 1 << 10) ? "KiB" : "B")
     auto bytes_spilled = splitter->TotalBytesSpilled();
     auto bytes_written = splitter->TotalBytesWritten();
-    std::cout << "Total bytes spilled: " << BYTES_TO_STRING(bytes_spilled) << std::endl;
-    std::cout << "Total bytes written: " << BYTES_TO_STRING(bytes_written) << std::endl;
+    std::cout << "Total bytes spilled: " << BYTES_TO_STRING(bytes_spilled)
+              << std::endl;
+    std::cout << "Total bytes written: " << BYTES_TO_STRING(bytes_written)
+              << std::endl;
 #undef BYTES_TO_STRING
 
     auto compute_pid_time = splitter->TotalComputePidTime();
     auto write_time = splitter->TotalWriteTime();
     auto spill_time = splitter->TotalSpillTime();
     auto compress_time = splitter->TotalCompressTime();
-    split_time = split_time - spill_time - compute_pid_time - compress_time - write_time;
+    split_time =
+        split_time - spill_time - compute_pid_time - compress_time - write_time;
     std::cout << "Took " << TIME_NANO_TO_STRING(elapse_read) << " to read data"
               << std::endl
-              << "Took " << TIME_NANO_TO_STRING(compute_pid_time) << " to compute pid"
+              << "Took " << TIME_NANO_TO_STRING(compute_pid_time)
+              << " to compute pid" << std::endl
+              << "Took " << TIME_NANO_TO_STRING(split_time) << " to split"
               << std::endl
-              << "Took " << TIME_NANO_TO_STRING(split_time) << " to split" << std::endl
-              << "Took " << TIME_NANO_TO_STRING(spill_time) << " to spill" << std::endl
-              << "Took " << TIME_NANO_TO_STRING(write_time) << " to write" << std::endl
+              << "Took " << TIME_NANO_TO_STRING(spill_time) << " to spill"
+              << std::endl
+              << "Took " << TIME_NANO_TO_STRING(write_time) << " to write"
+              << std::endl
               << "Took " << TIME_NANO_TO_STRING(compress_time) << " to compress"
               << std::endl;
   }
 };
 
 TEST_F(BenchmarkShuffleSplit, LZ4) { DoSplit(arrow::Compression::LZ4_FRAME); }
-TEST_F(BenchmarkShuffleSplit, FASTPFOR) { DoSplit(arrow::Compression::FASTPFOR); }
+TEST_F(BenchmarkShuffleSplit, FASTPFOR) {
+  DoSplit(arrow::Compression::FASTPFOR);
+}
 
 }  // namespace shuffle
 }  // namespace sparkcolumnarplugin

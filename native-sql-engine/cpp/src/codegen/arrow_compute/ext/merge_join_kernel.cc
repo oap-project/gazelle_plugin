@@ -63,20 +63,23 @@ class ConditionedJoinArraysKernel::Impl {
        const std::shared_ptr<arrow::Schema>& result_schema)
       : ctx_(ctx) {
     std::vector<int> left_key_index_list;
-    THROW_NOT_OK(GetIndexList(left_key_list, left_field_list, &left_key_index_list));
+    THROW_NOT_OK(
+        GetIndexList(left_key_list, left_field_list, &left_key_index_list));
     std::vector<int> right_key_index_list;
-    THROW_NOT_OK(GetIndexList(right_key_list, right_field_list, &right_key_index_list));
+    THROW_NOT_OK(
+        GetIndexList(right_key_list, right_field_list, &right_key_index_list));
     std::vector<int> left_shuffle_index_list;
     std::vector<int> right_shuffle_index_list;
-    THROW_NOT_OK(
-        GetIndexListFromSchema(result_schema, left_field_list, &left_shuffle_index_list));
+    THROW_NOT_OK(GetIndexListFromSchema(result_schema, left_field_list,
+                                        &left_shuffle_index_list));
     THROW_NOT_OK(GetIndexListFromSchema(result_schema, right_field_list,
                                         &right_shuffle_index_list));
 
     std::vector<std::pair<int, int>> result_schema_index_list;
     int exist_index = -1;
-    THROW_NOT_OK(GetResultIndexList(result_schema, left_field_list, right_field_list,
-                                    join_type, exist_index, &result_schema_index_list));
+    THROW_NOT_OK(GetResultIndexList(result_schema, left_field_list,
+                                    right_field_list, join_type, exist_index,
+                                    &result_schema_index_list));
 
     THROW_NOT_OK(LoadJITFunction(
         func_node, join_type, left_key_index_list, right_key_index_list,
@@ -155,8 +158,8 @@ class ConditionedJoinArraysKernel::Impl {
       const std::vector<int>& right_shuffle_index_list,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      const std::vector<std::pair<int, int>>& result_schema_index_list, int exist_index,
-      std::shared_ptr<CodeGenBase>* out) {
+      const std::vector<std::pair<int, int>>& result_schema_index_list,
+      int exist_index, std::shared_ptr<CodeGenBase>* out) {
     // generate ddl signature
     std::stringstream func_args_ss;
     func_args_ss << "<MergeJoin>"
@@ -192,7 +195,8 @@ class ConditionedJoinArraysKernel::Impl {
     }
 
 #ifdef DEBUG
-    std::cout << "signature original line is " << func_args_ss.str() << std::endl;
+    std::cout << "signature original line is " << func_args_ss.str()
+              << std::endl;
 #endif
     std::stringstream signature_ss;
     signature_ss << std::hex << std::hash<std::string>{}(func_args_ss.str());
@@ -221,36 +225,37 @@ class ConditionedJoinArraysKernel::Impl {
 
   class TypedProberCodeGenImpl {
    public:
-    TypedProberCodeGenImpl(std::string indice, std::shared_ptr<arrow::DataType> data_type,
+    TypedProberCodeGenImpl(std::string indice,
+                           std::shared_ptr<arrow::DataType> data_type,
                            bool left = true)
         : indice_(indice), data_type_(data_type), left_(left) {}
     std::string GetImplCachedDefine() {
       std::stringstream ss;
-      ss << "using ArrayType_" << indice_ << " = " << GetTypeString(data_type_, "Array")
-         << ";" << std::endl;
-      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_" << indice_
-         << "_;" << std::endl;
+      ss << "using ArrayType_" << indice_ << " = "
+         << GetTypeString(data_type_, "Array") << ";" << std::endl;
+      ss << "std::vector<std::shared_ptr<ArrayType_" << indice_ << ">> cached_"
+         << indice_ << "_;" << std::endl;
       return ss.str();
     }
     std::string GetResultIteratorPrepare() {
       std::stringstream ss;
       if (data_type_->id() == arrow::Type::DECIMAL) {
         ss << "builder_" << indice_ << "_ = std::make_shared<"
-                 << GetTypeString(data_type_, "Builder")
-                 << ">(arrow::" << GetArrowTypeDefString(data_type_)
-                 << ", ctx_->memory_pool());" << std::endl;
+           << GetTypeString(data_type_, "Builder")
+           << ">(arrow::" << GetArrowTypeDefString(data_type_)
+           << ", ctx_->memory_pool());" << std::endl;
       } else {
-      ss << "builder_" << indice_ << "_ = std::make_shared<"
-         << GetTypeString(data_type_, "Builder") << ">(ctx_->memory_pool());"
-         << std::endl;
+        ss << "builder_" << indice_ << "_ = std::make_shared<"
+           << GetTypeString(data_type_, "Builder") << ">(ctx_->memory_pool());"
+           << std::endl;
       }
       return ss.str();
     }
     std::string GetProcessFinish() {
       std::stringstream ss;
       ss << "std::shared_ptr<arrow::Array> out_" << indice_ << ";" << std::endl;
-      ss << "RETURN_NOT_OK(builder_" << indice_ << "_->Finish(&out_" << indice_ << "));"
-         << std::endl;
+      ss << "RETURN_NOT_OK(builder_" << indice_ << "_->Finish(&out_" << indice_
+         << "));" << std::endl;
       ss << "builder_" << indice_ << "_->Reset();" << std::endl;
       return ss.str();
     }
@@ -262,16 +267,17 @@ class ConditionedJoinArraysKernel::Impl {
     std::string GetResultIterCachedDefine() {
       std::stringstream ss;
       if (left_) {
-        ss << "std::vector<std::shared_ptr<" << GetTypeString(data_type_, "Array")
-           << ">> cached_" << indice_ << "_;" << std::endl;
+        ss << "std::vector<std::shared_ptr<"
+           << GetTypeString(data_type_, "Array") << ">> cached_" << indice_
+           << "_;" << std::endl;
       } else {
-        ss << "std::shared_ptr<" << GetTypeString(data_type_, "Array") << "> cached_"
-           << indice_ << "_;" << std::endl;
+        ss << "std::shared_ptr<" << GetTypeString(data_type_, "Array")
+           << "> cached_" << indice_ << "_;" << std::endl;
       }
-      ss << "using ArrayType_" << indice_ << " = " << GetTypeString(data_type_, "Array")
-         << ";" << std::endl;
-      ss << "std::shared_ptr<" << GetTypeString(data_type_, "Builder") << "> builder_"
-         << indice_ << "_;" << std::endl;
+      ss << "using ArrayType_" << indice_ << " = "
+         << GetTypeString(data_type_, "Array") << ";" << std::endl;
+      ss << "std::shared_ptr<" << GetTypeString(data_type_, "Builder")
+         << "> builder_" << indice_ << "_;" << std::endl;
       return ss.str();
     }
 
@@ -379,8 +385,8 @@ class ConditionedJoinArraysKernel::Impl {
   std::string GetProcessRightSet(std::vector<int> indices) {
     std::stringstream ss;
     for (auto i : indices) {
-      ss << "cached_1_" << i << "_ = std::make_shared<ArrayType_1_" << i << ">(in[" << i
-         << "]);" << std::endl;
+      ss << "cached_1_" << i << "_ = std::make_shared<ArrayType_1_" << i
+         << ">(in[" << i << "]);" << std::endl;
     }
     return ss.str();
   }
@@ -436,9 +442,12 @@ class ConditionedJoinArraysKernel::Impl {
                            const std::vector<int>& right_key_index_list) {
     std::stringstream ss;
     for (auto i : left_shuffle_index_list) {
-      ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {" << std::endl;
-      ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {" << std::endl;
-      ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
+      ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {"
+         << std::endl;
+      ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
+         << std::endl;
+      ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
+         << std::endl;
       ss << "} else {" << std::endl;
       ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
          << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
@@ -451,7 +460,8 @@ class ConditionedJoinArraysKernel::Impl {
     for (auto i : right_shuffle_index_list) {
       ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
       ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
-      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
+         << std::endl;
       ss << "} else {" << std::endl;
       ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
@@ -460,7 +470,6 @@ class ConditionedJoinArraysKernel::Impl {
       ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
       ss << "}" << std::endl;
-
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -488,7 +497,7 @@ class ConditionedJoinArraysKernel::Impl {
       right_value += "item_content{";
       for (auto i = 0; i < right_key_index_list.size(); i++) {
         right_value += "typed_array_" + std::to_string(i) + "->GetView(i)";
-        if (i != right_key_index_list.size() -1) {
+        if (i != right_key_index_list.size() - 1) {
           right_value += ",";
         }
       }
@@ -521,35 +530,41 @@ class ConditionedJoinArraysKernel::Impl {
     std::stringstream left_valid_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {" << std::endl;
-      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
-                    << std::endl;
+      left_valid_ss << "if (cached_0_" << i
+                    << "_[tmp.array_id]->null_count()) {" << std::endl;
+      left_valid_ss << "if (cached_0_" << i
+                    << "_[tmp.array_id]->IsNull(tmp.id)) {" << std::endl;
       left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
                     << std::endl;
       left_valid_ss << "} else {" << std::endl;
-      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i
+                    << "_->Append(cached_0_" << i
                     << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
       left_valid_ss << "}" << std::endl;
       left_valid_ss << "} else {" << std::endl;
-      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i
+                    << "_->Append(cached_0_" << i
                     << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
       left_valid_ss << "}" << std::endl;
-      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
+      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
+                   << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
+      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {"
+                     << std::endl;
       right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
                      << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-                     << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
+                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
+                     << std::endl;
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-         << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
+                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
+                     << std::endl;
       right_valid_ss << "}" << std::endl;
-
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -573,7 +588,7 @@ class ConditionedJoinArraysKernel::Impl {
       right_value += "item_content{";
       for (auto i = 0; i < right_key_index_list.size(); i++) {
         right_value += "typed_array_" + std::to_string(i) + "->GetView(i)";
-        if (i != right_key_index_list.size() -1) {
+        if (i != right_key_index_list.size() - 1) {
           right_value += ",";
         }
       }
@@ -628,44 +643,51 @@ class ConditionedJoinArraysKernel::Impl {
   )";
   }
   std::string GetFullOuterJoin(bool cond_check,
-                           const std::vector<int>& left_shuffle_index_list,
-                           const std::vector<int>& right_shuffle_index_list,
-                           const std::vector<int>& right_key_index_list) {
+                               const std::vector<int>& left_shuffle_index_list,
+                               const std::vector<int>& right_shuffle_index_list,
+                               const std::vector<int>& right_key_index_list) {
     std::stringstream left_null_ss;
     std::stringstream right_null_ss;
     std::stringstream left_valid_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {" << std::endl;
-      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
-                    << std::endl;
+      left_valid_ss << "if (cached_0_" << i
+                    << "_[tmp.array_id]->null_count()) {" << std::endl;
+      left_valid_ss << "if (cached_0_" << i
+                    << "_[tmp.array_id]->IsNull(tmp.id)) {" << std::endl;
       left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
                     << std::endl;
       left_valid_ss << "} else {" << std::endl;
-      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i
+                    << "_->Append(cached_0_" << i
                     << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
       left_valid_ss << "}" << std::endl;
       left_valid_ss << "} else {" << std::endl;
-      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->Append(cached_0_" << i
+      left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i
+                    << "_->Append(cached_0_" << i
                     << "_[tmp.array_id]->GetView(tmp.id)));" << std::endl;
       left_valid_ss << "}" << std::endl;
-      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
+      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
+                   << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
+      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {"
+                     << std::endl;
       right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
                      << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-                     << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
+                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
+                     << std::endl;
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-         << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
+                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
+                     << std::endl;
       right_valid_ss << "}" << std::endl;
-      right_null_ss << "RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
-
+      right_null_ss << "RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
+                    << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -689,7 +711,7 @@ class ConditionedJoinArraysKernel::Impl {
       right_value += "item_content{";
       for (auto i = 0; i < right_key_index_list.size(); i++) {
         right_value += "typed_array_" + std::to_string(i) + "->GetView(i)";
-        if (i != right_key_index_list.size() -1) {
+        if (i != right_key_index_list.size() - 1) {
           right_value += ",";
         }
       }
@@ -741,22 +763,25 @@ class ConditionedJoinArraysKernel::Impl {
     std::stringstream left_null_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());" << std::endl;
+      left_null_ss << "RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
+                   << std::endl;
     }
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
+      right_valid_ss << "if (cached_1_" << i << "_->null_count()) {"
+                     << std::endl;
       right_valid_ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
                      << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-                     << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
+                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
+                     << std::endl;
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
-      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-         << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i
+                     << "_->Append(cached_1_" << i << "_->GetView(i)));"
+                     << std::endl;
       right_valid_ss << "}" << std::endl;
-
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -820,7 +845,8 @@ class ConditionedJoinArraysKernel::Impl {
     for (auto i : right_shuffle_index_list) {
       ss << "if (cached_1_" << i << "_->null_count()) {" << std::endl;
       ss << "if (cached_1_" << i << "_->IsNull(i)) {" << std::endl;
-      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());" << std::endl;
+      ss << "  RETURN_NOT_OK(builder_1_" << i << "_->AppendNull());"
+         << std::endl;
       ss << "} else {" << std::endl;
       ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
          << "_->GetView(i)));" << std::endl;
@@ -852,10 +878,10 @@ class ConditionedJoinArraysKernel::Impl {
     }
     std::string right_value;
     if (right_key_index_list.size() > 1) {
-            right_value += "item_content{";
+      right_value += "item_content{";
       for (auto i = 0; i < right_key_index_list.size(); i++) {
         right_value += "typed_array_" + std::to_string(i) + "->GetView(i)";
-        if (i != right_key_index_list.size() -1) {
+        if (i != right_key_index_list.size() - 1) {
           right_value += ",";
         }
       }
@@ -864,7 +890,8 @@ class ConditionedJoinArraysKernel::Impl {
       right_value = "typed_array_0->GetView(i)";
     }
     return R"(
-      auto right_content = )" + right_value + R"(;
+      auto right_content = )" +
+           right_value + R"(;
              if (!typed_array_0->IsNull(i)) {
   while (left_it->hasnext() && left_it->value() < right_content) {
     left_it->next();
@@ -892,16 +919,16 @@ class ConditionedJoinArraysKernel::Impl {
     std::stringstream left_valid_ss;
     std::stringstream right_valid_ss;
 
-    right_exist_ss
-        << "const bool exist = true; RETURN_NOT_OK(builder_1_exists_->Append(exist));"
-        << std::endl;
+    right_exist_ss << "const bool exist = true; "
+                      "RETURN_NOT_OK(builder_1_exists_->Append(exist));"
+                   << std::endl;
     right_not_exist_ss << "const bool not_exist = false; "
                           "RETURN_NOT_OK(builder_1_exists_->Append(not_exist));"
                        << std::endl;
 
     for (auto i : right_shuffle_index_list) {
-      right_valid_ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-                     << "_->GetView(i)));" << std::endl;
+      right_valid_ss << "RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_"
+                     << i << "_->GetView(i)));" << std::endl;
     }
     std::string shuffle_str;
     if (cond_check) {
@@ -921,10 +948,10 @@ class ConditionedJoinArraysKernel::Impl {
     }
     std::string right_value;
     if (right_key_index_list.size() > 1) {
-            right_value += "item_content{";
+      right_value += "item_content{";
       for (auto i = 0; i < right_key_index_list.size(); i++) {
         right_value += "typed_array_" + std::to_string(i) + "->GetView(i)";
-        if (i != right_key_index_list.size() -1) {
+        if (i != right_key_index_list.size() - 1) {
           right_value += ",";
         }
       }
@@ -934,7 +961,8 @@ class ConditionedJoinArraysKernel::Impl {
     }
     return R"(
         // existence join
-        auto right_content = )" + right_value + R"(;
+        auto right_content = )" +
+           right_value + R"(;
         if (!typed_array_0->IsNull(i)) {
           while (left_it->hasnext() && left_it->value() < right_content) {
             left_it->next();
@@ -953,7 +981,8 @@ class ConditionedJoinArraysKernel::Impl {
             if (last_match_idx == i) {
             continue;
             }
-            )" + right_valid_ss.str() + right_not_exist_ss.str() + R"(
+            )" +
+           right_valid_ss.str() + right_not_exist_ss.str() + R"(
             out_length += 1;
           }
           if (!left_it->hasnext()) {
@@ -970,18 +999,20 @@ class ConditionedJoinArraysKernel::Impl {
                               const std::vector<int>& right_key_index_list) {
     switch (join_type) {
       case 0: { /*Inner Join*/
-        return GetInnerJoin(cond_check, left_shuffle_index_list, right_shuffle_index_list,
-                            right_key_index_list);
+        return GetInnerJoin(cond_check, left_shuffle_index_list,
+                            right_shuffle_index_list, right_key_index_list);
       } break;
       case 1: { /*Outer Join*/
         return GetOuterJoin(cond_check, left_shuffle_index_list,
                             right_shuffle_index_list, right_key_index_list);
       } break;
       case 2: { /*Anti Join*/
-        return GetAntiJoin(cond_check, left_shuffle_index_list, right_shuffle_index_list);
+        return GetAntiJoin(cond_check, left_shuffle_index_list,
+                           right_shuffle_index_list);
       } break;
       case 3: { /*Semi Join*/
-        return GetSemiJoin(cond_check, left_shuffle_index_list, right_shuffle_index_list, right_key_index_list);
+        return GetSemiJoin(cond_check, left_shuffle_index_list,
+                           right_shuffle_index_list, right_key_index_list);
       } break;
       case 4: { /*Existence Join*/
         return GetExistenceJoin(cond_check, left_shuffle_index_list,
@@ -992,7 +1023,8 @@ class ConditionedJoinArraysKernel::Impl {
                                 right_shuffle_index_list, right_key_index_list);
       } break;
       default:
-        std::cout << "ConditionedProbeArraysTypedImpl only support join type: InnerJoin, "
+        std::cout << "ConditionedProbeArraysTypedImpl only support join type: "
+                     "InnerJoin, "
                      "RightJoin"
                   << std::endl;
         throw;
@@ -1003,15 +1035,16 @@ class ConditionedJoinArraysKernel::Impl {
       const std::shared_ptr<gandiva::Node>& func_node,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      std::vector<int>* left_out_index_list, std::vector<int>* right_out_index_list) {
+      std::vector<int>* left_out_index_list,
+      std::vector<int>* right_out_index_list) {
     std::shared_ptr<CodeGenNodeVisitor> func_node_visitor;
     int func_count = 0;
     std::vector<std::string> input_list;
     std::vector<gandiva::ExpressionPtr> project_node_list;
-    THROW_NOT_OK(MakeCodeGenNodeVisitor(func_node, {left_field_list, right_field_list},
-                                        &func_count, &input_list, left_out_index_list,
-                                        right_out_index_list, &project_node_list,
-                                        &func_node_visitor));
+    THROW_NOT_OK(MakeCodeGenNodeVisitor(
+        func_node, {left_field_list, right_field_list}, &func_count,
+        &input_list, left_out_index_list, right_out_index_list,
+        &project_node_list, &func_node_visitor));
 
     return R"(
     inline bool ConditionCheck(ArrayItemIndex x, int y) {
@@ -1025,18 +1058,19 @@ class ConditionedJoinArraysKernel::Impl {
   }
   arrow::Status GetTypedProberCodeGen(
       std::string prefix, bool left, const std::vector<int>& index_list,
-      const std::vector<std::shared_ptr<arrow::Field>>& field_list, int exist_index,
+      const std::vector<std::shared_ptr<arrow::Field>>& field_list,
+      int exist_index,
       std::vector<std::shared_ptr<TypedProberCodeGenImpl>>* out_list,
       int join_type = -1) {
     for (auto i : index_list) {
       auto field = field_list[i];
-      auto codegen = std::make_shared<TypedProberCodeGenImpl>(prefix + std::to_string(i),
-                                                              field->type(), left);
+      auto codegen = std::make_shared<TypedProberCodeGenImpl>(
+          prefix + std::to_string(i), field->type(), left);
       (*out_list).push_back(codegen);
     }
     if (join_type == 4 && exist_index != -1) {
-      auto codegen = std::make_shared<TypedProberCodeGenImpl>(prefix + "exists",
-                                                              arrow::boolean(), left);
+      auto codegen = std::make_shared<TypedProberCodeGenImpl>(
+          prefix + "exists", arrow::boolean(), left);
       (*out_list).insert((*out_list).begin() + exist_index, codegen);
     }
     return arrow::Status::OK();
@@ -1053,8 +1087,9 @@ class ConditionedJoinArraysKernel::Impl {
     std::sort(ret.begin(), ret.end());
     return ret;
   }
-  std::string GetKeyCType(const std::vector<int>& key_index_list,
-                          const std::vector<std::shared_ptr<arrow::Field>>& field_list) {
+  std::string GetKeyCType(
+      const std::vector<int>& key_index_list,
+      const std::vector<std::shared_ptr<arrow::Field>>& field_list) {
     auto field = field_list[key_index_list[0]];
     return GetCTypeString(field->type());
   }
@@ -1092,7 +1127,8 @@ class ConditionedJoinArraysKernel::Impl {
       tuple_str += "))";
     }
 
-    ss << std::endl << "left_list_->emplace_back(" << tuple_str << ");" << std::endl;
+    ss << std::endl
+       << "left_list_->emplace_back(" << tuple_str << ");" << std::endl;
     return ss.str();
   }
   std::string GetListStr(bool multiple_cols, int size) {
@@ -1100,8 +1136,7 @@ class ConditionedJoinArraysKernel::Impl {
     std::string tuple_str;
     if (multiple_cols) {
       for (int i = 0; i < size; i++) {
-        std::string local_tuple =
-            "typed_array_" + std::to_string(i) + ",";
+        std::string local_tuple = "typed_array_" + std::to_string(i) + ",";
         tuple_str += local_tuple;
       }
     } else {
@@ -1109,7 +1144,8 @@ class ConditionedJoinArraysKernel::Impl {
     }
     tuple_str.erase(tuple_str.end() - 1, tuple_str.end());
 
-    ss << std::endl << "left_list_.emplace_back(" << tuple_str << ");" << std::endl;
+    ss << std::endl
+       << "left_list_.emplace_back(" << tuple_str << ");" << std::endl;
     return ss.str();
   }
   std::string GetListContentStr(bool multiple_cols, int size) {
@@ -1122,15 +1158,16 @@ class ConditionedJoinArraysKernel::Impl {
         tuple_str += local_tuple;
       }
       tuple_str.erase(tuple_str.end() - 1, tuple_str.end());
-      ss << std::endl << "return std::forward_as_tuple(" + tuple_str + ");" << std::endl;
+      ss << std::endl
+         << "return std::forward_as_tuple(" + tuple_str + ");" << std::endl;
     } else {
-
       ss << std::endl << "return it->GetView(segment_len);" << std::endl;
     }
     return ss.str();
   }
-  std::string GetTypedArray(bool multiple_cols, int idx, std::vector<int> key_list,
-                            std::vector<std::shared_ptr<arrow::Field>> field_list) {
+  std::string GetTypedArray(
+      bool multiple_cols, int idx, std::vector<int> key_list,
+      std::vector<std::shared_ptr<arrow::Field>> field_list) {
     std::stringstream ss;
     if (multiple_cols) {
       for (int i = 0; i < key_list.size(); i++) {
@@ -1142,8 +1179,8 @@ class ConditionedJoinArraysKernel::Impl {
 
     } else {
       ss << "auto typed_array_0 = std::make_shared<"
-         << GetTypeString(field_list[key_list[0]]->type(), "Array") << ">(in[" << idx
-         << "]);" << std::endl;
+         << GetTypeString(field_list[key_list[0]]->type(), "Array") << ">(in["
+         << idx << "]);" << std::endl;
     }
     return ss.str();
   }
@@ -1152,15 +1189,17 @@ class ConditionedJoinArraysKernel::Impl {
                             std::string evaluate_encode_join_key_str) {
     std::stringstream ss;
     if (multiple_cols) {
-      ss << "auto concat_kernel_arr_list = {" << evaluate_encode_join_key_str << "};"
-         << std::endl;
+      ss << "auto concat_kernel_arr_list = {" << evaluate_encode_join_key_str
+         << "};" << std::endl;
       ss << "std::shared_ptr<arrow::Array> hash_in;" << std::endl;
-      ss << "RETURN_NOT_OK(hash_kernel_->Evaluate(concat_kernel_arr_list, &hash_in));"
+      ss << "RETURN_NOT_OK(hash_kernel_->Evaluate(concat_kernel_arr_list, "
+            "&hash_in));"
          << std::endl;
-      ss << "auto typed_array = std::make_shared<Int32Array>(hash_in);" << std::endl;
+      ss << "auto typed_array = std::make_shared<Int32Array>(hash_in);"
+         << std::endl;
     } else {
-      ss << "auto typed_array = std::make_shared<" << data_type << ">(in[" << i << "]);"
-         << std::endl;
+      ss << "auto typed_array = std::make_shared<" << data_type << ">(in[" << i
+         << "]);" << std::endl;
     }
     return ss.str();
   }
@@ -1172,7 +1211,8 @@ class ConditionedJoinArraysKernel::Impl {
       const std::vector<int>& right_shuffle_index_list,
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
-      const std::vector<std::pair<int, int>>& result_schema_index_list, int exist_index) {
+      const std::vector<std::pair<int, int>>& result_schema_index_list,
+      int exist_index) {
     std::vector<int> left_cond_index_list;
     std::vector<int> right_cond_index_list;
     bool cond_check = false;
@@ -1189,10 +1229,12 @@ class ConditionedJoinArraysKernel::Impl {
       item_content_str = "nonstd::sv_lite::string_view";
     }
     list_tiem_str = R"(
-typedef  std::shared_ptr<)" + hash_map_type_str +
+typedef  std::shared_ptr<)" +
+                    hash_map_type_str +
                     R"(> list_item;
-typedef )" + item_content_str + " item_content;";
-    
+typedef )" + item_content_str +
+                    " item_content;";
+
     std::vector<std::string> tuple_types;
     std::vector<std::string> content_tuple_types;
 
@@ -1201,8 +1243,11 @@ typedef )" + item_content_str + " item_content;";
         #include <tuple>)";
 
       for (auto& key : left_key_index_list) {
-        tuple_types.push_back("std::shared_ptr<" + GetTypeString(left_field_list[key]->type(), "Array") + ">");
-        content_tuple_types.push_back(GetCTypeString(left_field_list[key]->type()));
+        tuple_types.push_back(
+            "std::shared_ptr<" +
+            GetTypeString(left_field_list[key]->type(), "Array") + ">");
+        content_tuple_types.push_back(
+            GetCTypeString(left_field_list[key]->type()));
       }
 
       std::string tuple_define_str = "std::tuple<";
@@ -1211,35 +1256,39 @@ typedef )" + item_content_str + " item_content;";
         tuple_define_str += ",";
       }
       // remove the ending ','
-      tuple_define_str.erase(tuple_define_str.end() - 1, tuple_define_str.end());
-      
+      tuple_define_str.erase(tuple_define_str.end() - 1,
+                             tuple_define_str.end());
+
       std::string content_define_str = "std::tuple<";
       for (auto type : content_tuple_types) {
         if (type == "std::string") {
-           type = "nonstd::sv_lite::string_view";
+          type = "nonstd::sv_lite::string_view";
         }
 
         content_define_str += type;
         content_define_str += ",";
       }
       // remove the ending ','
-      content_define_str.erase(content_define_str.end() - 1, content_define_str.end());
+      content_define_str.erase(content_define_str.end() - 1,
+                               content_define_str.end());
 
       list_tiem_str += R"(
         typedef )" + tuple_define_str +
                        R"(> list_item;
-        typedef )" + content_define_str + "> item_content;";
+        typedef )" + content_define_str +
+                       "> item_content;";
     } else {
       tuple_types.push_back(hash_map_type_str);
     }
 
     hash_map_include_str += list_tiem_str;
 
-    std::string hash_map_define_str = "std::make_shared<std::vector<list_item>>();";
+    std::string hash_map_define_str =
+        "std::make_shared<std::vector<list_item>>();";
     // TODO: fix multi columns case
     std::string condition_check_str;
     if (func_node) {
-      //TODO: move to use new API
+      // TODO: move to use new API
       condition_check_str =
           GetConditionCheckFunc(func_node, left_field_list, right_field_list,
                                 &left_cond_index_list, &right_cond_index_list);
@@ -1253,37 +1302,47 @@ typedef )" + item_content_str + " item_content;";
     auto right_cache_index_list =
         MergeKeyIndexList(right_cond_index_list, right_shuffle_index_list);
 
-    std::vector<std::shared_ptr<TypedProberCodeGenImpl>> left_cache_codegen_list;
-    std::vector<std::shared_ptr<TypedProberCodeGenImpl>> left_shuffle_codegen_list;
-    std::vector<std::shared_ptr<TypedProberCodeGenImpl>> right_shuffle_codegen_list;
-    GetTypedProberCodeGen("0_", true, left_cache_index_list, left_field_list, exist_index,
-                          &left_cache_codegen_list);
+    std::vector<std::shared_ptr<TypedProberCodeGenImpl>>
+        left_cache_codegen_list;
+    std::vector<std::shared_ptr<TypedProberCodeGenImpl>>
+        left_shuffle_codegen_list;
+    std::vector<std::shared_ptr<TypedProberCodeGenImpl>>
+        right_shuffle_codegen_list;
+    GetTypedProberCodeGen("0_", true, left_cache_index_list, left_field_list,
+                          exist_index, &left_cache_codegen_list);
     GetTypedProberCodeGen("0_", true, left_shuffle_index_list, left_field_list,
                           exist_index, &left_shuffle_codegen_list);
-    GetTypedProberCodeGen("1_", false, right_shuffle_index_list, right_field_list,
-                          exist_index, &right_shuffle_codegen_list, join_type);
+    GetTypedProberCodeGen("1_", false, right_shuffle_index_list,
+                          right_field_list, exist_index,
+                          &right_shuffle_codegen_list, join_type);
     auto join_key_type_list_define_str =
         GetJoinKeyFieldListDefine(left_key_index_list, left_field_list);
-    auto evaluate_cache_insert_str = GetEvaluateCacheInsert(left_cache_index_list);
+    auto evaluate_cache_insert_str =
+        GetEvaluateCacheInsert(left_cache_index_list);
     auto evaluate_encode_join_key_str = GetEncodeJoinKey(left_key_index_list);
-    auto finish_cached_parameter_str = GetFinishCachedParameter(left_cache_index_list);
+    auto finish_cached_parameter_str =
+        GetFinishCachedParameter(left_cache_index_list);
     auto impl_cached_define_str = GetImplCachedDefine(left_cache_codegen_list);
-    auto result_iter_params_str = GetResultIteratorParams(left_cache_index_list);
+    auto result_iter_params_str =
+        GetResultIteratorParams(left_cache_index_list);
     auto result_iter_set_str = GetResultIteratorSet(left_cache_index_list);
-    auto result_iter_prepare_str =
-        GetResultIteratorPrepare(left_shuffle_codegen_list, right_shuffle_codegen_list);
+    auto result_iter_prepare_str = GetResultIteratorPrepare(
+        left_shuffle_codegen_list, right_shuffle_codegen_list);
     auto process_right_set_str = GetProcessRightSet(right_cache_index_list);
     auto process_encode_join_key_str = GetEncodeJoinKey(right_key_index_list);
     auto process_finish_str =
         GetProcessFinish(left_shuffle_codegen_list, right_shuffle_codegen_list);
-    auto process_out_list_str = GetProcessOutList(
-        result_schema_index_list, left_shuffle_codegen_list, right_shuffle_codegen_list);
-    auto result_iter_cached_define_str =
-        GetResultIterCachedDefine(left_cache_codegen_list, right_shuffle_codegen_list);
-    auto evaluate_get_typed_array_str = GetTypedArray(
-        multiple_cols, left_key_index_list[0], left_key_index_list, left_field_list);
-    auto process_get_typed_array_str = GetTypedArray(
-        multiple_cols, right_key_index_list[0], right_key_index_list, right_field_list);
+    auto process_out_list_str =
+        GetProcessOutList(result_schema_index_list, left_shuffle_codegen_list,
+                          right_shuffle_codegen_list);
+    auto result_iter_cached_define_str = GetResultIterCachedDefine(
+        left_cache_codegen_list, right_shuffle_codegen_list);
+    auto evaluate_get_typed_array_str =
+        GetTypedArray(multiple_cols, left_key_index_list[0],
+                      left_key_index_list, left_field_list);
+    auto process_get_typed_array_str =
+        GetTypedArray(multiple_cols, right_key_index_list[0],
+                      right_key_index_list, right_field_list);
     auto evaluate_get_typed_array_str1 = GetTypedArray(
         multiple_cols, "0_" + std::to_string(left_key_index_list[0]),
         left_key_index_list[0],
@@ -1294,16 +1353,19 @@ typedef )" + item_content_str + " item_content;";
         right_key_index_list[0],
         GetTypeString(left_field_list[left_key_index_list[0]]->type(), "Array"),
         process_encode_join_key_str);
-    auto make_tuple_str = GetTupleStr(multiple_cols, left_key_index_list.size());
+    auto make_tuple_str =
+        GetTupleStr(multiple_cols, left_key_index_list.size());
     auto make_idarray_str = GetIdArrayStr(cond_check, join_type);
     auto make_list_str = GetListStr(multiple_cols, left_key_index_list.size());
-    auto make_list_content_str = GetListContentStr(multiple_cols, left_key_index_list.size());
+    auto make_list_content_str =
+        GetListContentStr(multiple_cols, left_key_index_list.size());
 
     return BaseCodes() + R"(
+#include <numeric>
+
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "precompile/builder.h"
 #include "precompile/gandiva.h"
-#include <numeric>
 using namespace sparkcolumnarplugin::precompile;
 )" + hash_map_include_str +
            R"(
@@ -1333,7 +1395,7 @@ void setpos(int64_t cur_idx, int64_t cur_segment_len, int64_t cur_passed_len) {
 
 item_content value() {
   )" + make_list_content_str +
-R"(}
+           R"(}
 
 bool hasnext() {
  return (passed_len <= total_len_-1);
@@ -1369,8 +1431,7 @@ class TypedProberImpl : public CodeGenBase {
 
   arrow::Status Evaluate(const ArrayList& in) override {
     )" + evaluate_cache_insert_str +
-           evaluate_get_typed_array_str +
-           make_list_str +
+           evaluate_get_typed_array_str + make_list_str +
            R"(
 
     idx_to_arrarid_.push_back(typed_array_0->length());
@@ -1511,7 +1572,9 @@ arrow::Status ConditionedJoinArraysKernel::MakeResultIterator(
   return impl_->MakeResultIterator(schema, out);
 }
 
-std::string ConditionedJoinArraysKernel::GetSignature() { return impl_->GetSignature(); }
+std::string ConditionedJoinArraysKernel::GetSignature() {
+  return impl_->GetSignature();
+}
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

@@ -23,8 +23,9 @@
 using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
 namespace sparkcolumnarplugin {
 namespace precompile {
-#define TYPED_ASC_SORT_DEFINE(CTYPE) \
-  void sort_asc(ArrayItemIndex*, ArrayItemIndex*, std::function<CTYPE(ArrayItemIndex)>);
+#define TYPED_ASC_SORT_DEFINE(CTYPE)              \
+  void sort_asc(ArrayItemIndex*, ArrayItemIndex*, \
+                std::function<CTYPE(ArrayItemIndex)>);
 
 TYPED_ASC_SORT_DEFINE(int32_t)
 TYPED_ASC_SORT_DEFINE(uint32_t)

@@ -74,7 +74,8 @@ class TypedUnsafeArray<DataType, enable_if_number_or_decimal<DataType>>
 };
 
 template <typename DataType>
-class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public UnsafeArray {
+class TypedUnsafeArray<DataType, enable_if_string_like<DataType>>
+    : public UnsafeArray {
  public:
   TypedUnsafeArray(int i, const std::shared_ptr<arrow::Array>& in) : idx_(i) {
     typed_array_ = std::make_shared<ArrayType>(in);

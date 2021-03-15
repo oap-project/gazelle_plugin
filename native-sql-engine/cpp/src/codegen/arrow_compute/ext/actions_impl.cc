@@ -69,14 +69,16 @@ arrow::Status ActionBase::Submit(const std::shared_ptr<arrow::Array>& in,
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
-arrow::Status ActionBase::Submit(const std::shared_ptr<arrow::Array>& in,
-                                 std::function<arrow::Status(uint32_t)>* on_valid,
-                                 std::function<arrow::Status()>* on_null) {
+arrow::Status ActionBase::Submit(
+    const std::shared_ptr<arrow::Array>& in,
+    std::function<arrow::Status(uint32_t)>* on_valid,
+    std::function<arrow::Status()>* on_null) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
 arrow::Status ActionBase::EvaluateCountLiteral(const int& len) {
-  return arrow::Status::NotImplemented("ActionBase EvaluateCountLiteral is abstract.");
+  return arrow::Status::NotImplemented(
+      "ActionBase EvaluateCountLiteral is abstract.");
 }
 
 arrow::Status ActionBase::Evaluate(int dest_group_id) {
@@ -91,7 +93,8 @@ arrow::Status ActionBase::Evaluate(int dest_group_id, void* data) {
   return arrow::Status::NotImplemented("ActionBase Evaluate is abstract.");
 }
 
-arrow::Status ActionBase::Evaluate(int dest_group_id, void* data1, void* data2) {
+arrow::Status ActionBase::Evaluate(int dest_group_id, void* data1,
+                                   void* data2) {
   return arrow::Status::NotImplemented("ActionBase Evaluate is abstract.");
 }
 
@@ -108,12 +111,14 @@ arrow::Status ActionBase::Finish(ArrayList* out) {
   return arrow::Status::NotImplemented("ActionBase Finish is abstract.");
 }
 
-arrow::Status ActionBase::Finish(uint64_t offset, uint64_t length, ArrayList* out) {
+arrow::Status ActionBase::Finish(uint64_t offset, uint64_t length,
+                                 ArrayList* out) {
   return arrow::Status::NotImplemented("ActionBase Finish is abstract.");
 }
 
 arrow::Status ActionBase::FinishAndReset(ArrayList* out) {
-  return arrow::Status::NotImplemented("ActionBase FinishAndReset is abstract.");
+  return arrow::Status::NotImplemented(
+      "ActionBase FinishAndReset is abstract.");
 }
 
 uint64_t ActionBase::GetResultLength() { return 0; }
@@ -122,14 +127,16 @@ uint64_t ActionBase::GetResultLength() { return 0; }
 template <typename DataType, typename CType>
 class UniqueAction : public ActionBase {
  public:
-  UniqueAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
+  UniqueAction(arrow::compute::ExecContext* ctx,
+               std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct UniqueAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), type, &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~UniqueAction() {
 #ifdef DEBUG
@@ -191,7 +198,8 @@ class UniqueAction : public ActionBase {
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (cache_validity_[dest_group_id] == false) {
       cache_validity_[dest_group_id] = true;
@@ -202,7 +210,8 @@ class UniqueAction : public ActionBase {
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (cache_validity_[dest_group_id] == false) {
       cache_validity_[dest_group_id] = true;
@@ -234,7 +243,8 @@ class UniqueAction : public ActionBase {
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     // appendValues to builder_
     builder_->Reset();
@@ -279,8 +289,8 @@ class CountAction : public ActionBase {
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(
+        array_builder.release()));
   }
   ~CountAction() {
 #ifdef DEBUG
@@ -342,7 +352,8 @@ class CountAction : public ActionBase {
       length_ = 1;
     }
     arrow::Datum output;
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
+    arrow::compute::CountOptions option(
+        arrow::compute::CountOptions::COUNT_NON_NULL);
     auto maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
@@ -380,7 +391,8 @@ class CountAction : public ActionBase {
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -395,7 +407,8 @@ class CountAction : public ActionBase {
 
  private:
   using ResArrayType = typename arrow::TypeTraits<arrow::Int64Type>::ArrayType;
-  using ResBuilderType = typename arrow::TypeTraits<arrow::Int64Type>::BuilderType;
+  using ResBuilderType =
+      typename arrow::TypeTraits<arrow::Int64Type>::BuilderType;
   using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   // input
   arrow::compute::ExecContext* ctx_;
@@ -412,15 +425,17 @@ class CountAction : public ActionBase {
 template <typename DataType>
 class CountLiteralAction : public ActionBase {
  public:
-  CountLiteralAction(arrow::compute::ExecContext* ctx, int arg) : ctx_(ctx), arg_(arg) {
+  CountLiteralAction(arrow::compute::ExecContext* ctx, int arg)
+      : ctx_(ctx), arg_(arg) {
 #ifdef DEBUG
     std::cout << "Construct CountLiteralAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
+    arrow::MakeBuilder(ctx_->memory_pool(),
+                       arrow::TypeTraits<DataType>::type_singleton(),
                        &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(
+        array_builder.release()));
   }
   ~CountLiteralAction() {
 #ifdef DEBUG
@@ -504,7 +519,8 @@ class CountLiteralAction : public ActionBase {
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -538,14 +554,16 @@ template <typename DataType, typename CType>
 class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     : public ActionBase {
  public:
-  MinAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
+  MinAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MinAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), type, &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~MinAction() {
 #ifdef DEBUG
@@ -614,7 +632,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     arrow::compute::MinMaxOptions option;
     auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
     minMaxOut = *std::move(maybe_minMaxOut);
-    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
+    const arrow::StructScalar& value =
+        minMaxOut.scalar_as<arrow::StructScalar>();
 
     auto& typed_scalar = static_cast<const ScalarType&>(*value.value[0]);
     if (!cache_validity_[0]) {
@@ -628,7 +647,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -642,7 +662,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -661,7 +682,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -700,14 +722,16 @@ template <typename DataType, typename CType>
 class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     : public ActionBase {
  public:
-  MinAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
+  MinAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MinAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), type, &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~MinAction() {
 #ifdef DEBUG
@@ -782,7 +806,8 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -796,7 +821,8 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -821,7 +847,8 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -862,14 +889,16 @@ template <typename DataType, typename CType>
 class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     : public ActionBase {
  public:
-  MaxAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
+  MaxAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MaxAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), type, &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~MaxAction() {
 #ifdef DEBUG
@@ -939,7 +968,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     arrow::compute::MinMaxOptions option;
     auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
     minMaxOut = *std::move(maybe_minMaxOut);
-    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
+    const arrow::StructScalar& value =
+        minMaxOut.scalar_as<arrow::StructScalar>();
 
     auto& typed_scalar = static_cast<const ScalarType&>(*value.value[1]);
     if (!cache_validity_[0]) {
@@ -953,7 +983,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -967,7 +998,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -986,7 +1018,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -1024,14 +1057,16 @@ template <typename DataType, typename CType>
 class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     : public ActionBase {
  public:
-  MaxAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
+  MaxAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct MaxAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), type, &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(array_builder.release()));
   }
   ~MaxAction() {
 #ifdef DEBUG
@@ -1105,7 +1140,8 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
@@ -1119,7 +1155,8 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1144,7 +1181,8 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -1178,15 +1216,17 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 };
 
 //////////////// SumAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType, typename Enable = void>
 class SumAction {};
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class SumAction<DataType, CType, ResDataType, ResCType,
                 precompile::enable_if_number<DataType>> : public ActionBase {
  public:
-  SumAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+  SumAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type,
             std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
 #ifdef DEBUG
@@ -1194,8 +1234,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(
+        array_builder.release()));
   }
   ~SumAction() {
 #ifdef DEBUG
@@ -1266,7 +1306,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_[dest_group_id] += *(CType*)data;
@@ -1275,7 +1316,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1294,7 +1336,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -1329,11 +1372,13 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 };
 
 /// Decimal ///
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class SumAction<DataType, CType, ResDataType, ResCType,
                 precompile::enable_if_decimal<DataType>> : public ActionBase {
  public:
-  SumAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+  SumAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type,
             std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
 #ifdef DEBUG
@@ -1341,8 +1386,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
-    builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(
+        array_builder.release()));
   }
   ~SumAction() {
 #ifdef DEBUG
@@ -1411,7 +1456,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_[dest_group_id] += *(CType*)data;
@@ -1420,7 +1466,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1445,7 +1492,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -1480,15 +1528,18 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// AvgAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class AvgAction : public ActionBase {
  public:
-  AvgAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+  AvgAction(arrow::compute::ExecContext* ctx,
+            std::shared_ptr<arrow::DataType> type,
             std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
-    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
 #ifdef DEBUG
     std::cout << "Construct AvgAction" << std::endl;
 #endif
@@ -1569,10 +1620,12 @@ class AvgAction : public ActionBase {
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
+    arrow::compute::CountOptions option(
+        arrow::compute::CountOptions::COUNT_NON_NULL);
     maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
-    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    auto count_typed_scalar =
+        std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
     if (!cache_validity_[0]) cache_validity_[0] = true;
@@ -1581,7 +1634,8 @@ class AvgAction : public ActionBase {
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     cache_sum_[dest_group_id] += *(CType*)data;
@@ -1591,7 +1645,8 @@ class AvgAction : public ActionBase {
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -1613,7 +1668,8 @@ class AvgAction : public ActionBase {
 
   uint64_t GetResultLength() { return cache_sum_.size(); }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (int i = 0; i < length; i++) {
@@ -1635,7 +1691,8 @@ class AvgAction : public ActionBase {
 
  private:
   using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
-  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
+  using CountScalarType =
+      typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResArrayType = typename arrow::TypeTraits<ResDataType>::ArrayType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   std::unique_ptr<ResBuilderType> builder_;
@@ -1652,25 +1709,28 @@ class AvgAction : public ActionBase {
 };
 
 //////////////// SumCountAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType, typename Enable = void>
 class SumCountAction {};
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class SumCountAction<DataType, CType, ResDataType, ResCType,
-                     precompile::enable_if_number<DataType>> : public ActionBase {
+                     precompile::enable_if_number<DataType>>
+    : public ActionBase {
  public:
-  SumCountAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+  SumCountAction(arrow::compute::ExecContext* ctx,
+                 std::shared_ptr<arrow::DataType> type,
                  std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::float64(), &sum_builder);
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &count_builder);
-    sum_builder_.reset(
-        arrow::internal::checked_cast<arrow::DoubleBuilder*>(sum_builder.release()));
-    count_builder_.reset(
-        arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
+    sum_builder_.reset(arrow::internal::checked_cast<arrow::DoubleBuilder*>(
+        sum_builder.release()));
+    count_builder_.reset(arrow::internal::checked_cast<arrow::Int64Builder*>(
+        count_builder.release()));
 
 #ifdef DEBUG
     std::cout << "Construct SumCountAction" << std::endl;
@@ -1744,10 +1804,12 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
+    arrow::compute::CountOptions option(
+        arrow::compute::CountOptions::COUNT_NON_NULL);
     maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
-    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    auto count_typed_scalar =
+        std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
     return arrow::Status::OK();
@@ -1794,7 +1856,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -1819,7 +1882,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
  private:
   using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
-  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
+  using CountScalarType =
+      typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   std::unique_ptr<arrow::DoubleBuilder> sum_builder_;
   std::unique_ptr<arrow::Int64Builder> count_builder_;
@@ -1837,11 +1901,14 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 };
 
 /// Decimal ///
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class SumCountAction<DataType, CType, ResDataType, ResCType,
-                     precompile::enable_if_decimal<DataType>> : public ActionBase {
+                     precompile::enable_if_decimal<DataType>>
+    : public ActionBase {
  public:
-  SumCountAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+  SumCountAction(arrow::compute::ExecContext* ctx,
+                 std::shared_ptr<arrow::DataType> type,
                  std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
@@ -1850,8 +1917,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &count_builder);
     sum_builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(sum_builder.release()));
-    count_builder_.reset(
-        arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
+    count_builder_.reset(arrow::internal::checked_cast<arrow::Int64Builder*>(
+        count_builder.release()));
 
 #ifdef DEBUG
     std::cout << "Construct SumCountAction" << std::endl;
@@ -1967,7 +2034,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -2009,13 +2077,15 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// SumCountMergeAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType, typename Enable = void>
 class SumCountMergeAction {};
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
-                          precompile::enable_if_number<DataType>> : public ActionBase {
+                          precompile::enable_if_number<DataType>>
+    : public ActionBase {
  public:
   SumCountMergeAction(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> type,
@@ -2027,8 +2097,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &count_builder);
     sum_builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(sum_builder.release()));
-    count_builder_.reset(
-        arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
+    count_builder_.reset(arrow::internal::checked_cast<arrow::Int64Builder*>(
+        count_builder.release()));
 #ifdef DEBUG
     std::cout << "Construct SumCountMergeAction" << std::endl;
 #endif
@@ -2057,7 +2127,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     in_null_count_ = in_sum_->null_count();
     // prepare evaluate lambda
     data_sum_ = const_cast<CType*>(in_sum_->data()->GetValues<CType>(1));
-    data_count_ = const_cast<int64_t*>(in_count_->data()->GetValues<int64_t>(1));
+    data_count_ =
+        const_cast<int64_t*>(in_count_->data()->GetValues<int64_t>(1));
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
       const bool is_null = in_null_count_ > 0 && in_sum_->IsNull(row_id);
@@ -2105,7 +2176,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
     maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);
     output = *std::move(maybe_output);
-    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    auto count_typed_scalar =
+        std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
     return arrow::Status::OK();
@@ -2152,7 +2224,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -2177,7 +2250,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
  private:
   using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
-  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
+  using CountScalarType =
+      typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   std::unique_ptr<ResBuilderType> sum_builder_;
   std::unique_ptr<arrow::Int64Builder> count_builder_;
@@ -2196,9 +2270,11 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   uint64_t length_ = 0;
 };
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
-                          precompile::enable_if_decimal<DataType>> : public ActionBase {
+                          precompile::enable_if_decimal<DataType>>
+    : public ActionBase {
  public:
   SumCountMergeAction(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> type,
@@ -2210,8 +2286,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::int64(), &count_builder);
     sum_builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(sum_builder.release()));
-    count_builder_.reset(
-        arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
+    count_builder_.reset(arrow::internal::checked_cast<arrow::Int64Builder*>(
+        count_builder.release()));
 #ifdef DEBUG
     std::cout << "Construct SumCountMergeAction" << std::endl;
 #endif
@@ -2327,7 +2403,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
@@ -2369,13 +2446,15 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// AvgByCountAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType, typename Enable = void>
 class AvgByCountAction {};
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class AvgByCountAction<DataType, CType, ResDataType, ResCType,
-                       precompile::enable_if_number<DataType>> : public ActionBase {
+                       precompile::enable_if_number<DataType>>
+    : public ActionBase {
  public:
   AvgByCountAction(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> type,
@@ -2383,7 +2462,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
-    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
 #ifdef DEBUG
     std::cout << "Construct AvgByCountAction" << std::endl;
 #endif
@@ -2411,7 +2491,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     in_count_ = in_list[1];
     // prepare evaluate lambda
     data_sum_ = const_cast<CType*>(in_sum_->data()->GetValues<CType>(1));
-    data_count_ = const_cast<int64_t*>(in_count_->data()->GetValues<int64_t>(1));
+    data_count_ =
+        const_cast<int64_t*>(in_count_->data()->GetValues<int64_t>(1));
     row_id = 0;
     in_null_count_ = in_sum_->null_count();
     *on_valid = [this](int dest_group_id) {
@@ -2459,7 +2540,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
     maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);
     output = *std::move(maybe_output);
-    auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
+    auto count_typed_scalar =
+        std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
 
     if (!cache_validity_[0]) cache_validity_[0] = true;
@@ -2468,7 +2550,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -2477,7 +2560,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2503,7 +2587,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (int i = 0; i < length; i++) {
@@ -2530,7 +2615,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
  private:
   using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
-  using CountScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
+  using CountScalarType =
+      typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   std::unique_ptr<ResBuilderType> builder_;
   // input
@@ -2548,21 +2634,25 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
   uint64_t length_ = 0;
 };
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class AvgByCountAction<DataType, CType, ResDataType, ResCType,
-                       precompile::enable_if_decimal<DataType>> : public ActionBase {
+                       precompile::enable_if_decimal<DataType>>
+    : public ActionBase {
  public:
   AvgByCountAction(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> type,
                    std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
     auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
-    auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
+    auto typed_res_type =
+        std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
     scale_ = typed_type->scale();
     res_scale_ = typed_res_type->scale();
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
-    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
 #ifdef DEBUG
     std::cout << "Construct AvgByCountAction" << std::endl;
 #endif
@@ -2639,7 +2729,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data, void* data2) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_sum_[dest_group_id] += *(CType*)data;
     cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -2648,7 +2739,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2661,7 +2753,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
       } else {
         cache_validity_[i] = true;
         if (res_scale_ > scale_) {
-          cache_sum_[i] = cache_sum_[i].Rescale(scale_, res_scale_).ValueOrDie();
+          cache_sum_[i] =
+              cache_sum_[i].Rescale(scale_, res_scale_).ValueOrDie();
         }
         cache_sum_[i] /= cache_count_[i];
       }
@@ -2683,7 +2776,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (int i = 0; i < length; i++) {
@@ -2732,11 +2826,12 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// StddevSampPartialAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType, typename Enable = void>
 class StddevSampPartialAction {};
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
                               precompile::enable_if_number<DataType>>
     : public ActionBase {
@@ -2751,8 +2846,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &count_builder);
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &avg_builder);
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &m2_builder);
-    count_builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(count_builder.release()));
+    count_builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(
+        count_builder.release()));
     avg_builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(avg_builder.release()));
     m2_builder_.reset(
@@ -2795,7 +2890,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
             (cache_count_[dest_group_id] > 0 ? cache_count_[dest_group_id] : 1);
         auto delta = data * 1.0 - pre_avg;
         auto deltaN = delta / (cache_count_[dest_group_id] + 1);
-        cache_m2_[dest_group_id] += delta * deltaN * cache_count_[dest_group_id];
+        cache_m2_[dest_group_id] +=
+            delta * deltaN * cache_count_[dest_group_id];
         cache_sum_[dest_group_id] += data * 1.0;
         cache_count_[dest_group_id] += 1.0;
       }
@@ -2851,11 +2947,13 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
-    auto pre_avg = cache_sum_[dest_group_id] * 1.0 /
-                   (cache_count_[dest_group_id] > 0 ? cache_count_[dest_group_id] : 1);
+    auto pre_avg =
+        cache_sum_[dest_group_id] * 1.0 /
+        (cache_count_[dest_group_id] > 0 ? cache_count_[dest_group_id] : 1);
     auto delta = *(CType*)data * 1.0 - pre_avg;
     auto deltaN = delta / (cache_count_[dest_group_id] + 1);
     cache_m2_[dest_group_id] += delta * deltaN * cache_count_[dest_group_id];
@@ -2866,7 +2964,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -2912,7 +3011,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     count_builder_->Reset();
     avg_builder_->Reset();
     m2_builder_->Reset();
@@ -2969,7 +3069,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
   uint64_t length_ = 0;
 };
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
                               precompile::enable_if_decimal<DataType>>
     : public ActionBase {
@@ -2984,8 +3085,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &count_builder);
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &avg_builder);
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &m2_builder);
-    count_builder_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(count_builder.release()));
+    count_builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(
+        count_builder.release()));
     avg_builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(avg_builder.release()));
     m2_builder_.reset(
@@ -3031,7 +3132,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
             (cache_count_[dest_group_id] > 0 ? cache_count_[dest_group_id] : 1);
         auto delta = data - pre_avg;
         auto deltaN = delta / (cache_count_[dest_group_id] + 1);
-        cache_m2_[dest_group_id] += delta * deltaN * cache_count_[dest_group_id];
+        cache_m2_[dest_group_id] +=
+            delta * deltaN * cache_count_[dest_group_id];
         cache_sum_[dest_group_id] += data * 1.0;
         cache_count_[dest_group_id] += 1.0;
       }
@@ -3087,12 +3189,14 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto double_data = (*(CType*)data).ToDouble(scale);
-    auto pre_avg = cache_sum_[dest_group_id] * 1.0 /
-                   (cache_count_[dest_group_id] > 0 ? cache_count_[dest_group_id] : 1);
+    auto pre_avg =
+        cache_sum_[dest_group_id] * 1.0 /
+        (cache_count_[dest_group_id] > 0 ? cache_count_[dest_group_id] : 1);
     auto delta = double_data - pre_avg;
     auto deltaN = delta / (cache_count_[dest_group_id] + 1);
     cache_m2_[dest_group_id] += delta * deltaN * cache_count_[dest_group_id];
@@ -3103,7 +3207,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3148,7 +3253,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     count_builder_->Reset();
     avg_builder_->Reset();
     m2_builder_->Reset();
@@ -3206,13 +3312,15 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// StddevSampFinalAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType, typename Enable = void>
 class StddevSampFinalAction {};
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
-                            precompile::enable_if_number<DataType>> : public ActionBase {
+                            precompile::enable_if_number<DataType>>
+    : public ActionBase {
  public:
   StddevSampFinalAction(arrow::compute::ExecContext* ctx,
                         std::shared_ptr<arrow::DataType> type,
@@ -3220,7 +3328,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
-    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
 #ifdef DEBUG
     std::cout << "Construct StddevSampFinalAction" << std::endl;
 #endif
@@ -3260,7 +3369,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
         auto n1 = cache_count_[dest_group_id];
         auto n2 = data_count;
         auto deltaN = (n1 + n2) > 0 ? delta / (n1 + n2) : 0;
-        cache_m2_[dest_group_id] += (in_m2_->GetView(row_id) + delta * deltaN * n1 * n2);
+        cache_m2_[dest_group_id] +=
+            (in_m2_->GetView(row_id) + delta * deltaN * n1 * n2);
         cache_avg_[dest_group_id] += deltaN * n2;
         cache_count_[dest_group_id] += n2;
       }
@@ -3309,9 +3419,11 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     return arrow::Status::OK();
   }
 
-  arrow::Status Evaluate(int dest_group_id, void* data, void* data2, void* data3) {
+  arrow::Status Evaluate(int dest_group_id, void* data, void* data2,
+                         void* data3) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto pre_avg = cache_avg_[dest_group_id];
@@ -3327,7 +3439,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3335,7 +3448,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(ArrayList* out) override {
     std::shared_ptr<arrow::Array> out_arr;
     for (int i = 0; i < length_; i++) {
-      auto tmp = cache_m2_[i] / (cache_count_[i] > 1 ? (cache_count_[i] - 1) : 1);
+      auto tmp =
+          cache_m2_[i] / (cache_count_[i] > 1 ? (cache_count_[i] - 1) : 1);
       cache_m2_[i] = sqrt(tmp);
     }
     cache_m2_.resize(length_);
@@ -3343,7 +3457,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (cache_count_[i] - 1 < 0.00001) {
         // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        RETURN_NOT_OK(
+            builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
       } else if (cache_validity_[i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[i]));
       } else {
@@ -3359,18 +3474,21 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (int i = 0; i < length; i++) {
-      auto tmp = cache_m2_[i + offset] /
-                 (cache_count_[i + offset] > 1 ? (cache_count_[i + offset] - 1) : 1);
+      auto tmp =
+          cache_m2_[i + offset] /
+          (cache_count_[i + offset] > 1 ? (cache_count_[i + offset] - 1) : 1);
       cache_m2_[i + offset] = sqrt(tmp);
     }
     for (uint64_t i = 0; i < length; i++) {
       if (cache_count_[offset + i] - 1 < 0.00001) {
         // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        RETURN_NOT_OK(
+            builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
       } else if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[offset + i]));
       } else {
@@ -3404,9 +3522,11 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   uint64_t length_ = 0;
 };
 
-template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+template <typename DataType, typename CType, typename ResDataType,
+          typename ResCType>
 class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
-                            precompile::enable_if_decimal<DataType>> : public ActionBase {
+                            precompile::enable_if_decimal<DataType>>
+    : public ActionBase {
  public:
   StddevSampFinalAction(arrow::compute::ExecContext* ctx,
                         std::shared_ptr<arrow::DataType> type,
@@ -3414,10 +3534,13 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
-    builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
+    builder_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
     auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
-    zero = castDECIMAL(double(0.0), typed_type->precision(), typed_type->scale());
-    one = castDECIMAL(double(1.0), typed_type->precision(), typed_type->scale());
+    zero =
+        castDECIMAL(double(0.0), typed_type->precision(), typed_type->scale());
+    one =
+        castDECIMAL(double(1.0), typed_type->precision(), typed_type->scale());
     scale = typed_type->scale();
 
 #ifdef DEBUG
@@ -3465,7 +3588,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
         } else {
           deltaN = zero;
         }
-        cache_m2_[dest_group_id] += (in_m2_->GetView(row_id) + delta * deltaN * n1 * n2);
+        cache_m2_[dest_group_id] +=
+            (in_m2_->GetView(row_id) + delta * deltaN * n1 * n2);
         cache_avg_[dest_group_id] += deltaN * n2;
         cache_count_[dest_group_id] += n2;
       }
@@ -3514,9 +3638,11 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     return arrow::Status::OK();
   }
 
-  arrow::Status Evaluate(int dest_group_id, void* data, void* data2, void* data3) {
+  arrow::Status Evaluate(int dest_group_id, void* data, void* data2,
+                         void* data3) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     cache_validity_[dest_group_id] = true;
     auto pre_avg = cache_avg_[dest_group_id];
@@ -3537,7 +3663,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
-    if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
+    if (cache_validity_.size() <= target_group_size)
+      GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
     return arrow::Status::OK();
   }
@@ -3558,7 +3685,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (cache_count_[i] - 1 < 0) {
         // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        RETURN_NOT_OK(
+            builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
       } else if (cache_validity_[i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[i]));
       } else {
@@ -3574,7 +3702,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+  arrow::Status Finish(uint64_t offset, uint64_t length,
+                       ArrayList* out) override {
     builder_->Reset();
     length = (offset + length) > length_ ? (length_ - offset) : length;
     for (int i = 0; i < length; i++) {
@@ -3590,7 +3719,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < length; i++) {
       if (cache_count_[offset + i] - 1 < 0) {
         // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        RETURN_NOT_OK(
+            builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
       } else if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[offset + i]));
       } else {
@@ -3607,7 +3737,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
  private:
   using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
-  using CountArrayType = typename precompile::TypeTraits<arrow::Int64Type>::ArrayType;
+  using CountArrayType =
+      typename precompile::TypeTraits<arrow::Int64Type>::ArrayType;
   using CountCType = typename precompile::TypeTraits<arrow::Int64Type>::CType;
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   std::unique_ptr<ResBuilderType> builder_;
@@ -3647,17 +3778,19 @@ arrow::Status MakeUniqueAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                         \
-  case InType::type_id: {                                                       \
-    using CType = typename arrow::TypeTraits<InType>::CType;                    \
-    auto action_ptr = std::make_shared<UniqueAction<InType, CType>>(ctx, type); \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                   \
+#define PROCESS(InType)                                           \
+  case InType::type_id: {                                         \
+    using CType = typename arrow::TypeTraits<InType>::CType;      \
+    auto action_ptr =                                             \
+        std::make_shared<UniqueAction<InType, CType>>(ctx, type); \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);     \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     case arrow::StringType::type_id: {
       auto action_ptr =
-          std::make_shared<UniqueAction<arrow::StringType, std::string>>(ctx, type);
+          std::make_shared<UniqueAction<arrow::StringType, std::string>>(ctx,
+                                                                         type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::Date32Type::type_id: {
@@ -3666,22 +3799,22 @@ arrow::Status MakeUniqueAction(
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::Decimal128Type::type_id: {
-      auto action_ptr =
-          std::make_shared<UniqueAction<arrow::Decimal128Type, arrow::Decimal128>>(ctx,
-                                                                                   type);
+      auto action_ptr = std::make_shared<
+          UniqueAction<arrow::Decimal128Type, arrow::Decimal128>>(ctx, type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     default: {
-      std::cout << "Not Found " << type->ToString() << ", type id is " << type->id()
-                << std::endl;
+      std::cout << "Not Found " << type->ToString() << ", type id is "
+                << type->id() << std::endl;
     } break;
   }
   return arrow::Status::OK();
 }
 
-arrow::Status MakeCountAction(arrow::compute::ExecContext* ctx,
-                              std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                              std::shared_ptr<ActionBase>* out) {
+arrow::Status MakeCountAction(
+    arrow::compute::ExecContext* ctx,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
   auto action_ptr = std::make_shared<CountAction<arrow::Int64Type>>(ctx);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
@@ -3691,15 +3824,16 @@ arrow::Status MakeCountLiteralAction(
     arrow::compute::ExecContext* ctx, int arg,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
-  auto action_ptr = std::make_shared<CountLiteralAction<arrow::Int64Type>>(ctx, arg);
+  auto action_ptr =
+      std::make_shared<CountLiteralAction<arrow::Int64Type>>(ctx, arg);
   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
   return arrow::Status::OK();
 }
 
-arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::DataType> type,
-                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+arrow::Status MakeMinAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
 #define PROCESS(InType)                                                      \
   case InType::type_id: {                                                    \
@@ -3710,8 +3844,8 @@ arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
     PROCESS_SUPPORTED_TYPES(PROCESS)
     case arrow::Decimal128Type::type_id: {
       auto action_ptr =
-          std::make_shared<MinAction<arrow::Decimal128Type, arrow::Decimal128>>(ctx,
-                                                                                type);
+          std::make_shared<MinAction<arrow::Decimal128Type, arrow::Decimal128>>(
+              ctx, type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
@@ -3721,10 +3855,10 @@ arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::DataType> type,
-                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+arrow::Status MakeMaxAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
 #define PROCESS(InType)                                                      \
   case InType::type_id: {                                                    \
@@ -3735,8 +3869,8 @@ arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
     PROCESS_SUPPORTED_TYPES(PROCESS)
     case arrow::Decimal128Type::type_id: {
       auto action_ptr =
-          std::make_shared<MaxAction<arrow::Decimal128Type, arrow::Decimal128>>(ctx,
-                                                                                type);
+          std::make_shared<MaxAction<arrow::Decimal128Type, arrow::Decimal128>>(
+              ctx, type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
@@ -3746,20 +3880,21 @@ arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::DataType> type,
-                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+arrow::Status MakeSumAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                                  \
-  case InType::type_id: {                                                                \
-    using CType = typename arrow::TypeTraits<InType>::CType;                             \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                      \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                     \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                    \
-    auto action_ptr = std::make_shared<SumAction<InType, CType, ResDataType, ResCType>>( \
-        ctx, type, res_type);                                                            \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                            \
+#define PROCESS(InType)                                                    \
+  case InType::type_id: {                                                  \
+    using CType = typename arrow::TypeTraits<InType>::CType;               \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;        \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;       \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();      \
+    auto action_ptr =                                                      \
+        std::make_shared<SumAction<InType, CType, ResDataType, ResCType>>( \
+            ctx, type, res_type);                                          \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);              \
   } break;
 
     PROCESS_SUPPORTED_TYPES(PROCESS)
@@ -3777,20 +3912,21 @@ arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::DataType> type,
-                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+arrow::Status MakeAvgAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                                  \
-  case InType::type_id: {                                                                \
-    using CType = typename arrow::TypeTraits<InType>::CType;                             \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                      \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                     \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                    \
-    auto action_ptr = std::make_shared<AvgAction<InType, CType, ResDataType, ResCType>>( \
-        ctx, type, res_type);                                                            \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                            \
+#define PROCESS(InType)                                                    \
+  case InType::type_id: {                                                  \
+    using CType = typename arrow::TypeTraits<InType>::CType;               \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;        \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;       \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();      \
+    auto action_ptr =                                                      \
+        std::make_shared<AvgAction<InType, CType, ResDataType, ResCType>>( \
+            ctx, type, res_type);                                          \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);              \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -3805,23 +3941,23 @@ arrow::Status MakeSumCountAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                         \
-  case InType::type_id: {                                                       \
-    using CType = typename arrow::TypeTraits<InType>::CType;                    \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;             \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;            \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();           \
-    auto action_ptr =                                                           \
-        std::make_shared<SumCountAction<InType, CType, ResDataType, ResCType>>( \
-            ctx, type, res_type);                                               \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                   \
+#define PROCESS(InType)                                                  \
+  case InType::type_id: {                                                \
+    using CType = typename arrow::TypeTraits<InType>::CType;             \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;      \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;     \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();    \
+    auto action_ptr = std::make_shared<                                  \
+        SumCountAction<InType, CType, ResDataType, ResCType>>(ctx, type, \
+                                                              res_type); \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);            \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
     case arrow::Decimal128Type::type_id: {
-      auto action_ptr =
-          std::make_shared<SumCountAction<arrow::Decimal128Type, arrow::Decimal128,
-                                          arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+      auto action_ptr = std::make_shared<
+          SumCountAction<arrow::Decimal128Type, arrow::Decimal128,
+                         arrow::Decimal128Type, arrow::Decimal128>>(
+          ctx, type, res_type_list[0]);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
@@ -3836,23 +3972,23 @@ arrow::Status MakeSumCountMergeAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                              \
-  case InType::type_id: {                                                            \
-    using CType = typename arrow::TypeTraits<InType>::CType;                         \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                  \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                 \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                \
-    auto action_ptr =                                                                \
-        std::make_shared<SumCountMergeAction<InType, CType, ResDataType, ResCType>>( \
-            ctx, type, res_type);                                                    \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                        \
+#define PROCESS(InType)                                                       \
+  case InType::type_id: {                                                     \
+    using CType = typename arrow::TypeTraits<InType>::CType;                  \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;           \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;          \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();         \
+    auto action_ptr = std::make_shared<                                       \
+        SumCountMergeAction<InType, CType, ResDataType, ResCType>>(ctx, type, \
+                                                                   res_type); \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                 \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
     case arrow::Decimal128Type::type_id: {
-      auto action_ptr =
-          std::make_shared<SumCountMergeAction<arrow::Decimal128Type, arrow::Decimal128,
-                                               arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+      auto action_ptr = std::make_shared<
+          SumCountMergeAction<arrow::Decimal128Type, arrow::Decimal128,
+                              arrow::Decimal128Type, arrow::Decimal128>>(
+          ctx, type, res_type_list[0]);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
@@ -3867,23 +4003,23 @@ arrow::Status MakeAvgByCountAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                           \
-  case InType::type_id: {                                                         \
-    using CType = typename arrow::TypeTraits<InType>::CType;                      \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;               \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;              \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();             \
-    auto action_ptr =                                                             \
-        std::make_shared<AvgByCountAction<InType, CType, ResDataType, ResCType>>( \
-            ctx, type, res_type);                                                 \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                     \
+#define PROCESS(InType)                                                    \
+  case InType::type_id: {                                                  \
+    using CType = typename arrow::TypeTraits<InType>::CType;               \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;        \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;       \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();      \
+    auto action_ptr = std::make_shared<                                    \
+        AvgByCountAction<InType, CType, ResDataType, ResCType>>(ctx, type, \
+                                                                res_type); \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);              \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
     case arrow::Decimal128Type::type_id: {
-      auto action_ptr =
-          std::make_shared<AvgByCountAction<arrow::Decimal128Type, arrow::Decimal128,
-                                            arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+      auto action_ptr = std::make_shared<
+          AvgByCountAction<arrow::Decimal128Type, arrow::Decimal128,
+                           arrow::Decimal128Type, arrow::Decimal128>>(
+          ctx, type, res_type_list[0]);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
@@ -3898,16 +4034,16 @@ arrow::Status MakeStddevSampPartialAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                                  \
-  case InType::type_id: {                                                                \
-    using CType = typename arrow::TypeTraits<InType>::CType;                             \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                      \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                     \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                    \
-    auto action_ptr =                                                                    \
-        std::make_shared<StddevSampPartialAction<InType, CType, ResDataType, ResCType>>( \
-            ctx, type, res_type);                                                        \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                            \
+#define PROCESS(InType)                                                 \
+  case InType::type_id: {                                               \
+    using CType = typename arrow::TypeTraits<InType>::CType;            \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;     \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;    \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();   \
+    auto action_ptr = std::make_shared<                                 \
+        StddevSampPartialAction<InType, CType, ResDataType, ResCType>>( \
+        ctx, type, res_type);                                           \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);           \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
     case arrow::Decimal128Type::type_id: {
@@ -3928,25 +4064,24 @@ arrow::Status MakeStddevSampFinalAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                                \
-  case InType::type_id: {                                                              \
-    using CType = typename arrow::TypeTraits<InType>::CType;                           \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                    \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                   \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                  \
-    auto action_ptr =                                                                  \
-        std::make_shared<StddevSampFinalAction<InType, CType, ResDataType, ResCType>>( \
-            ctx, type, res_type);                                                      \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                          \
+#define PROCESS(InType)                                               \
+  case InType::type_id: {                                             \
+    using CType = typename arrow::TypeTraits<InType>::CType;          \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;   \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;  \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton(); \
+    auto action_ptr = std::make_shared<                               \
+        StddevSampFinalAction<InType, CType, ResDataType, ResCType>>( \
+        ctx, type, res_type);                                         \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);         \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
     /*case arrow::Decimal128Type::type_id: {
       auto action_ptr = std::make_shared<
           StddevSampFinalAction<arrow::Decimal128Type, arrow::Decimal128,
-                                arrow::Decimal128Type, arrow::Decimal128>>(ctx, type,
-                                                                           type);
-      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
-    } break;*/
+                                arrow::Decimal128Type, arrow::Decimal128>>(ctx,
+    type, type); *out = std::dynamic_pointer_cast<ActionBase>(action_ptr); }
+    break;*/
 #undef PROCESS
     default:
       break;

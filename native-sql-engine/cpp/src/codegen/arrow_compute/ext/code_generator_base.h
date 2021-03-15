@@ -33,21 +33,26 @@ class CodeGenBase {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }
-  virtual arrow::Status Evaluate(const ArrayList& in, const ArrayList& projected_batch) {
+  virtual arrow::Status Evaluate(const ArrayList& in,
+                                 const ArrayList& projected_batch) {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }
   virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out) {
-    return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
+    return arrow::Status::NotImplemented(
+        "CodeGenBase Finish is an abstract interface.");
   }
 
   virtual arrow::Status Finish(std::shared_ptr<arrow::Array> in,
                                std::shared_ptr<arrow::Array>* out) {
-    return arrow::Status::NotImplemented("CodeGenBase Finish is an abstract interface.");
+    return arrow::Status::NotImplemented(
+        "CodeGenBase Finish is an abstract interface.");
   }
 
-  virtual arrow::Status FinishInternal(std::shared_ptr<precompile::FixedSizeBinaryArray>* out) {
-    return arrow::Status::NotImplemented("CodeGenBase FinishInternal is an abstract interface.");
+  virtual arrow::Status FinishInternal(
+      std::shared_ptr<precompile::FixedSizeBinaryArray>* out) {
+    return arrow::Status::NotImplemented(
+        "CodeGenBase FinishInternal is an abstract interface.");
   }
 
   virtual arrow::Status MakeResultIterator(

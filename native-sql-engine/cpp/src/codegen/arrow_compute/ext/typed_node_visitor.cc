@@ -25,25 +25,31 @@ namespace codegen {
 namespace arrowcompute {
 namespace extra {
 
-TypedNodeVisitor::ResultType TypedNodeVisitor::GetResultType() { return res_type_; }
+TypedNodeVisitor::ResultType TypedNodeVisitor::GetResultType() {
+  return res_type_;
+}
 arrow::Status TypedNodeVisitor::GetTypedNode(
     std::shared_ptr<gandiva::FunctionNode>* out) {
   *out = function_node_;
   return arrow::Status::OK();
 }
-arrow::Status TypedNodeVisitor::GetTypedNode(std::shared_ptr<gandiva::FieldNode>* out) {
+arrow::Status TypedNodeVisitor::GetTypedNode(
+    std::shared_ptr<gandiva::FieldNode>* out) {
   *out = field_node_;
   return arrow::Status::OK();
 }
-arrow::Status TypedNodeVisitor::GetTypedNode(std::shared_ptr<gandiva::IfNode>* out) {
+arrow::Status TypedNodeVisitor::GetTypedNode(
+    std::shared_ptr<gandiva::IfNode>* out) {
   *out = if_node_;
   return arrow::Status::OK();
 }
-arrow::Status TypedNodeVisitor::GetTypedNode(std::shared_ptr<gandiva::LiteralNode>* out) {
+arrow::Status TypedNodeVisitor::GetTypedNode(
+    std::shared_ptr<gandiva::LiteralNode>* out) {
   *out = literal_node_;
   return arrow::Status::OK();
 }
-arrow::Status TypedNodeVisitor::GetTypedNode(std::shared_ptr<gandiva::BooleanNode>* out) {
+arrow::Status TypedNodeVisitor::GetTypedNode(
+    std::shared_ptr<gandiva::BooleanNode>* out) {
   *out = boolean_node_;
   return arrow::Status::OK();
 }

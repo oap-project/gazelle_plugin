@@ -55,14 +55,15 @@ class WholeStageCodeGenKernel::Impl {
     int hash_relation_idx = 0;
     enable_time_metrics_ = GetEnableTimeMetrics();
     THROW_NOT_OK(ParseNodeTree(root_node, &hash_relation_idx, &kernel_list_));
-    THROW_NOT_OK(LoadJITFunction(input_field_list, output_field_list, kernel_list_,
-                                 &wscg_kernel_));
+    THROW_NOT_OK(LoadJITFunction(input_field_list, output_field_list,
+                                 kernel_list_, &wscg_kernel_));
   }
 
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
-    return wscg_kernel_->MakeResultIterator(schema, gandiva_projector_list_, out);
+    return wscg_kernel_->MakeResultIterator(schema, gandiva_projector_list_,
+                                            out);
   }
 
   std::string GetSignature() { return signature_; }
@@ -83,8 +84,8 @@ class WholeStageCodeGenKernel::Impl {
   arrow::Status GetArguments(std::shared_ptr<gandiva::Node> node, int i,
                              gandiva::NodeVector* node_list) {
     auto function_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(node);
-    auto arg_node =
-        std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[i]);
+    auto arg_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(
+        function_node->children()[i]);
     *node_list = arg_node->children();
     return arrow::Status::OK();
   }
@@ -127,9 +128,9 @@ class WholeStageCodeGenKernel::Impl {
       int cur_hash_relation_idx = *hash_relation_idx;
       *hash_relation_idx += 1;
       RETURN_NOT_OK(ConditionedProbeKernel::Make(
-          ctx_, left_key_list, right_key_list, left_schema_list, right_schema_list,
-          condition, join_type, result_list, configuration_list, cur_hash_relation_idx,
-          out));
+          ctx_, left_key_list, right_key_list, left_schema_list,
+          right_schema_list, condition, join_type, result_list,
+          configuration_list, cur_hash_relation_idx, out));
 
     } else if (func_name.compare(0, 20, "conditionedMergeJoin") == 0) {
       int join_type;
@@ -168,61 +169,68 @@ class WholeStageCodeGenKernel::Impl {
         *hash_relation_idx += 1;
       }
       RETURN_NOT_OK(ConditionedMergeJoinKernel::Make(
-          ctx_, left_key_list, right_key_list, left_schema_list, right_schema_list,
-          condition, join_type, result_list, cur_hash_relation_idx, out));
+          ctx_, left_key_list, right_key_list, left_schema_list,
+          right_schema_list, condition, join_type, result_list,
+          cur_hash_relation_idx, out));
       is_smj_ = true;
 
     } else if (func_name.compare("project") == 0) {
       auto project_expression_list =
-          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[1])
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(
+              function_node->children()[1])
               ->children();
-      auto field_node_list =
-          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[0])
-              ->children();
-      RETURN_NOT_OK(
-          ProjectKernel::Make(ctx_, field_node_list, project_expression_list, out));
+      auto field_node_list = std::dynamic_pointer_cast<gandiva::FunctionNode>(
+                                 function_node->children()[0])
+                                 ->children();
+      RETURN_NOT_OK(ProjectKernel::Make(ctx_, field_node_list,
+                                        project_expression_list, out));
     } else if (func_name.compare("filter") == 0) {
-      auto field_node_list =
-          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[0])
-              ->children();
-      RETURN_NOT_OK(
-          FilterKernel::Make(ctx_, field_node_list, function_node->children()[1], out));
+      auto field_node_list = std::dynamic_pointer_cast<gandiva::FunctionNode>(
+                                 function_node->children()[0])
+                                 ->children();
+      RETURN_NOT_OK(FilterKernel::Make(ctx_, field_node_list,
+                                       function_node->children()[1], out));
     } else if (func_name.compare("hashAggregateArrays") == 0) {
       is_aggr_ = true;
-      auto field_node_list =
-          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[0])
-              ->children();
-      auto action_node_list =
-          std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[1])
-              ->children();
+      auto field_node_list = std::dynamic_pointer_cast<gandiva::FunctionNode>(
+                                 function_node->children()[0])
+                                 ->children();
+      auto action_node_list = std::dynamic_pointer_cast<gandiva::FunctionNode>(
+                                  function_node->children()[1])
+                                  ->children();
 
       gandiva::NodeVector result_field_node_list;
       gandiva::NodeVector result_expr_node_list;
       if (function_node->children().size() == 4) {
         result_field_node_list =
-            std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[2])
+            std::dynamic_pointer_cast<gandiva::FunctionNode>(
+                function_node->children()[2])
                 ->children();
         result_expr_node_list =
-            std::dynamic_pointer_cast<gandiva::FunctionNode>(function_node->children()[3])
+            std::dynamic_pointer_cast<gandiva::FunctionNode>(
+                function_node->children()[3])
                 ->children();
       }
-      RETURN_NOT_OK(HashAggregateKernel::Make(ctx_, field_node_list, action_node_list,
-                                              result_field_node_list,
-                                              result_expr_node_list, out));
+      RETURN_NOT_OK(HashAggregateKernel::Make(
+          ctx_, field_node_list, action_node_list, result_field_node_list,
+          result_expr_node_list, out));
     } else {
-      return arrow::Status::NotImplemented("Not supported function name:", func_name);
+      return arrow::Status::NotImplemented("Not supported function name:",
+                                           func_name);
     }
     return arrow::Status::OK();
   }
 
   /* *
-   * Expecting insert node is a function node whose function name is "child", and real
-   * function is its first child, if who has two children, second one is the next child.
+   * Expecting insert node is a function node whose function name is "child",
+   * and real function is its first child, if who has two children, second one
+   * is the next child.
    * */
-  arrow::Status ParseNodeTree(std::shared_ptr<gandiva::Node> root_node,
-                              int* hash_relation_index,
-                              std::vector<std::shared_ptr<KernalBase>>* kernel_list_) {
-    auto function_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(root_node);
+  arrow::Status ParseNodeTree(
+      std::shared_ptr<gandiva::Node> root_node, int* hash_relation_index,
+      std::vector<std::shared_ptr<KernalBase>>* kernel_list_) {
+    auto function_node =
+        std::dynamic_pointer_cast<gandiva::FunctionNode>(root_node);
     if (function_node->descriptor()->name() != "child") {
       return arrow::Status::NotImplemented(
           "WholeStageCodeGenResultIterator expect child keyword.");
@@ -232,7 +240,8 @@ class WholeStageCodeGenKernel::Impl {
       ParseNodeTree(children[1], hash_relation_index, kernel_list_);
     }
     std::shared_ptr<KernalBase> kernel;
-    RETURN_NOT_OK(CreateKernelByName(children[0], hash_relation_index, &kernel));
+    RETURN_NOT_OK(
+        CreateKernelByName(children[0], hash_relation_index, &kernel));
     (*kernel_list_).push_back(kernel);
     return arrow::Status::OK();
   }
@@ -245,7 +254,8 @@ class WholeStageCodeGenKernel::Impl {
     int argument_id = 0;
     int level = 0;
     std::vector<std::shared_ptr<CodeGenContext>> codegen_ctx_list;
-    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+    std::vector<
+        std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
         input_list;
     for (int i = 0; i < input_field_list.size(); i++) {
       auto name = "typed_in_col_" + std::to_string(i);
@@ -254,8 +264,8 @@ class WholeStageCodeGenKernel::Impl {
     }
     for (auto kernel : kernel_list) {
       std::shared_ptr<CodeGenContext> child_codegen_ctx;
-      RETURN_NOT_OK(
-          kernel->DoCodeGen(level++, input_list, &child_codegen_ctx, &argument_id));
+      RETURN_NOT_OK(kernel->DoCodeGen(level++, input_list, &child_codegen_ctx,
+                                      &argument_id));
       codegen_ctx_list.push_back(child_codegen_ctx);
       input_list.clear();
       for (auto pair : child_codegen_ctx->output_list) {
@@ -263,8 +273,8 @@ class WholeStageCodeGenKernel::Impl {
       }
     }
     std::string codes;
-    RETURN_NOT_OK(
-        DoCodeGen(input_field_list, output_field_list, codegen_ctx_list, &codes));
+    RETURN_NOT_OK(DoCodeGen(input_field_list, output_field_list,
+                            codegen_ctx_list, &codes));
     // generate dll signature
     std::stringstream signature_ss;
     signature_ss << std::hex << std::hash<std::string>{}(codes);
@@ -301,7 +311,8 @@ class WholeStageCodeGenKernel::Impl {
     std::vector<std::string> headers;
     for (auto codegen_ctx : codegen_ctx_list) {
       for (auto header : codegen_ctx->header_codes) {
-        if (std::find(headers.begin(), headers.end(), header) == headers.end()) {
+        if (std::find(headers.begin(), headers.end(), header) ==
+            headers.end()) {
           headers.push_back(header);
         }
       }
@@ -350,17 +361,18 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     }
     codes_ss << "}" << std::endl;
 
-    codes_ss << "arrow::Status GetMetrics(std::shared_ptr<Metrics>* out) override {"
-             << std::endl;
-    codes_ss << "auto metrics = std::make_shared<Metrics>(" << codegen_ctx_list.size()
-             << ");" << std::endl;
+    codes_ss
+        << "arrow::Status GetMetrics(std::shared_ptr<Metrics>* out) override {"
+        << std::endl;
+    codes_ss << "auto metrics = std::make_shared<Metrics>("
+             << codegen_ctx_list.size() << ");" << std::endl;
     for (int i = 0; i < codegen_ctx_list.size(); i++) {
       auto out_length_name = "codegen_out_length_" + std::to_string(i);
       auto process_time_name = "process_time_" + std::to_string(i);
-      codes_ss << "metrics->output_length[" << i << "] = " << out_length_name << ";"
-               << std::endl;
-      codes_ss << "metrics->process_time[" << i << "] = " << process_time_name << ";"
-               << std::endl;
+      codes_ss << "metrics->output_length[" << i << "] = " << out_length_name
+               << ";" << std::endl;
+      codes_ss << "metrics->process_time[" << i << "] = " << process_time_name
+               << ";" << std::endl;
     }
     codes_ss << "*out = metrics;" << std::endl;
     codes_ss << "return arrow::Status::OK();" << std::endl;
@@ -393,10 +405,12 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
         override {)"
             << std::endl;
       } else if (is_smj_) {
-        codes_ss << R"(bool HasNext() override { return !should_stop_; })" << std::endl;
-        codes_ss << R"(arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out)
-        override {)"
+        codes_ss << R"(bool HasNext() override { return !should_stop_; })"
                  << std::endl;
+        codes_ss
+            << R"(arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out)
+        override {)"
+            << std::endl;
         codes_ss << "uint64_t out_length = 0;" << std::endl;
         if (is_aggr_) {
           codes_ss << "int gp_idx = 0;" << std::endl;
@@ -410,8 +424,8 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     for (int i = 0; i < input_field_list.size(); i++) {
       auto typed_array_name = "typed_in_" + std::to_string(i);
       codes_ss << "auto " << typed_array_name << " = std::make_shared<"
-               << GetTypeString(input_field_list[i]->type(), "Array") << ">(in[" << i
-               << "]);";
+               << GetTypeString(input_field_list[i]->type(), "Array") << ">(in["
+               << i << "]);";
     }
     if (codegen_ctx_list.size() > 0) {
       codes_ss << codegen_ctx_list[0]->unsafe_row_prepare_codes << std::endl;
@@ -432,23 +446,25 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       auto validity = name + "_validity";
       if (input_field_list[i]->type()->id() == arrow::Type::STRING) {
         define_ss << "bool " << validity << ";" << std::endl;
-        define_ss << GetCTypeString(input_field_list[i]->type()) << " " << name << ";"
-                  << std::endl;
-        codes_ss << validity << " = " << typed_array_name << "->IsNull(i) ? false : true;"
-                 << std::endl;
+        define_ss << GetCTypeString(input_field_list[i]->type()) << " " << name
+                  << ";" << std::endl;
+        codes_ss << validity << " = " << typed_array_name
+                 << "->IsNull(i) ? false : true;" << std::endl;
         codes_ss << "if (" << validity << ") {" << std::endl;
-        codes_ss << name << " = " << typed_array_name << "->GetString(i);" << std::endl;
+        codes_ss << name << " = " << typed_array_name << "->GetString(i);"
+                 << std::endl;
         codes_ss << "}" << std::endl;
 
       } else {
         define_ss << "bool " << validity << ";" << std::endl;
-        define_ss << GetCTypeString(input_field_list[i]->type()) << " " << name << ";"
-                  << std::endl;
-        codes_ss << validity << " = " << typed_array_name << "->IsNull(i) ? false : true;"
-                 << std::endl;
+        define_ss << GetCTypeString(input_field_list[i]->type()) << " " << name
+                  << ";" << std::endl;
+        codes_ss << validity << " = " << typed_array_name
+                 << "->IsNull(i) ? false : true;" << std::endl;
         codes_ss << "if (" << validity << ") {" << std::endl;
 
-        codes_ss << name << " = " << typed_array_name << "->GetView(i);" << std::endl;
+        codes_ss << name << " = " << typed_array_name << "->GetView(i);"
+                 << std::endl;
         codes_ss << "}" << std::endl;
       }
     }
@@ -458,10 +474,10 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       auto tmp_idx = codegen_ctx_idx;
       codegen_ctx_idx++;
       if (enable_time_metrics_) {
-        codes_ss << "struct timespec start_" << tmp_idx << ", end_" << tmp_idx << ";"
-                 << std::endl;
-        codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &start_" << tmp_idx << ");"
-                 << std::endl;
+        codes_ss << "struct timespec start_" << tmp_idx << ", end_" << tmp_idx
+                 << ";" << std::endl;
+        codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &start_" << tmp_idx
+                 << ");" << std::endl;
       }
       codes_ss << codegen_ctx->prepare_codes << std::endl;
       if (codegen_ctx_idx < codegen_ctx_list.size()) {
@@ -472,29 +488,32 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       if (codegen_ctx->aggregate_finish_condition_codes.empty())
         codes_ss << "codegen_out_length_" << tmp_idx << " += 1;" << std::endl;
       else
-        aggr_out_length_idxs.push_back("codegen_out_length_" + std::to_string(tmp_idx));
+        aggr_out_length_idxs.push_back("codegen_out_length_" +
+                                       std::to_string(tmp_idx));
     }
 
-    codes_ss << GetProcessMaterializeCodes(codegen_ctx_list.back()) << std::endl;
+    codes_ss << GetProcessMaterializeCodes(codegen_ctx_list.back())
+             << std::endl;
     if (!is_aggr_) codes_ss << "out_length += 1;" << std::endl;
     for (int ctx_idx = codegen_ctx_list.size() - 1; ctx_idx >= 0; ctx_idx--) {
       auto codegen_ctx = codegen_ctx_list[ctx_idx];
       codes_ss << codegen_ctx->finish_codes << std::endl;
       if (enable_time_metrics_) {
-        codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &end_" << ctx_idx << ");"
-                 << std::endl;
-        codes_ss << "process_time_" << ctx_idx << " += TIME_NANO_DIFF(end_" << ctx_idx
-                 << ", start_" << ctx_idx << ");" << std::endl;
+        codes_ss << "clock_gettime(CLOCK_MONOTONIC_COARSE, &end_" << ctx_idx
+                 << ");" << std::endl;
+        codes_ss << "process_time_" << ctx_idx << " += TIME_NANO_DIFF(end_"
+                 << ctx_idx << ", start_" << ctx_idx << ");" << std::endl;
       }
     }
     codes_ss << "} // end of for loop" << std::endl;
     if (is_aggr_ && !is_smj_) {
       codes_ss << "return arrow::Status::OK();" << std::endl;
       codes_ss << "} // End of ProcessAndCacheOne" << std::endl << std::endl;
-      codes_ss << "bool HasNext() override { return !should_stop_; }" << std::endl;
-      codes_ss
-          << "arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) override {"
-          << std::endl;
+      codes_ss << "bool HasNext() override { return !should_stop_; }"
+               << std::endl;
+      codes_ss << "arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* "
+                  "out) override {"
+               << std::endl;
       codes_ss << "uint64_t out_length = 0;" << std::endl;
       codes_ss << "int gp_idx = 0;" << std::endl;
     } else if (is_aggr_ && is_smj_) {
@@ -508,12 +527,13 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       for (auto codegen_ctx : codegen_ctx_list) {
         codes_ss << codegen_ctx->aggregate_finish_codes << std::endl;
         if (!codegen_ctx->aggregate_finish_codes.empty())
-          codes_ss << aggr_out_length_idxs[idx++] << " = " << aggr_finish_condition_
-                   << "_offset;" << std::endl;
+          codes_ss << aggr_out_length_idxs[idx++] << " = "
+                   << aggr_finish_condition_ << "_offset;" << std::endl;
       }
       output_arr_list_ss << aggr_finish_condition_ << "_out";
     } else {
-      output_arr_list_ss << "{" << GetProcessOutListCodes(output_field_list) << "}";
+      output_arr_list_ss << "{" << GetProcessOutListCodes(output_field_list)
+                         << "}";
     }
     codes_ss << "*out = arrow::RecordBatch::Make(result_schema_, out_length, "
              << output_arr_list_ss.str() << ");" << std::endl;
@@ -532,7 +552,8 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
     for (auto codegen_ctx : codegen_ctx_list) {
       codes_ss << codegen_ctx->definition_codes << std::endl;
     }
-    if (!is_aggr_) codes_ss << GetBuilderDefinitionCodes(output_field_list) << std::endl;
+    if (!is_aggr_)
+      codes_ss << GetBuilderDefinitionCodes(output_field_list) << std::endl;
     for (auto codegen_ctx : codegen_ctx_list) {
       for (auto func_codes : codegen_ctx->function_list) {
         codes_ss << func_codes << std::endl;
@@ -557,7 +578,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
     return arrow::Status::OK();
   }
 
-  std::string GetProcessMaterializeCodes(std::shared_ptr<CodeGenContext> codegen_ctx) {
+  std::string GetProcessMaterializeCodes(
+      std::shared_ptr<CodeGenContext> codegen_ctx) {
     std::stringstream codes_ss;
     int i = 0;
     for (auto pair : codegen_ctx->output_list) {
@@ -567,14 +589,15 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
       codes_ss << pair.first.second << std::endl;
       codes_ss << "if (" << validity << ") {" << std::endl;
       if (type->id() == arrow::Type::STRING) {
-        codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->AppendString(" << name << "));"
-                 << std::endl;
+        codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->AppendString("
+                 << name << "));" << std::endl;
       } else {
-        codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->Append(" << name << "));"
-                 << std::endl;
+        codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->Append(" << name
+                 << "));" << std::endl;
       }
       codes_ss << "} else {" << std::endl;
-      codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->AppendNull());" << std::endl;
+      codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->AppendNull());"
+               << std::endl;
       codes_ss << "}" << std::endl;
       i++;
     }
@@ -586,8 +609,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
     for (int i = 0; i < output_field_list.size(); i++) {
       auto data_type = output_field_list[i]->type();
       codes_ss << "std::shared_ptr<arrow::Array> out_" << i << ";" << std::endl;
-      codes_ss << "RETURN_NOT_OK(builder_" << i << "_->Finish(&out_" << i << "));"
-               << std::endl;
+      codes_ss << "RETURN_NOT_OK(builder_" << i << "_->Finish(&out_" << i
+               << "));" << std::endl;
       codes_ss << "builder_" << i << "_->Reset();" << std::endl;
     }
     return codes_ss.str();
@@ -603,7 +626,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
     return codes_ss.str();
   }
 
-  std::string GetBuilderInitializeCodes(gandiva::FieldVector output_field_list) {
+  std::string GetBuilderInitializeCodes(
+      gandiva::FieldVector output_field_list) {
     std::stringstream codes_ss;
     for (int i = 0; i < output_field_list.size(); i++) {
       auto data_type = output_field_list[i]->type();
@@ -614,14 +638,15 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
                  << ", ctx_->memory_pool());" << std::endl;
       } else {
         codes_ss << "builder_" << i << "_ = std::make_shared<"
-                 << GetTypeString(data_type, "Builder") << ">(ctx_->memory_pool());"
-                 << std::endl;
+                 << GetTypeString(data_type, "Builder")
+                 << ">(ctx_->memory_pool());" << std::endl;
       }
     }
     return codes_ss.str();
   }
 
-  std::string GetBuilderDefinitionCodes(gandiva::FieldVector output_field_list) {
+  std::string GetBuilderDefinitionCodes(
+      gandiva::FieldVector output_field_list) {
     std::stringstream codes_ss;
     for (int i = 0; i < output_field_list.size(); i++) {
       auto data_type = output_field_list[i]->type();
@@ -638,8 +663,8 @@ arrow::Status WholeStageCodeGenKernel::Make(
     std::shared_ptr<gandiva::Node> root_node,
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
     std::shared_ptr<KernalBase>* out) {
-  *out = std::make_shared<WholeStageCodeGenKernel>(ctx, input_field_list, root_node,
-                                                   output_field_list);
+  *out = std::make_shared<WholeStageCodeGenKernel>(
+      ctx, input_field_list, root_node, output_field_list);
   return arrow::Status::OK();
 }
 
@@ -658,7 +683,9 @@ arrow::Status WholeStageCodeGenKernel::MakeResultIterator(
   return impl_->MakeResultIterator(schema, out);
 }
 
-std::string WholeStageCodeGenKernel::GetSignature() { return impl_->GetSignature(); }
+std::string WholeStageCodeGenKernel::GetSignature() {
+  return impl_->GetSignature();
+}
 
 }  // namespace extra
 }  // namespace arrowcompute

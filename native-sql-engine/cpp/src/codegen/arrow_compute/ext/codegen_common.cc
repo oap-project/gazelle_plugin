@@ -80,7 +80,8 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
     case arrow::Decimal128Type::type_id:
       return type->ToString();
     default:
-      std::cout << "GetArrowTypeString can't convert " << type->ToString() << std::endl;
+      std::cout << "GetArrowTypeString can't convert " << type->ToString()
+                << std::endl;
       throw;
   }
 }
@@ -117,11 +118,13 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
     case arrow::Decimal128Type::type_id:
       return "arrow::Decimal128";
     default:
-      std::cout << "GetCTypeString can't convert " << type->ToString() << std::endl;
+      std::cout << "GetCTypeString can't convert " << type->ToString()
+                << std::endl;
       throw;
   }
 }
-std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tail) {
+std::string GetTypeString(std::shared_ptr<arrow::DataType> type,
+                          std::string tail) {
   switch (type->id()) {
     case arrow::UInt8Type::type_id:
       return "UInt8" + tail;
@@ -154,7 +157,8 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
     case arrow::Decimal128Type::type_id:
       return "Decimal128" + tail;
     default:
-      std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
+      std::cout << "GetTypeString can't convert " << type->ToString()
+                << std::endl;
       throw;
   }
 }
@@ -238,13 +242,14 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
       else
         return template_name + "<" + prefix + "Decimal128" + tail + ">";
     default:
-      std::cout << "GetTemplateString can't convert " << type->ToString() << std::endl;
+      std::cout << "GetTemplateString can't convert " << type->ToString()
+                << std::endl;
       throw;
   }
 }
 
-std::string GetParameterList(std::vector<std::string> parameter_list_in, bool comma_ahead,
-                             std::string split) {
+std::string GetParameterList(std::vector<std::string> parameter_list_in,
+                             bool comma_ahead, std::string split) {
   std::vector<std::string> parameter_list;
   for (auto s : parameter_list_in) {
     if (s != "") {
@@ -278,8 +283,9 @@ std::string str_tolower(std::string s) {
   return s;
 }
 
-std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
-                                  std::vector<gandiva::FieldVector> field_list_v) {
+std::pair<int, int> GetFieldIndex(
+    gandiva::FieldPtr target_field,
+    std::vector<gandiva::FieldVector> field_list_v) {
   int arg_id = 0;
   int index = 0;
   bool found = false;
@@ -303,12 +309,14 @@ std::pair<int, int> GetFieldIndex(gandiva::FieldPtr target_field,
   return std::make_pair(index, arg_id);
 }
 
-gandiva::ExpressionVector GetGandivaKernel(std::vector<gandiva::NodePtr> key_list) {
+gandiva::ExpressionVector GetGandivaKernel(
+    std::vector<gandiva::NodePtr> key_list) {
   gandiva::ExpressionVector project_list;
   int idx = 0;
   for (auto key : key_list) {
     auto expr = gandiva::TreeExprBuilder::MakeExpression(
-        key, arrow::field("projection_key_" + std::to_string(idx++), key->return_type()));
+        key, arrow::field("projection_key_" + std::to_string(idx++),
+                          key->return_type()));
     project_list.push_back(expr);
   }
   return project_list;
@@ -325,15 +333,16 @@ gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list,
   ret_type = arrow::int32();
   int idx = 0;
   for (auto key : key_list) {
-    auto field_node = gandiva::TreeExprBuilder::MakeField(arrow::field(
-        "projection_key_" + std::to_string(key_index_list[idx++]), key->return_type()));
-    func_node =
-        gandiva::TreeExprBuilder::MakeFunction("hash32", {field_node, seed}, ret_type);
+    auto field_node = gandiva::TreeExprBuilder::MakeField(
+        arrow::field("projection_key_" + std::to_string(key_index_list[idx++]),
+                     key->return_type()));
+    func_node = gandiva::TreeExprBuilder::MakeFunction(
+        "hash32", {field_node, seed}, ret_type);
     seed = func_node;
   }
   func_node_list.push_back(func_node);
-  return gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
-                                                  arrow::field("hash_key", ret_type));
+  return gandiva::TreeExprBuilder::MakeExpression(
+      func_node_list[0], arrow::field("hash_key", ret_type));
 }
 
 gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list) {
@@ -346,31 +355,33 @@ gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list) {
   ret_type = arrow::int32();
   int idx = 0;
   for (auto key : key_list) {
-    auto field_node = gandiva::TreeExprBuilder::MakeField(
-        arrow::field("projection_key_" + std::to_string(idx++), key->return_type()));
-    func_node =
-        gandiva::TreeExprBuilder::MakeFunction("hash32", {field_node, seed}, ret_type);
+    auto field_node = gandiva::TreeExprBuilder::MakeField(arrow::field(
+        "projection_key_" + std::to_string(idx++), key->return_type()));
+    func_node = gandiva::TreeExprBuilder::MakeFunction(
+        "hash32", {field_node, seed}, ret_type);
     seed = func_node;
   }
   func_node_list.push_back(func_node);
-  return gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
-                                                  arrow::field("hash_key", ret_type));
+  return gandiva::TreeExprBuilder::MakeExpression(
+      func_node_list[0], arrow::field("hash_key", ret_type));
 }
 
-gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list) {
+gandiva::ExpressionPtr GetConcatedKernel(
+    std::vector<gandiva::NodePtr> key_list) {
   std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
   std::shared_ptr<arrow::DataType> ret_type;
   if (key_list.size() >= 2) {
     ret_type = arrow::int64();
     for (auto key : key_list) {
       auto field_node = key;
-      auto func_node =
-          gandiva::TreeExprBuilder::MakeFunction("hash64", {field_node}, arrow::int64());
+      auto func_node = gandiva::TreeExprBuilder::MakeFunction(
+          "hash64", {field_node}, arrow::int64());
       func_node_list.push_back(func_node);
       if (func_node_list.size() == 2) {
         auto shift_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "multiply",
-            {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
+            {func_node_list[0],
+             gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
             arrow::int64());
         auto tmp_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "add", {shift_func_node, func_node_list[1]}, arrow::int64());
@@ -387,9 +398,10 @@ gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list)
       func_node_list[0], arrow::field("projection_key", ret_type));
 }
 
-arrow::Status GetIndexList(const std::vector<std::shared_ptr<arrow::Field>>& target_list,
-                           const std::vector<std::shared_ptr<arrow::Field>>& source_list,
-                           std::vector<int>* out) {
+arrow::Status GetIndexList(
+    const std::vector<std::shared_ptr<arrow::Field>>& target_list,
+    const std::vector<std::shared_ptr<arrow::Field>>& source_list,
+    std::vector<int>* out) {
   bool found = false;
   for (auto key_field : target_list) {
     int i = 0;
@@ -474,7 +486,8 @@ std::string GetTempPath() {
 #ifdef NATIVESQL_SRC_PATH
     tmp_dir_ = NATIVESQL_SRC_PATH;
 #else
-    std::cerr << "envioroment variable NATIVESQL_TMP_DIR is not set" << std::endl;
+    std::cerr << "envioroment variable NATIVESQL_TMP_DIR is not set"
+              << std::endl;
     throw;
 #endif
   }
@@ -561,10 +574,11 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     arrow_lib2 = " -L" + std::string(env_arrow_dir) + "/lib ";
   }
   // compile the code
-  std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
-                    arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
-                    nativesql_lib + cppfile + " -o " + libfile +
-                    " -O3 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
+  std::string cmd =
+      env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
+      arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
+      nativesql_lib + cppfile + " -o " + libfile +
+      " -O3 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
@@ -572,7 +586,8 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   int elapse_time = 0;
   TIME_MICRO(elapse_time, ret, system(cmd.c_str()));
 #ifdef DEBUG
-  std::cout << "CodeGeneration took " << TIME_TO_STRING(elapse_time) << std::endl;
+  std::cout << "CodeGeneration took " << TIME_TO_STRING(elapse_time)
+            << std::endl;
 #endif
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
     std::cout << "compilation failed, see " << logfile << std::endl;
@@ -582,8 +597,9 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     return arrow::Status::Invalid("compilation failed, see ", logfile);
     // exit(EXIT_FAILURE);
   }
-  cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
-        signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so";
+  cmd = "cd " + outpath +
+        "; jar -cf spark-columnar-plugin-codegen-precompile-" + signature +
+        ".jar spark-columnar-plugin-codegen-" + signature + ".so";
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
@@ -615,7 +631,8 @@ std::string exec(const char* cmd) {
   return result;
 }
 
-arrow::Status LoadLibrary(std::string signature, arrow::compute::ExecContext* ctx,
+arrow::Status LoadLibrary(std::string signature,
+                          arrow::compute::ExecContext* ctx,
                           std::shared_ptr<CodeGenBase>* out) {
   std::string outpath = GetTempPath() + "/tmp";
   std::string prefix = "/spark-columnar-plugin-codegen-";
@@ -630,8 +647,8 @@ arrow::Status LoadLibrary(std::string signature, arrow::compute::ExecContext* ct
        << std::endl;
     auto cmd = "ls -l " + GetTempPath() + ";";
     ss << exec(cmd.c_str()) << std::endl;
-    return arrow::Status::Invalid(libfile,
-                                  " is not generated, failed msg as below: ", ss.str());
+    return arrow::Status::Invalid(
+        libfile, " is not generated, failed msg as below: ", ss.str());
   }
 
   // loading symbol from library and assign to pointer

@@ -44,20 +44,21 @@ class KernalBase {
                                          kernel_name_, ", input is arrayList.");
   }
   virtual arrow::Status Evaluate(const ArrayList& in, ArrayList* out) {
-    return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
-                                         kernel_name_,
-                                         ", input is arrayList, output is arrayList.");
+    return arrow::Status::NotImplemented(
+        "Evaluate is abstract interface for ", kernel_name_,
+        ", input is arrayList, output is arrayList.");
   }
   virtual arrow::Status Evaluate(const ArrayList& in,
                                  const std::shared_ptr<arrow::Array>& dict) {
     return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
-                                         kernel_name_, ", input is arrayList and array.");
+                                         kernel_name_,
+                                         ", input is arrayList and array.");
   }
   virtual arrow::Status Evaluate(const ArrayList& in,
                                  std::shared_ptr<arrow::Array>* out) {
-    return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
-                                         kernel_name_,
-                                         ", input is arrayList, output is array.");
+    return arrow::Status::NotImplemented(
+        "Evaluate is abstract interface for ", kernel_name_,
+        ", input is arrayList, output is array.");
   }
   virtual arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in,
                                  std::shared_ptr<arrow::Array>* out) {
@@ -77,24 +78,25 @@ class KernalBase {
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
-    return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
-                                         kernel_name_);
+    return arrow::Status::NotImplemented(
+        "MakeResultIterator is abstract interface for ", kernel_name_);
   }
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<HashRelation>>* out) {
-    return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
-                                         kernel_name_);
+    return arrow::Status::NotImplemented(
+        "MakeResultIterator is abstract interface for ", kernel_name_);
   }
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<SortRelation>>* out) {
-    return arrow::Status::NotImplemented("MakeResultIterator is abstract interface for ",
-                                         kernel_name_);
+    return arrow::Status::NotImplemented(
+        "MakeResultIterator is abstract interface for ", kernel_name_);
   }
   virtual arrow::Status DoCodeGen(
       int level,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) {
     return arrow::Status::NotImplemented("DoCodeGen is abstract interface for ",
@@ -127,23 +129,28 @@ class WindowAggregateFunctionKernel : public KernalBase {
       std::shared_ptr<arrow::DataType> result_type,
       std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids,
       std::shared_ptr<ActionFactory> action);
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::string function_name,
-                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                            std::shared_ptr<arrow::DataType> result_type,
-                            std::shared_ptr<KernalBase>* out);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<arrow::DataType> result_type,
+      std::shared_ptr<KernalBase>* out);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
 
  private:
-  template<typename ValueType, typename BuilderType, typename ArrayType>
-  arrow::Status Finish0(ArrayList* out, std::shared_ptr<arrow::DataType> data_type);
+  template <typename ValueType, typename BuilderType, typename ArrayType>
+  arrow::Status Finish0(ArrayList* out,
+                        std::shared_ptr<arrow::DataType> data_type);
 
-  template<typename ValueType, typename BuilderType>
-  typename arrow::enable_if_decimal128<ValueType, arrow::Result<std::shared_ptr<BuilderType>>> createBuilder(std::shared_ptr<arrow::DataType> data_type);
+  template <typename ValueType, typename BuilderType>
+  typename arrow::enable_if_decimal128<
+      ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
+  createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
-  template<typename ValueType, typename BuilderType>
-  typename arrow::enable_if_number<ValueType, arrow::Result<std::shared_ptr<BuilderType>>> createBuilder(std::shared_ptr<arrow::DataType> data_type);
+  template <typename ValueType, typename BuilderType>
+  typename arrow::enable_if_number<ValueType,
+                                   arrow::Result<std::shared_ptr<BuilderType>>>
+  createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
   arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ActionFactory> action_;
@@ -154,9 +161,10 @@ class WindowAggregateFunctionKernel : public KernalBase {
 
 class HashArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                            std::shared_ptr<KernalBase>* out);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out);
   HashArrayKernel(arrow::compute::ExecContext* ctx,
                   std::vector<std::shared_ptr<arrow::DataType>> type_list);
   arrow::Status Evaluate(const ArrayList& in,
@@ -170,25 +178,21 @@ class HashArrayKernel : public KernalBase {
 
 class SortArraysToIndicesKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::Schema> result_schema,
-                            gandiva::NodeVector sort_key_node,
-                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                            std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order, 
-                            bool NaN_check,
-                            bool do_codegen,
-                            int result_type,
-                            std::shared_ptr<KernalBase>* out);
-  SortArraysToIndicesKernel(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::Schema> result_schema,
-                            gandiva::NodeVector sort_key_node,
-                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                            std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order, 
-                            bool NaN_check,
-                            bool do_codegen,
-                            int result_type);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx,
+      std::shared_ptr<arrow::Schema> result_schema,
+      gandiva::NodeVector sort_key_node,
+      std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+      std::vector<bool> sort_directions, std::vector<bool> nulls_order,
+      bool NaN_check, bool do_codegen, int result_type,
+      std::shared_ptr<KernalBase>* out);
+  SortArraysToIndicesKernel(
+      arrow::compute::ExecContext* ctx,
+      std::shared_ptr<arrow::Schema> result_schema,
+      gandiva::NodeVector sort_key_node,
+      std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+      std::vector<bool> sort_directions, std::vector<bool> nulls_order,
+      bool NaN_check, bool do_codegen, int result_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
@@ -207,14 +211,16 @@ class SortArraysToIndicesKernel : public KernalBase {
 
 class CachedRelationKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::Schema> result_schema,
-                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                            int result_type, std::shared_ptr<KernalBase>* out);
-  CachedRelationKernel(arrow::compute::ExecContext* ctx,
-                       std::shared_ptr<arrow::Schema> result_schema,
-                       std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                       int result_type);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx,
+      std::shared_ptr<arrow::Schema> result_schema,
+      std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+      int result_type, std::shared_ptr<KernalBase>* out);
+  CachedRelationKernel(
+      arrow::compute::ExecContext* ctx,
+      std::shared_ptr<arrow::Schema> result_schema,
+      std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+      int result_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
@@ -230,14 +236,15 @@ class CachedRelationKernel : public KernalBase {
 
 class WindowSortKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                            std::shared_ptr<arrow::Schema> result_schema,
-                            std::shared_ptr<KernalBase>* out, bool nulls_first, bool asc);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx,
+      std::vector<std::shared_ptr<arrow::Field>> key_field_list,
+      std::shared_ptr<arrow::Schema> result_schema,
+      std::shared_ptr<KernalBase>* out, bool nulls_first, bool asc);
   WindowSortKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                   std::shared_ptr<arrow::Schema> result_schema, bool nulls_first,
-                   bool asc);
+                   std::shared_ptr<arrow::Schema> result_schema,
+                   bool nulls_first, bool asc);
   arrow::Status Evaluate(const ArrayList& in) override;
   std::string GetSignature() override;
 
@@ -257,17 +264,19 @@ class HashAggregateKernel : public KernalBase {
       std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
       std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list,
       std::shared_ptr<KernalBase>* out);
-  HashAggregateKernel(arrow::compute::ExecContext* ctx,
-                      std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
-                      std::vector<std::shared_ptr<gandiva::Node>> action_list,
-                      std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
-                      std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list);
+  HashAggregateKernel(
+      arrow::compute::ExecContext* ctx,
+      std::vector<std::shared_ptr<gandiva::Node>> input_field_list,
+      std::vector<std::shared_ptr<gandiva::Node>> action_list,
+      std::vector<std::shared_ptr<gandiva::Node>> result_field_node_list,
+      std::vector<std::shared_ptr<gandiva::Node>> result_expr_node_list);
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
   arrow::Status DoCodeGen(
       int level,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) override;
   std::string GetSignature() override;
@@ -283,10 +292,10 @@ class WindowRankKernel : public KernalBase {
   WindowRankKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc);
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::string function_name,
-                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                            std::shared_ptr<KernalBase>* out, bool desc);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx, std::string function_name,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out, bool desc);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
 
@@ -296,8 +305,8 @@ class WindowRankKernel : public KernalBase {
       std::vector<std::shared_ptr<ArrayItemIndex>>* offsets);
 
   template <typename ArrayType>
-  arrow::Status AreTheSameValue(const std::vector<ArrayList>& values, int column,
-                                std::shared_ptr<ArrayItemIndex> i,
+  arrow::Status AreTheSameValue(const std::vector<ArrayList>& values,
+                                int column, std::shared_ptr<ArrayItemIndex> i,
                                 std::shared_ptr<ArrayItemIndex> j, bool* out);
 
  private:
@@ -414,10 +423,11 @@ class HashRelationKernel : public KernalBase {
       std::shared_ptr<gandiva::Node> root_node,
       const std::vector<std::shared_ptr<arrow::Field>>& output_field_list,
       std::shared_ptr<KernalBase>* out);
-  HashRelationKernel(arrow::compute::ExecContext* ctx,
-                     const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
-                     std::shared_ptr<gandiva::Node> root_node,
-                     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
+  HashRelationKernel(
+      arrow::compute::ExecContext* ctx,
+      const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
+      std::shared_ptr<gandiva::Node> root_node,
+      const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
@@ -464,7 +474,8 @@ class ConditionedProbeKernel : public KernalBase {
                             const gandiva::NodePtr& condition, int join_type,
                             const gandiva::NodeVector& result_schema,
                             const gandiva::NodeVector& hash_configuration_list,
-                            int hash_relation_idx, std::shared_ptr<KernalBase>* out);
+                            int hash_relation_idx,
+                            std::shared_ptr<KernalBase>* out);
   ConditionedProbeKernel(arrow::compute::ExecContext* ctx,
                          const gandiva::NodeVector& left_key_list,
                          const gandiva::NodeVector& right_key_list,
@@ -479,7 +490,8 @@ class ConditionedProbeKernel : public KernalBase {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
   arrow::Status DoCodeGen(
       int level,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) override;
   std::string GetSignature() override;
@@ -513,7 +525,8 @@ class ConditionedMergeJoinKernel : public KernalBase {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
   arrow::Status DoCodeGen(
       int level,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) override;
   std::string GetSignature() override;
@@ -537,7 +550,8 @@ class ProjectKernel : public KernalBase {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
   arrow::Status DoCodeGen(
       int level,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) override;
   std::string GetSignature() override;
@@ -561,7 +575,8 @@ class FilterKernel : public KernalBase {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
   arrow::Status DoCodeGen(
       int level,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
+      std::vector<
+          std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
       std::shared_ptr<CodeGenContext>* codegen_ctx, int* var_id) override;
   std::string GetSignature() override;
@@ -573,9 +588,10 @@ class FilterKernel : public KernalBase {
 };
 class ConcatArrayKernel : public KernalBase {
  public:
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::vector<std::shared_ptr<arrow::DataType>> type_list,
-                            std::shared_ptr<KernalBase>* out);
+  static arrow::Status Make(
+      arrow::compute::ExecContext* ctx,
+      std::vector<std::shared_ptr<arrow::DataType>> type_list,
+      std::shared_ptr<KernalBase>* out);
   ConcatArrayKernel(arrow::compute::ExecContext* ctx,
                     std::vector<std::shared_ptr<arrow::DataType>> type_list);
   arrow::Status Evaluate(const ArrayList& in,

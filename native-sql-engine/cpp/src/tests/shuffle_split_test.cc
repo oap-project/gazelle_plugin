@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include <iostream>
-
 #include <arrow/compute/api.h>
 #include <arrow/io/api.h>
 #include <arrow/ipc/reader.h>
@@ -24,6 +22,8 @@
 #include <arrow/record_batch.h>
 #include <arrow/util/io_util.h>
 #include <gtest/gtest.h>
+
+#include <iostream>
 
 #include "shuffle/splitter.h"
 #include "tests/test_utils.h"
@@ -44,7 +44,8 @@ class MyMemoryPool : public arrow::MemoryPool {
     return arrow::Status::OK();
   }
 
-  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+  Status Reallocate(int64_t old_size, int64_t new_size,
+                    uint8_t** ptr) override {
     if (new_size > capacity_) {
       return Status::OutOfMemory("malloc of size ", new_size, " failed");
     }
@@ -84,17 +85,20 @@ class SplitterTest : public ::testing::Test {
     auto f_nullable_string = field("f_nullable_string", arrow::utf8());
     auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
 
-    ARROW_ASSIGN_OR_THROW(tmp_dir_1_,
-                          std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
-    ARROW_ASSIGN_OR_THROW(tmp_dir_2_,
-                          std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
+    ARROW_ASSIGN_OR_THROW(
+        tmp_dir_1_,
+        std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
+    ARROW_ASSIGN_OR_THROW(
+        tmp_dir_2_,
+        std::move(arrow::internal::TemporaryDir::Make(tmp_dir_prefix)))
     auto config_dirs =
         tmp_dir_1_->path().ToString() + "," + tmp_dir_2_->path().ToString();
 
     setenv("NATIVESQL_SPARK_LOCAL_DIRS", config_dirs.c_str(), 1);
 
-    schema_ = arrow::schema({f_na, f_int8_a, f_int8_b, f_int32, f_uint64, f_double,
-                             f_bool, f_string, f_nullable_string, f_decimal});
+    schema_ =
+        arrow::schema({f_na, f_int8_a, f_int8_b, f_int32, f_uint64, f_double,
+                       f_bool, f_string, f_nullable_string, f_decimal});
 
     MakeInputBatch(input_data_1, schema_, &input_batch_1_);
     MakeInputBatch(input_data_2, schema_, &input_batch_2_);
@@ -118,13 +122,13 @@ class SplitterTest : public ::testing::Test {
       const std::shared_ptr<arrow::RecordBatch>& input_batch,
       const std::string& json_idx) {
     std::shared_ptr<arrow::Array> take_idx;
-    ASSERT_NOT_OK(
-        arrow::ipc::internal::json::ArrayFromJSON(arrow::int32(), json_idx, &take_idx));
+    ASSERT_NOT_OK(arrow::ipc::internal::json::ArrayFromJSON(
+        arrow::int32(), json_idx, &take_idx));
 
     auto cntx = arrow::compute::ExecContext();
     std::shared_ptr<arrow::RecordBatch> res;
     auto maybe_res = arrow::compute::Take(*input_batch, *take_idx,
-                                       arrow::compute::TakeOptions{}, &cntx);
+                                          arrow::compute::TakeOptions{}, &cntx);
     res = *std::move(maybe_res);
     return res;
   }
@@ -179,7 +183,8 @@ const std::vector<std::string> SplitterTest::input_data_2 = {
 
 TEST_F(SplitterTest, TestSingleSplitter) {
   split_options_.buffer_size = 10;
-  ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make("rr", schema_, 1, split_options_))
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", schema_, 1, split_options_))
 
   ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
   ASSERT_NOT_OK(splitter_->Split(*input_batch_2_));
@@ -195,7 +200,8 @@ TEST_F(SplitterTest, TestSingleSplitter) {
   ASSERT_EQ(lengths.size(), 1);
 
   std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
-  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ARROW_ASSIGN_OR_THROW(file_reader,
+                        GetRecordBatchStreamReader(splitter_->DataFile()));
 
   // verify schema
   ASSERT_EQ(*file_reader->schema(), *schema_);
@@ -204,8 +210,8 @@ TEST_F(SplitterTest, TestSingleSplitter) {
   ASSERT_NOT_OK(file_reader->ReadAll(&batches));
   ASSERT_EQ(batches.size(), 3);
 
-  std::vector<arrow::RecordBatch*> expected = {input_batch_1_.get(), input_batch_2_.get(),
-                                               input_batch_1_.get()};
+  std::vector<arrow::RecordBatch*> expected = {
+      input_batch_1_.get(), input_batch_2_.get(), input_batch_1_.get()};
   for (auto i = 0; i < batches.size(); ++i) {
     const auto& rb = batches[i];
     ASSERT_EQ(rb->num_columns(), schema_->num_fields());
@@ -219,8 +225,8 @@ TEST_F(SplitterTest, TestSingleSplitter) {
 TEST_F(SplitterTest, TestRoundRobinSplitter) {
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
-  ARROW_ASSIGN_OR_THROW(splitter_,
-                        Splitter::Make("rr", schema_, num_partitions, split_options_));
+  ARROW_ASSIGN_OR_THROW(
+      splitter_, Splitter::Make("rr", schema_, num_partitions, split_options_));
 
   ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
   ASSERT_NOT_OK(splitter_->Split(*input_batch_2_));
@@ -229,7 +235,8 @@ TEST_F(SplitterTest, TestRoundRobinSplitter) {
   ASSERT_NOT_OK(splitter_->Stop());
 
   std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
-  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ARROW_ASSIGN_OR_THROW(file_reader,
+                        GetRecordBatchStreamReader(splitter_->DataFile()));
 
   // verify partition lengths
   const auto& lengths = splitter_->PartitionLengths();
@@ -243,10 +250,11 @@ TEST_F(SplitterTest, TestRoundRobinSplitter) {
   // prepare first block expected result
   std::shared_ptr<arrow::RecordBatch> res_batch_0;
   std::shared_ptr<arrow::RecordBatch> res_batch_1;
-  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_1_, "[0, 2, 4, 6, 8]"))
+  ARROW_ASSIGN_OR_THROW(res_batch_0,
+                        TakeRows(input_batch_1_, "[0, 2, 4, 6, 8]"))
   ARROW_ASSIGN_OR_THROW(res_batch_1, TakeRows(input_batch_2_, "[0]"))
-  std::vector<arrow::RecordBatch*> expected = {res_batch_0.get(), res_batch_1.get(),
-                                               res_batch_0.get()};
+  std::vector<arrow::RecordBatch*> expected = {
+      res_batch_0.get(), res_batch_1.get(), res_batch_0.get()};
 
   // verify first block
   ASSERT_NOT_OK(file_reader->ReadAll(&batches));
@@ -261,13 +269,15 @@ TEST_F(SplitterTest, TestRoundRobinSplitter) {
   }
 
   // prepare second block expected result
-  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_1_, "[1, 3, 5, 7, 9]"))
+  ARROW_ASSIGN_OR_THROW(res_batch_0,
+                        TakeRows(input_batch_1_, "[1, 3, 5, 7, 9]"))
   ARROW_ASSIGN_OR_THROW(res_batch_1, TakeRows(input_batch_2_, "[1]"))
   expected = {res_batch_0.get(), res_batch_1.get(), res_batch_0.get()};
 
   // verify second block
   batches.clear();
-  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ARROW_ASSIGN_OR_THROW(file_reader,
+                        GetRecordBatchStreamReader(splitter_->DataFile()));
   ASSERT_EQ(*file_reader->schema(), *schema_);
   ASSERT_NOT_OK(file_->Advance(lengths[0]));
   ASSERT_NOT_OK(file_reader->ReadAll(&batches));
@@ -292,10 +302,12 @@ TEST_F(SplitterTest, TestHashSplitter) {
 
   auto node_0 = TreeExprBuilder::MakeFunction("add", {f_0, f_1}, int8());
   auto expr_0 = TreeExprBuilder::MakeExpression(node_0, field("res0", int8()));
-  auto expr_1 = TreeExprBuilder::MakeExpression(f_2, field("f_uint64", uint64()));
+  auto expr_1 =
+      TreeExprBuilder::MakeExpression(f_2, field("f_uint64", uint64()));
 
-  ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make("hash", schema_, num_partitions,
-                                                  {expr_0, expr_1}, split_options_))
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("hash", schema_, num_partitions,
+                                       {expr_0, expr_1}, split_options_))
 
   ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
   ASSERT_NOT_OK(splitter_->Split(*input_batch_2_));
@@ -310,7 +322,8 @@ TEST_F(SplitterTest, TestHashSplitter) {
   CheckFileExsists(splitter_->DataFile());
 
   std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
-  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ARROW_ASSIGN_OR_THROW(file_reader,
+                        GetRecordBatchStreamReader(splitter_->DataFile()));
 
   // verify schema
   ASSERT_EQ(*file_reader->schema(), *schema_);
@@ -334,21 +347,22 @@ TEST_F(SplitterTest, TestFallbackRangeSplitter) {
   ASSERT_NOT_OK(arrow::ipc::internal::json::ArrayFromJSON(
       arrow::int32(), "[0, 1, 0, 1, 0, 1, 0, 1, 0, 1]", &pid_arr_0));
   std::shared_ptr<arrow::Array> pid_arr_1;
-  ASSERT_NOT_OK(
-      arrow::ipc::internal::json::ArrayFromJSON(arrow::int32(), "[0, 1]", &pid_arr_1));
+  ASSERT_NOT_OK(arrow::ipc::internal::json::ArrayFromJSON(
+      arrow::int32(), "[0, 1]", &pid_arr_1));
 
   std::shared_ptr<arrow::Schema> schema_w_pid;
   std::shared_ptr<arrow::RecordBatch> input_batch_1_w_pid;
   std::shared_ptr<arrow::RecordBatch> input_batch_2_w_pid;
-  ARROW_ASSIGN_OR_THROW(schema_w_pid,
-                        schema_->AddField(0, arrow::field("pid", arrow::int32())));
+  ARROW_ASSIGN_OR_THROW(
+      schema_w_pid, schema_->AddField(0, arrow::field("pid", arrow::int32())));
   ARROW_ASSIGN_OR_THROW(input_batch_1_w_pid,
                         input_batch_1_->AddColumn(0, "pid", pid_arr_0));
   ARROW_ASSIGN_OR_THROW(input_batch_2_w_pid,
                         input_batch_2_->AddColumn(0, "pid", pid_arr_1));
 
-  ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make("range", std::move(schema_w_pid),
-                                                  num_partitions, split_options_))
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("range", std::move(schema_w_pid),
+                                       num_partitions, split_options_))
 
   ASSERT_NOT_OK(splitter_->Split(*input_batch_1_w_pid));
   ASSERT_NOT_OK(splitter_->Split(*input_batch_2_w_pid));
@@ -357,7 +371,8 @@ TEST_F(SplitterTest, TestFallbackRangeSplitter) {
   ASSERT_NOT_OK(splitter_->Stop());
 
   std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
-  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ARROW_ASSIGN_OR_THROW(file_reader,
+                        GetRecordBatchStreamReader(splitter_->DataFile()));
 
   // verify partition lengths
   const auto& lengths = splitter_->PartitionLengths();
@@ -371,10 +386,11 @@ TEST_F(SplitterTest, TestFallbackRangeSplitter) {
   // prepare first block expected result
   std::shared_ptr<arrow::RecordBatch> res_batch_0;
   std::shared_ptr<arrow::RecordBatch> res_batch_1;
-  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_1_, "[0, 2, 4, 6, 8]"))
+  ARROW_ASSIGN_OR_THROW(res_batch_0,
+                        TakeRows(input_batch_1_, "[0, 2, 4, 6, 8]"))
   ARROW_ASSIGN_OR_THROW(res_batch_1, TakeRows(input_batch_2_, "[0]"))
-  std::vector<arrow::RecordBatch*> expected = {res_batch_0.get(), res_batch_1.get(),
-                                               res_batch_0.get()};
+  std::vector<arrow::RecordBatch*> expected = {
+      res_batch_0.get(), res_batch_1.get(), res_batch_0.get()};
 
   // verify first block
   ASSERT_NOT_OK(file_reader->ReadAll(&batches));
@@ -389,13 +405,15 @@ TEST_F(SplitterTest, TestFallbackRangeSplitter) {
   }
 
   // prepare second block expected result
-  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_1_, "[1, 3, 5, 7, 9]"))
+  ARROW_ASSIGN_OR_THROW(res_batch_0,
+                        TakeRows(input_batch_1_, "[1, 3, 5, 7, 9]"))
   ARROW_ASSIGN_OR_THROW(res_batch_1, TakeRows(input_batch_2_, "[1]"))
   expected = {res_batch_0.get(), res_batch_1.get(), res_batch_0.get()};
 
   // verify second block
   batches.clear();
-  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ARROW_ASSIGN_OR_THROW(file_reader,
+                        GetRecordBatchStreamReader(splitter_->DataFile()));
   ASSERT_EQ(*file_reader->schema(), *schema_);
   ASSERT_NOT_OK(file_->Advance(lengths[0]));
   ASSERT_NOT_OK(file_reader->ReadAll(&batches));
@@ -416,8 +434,8 @@ TEST_F(SplitterTest, TestSpillFailWithOutOfMemory) {
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
   split_options_.memory_pool = pool.get();
-  ARROW_ASSIGN_OR_THROW(splitter_,
-                        Splitter::Make("rr", schema_, num_partitions, split_options_));
+  ARROW_ASSIGN_OR_THROW(
+      splitter_, Splitter::Make("rr", schema_, num_partitions, split_options_));
 
   auto status = splitter_->Split(*input_batch_1_);
   // should return OOM status because there's no partition buffer to spill
@@ -426,15 +444,16 @@ TEST_F(SplitterTest, TestSpillFailWithOutOfMemory) {
 }
 
 TEST_F(SplitterTest, TestSpillLargestPartition) {
-  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
-//  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
+  std::shared_ptr<arrow::MemoryPool> pool =
+      std::make_shared<MyMemoryPool>(4000);
+  //  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
 
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
   split_options_.memory_pool = pool.get();
   split_options_.compression_type = arrow::Compression::UNCOMPRESSED;
-  ARROW_ASSIGN_OR_THROW(splitter_,
-                        Splitter::Make("rr", schema_, num_partitions, split_options_));
+  ARROW_ASSIGN_OR_THROW(
+      splitter_, Splitter::Make("rr", schema_, num_partitions, split_options_));
 
   for (int i = 0; i < 100; ++i) {
     ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));

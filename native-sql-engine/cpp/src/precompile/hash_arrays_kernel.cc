@@ -32,13 +32,14 @@ class HashArraysKernel::Impl {
     std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
     for (auto field : field_list) {
       auto field_node = gandiva::TreeExprBuilder::MakeField(field);
-      auto func_node =
-          gandiva::TreeExprBuilder::MakeFunction("hash64", {field_node}, arrow::int64());
+      auto func_node = gandiva::TreeExprBuilder::MakeFunction(
+          "hash64", {field_node}, arrow::int64());
       func_node_list.push_back(func_node);
       if (func_node_list.size() == 2) {
         auto shift_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "multiply",
-            {func_node_list[0], gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
+            {func_node_list[0],
+             gandiva::TreeExprBuilder::MakeLiteral((int64_t)10)},
             arrow::int64());
         auto tmp_func_node = gandiva::TreeExprBuilder::MakeFunction(
             "add", {shift_func_node, func_node_list[1]}, arrow::int64());
@@ -51,7 +52,8 @@ class HashArraysKernel::Impl {
         func_node_list[0], arrow::field("projection_key", arrow::int64()));
     schema_ = arrow::schema(field_list);
     auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-    auto status = gandiva::Projector::Make(schema_, {expr}, configuration, &projector_);
+    auto status =
+        gandiva::Projector::Make(schema_, {expr}, configuration, &projector_);
   }
 
   arrow::Status Evaluate(const std::vector<std::shared_ptr<arrow::Array>>& in,

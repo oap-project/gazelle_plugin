@@ -32,14 +32,21 @@ std::string ExpressionCodegenVisitor::GetInput() { return input_codes_str_; }
 std::string ExpressionCodegenVisitor::GetResult() { return codes_str_; }
 std::string ExpressionCodegenVisitor::GetPrepare() { return prepare_str_; }
 std::string ExpressionCodegenVisitor::GetPreCheck() { return check_str_; }
-std::string ExpressionCodegenVisitor::GetRealResult() { return real_codes_str_; }
-std::string ExpressionCodegenVisitor::GetRealValidity() { return real_validity_str_; }
-std::vector<std::string> ExpressionCodegenVisitor::GetHeaders() { return header_list_; }
+std::string ExpressionCodegenVisitor::GetRealResult() {
+  return real_codes_str_;
+}
+std::string ExpressionCodegenVisitor::GetRealValidity() {
+  return real_validity_str_;
+}
+std::vector<std::string> ExpressionCodegenVisitor::GetHeaders() {
+  return header_list_;
+}
 ExpressionCodegenVisitor::FieldType ExpressionCodegenVisitor::GetFieldType() {
   return field_type_;
 }
 
-arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node) {
+arrow::Status ExpressionCodegenVisitor::Visit(
+    const gandiva::FunctionNode& node) {
   auto func_name = node.descriptor()->name();
   auto input_list = input_list_;
 
@@ -49,13 +56,14 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
     *func_count_ = *func_count_ + 1;
 
-    RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list, field_list_v_,
-                                               hash_relation_id_, func_count_, is_local_,
-                                               prepared_list_, &child_visitor, is_smj_));
+    RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+        child, input_list, field_list_v_, hash_relation_id_, func_count_,
+        is_local_, prepared_list_, &child_visitor, is_smj_));
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
       field_type_ = child_visitor->GetFieldType();
-    } else if (field_type_ != child_visitor->GetFieldType() && field_type_ != literal &&
+    } else if (field_type_ != child_visitor->GetFieldType() &&
+               field_type_ != literal &&
                child_visitor->GetFieldType() != literal) {
       field_type_ = mixed;
     }
@@ -77,18 +85,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   if (func_name.compare("less_than") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " < " +
                       child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("less_than_with_nan") == 0) {
-    real_codes_str_ = "less_than_with_nan(" + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_codes_str_ = "less_than_with_nan(" +
+                      child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -98,18 +109,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("greater_than") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
                       child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("greater_than_with_nan") == 0) {
-    real_codes_str_ = "greater_than_with_nan(" + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_codes_str_ = "greater_than_with_nan(" +
+                      child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -119,19 +133,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("less_than_or_equal_to") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " <= " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("less_than_or_equal_to_with_nan") == 0) {
-    real_codes_str_ = "less_than_or_equal_to_with_nan("
-        + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_codes_str_ = "less_than_or_equal_to_with_nan(" +
+                      child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -141,19 +157,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("greater_than_or_equal_to") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " >= " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("greater_than_or_equal_to_with_nan") == 0) {
-    real_codes_str_ = "greater_than_or_equal_to_with_nan("
-        + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_codes_str_ = "greater_than_or_equal_to_with_nan(" +
+                      child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -163,18 +181,20 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("equal") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " == " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("equal_with_nan") == 0) {
-    real_codes_str_ = "equal_with_nan(" + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
-    real_validity_str_ = CombineValidity(
-        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    real_codes_str_ = "equal_with_nan(" + child_visitor_list[0]->GetResult() +
+                      ", " + child_visitor_list[1]->GetResult() + ")";
+    real_validity_str_ =
+        CombineValidity({child_visitor_list[0]->GetPreCheck(),
+                         child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -199,8 +219,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = "isnotnull_" + std::to_string(cur_func_id);
     check_str_ = GetValidityName(codes_str_);
     std::stringstream prepare_ss;
-    prepare_ss << "bool " << codes_str_ << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << codes_str_ << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
     prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("isnull") == 0) {
@@ -210,8 +230,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = "isnotnull_" + std::to_string(cur_func_id);
     check_str_ = GetValidityName(codes_str_);
     std::stringstream prepare_ss;
-    prepare_ss << "bool " << codes_str_ << " = !" << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << codes_str_ << " = !"
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
     prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("starts_with") == 0) {
@@ -222,8 +242,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = GetValidityName(codes_str_);
     std::stringstream prepare_ss;
     prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
-    prepare_ss << "bool " << codes_str_ << " = " << child_visitor_list[0]->GetResult()
-               << ".rfind(" << child_visitor_list[1]->GetResult()
+    prepare_ss << "bool " << codes_str_ << " = "
+               << child_visitor_list[0]->GetResult() << ".rfind("
+               << child_visitor_list[1]->GetResult()
                << ") != std::string::npos;";
     prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("substr") == 0) {
@@ -240,8 +261,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = GetValidityName(codes_str_);
     std::stringstream prepare_ss;
     prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
-    prepare_ss << "bool " << check_str_ << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << check_str_ << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << check_str_ << ")" << std::endl;
     prepare_ss << codes_str_ << " = " << ss.str() << ";" << std::endl;
     prepare_str_ += prepare_ss.str();
@@ -251,12 +272,14 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = "upper_" + std::to_string(cur_func_id);
     check_str_ = codes_str_ + "_validity";
     prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
-    prepare_ss << codes_str_ << ".resize(" << child_name << ".size());" << std::endl;
-    prepare_ss << "bool " << check_str_ << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << codes_str_ << ".resize(" << child_name << ".size());"
+               << std::endl;
+    prepare_ss << "bool " << check_str_ << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << check_str_ << ") {" << std::endl;
     prepare_ss << "std::transform(" << child_name << ".begin(), " << child_name
-               << ".end(), " << codes_str_ << ".begin(), ::toupper);" << std::endl;
+               << ".end(), " << codes_str_ << ".begin(), ::toupper);"
+               << std::endl;
     prepare_ss << "}" << std::endl;
     for (int i = 0; i < 1; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -268,12 +291,14 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = "lower_" + std::to_string(cur_func_id);
     check_str_ = codes_str_ + "_validity";
     prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
-    prepare_ss << codes_str_ << ".resize(" << child_name << ".size());" << std::endl;
-    prepare_ss << "bool " << check_str_ << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << codes_str_ << ".resize(" << child_name << ".size());"
+               << std::endl;
+    prepare_ss << "bool " << check_str_ << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << check_str_ << ") {" << std::endl;
     prepare_ss << "std::transform(" << child_name << ".begin(), " << child_name
-               << ".end(), " << codes_str_ << ".begin(), ::tolower);" << std::endl;
+               << ".end(), " << codes_str_ << ".begin(), ::tolower);"
+               << std::endl;
     prepare_ss << "}" << std::endl;
     for (int i = 0; i < 1; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -288,8 +313,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
 
     auto childNode = node.children().at(0);
@@ -312,23 +337,25 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       }
     } else {
       // if casting From Decimal
-      auto decimal_type =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+      auto decimal_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          childNode->return_type());
       if (node.return_type()->id() == arrow::Type::DOUBLE ||
           node.return_type()->id() == arrow::Type::FLOAT) {
         prepare_ss << codes_str_ << " = static_cast<"
-                   << GetCTypeString(node.return_type()) << ">(castFloatFromDecimal("
-                   << child_visitor_list[0]->GetResult() << ", " << decimal_type->scale()
-                   << "));" << std::endl;
+                   << GetCTypeString(node.return_type())
+                   << ">(castFloatFromDecimal("
+                   << child_visitor_list[0]->GetResult() << ", "
+                   << decimal_type->scale() << "));" << std::endl;
       } else if (node.return_type()->id() == arrow::Type::STRING) {
         prepare_ss << codes_str_ << " = castStringFromDecimal("
-                   << child_visitor_list[0]->GetResult() << ", " << decimal_type->scale()
-                   << ");" << std::endl;
+                   << child_visitor_list[0]->GetResult() << ", "
+                   << decimal_type->scale() << ");" << std::endl;
       } else {
         prepare_ss << codes_str_ << " = static_cast<"
-                   << GetCTypeString(node.return_type()) << ">(castLongFromDecimal("
-                   << child_visitor_list[0]->GetResult() << ", " << decimal_type->scale()
-                   << "));" << std::endl;
+                   << GetCTypeString(node.return_type())
+                   << ">(castLongFromDecimal("
+                   << child_visitor_list[0]->GetResult() << ", "
+                   << decimal_type->scale() << "));" << std::endl;
       }
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
@@ -341,15 +368,15 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = validity;
   } else if (func_name.find("hash") != std::string::npos) {
     if (child_visitor_list.size() == 1) {
-      ss << "sparkcolumnarplugin::thirdparty::murmurhash32::" << func_name << "("
-         << child_visitor_list[0]->GetResult() << ", "
+      ss << "sparkcolumnarplugin::thirdparty::murmurhash32::" << func_name
+         << "(" << child_visitor_list[0]->GetResult() << ", "
          << child_visitor_list[0]->GetPreCheck() << ")" << std::endl;
       for (int i = 0; i < 1; i++) {
         prepare_str_ += child_visitor_list[i]->GetPrepare();
       }
     } else {
-      ss << "sparkcolumnarplugin::thirdparty::murmurhash32::" << func_name << "("
-         << child_visitor_list[0]->GetResult() << ", "
+      ss << "sparkcolumnarplugin::thirdparty::murmurhash32::" << func_name
+         << "(" << child_visitor_list[0]->GetResult() << ", "
          << child_visitor_list[0]->GetPreCheck() << ", "
          << child_visitor_list[1]->GetResult() << ")" << std::endl;
       for (int i = 0; i < 2; i++) {
@@ -358,7 +385,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     check_str_ = "true";
     codes_str_ = ss.str();
-    header_list_.push_back(R"(#include "third_party/murmurhash/murmurhash32.h")");
+    header_list_.push_back(
+        R"(#include "third_party/murmurhash/murmurhash32.h")");
   } else if (func_name.compare("castDATE") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
@@ -376,8 +404,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << codes_str_ << " = " << typed_func_name << "("
                << child_visitor_list[0]->GetResult() << ");" << std::endl;
@@ -398,22 +426,25 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     auto childNode = node.children().at(0);
     if (childNode->return_type()->id() != arrow::Type::DECIMAL) {
       // if not casting from Decimal
-      fix_ss << ", " << decimal_type->precision() << ", " << decimal_type->scale();
+      fix_ss << ", " << decimal_type->precision() << ", "
+             << decimal_type->scale();
     } else {
       // if casting from Decimal
-      auto childType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
-      fix_ss << ", " << childType->precision() << ", " << childType->scale() << ", "
-             << decimal_type->precision() << ", " << decimal_type->scale();
+      auto childType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          childNode->return_type());
+      fix_ss << ", " << childType->precision() << ", " << childType->scale()
+             << ", " << decimal_type->precision() << ", "
+             << decimal_type->scale();
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << codes_str_ << " = " << func_name << "("
-               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");" << std::endl;
+               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
@@ -429,20 +460,22 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     auto decimal_type =
         std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
     auto childNode = node.children().at(0);
-    auto childType =
-        std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
-    fix_ss << ", " << childType->precision() << ", " << childType->scale() << ", "
-           << decimal_type->precision() << ", " << decimal_type->scale() << ", &overflow";
-    
+    auto childType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+        childNode->return_type());
+    fix_ss << ", " << childType->precision() << ", " << childType->scale()
+           << ", " << decimal_type->precision() << ", " << decimal_type->scale()
+           << ", &overflow";
+
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << "bool overflow = false;" << std::endl;
     prepare_ss << codes_str_ << " = " << func_name << "("
-               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");" << std::endl;
+               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+               << std::endl;
     prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
     prepare_ss << "}" << std::endl;
 
@@ -459,18 +492,19 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     auto decimal_type =
         std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
     auto childNode = node.children().at(0);
-    auto childType =
-        std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
-    fix_ss << ", " << childType->scale() << ", " << decimal_type->precision() << ", "
-           << decimal_type->scale();
+    auto childType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+        childNode->return_type());
+    fix_ss << ", " << childType->scale() << ", " << decimal_type->precision()
+           << ", " << decimal_type->scale();
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = castDECIMAL(" << child_visitor_list[0]->GetResult()
-               << fix_ss.str() << ");" << std::endl;
+    prepare_ss << codes_str_ << " = castDECIMAL("
+               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
@@ -485,8 +519,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << codes_str_ << " = " << func_name << "("
                << child_visitor_list[0]->GetResult() << ");" << std::endl;
@@ -511,11 +545,12 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = round2(" << child_visitor_list[0]->GetResult()
-               << fix_ss.str() << ");" << std::endl;
+    prepare_ss << codes_str_ << " = round2("
+               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     prepare_str_ += prepare_ss.str();
@@ -527,11 +562,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = "
+               << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = abs(" << child_visitor_list[0]->GetResult() << ");"
-               << std::endl;
+    prepare_ss << codes_str_ << " = abs(" << child_visitor_list[0]->GetResult()
+               << ");" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
@@ -549,16 +584,17 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else {
       auto leftNode = node.children().at(0);
       auto rightNode = node.children().at(1);
-      auto leftType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(leftNode->return_type());
-      auto rightType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(rightNode->return_type());
-      auto resType = std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+      auto leftType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          leftNode->return_type());
+      auto rightType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          rightNode->return_type());
+      auto resType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
       fix_ss << "add(" << child_visitor_list[0]->GetResult() << ", "
              << leftType->precision() << ", " << leftType->scale() << ", "
-             << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
-             << ", " << rightType->scale() << ", " << resType->precision() << ", "
-             << resType->scale() << ")";
+             << child_visitor_list[1]->GetResult() << ", "
+             << rightType->precision() << ", " << rightType->scale() << ", "
+             << resType->precision() << ", " << resType->scale() << ")";
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
@@ -587,16 +623,17 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else {
       auto leftNode = node.children().at(0);
       auto rightNode = node.children().at(1);
-      auto leftType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(leftNode->return_type());
-      auto rightType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(rightNode->return_type());
-      auto resType = std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+      auto leftType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          leftNode->return_type());
+      auto rightType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          rightNode->return_type());
+      auto resType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
       fix_ss << "subtract(" << child_visitor_list[0]->GetResult() << ", "
              << leftType->precision() << ", " << leftType->scale() << ", "
-             << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
-             << ", " << rightType->scale() << ", " << resType->precision() << ", "
-             << resType->scale() << ")";
+             << child_visitor_list[1]->GetResult() << ", "
+             << rightType->precision() << ", " << rightType->scale() << ", "
+             << resType->precision() << ", " << resType->scale() << ")";
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
@@ -625,16 +662,18 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else {
       auto leftNode = node.children().at(0);
       auto rightNode = node.children().at(1);
-      auto leftType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(leftNode->return_type());
-      auto rightType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(rightNode->return_type());
-      auto resType = std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+      auto leftType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          leftNode->return_type());
+      auto rightType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          rightNode->return_type());
+      auto resType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
       fix_ss << "multiply(" << child_visitor_list[0]->GetResult() << ", "
              << leftType->precision() << ", " << leftType->scale() << ", "
-             << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
-             << ", " << rightType->scale() << ", " << resType->precision() << ", "
-             << resType->scale() << ", &overflow)";
+             << child_visitor_list[1]->GetResult() << ", "
+             << rightType->precision() << ", " << rightType->scale() << ", "
+             << resType->precision() << ", " << resType->scale()
+             << ", &overflow)";
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
@@ -650,7 +689,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     if (node.return_type()->id() == arrow::Type::DECIMAL) {
-      prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
+      prepare_ss << "if (overflow) {\n"
+                 << validity << " = false;}" << std::endl;
     }
     prepare_ss << "}" << std::endl;
 
@@ -669,16 +709,18 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else {
       auto leftNode = node.children().at(0);
       auto rightNode = node.children().at(1);
-      auto leftType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(leftNode->return_type());
-      auto rightType =
-          std::dynamic_pointer_cast<arrow::Decimal128Type>(rightNode->return_type());
-      auto resType = std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
+      auto leftType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          leftNode->return_type());
+      auto rightType = std::dynamic_pointer_cast<arrow::Decimal128Type>(
+          rightNode->return_type());
+      auto resType =
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(node.return_type());
       fix_ss << "divide(" << child_visitor_list[0]->GetResult() << ", "
              << leftType->precision() << ", " << leftType->scale() << ", "
-             << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
-             << ", " << rightType->scale() << ", " << resType->precision() << ", "
-             << resType->scale() << ", &overflow)";
+             << child_visitor_list[1]->GetResult() << ", "
+             << rightType->precision() << ", " << rightType->scale() << ", "
+             << resType->precision() << ", " << resType->scale()
+             << ", &overflow)";
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
@@ -694,7 +736,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     if (node.return_type()->id() == arrow::Type::DECIMAL) {
-      prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
+      prepare_ss << "if (overflow) {\n"
+                 << validity << " = false;}" << std::endl;
     }
     prepare_ss << "}" << std::endl;
 
@@ -714,8 +757,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " << "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult()
+               << " << " << child_visitor_list[1]->GetResult() << ";"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -734,8 +778,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " >> "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult()
+               << " >> " << child_visitor_list[1]->GetResult() << ";"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -754,8 +799,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " & "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult()
+               << " & " << child_visitor_list[1]->GetResult() << ";"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -774,8 +820,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult() << " | "
-               << child_visitor_list[1]->GetResult() << ";" << std::endl;
+    prepare_ss << codes_str_ << " = " << child_visitor_list[0]->GetResult()
+               << " | " << child_visitor_list[1]->GetResult() << ";"
+               << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -784,7 +831,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
   } else {
-    return arrow::Status::NotImplemented(func_name, " is currently not supported.");
+    return arrow::Status::NotImplemented(func_name,
+                                         " is currently not supported.");
   }
   return arrow::Status::OK();
 }
@@ -805,49 +853,57 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
       }
       field_list_ss << "],";
     }
-    return arrow::Status::Invalid(this_field->name(), " is not found in field_list ",
+    return arrow::Status::Invalid(this_field->name(),
+                                  " is not found in field_list ",
                                   field_list_ss.str());
   }
   if (is_smj_ && (*input_list_).empty()) {
     ///// For inputs are SortRelation /////
-    codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +
-                 std::to_string(arg_id) + "_value";
+    codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) +
+                 "_" + std::to_string(arg_id) + "_value";
     codes_validity_str_ = GetValidityName(codes_str_);
     auto idx_name = "idx_" + std::to_string(0 + index);
-    input_codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) +
-                       "_" + std::to_string(arg_id);
+    input_codes_str_ = "sort_relation_" +
+                       std::to_string(hash_relation_id_ + index) + "_" +
+                       std::to_string(arg_id);
     prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
-    prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_ << ";"
-               << std::endl;
-    prepare_ss << "  if (" << input_codes_str_ << "_has_null && " << input_codes_str_
-               << "->IsNull(" << idx_name << ".array_id, " << idx_name << ".id)) {"
-               << std::endl;
+    prepare_ss << "  " << GetCTypeString(this_field->type()) << " "
+               << codes_str_ << ";" << std::endl;
+    prepare_ss << "  if (" << input_codes_str_ << "_has_null && "
+               << input_codes_str_ << "->IsNull(" << idx_name << ".array_id, "
+               << idx_name << ".id)) {" << std::endl;
     prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
     prepare_ss << "  } else {" << std::endl;
-    prepare_ss << "    " << codes_str_ << " = " << input_codes_str_ << "->GetValue("
-               << idx_name << ".array_id, " << idx_name << ".id);" << std::endl;
+    prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
+               << "->GetValue(" << idx_name << ".array_id, " << idx_name
+               << ".id);" << std::endl;
     prepare_ss << "  }" << std::endl;
     field_type_ = sort_relation;
   } else {
     if (is_smj_) {
-      ///// For inputs are build side as SortRelation, streamed side as input /////
+      ///// For inputs are build side as SortRelation, streamed side as input
+      ////////
       if (index == 0) {
-        codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +
+        codes_str_ = "sort_relation_" +
+                     std::to_string(hash_relation_id_ + index) + "_" +
                      std::to_string(arg_id) + "_value";
         codes_validity_str_ = GetValidityName(codes_str_);
         auto idx_name = "idx_" + std::to_string(0 + index);
-        input_codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) +
-                           "_" + std::to_string(arg_id);
-        prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
-        prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
-                   << ";" << std::endl;
-        prepare_ss << "  if (" << input_codes_str_ << "_has_null && " << input_codes_str_
-                   << "->IsNull(" << idx_name << ".array_id, " << idx_name << ".id)) {"
+        input_codes_str_ = "sort_relation_" +
+                           std::to_string(hash_relation_id_ + index) + "_" +
+                           std::to_string(arg_id);
+        prepare_ss << "  bool " << codes_validity_str_ << " = true;"
                    << std::endl;
+        prepare_ss << "  " << GetCTypeString(this_field->type()) << " "
+                   << codes_str_ << ";" << std::endl;
+        prepare_ss << "  if (" << input_codes_str_ << "_has_null && "
+                   << input_codes_str_ << "->IsNull(" << idx_name
+                   << ".array_id, " << idx_name << ".id)) {" << std::endl;
         prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
         prepare_ss << "  } else {" << std::endl;
-        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_ << "->GetValue("
-                   << idx_name << ".array_id, " << idx_name << ".id);" << std::endl;
+        prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
+                   << "->GetValue(" << idx_name << ".array_id, " << idx_name
+                   << ".id);" << std::endl;
         prepare_ss << "  }" << std::endl;
         field_type_ = sort_relation;
       } else {
@@ -862,7 +918,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         field_type_ = right;
       }
     } else {
-      ///// For Inputs are one side HashRelation and other side regular array /////
+      ///// For Inputs are one side HashRelation and other side regular array
+      ////////
       if (field_list_v_.size() == 1) {
         prepare_ss << (*input_list_)[arg_id].first.second;
         if (!is_local_) {
@@ -872,17 +929,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         codes_validity_str_ = GetValidityName(codes_str_);
       } else {
         if (index == 0) {
-          codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
-                       std::to_string(arg_id) + "_value";
+          codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) +
+                       "_" + std::to_string(arg_id) + "_value";
           codes_validity_str_ = GetValidityName(codes_str_);
-          input_codes_str_ = "hash_relation_" + std::to_string(hash_relation_id_) + "_" +
+          input_codes_str_ = "hash_relation_" +
+                             std::to_string(hash_relation_id_) + "_" +
                              std::to_string(arg_id);
-          prepare_ss << "  bool " << codes_validity_str_ << " = true;" << std::endl;
-          prepare_ss << "  " << GetCTypeString(this_field->type()) << " " << codes_str_
-                     << ";" << std::endl;
+          prepare_ss << "  bool " << codes_validity_str_ << " = true;"
+                     << std::endl;
+          prepare_ss << "  " << GetCTypeString(this_field->type()) << " "
+                     << codes_str_ << ";" << std::endl;
           prepare_ss << "  if (" << input_codes_str_ << "_has_null && "
-                     << input_codes_str_ << "->IsNull(x.array_id, x.id)) {" << std::endl;
-          prepare_ss << "    " << codes_validity_str_ << " = false;" << std::endl;
+                     << input_codes_str_ << "->IsNull(x.array_id, x.id)) {"
+                     << std::endl;
+          prepare_ss << "    " << codes_validity_str_ << " = false;"
+                     << std::endl;
           prepare_ss << "  } else {" << std::endl;
           prepare_ss << "    " << codes_str_ << " = " << input_codes_str_
                      << "->GetValue(x.array_id, x.id);" << std::endl;
@@ -904,8 +965,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
 
   check_str_ = codes_validity_str_;
   if (prepared_list_ != nullptr) {
-    if (std::find((*prepared_list_).begin(), (*prepared_list_).end(), codes_str_) ==
-        (*prepared_list_).end()) {
+    if (std::find((*prepared_list_).begin(), (*prepared_list_).end(),
+                  codes_str_) == (*prepared_list_).end()) {
       (*prepared_list_).push_back(codes_str_);
       prepare_str_ += prepare_ss.str();
     }
@@ -923,13 +984,14 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
   for (auto child : children) {
     std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
     *func_count_ = *func_count_ + 1;
-    RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list_, field_list_v_,
-                                               hash_relation_id_, func_count_, is_local_,
-                                               prepared_list_, &child_visitor, is_smj_));
+    RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+        child, input_list_, field_list_v_, hash_relation_id_, func_count_,
+        is_local_, prepared_list_, &child_visitor, is_smj_));
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
       field_type_ = child_visitor->GetFieldType();
-    } else if (field_type_ != child_visitor->GetFieldType() && field_type_ != literal &&
+    } else if (field_type_ != child_visitor->GetFieldType() &&
+               field_type_ != literal &&
                child_visitor->GetFieldType() != literal) {
       field_type_ = mixed;
     }
@@ -945,19 +1007,20 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
   }
   auto condition_name = "condition_" + std::to_string(cur_func_id);
   auto condition_validity = condition_name + "_validity";
-  prepare_ss << GetCTypeString(node.return_type()) << " " << condition_name << ";"
-             << std::endl;
+  prepare_ss << GetCTypeString(node.return_type()) << " " << condition_name
+             << ";" << std::endl;
   prepare_ss << "bool " << condition_validity << ";" << std::endl;
-  prepare_ss << "if (" << child_visitor_list[0]->GetResult() << ") {" << std::endl;
-  prepare_ss << condition_name << " = " << child_visitor_list[1]->GetResult() << ";"
+  prepare_ss << "if (" << child_visitor_list[0]->GetResult() << ") {"
              << std::endl;
-  prepare_ss << condition_validity << " = " << child_visitor_list[1]->GetPreCheck() << ";"
-             << std::endl;
+  prepare_ss << condition_name << " = " << child_visitor_list[1]->GetResult()
+             << ";" << std::endl;
+  prepare_ss << condition_validity << " = "
+             << child_visitor_list[1]->GetPreCheck() << ";" << std::endl;
   prepare_ss << "} else {" << std::endl;
-  prepare_ss << condition_name << " = " << child_visitor_list[2]->GetResult() << ";"
-             << std::endl;
-  prepare_ss << condition_validity << " = " << child_visitor_list[2]->GetPreCheck() << ";"
-             << std::endl;
+  prepare_ss << condition_name << " = " << child_visitor_list[2]->GetResult()
+             << ";" << std::endl;
+  prepare_ss << condition_validity << " = "
+             << child_visitor_list[2]->GetPreCheck() << ";" << std::endl;
   prepare_ss << "}" << std::endl;
   codes_str_ = condition_name;
   prepare_str_ += prepare_ss.str();
@@ -965,7 +1028,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
   return arrow::Status::OK();
 }
 
-arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) {
+arrow::Status ExpressionCodegenVisitor::Visit(
+    const gandiva::LiteralNode& node) {
   auto cur_func_id = *func_count_;
   std::stringstream codes_ss;
   if (node.return_type()->id() == arrow::Type::STRING) {
@@ -973,8 +1037,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) 
   } else if (node.return_type()->id() == arrow::Type::DECIMAL) {
     auto scalar = arrow::util::get<gandiva::DecimalScalar128>(node.holder());
     auto decimal = arrow::Decimal128(scalar.value());
-    codes_ss << "arrow::Decimal128(\"" << decimal.ToString(scalar.scale()) << "\")"
-             << std::endl;
+    codes_ss << "arrow::Decimal128(\"" << decimal.ToString(scalar.scale())
+             << "\")" << std::endl;
     decimal_scale_ = std::to_string(scalar.scale());
   } else {
     codes_ss << gandiva::ToString(node.holder()) << std::endl;
@@ -986,21 +1050,23 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) 
   return arrow::Status::OK();
 }
 
-arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) {
+arrow::Status ExpressionCodegenVisitor::Visit(
+    const gandiva::BooleanNode& node) {
   std::vector<std::shared_ptr<ExpressionCodegenVisitor>> child_visitor_list;
   auto cur_func_id = *func_count_;
   for (auto child : node.children()) {
     std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
     *func_count_ = *func_count_ + 1;
-    RETURN_NOT_OK(MakeExpressionCodegenVisitor(child, input_list_, field_list_v_,
-                                               hash_relation_id_, func_count_, is_local_,
-                                               prepared_list_, &child_visitor, is_smj_));
+    RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+        child, input_list_, field_list_v_, hash_relation_id_, func_count_,
+        is_local_, prepared_list_, &child_visitor, is_smj_));
 
     prepare_str_ += child_visitor->GetPrepare();
     child_visitor_list.push_back(child_visitor);
     if (field_type_ == unknown || field_type_ == literal) {
       field_type_ = child_visitor->GetFieldType();
-    } else if (field_type_ != child_visitor->GetFieldType() && field_type_ != literal &&
+    } else if (field_type_ != child_visitor->GetFieldType() &&
+               field_type_ != literal &&
                child_visitor->GetFieldType() != literal) {
       field_type_ = mixed;
     }
@@ -1031,9 +1097,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
   *func_count_ = *func_count_ + 1;
 
-  RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
-                                             hash_relation_id_, func_count_, is_local_,
-                                             prepared_list_, &child_visitor, is_smj_));
+  RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+      node.eval_expr(), input_list_, field_list_v_, hash_relation_id_,
+      func_count_, is_local_, prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<int> in_list_" << cur_func_id << " = {";
   bool add_comma = false;
@@ -1051,8 +1117,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   codes_str_ = "is_in_list_" + std::to_string(cur_func_id);
   check_str_ = GetValidityName(codes_str_);
 
-  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck() << ";"
-             << std::endl;
+  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck()
+             << ";" << std::endl;
   prepare_ss << "bool " << codes_str_ << " = false;" << std::endl;
   prepare_ss << "if (" << check_str_ << ") " << std::endl;
   prepare_ss << codes_str_ << " = std::find(in_list_" << cur_func_id
@@ -1077,9 +1143,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
   *func_count_ = *func_count_ + 1;
 
-  RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
-                                             hash_relation_id_, func_count_, is_local_,
-                                             prepared_list_, &child_visitor, is_smj_));
+  RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+      node.eval_expr(), input_list_, field_list_v_, hash_relation_id_,
+      func_count_, is_local_, prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<long int> in_list_" << cur_func_id << " = {";
   bool add_comma = false;
@@ -1097,8 +1163,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   codes_str_ = "is_in_list_" + std::to_string(cur_func_id);
   check_str_ = GetValidityName(codes_str_);
 
-  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck() << ";"
-             << std::endl;
+  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck()
+             << ";" << std::endl;
   prepare_ss << "bool " << codes_str_ << " = false;" << std::endl;
   prepare_ss << "if (" << check_str_ << ") " << std::endl;
   prepare_ss << codes_str_ << " = std::find(in_list_" << cur_func_id
@@ -1123,9 +1189,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
   *func_count_ = *func_count_ + 1;
 
-  RETURN_NOT_OK(MakeExpressionCodegenVisitor(node.eval_expr(), input_list_, field_list_v_,
-                                             hash_relation_id_, func_count_, is_local_,
-                                             prepared_list_, &child_visitor, is_smj_));
+  RETURN_NOT_OK(MakeExpressionCodegenVisitor(
+      node.eval_expr(), input_list_, field_list_v_, hash_relation_id_,
+      func_count_, is_local_, prepared_list_, &child_visitor, is_smj_));
   std::stringstream prepare_ss;
   prepare_ss << "std::vector<std::string> in_list_" << cur_func_id << " = {";
   bool add_comma = false;
@@ -1143,8 +1209,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(
   codes_str_ = "is_in_list_" + std::to_string(cur_func_id);
   check_str_ = GetValidityName(codes_str_);
 
-  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck() << ";"
-             << std::endl;
+  prepare_ss << "bool " << check_str_ << " = " << child_visitor->GetPreCheck()
+             << ";" << std::endl;
   prepare_ss << "bool " << codes_str_ << " = false;" << std::endl;
   prepare_ss << "if (" << check_str_ << ") " << std::endl;
   prepare_ss << codes_str_ << " = std::find(in_list_" << cur_func_id
@@ -1191,12 +1257,13 @@ std::string ExpressionCodegenVisitor::GetValidityName(std::string name) {
   }
 }
 
-std::string ExpressionCodegenVisitor::GetNaNCheckStr(std::string left, std::string right,
+std::string ExpressionCodegenVisitor::GetNaNCheckStr(std::string left,
+                                                     std::string right,
                                                      std::string func) {
   std::stringstream ss;
   func = " " + func + " ";
-  ss << "((std::isnan(" << left << ") && std::isnan(" << right << ")) ? (1.0 / 0.0"
-     << func << "1.0 / 0.0) : "
+  ss << "((std::isnan(" << left << ") && std::isnan(" << right
+     << ")) ? (1.0 / 0.0" << func << "1.0 / 0.0) : "
      << "(std::isnan(" << left << ")) ? (1.0 / 0.0" << func << right << ") : "
      << "(std::isnan(" << right << ")) ? (" << left << func << "1.0 / 0.0) : "
      << "(" << left << func << right << "))";

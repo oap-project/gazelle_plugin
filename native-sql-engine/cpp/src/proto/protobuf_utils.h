@@ -15,6 +15,12 @@
  * limitations under the License.
  */
 
+#include <arrow/builder.h>
+#include <arrow/record_batch.h>
+#include <arrow/type.h>
+#include <gandiva/arrow.h>
+#include <gandiva/gandiva_aliases.h>
+#include <gandiva/tree_expr_builder.h>
 
 #include <map>
 #include <memory>
@@ -23,14 +29,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-
-#include <arrow/builder.h>
-#include <arrow/record_batch.h>
-#include <arrow/type.h>
-
-#include <gandiva/arrow.h>
-#include <gandiva/gandiva_aliases.h>
-#include <gandiva/tree_expr_builder.h>
 
 #include "Exprs.pb.h"
 

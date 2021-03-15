@@ -180,9 +180,8 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
 
   if (jan1_wday == 5) {
     // Jan 1 is a Fri
-    // Jan 1-3 belong to previous year. Dec 31 of previous year same week # as Jan 1-3
-    // previous year is a leap year:
-    // Prev Jan 1 is a Wed. Jan 6th is Mon
+    // Jan 1-3 belong to previous year. Dec 31 of previous year same week # as
+    // Jan 1-3 previous year is a leap year: Prev Jan 1 is a Wed. Jan 6th is Mon
     // Dec 31 - Jan 6 = 366 - 5 = 361
     // week from Jan 6 = (361 - 1) / 7 + 1 = 52
     // week # in previous year = 52 + 1 = 53
@@ -270,14 +269,15 @@ int getDecWeekOfYear(const EpochTimePoint& tp) {
 //
 // Important points to note:
 // Week starts with a Monday and ends with a Sunday
-// A week can have some days in this year and some days in the previous/next year
-// This is true for the first and last weeks
+// A week can have some days in this year and some days in the previous/next
+// year This is true for the first and last weeks
 //
 // The first week of the year should have at-least 4 days in the current year
 // The last week of the year should have at-least 4 days in the current year
 //
-// A given day might belong to the first week of the next year - e.g Dec 29, 30 and 31
-// A given day might belong to the last week of the previous year - e.g. Jan 1, 2 and 3
+// A given day might belong to the first week of the next year - e.g Dec 29, 30
+// and 31 A given day might belong to the last week of the previous year - e.g.
+// Jan 1, 2 and 3
 //
 // Algorithm:
 // If day belongs to week in current year, weekOfCurrentYear
@@ -353,9 +353,11 @@ DATE_TYPES(EXTRACT_MINUTE)
 
 DATE_TYPES(EXTRACT_SECOND)
 
-#define EXTRACT_EPOCH(TYPE) \
-  FORCE_INLINE              \
-  gdv_int64 extractEpoch##_##TYPE(gdv_##TYPE millis) { return MILLIS_TO_SEC(millis); }
+#define EXTRACT_EPOCH(TYPE)                            \
+  FORCE_INLINE                                         \
+  gdv_int64 extractEpoch##_##TYPE(gdv_##TYPE millis) { \
+    return MILLIS_TO_SEC(millis);                      \
+  }
 
 DATE_TYPES(EXTRACT_EPOCH)
 
@@ -379,9 +381,11 @@ EXTRACT_SECOND_TIME(time32)
 
 EXTRACT_MINUTE_TIME(time32)
 
-#define EXTRACT_HOUR_TIME(TYPE) \
-  FORCE_INLINE                  \
-  gdv_int64 extractHour##_##TYPE(gdv_##TYPE millis) { return MILLIS_TO_HOUR(millis); }
+#define EXTRACT_HOUR_TIME(TYPE)                       \
+  FORCE_INLINE                                        \
+  gdv_int64 extractHour##_##TYPE(gdv_##TYPE millis) { \
+    return MILLIS_TO_HOUR(millis);                    \
+  }
 
 EXTRACT_HOUR_TIME(time32)
 
@@ -458,7 +462,9 @@ FORCE_INLINE
 gdv_date32 castDATE_int32(gdv_int32 in) { return in; }
 
 FORCE_INLINE
-gdv_date64 castDATE_date32(gdv_date32 days) { return (gdv_int64)days * MILLIS_IN_DAY; }
+gdv_date64 castDATE_date32(gdv_date32 days) {
+  return (gdv_int64)days * MILLIS_IN_DAY;
+}
 
 static int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -485,33 +491,36 @@ bool IsLastDayOfMonth(const EpochTimePoint& tp) {
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
 // If date1 is later than date2, then the result is positive.
 // If date1 is earlier than date2, then the result is negative.
-// If date1 and date2 are either the same days of the month or both last days of months,
-// then the result is always an integer. Otherwise Oracle Database calculates the
-// fractional portion of the result based on a 31-day month and considers the difference
-// in time components date1 and date2
-#define MONTHS_BETWEEN(TYPE)                                                        \
-  FORCE_INLINE                                                                      \
-  double months_between##_##TYPE##_##TYPE(uint64_t endEpoch, uint64_t startEpoch) { \
-    EpochTimePoint endTime(endEpoch);                                               \
-    EpochTimePoint startTime(startEpoch);                                           \
-    int endYear = endTime.TmYear();                                                 \
-    int endMonth = endTime.TmMon();                                                 \
-    int startYear = startTime.TmYear();                                             \
-    int startMonth = startTime.TmMon();                                             \
-    int monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth);          \
-    if ((endTime.TmMday() == startTime.TmMday()) ||                                 \
-        (IsLastDayOfMonth(endTime) && IsLastDayOfMonth(startTime))) {               \
-      return static_cast<double>(monthsDiff);                                       \
-    }                                                                               \
-    double diffDays = static_cast<double>(endTime.TmMday() - startTime.TmMday()) /  \
-                      static_cast<double>(31);                                      \
-    double diffHours = static_cast<double>(endTime.TmHour() - startTime.TmHour()) + \
-                       static_cast<double>(endTime.TmMin() - startTime.TmMin()) /   \
-                           static_cast<double>(MINS_IN_HOUR) +                      \
-                       static_cast<double>(endTime.TmSec() - startTime.TmSec()) /   \
-                           static_cast<double>(SECONDS_IN_HOUR);                    \
-    return static_cast<double>(monthsDiff) + diffDays +                             \
-           diffHours / static_cast<double>(HOURS_IN_DAY * 31);                      \
+// If date1 and date2 are either the same days of the month or both last days of
+// months, then the result is always an integer. Otherwise Oracle Database
+// calculates the fractional portion of the result based on a 31-day month and
+// considers the difference in time components date1 and date2
+#define MONTHS_BETWEEN(TYPE)                                               \
+  FORCE_INLINE                                                             \
+  double months_between##_##TYPE##_##TYPE(uint64_t endEpoch,               \
+                                          uint64_t startEpoch) {           \
+    EpochTimePoint endTime(endEpoch);                                      \
+    EpochTimePoint startTime(startEpoch);                                  \
+    int endYear = endTime.TmYear();                                        \
+    int endMonth = endTime.TmMon();                                        \
+    int startYear = startTime.TmYear();                                    \
+    int startMonth = startTime.TmMon();                                    \
+    int monthsDiff = (endYear - startYear) * 12 + (endMonth - startMonth); \
+    if ((endTime.TmMday() == startTime.TmMday()) ||                        \
+        (IsLastDayOfMonth(endTime) && IsLastDayOfMonth(startTime))) {      \
+      return static_cast<double>(monthsDiff);                              \
+    }                                                                      \
+    double diffDays =                                                      \
+        static_cast<double>(endTime.TmMday() - startTime.TmMday()) /       \
+        static_cast<double>(31);                                           \
+    double diffHours =                                                     \
+        static_cast<double>(endTime.TmHour() - startTime.TmHour()) +       \
+        static_cast<double>(endTime.TmMin() - startTime.TmMin()) /         \
+            static_cast<double>(MINS_IN_HOUR) +                            \
+        static_cast<double>(endTime.TmSec() - startTime.TmSec()) /         \
+            static_cast<double>(SECONDS_IN_HOUR);                          \
+    return static_cast<double>(monthsDiff) + diffDays +                    \
+           diffHours / static_cast<double>(HOURS_IN_DAY * 31);             \
   }
 
 DATE_TYPES(MONTHS_BETWEEN)
@@ -596,8 +605,9 @@ const char* castVARCHAR_date32_int64(gdv_int64 context, gdv_date32 in_day,
   char char_buffer[char_buffer_length];
 
   // yyyy-MM-dd hh:mm:ss.sss
-  int res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
+  int res =
+      snprintf(char_buffer, char_buffer_length,
+               "%04" PRId64 "-%02" PRId64 "-%02" PRId64, year, month, day);
   if (res < 0) {
     gdv_fn_context_set_error_msg(context, "Could not format the date");
     return "";
@@ -610,15 +620,18 @@ const char* castVARCHAR_date32_int64(gdv_int64 context, gdv_date32 in_day,
 
   if (*out_len <= 0) {
     if (*out_len < 0) {
-      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+      gdv_fn_context_set_error_msg(
+          context, "Length of output string cannot be negative");
     }
     *out_len = 0;
     return "";
   }
 
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }
@@ -631,9 +644,11 @@ const char* castVARCHAR_date32_int64(gdv_int64 context, gdv_date32 in_day,
  * Input consists of mandatory and optional fields.
  * Mandatory fields are year, month and day.
  * Optional fields are time, displacement and zone.
- * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
+ * Format is <year-month-day>[ hours:minutes:seconds][.millis][
+ * displacement|zone]
  */
-gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 length) {
+gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input,
+                                 gdv_int32 length) {
   using arrow_vendored::date::day;
   using arrow_vendored::date::month;
   using arrow_vendored::date::sys_days;
@@ -673,8 +688,9 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
           break;
         case '-':
           // Overloaded as date separator and negative displacement.
-          ts_field_index = (ts_field_index < 3) ? (ts_field_index + 1)
-                                                : TimeFields::kDisplacementHours;
+          ts_field_index = (ts_field_index < 3)
+                               ? (ts_field_index + 1)
+                               : TimeFields::kDisplacementHours;
           break;
         default:
           encountered_zone = true;
@@ -705,10 +721,11 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   if (encountered_zone) {
     int err = 0;
     gdv_timestamp ret_time = 0;
-    err = gdv_fn_time_with_zone(&ts_fields[0], (input + index), (length - index),
-                                &ret_time);
+    err = gdv_fn_time_with_zone(&ts_fields[0], (input + index),
+                                (length - index), &ret_time);
     if (err) {
-      const char* msg = "Invalid timestamp or unknown zone for timestamp value ";
+      const char* msg =
+          "Invalid timestamp or unknown zone for timestamp value ";
       set_error_for_date(length, input, msg, context);
       return 0;
     }
@@ -730,15 +747,20 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
                    milliseconds(ts_fields[TimeFields::kSubSeconds]);
   if (ts_fields[TimeFields::kDisplacementHours] ||
       ts_fields[TimeFields::kDisplacementMinutes]) {
-    auto displacement_time = hours(ts_fields[TimeFields::kDisplacementHours]) +
-                             minutes(ts_fields[TimeFields::kDisplacementMinutes]);
+    auto displacement_time =
+        hours(ts_fields[TimeFields::kDisplacementHours]) +
+        minutes(ts_fields[TimeFields::kDisplacementMinutes]);
     date_time = (add_displacement) ? (date_time + displacement_time)
                                    : (date_time - displacement_time);
   }
-  return std::chrono::time_point_cast<milliseconds>(date_time).time_since_epoch().count();
+  return std::chrono::time_point_cast<milliseconds>(date_time)
+      .time_since_epoch()
+      .count();
 }
 
-gdv_timestamp castTIMESTAMP_date64(gdv_date64 date_in_millis) { return date_in_millis; }
+gdv_timestamp castTIMESTAMP_date64(gdv_date64 date_in_millis) {
+  return date_in_millis;
+}
 
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
                                         gdv_int64 length, gdv_int32* out_len) {
@@ -756,8 +778,8 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
 
   // yyyy-MM-dd hh:mm:ss.sss
   int res = snprintf(char_buffer, char_buffer_length,
-                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
-                     ":%02" PRId64 ".%03" PRId64,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64
+                     ":%02" PRId64 ":%02" PRId64 ".%03" PRId64,
                      year, month, day, hour, minute, second, millis);
   if (res < 0) {
     gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
@@ -771,15 +793,18 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
 
   if (*out_len <= 0) {
     if (*out_len < 0) {
-      gdv_fn_context_set_error_msg(context, "Length of output string cannot be negative");
+      gdv_fn_context_set_error_msg(
+          context, "Length of output string cannot be negative");
     }
     *out_len = 0;
     return "";
   }
 
-  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    gdv_fn_context_set_error_msg(context,
+                                 "Could not allocate memory for output string");
     *out_len = 0;
     return "";
   }

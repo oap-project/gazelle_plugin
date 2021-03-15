@@ -68,13 +68,15 @@ static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 static jint JNI_VERSION = JNI_VERSION_1_8;
 
 using CodeGenerator = sparkcolumnarplugin::codegen::CodeGenerator;
-static arrow::jni::ConcurrentMap<std::shared_ptr<CodeGenerator>> handler_holder_;
+static arrow::jni::ConcurrentMap<std::shared_ptr<CodeGenerator>>
+    handler_holder_;
 static arrow::jni::ConcurrentMap<std::shared_ptr<ResultIteratorBase>>
     batch_iterator_holder_;
 
 using sparkcolumnarplugin::shuffle::SplitOptions;
 using sparkcolumnarplugin::shuffle::Splitter;
-static arrow::jni::ConcurrentMap<std::shared_ptr<Splitter>> shuffle_splitter_holder_;
+static arrow::jni::ConcurrentMap<std::shared_ptr<Splitter>>
+    shuffle_splitter_holder_;
 static arrow::jni::ConcurrentMap<std::shared_ptr<arrow::Schema>>
     decompression_schema_holder_;
 
@@ -102,18 +104,19 @@ std::shared_ptr<ResultIterator<T>> GetBatchIterator(JNIEnv* env, jlong id) {
   return std::dynamic_pointer_cast<ResultIterator<T>>(handler);
 }
 
-jobject MakeRecordBatchBuilder(JNIEnv* env, std::shared_ptr<arrow::Schema> schema,
-                               std::shared_ptr<arrow::RecordBatch> record_batch) {
-  jobjectArray field_array =
-      env->NewObjectArray(schema->num_fields(), arrow_field_node_builder_class, nullptr);
+jobject MakeRecordBatchBuilder(
+    JNIEnv* env, std::shared_ptr<arrow::Schema> schema,
+    std::shared_ptr<arrow::RecordBatch> record_batch) {
+  jobjectArray field_array = env->NewObjectArray(
+      schema->num_fields(), arrow_field_node_builder_class, nullptr);
 
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto column = record_batch->column(i);
     auto dataArray = column->data();
     jobject field = env->NewObject(arrow_field_node_builder_class,
-                                   arrow_field_node_builder_constructor, column->length(),
-                                   column->null_count());
+                                   arrow_field_node_builder_constructor,
+                                   column->length(), column->null_count());
     env->SetObjectArrayElement(field_array, i, field);
 
     for (auto& buffer : dataArray->buffers) {
@@ -134,9 +137,9 @@ jobject MakeRecordBatchBuilder(JNIEnv* env, std::shared_ptr<arrow::Schema> schem
       size = (int)buffer->size();
       capacity = buffer->capacity();
     }
-    jobject arrowbuf_builder =
-        env->NewObject(arrowbuf_builder_class, arrowbuf_builder_constructor,
-                       buffer_holder_.Insert(std::move(buffer)), data, size, capacity);
+    jobject arrowbuf_builder = env->NewObject(
+        arrowbuf_builder_class, arrowbuf_builder_constructor,
+        buffer_holder_.Insert(std::move(buffer)), data, size, capacity);
     env->SetObjectArrayElement(arrowbuf_builder_array, j, arrowbuf_builder);
   }
 
@@ -160,8 +163,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   }
 
   io_exception_class = CreateGlobalClassReference(env, "Ljava/io/IOException;");
-  unsupportedoperation_exception_class =
-      CreateGlobalClassReference(env, "Ljava/lang/UnsupportedOperationException;");
+  unsupportedoperation_exception_class = CreateGlobalClassReference(
+      env, "Ljava/lang/UnsupportedOperationException;");
   illegal_access_exception_class =
       CreateGlobalClassReference(env, "Ljava/lang/IllegalAccessException;");
   illegal_argument_exception_class =
@@ -174,13 +177,13 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
                   "(I[Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;"
                   "[Lcom/intel/oap/vectorized/ArrowBufBuilder;)V");
 
-  arrow_field_node_builder_class =
-      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;");
+  arrow_field_node_builder_class = CreateGlobalClassReference(
+      env, "Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;");
   arrow_field_node_builder_constructor =
       GetMethodID(env, arrow_field_node_builder_class, "<init>", "(II)V");
 
-  arrowbuf_builder_class =
-      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/ArrowBufBuilder;");
+  arrowbuf_builder_class = CreateGlobalClassReference(
+      env, "Lcom/intel/oap/vectorized/ArrowBufBuilder;");
   arrowbuf_builder_constructor =
       GetMethodID(env, arrowbuf_builder_class, "<init>", "(JJIJ)V");
 
@@ -194,8 +197,8 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   split_result_constructor =
       GetMethodID(env, split_result_class, "<init>", "(JJJJJJ[J)V");
 
-  metrics_builder_class =
-      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/MetricsObject;");
+  metrics_builder_class = CreateGlobalClassReference(
+      env, "Lcom/intel/oap/vectorized/MetricsObject;");
   metrics_builder_constructor =
       GetMethodID(env, metrics_builder_class, "<init>", "([J[J)V");
 
@@ -256,7 +259,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -273,7 +277,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
     std::shared_ptr<arrow::Schema> resSchema;
     msg = MakeSchema(env, res_schema_arr, &resSchema);
     if (!msg.ok()) {
-      std::string error_message = "failed to readSchema, err msg is " + msg.message();
+      std::string error_message =
+          "failed to readSchema, err msg is " + msg.message();
       env->ThrowNew(io_exception_class, error_message.c_str());
     }
     ret_types = resSchema->fields();
@@ -287,7 +292,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
 
   std::shared_ptr<CodeGenerator> handler;
   try {
-    arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+    arrow::MemoryPool* pool =
+        reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
     if (pool == nullptr) {
       env->ThrowNew(illegal_argument_exception_class,
                     "Memory pool does not exist or has been closed");
@@ -302,7 +308,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
   }
   if (!msg.ok()) {
     std::string error_message =
-        "nativeBuild: failed to create CodeGenerator, err msg is " + msg.message();
+        "nativeBuild: failed to create CodeGenerator, err msg is " +
+        msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -328,7 +335,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinis
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -343,7 +351,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinis
 
   gandiva::ExpressionVector finish_expr_vector;
   gandiva::FieldVector finish_ret_types;
-  msg = MakeExprVector(env, finish_exprs_arr, &finish_expr_vector, &finish_ret_types);
+  msg = MakeExprVector(env, finish_exprs_arr, &finish_expr_vector,
+                       &finish_ret_types);
   if (!msg.ok()) {
     std::string error_message =
         "failed to parse expressions protobuf, err msg is " + msg.message();
@@ -352,14 +361,16 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinis
 
   std::shared_ptr<CodeGenerator> handler;
   try {
-    arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+    arrow::MemoryPool* pool =
+        reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
     if (pool == nullptr) {
       env->ThrowNew(illegal_argument_exception_class,
                     "Memory pool does not exist or has been closed");
       return -1;
     }
     msg = sparkcolumnarplugin::codegen::CreateCodeGenerator(
-        pool, schema, expr_vector, ret_types, &handler, true, finish_expr_vector);
+        pool, schema, expr_vector, ret_types, &handler, true,
+        finish_expr_vector);
   } catch (const std::runtime_error& error) {
     env->ThrowNew(unsupportedoperation_exception_class, error.what());
   } catch (const std::exception& error) {
@@ -367,7 +378,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuildWithFinis
   }
   if (!msg.ok()) {
     std::string error_message =
-        "nativeBuild: failed to create CodeGenerator, err msg is " + msg.message();
+        "nativeBuild: failed to create CodeGenerator, err msg is " +
+        msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
   return handler_holder_.Insert(std::move(handler));
@@ -379,7 +391,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetReturnField
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
@@ -392,12 +405,12 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetReturnField
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(JNIEnv* env,
-                                                                        jobject obj,
-                                                                        jlong id) {
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(
+    JNIEnv* env, jobject obj, jlong id) {
   auto handler = GetCodeGenerator(env, id);
   if (handler.use_count() > 2) {
-    std::cout << "evaluator ptr use count is " << handler.use_count() - 1 << std::endl;
+    std::cout << "evaluator ptr use count is " << handler.use_count() - 1
+              << std::endl;
   }
 #ifdef DEBUG
   auto handler_holder_size = handler_holder_.Size();
@@ -446,8 +459,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> in;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &in);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &in);
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
   status = handler->evaluate(in, &out);
@@ -460,12 +473,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
 
   std::shared_ptr<arrow::Schema> res_schema;
   status = handler->getResSchema(&res_schema);
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray record_batch_builder_array = env->NewObjectArray(
+      out.size(), arrow_record_batch_builder_class, nullptr);
   int i = 0;
   for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, res_schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+    jobject record_batch_builder =
+        MakeRecordBatchBuilder(env, res_schema, record_batch);
+    env->SetObjectArrayElement(record_batch_builder_array, i++,
+                               record_batch_builder);
   }
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
@@ -485,8 +500,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeGetSignature(
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSelection(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jint selection_vector_count, jlong selection_vector_buf_addr,
-    jlong selection_vector_buf_size) {
+    jlongArray buf_sizes, jint selection_vector_count,
+    jlong selection_vector_buf_addr, jlong selection_vector_buf_size) {
   arrow::Status status;
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
   std::shared_ptr<arrow::Schema> schema;
@@ -503,12 +518,13 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSe
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> in;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &in);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &in);
 
   // Make Array From SelectionVector
   auto selection_vector_buf = std::make_shared<arrow::MutableBuffer>(
-      reinterpret_cast<uint8_t*>(selection_vector_buf_addr), selection_vector_buf_size);
+      reinterpret_cast<uint8_t*>(selection_vector_buf_addr),
+      selection_vector_buf_size);
 
   auto selection_arraydata = arrow::ArrayData::Make(
       arrow::uint16(), selection_vector_count, {NULLPTR, selection_vector_buf});
@@ -525,12 +541,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSe
 
   std::shared_ptr<arrow::Schema> res_schema;
   status = handler->getResSchema(&res_schema);
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray record_batch_builder_array = env->NewObjectArray(
+      out.size(), arrow_record_batch_builder_class, nullptr);
   int i = 0;
   for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, res_schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+    jobject record_batch_builder =
+        MakeRecordBatchBuilder(env, res_schema, record_batch);
+    env->SetObjectArrayElement(record_batch_builder_array, i++,
+                               record_batch_builder);
   }
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
@@ -559,8 +577,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMember(
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> in;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &in);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &in);
 
   status = handler->SetMember(in);
 
@@ -575,9 +593,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMember(
 }
 
 JNIEXPORT jobject JNICALL
-Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(JNIEnv* env,
-                                                                         jobject obj,
-                                                                         jlong id) {
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(
+    JNIEnv* env, jobject obj, jlong id) {
   arrow::Status status;
   std::shared_ptr<CodeGenerator> handler = GetCodeGenerator(env, id);
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
@@ -592,12 +609,14 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(JNIEnv*
   std::shared_ptr<arrow::Schema> schema;
   status = handler->getResSchema(&schema);
 
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray record_batch_builder_array = env->NewObjectArray(
+      out.size(), arrow_record_batch_builder_class, nullptr);
   int i = 0;
   for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+    jobject record_batch_builder =
+        MakeRecordBatchBuilder(env, schema, record_batch);
+    env->SetObjectArrayElement(record_batch_builder_array, i++,
+                               record_batch_builder);
   }
 
   return record_batch_builder_array;
@@ -612,7 +631,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinishByIterat
   status = handler->finish(&out);
   if (!status.ok()) {
     std::string error_message =
-        "nativeFinishForIterator: finish failed with error msg " + status.ToString();
+        "nativeFinishForIterator: finish failed with error msg " +
+        status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -628,19 +648,24 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetDependency(
   status = handler->SetDependency(iter, index);
   if (!status.ok()) {
     std::string error_message =
-        "nativeSetDependency: finish failed with error msg " + status.ToString();
+        "nativeSetDependency: finish failed with error msg " +
+        status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 }
 
-JNIEXPORT jboolean JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeHasNext(
-    JNIEnv* env, jobject obj, jlong id) {
+JNIEXPORT jboolean JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeHasNext(JNIEnv* env,
+                                                          jobject obj,
+                                                          jlong id) {
   auto iter = GetBatchIterator(env, id);
   return iter->HasNext();
 }
 
-JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeFetchMetrics(
-    JNIEnv* env, jobject obj, jlong id) {
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeFetchMetrics(JNIEnv* env,
+                                                               jobject obj,
+                                                               jlong id) {
   auto iter = GetBatchIterator(env, id);
   std::shared_ptr<Metrics> metrics;
   iter->GetMetrics(&metrics);
@@ -654,8 +679,9 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeFetc
                         output_length_list, process_time_list);
 }
 
-JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeNext(
-    JNIEnv* env, jobject obj, jlong id) {
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeNext(JNIEnv* env, jobject obj,
+                                                       jlong id) {
   arrow::Status status;
   auto iter = GetBatchIterator<arrow::RecordBatch>(env, id);
   std::shared_ptr<arrow::RecordBatch> out;
@@ -691,25 +717,30 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeNextHashRelation(JNIEnv* env,
     auto memory_addrs = env->NewLongArray(0);
     auto sizes = env->NewIntArray(0);
     return env->NewObject(serializable_obj_builder_class,
-                          serializable_obj_builder_constructor, memory_addrs, sizes);
+                          serializable_obj_builder_constructor, memory_addrs,
+                          sizes);
   }
   auto memory_addrs = env->NewLongArray(3);
   auto sizes = env->NewIntArray(3);
   env->SetLongArrayRegion(memory_addrs, 0, 3, src_addrs);
   env->SetIntArrayRegion(sizes, 0, 3, src_sizes);
   return env->NewObject(serializable_obj_builder_class,
-                        serializable_obj_builder_constructor, memory_addrs, sizes);
+                        serializable_obj_builder_constructor, memory_addrs,
+                        sizes);
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeSetHashRelation(
-    JNIEnv* env, jobject obj, jlong id, jlongArray memory_addrs, jintArray sizes) {
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeSetHashRelation(
+    JNIEnv* env, jobject obj, jlong id, jlongArray memory_addrs,
+    jintArray sizes) {
   arrow::Status status;
   auto iter = GetBatchIterator<HashRelation>(env, id);
   std::shared_ptr<HashRelation> out;
   status = iter->Next(&out);
   if (!status.ok()) {
     std::string error_message =
-        "nativeSetHashRelation: get Next() failed with error msg " + status.ToString();
+        "nativeSetHashRelation: get Next() failed with error msg " +
+        status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -721,14 +752,16 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeSetHash
   env->ReleaseIntArrayElements(sizes, in_sizes, JNI_ABORT);
 }
 
-JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeProcess(
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeProcess(
     JNIEnv* env, jobject obj, jlong id, jbyteArray schema_arr, jint num_rows,
     jlongArray buf_addrs, jlongArray buf_sizes) {
   arrow::Status status;
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -743,8 +776,8 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeProc
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> batch;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &batch);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &batch);
   std::vector<std::shared_ptr<arrow::Array>> in;
   for (int i = 0; i < batch->num_columns(); i++) {
     in.push_back(batch->column(i));
@@ -776,7 +809,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessWithSelection(
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -791,8 +825,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessWithSelection(
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> batch;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &batch);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &batch);
   std::vector<std::shared_ptr<arrow::Array>> in;
   for (int i = 0; i < batch->num_columns(); i++) {
     in.push_back(batch->column(i));
@@ -801,7 +835,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessWithSelection(
   auto iter = GetBatchIterator<arrow::RecordBatch>(env, id);
   // Make Array From SelectionVector
   auto selection_vector_buf = std::make_shared<arrow::MutableBuffer>(
-      reinterpret_cast<uint8_t*>(selection_vector_buf_addr), selection_vector_buf_size);
+      reinterpret_cast<uint8_t*>(selection_vector_buf_addr),
+      selection_vector_buf_size);
 
   auto selection_arraydata = arrow::ArrayData::Make(
       arrow::uint16(), selection_vector_count, {NULLPTR, selection_vector_buf});
@@ -831,7 +866,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -846,8 +882,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> batch;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &batch);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &batch);
   std::vector<std::shared_ptr<arrow::Array>> in;
   for (int i = 0; i < batch->num_columns(); i++) {
     in.push_back(batch->column(i));
@@ -858,7 +894,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
 
   if (!status.ok()) {
     std::string error_message =
-        "nativeProcessAndCache: ResultIterator process next failed with error msg " +
+        "nativeProcessAndCache: ResultIterator process next failed with error "
+        "msg " +
         status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
@@ -876,7 +913,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
   std::shared_ptr<arrow::Schema> schema;
   arrow::Status msg = MakeSchema(env, schema_arr, &schema);
   if (!msg.ok()) {
-    std::string error_message = "failed to readSchema, err msg is " + msg.message();
+    std::string error_message =
+        "failed to readSchema, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
@@ -891,8 +929,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, 0);
 
   std::shared_ptr<arrow::RecordBatch> batch;
-  status =
-      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &batch);
+  status = MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes,
+                           in_bufs_len, &batch);
   std::vector<std::shared_ptr<arrow::Array>> in;
   for (int i = 0; i < batch->num_columns(); i++) {
     in.push_back(batch->column(i));
@@ -901,7 +939,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
   auto iter = GetBatchIterator<arrow::RecordBatch>(env, id);
   // Make Array From SelectionVector
   auto selection_vector_buf = std::make_shared<arrow::MutableBuffer>(
-      reinterpret_cast<uint8_t*>(selection_vector_buf_addr), selection_vector_buf_size);
+      reinterpret_cast<uint8_t*>(selection_vector_buf_addr),
+      selection_vector_buf_size);
 
   auto selection_arraydata = arrow::ArrayData::Make(
       arrow::uint16(), selection_vector_count, {NULLPTR, selection_vector_buf});
@@ -910,7 +949,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
 
   if (!status.ok()) {
     std::string error_message =
-        "nativeProcessAndCache: ResultIterator process next failed with error msg " +
+        "nativeProcessAndCache: ResultIterator process next failed with error "
+        "msg " +
         status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
@@ -919,7 +959,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeSetDependencies(
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_BatchIterator_nativeSetDependencies(
     JNIEnv* env, jobject this_obj, jlong id, jlongArray ids) {
   int ids_size = env->GetArrayLength(ids);
   long* ids_data = env->GetLongArrayElements(ids, 0);
@@ -938,16 +979,16 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeClose(
 #ifdef DEBUG
   auto it = batch_iterator_holder_.Lookup(id);
   if (it.use_count() > 2) {
-    std::cout << it->ToString() << " ptr use count is " << it.use_count() << std::endl;
+    std::cout << it->ToString() << " ptr use count is " << it.use_count()
+              << std::endl;
   }
 #endif
   batch_iterator_holder_.Erase(id);
 }
 
 JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(JNIEnv* env,
-                                                                    jobject this_obj,
-                                                                    jlong id) {
+Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(
+    JNIEnv* env, jobject this_obj, jlong id) {
 #ifdef DEBUG
   auto it = buffer_holder_.Lookup(id);
   if (it.use_count() > 2) {
@@ -957,15 +998,14 @@ Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(JNIEnv* env,
   buffer_holder_.Erase(id);
 }
 
-
-
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
-    JNIEnv* env, jobject obj, jlong splitter_id, jlong size, jboolean call_by_self) {
-
+    JNIEnv* env, jobject obj, jlong splitter_id, jlong size,
+    jboolean call_by_self) {
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
-    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    std::string error_message =
+        "Invalid splitter id " + std::to_string(splitter_id);
     env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
     return -1L;
   }
@@ -974,7 +1014,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
   arrow::Status status = splitter->SpillFixedSize(size, &spilled_size);
   if (!status.ok()) {
     std::string error_message =
-        "(shuffle) nativeSpill: spill failed with error msg " + status.ToString();
+        "(shuffle) nativeSpill: spill failed with error msg " +
+        status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
     return -1L;
   }
@@ -1008,7 +1049,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     return 0;
   }
 
-  auto partitioning_name_c = env->GetStringUTFChars(partitioning_name_jstr, JNI_FALSE);
+  auto partitioning_name_c =
+      env->GetStringUTFChars(partitioning_name_jstr, JNI_FALSE);
   auto partitioning_name = std::string(partitioning_name_c);
   env->ReleaseStringUTFChars(partitioning_name_jstr, partitioning_name_c);
 
@@ -1022,7 +1064,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   }
 
   if (compression_type_jstr != NULL) {
-    auto compression_type_result = GetCompressionType(env, compression_type_jstr);
+    auto compression_type_result =
+        GetCompressionType(env, compression_type_jstr);
     if (compression_type_result.status().ok()) {
       splitOptions.compression_type = compression_type_result.MoveValueUnsafe();
     }
@@ -1061,15 +1104,17 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     if (!status.ok()) {
       env->ThrowNew(
           illegal_argument_exception_class,
-          std::string("Failed to parse expressions protobuf, error message is " +
-                      status.message())
+          std::string(
+              "Failed to parse expressions protobuf, error message is " +
+              status.message())
               .c_str());
       return 0;
     }
   }
 
   jclass cls = env->FindClass("java/lang/Thread");
-  jmethodID mid = env->GetStaticMethodID(cls, "currentThread", "()Ljava/lang/Thread;");
+  jmethodID mid =
+      env->GetStaticMethodID(cls, "currentThread", "()Ljava/lang/Thread;");
   jobject thread = env->CallStaticObjectMethod(cls, mid);
   if (thread == NULL) {
     std::cout << "Thread.currentThread() return NULL" << std::endl;
@@ -1086,18 +1131,21 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   if (tc_obj == NULL) {
     std::cout << "TaskContext.get() return NULL" << std::endl;
   } else {
-    jmethodID get_tsk_attmpt_mid = env->GetMethodID(tc_cls, "taskAttemptId", "()J");
+    jmethodID get_tsk_attmpt_mid =
+        env->GetMethodID(tc_cls, "taskAttemptId", "()J");
     jlong attmpt_id = env->CallLongMethod(tc_obj, get_tsk_attmpt_mid);
     splitOptions.task_attempt_id = (int64_t)attmpt_id;
   }
 
-  auto make_result = Splitter::Make(partitioning_name, std::move(schema), num_partitions,
-                                    expr_vector, std::move(splitOptions));
+  auto make_result =
+      Splitter::Make(partitioning_name, std::move(schema), num_partitions,
+                     expr_vector, std::move(splitOptions));
   if (!make_result.ok()) {
-    env->ThrowNew(illegal_argument_exception_class,
-                  std::string("Failed create native shuffle splitter, error message is " +
-                              make_result.status().message())
-                      .c_str());
+    env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Failed create native shuffle splitter, error message is " +
+                    make_result.status().message())
+            .c_str());
     return 0;
   }
   auto splitter = make_result.MoveValueUnsafe();
@@ -1105,17 +1153,20 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   return shuffle_splitter_holder_.Insert(std::shared_ptr<Splitter>(splitter));
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressType(
-   JNIEnv* env, jobject, jlong splitter_id, jstring compression_type_jstr) {
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressType(
+    JNIEnv* env, jobject, jlong splitter_id, jstring compression_type_jstr) {
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
-    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    std::string error_message =
+        "Invalid splitter id " + std::to_string(splitter_id);
     env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
     return;
   }
 
   if (compression_type_jstr != NULL) {
-    auto compression_type_result = GetCompressionType(env, compression_type_jstr);
+    auto compression_type_result =
+        GetCompressionType(env, compression_type_jstr);
     if (compression_type_result.status().ok()) {
       splitter->SetCompressType(compression_type_result.MoveValueUnsafe());
     }
@@ -1123,12 +1174,14 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_s
   return;
 }
 
-JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
-    JNIEnv* env, jobject, jlong splitter_id, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jboolean first_record_batch) {
+JNIEXPORT jlong JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_split(
+    JNIEnv* env, jobject, jlong splitter_id, jint num_rows,
+    jlongArray buf_addrs, jlongArray buf_sizes, jboolean first_record_batch) {
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
-    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    std::string error_message =
+        "Invalid splitter id " + std::to_string(splitter_id);
     env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
     return -1;
   }
@@ -1147,7 +1200,8 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
   if (in_bufs_len != env->GetArrayLength(buf_sizes)) {
     env->ThrowNew(
         illegal_argument_exception_class,
-        std::string("Native split: length of buf_addrs and buf_sizes mismatch").c_str());
+        std::string("Native split: length of buf_addrs and buf_sizes mismatch")
+            .c_str());
     return -1;
   }
 
@@ -1155,9 +1209,9 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
   jlong* in_buf_sizes = env->GetLongArrayElements(buf_sizes, JNI_FALSE);
 
   std::shared_ptr<arrow::RecordBatch> in;
-  auto status =
-      MakeRecordBatch(splitter->input_schema(), num_rows, (int64_t*)in_buf_addrs,
-                      (int64_t*)in_buf_sizes, in_bufs_len, &in);
+  auto status = MakeRecordBatch(splitter->input_schema(), num_rows,
+                                (int64_t*)in_buf_addrs, (int64_t*)in_buf_sizes,
+                                in_bufs_len, &in);
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
@@ -1165,8 +1219,9 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
   if (!status.ok()) {
     env->ThrowNew(
         illegal_argument_exception_class,
-        std::string("Native split: make record batch failed, error message is " +
-                    status.message())
+        std::string(
+            "Native split: make record batch failed, error message is " +
+            status.message())
             .c_str());
     return -1;
   }
@@ -1177,20 +1232,23 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
     status = splitter->Split(*in);
     if (!status.ok()) {
       // Throw IOException
-      env->ThrowNew(io_exception_class,
-                  std::string("Native split: splitter split failed, error message is " +
-                              status.message())
-                      .c_str());
+      env->ThrowNew(
+          io_exception_class,
+          std::string("Native split: splitter split failed, error message is " +
+                      status.message())
+              .c_str());
     }
     return -1;
   }
 }
 
-JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_stop(
     JNIEnv* env, jobject, jlong splitter_id) {
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
-    std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
+    std::string error_message =
+        "Invalid splitter id " + std::to_string(splitter_id);
     env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
     return nullptr;
   }
@@ -1199,32 +1257,37 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrappe
 
   if (!status.ok()) {
     // Throw IOException
-    env->ThrowNew(io_exception_class,
-                  std::string("Native split: splitter stop failed, error message is " +
-                              status.message())
-                      .c_str());
+    env->ThrowNew(
+        io_exception_class,
+        std::string("Native split: splitter stop failed, error message is " +
+                    status.message())
+            .c_str());
     return nullptr;
   }
 
   const auto& partition_length = splitter->PartitionLengths();
   auto partition_length_arr = env->NewLongArray(partition_length.size());
   auto src = reinterpret_cast<const jlong*>(partition_length.data());
-  env->SetLongArrayRegion(partition_length_arr, 0, partition_length.size(), src);
+  env->SetLongArrayRegion(partition_length_arr, 0, partition_length.size(),
+                          src);
   jobject split_result = env->NewObject(
-      split_result_class, split_result_constructor, splitter->TotalComputePidTime(),
-      splitter->TotalWriteTime(), splitter->TotalSpillTime(),
-      splitter->TotalCompressTime(), splitter->TotalBytesWritten(),
-      splitter->TotalBytesSpilled(), partition_length_arr);
+      split_result_class, split_result_constructor,
+      splitter->TotalComputePidTime(), splitter->TotalWriteTime(),
+      splitter->TotalSpillTime(), splitter->TotalCompressTime(),
+      splitter->TotalBytesWritten(), splitter->TotalBytesSpilled(),
+      partition_length_arr);
 
   return split_result;
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_close(
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_close(
     JNIEnv* env, jobject, jlong splitter_id) {
   shuffle_splitter_holder_.Erase(splitter_id);
 }
 
-JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_make(
+JNIEXPORT jlong JNICALL
+Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_make(
     JNIEnv* env, jobject, jbyteArray schema_arr) {
   std::shared_ptr<arrow::Schema> schema;
   // ValueOrDie in MakeSchema
@@ -1235,8 +1298,9 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWra
 
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
-    JNIEnv* env, jobject obj, jlong schema_holder_id, jstring compression_type_jstr,
-    jint num_rows, jlongArray buf_addrs, jlongArray buf_sizes, jlongArray buf_mask) {
+    JNIEnv* env, jobject obj, jlong schema_holder_id,
+    jstring compression_type_jstr, jint num_rows, jlongArray buf_addrs,
+    jlongArray buf_sizes, jlongArray buf_mask) {
   auto schema = decompression_schema_holder_.Lookup(schema_holder_id);
   if (!schema) {
     std::string error_message =
@@ -1245,18 +1309,21 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
     return nullptr;
   }
   if (buf_addrs == NULL) {
-    env->ThrowNew(illegal_argument_exception_class,
-                  std::string("Native decompress: buf_addrs can't be null").c_str());
+    env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Native decompress: buf_addrs can't be null").c_str());
     return nullptr;
   }
   if (buf_sizes == NULL) {
-    env->ThrowNew(illegal_argument_exception_class,
-                  std::string("Native decompress: buf_sizes can't be null").c_str());
+    env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Native decompress: buf_sizes can't be null").c_str());
     return nullptr;
   }
   if (buf_mask == NULL) {
-    env->ThrowNew(illegal_argument_exception_class,
-                  std::string("Native decompress: buf_mask can't be null").c_str());
+    env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Native decompress: buf_mask can't be null").c_str());
     return nullptr;
   }
 
@@ -1264,14 +1331,16 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
   if (in_bufs_len != env->GetArrayLength(buf_sizes)) {
     env->ThrowNew(
         illegal_argument_exception_class,
-        std::string("Native decompress: length of buf_addrs and buf_sizes mismatch")
+        std::string(
+            "Native decompress: length of buf_addrs and buf_sizes mismatch")
             .c_str());
     return nullptr;
   }
 
   auto compression_type = arrow::Compression::UNCOMPRESSED;
   if (compression_type_jstr != NULL) {
-    auto compression_type_result = GetCompressionType(env, compression_type_jstr);
+    auto compression_type_result =
+        GetCompressionType(env, compression_type_jstr);
     if (compression_type_result.status().ok()) {
       compression_type = compression_type_result.MoveValueUnsafe();
     }
@@ -1286,7 +1355,8 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
 
   std::vector<std::shared_ptr<arrow::Buffer>> input_buffers;
   input_buffers.reserve(in_bufs_len);
-  for (auto field_idx = 0, buffer_idx = 0; field_idx < num_fields; ++field_idx) {
+  for (auto field_idx = 0, buffer_idx = 0; field_idx < num_fields;
+       ++field_idx) {
     auto field = schema->field(field_idx);
     auto num_buf = arrow::is_base_binary_like(field->type()->id()) ? 3 : 2;
     for (auto i = 0; i < num_buf; ++i, ++buffer_idx) {
@@ -1299,12 +1369,14 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
   // decompress buffers
   auto options = arrow::ipc::IpcReadOptions::Defaults();
   options.use_threads = false;
-  auto status = DecompressBuffers(compression_type, options, (uint8_t*)in_buf_mask,
-                                  input_buffers, schema->fields());
+  auto status =
+      DecompressBuffers(compression_type, options, (uint8_t*)in_buf_mask,
+                        input_buffers, schema->fields());
   if (!status.ok()) {
     env->ThrowNew(
         io_exception_class,
-        std::string("failed to decompress buffers, error message is " + status.message())
+        std::string("failed to decompress buffers, error message is " +
+                    status.message())
             .c_str());
   }
 
@@ -1314,7 +1386,8 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
 
   // make arrays from buffers
   std::vector<std::shared_ptr<arrow::ArrayData>> arrays;
-  for (auto field_idx = 0, buffer_idx = 0; field_idx < num_fields; ++field_idx) {
+  for (auto field_idx = 0, buffer_idx = 0; field_idx < num_fields;
+       ++field_idx) {
     auto field = schema->field(field_idx);
     auto num_buf = arrow::is_base_binary_like(field->type()->id()) ? 3 : 2;
 
@@ -1323,28 +1396,31 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
     for (auto i = 0; i < num_buf; ++i, ++buffer_idx) {
       bufs.push_back(std::move(input_buffers[buffer_idx]));
     }
-    arrays.push_back(arrow::ArrayData::Make(field->type(), num_rows, std::move(bufs)));
+    arrays.push_back(
+        arrow::ArrayData::Make(field->type(), num_rows, std::move(bufs)));
   }
 
   return MakeRecordBatchBuilder(
-      env, schema, arrow::RecordBatch::Make(schema, num_rows, std::move(arrays)));
+      env, schema,
+      arrow::RecordBatch::Make(schema, num_rows, std::move(arrays)));
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(
     JNIEnv* env, jobject, jlong schema_holder_id) {
   decompression_schema_holder_.Erase(schema_holder_id);
 }
 
 JNIEXPORT void JNICALL
 Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env, jobject obj) {
-//  malloc_stats_print(statsPrint, nullptr, nullptr);
+  //  malloc_stats_print(statsPrint, nullptr, nullptr);
   std::cout << "Calling malloc_trim... " << std::endl;
   malloc_trim(0);
 }
 
 JNIEXPORT void JNICALL
 Java_com_intel_oap_tpc_MallocUtils_mallocStats(JNIEnv* env, jobject obj) {
-//  malloc_stats_print(statsPrint, nullptr, nullptr);
+  //  malloc_stats_print(statsPrint, nullptr, nullptr);
   std::cout << "Calling malloc_stats... " << std::endl;
   malloc_stats();
 }

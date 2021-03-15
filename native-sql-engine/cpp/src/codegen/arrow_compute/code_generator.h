@@ -35,10 +35,10 @@ namespace arrowcompute {
 class ArrowComputeCodeGenerator : public CodeGenerator {
  public:
   ArrowComputeCodeGenerator(
-      arrow::MemoryPool* memory_pool,
-      std::shared_ptr<arrow::Schema> schema_ptr,
+      arrow::MemoryPool* memory_pool, std::shared_ptr<arrow::Schema> schema_ptr,
       std::vector<std::shared_ptr<gandiva::Expression>> expr_vector,
-      std::vector<std::shared_ptr<arrow::Field>> ret_types, bool return_when_finish,
+      std::vector<std::shared_ptr<arrow::Field>> ret_types,
+      bool return_when_finish,
       std::vector<std::shared_ptr<::gandiva::Expression>> finish_exprs_vector)
       : schema_(schema_ptr),
         ret_types_(ret_types),
@@ -50,13 +50,14 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     for (auto expr : expr_vector) {
       std::shared_ptr<ExprVisitor> root_visitor;
       if (finish_exprs_vector.empty()) {
-        auto visitor = MakeExprVisitor(memory_pool, schema_ptr, expr, ret_types_, &expr_visitor_cache_,
-                                       &root_visitor);
+        auto visitor =
+            MakeExprVisitor(memory_pool, schema_ptr, expr, ret_types_,
+                            &expr_visitor_cache_, &root_visitor);
         auto status = DistinctInsert(root_visitor, &visitor_list_);
       } else {
-        auto visitor =
-            MakeExprVisitor(memory_pool, schema_ptr, expr, ret_types_, finish_exprs_vector[i++],
-                            &expr_visitor_cache_, &root_visitor);
+        auto visitor = MakeExprVisitor(memory_pool, schema_ptr, expr,
+                                       ret_types_, finish_exprs_vector[i++],
+                                       &expr_visitor_cache_, &root_visitor);
         auto status = DistinctInsert(root_visitor, &visitor_list_);
       }
     }
@@ -75,8 +76,9 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
 
   std::string ToString() override { return expr_string; }
 
-  arrow::Status DistinctInsert(const std::shared_ptr<ExprVisitor>& in,
-                               std::vector<std::shared_ptr<ExprVisitor>>* visitor_list) {
+  arrow::Status DistinctInsert(
+      const std::shared_ptr<ExprVisitor>& in,
+      std::vector<std::shared_ptr<ExprVisitor>>* visitor_list) {
     for (auto visitor : *visitor_list) {
       if (visitor == in) return arrow::Status::OK();
     }
@@ -94,7 +96,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     return arrow::Status::OK();
   }
 
-  arrow::Status SetMember(const std::shared_ptr<arrow::RecordBatch>& member_set) {
+  arrow::Status SetMember(
+      const std::shared_ptr<arrow::RecordBatch>& member_set) {
     for (auto visitor : visitor_list_) {
       RETURN_NOT_OK(visitor->SetMember(member_set));
     }
@@ -102,7 +105,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
   }
 
   arrow::Status SetDependency(
-      const std::shared_ptr<ResultIterator<arrow::RecordBatch>>& dependency_iter,
+      const std::shared_ptr<ResultIterator<arrow::RecordBatch>>&
+          dependency_iter,
       int index) override {
     for (auto visitor : visitor_list_) {
       RETURN_NOT_OK(visitor->SetDependency(dependency_iter, index));
@@ -110,13 +114,15 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     return arrow::Status::OK();
   }
 
-  arrow::Status SetResSchema(const std::shared_ptr<arrow::Schema>& in) override {
+  arrow::Status SetResSchema(
+      const std::shared_ptr<arrow::Schema>& in) override {
     ret_types_ = in->fields();
     return arrow::Status::OK();
   }
 
-  arrow::Status evaluate(const std::shared_ptr<arrow::RecordBatch>& in,
-                         std::vector<std::shared_ptr<arrow::RecordBatch>>* out) {
+  arrow::Status evaluate(
+      const std::shared_ptr<arrow::RecordBatch>& in,
+      std::vector<std::shared_ptr<arrow::RecordBatch>>* out) {
     arrow::Status status = arrow::Status::OK();
     std::vector<ArrayList> batch_array;
     std::vector<int> batch_size_array;
@@ -125,15 +131,16 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     for (auto visitor : visitor_list_) {
       TIME_MICRO_OR_RAISE(eval_elapse_time_, visitor->Eval(in));
       if (!return_when_finish_) {
-        RETURN_NOT_OK(GetResult(visitor, &batch_array, &batch_size_array, &fields));
+        RETURN_NOT_OK(
+            GetResult(visitor, &batch_array, &batch_size_array, &fields));
       }
     }
 
     if (!return_when_finish_) {
       res_schema_ = arrow::schema(ret_types_);
       for (int i = 0; i < batch_array.size(); i++) {
-        auto record_batch =
-            arrow::RecordBatch::Make(res_schema_, batch_size_array[i], batch_array[i]);
+        auto record_batch = arrow::RecordBatch::Make(
+            res_schema_, batch_size_array[i], batch_array[i]);
 #ifdef DEBUG_LEVEL_1
         std::cout << "ArrowCompute Finish func get output recordBatch length "
                   << record_batch->num_rows() << std::endl;
@@ -154,9 +161,10 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     return status;
   }
 
-  arrow::Status evaluate(const std::shared_ptr<arrow::Array>& selection_in,
-                         const std::shared_ptr<arrow::RecordBatch>& in,
-                         std::vector<std::shared_ptr<arrow::RecordBatch>>* out) {
+  arrow::Status evaluate(
+      const std::shared_ptr<arrow::Array>& selection_in,
+      const std::shared_ptr<arrow::RecordBatch>& in,
+      std::vector<std::shared_ptr<arrow::RecordBatch>>* out) {
     arrow::Status status = arrow::Status::OK();
     std::vector<ArrayList> batch_array;
     std::vector<int> batch_size_array;
@@ -165,15 +173,16 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     for (auto visitor : visitor_list_) {
       TIME_MICRO_OR_RAISE(eval_elapse_time_, visitor->Eval(selection_in, in));
       if (!return_when_finish_) {
-        RETURN_NOT_OK(GetResult(visitor, &batch_array, &batch_size_array, &fields));
+        RETURN_NOT_OK(
+            GetResult(visitor, &batch_array, &batch_size_array, &fields));
       }
     }
 
     if (!return_when_finish_) {
       res_schema_ = arrow::schema(ret_types_);
       for (int i = 0; i < batch_array.size(); i++) {
-        auto record_batch =
-            arrow::RecordBatch::Make(res_schema_, batch_size_array[i], batch_array[i]);
+        auto record_batch = arrow::RecordBatch::Make(
+            res_schema_, batch_size_array[i], batch_array[i]);
 #ifdef DEBUG_LEVEL_1
         std::cout << "ArrowCompute Finish func get output recordBatch length "
                   << record_batch->num_rows() << std::endl;
@@ -210,12 +219,14 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
 
     for (auto visitor : visitor_list_) {
       std::shared_ptr<ExprVisitor> finish_visitor;
-      TIME_MICRO_OR_RAISE(finish_elapse_time_, visitor->Finish(&finish_visitor));
+      TIME_MICRO_OR_RAISE(finish_elapse_time_,
+                          visitor->Finish(&finish_visitor));
       if (finish_visitor) {
-        RETURN_NOT_OK(
-            GetResult(finish_visitor, &batch_array, &batch_size_array, &fields));
+        RETURN_NOT_OK(GetResult(finish_visitor, &batch_array, &batch_size_array,
+                                &fields));
       } else {
-        RETURN_NOT_OK(GetResult(visitor, &batch_array, &batch_size_array, &fields));
+        RETURN_NOT_OK(
+            GetResult(visitor, &batch_array, &batch_size_array, &fields));
       }
       // visitor->PrintMetrics();
       // std::cout << std::endl;
@@ -223,8 +234,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
 
     res_schema_ = arrow::schema(ret_types_);
     for (int i = 0; i < batch_array.size(); i++) {
-      auto record_batch =
-          arrow::RecordBatch::Make(res_schema_, batch_size_array[i], batch_array[i]);
+      auto record_batch = arrow::RecordBatch::Make(
+          res_schema_, batch_size_array[i], batch_array[i]);
 #ifdef DEBUG
       std::cout << "ArrowCompute Finish func get output recordBatch length "
                 << record_batch->num_rows() << std::endl;
@@ -243,8 +254,9 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
 
   arrow::Status finish(std::shared_ptr<ResultIteratorBase>* out) override {
     for (auto visitor : visitor_list_) {
-      TIME_MICRO_OR_RAISE(finish_elapse_time_,
-                          visitor->MakeResultIterator(arrow::schema(ret_types_), out));
+      TIME_MICRO_OR_RAISE(
+          finish_elapse_time_,
+          visitor->MakeResultIterator(arrow::schema(ret_types_), out));
     }
     return arrow::Status::OK();
   }
@@ -258,7 +270,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     int64_t current_spilled = 0L;
     for (auto visitor : visitor_list_) {
       int64_t single_call_spilled;
-      RETURN_NOT_OK(visitor->Spill(size - current_spilled, &single_call_spilled));
+      RETURN_NOT_OK(
+          visitor->Spill(size - current_spilled, &single_call_spilled));
       current_spilled += single_call_spilled;
       if (current_spilled >= size) {
         *spilled_size = current_spilled;
@@ -282,7 +295,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
   // ExprVisitor Cache, used when multiple node depends on same node.
   ExprVisitorMap expr_visitor_cache_;
 
-  arrow::Status MakeBatchFromArray(std::shared_ptr<arrow::Array> column, int batch_index,
+  arrow::Status MakeBatchFromArray(std::shared_ptr<arrow::Array> column,
+                                   int batch_index,
                                    std::vector<ArrayList>* batch_array,
                                    std::vector<int>* batch_size_array) {
     int res_len = 0;
@@ -298,18 +312,21 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
                                        std::vector<ArrayList>* batch_array,
                                        std::vector<int>* batch_size_array) {
     for (int i = 0; i < column_list.size(); i++) {
-      RETURN_NOT_OK(MakeBatchFromArray(column_list[i], i, batch_array, batch_size_array));
+      RETURN_NOT_OK(
+          MakeBatchFromArray(column_list[i], i, batch_array, batch_size_array));
     }
     return arrow::Status::OK();
   }
-  arrow::Status MakeBatchFromBatch(ArrayList batch, std::vector<ArrayList>* batch_array,
+  arrow::Status MakeBatchFromBatch(ArrayList batch,
+                                   std::vector<ArrayList>* batch_array,
                                    std::vector<int>* batch_size_array) {
     int length = 0;
     int i = 0;
     for (auto column : batch) {
       if (length != 0 && length != column->length()) {
         return arrow::Status::Invalid(
-            "ArrowCompute MakeBatchFromBatch found batch contains columns with different "
+            "ArrowCompute MakeBatchFromBatch found batch contains columns with "
+            "different "
             "lengths, expect ",
             length, " while got ", column->length(), " from ", i, "th column.");
       }
@@ -324,7 +341,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
   template <typename T>
   arrow::Status GetOrInsert(int i, std::vector<T>* input, T* out) {
     if (i > input->size()) {
-      return arrow::Status::Invalid("GetOrInser index: ", i, "  is out of range.");
+      return arrow::Status::Invalid("GetOrInser index: ", i,
+                                    "  is out of range.");
     }
     if (i == input->size()) {
       T new_data = *out;
@@ -342,7 +360,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
     std::vector<std::shared_ptr<arrow::Field>> return_fields;
     switch (visitor->GetResultType()) {
       case ArrowComputeResultType::BatchList: {
-        RETURN_NOT_OK(visitor->GetResult(batch_array, batch_size_array, &return_fields));
+        RETURN_NOT_OK(
+            visitor->GetResult(batch_array, batch_size_array, &return_fields));
       } break;
       case ArrowComputeResultType::Batch: {
         if (batch_array->size() == 0) {
@@ -355,8 +374,8 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
       case ArrowComputeResultType::Array: {
         std::shared_ptr<arrow::Array> result_column;
         RETURN_NOT_OK(visitor->GetResult(&result_column, &return_fields));
-        RETURN_NOT_OK(
-            MakeBatchFromArray(result_column, 0, batch_array, batch_size_array));
+        RETURN_NOT_OK(MakeBatchFromArray(result_column, 0, batch_array,
+                                         batch_size_array));
       } break;
       default:
         return arrow::Status::Invalid("ArrowComputeResultType is invalid.");

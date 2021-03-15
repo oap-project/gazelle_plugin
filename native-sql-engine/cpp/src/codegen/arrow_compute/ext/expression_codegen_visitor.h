@@ -29,8 +29,8 @@ class ExpressionCodegenVisitor : public VisitorBase {
  public:
   ExpressionCodegenVisitor(
       std::shared_ptr<gandiva::Node> func,
-      std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>*
-          input_list,
+      std::vector<std::pair<std::pair<std::string, std::string>,
+                            gandiva::DataTypePtr>>* input_list,
       std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
       int hash_relation_id, int* func_count, bool is_local,
       std::vector<std::string>* prepared_list, bool is_smj)
@@ -66,15 +66,16 @@ class ExpressionCodegenVisitor : public VisitorBase {
   arrow::Status Visit(const gandiva::BooleanNode& node) override;
   arrow::Status Visit(const gandiva::InExpressionNode<int>& node) override;
   arrow::Status Visit(const gandiva::InExpressionNode<long int>& node) override;
-  arrow::Status Visit(const gandiva::InExpressionNode<std::string>& node) override;
+  arrow::Status Visit(
+      const gandiva::InExpressionNode<std::string>& node) override;
   std::string decimal_scale_;
 
  private:
   std::shared_ptr<gandiva::Node> func_;
   std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v_;
   int hash_relation_id_;
-  std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>*
-      input_list_;
+  std::vector<std::pair<std::pair<std::string, std::string>,
+                        gandiva::DataTypePtr>>* input_list_;
   int* func_count_;
   FieldType field_type_ = unknown;
   bool is_smj_;
@@ -92,13 +93,14 @@ class ExpressionCodegenVisitor : public VisitorBase {
 
   std::string CombineValidity(std::vector<std::string> validity_list);
   std::string GetValidityName(std::string name);
-  std::string GetNaNCheckStr(std::string left, std::string right, std::string func);
+  std::string GetNaNCheckStr(std::string left, std::string right,
+                             std::string func);
 };
 
 static arrow::Status MakeExpressionCodegenVisitor(
     std::shared_ptr<gandiva::Node> func,
-    std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>*
-        input_list,
+    std::vector<std::pair<std::pair<std::string, std::string>,
+                          gandiva::DataTypePtr>>* input_list,
     std::vector<std::vector<std::shared_ptr<arrow::Field>>> field_list_v,
     int hash_relation_id, int* func_count, bool is_local,
     std::vector<std::string>* prepared_list,

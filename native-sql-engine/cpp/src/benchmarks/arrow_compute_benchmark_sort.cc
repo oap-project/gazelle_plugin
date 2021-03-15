@@ -63,9 +63,10 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
     auto pool = arrow::default_memory_pool();
 
     ASSERT_NOT_OK(::parquet::arrow::FileReader::Make(
-        pool, ::parquet::ParquetFileReader::Open(file), properties, &parquet_reader));
-    ASSERT_NOT_OK(
-        parquet_reader->GetRecordBatchReader({0}, {0, 1, 2}, &record_batch_reader));
+        pool, ::parquet::ParquetFileReader::Open(file), properties,
+        &parquet_reader));
+    ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader({0}, {0, 1, 2},
+                                                       &record_batch_reader));
 
     ////////////////// expr prepration ////////////////
     field_list = record_batch_reader->schema()->fields();
@@ -80,10 +81,12 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
     std::shared_ptr<arrow::RecordBatch> record_batch;
 
     do {
-      TIME_MICRO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      TIME_MICRO_OR_THROW(elapse_read,
+                          record_batch_reader->ReadNext(&record_batch));
       if (record_batch) {
-        TIME_MICRO_OR_THROW(elapse_eval,
-                            sort_expr->evaluate(record_batch, &dummy_result_batches));
+        TIME_MICRO_OR_THROW(
+            elapse_eval,
+            sort_expr->evaluate(record_batch, &dummy_result_batches));
         num_batches += 1;
       }
     } while (record_batch);
@@ -93,7 +96,8 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
 
     uint64_t num_output_batches = 0;
     while (sort_result_iterator->HasNext()) {
-      TIME_MICRO_OR_THROW(elapse_shuffle, sort_result_iterator->Next(&result_batch));
+      TIME_MICRO_OR_THROW(elapse_shuffle,
+                          sort_result_iterator->Next(&result_batch));
       num_output_batches++;
     }
     // arrow::PrettyPrint(*result_batch.get(), 2, &std::cout);
@@ -103,10 +107,11 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
               << " batches\nthen output " << num_output_batches
               << " batches\nCodeGen took " << TIME_TO_STRING(elapse_gen)
               << "\nBatch read took " << TIME_TO_STRING(elapse_read)
-              << "\nEvaluation took " << TIME_TO_STRING(elapse_eval) << "\nSort took "
-              << TIME_TO_STRING(elapse_sort) << "\nShuffle took "
-              << TIME_TO_STRING(elapse_shuffle)
-              << ".\n================================================" << std::endl;
+              << "\nEvaluation took " << TIME_TO_STRING(elapse_eval)
+              << "\nSort took " << TIME_TO_STRING(elapse_sort)
+              << "\nShuffle took " << TIME_TO_STRING(elapse_shuffle)
+              << ".\n================================================"
+              << std::endl;
   }
 
  protected:
@@ -143,9 +148,9 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmark) {
   for (auto field : field_list) {
     gandiva_field_list.push_back(TreeExprBuilder::MakeField(field));
   }
-  auto n_sort_to_indices =
-      TreeExprBuilder::MakeFunction("sortArraysToIndicesNullsFirstAsc",
-                                    {gandiva_field_list[primary_key_index]}, uint64());
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndicesNullsFirstAsc",
+      {gandiva_field_list[primary_key_index]}, uint64());
   std::shared_ptr<arrow::Schema> schema;
   schema = arrow::schema(field_list);
   std::cout << schema->ToString() << std::endl;
@@ -154,8 +159,9 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmark) {
   sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort_to_indices, f_res);
 
   std::shared_ptr<CodeGenerator> sort_expr;
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(schema, {sortArrays_expr},
-                                                      ret_field_list, &sort_expr, true));
+  TIME_MICRO_OR_THROW(
+      elapse_gen, CreateCodeGenerator(schema, {sortArrays_expr}, ret_field_list,
+                                      &sort_expr, true));
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
@@ -176,9 +182,9 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkDesc) {
   for (auto field : field_list) {
     gandiva_field_list.push_back(TreeExprBuilder::MakeField(field));
   }
-  auto n_sort_to_indices =
-      TreeExprBuilder::MakeFunction("sortArraysToIndicesNullsFirstDesc",
-                                    {gandiva_field_list[primary_key_index]}, uint64());
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndicesNullsFirstDesc",
+      {gandiva_field_list[primary_key_index]}, uint64());
   std::shared_ptr<arrow::Schema> schema;
   schema = arrow::schema(field_list);
   std::cout << schema->ToString() << std::endl;
@@ -187,8 +193,9 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkDesc) {
   sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort_to_indices, f_res);
 
   std::shared_ptr<CodeGenerator> sort_expr;
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(schema, {sortArrays_expr},
-                                                      ret_field_list, &sort_expr, true));
+  TIME_MICRO_OR_THROW(
+      elapse_gen, CreateCodeGenerator(schema, {sortArrays_expr}, ret_field_list,
+                                      &sort_expr, true));
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
@@ -209,18 +216,19 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkWOPayLoad) {
   for (auto field : field_list) {
     gandiva_field_list.push_back(TreeExprBuilder::MakeField(field));
   }
-  auto n_sort_to_indices =
-      TreeExprBuilder::MakeFunction("sortArraysToIndicesNullsFirstAsc",
-                                    {gandiva_field_list[primary_key_index]}, uint64());
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndicesNullsFirstAsc",
+      {gandiva_field_list[primary_key_index]}, uint64());
   std::shared_ptr<arrow::Schema> schema;
   schema = arrow::schema({field_list[primary_key_index]});
   ::gandiva::ExpressionPtr sortArrays_expr;
   sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort_to_indices, f_res);
 
   std::shared_ptr<CodeGenerator> sort_expr;
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(schema, {sortArrays_expr},
-                                                      {ret_field_list[primary_key_index]},
-                                                      &sort_expr, true));
+  TIME_MICRO_OR_THROW(elapse_gen,
+                      CreateCodeGenerator(schema, {sortArrays_expr},
+                                          {ret_field_list[primary_key_index]},
+                                          &sort_expr, true));
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);

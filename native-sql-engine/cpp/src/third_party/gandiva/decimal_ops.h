@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <string>
+
 #include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {
@@ -28,28 +29,32 @@ namespace decimalops {
 /// Return the sum of 'x' and 'y'.
 /// out_precision and out_scale are passed along for efficiency, they must match
 /// the rules in DecimalTypeSql::GetResultType.
-arrow::BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
+arrow::BasicDecimal128 Add(const BasicDecimalScalar128& x,
+                           const BasicDecimalScalar128& y,
                            int32_t out_precision, int32_t out_scale);
 
 /// Subtract 'y' from 'x', and return the result.
 arrow::BasicDecimal128 Subtract(const BasicDecimalScalar128& x,
-                                const BasicDecimalScalar128& y, int32_t out_precision,
-                                int32_t out_scale);
+                                const BasicDecimalScalar128& y,
+                                int32_t out_precision, int32_t out_scale);
 
 /// Multiply 'x' from 'y', and return the result.
 arrow::BasicDecimal128 Multiply(const BasicDecimalScalar128& x,
-                                const BasicDecimalScalar128& y, int32_t out_precision,
-                                int32_t out_scale, bool* overflow);
+                                const BasicDecimalScalar128& y,
+                                int32_t out_precision, int32_t out_scale,
+                                bool* overflow);
 
 /// Divide 'x' by 'y', and return the result.
 arrow::BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
-                              const BasicDecimalScalar128& y, int32_t out_precision,
-                              int32_t out_scale, bool* overflow);
+                              const BasicDecimalScalar128& y,
+                              int32_t out_precision, int32_t out_scale,
+                              bool* overflow);
 
 /// Divide 'x' by 'y', and return the remainder.
 arrow::BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
-                           const BasicDecimalScalar128& y, int32_t out_precision,
-                           int32_t out_scale, bool* overflow);
+                           const BasicDecimalScalar128& y,
+                           int32_t out_precision, int32_t out_scale,
+                           bool* overflow);
 
 /// Compare two decimals. Returns :
 ///  0 if x == y
@@ -58,13 +63,15 @@ arrow::BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
 int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y);
 
 /// Convert to decimal from double.
-BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow);
+BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale,
+                           bool* overflow);
 
 /// Convert from decimal to double.
 double ToDouble(const BasicDecimalScalar128& in, bool* overflow);
 
 /// Convert to decimal from gdv_int64.
-BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* overflow);
+BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale,
+                          bool* overflow);
 
 /// Convert from decimal to gdv_int64
 int64_t ToInt64(const BasicDecimalScalar128& in, bool* overflow);
@@ -75,11 +82,13 @@ BasicDecimal128 Convert(const BasicDecimalScalar128& x, int32_t out_precision,
 
 /// round decimal.
 BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_precision,
-                      int32_t out_scale, int32_t rounding_scale, bool* overflow);
+                      int32_t out_scale, int32_t rounding_scale,
+                      bool* overflow);
 
 /// truncate decimal.
 BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_precision,
-                         int32_t out_scale, int32_t rounding_scale, bool* overflow);
+                         int32_t out_scale, int32_t rounding_scale,
+                         bool* overflow);
 
 /// ceil decimal
 BasicDecimal128 Ceil(const BasicDecimalScalar128& x, bool* overflow);

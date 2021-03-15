@@ -38,9 +38,16 @@ class ExprVisitor;
 class BuilderVisitor;
 class ExprVisitorImpl;
 
-using ExprVisitorMap = std::unordered_map<std::string, std::shared_ptr<ExprVisitor>>;
+using ExprVisitorMap =
+    std::unordered_map<std::string, std::shared_ptr<ExprVisitor>>;
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
-enum class ArrowComputeResultType { Array, Batch, BatchList, BatchIterator, None };
+enum class ArrowComputeResultType {
+  Array,
+  Batch,
+  BatchList,
+  BatchIterator,
+  None
+};
 enum class BuilderVisitorNodeType { FunctionNode, FieldNode };
 
 class BuilderVisitor : public VisitorBase {
@@ -102,16 +109,16 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
                             std::shared_ptr<ExprVisitor> dependency,
                             std::shared_ptr<gandiva::Node> finish_func,
                             std::shared_ptr<ExprVisitor>* out);
-  static arrow::Status Make(arrow::MemoryPool* memory_pool,
-                            const std::shared_ptr<gandiva::FunctionNode>& node,
-                            std::shared_ptr<arrow::Schema> schema_ptr,
-                            std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-                            std::shared_ptr<ExprVisitor>* out);
-  static arrow::Status MakeWindow(arrow::MemoryPool* memory_pool,
-                                  std::shared_ptr<arrow::Schema> schema_ptr,
-                                  std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-                                  const gandiva::FunctionNode& node,
-                                  std::shared_ptr<ExprVisitor>* out);
+  static arrow::Status Make(
+      arrow::MemoryPool* memory_pool,
+      const std::shared_ptr<gandiva::FunctionNode>& node,
+      std::shared_ptr<arrow::Schema> schema_ptr,
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+      std::shared_ptr<ExprVisitor>* out);
+  static arrow::Status MakeWindow(
+      arrow::MemoryPool* memory_pool, std::shared_ptr<arrow::Schema> schema_ptr,
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+      const gandiva::FunctionNode& node, std::shared_ptr<ExprVisitor>* out);
 
   ExprVisitor(arrow::compute::ExecContext ctx,
               std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name,
@@ -130,14 +137,16 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
               << std::endl;
 #endif
   }
-  arrow::Status MakeExprVisitorImpl(const std::string& func_name, ExprVisitor* p);
   arrow::Status MakeExprVisitorImpl(const std::string& func_name,
-                                    std::shared_ptr<gandiva::FunctionNode> func_node,
-                                    std::vector<std::shared_ptr<arrow::Field>> field_list,
-                                    std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                                     ExprVisitor* p);
   arrow::Status MakeExprVisitorImpl(
-      const std::string& func_name, std::shared_ptr<gandiva::FunctionNode> func_node,
+      const std::string& func_name,
+      std::shared_ptr<gandiva::FunctionNode> func_node,
+      std::vector<std::shared_ptr<arrow::Field>> field_list,
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p);
+  arrow::Status MakeExprVisitorImpl(
+      const std::string& func_name,
+      std::shared_ptr<gandiva::FunctionNode> func_node,
       std::vector<std::shared_ptr<arrow::Field>> left_field_list,
       std::vector<std::shared_ptr<arrow::Field>> right_field_list,
       std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p);
@@ -147,8 +156,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
       std::shared_ptr<gandiva::FunctionNode> partition_spec,
       std::shared_ptr<gandiva::FunctionNode> order_spec,
       std::shared_ptr<gandiva::FunctionNode> frame_spec,
-      std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-      ExprVisitor* p);
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p);
   arrow::Status AppendAction(const std::string& func_name,
                              std::vector<std::string> param_name);
   arrow::Status Init();
@@ -159,7 +167,8 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::string GetSignature() { return signature_; }
   arrow::Status SetMember(const std::shared_ptr<arrow::RecordBatch>& ms);
   arrow::Status SetDependency(
-      const std::shared_ptr<ResultIterator<arrow::RecordBatch>>& dependency_iter,
+      const std::shared_ptr<ResultIterator<arrow::RecordBatch>>&
+          dependency_iter,
       int index);
   arrow::Status GetResultFromDependency();
   arrow::Status Reset();
@@ -171,12 +180,14 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::string GetName() { return func_name_; }
 
   ArrowComputeResultType GetResultType();
-  arrow::Status GetResult(std::shared_ptr<arrow::Array>* out,
-                          std::vector<std::shared_ptr<arrow::Field>>* out_fields);
-  arrow::Status GetResult(ArrayList* out,
-                          std::vector<std::shared_ptr<arrow::Field>>* out_fields);
-  arrow::Status GetResult(std::vector<ArrayList>* out, std::vector<int>* out_sizes,
-                          std::vector<std::shared_ptr<arrow::Field>>* out_fields);
+  arrow::Status GetResult(
+      std::shared_ptr<arrow::Array>* out,
+      std::vector<std::shared_ptr<arrow::Field>>* out_fields);
+  arrow::Status GetResult(
+      ArrayList* out, std::vector<std::shared_ptr<arrow::Field>>* out_fields);
+  arrow::Status GetResult(
+      std::vector<ArrayList>* out, std::vector<int>* out_sizes,
+      std::vector<std::shared_ptr<arrow::Field>>* out_fields);
 
   void PrintMetrics() {
     if (dependency_) {
@@ -209,8 +220,8 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::vector<int> in_batch_size_array_;
   ArrayList in_batch_;
   std::shared_ptr<arrow::Array> in_array_;
-  // group_indices is used to tell item in array_list_ and batch_list_ belong to which
-  // group
+  // group_indices is used to tell item in array_list_ and batch_list_ belong to
+  // which group
   std::vector<int> group_indices_;
 
   // Output data types.
@@ -234,31 +245,31 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   // metrics, in microseconds
   uint64_t elapse_time_ = 0;
 
-  arrow::Status GetResult(std::shared_ptr<arrow::Array>* out,
-                          std::vector<std::shared_ptr<arrow::Field>>* out_fields,
-                          std::vector<int>* group_indices);
-  arrow::Status GetResult(ArrayList* out,
-                          std::vector<std::shared_ptr<arrow::Field>>* out_fields,
-                          std::vector<int>* group_indices);
-  arrow::Status GetResult(std::vector<ArrayList>* out, std::vector<int>* out_sizes,
-                          std::vector<std::shared_ptr<arrow::Field>>* out_fields,
-                          std::vector<int>* group_indices);
+  arrow::Status GetResult(
+      std::shared_ptr<arrow::Array>* out,
+      std::vector<std::shared_ptr<arrow::Field>>* out_fields,
+      std::vector<int>* group_indices);
+  arrow::Status GetResult(
+      ArrayList* out, std::vector<std::shared_ptr<arrow::Field>>* out_fields,
+      std::vector<int>* group_indices);
+  arrow::Status GetResult(
+      std::vector<ArrayList>* out, std::vector<int>* out_sizes,
+      std::vector<std::shared_ptr<arrow::Field>>* out_fields,
+      std::vector<int>* group_indices);
 };
 
-arrow::Status MakeExprVisitor(arrow::MemoryPool* memory_pool,
-                              std::shared_ptr<arrow::Schema> schema_ptr,
-                              std::shared_ptr<gandiva::Expression> expr,
-                              std::vector<std::shared_ptr<arrow::Field>> ret_fields_,
-                              ExprVisitorMap* expr_visitor_cache,
-                              std::shared_ptr<ExprVisitor>* out);
+arrow::Status MakeExprVisitor(
+    arrow::MemoryPool* memory_pool, std::shared_ptr<arrow::Schema> schema_ptr,
+    std::shared_ptr<gandiva::Expression> expr,
+    std::vector<std::shared_ptr<arrow::Field>> ret_fields_,
+    ExprVisitorMap* expr_visitor_cache, std::shared_ptr<ExprVisitor>* out);
 
-arrow::Status MakeExprVisitor(arrow::MemoryPool* memory_pool,
-                              std::shared_ptr<arrow::Schema> schema_ptr,
-                              std::shared_ptr<gandiva::Expression> expr,
-                              std::vector<std::shared_ptr<arrow::Field>> ret_fields_,
-                              std::shared_ptr<gandiva::Expression> finish_expr,
-                              ExprVisitorMap* expr_visitor_cache,
-                              std::shared_ptr<ExprVisitor>* out);
+arrow::Status MakeExprVisitor(
+    arrow::MemoryPool* memory_pool, std::shared_ptr<arrow::Schema> schema_ptr,
+    std::shared_ptr<gandiva::Expression> expr,
+    std::vector<std::shared_ptr<arrow::Field>> ret_fields_,
+    std::shared_ptr<gandiva::Expression> finish_expr,
+    ExprVisitorMap* expr_visitor_cache, std::shared_ptr<ExprVisitor>* out);
 
 }  // namespace arrowcompute
 }  // namespace codegen

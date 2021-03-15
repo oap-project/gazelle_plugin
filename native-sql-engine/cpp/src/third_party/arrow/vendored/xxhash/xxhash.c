@@ -36,36 +36,41 @@
  *  Tuning parameters
  ***************************************/
 /*!XXH_FORCE_MEMORY_ACCESS :
- * By default, access to unaligned memory is controlled by `memcpy()`, which is safe and
- * portable. Unfortunately, on some target/compiler combinations, the generated assembly
- * is sub-optimal. The below switch allow to select different access method for improved
- * performance. Method 0 (default) : use `memcpy()`. Safe and portable. Method 1 :
- * `__packed` statement. It depends on compiler extension (ie, not portable). This method
- * is safe if your compiler supports it, and *generally* as fast or faster than `memcpy`.
- * Method 2 : direct access. This method doesn't depend on compiler but violate C
- * standard. It can generate buggy code on targets which do not support unaligned memory
- * accesses. But in some circumstances, it's the only known way to get the most
- * performance (ie GCC + ARMv6) See http://stackoverflow.com/a/32095106/646947 for
- * details. Prefer these methods in priority order (0 > 1 > 2)
+ * By default, access to unaligned memory is controlled by `memcpy()`, which is
+ * safe and portable. Unfortunately, on some target/compiler combinations, the
+ * generated assembly is sub-optimal. The below switch allow to select different
+ * access method for improved performance. Method 0 (default) : use `memcpy()`.
+ * Safe and portable. Method 1 :
+ * `__packed` statement. It depends on compiler extension (ie, not portable).
+ * This method is safe if your compiler supports it, and *generally* as fast or
+ * faster than `memcpy`. Method 2 : direct access. This method doesn't depend on
+ * compiler but violate C standard. It can generate buggy code on targets which
+ * do not support unaligned memory accesses. But in some circumstances, it's the
+ * only known way to get the most performance (ie GCC + ARMv6) See
+ * http://stackoverflow.com/a/32095106/646947 for details. Prefer these methods
+ * in priority order (0 > 1 > 2)
  */
-#ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command line for \
-                                   example */
-#if defined(__GNUC__) &&                                                                \
-    (defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || \
-     defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__))
+#ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command line \
+                                   for example */
+#if defined(__GNUC__) &&                                     \
+    (defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) ||  \
+     defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || \
+     defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__))
 #define XXH_FORCE_MEMORY_ACCESS 2
-#elif (defined(__INTEL_COMPILER) && !defined(_WIN32)) ||                                 \
-    (defined(__GNUC__) &&                                                                \
-     (defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || \
-      defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7S__)))
+#elif (defined(__INTEL_COMPILER) && !defined(_WIN32)) ||      \
+    (defined(__GNUC__) &&                                     \
+     (defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) ||  \
+      defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__) || \
+      defined(__ARM_ARCH_7S__)))
 #define XXH_FORCE_MEMORY_ACCESS 1
 #endif
 #endif
 
 /*!XXH_ACCEPT_NULL_INPUT_POINTER :
- * If input pointer is NULL, xxHash default behavior is to dereference it, triggering a
- * segfault. When this macro is enabled, xxHash actively checks input for null pointer. It
- * it is, result for null input pointers is the same as a null-length input.
+ * If input pointer is NULL, xxHash default behavior is to dereference it,
+ * triggering a segfault. When this macro is enabled, xxHash actively checks
+ * input for null pointer. It it is, result for null input pointers is the same
+ * as a null-length input.
  */
 #ifndef XXH_ACCEPT_NULL_INPUT_POINTER /* can be defined externally */
 #define XXH_ACCEPT_NULL_INPUT_POINTER 0
@@ -79,7 +84,8 @@
  * or when alignment doesn't matter for performance.
  */
 #ifndef XXH_FORCE_ALIGN_CHECK /* can be defined externally */
-#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || defined(_M_X64)
+#if defined(__i386) || defined(_M_IX86) || defined(__x86_64__) || \
+    defined(_M_X64)
 #define XXH_FORCE_ALIGN_CHECK 0
 #else
 #define XXH_FORCE_ALIGN_CHECK 1
@@ -102,8 +108,8 @@
 /* *************************************
  *  Includes & Memory related functions
  ***************************************/
-/*! Modify the local functions below should you wish to use some other memory routines
- *   for malloc(), free() */
+/*! Modify the local functions below should you wish to use some other memory
+ * routines for malloc(), free() */
 #include <stdlib.h>
 static void* XXH_malloc(size_t s) { return malloc(s); }
 static void XXH_free(void* p) { free(p); }
@@ -121,8 +127,9 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) {
 /* *************************************
  *  Compiler Specific Options
  ***************************************/
-#ifdef _MSC_VER                 /* Visual Studio */
-#pragma warning(disable : 4127) /* disable: C4127: conditional expression is constant */
+#ifdef _MSC_VER /* Visual Studio */
+#pragma warning( \
+    disable : 4127) /* disable: C4127: conditional expression is constant */
 #define XXH_FORCE_INLINE static __forceinline
 #define XXH_NO_INLINE static __declspec(noinline)
 #else
@@ -186,14 +193,14 @@ typedef unsigned int U32;
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 2))
 
-/* Force direct memory access. Only works on CPU which support unaligned memory access in
- * hardware */
+/* Force direct memory access. Only works on CPU which support unaligned memory
+ * access in hardware */
 static U32 XXH_read32(const void* memPtr) { return *(const U32*)memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 1))
 
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for
- * some compilers */
+/* __pack instructions are safer, but compiler specific, hence potentially
+ * problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union {
   U32 u32;
@@ -216,8 +223,8 @@ static U32 XXH_read32(const void* memPtr) {
 /* ===   Endianess   === */
 typedef enum { XXH_bigEndian = 0, XXH_littleEndian = 1 } XXH_endianess;
 
-/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command
- * line */
+/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler
+ * command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
 static int XXH_isLittleEndian(void) {
   const union {
@@ -242,7 +249,8 @@ static int XXH_isLittleEndian(void) {
     __has_builtin(__builtin_rotateleft64)
 #define XXH_rotl32 __builtin_rotateleft32
 #define XXH_rotl64 __builtin_rotateleft64
-/* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */
+/* Note : although _rotl exists for minGW (GCC under windows), performance seems
+ * poor */
 #elif defined(_MSC_VER)
 #define XXH_rotl32(x, r) _rotl(x, r)
 #define XXH_rotl64(x, r) _rotl64(x, r)
@@ -257,8 +265,8 @@ static int XXH_isLittleEndian(void) {
 #define XXH_swap32 __builtin_bswap32
 #else
 static U32 XXH_swap32(U32 x) {
-  return ((x << 24) & 0xff000000) | ((x << 8) & 0x00ff0000) | ((x >> 8) & 0x0000ff00) |
-         ((x >> 24) & 0x000000ff);
+  return ((x << 24) & 0xff000000) | ((x << 8) & 0x00ff0000) |
+         ((x >> 8) & 0x0000ff00) | ((x >> 24) & 0x000000ff);
 }
 #endif
 
@@ -279,7 +287,8 @@ XXH_FORCE_INLINE U32 XXH_readLE32_align(const void* ptr, XXH_alignment align) {
   if (align == XXH_unaligned) {
     return XXH_readLE32(ptr);
   } else {
-    return XXH_CPU_LITTLE_ENDIAN ? *(const U32*)ptr : XXH_swap32(*(const U32*)ptr);
+    return XXH_CPU_LITTLE_ENDIAN ? *(const U32*)ptr
+                                 : XXH_swap32(*(const U32*)ptr);
   }
 }
 
@@ -291,17 +300,23 @@ XXH_PUBLIC_API unsigned XXH_versionNumber(void) { return XXH_VERSION_NUMBER; }
 /* *******************************************************************
  *  32-bit hash functions
  *********************************************************************/
-static const U32 PRIME32_1 = 0x9E3779B1U; /* 0b10011110001101110111100110110001 */
-static const U32 PRIME32_2 = 0x85EBCA77U; /* 0b10000101111010111100101001110111 */
-static const U32 PRIME32_3 = 0xC2B2AE3DU; /* 0b11000010101100101010111000111101 */
-static const U32 PRIME32_4 = 0x27D4EB2FU; /* 0b00100111110101001110101100101111 */
-static const U32 PRIME32_5 = 0x165667B1U; /* 0b00010110010101100110011110110001 */
+static const U32 PRIME32_1 =
+    0x9E3779B1U; /* 0b10011110001101110111100110110001 */
+static const U32 PRIME32_2 =
+    0x85EBCA77U; /* 0b10000101111010111100101001110111 */
+static const U32 PRIME32_3 =
+    0xC2B2AE3DU; /* 0b11000010101100101010111000111101 */
+static const U32 PRIME32_4 =
+    0x27D4EB2FU; /* 0b00100111110101001110101100101111 */
+static const U32 PRIME32_5 =
+    0x165667B1U; /* 0b00010110010101100110011110110001 */
 
 static U32 XXH32_round(U32 acc, U32 input) {
   acc += input * PRIME32_2;
   acc = XXH_rotl32(acc, 13);
   acc *= PRIME32_1;
-#if defined(__GNUC__) && defined(__SSE4_1__) && !defined(XXH_ENABLE_AUTOVECTORIZE)
+#if defined(__GNUC__) && defined(__SSE4_1__) && \
+    !defined(XXH_ENABLE_AUTOVECTORIZE)
   /* UGLY HACK:
    * This inline assembly hack forces acc into a normal register. This is the
    * only thing that prevents GCC and Clang from autovectorizing the XXH32 loop
@@ -311,10 +326,11 @@ static U32 XXH32_round(U32 acc, U32 input) {
    * The reason we want to avoid vectorization is because despite working on
    * 4 integers at a time, there are multiple factors slowing XXH32 down on
    * SSE4:
-   * - There's a ridiculous amount of lag from pmulld (10 cycles of latency on newer
-   * chips!) making it slightly slower to multiply four integers at once compared to four
-   *   integers independently. Even when pmulld was fastest, Sandy/Ivy Bridge, it is
-   *   still not worth it to go into SSE just to multiply unless doing a long operation.
+   * - There's a ridiculous amount of lag from pmulld (10 cycles of latency on
+   * newer chips!) making it slightly slower to multiply four integers at once
+   * compared to four integers independently. Even when pmulld was fastest,
+   * Sandy/Ivy Bridge, it is still not worth it to go into SSE just to multiply
+   * unless doing a long operation.
    *
    * - Four instructions are required to rotate,
    *      movqda tmp,  v // not required with VEX encoding
@@ -325,15 +341,15 @@ static U32 XXH32_round(U32 acc, U32 input) {
    *      roll   v, 13    // reliably fast across the board
    *      shldl  v, v, 13 // Sandy Bridge and later prefer this for some reason
    *
-   * - Instruction level parallelism is actually more beneficial here because the
-   *   SIMD actually serializes this operation: While v1 is rotating, v2 can load data,
-   *   while v3 can multiply. SSE forces them to operate together.
+   * - Instruction level parallelism is actually more beneficial here because
+   * the SIMD actually serializes this operation: While v1 is rotating, v2 can
+   * load data, while v3 can multiply. SSE forces them to operate together.
    *
    * How this hack works:
-   * __asm__(""       // Declare an assembly block but don't declare any instructions
-   *          :       // However, as an Input/Output Operand,
-   *          "+r"    // constrain a read/write operand (+) as a general purpose register
-   * (r). (acc)   // and set acc as the operand
+   * __asm__(""       // Declare an assembly block but don't declare any
+   * instructions :       // However, as an Input/Output Operand,
+   *          "+r"    // constrain a read/write operand (+) as a general purpose
+   * register (r). (acc)   // and set acc as the operand
    * );
    *
    * Because of the 'r', the compiler has promised that seed will be in a
@@ -360,7 +376,8 @@ static U32 XXH32_avalanche(U32 h32) {
 
 #define XXH_get32bits(p) XXH_readLE32_align(p, align)
 
-static U32 XXH32_finalize(U32 h32, const void* ptr, size_t len, XXH_alignment align) {
+static U32 XXH32_finalize(U32 h32, const void* ptr, size_t len,
+                          XXH_alignment align) {
   const BYTE* p = (const BYTE*)ptr;
 
 #define PROCESS1             \
@@ -451,7 +468,8 @@ XXH_FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed,
   const BYTE* bEnd = p + len;
   U32 h32;
 
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && \
+    (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
   if (p == NULL) {
     len = 0;
     bEnd = p = (const BYTE*)(size_t)16;
@@ -476,7 +494,8 @@ XXH_FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed,
       p += 4;
     } while (p < limit);
 
-    h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) + XXH_rotl32(v4, 18);
+    h32 = XXH_rotl32(v1, 1) + XXH_rotl32(v2, 7) + XXH_rotl32(v3, 12) +
+          XXH_rotl32(v4, 18);
   } else {
     h32 = seed + PRIME32_5;
   }
@@ -486,7 +505,8 @@ XXH_FORCE_INLINE U32 XXH32_endian_align(const void* input, size_t len, U32 seed,
   return XXH32_finalize(h32, p, len & 15, align);
 }
 
-XXH_PUBLIC_API unsigned int XXH32(const void* input, size_t len, unsigned int seed) {
+XXH_PUBLIC_API unsigned int XXH32(const void* input, size_t len,
+                                  unsigned int seed) {
 #if 0
     /* Simple version, good for code maintenance, but unfortunately slow for small inputs */
     XXH32_state_t state;
@@ -522,7 +542,8 @@ XXH_PUBLIC_API void XXH32_copyState(XXH32_state_t* dstState,
   memcpy(dstState, srcState, sizeof(*dstState));
 }
 
-XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int seed) {
+XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr,
+                                         unsigned int seed) {
   XXH32_state_t state; /* using a local state to memcpy() in order to avoid
                           strict-aliasing warnings */
   memset(&state, 0, sizeof(state));
@@ -535,10 +556,11 @@ XXH_PUBLIC_API XXH_errorcode XXH32_reset(XXH32_state_t* statePtr, unsigned int s
   return XXH_OK;
 }
 
-XXH_PUBLIC_API XXH_errorcode XXH32_update(XXH32_state_t* state, const void* input,
-                                          size_t len) {
+XXH_PUBLIC_API XXH_errorcode XXH32_update(XXH32_state_t* state,
+                                          const void* input, size_t len) {
   if (input == NULL)
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && \
+    (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
     return XXH_OK;
 #else
     return XXH_ERROR;
@@ -549,7 +571,8 @@ XXH_PUBLIC_API XXH_errorcode XXH32_update(XXH32_state_t* state, const void* inpu
     const BYTE* const bEnd = p + len;
 
     state->total_len_32 += (XXH32_hash_t)len;
-    state->large_len |= (XXH32_hash_t)((len >= 16) | (state->total_len_32 >= 16));
+    state->large_len |=
+        (XXH32_hash_t)((len >= 16) | (state->total_len_32 >= 16));
 
     if (state->memsize + len < 16) { /* fill in tmp buffer */
       XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, len);
@@ -558,7 +581,8 @@ XXH_PUBLIC_API XXH_errorcode XXH32_update(XXH32_state_t* state, const void* inpu
     }
 
     if (state->memsize) { /* some data left from previous update */
-      XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input, 16 - state->memsize);
+      XXH_memcpy((BYTE*)(state->mem32) + state->memsize, input,
+                 16 - state->memsize);
       {
         const U32* p32 = state->mem32;
         state->v1 = XXH32_round(state->v1, XXH_readLE32(p32));
@@ -624,19 +648,21 @@ XXH_PUBLIC_API unsigned int XXH32_digest(const XXH32_state_t* state) {
 /*======   Canonical representation   ======*/
 
 /*! Default XXH result types are basic unsigned 32 and 64 bits.
- *   The canonical representation follows human-readable write convention, aka big-endian
- * (large digits first). These functions allow transformation of hash result into and from
- * its canonical format. This way, hash values can be written into a file or buffer,
- * remaining comparable across different systems.
+ *   The canonical representation follows human-readable write convention, aka
+ * big-endian (large digits first). These functions allow transformation of hash
+ * result into and from its canonical format. This way, hash values can be
+ * written into a file or buffer, remaining comparable across different systems.
  */
 
-XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash) {
+XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst,
+                                            XXH32_hash_t hash) {
   XXH_STATIC_ASSERT(sizeof(XXH32_canonical_t) == sizeof(XXH32_hash_t));
   if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap32(hash);
   memcpy(dst, &hash, sizeof(*dst));
 }
 
-XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src) {
+XXH_PUBLIC_API XXH32_hash_t
+XXH32_hashFromCanonical(const XXH32_canonical_t* src) {
   return XXH_readBE32(src);
 }
 
@@ -656,7 +682,8 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #include <stdint.h>
 typedef uint64_t U64;
 #else
-/* if compiler doesn't support unsigned long long, replace by another 64-bit type */
+/* if compiler doesn't support unsigned long long, replace by another 64-bit
+ * type */
 typedef unsigned long long U64;
 #endif
 #endif
@@ -664,25 +691,27 @@ typedef unsigned long long U64;
 /*! XXH_REROLL_XXH64:
  * Whether to reroll the XXH64_finalize() loop.
  *
- * Just like XXH32, we can unroll the XXH64_finalize() loop. This can be a performance
- * gain on 64-bit hosts, as only one jump is required.
+ * Just like XXH32, we can unroll the XXH64_finalize() loop. This can be a
+ * performance gain on 64-bit hosts, as only one jump is required.
  *
  * However, on 32-bit hosts, because arithmetic needs to be done with two 32-bit
- * registers, and 64-bit arithmetic needs to be simulated, it isn't beneficial to unroll.
- * The code becomes ridiculously large (the largest function in the binary on i386!), and
- * rerolling it saves anywhere from 3kB to 20kB. It is also slightly faster because it
- * fits into cache better and is more likely to be inlined by the compiler.
+ * registers, and 64-bit arithmetic needs to be simulated, it isn't beneficial
+ * to unroll. The code becomes ridiculously large (the largest function in the
+ * binary on i386!), and rerolling it saves anywhere from 3kB to 20kB. It is
+ * also slightly faster because it fits into cache better and is more likely to
+ * be inlined by the compiler.
  *
  * If XXH_REROLL is defined, this is ignored and the loop is always rerolled. */
 #ifndef XXH_REROLL_XXH64
-#if (defined(__ILP32__) ||                                                             \
-     defined(_ILP32)) /* ILP32 is often defined on 32-bit GCC family */                \
-    ||                                                                                 \
-    !(defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64)        /* x86-64 */  \
-      || defined(_M_ARM64) || defined(__aarch64__) || defined(__arm64__) /* aarch64 */ \
-      || defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) ||           \
-      defined(__powerpc64__)                         /* ppc64 */                       \
-      || defined(__mips64__) || defined(__mips64))   /* mips64 */                      \
+#if (defined(__ILP32__) ||                                                     \
+     defined(_ILP32)) /* ILP32 is often defined on 32-bit GCC family */        \
+    ||                                                                         \
+    !(defined(__x86_64__) || defined(_M_X64) || defined(_M_AMD64) /* x86-64 */ \
+      || defined(_M_ARM64) || defined(__aarch64__) ||                          \
+      defined(__arm64__) /* aarch64 */                                         \
+      || defined(__PPC64__) || defined(__PPC64LE__) || defined(__ppc64__) ||   \
+      defined(__powerpc64__)                         /* ppc64 */               \
+      || defined(__mips64__) || defined(__mips64))   /* mips64 */              \
     || (!defined(SIZE_MAX) || SIZE_MAX < ULLONG_MAX) /* check limits */
 #define XXH_REROLL_XXH64 1
 #else
@@ -692,14 +721,14 @@ typedef unsigned long long U64;
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 2))
 
-/* Force direct memory access. Only works on CPU which support unaligned memory access in
- * hardware */
+/* Force direct memory access. Only works on CPU which support unaligned memory
+ * access in hardware */
 static U64 XXH_read64(const void* memPtr) { return *(const U64*)memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 1))
 
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for
- * some compilers */
+/* __pack instructions are safer, but compiler specific, hence potentially
+ * problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union {
   U32 u32;
@@ -727,10 +756,14 @@ static U64 XXH_read64(const void* memPtr) {
 #define XXH_swap64 __builtin_bswap64
 #else
 static U64 XXH_swap64(U64 x) {
-  return ((x << 56) & 0xff00000000000000ULL) | ((x << 40) & 0x00ff000000000000ULL) |
-         ((x << 24) & 0x0000ff0000000000ULL) | ((x << 8) & 0x000000ff00000000ULL) |
-         ((x >> 8) & 0x00000000ff000000ULL) | ((x >> 24) & 0x0000000000ff0000ULL) |
-         ((x >> 40) & 0x000000000000ff00ULL) | ((x >> 56) & 0x00000000000000ffULL);
+  return ((x << 56) & 0xff00000000000000ULL) |
+         ((x << 40) & 0x00ff000000000000ULL) |
+         ((x << 24) & 0x0000ff0000000000ULL) |
+         ((x << 8) & 0x000000ff00000000ULL) |
+         ((x >> 8) & 0x00000000ff000000ULL) |
+         ((x >> 24) & 0x0000000000ff0000ULL) |
+         ((x >> 40) & 0x000000000000ff00ULL) |
+         ((x >> 56) & 0x00000000000000ffULL);
 }
 #endif
 
@@ -746,7 +779,8 @@ XXH_FORCE_INLINE U64 XXH_readLE64_align(const void* ptr, XXH_alignment align) {
   if (align == XXH_unaligned)
     return XXH_readLE64(ptr);
   else
-    return XXH_CPU_LITTLE_ENDIAN ? *(const U64*)ptr : XXH_swap64(*(const U64*)ptr);
+    return XXH_CPU_LITTLE_ENDIAN ? *(const U64*)ptr
+                                 : XXH_swap64(*(const U64*)ptr);
 }
 
 /*======   xxh64   ======*/
@@ -792,7 +826,8 @@ static U64 XXH64_avalanche(U64 h64) {
 
 #define XXH_get64bits(p) XXH_readLE64_align(p, align)
 
-static U64 XXH64_finalize(U64 h64, const void* ptr, size_t len, XXH_alignment align) {
+static U64 XXH64_finalize(U64 h64, const void* ptr, size_t len,
+                          XXH_alignment align) {
   const BYTE* p = (const BYTE*)ptr;
 
 #define PROCESS1_64          \
@@ -954,7 +989,8 @@ XXH_FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed,
   const BYTE* bEnd = p + len;
   U64 h64;
 
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && \
+    (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
   if (p == NULL) {
     len = 0;
     bEnd = p = (const BYTE*)(size_t)32;
@@ -979,7 +1015,8 @@ XXH_FORCE_INLINE U64 XXH64_endian_align(const void* input, size_t len, U64 seed,
       p += 8;
     } while (p <= limit);
 
-    h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
+    h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) +
+          XXH_rotl64(v4, 18);
     h64 = XXH64_mergeRound(h64, v1);
     h64 = XXH64_mergeRound(h64, v2);
     h64 = XXH64_mergeRound(h64, v3);
@@ -1046,10 +1083,11 @@ XXH_PUBLIC_API XXH_errorcode XXH64_reset(XXH64_state_t* statePtr,
   return XXH_OK;
 }
 
-XXH_PUBLIC_API XXH_errorcode XXH64_update(XXH64_state_t* state, const void* input,
-                                          size_t len) {
+XXH_PUBLIC_API XXH_errorcode XXH64_update(XXH64_state_t* state,
+                                          const void* input, size_t len) {
   if (input == NULL)
-#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
+#if defined(XXH_ACCEPT_NULL_INPUT_POINTER) && \
+    (XXH_ACCEPT_NULL_INPUT_POINTER >= 1)
     return XXH_OK;
 #else
     return XXH_ERROR;
@@ -1068,7 +1106,8 @@ XXH_PUBLIC_API XXH_errorcode XXH64_update(XXH64_state_t* state, const void* inpu
     }
 
     if (state->memsize) { /* tmp buffer is full */
-      XXH_memcpy(((BYTE*)state->mem64) + state->memsize, input, 32 - state->memsize);
+      XXH_memcpy(((BYTE*)state->mem64) + state->memsize, input,
+                 32 - state->memsize);
       state->v1 = XXH64_round(state->v1, XXH_readLE64(state->mem64 + 0));
       state->v2 = XXH64_round(state->v2, XXH_readLE64(state->mem64 + 1));
       state->v3 = XXH64_round(state->v3, XXH_readLE64(state->mem64 + 2));
@@ -1119,7 +1158,8 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* state) {
     U64 const v3 = state->v3;
     U64 const v4 = state->v4;
 
-    h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) + XXH_rotl64(v4, 18);
+    h64 = XXH_rotl64(v1, 1) + XXH_rotl64(v2, 7) + XXH_rotl64(v3, 12) +
+          XXH_rotl64(v4, 18);
     h64 = XXH64_mergeRound(h64, v1);
     h64 = XXH64_mergeRound(h64, v2);
     h64 = XXH64_mergeRound(h64, v3);
@@ -1130,18 +1170,21 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_digest(const XXH64_state_t* state) {
 
   h64 += (U64)state->total_len;
 
-  return XXH64_finalize(h64, state->mem64, (size_t)state->total_len, XXH_aligned);
+  return XXH64_finalize(h64, state->mem64, (size_t)state->total_len,
+                        XXH_aligned);
 }
 
 /*====== Canonical representation   ======*/
 
-XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst, XXH64_hash_t hash) {
+XXH_PUBLIC_API void XXH64_canonicalFromHash(XXH64_canonical_t* dst,
+                                            XXH64_hash_t hash) {
   XXH_STATIC_ASSERT(sizeof(XXH64_canonical_t) == sizeof(XXH64_hash_t));
   if (XXH_CPU_LITTLE_ENDIAN) hash = XXH_swap64(hash);
   memcpy(dst, &hash, sizeof(*dst));
 }
 
-XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src) {
+XXH_PUBLIC_API XXH64_hash_t
+XXH64_hashFromCanonical(const XXH64_canonical_t* src) {
   return XXH_readBE64(src);
 }
 

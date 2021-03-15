@@ -25,9 +25,11 @@
 #include <arrow/type.h>
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
+
 #include <iostream>
 #include <memory>
 #include <sstream>
+
 #include "utils/macros.h"
 using namespace arrow;
 
@@ -54,9 +56,9 @@ using FunctionNode = gandiva::FunctionNode;
 
 #define ARROW_ASSIGN_OR_THROW_NAME(x, y) ARROW_CONCAT(x, y)
 
-#define ARROW_ASSIGN_OR_THROW(lhs, rexpr)                                              \
-  ARROW_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_THROW_NAME(_error_or_value, __COUNTER__), \
-                             lhs, rexpr);
+#define ARROW_ASSIGN_OR_THROW(lhs, rexpr) \
+  ARROW_ASSIGN_OR_THROW_IMPL(             \
+      ARROW_ASSIGN_OR_THROW_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
 
 template <typename T>
 Status Equals(const T& expected, const T& actual) {
@@ -72,9 +74,10 @@ Status Equals(const T& expected, const T& actual) {
   if (pp_expected.str() == pp_actual.str()) {
     return arrow::Status::OK();
   }
-  return Status::Invalid("Expected RecordBatch is ", pp_expected.str(), " with schema ",
-                         expected.schema()->ToString(), ", while actual is ",
-                         pp_actual.str(), " with schema ", actual.schema()->ToString());
+  return Status::Invalid("Expected RecordBatch is ", pp_expected.str(),
+                         " with schema ", expected.schema()->ToString(),
+                         ", while actual is ", pp_actual.str(), " with schema ",
+                         actual.schema()->ToString());
 }
 
 void MakeInputBatch(std::vector<std::string> input_data,
@@ -86,8 +89,8 @@ void MakeInputBatch(std::vector<std::string> input_data,
   int i = 0;
   for (auto data : input_data) {
     std::shared_ptr<Array> a0;
-    ASSERT_NOT_OK(arrow::ipc::internal::json::ArrayFromJSON(sch->field(i++)->type(),
-                                                            data.c_str(), &a0));
+    ASSERT_NOT_OK(arrow::ipc::internal::json::ArrayFromJSON(
+        sch->field(i++)->type(), data.c_str(), &a0));
     if (length == -1) {
       length = a0->length();
     }

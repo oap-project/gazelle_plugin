@@ -29,27 +29,31 @@
 #include "gandiva/decimal_xlarge.h"
 #include "gandiva/gdv_function_stubs.h"
 
-// Several operations (multiply, divide, mod, ..) require converting to 256-bit, and we
-// use the boost library for doing 256-bit operations. To avoid references to boost from
-// the precompiled-to-ir code (this causes issues with symbol resolution at runtime), we
-// use a wrapper exported from the CPP code. The wrapper functions are named gdv_xlarge_xx
+// Several operations (multiply, divide, mod, ..) require converting to 256-bit,
+// and we use the boost library for doing 256-bit operations. To avoid
+// references to boost from the precompiled-to-ir code (this causes issues with
+// symbol resolution at runtime), we use a wrapper exported from the CPP code.
+// The wrapper functions are named gdv_xlarge_xx
 
 namespace gandiva {
 namespace decimalops {
 
 using arrow::BasicDecimal128;
 
-static BasicDecimal128 CheckAndIncreaseScale(const BasicDecimal128& in, int32_t delta) {
+static BasicDecimal128 CheckAndIncreaseScale(const BasicDecimal128& in,
+                                             int32_t delta) {
   return (delta <= 0) ? in : in.IncreaseScaleBy(delta);
 }
 
-static BasicDecimal128 CheckAndReduceScale(const BasicDecimal128& in, int32_t delta) {
+static BasicDecimal128 CheckAndReduceScale(const BasicDecimal128& in,
+                                           int32_t delta) {
   return (delta <= 0) ? in : in.ReduceScaleBy(delta);
 }
 
 /// Adjust x and y to the same scale, and add them.
 static BasicDecimal128 AddFastPath(const BasicDecimalScalar128& x,
-                                   const BasicDecimalScalar128& y, int32_t out_scale) {
+                                   const BasicDecimalScalar128& y,
+                                   int32_t out_scale) {
   auto higher_scale = std::max(x.scale(), y.scale());
 
   auto x_scaled = CheckAndIncreaseScale(x.value(), higher_scale - x.scale());
@@ -59,7 +63,8 @@ static BasicDecimal128 AddFastPath(const BasicDecimalScalar128& x,
 
 /// Add x and y, caller has ensured there can be no overflow.
 static BasicDecimal128 AddNoOverflow(const BasicDecimalScalar128& x,
-                                     const BasicDecimalScalar128& y, int32_t out_scale) {
+                                     const BasicDecimalScalar128& y,
+                                     int32_t out_scale) {
   auto higher_scale = std::max(x.scale(), y.scale());
   auto sum = AddFastPath(x, y, out_scale);
   return CheckAndReduceScale(sum, higher_scale - out_scale);
@@ -79,8 +84,10 @@ static BasicDecimal128 AddLargePositive(const BasicDecimalScalar128& x,
 
   // Adjust fractional parts to higher scale.
   auto higher_scale = std::max(x.scale(), y.scale());
-  auto x_right_scaled = CheckAndIncreaseScale(x_right, higher_scale - x.scale());
-  auto y_right_scaled = CheckAndIncreaseScale(y_right, higher_scale - y.scale());
+  auto x_right_scaled =
+      CheckAndIncreaseScale(x_right, higher_scale - x.scale());
+  auto y_right_scaled =
+      CheckAndIncreaseScale(y_right, higher_scale - y.scale());
 
   BasicDecimal128 right;
   BasicDecimal128 carry_to_left;
@@ -98,7 +105,8 @@ static BasicDecimal128 AddLargePositive(const BasicDecimalScalar128& x,
   return (left * BasicDecimal128::GetScaleMultiplier(out_scale)) + right;
 }
 
-/// x_value and y_value cannot be 0, and one must be positive and the other negative.
+/// x_value and y_value cannot be 0, and one must be positive and the other
+/// negative.
 static BasicDecimal128 AddLargeNegative(const BasicDecimalScalar128& x,
                                         const BasicDecimalScalar128& y,
                                         int32_t out_scale) {
@@ -120,9 +128,9 @@ static BasicDecimal128 AddLargeNegative(const BasicDecimalScalar128& x,
   auto left = x_left + y_left;
   auto right = x_right + y_right;
 
-  // If the whole and fractional parts have different signs, then we need to make the
-  // fractional part have the same sign as the whole part. If either left or right is
-  // zero, then nothing needs to be done.
+  // If the whole and fractional parts have different signs, then we need to
+  // make the fractional part have the same sign as the whole part. If either
+  // left or right is zero, then nothing needs to be done.
   if (left < 0 && right > 0) {
     left += 1;
     right -= BasicDecimal128::GetScaleMultiplier(higher_scale);
@@ -135,7 +143,8 @@ static BasicDecimal128 AddLargeNegative(const BasicDecimalScalar128& x,
 }
 
 static BasicDecimal128 AddLarge(const BasicDecimalScalar128& x,
-                                const BasicDecimalScalar128& y, int32_t out_scale) {
+                                const BasicDecimalScalar128& y,
+                                int32_t out_scale) {
   if (x.value() >= 0 && y.value() >= 0) {
     // both positive or 0
     return AddLargePositive(x, y, out_scale);
@@ -150,9 +159,9 @@ static BasicDecimal128 AddLarge(const BasicDecimalScalar128& x,
   }
 }
 
-// Suppose we have a number that requires x bits to be represented and we scale it up by
-// 10^scale_by. Let's say now y bits are required to represent it. This function returns
-// the maximum possible y - x for a given 'scale_by'.
+// Suppose we have a number that requires x bits to be represented and we scale
+// it up by 10^scale_by. Let's say now y bits are required to represent it. This
+// function returns the maximum possible y - x for a given 'scale_by'.
 inline int32_t MaxBitsRequiredIncreaseAfterScaling(int32_t scale_by) {
   // We rely on the following formula:
   // bits_required(x * 10^y) <= bits_required(x) + floor(log2(10^y)) + 1
@@ -160,16 +169,18 @@ inline int32_t MaxBitsRequiredIncreaseAfterScaling(int32_t scale_by) {
   DCHECK_GE(scale_by, 0);
   DCHECK_LE(scale_by, 76);
   static const int32_t floor_log2_plus_one[] = {
-      0,   4,   7,   10,  14,  17,  20,  24,  27,  30,  34,  37,  40,  44,  47,  50,
-      54,  57,  60,  64,  67,  70,  74,  77,  80,  84,  87,  90,  94,  97,  100, 103,
-      107, 110, 113, 117, 120, 123, 127, 130, 133, 137, 140, 143, 147, 150, 153, 157,
-      160, 163, 167, 170, 173, 177, 180, 183, 187, 190, 193, 196, 200, 203, 206, 210,
-      213, 216, 220, 223, 226, 230, 233, 236, 240, 243, 246, 250, 253};
+      0,   4,   7,   10,  14,  17,  20,  24,  27,  30,  34,  37,  40,
+      44,  47,  50,  54,  57,  60,  64,  67,  70,  74,  77,  80,  84,
+      87,  90,  94,  97,  100, 103, 107, 110, 113, 117, 120, 123, 127,
+      130, 133, 137, 140, 143, 147, 150, 153, 157, 160, 163, 167, 170,
+      173, 177, 180, 183, 187, 190, 193, 196, 200, 203, 206, 210, 213,
+      216, 220, 223, 226, 230, 233, 236, 240, 243, 246, 250, 253};
   return floor_log2_plus_one[scale_by];
 }
 
-// If we have a number with 'num_lz' leading zeros, and we scale it up by 10^scale_by,
-// this function returns the minimum number of leading zeros the result can have.
+// If we have a number with 'num_lz' leading zeros, and we scale it up by
+// 10^scale_by, this function returns the minimum number of leading zeros the
+// result can have.
 inline int32_t MinLeadingZerosAfterScaling(int32_t num_lz, int32_t scale_by) {
   DCHECK_GE(scale_by, 0);
   DCHECK_LE(scale_by, 76);
@@ -177,7 +188,8 @@ inline int32_t MinLeadingZerosAfterScaling(int32_t num_lz, int32_t scale_by) {
   return result;
 }
 
-// Returns the maximum possible number of bits required to represent num * 10^scale_by.
+// Returns the maximum possible number of bits required to represent num *
+// 10^scale_by.
 inline int32_t MaxBitsRequiredAfterScaling(const BasicDecimalScalar128& num,
                                            int32_t scale_by) {
   auto value = num.value();
@@ -189,8 +201,8 @@ inline int32_t MaxBitsRequiredAfterScaling(const BasicDecimalScalar128& num,
   return num_occupied + MaxBitsRequiredIncreaseAfterScaling(scale_by);
 }
 
-// Returns the minimum number of leading zero x or y would have after one of them gets
-// scaled up to match the scale of the other one.
+// Returns the minimum number of leading zero x or y would have after one of
+// them gets scaled up to match the scale of the other one.
 inline int32_t MinLeadingZeros(const BasicDecimalScalar128& x,
                                const BasicDecimalScalar128& y) {
   auto x_value = x.value();
@@ -209,39 +221,42 @@ inline int32_t MinLeadingZeros(const BasicDecimalScalar128& x,
   return std::min(x_lz, y_lz);
 }
 
-BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
-                    int32_t out_precision, int32_t out_scale) {
+BasicDecimal128 Add(const BasicDecimalScalar128& x,
+                    const BasicDecimalScalar128& y, int32_t out_precision,
+                    int32_t out_scale) {
   if (out_precision < DecimalTypeUtil::kMaxPrecision) {
     // fast-path add
     return AddFastPath(x, y, out_scale);
   } else {
     int32_t min_lz = MinLeadingZeros(x, y);
     if (min_lz >= 3) {
-      // If both numbers have at least MIN_LZ leading zeros, we can add them directly
-      // without the risk of overflow.
-      // We want the result to have at least 2 leading zeros, which ensures that it fits
-      // into the maximum decimal because 2^126 - 1 < 10^38 - 1. If both x and y have at
-      // least 3 leading zeros, then we are guaranteed that the result will have at lest 2
-      // leading zeros.
+      // If both numbers have at least MIN_LZ leading zeros, we can add them
+      // directly without the risk of overflow. We want the result to have at
+      // least 2 leading zeros, which ensures that it fits into the maximum
+      // decimal because 2^126 - 1 < 10^38 - 1. If both x and y have at least 3
+      // leading zeros, then we are guaranteed that the result will have at lest
+      // 2 leading zeros.
       return AddNoOverflow(x, y, out_scale);
     } else {
-      // slower-version : add whole/fraction parts separately, and then, combine.
+      // slower-version : add whole/fraction parts separately, and then,
+      // combine.
       return AddLarge(x, y, out_scale);
     }
   }
 }
 
-BasicDecimal128 Subtract(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
-                         int32_t out_precision, int32_t out_scale) {
-  return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision, out_scale);
+BasicDecimal128 Subtract(const BasicDecimalScalar128& x,
+                         const BasicDecimalScalar128& y, int32_t out_precision,
+                         int32_t out_scale) {
+  return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision,
+             out_scale);
 }
 
-// Multiply when the out_precision is 38, and there is no trimming of the scale i.e
-// the intermediate value is the same as the final value.
-static BasicDecimal128 MultiplyMaxPrecisionNoScaleDown(const BasicDecimalScalar128& x,
-                                                       const BasicDecimalScalar128& y,
-                                                       int32_t out_scale,
-                                                       bool* overflow) {
+// Multiply when the out_precision is 38, and there is no trimming of the scale
+// i.e the intermediate value is the same as the final value.
+static BasicDecimal128 MultiplyMaxPrecisionNoScaleDown(
+    const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
+    int32_t out_scale, bool* overflow) {
   DCHECK_EQ(x.scale() + y.scale(), out_scale);
 
   BasicDecimal128 result;
@@ -260,10 +275,9 @@ static BasicDecimal128 MultiplyMaxPrecisionNoScaleDown(const BasicDecimalScalar1
 
 // Multiply when the out_precision is 38, and there is trimming of the scale i.e
 // the intermediate value could be larger than the final value.
-static BasicDecimal128 MultiplyMaxPrecisionAndScaleDown(const BasicDecimalScalar128& x,
-                                                        const BasicDecimalScalar128& y,
-                                                        int32_t out_scale,
-                                                        bool* overflow) {
+static BasicDecimal128 MultiplyMaxPrecisionAndScaleDown(
+    const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
+    int32_t out_scale, bool* overflow) {
   auto delta_scale = x.scale() + y.scale() - out_scale;
   DCHECK_GT(delta_scale, 0);
 
@@ -284,31 +298,33 @@ static BasicDecimal128 MultiplyMaxPrecisionAndScaleDown(const BasicDecimalScalar
     int64_t result_high;
     uint64_t result_low;
 
-    // This requires converting to 256-bit, and we use the boost library for that. To
-    // avoid references to boost from the precompiled-to-ir code (this causes issues
-    // with symbol resolution at runtime), we use a wrapper exported from the CPP code.
-    gdv_xlarge_multiply_and_scale_down(x.value().high_bits(), x.value().low_bits(),
-                                       y.value().high_bits(), y.value().low_bits(),
-                                       delta_scale, &result_high, &result_low, overflow);
+    // This requires converting to 256-bit, and we use the boost library for
+    // that. To avoid references to boost from the precompiled-to-ir code (this
+    // causes issues with symbol resolution at runtime), we use a wrapper
+    // exported from the CPP code.
+    gdv_xlarge_multiply_and_scale_down(
+        x.value().high_bits(), x.value().low_bits(), y.value().high_bits(),
+        y.value().low_bits(), delta_scale, &result_high, &result_low, overflow);
     result = BasicDecimal128(result_high, result_low);
   } else {
     if (ARROW_PREDICT_TRUE(delta_scale <= 38)) {
-      // The largest value that result can have here is (2^64 - 1) * (2^63 - 1), which is
-      // greater than BasicDecimal128::kMaxValue.
+      // The largest value that result can have here is (2^64 - 1) * (2^63 - 1),
+      // which is greater than BasicDecimal128::kMaxValue.
       result = x.value() * y.value();
       // Since delta_scale is greater than zero, result can now be at most
-      // ((2^64 - 1) * (2^63 - 1)) / 10, which is less than BasicDecimal128::kMaxValue, so
-      // there cannot be any overflow.
+      // ((2^64 - 1) * (2^63 - 1)) / 10, which is less than
+      // BasicDecimal128::kMaxValue, so there cannot be any overflow.
       result = result.ReduceScaleBy(delta_scale);
     } else {
-      // We are multiplying decimal(38, 38) by decimal(38, 38). The result should be a
-      // decimal(38, 37), so delta scale = 38 + 38 - 37 = 39. Since we are not in the
-      // 256 bit intermediate value case and we are scaling down by 39, then we are
-      // guaranteed that the result is 0 (even if we try to round). The largest possible
-      // intermediate result is 38 "9"s. If we scale down by 39, the leftmost 9 is now
-      // two digits to the right of the rightmost "visible" one. The reason why we have
-      // to handle this case separately is because a scale multiplier with a delta_scale
-      // 39 does not fit into 128 bit.
+      // We are multiplying decimal(38, 38) by decimal(38, 38). The result
+      // should be a decimal(38, 37), so delta scale = 38 + 38 - 37 = 39. Since
+      // we are not in the 256 bit intermediate value case and we are scaling
+      // down by 39, then we are guaranteed that the result is 0 (even if we try
+      // to round). The largest possible intermediate result is 38 "9"s. If we
+      // scale down by 39, the leftmost 9 is now two digits to the right of the
+      // rightmost "visible" one. The reason why we have to handle this case
+      // separately is because a scale multiplier with a delta_scale 39 does not
+      // fit into 128 bit.
       DCHECK_EQ(delta_scale, 39);
       result = 0;
     }
@@ -329,8 +345,9 @@ static BasicDecimal128 MultiplyMaxPrecision(const BasicDecimalScalar128& x,
   }
 }
 
-BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
-                         int32_t out_precision, int32_t out_scale, bool* overflow) {
+BasicDecimal128 Multiply(const BasicDecimalScalar128& x,
+                         const BasicDecimalScalar128& y, int32_t out_precision,
+                         int32_t out_scale, bool* overflow) {
   BasicDecimal128 result;
   *overflow = false;
   if (out_precision < DecimalTypeUtil::kMaxPrecision) {
@@ -344,7 +361,8 @@ BasicDecimal128 Multiply(const BasicDecimalScalar128& x, const BasicDecimalScala
   } else {
     result = MultiplyMaxPrecision(x, y, out_scale, overflow);
   }
-  DCHECK(*overflow || BasicDecimal128::Abs(result) <= BasicDecimal128::GetMaxValue());
+  DCHECK(*overflow ||
+         BasicDecimal128::Abs(result) <= BasicDecimal128::GetMaxValue());
   return result;
 }
 
@@ -362,7 +380,8 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
   DCHECK_GE(delta_scale, 0);
 
   BasicDecimal128 result;
-  auto num_bits_required_after_scaling = MaxBitsRequiredAfterScaling(x, delta_scale);
+  auto num_bits_required_after_scaling =
+      MaxBitsRequiredAfterScaling(x, delta_scale);
   if (num_bits_required_after_scaling <= 127) {
     // fast-path. The dividend fits in 128-bit after scaling too.
     *overflow = false;
@@ -374,7 +393,8 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
     DCHECK_EQ(status, arrow::DecimalStatus::kSuccess);
 
     // round-up
-    if (BasicDecimal128::Abs(2 * remainder) >= BasicDecimal128::Abs(y.value())) {
+    if (BasicDecimal128::Abs(2 * remainder) >=
+        BasicDecimal128::Abs(y.value())) {
       result += (x.value().Sign() ^ y.value().Sign()) + 1;
     }
   } else {
@@ -384,9 +404,10 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
       int64_t result_high;
       uint64_t result_low;
 
-      gdv_xlarge_scale_up_and_divide(x.value().high_bits(), x.value().low_bits(),
-                                     y.value().high_bits(), y.value().low_bits(),
-                                     delta_scale, &result_high, &result_low, overflow);
+      gdv_xlarge_scale_up_and_divide(
+          x.value().high_bits(), x.value().low_bits(), y.value().high_bits(),
+          y.value().low_bits(), delta_scale, &result_high, &result_low,
+          overflow);
       result = BasicDecimal128(result_high, result_low);
     }
   }
@@ -417,8 +438,8 @@ BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
     uint64_t result_low;
 
     gdv_xlarge_mod(x.value().high_bits(), x.value().low_bits(), x.scale(),
-                   y.value().high_bits(), y.value().low_bits(), y.scale(), &result_high,
-                   &result_low);
+                   y.value().high_bits(), y.value().low_bits(), y.scale(),
+                   &result_high, &result_low);
     result = BasicDecimal128(result_high, result_low);
   }
   DCHECK(BasicDecimal128::Abs(result) <= BasicDecimal128::Abs(x.value()) ||
@@ -436,7 +457,8 @@ int32_t CompareSameScale(const BasicDecimal128& x, const BasicDecimal128& y) {
   }
 }
 
-int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y) {
+int32_t Compare(const BasicDecimalScalar128& x,
+                const BasicDecimalScalar128& y) {
   int32_t delta_scale = x.scale() - y.scale();
 
   // fast-path : both are of the same scale.
@@ -445,12 +467,13 @@ int32_t Compare(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y) 
   }
 
   // Check if we'll need more than 256-bits after adjusting the scale.
-  bool need256 =
-      (delta_scale < 0 && x.precision() - delta_scale > DecimalTypeUtil::kMaxPrecision) ||
-      (y.precision() + delta_scale > DecimalTypeUtil::kMaxPrecision);
+  bool need256 = (delta_scale < 0 && x.precision() - delta_scale >
+                                         DecimalTypeUtil::kMaxPrecision) ||
+                 (y.precision() + delta_scale > DecimalTypeUtil::kMaxPrecision);
   if (need256) {
-    return gdv_xlarge_compare(x.value().high_bits(), x.value().low_bits(), x.scale(),
-                              y.value().high_bits(), y.value().low_bits(), y.scale());
+    return gdv_xlarge_compare(x.value().high_bits(), x.value().low_bits(),
+                              x.scale(), y.value().high_bits(),
+                              y.value().low_bits(), y.scale());
   } else {
     BasicDecimal128 x_scaled;
     BasicDecimal128 y_scaled;
@@ -479,17 +502,19 @@ static BasicDecimal128 GetMaxValue(int32_t precision) {
 }
 
 // Compute the double scale multipliers once.
-static std::array<double, DecimalTypeUtil::kMaxPrecision + 1> kDoubleScaleMultipliers =
-    ([]() -> std::array<double, DecimalTypeUtil::kMaxPrecision + 1> {
-      std::array<double, DecimalTypeUtil::kMaxPrecision + 1> values;
-      values[0] = 1.0;
-      for (int32_t idx = 1; idx <= DecimalTypeUtil::kMaxPrecision; idx++) {
-        values[idx] = values[idx - 1] * 10;
-      }
-      return values;
-    })();
+static std::array<double, DecimalTypeUtil::kMaxPrecision + 1>
+    kDoubleScaleMultipliers =
+        ([]() -> std::array<double, DecimalTypeUtil::kMaxPrecision + 1> {
+          std::array<double, DecimalTypeUtil::kMaxPrecision + 1> values;
+          values[0] = 1.0;
+          for (int32_t idx = 1; idx <= DecimalTypeUtil::kMaxPrecision; idx++) {
+            values[idx] = values[idx - 1] * 10;
+          }
+          return values;
+        })();
 
-BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* overflow) {
+BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale,
+                           bool* overflow) {
   // Multiply decimal with the scale
   auto unscaled = in * kDoubleScaleMultipliers[scale];
   DECIMAL_OVERFLOW_IF(std::isnan(unscaled), overflow);
@@ -501,8 +526,8 @@ BasicDecimal128 FromDouble(double in, int32_t precision, int32_t scale, bool* ov
   auto unscaled_abs = std::abs(unscaled);
 
   // overflow if > 2^127 - 1
-  DECIMAL_OVERFLOW_IF(unscaled_abs > std::ldexp(static_cast<double>(1), 127) - 1,
-                      overflow);
+  DECIMAL_OVERFLOW_IF(
+      unscaled_abs > std::ldexp(static_cast<double>(1), 127) - 1, overflow);
 
   uint64_t high_bits = static_cast<uint64_t>(std::ldexp(unscaled_abs, -64));
   uint64_t low_bits = static_cast<uint64_t>(
@@ -526,7 +551,8 @@ double ToDouble(const BasicDecimalScalar128& in, bool* overflow) {
   return (unscaled * sign) / kDoubleScaleMultipliers[in.scale()];
 }
 
-BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* overflow) {
+BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale,
+                          bool* overflow) {
   // check if multiplying by scale will cause an overflow.
   DECIMAL_OVERFLOW_IF(std::abs(in) > GetMaxValue(precision - scale), overflow);
   return in * BasicDecimal128::GetScaleMultiplier(scale);
@@ -534,30 +560,32 @@ BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* ov
 
 // Helper function to modify the scale and/or precision of a decimal value.
 static BasicDecimal128 ModifyScaleAndPrecision(const BasicDecimalScalar128& x,
-                                               int32_t out_precision, int32_t out_scale,
+                                               int32_t out_precision,
+                                               int32_t out_scale,
                                                bool* overflow) {
   int32_t delta_scale = out_scale - x.scale();
   if (delta_scale >= 0) {
     // check if multiplying by delta_scale will cause an overflow.
-    DECIMAL_OVERFLOW_IF(
-        BasicDecimal128::Abs(x.value()) > GetMaxValue(out_precision - delta_scale),
-        overflow);
+    DECIMAL_OVERFLOW_IF(BasicDecimal128::Abs(x.value()) >
+                            GetMaxValue(out_precision - delta_scale),
+                        overflow);
     return x.value().IncreaseScaleBy(delta_scale);
   } else {
     // Do not do any rounding, that is handled by the caller.
     auto result = x.value().ReduceScaleBy(-delta_scale, false);
-    DECIMAL_OVERFLOW_IF(BasicDecimal128::Abs(result) > GetMaxValue(out_precision),
-                        overflow);
+    DECIMAL_OVERFLOW_IF(
+        BasicDecimal128::Abs(result) > GetMaxValue(out_precision), overflow);
     return result;
   }
 }
 
 enum RoundType {
-  kRoundTypeCeil,         // +1 if +ve and trailing value is > 0, else no rounding.
-  kRoundTypeFloor,        // -1 if -ve and trailing value is < 0, else no rounding.
-  kRoundTypeTrunc,        // no rounding, truncate the trailing digits.
+  kRoundTypeCeil,   // +1 if +ve and trailing value is > 0, else no rounding.
+  kRoundTypeFloor,  // -1 if -ve and trailing value is < 0, else no rounding.
+  kRoundTypeTrunc,  // no rounding, truncate the trailing digits.
   kRoundTypeHalfRoundUp,  // if +ve and trailing value is >= half of base, +1.
-                          // else if -ve and trailing value is >= half of base, -1.
+                          // else if -ve and trailing value is >= half of base,
+                          // -1.
 };
 
 // Compute the rounding delta for the givven rounding type.
@@ -613,8 +641,10 @@ static int32_t ComputeRoundingDelta(const BasicDecimal128& x, int32_t x_scale,
 
 // Modify the scale and round.
 static BasicDecimal128 RoundWithPositiveScale(const BasicDecimalScalar128& x,
-                                              int32_t out_precision, int32_t out_scale,
-                                              RoundType round_type, bool* overflow) {
+                                              int32_t out_precision,
+                                              int32_t out_scale,
+                                              RoundType round_type,
+                                              bool* overflow) {
   DCHECK_GE(out_scale, 0);
 
   auto scaled = ModifyScaleAndPrecision(x, out_precision, out_scale, overflow);
@@ -622,45 +652,52 @@ static BasicDecimal128 RoundWithPositiveScale(const BasicDecimalScalar128& x,
     return 0;
   }
 
-  auto delta = ComputeRoundingDelta(x.value(), x.scale(), out_scale, round_type);
+  auto delta =
+      ComputeRoundingDelta(x.value(), x.scale(), out_scale, round_type);
   if (delta == 0) {
     return scaled;
   }
 
-  // If there is a rounding delta, the output scale must be less than the input scale.
-  // That means at least one digit is dropped after the decimal. The delta add can add
-  // utmost one digit before the decimal. So, overflow will occur only if the output
-  // precision has changed.
+  // If there is a rounding delta, the output scale must be less than the input
+  // scale. That means at least one digit is dropped after the decimal. The
+  // delta add can add utmost one digit before the decimal. So, overflow will
+  // occur only if the output precision has changed.
   DCHECK_GT(x.scale(), out_scale);
   auto result = scaled + delta;
-  DECIMAL_OVERFLOW_IF(out_precision < x.precision() &&
-                          BasicDecimal128::Abs(result) > GetMaxValue(out_precision),
-                      overflow);
+  DECIMAL_OVERFLOW_IF(
+      out_precision < x.precision() &&
+          BasicDecimal128::Abs(result) > GetMaxValue(out_precision),
+      overflow);
   return result;
 }
 
 // Modify scale to drop all digits to the right of the decimal and round.
-// Then, zero out 'rounding_scale' number of digits to the left of the decimal point.
+// Then, zero out 'rounding_scale' number of digits to the left of the decimal
+// point.
 static BasicDecimal128 RoundWithNegativeScale(const BasicDecimalScalar128& x,
                                               int32_t out_precision,
                                               int32_t rounding_scale,
-                                              RoundType round_type, bool* overflow) {
+                                              RoundType round_type,
+                                              bool* overflow) {
   DCHECK_LT(rounding_scale, 0);
 
   // get rid of the fractional part.
   auto scaled = ModifyScaleAndPrecision(x, out_precision, 0, overflow);
-  auto rounding_delta = ComputeRoundingDelta(scaled, 0, -rounding_scale, round_type);
+  auto rounding_delta =
+      ComputeRoundingDelta(scaled, 0, -rounding_scale, round_type);
 
   auto base = BasicDecimal128::GetScaleMultiplier(-rounding_scale);
   auto delta = rounding_delta * base - (scaled % base);
-  DECIMAL_OVERFLOW_IF(BasicDecimal128::Abs(scaled) >
-                          GetMaxValue(out_precision) - BasicDecimal128::Abs(delta),
-                      overflow);
+  DECIMAL_OVERFLOW_IF(
+      BasicDecimal128::Abs(scaled) >
+          GetMaxValue(out_precision) - BasicDecimal128::Abs(delta),
+      overflow);
   return scaled + delta;
 }
 
 BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_precision,
-                      int32_t out_scale, int32_t rounding_scale, bool* overflow) {
+                      int32_t out_scale, int32_t rounding_scale,
+                      bool* overflow) {
   // no-op if target scale is same as arg scale
   if (x.scale() == out_scale && rounding_scale >= 0) {
     return x.value();
@@ -676,7 +713,8 @@ BasicDecimal128 Round(const BasicDecimalScalar128& x, int32_t out_precision,
 }
 
 BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_precision,
-                         int32_t out_scale, int32_t rounding_scale, bool* overflow) {
+                         int32_t out_scale, int32_t rounding_scale,
+                         bool* overflow) {
   // no-op if target scale is same as arg scale
   if (x.scale() == out_scale && rounding_scale >= 0) {
     return x.value();
@@ -692,7 +730,8 @@ BasicDecimal128 Truncate(const BasicDecimalScalar128& x, int32_t out_precision,
 }
 
 BasicDecimal128 Ceil(const BasicDecimalScalar128& x, bool* overflow) {
-  return RoundWithPositiveScale(x, x.precision(), 0, RoundType::kRoundTypeCeil, overflow);
+  return RoundWithPositiveScale(x, x.precision(), 0, RoundType::kRoundTypeCeil,
+                                overflow);
 }
 
 BasicDecimal128 Floor(const BasicDecimalScalar128& x, bool* overflow) {
@@ -712,8 +751,9 @@ BasicDecimal128 Convert(const BasicDecimalScalar128& x, int32_t out_precision,
 }
 
 int64_t ToInt64(const BasicDecimalScalar128& in, bool* overflow) {
-  auto rounded = RoundWithPositiveScale(in, in.precision(), 0 /*scale*/,
-                                        RoundType::kRoundTypeHalfRoundUp, overflow);
+  auto rounded =
+      RoundWithPositiveScale(in, in.precision(), 0 /*scale*/,
+                             RoundType::kRoundTypeHalfRoundUp, overflow);
   DECIMAL_OVERFLOW_IF((rounded > std::numeric_limits<int64_t>::max()) ||
                           (rounded < std::numeric_limits<int64_t>::min()),
                       overflow);

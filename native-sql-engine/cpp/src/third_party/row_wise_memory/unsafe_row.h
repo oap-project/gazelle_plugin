@@ -29,8 +29,8 @@
 #define TEMP_UNSAFEROW_BUFFER_SIZE 1024
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
-/* Unsafe Row Layout (This unsafe row only used to append all fields data as continuous
- * memory, unable to be get data from)
+/* Unsafe Row Layout (This unsafe row only used to append all fields data as
+ * continuous memory, unable to be get data from)
  *
  * | validity | col 0 | col 1 | col 2 | ...
  * explain:
@@ -101,8 +101,10 @@ using is_number_alike =
     std::integral_constant<bool, std::is_arithmetic<T>::value ||
                                      std::is_floating_point<T>::value>;
 
-template <typename T, typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
-static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& val) {
+template <typename T,
+          typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
+static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
+                                     const T& val) {
   *((T*)(row->data + row->cursor)) = val;
   row->cursor += sizeof(T);
 }

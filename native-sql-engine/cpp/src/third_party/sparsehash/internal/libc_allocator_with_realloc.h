@@ -47,8 +47,8 @@
 
 #pragma once
 
-#include <cstdlib>  // for malloc/realloc/free
 #include <cstddef>  // for ptrdiff_t
+#include <cstdlib>  // for malloc/realloc/free
 #include <new>      // for placement new
 
 namespace google {
@@ -79,7 +79,8 @@ class libc_allocator_with_realloc {
     // p points to a storage array whose objects have already been destroyed
     // cast to void* to prevent compiler warnings about calling realloc() on
     // an object which cannot be relocated in memory
-    return static_cast<pointer>(realloc(static_cast<void*>(p), n * sizeof(value_type)));
+    return static_cast<pointer>(
+        realloc(static_cast<void*>(p), n * sizeof(value_type)));
   }
 
   size_type max_size() const {
