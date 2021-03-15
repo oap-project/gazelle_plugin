@@ -67,6 +67,6 @@ jobs:
     - name: Run clang-format style check for C/C++ programs.
       uses: jidicula/clang-format-action@v3.2.0
       with:
-        clang-format-version: '11'
+        clang-format-version: '10'
         check-path: 'native-sql-engine/cpp/src'
         fallback-style: 'Google' # optional
