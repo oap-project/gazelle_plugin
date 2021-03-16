@@ -42,7 +42,9 @@ class ColumnarRound(child: Expression, scale: Expression, original: Expression)
   buildCheck()
 
   def buildCheck(): Unit = {
-    if (child.dataType != DoubleType) {
+    val supportedTypes = List(FloatType, DoubleType, IntegerType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
       throw new UnsupportedOperationException(
         s"${child.dataType} is not supported in ColumnarRound")
     }
@@ -54,7 +56,7 @@ class ColumnarRound(child: Expression, scale: Expression, original: Expression)
     val (scale_node, scaleType): (TreeNode, ArrowType) =
       scale.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+    val resultType = CodeGeneration.getResultType(dataType)
     val funcNode = TreeBuilder.makeFunction("round",
       Lists.newArrayList(child_node, scale_node), resultType)
     (funcNode, resultType)

@@ -502,6 +502,15 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
     std::stringstream fix_ss;
+    if (node.return_type()->id() != arrow::Type::DECIMAL) {
+      fix_ss << "round2(" << child_visitor_list[0]->GetResult();
+    } else {
+      auto childNode = node.children().at(0);
+      auto childType =
+        std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+      fix_ss << "round(" << child_visitor_list[0]->GetResult() << ", " 
+             << childType->precision() << ", " << childType->scale() << ", &overflow";
+    }
     if (child_visitor_list.size() > 1) {
       fix_ss << ", " << child_visitor_list[1]->GetResult();
     }
@@ -514,8 +523,13 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = round2(" << child_visitor_list[0]->GetResult()
-               << fix_ss.str() << ");" << std::endl;
+    if (node.return_type()->id() == arrow::Type::DECIMAL) {
+      prepare_ss << "bool overflow = false;" << std::endl;
+    }
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ");" << std::endl;
+    if (node.return_type()->id() == arrow::Type::DECIMAL) {
+      prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
+    }
     prepare_ss << "}" << std::endl;
 
     prepare_str_ += prepare_ss.str();
@@ -524,14 +538,19 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
   } else if (func_name.compare("abs") == 0) {
     codes_str_ = "abs_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
+    std::stringstream fix_ss;
+    if (node.return_type()->id() != arrow::Type::DECIMAL) {
+      fix_ss << "abs(" << child_visitor_list[0]->GetResult() << ")";
+    } else {
+      fix_ss << child_visitor_list[0]->GetResult() << ".Abs()";
+    }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << codes_str_ << " = abs(" << child_visitor_list[0]->GetResult() << ");"
-               << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
