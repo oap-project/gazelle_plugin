@@ -180,9 +180,8 @@ int getJanWeekOfYear(const EpochTimePoint& tp) {
 
   if (jan1_wday == 5) {
     // Jan 1 is a Fri
-    // Jan 1-3 belong to previous year. Dec 31 of previous year same week # as Jan 1-3
-    // previous year is a leap year:
-    // Prev Jan 1 is a Wed. Jan 6th is Mon
+    // Jan 1-3 belong to previous year. Dec 31 of previous year same week # as
+    // Jan 1-3 previous year is a leap year: Prev Jan 1 is a Wed. Jan 6th is Mon
     // Dec 31 - Jan 6 = 366 - 5 = 361
     // week from Jan 6 = (361 - 1) / 7 + 1 = 52
     // week # in previous year = 52 + 1 = 53
@@ -270,14 +269,15 @@ int getDecWeekOfYear(const EpochTimePoint& tp) {
 //
 // Important points to note:
 // Week starts with a Monday and ends with a Sunday
-// A week can have some days in this year and some days in the previous/next year
-// This is true for the first and last weeks
+// A week can have some days in this year and some days in the previous/next
+// year This is true for the first and last weeks
 //
 // The first week of the year should have at-least 4 days in the current year
 // The last week of the year should have at-least 4 days in the current year
 //
-// A given day might belong to the first week of the next year - e.g Dec 29, 30 and 31
-// A given day might belong to the last week of the previous year - e.g. Jan 1, 2 and 3
+// A given day might belong to the first week of the next year - e.g Dec 29, 30
+// and 31 A given day might belong to the last week of the previous year - e.g.
+// Jan 1, 2 and 3
 //
 // Algorithm:
 // If day belongs to week in current year, weekOfCurrentYear
@@ -485,10 +485,10 @@ bool IsLastDayOfMonth(const EpochTimePoint& tp) {
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
 // If date1 is later than date2, then the result is positive.
 // If date1 is earlier than date2, then the result is negative.
-// If date1 and date2 are either the same days of the month or both last days of months,
-// then the result is always an integer. Otherwise Oracle Database calculates the
-// fractional portion of the result based on a 31-day month and considers the difference
-// in time components date1 and date2
+// If date1 and date2 are either the same days of the month or both last days of
+// months, then the result is always an integer. Otherwise Oracle Database
+// calculates the fractional portion of the result based on a 31-day month and
+// considers the difference in time components date1 and date2
 #define MONTHS_BETWEEN(TYPE)                                                        \
   FORCE_INLINE                                                                      \
   double months_between##_##TYPE##_##TYPE(uint64_t endEpoch, uint64_t startEpoch) { \
@@ -631,7 +631,8 @@ const char* castVARCHAR_date32_int64(gdv_int64 context, gdv_date32 in_day,
  * Input consists of mandatory and optional fields.
  * Mandatory fields are year, month and day.
  * Optional fields are time, displacement and zone.
- * Format is <year-month-day>[ hours:minutes:seconds][.millis][ displacement|zone]
+ * Format is <year-month-day>[ hours:minutes:seconds][.millis][
+ * displacement|zone]
  */
 gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 length) {
   using arrow_vendored::date::day;

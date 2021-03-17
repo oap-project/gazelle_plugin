@@ -47,8 +47,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  Project  ////////////////
 class ProjectKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& input_field_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& input_field_node_list,
        const gandiva::NodeVector& project_list)
       : ctx_(ctx), project_list_(project_list) {
     for (auto node : input_field_node_list) {
@@ -147,8 +146,7 @@ arrow::Status ProjectKernel::DoCodeGen(
 ///////////////  Filter  ////////////////
 class FilterKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& input_field_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& input_field_node_list,
        const gandiva::NodePtr& condition)
       : ctx_(ctx), condition_(condition) {
     for (auto node : input_field_node_list) {

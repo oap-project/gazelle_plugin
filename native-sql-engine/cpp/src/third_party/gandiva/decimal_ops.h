@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <string>
+
 #include "gandiva/basic_decimal_scalar.h"
 
 namespace gandiva {

@@ -3943,10 +3943,9 @@ arrow::Status MakeStddevSampFinalAction(
     /*case arrow::Decimal128Type::type_id: {
       auto action_ptr = std::make_shared<
           StddevSampFinalAction<arrow::Decimal128Type, arrow::Decimal128,
-                                arrow::Decimal128Type, arrow::Decimal128>>(ctx, type,
-                                                                           type);
-      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
-    } break;*/
+                                arrow::Decimal128Type, arrow::Decimal128>>(ctx,
+    type, type); *out = std::dynamic_pointer_cast<ActionBase>(action_ptr); }
+    break;*/
 #undef PROCESS
     default:
       break;

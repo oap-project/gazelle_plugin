@@ -76,7 +76,8 @@ class HashRelationKernel::Impl {
       builder_type_ = std::stoi(builder_type_str);
     }
     if (builder_type_ == 0) {
-      // builder_type_ == 0 will be abandoned in near future, won't support decimal here.
+      // builder_type_ == 0 will be abandoned in near future, won't support
+      // decimal here.
       if (key_nodes.size() == 1) {
         auto key_node = key_nodes[0];
         std::shared_ptr<TypedNodeVisitor> node_visitor;
@@ -200,8 +201,8 @@ class HashRelationKernel::Impl {
       } else {
         auto project_outputs = keys_cached_[idx];
 
-/* For single field fixed_size key, we simply insert to HashMap without append to unsafe
- * Row */
+/* For single field fixed_size key, we simply insert to HashMap without append
+ * to unsafe Row */
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
   PROCESS(arrow::BooleanType)            \
   PROCESS(arrow::UInt8Type)              \

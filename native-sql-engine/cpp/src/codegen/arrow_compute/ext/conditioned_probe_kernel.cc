@@ -284,8 +284,9 @@ class ConditionedProbeKernel::Impl {
       prepare_ss << "auto key_" << hash_relation_id_ << "_validity = " << validity_name
                  << ";" << std::endl;
       /*for (auto header : hash_node_visitor->GetHeaders()) {
-        if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
-                      header) == codegen_ctx->header_codes.end()) {
+        if (std::find(codegen_ctx->header_codes.begin(),
+      codegen_ctx->header_codes.end(), header) ==
+      codegen_ctx->header_codes.end()) {
           codegen_ctx->header_codes.push_back(header);
         }
       }*/
@@ -413,9 +414,9 @@ class ConditionedProbeKernel::Impl {
           std::dynamic_pointer_cast<ResultIterator<HashRelation>>(iter);
       RETURN_NOT_OK(typed_dependent->Next(&hash_relation_));
 
-      // chendi: previous result_schema_index_list design is little tricky, it put
-      // existentce col at the back of all col while exists_index_ may be at middle out
-      // real result. Add two index here.
+      // chendi: previous result_schema_index_list design is little tricky, it
+      // put existentce col at the back of all col while exists_index_ may be at
+      // middle out real result. Add two index here.
       auto result_schema_length =
           (exist_index_ == -1 || exist_index_ == right_field_list_.size())
               ? result_schema_index_list_.size()
@@ -482,13 +483,14 @@ class ConditionedProbeKernel::Impl {
           } break;
           default:
             return arrow::Status::NotImplemented(
-                "ConditionedProbeArraysTypedImpl only support join type: InnerJoin, "
+                "ConditionedProbeArraysTypedImpl only support join type: "
+                "InnerJoin, "
                 "RightJoin");
         }
       } else {
         // if hash_map_type == 0, we use TypedHashRelation
-        // when hash_map_type == 0, we won't check actual value ifEqual, this code block
-        // will be removed in near future
+        // when hash_map_type == 0, we won't check actual value ifEqual, this
+        // code block will be removed in near future
         switch (key_type_->id()) {
 #define PROCESS(InType)                                                                  \
   case InType::type_id: {                                                                \
@@ -520,14 +522,16 @@ class ConditionedProbeKernel::Impl {
       } break;                                                                           \
       default:                                                                           \
         return arrow::Status::NotImplemented(                                            \
-            "ConditionedProbeArraysTypedImpl only support join type: InnerJoin, "        \
+            "ConditionedProbeArraysTypedImpl only support join type: "                   \
+            "InnerJoin, "                                                                \
             "RightJoin");                                                                \
     }                                                                                    \
   } break;
           PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
           default: {
-            std::cout << "ConditionedProbeArraysTypedImpl does not support key type as "
+            std::cout << "ConditionedProbeArraysTypedImpl does not support key "
+                         "type as "
                       << key_type_ << std::endl;
           } break;
         }
@@ -544,9 +548,9 @@ class ConditionedProbeKernel::Impl {
       std::shared_ptr<arrow::Array> key_array;
       arrow::ArrayVector projected_keys_outputs;
       /**
-       * if hash_map_type_ == 0, we only need to build a single-column hashArray for key
-       * if hash_map_type_ == 1, we need to both get a single-column hashArray and
-       *projected result of original keys for hashmap
+       * if hash_map_type_ == 0, we only need to build a single-column hashArray
+       *for key if hash_map_type_ == 1, we need to both get a single-column
+       *hashArray and projected result of original keys for hashmap
        **/
       arrow::ArrayVector outputs;
       auto length = in.size() > 0 ? in[0]->length() : 0;
@@ -683,7 +687,8 @@ class ConditionedProbeKernel::Impl {
             } break;
             default: {
               throw std::runtime_error(
-                  "UnsafeInnerProbeFunction Evaluate doesn't support single key type ");
+                  "UnsafeInnerProbeFunction Evaluate doesn't support single "
+                  "key type ");
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -801,7 +806,8 @@ class ConditionedProbeKernel::Impl {
             } break;
             default: {
               throw std::runtime_error(
-                  "UnsafeOuterProbeFunction Evaluate doesn't support single key type ");
+                  "UnsafeOuterProbeFunction Evaluate doesn't support single "
+                  "key type ");
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -927,7 +933,8 @@ class ConditionedProbeKernel::Impl {
             } break;
             default: {
               throw std::runtime_error(
-                  "UnsafeAntiProbeFunction Evaluate doesn't support single key type ");
+                  "UnsafeAntiProbeFunction Evaluate doesn't support single key "
+                  "type ");
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -1044,7 +1051,8 @@ class ConditionedProbeKernel::Impl {
             } break;
             default: {
               throw std::runtime_error(
-                  "UnsafeSemiProbeFunction Evaluate doesn't support single key type ");
+                  "UnsafeSemiProbeFunction Evaluate doesn't support single key "
+                  "type ");
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -1164,7 +1172,8 @@ class ConditionedProbeKernel::Impl {
             } break;
             default: {
               throw std::runtime_error(
-                  "UnsafeSemiProbeFunction Evaluate doesn't support single key type ");
+                  "UnsafeSemiProbeFunction Evaluate doesn't support single key "
+                  "type ");
             } break;
           }
 #undef PROCESS_SUPPORTED_TYPES
@@ -1811,7 +1820,8 @@ class ConditionedProbeKernel::Impl {
       } break;
       default:
         return arrow::Status::NotImplemented(
-            "ConditionedProbeArraysTypedImpl only support join type: InnerJoin, "
+            "ConditionedProbeArraysTypedImpl only support join type: "
+            "InnerJoin, "
             "RightJoin");
     }
     return arrow::Status::OK();

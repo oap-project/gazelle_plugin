@@ -37,7 +37,8 @@ TYPED_ASC_SORT_IMPL(std::string)
 
 void sort_desc(ArrayItemIndex* begin, ArrayItemIndex* end,
                std::function<bool(ArrayItemIndex, ArrayItemIndex)> comp) {
-  // std::sort(begin, end, *comp.target<bool (*)(ArrayItemIndex, ArrayItemIndex)>());
+  // std::sort(begin, end, *comp.target<bool (*)(ArrayItemIndex,
+  // ArrayItemIndex)>());
   std::sort(begin, end, comp);
 }
 }  // namespace precompile

@@ -18,6 +18,7 @@
 #pragma once
 
 #include <arrow/type.h>
+
 #include "codegen/code_generator.h"
 
 namespace sparkcolumnarplugin {

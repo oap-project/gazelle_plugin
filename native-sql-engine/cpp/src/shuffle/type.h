@@ -18,9 +18,10 @@
 #pragma once
 
 #include <arrow/extension_type.h>
+#include <arrow/ipc/options.h>
 #include <arrow/type.h>
 #include <arrow/util/logging.h>
-#include <arrow/ipc/options.h>
+
 #include <deque>
 
 namespace sparkcolumnarplugin {
@@ -47,8 +48,7 @@ struct SplitOptions {
 
   arrow::MemoryPool* memory_pool = arrow::default_memory_pool();
 
-  arrow::ipc::IpcWriteOptions ipc_write_options =
-      arrow::ipc::IpcWriteOptions::Defaults();
+  arrow::ipc::IpcWriteOptions ipc_write_options = arrow::ipc::IpcWriteOptions::Defaults();
 
   static SplitOptions Defaults();
 };

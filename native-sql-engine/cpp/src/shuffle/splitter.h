@@ -17,9 +17,6 @@
 
 #pragma once
 
-#include <random>
-#include <utility>
-
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
 #include <arrow/io/api.h>
@@ -27,6 +24,9 @@
 #include <gandiva/arrow.h>
 #include <gandiva/gandiva_aliases.h>
 #include <gandiva/projector.h>
+
+#include <random>
+#include <utility>
 
 #include "shuffle/type.h"
 #include "shuffle/utils.h"
@@ -48,19 +48,21 @@ class Splitter {
   virtual const std::shared_ptr<arrow::Schema>& input_schema() const { return schema_; }
 
   /**
-   * Split input record batch into partition buffers according to the computed partition
-   * id. The largest partition buffer will be spilled if memory allocation failure occurs.
+   * Split input record batch into partition buffers according to the computed
+   * partition id. The largest partition buffer will be spilled if memory
+   * allocation failure occurs.
    */
   virtual arrow::Status Split(const arrow::RecordBatch&);
-  
+
   /**
    * Compute the compresse size of record batch.
    */
   virtual int64_t CompressedSize(const arrow::RecordBatch&);
 
   /**
-   * For each partition, merge spilled file into shuffle data file and write any cached
-   * record batch to shuffle data file. Close all resources and collect metrics.
+   * For each partition, merge spilled file into shuffle data file and write any
+   * cached record batch to shuffle data file. Close all resources and collect
+   * metrics.
    */
   arrow::Status Stop();
 
@@ -130,18 +132,18 @@ class Splitter {
       const std::shared_ptr<ArrayType>& src_arr,
       const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
 
-  // Cache the partition buffer/builder as compressed record batch. If reset buffers, the
-  // partition buffer/builder will be set to nullptr.
-  // Two cases for caching the partition buffers as record batch:
+  // Cache the partition buffer/builder as compressed record batch. If reset
+  // buffers, the partition buffer/builder will be set to nullptr. Two cases for
+  // caching the partition buffers as record batch:
   // 1. Split record batch. It first calculate whether the partition
-  // buffer can hold all data according to partition id. If not, call this method and
-  // allocate new buffers. Spill will happen if OOM.
+  // buffer can hold all data according to partition id. If not, call this
+  // method and allocate new buffers. Spill will happen if OOM.
   // 2. Stop the splitter. The record batch will be written to disk immediately.
   arrow::Status CacheRecordBatch(int32_t partition_id, bool reset_buffers);
 
   // Allocate new partition buffer/builder.
-  // If successful, will point partition buffer/builder to new ones, otherwise will
-  // spill the largest partition and retry
+  // If successful, will point partition buffer/builder to new ones, otherwise
+  // will spill the largest partition and retry
   arrow::Status AllocateNew(int32_t partition_id, int32_t new_size);
 
   // Allocate new partition buffer/builder. May return OOM status.

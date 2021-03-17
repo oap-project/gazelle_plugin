@@ -40,10 +40,10 @@ using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
  * | key-hash(4 bytes) | bytesMap offset(4 bytes) |
  *
  * BytesMap: map to store key and value data
- * each item has format as below, same key items will be linked (Min size is 8 bytes when
- * key and value both 0)
- * | total-length(2 bytes) | key-length(2 bytes) | key data(variable-size) | value
- *data(variable-size) | next value ptr(4 bytes) |
+ * each item has format as below, same key items will be linked (Min size is 8
+ *bytes when key and value both 0) | total-length(2 bytes) | key-length(2 bytes)
+ *| key data(variable-size) | value data(variable-size) | next value ptr(4
+ *bytes) |
  *
  **/
 
@@ -127,7 +127,8 @@ static inline void dump(unsafeHashMap* hm) {
         printf("%04x  ", tmp);  // value_data
         i = value_length;
       } else {
-        printf("%04x  ", *(int*)(hm->bytesMap + pos + 4 + key_length + i));  // value_data
+        printf("%04x  ",
+               *(int*)(hm->bytesMap + pos + 4 + key_length + i));  // value_data
         i += 4;
       }
     }
@@ -156,7 +157,8 @@ static inline unsafeHashMap* createUnsafeHashMap(arrow::MemoryPool* pool,
   hashMap->arrayCapacity = initArrayCapacity;
   memset(hashMap->keyArray, -1, initArrayCapacity * bytesInKeyArray);
 
-  // hashMap->bytesMap = (char*)nativeMalloc(initialHashCapacity, MEMTYPE_HASHMAP);
+  // hashMap->bytesMap = (char*)nativeMalloc(initialHashCapacity,
+  // MEMTYPE_HASHMAP);
   pool->Allocate(initialHashCapacity, (uint8_t**)&hashMap->bytesMap);
   hashMap->mapSize = initialHashCapacity;
 
@@ -797,10 +799,10 @@ static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, cha
   int keySizeInBytes = hashMap->bytesInKeyArray;
   char* keyArrayBase = hashMap->keyArray;
 
-  // chendi: Add a optimization here, use offset first bit to indicate if this offset is
-  // ArrayItemIndex or bytesmap offset
-  // if first key, it will be arrayItemIndex first bit is 0
-  // if multiple same key, it will be offset first bit is 1
+  // chendi: Add a optimization here, use offset first bit to indicate if this
+  // offset is ArrayItemIndex or bytesmap offset if first key, it will be
+  // arrayItemIndex first bit is 0 if multiple same key, it will be offset first
+  // bit is 1
 
   while (true) {
     int KeyAddressOffset = *(int*)(keyArrayBase + pos * keySizeInBytes);
@@ -911,10 +913,10 @@ static inline bool append(unsafeHashMap* hashMap, CType keyRow, int hashVal, cha
   int keySizeInBytes = hashMap->bytesInKeyArray;
   char* keyArrayBase = hashMap->keyArray;
 
-  // chendi: Add a optimization here, use offset first bit to indicate if this offset is
-  // ArrayItemIndex or bytesmap offset
-  // if first key, it will be arrayItemIndex first bit is 0
-  // if multiple same key, it will be offset first bit is 1
+  // chendi: Add a optimization here, use offset first bit to indicate if this
+  // offset is ArrayItemIndex or bytesmap offset if first key, it will be
+  // arrayItemIndex first bit is 0 if multiple same key, it will be offset first
+  // bit is 1
 
   while (true) {
     int KeyAddressOffset = *(int*)(keyArrayBase + pos * keySizeInBytes);

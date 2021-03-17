@@ -175,7 +175,8 @@ class HashRelation {
       for (auto payload_arr : payloads) {
         payload_arr->Append(i, &payload);
       }
-      // chendi: Since spark won't join rows contain null, we will skip null row.
+      // chendi: Since spark won't join rows contain null, we will skip null
+      // row.
       if (payload->isNullExists()) continue;
       RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
     }

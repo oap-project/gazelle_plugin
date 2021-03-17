@@ -113,16 +113,15 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
                                   const gandiva::FunctionNode& node,
                                   std::shared_ptr<ExprVisitor>* out);
 
-  ExprVisitor(arrow::compute::ExecContext ctx,
-              std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name,
-              std::vector<std::string> param_field_names,
+  ExprVisitor(arrow::compute::ExecContext ctx, std::shared_ptr<arrow::Schema> schema_ptr,
+              std::string func_name, std::vector<std::string> param_field_names,
               std::shared_ptr<ExprVisitor> dependency,
               std::shared_ptr<gandiva::Node> finish_func);
 
   ExprVisitor(arrow::compute::ExecContext ctx, std::string func_name);
 
-  ExprVisitor(arrow::compute::ExecContext ctx,
-              std::shared_ptr<arrow::Schema> schema_ptr, std::string func_name);
+  ExprVisitor(arrow::compute::ExecContext ctx, std::shared_ptr<arrow::Schema> schema_ptr,
+              std::string func_name);
 
   ~ExprVisitor() {
 #ifdef DEBUG
@@ -147,8 +146,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
       std::shared_ptr<gandiva::FunctionNode> partition_spec,
       std::shared_ptr<gandiva::FunctionNode> order_spec,
       std::shared_ptr<gandiva::FunctionNode> frame_spec,
-      std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-      ExprVisitor* p);
+      std::vector<std::shared_ptr<arrow::Field>> ret_fields, ExprVisitor* p);
   arrow::Status AppendAction(const std::string& func_name,
                              std::vector<std::string> param_name);
   arrow::Status Init();
@@ -209,8 +207,8 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::vector<int> in_batch_size_array_;
   ArrayList in_batch_;
   std::shared_ptr<arrow::Array> in_array_;
-  // group_indices is used to tell item in array_list_ and batch_list_ belong to which
-  // group
+  // group_indices is used to tell item in array_list_ and batch_list_ belong to
+  // which group
   std::vector<int> group_indices_;
 
   // Output data types.

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <arrow/builder.h>
 #include <arrow/compute/api.h>
 #include <arrow/status.h>

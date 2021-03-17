@@ -76,8 +76,8 @@ class EncodeArrayTypedImpl : public EncodeArrayKernel::Impl {
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in,
                          std::shared_ptr<arrow::Array>* out) {
     // arrow::Datum input_datum(in);
-    // RETURN_NOT_OK(arrow::compute::Group<InType>(ctx_, input_datum, hash_table_, out));
-    // we should put items into hashmap
+    // RETURN_NOT_OK(arrow::compute::Group<InType>(ctx_, input_datum,
+    // hash_table_, out)); we should put items into hashmap
     builder_->Reset();
     auto typed_array = std::dynamic_pointer_cast<ArrayType>(in);
     auto insert_on_found = [this](int32_t i) { builder_->Append(i); };

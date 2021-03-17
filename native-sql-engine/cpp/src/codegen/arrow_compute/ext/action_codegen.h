@@ -280,10 +280,12 @@ class GroupByActionCodeGen : public ActionCodeGen {
         validity_name = "action_groupby_" + name + "_validity_";
         GetTypedArrayCastString(data_type, input_list[0]);
         input_expr_list_.push_back(gandiva::TreeExprBuilder::MakeField(
-            input_fields_list[0]));  // this line is used to gen hash for multiple keys
+            input_fields_list[0]));  // this line is used to gen hash for
+                                     // multiple keys
       }
-      typed_input_and_prepare_list_.push_back(std::make_pair(
-          "", ""));  // when there is two name in sig list, we need to make others aligned
+      typed_input_and_prepare_list_.push_back(
+          std::make_pair("", ""));  // when there is two name in sig list, we
+                                    // need to make others aligned
 
       if (keep == false) {
         return;
@@ -411,8 +413,9 @@ class SumActionCodeGen : public ActionCodeGen {
         validity_name = "action_sum_" + name + "_validity_";
         GetTypedArrayCastString(data_type, input_list[0]);
       }
-      typed_input_and_prepare_list_.push_back(std::make_pair(
-          "", ""));  // when there is two name in sig list, we need to make others aligned
+      typed_input_and_prepare_list_.push_back(
+          std::make_pair("", ""));  // when there is two name in sig list, we
+                                    // need to make others aligned
       func_sig_list_.push_back(sig_name);
       func_sig_list_.push_back(validity_name);
       auto tmp_name = typed_input_and_prepare_list_[0].first + "_tmp";
@@ -1769,12 +1772,12 @@ class StddevSampFinalActionCodeGen : public ActionCodeGen {
     on_new_codes_list_.push_back("");
     on_finish_codes_list_.push_back(
         "if (" + count_name + "[i] - 1 < 0.00001) {\n" + validity_name +
-        ".push_back(true);\n" + 
-        sig_name + ".push_back(std::numeric_limits<double>::quiet_NaN());}\n" +
-        "else if (" + count_name + "[i] < 0.00001) {\n" + validity_name +
-        ".push_back(false);\n" + sig_name + ".push_back(0);}\n" + "else {\n" +
-        validity_name + ".push_back(true);\n" + sig_name + ".push_back(" + "sqrt(" +
-        m2_name + "[i] / (" + count_name + "[i] - 1)));}\n");
+        ".push_back(true);\n" + sig_name +
+        ".push_back(std::numeric_limits<double>::quiet_NaN());}\n" + "else if (" +
+        count_name + "[i] < 0.00001) {\n" + validity_name + ".push_back(false);\n" +
+        sig_name + ".push_back(0);}\n" + "else {\n" + validity_name +
+        ".push_back(true);\n" + sig_name + ".push_back(" + "sqrt(" + m2_name + "[i] / (" +
+        count_name + "[i] - 1)));}\n");
     on_finish_codes_list_.push_back("");
 
     finish_variable_list_.push_back(sig_name);

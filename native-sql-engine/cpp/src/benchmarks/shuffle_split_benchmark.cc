@@ -26,7 +26,9 @@
 #include <parquet/arrow/reader.h>
 #include <parquet/file_reader.h>
 #include <shuffle/splitter.h>
+
 #include <chrono>
+
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
 #include "tests/test_utils.h"

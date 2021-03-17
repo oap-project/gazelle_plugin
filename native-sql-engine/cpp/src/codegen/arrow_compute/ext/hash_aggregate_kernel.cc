@@ -410,7 +410,8 @@ class HashAggregateKernel::Impl {
     }
 
     action_list_define_function_ss
-        << "arrow::Status PrepareActionList(std::vector<std::string> action_name_list, "
+        << "arrow::Status PrepareActionList(std::vector<std::string> "
+           "action_name_list, "
            "std::vector<std::shared_ptr<arrow::DataType>> type_list,"
            "std::vector<std::shared_ptr<arrow::DataType>> result_field_list,"
            "std::vector<std::shared_ptr<ActionBase>> *action_list) {"
@@ -513,7 +514,8 @@ class HashAggregateKernel::Impl {
       codegen_ctx->gandiva_projector = std::make_shared<GandivaProjector>(
           ctx_, arrow::schema(result_field_list_), GetGandivaKernel(result_expr_list_));
       codegen_ctx->header_codes.push_back(R"(#include "precompile/gandiva_projector.h")");
-      finish_ss << "RETURN_NOT_OK(gandiva_projector_list_[gp_idx++]->Evaluate(&do_hash_"
+      finish_ss << "RETURN_NOT_OK(gandiva_projector_list_[gp_idx++]->Evaluate(&"
+                   "do_hash_"
                    "aggr_finish_"
                 << level << "_out));" << std::endl;
     }
@@ -674,7 +676,8 @@ class HashAggregateKernel::Impl {
             cols.push_back(in[idx]);
           }
           if (cols.empty()) {
-            // There is a special case, when we need to do no groupby count literal
+            // There is a special case, when we need to do no groupby count
+            // literal
             RETURN_NOT_OK(action->EvaluateCountLiteral(in[0]->length()));
 
           } else {
@@ -851,8 +854,8 @@ class HashAggregateKernel::Impl {
               typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
         }
 
-        // for (int n = 0; n < aggr_key.size(); ++n) printf("%0X ", *(aggr_key.data() +
-        // n)); std::cout << std::endl;
+        // for (int n = 0; n < aggr_key.size(); ++n) printf("%0X ",
+        // *(aggr_key.data() + n)); std::cout << std::endl;
 
         // 3. get key from hash_table
         int memo_index = 0;
@@ -983,7 +986,8 @@ class HashAggregateKernel::Impl {
             cols.push_back(in[idx]);
           }
           if (cols.empty()) {
-            // There is a special case, when we need to do no groupby count literal
+            // There is a special case, when we need to do no groupby count
+            // literal
             RETURN_NOT_OK(action->EvaluateCountLiteral(in[0]->length()));
 
           } else {

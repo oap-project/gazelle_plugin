@@ -45,7 +45,8 @@ template <typename T, typename Enable = void>
 class TypedRelationColumn {};
 
 template <typename DataType>
-class TypedRelationColumn<DataType, enable_if_number_or_decimal<DataType>> : public RelationColumn {
+class TypedRelationColumn<DataType, enable_if_number_or_decimal<DataType>>
+    : public RelationColumn {
  public:
   using T = typename TypeTraits<DataType>::CType;
   TypedRelationColumn() {}

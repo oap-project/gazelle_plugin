@@ -19,11 +19,11 @@
 #include <arrow/type.h>
 #include <gtest/gtest.h>
 
-#include "precompile/array.h"
-#include "tests/test_utils.h"
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
+#include "precompile/array.h"
 #include "precompile/gandiva.h"
+#include "tests/test_utils.h"
 
 using arrow::int64;
 using arrow::uint32;
@@ -34,20 +34,26 @@ namespace codegen {
 
 TEST(TestArrowComputeWindow, DoubleTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()), field("col_dou", arrow::float64())});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]",
-      "[35.612, 37.244, 82.664]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dou", arrow::float64())});
+  std::vector<std::string> input_data = {"[1, 2, 1]", "[35.612, 37.244, 82.664]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::float64());
 
-  auto f_window = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeFunction("window", {
-      TreeExprBuilder::MakeFunction("sum",
-          {TreeExprBuilder::MakeField(field("col_dou", arrow::float64()))}, null()),
-      TreeExprBuilder::MakeFunction("partitionSpec",
-          {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-  }, binary()), res);
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "sum", {TreeExprBuilder::MakeField(field("col_dou", arrow::float64()))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
 
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
@@ -58,8 +64,7 @@ TEST(TestArrowComputeWindow, DoubleTest) {
   ASSERT_NOT_OK(expr->finish(&out))
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_output_data = {
-      "[118.276, 37.244, 118.276]"};
+  std::vector<std::string> expected_output_data = {"[118.276, 37.244, 118.276]"};
 
   MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
@@ -67,20 +72,26 @@ TEST(TestArrowComputeWindow, DoubleTest) {
 
 TEST(TestArrowComputeWindow, LongAvgTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()), field("col_long", arrow::int64())});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]",
-      "[35612, 37244, 82664]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_long", arrow::int64())});
+  std::vector<std::string> input_data = {"[1, 2, 1]", "[35612, 37244, 82664]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::int64());
 
-  auto f_window = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeFunction("window", {
-      TreeExprBuilder::MakeFunction("avg",
-                                    {TreeExprBuilder::MakeField(field("col_long", arrow::int64()))}, null()),
-      TreeExprBuilder::MakeFunction("partitionSpec",
-                                    {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-  }, binary()), res);
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "avg", {TreeExprBuilder::MakeField(field("col_long", arrow::int64()))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
 
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
@@ -91,8 +102,7 @@ TEST(TestArrowComputeWindow, LongAvgTest) {
   ASSERT_NOT_OK(expr->finish(&out))
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_output_data = {
-      "[59138, 37244, 59138]"};
+  std::vector<std::string> expected_output_data = {"[59138, 37244, 59138]"};
 
   MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
@@ -100,20 +110,28 @@ TEST(TestArrowComputeWindow, LongAvgTest) {
 
 TEST(TestArrowComputeWindow, DecimalTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]",
-      "[\"35.612\", \"37.244\", \"82.664\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"82.664\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::decimal128(8, 3));
 
-  auto f_window = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeFunction("window", {
-      TreeExprBuilder::MakeFunction("sum",
-                                    {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null()),
-      TreeExprBuilder::MakeFunction("partitionSpec",
-                                    {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-  }, binary()), res);
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "sum",
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
 
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
@@ -132,22 +150,30 @@ TEST(TestArrowComputeWindow, DecimalTest) {
 }
 
 TEST(TestArrowComputeWindow, DecimalAvgTest) {
-  return; // fixme decimal avg not supported?
+  return;  // fixme decimal avg not supported?
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]",
-      "[\"35.612\", \"37.244\", \"82.664\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"82.664\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::decimal128(8, 3));
 
-  auto f_window = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeFunction("window", {
-      TreeExprBuilder::MakeFunction("avg",
-                                    {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null()),
-      TreeExprBuilder::MakeFunction("partitionSpec",
-                                    {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-  }, binary()), res);
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "avg",
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
 
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
@@ -167,20 +193,28 @@ TEST(TestArrowComputeWindow, DecimalAvgTest) {
 
 TEST(TestArrowComputeWindow, DecimalRankTest) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]",
-      "[\"35.612\", \"37.244\", \"35.613\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"35.613\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::int32());
 
-  auto f_window = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeFunction("window", {
-      TreeExprBuilder::MakeFunction("rank_desc",
-                                    {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null()),
-      TreeExprBuilder::MakeFunction("partitionSpec",
-                                    {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-  }, binary()), res);
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "rank_desc",
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
 
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
@@ -191,8 +225,7 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
   ASSERT_NOT_OK(expr->finish(&out))
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_output_data = {
-      "[2, 1, 1]"};
+  std::vector<std::string> expected_output_data = {"[2, 1, 1]"};
 
   MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
@@ -200,20 +233,28 @@ TEST(TestArrowComputeWindow, DecimalRankTest) {
 
 TEST(TestArrowComputeWindow, DecimalRankTest2) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
-  auto sch = arrow::schema({field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
-  std::vector<std::string> input_data = {
-      "[1, 2, 1]",
-      "[\"35.612\", \"37.244\", \"35.612\"]"};
+  auto sch = arrow::schema(
+      {field("col_int", arrow::int32()), field("col_dec", arrow::decimal128(8, 3))});
+  std::vector<std::string> input_data = {"[1, 2, 1]",
+                                         "[\"35.612\", \"37.244\", \"35.612\"]"};
   MakeInputBatch(input_data, sch, &input_batch);
 
   std::shared_ptr<Field> res = field("window_res", arrow::int32());
 
-  auto f_window = TreeExprBuilder::MakeExpression(TreeExprBuilder::MakeFunction("window", {
-      TreeExprBuilder::MakeFunction("rank_desc",
-                                    {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))}, null()),
-      TreeExprBuilder::MakeFunction("partitionSpec",
-                                    {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
-  }, binary()), res);
+  auto f_window = TreeExprBuilder::MakeExpression(
+      TreeExprBuilder::MakeFunction(
+          "window",
+          {
+              TreeExprBuilder::MakeFunction(
+                  "rank_desc",
+                  {TreeExprBuilder::MakeField(field("col_dec", arrow::decimal128(8, 3)))},
+                  null()),
+              TreeExprBuilder::MakeFunction(
+                  "partitionSpec",
+                  {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
+          },
+          binary()),
+      res);
 
   arrow::compute::ExecContext ctx;
   std::shared_ptr<CodeGenerator> expr;
@@ -224,8 +265,7 @@ TEST(TestArrowComputeWindow, DecimalRankTest2) {
   ASSERT_NOT_OK(expr->finish(&out))
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_output_data = {
-      "[1, 1, 1]"};
+  std::vector<std::string> expected_output_data = {"[1, 1, 1]"};
 
   MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));

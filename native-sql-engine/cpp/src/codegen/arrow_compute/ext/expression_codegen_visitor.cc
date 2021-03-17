@@ -85,8 +85,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("less_than_with_nan") == 0) {
-    real_codes_str_ = "less_than_with_nan(" + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
+    real_codes_str_ = "less_than_with_nan(" + child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
@@ -106,8 +106,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("greater_than_with_nan") == 0) {
-    real_codes_str_ = "greater_than_with_nan(" + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
+    real_codes_str_ = "greater_than_with_nan(" + child_visitor_list[0]->GetResult() +
+                      ", " + child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
@@ -127,9 +127,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("less_than_or_equal_to_with_nan") == 0) {
-    real_codes_str_ = "less_than_or_equal_to_with_nan("
-        + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
+    real_codes_str_ = "less_than_or_equal_to_with_nan(" +
+                      child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
@@ -149,9 +149,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("greater_than_or_equal_to_with_nan") == 0) {
-    real_codes_str_ = "greater_than_or_equal_to_with_nan("
-        + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
+    real_codes_str_ = "greater_than_or_equal_to_with_nan(" +
+                      child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
@@ -171,8 +171,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     codes_str_ = ss.str();
   } else if (func_name.compare("equal_with_nan") == 0) {
-    real_codes_str_ = "equal_with_nan(" + child_visitor_list[0]->GetResult()
-        + ", " + child_visitor_list[1]->GetResult() + ")";
+    real_codes_str_ = "equal_with_nan(" + child_visitor_list[0]->GetResult() + ", " +
+                      child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
     ss << real_validity_str_ << " && " << real_codes_str_;
@@ -433,7 +433,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
         std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
     fix_ss << ", " << childType->precision() << ", " << childType->scale() << ", "
            << decimal_type->precision() << ", " << decimal_type->scale() << ", &overflow";
-    
+
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
                << std::endl;
@@ -849,7 +849,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
     field_type_ = sort_relation;
   } else {
     if (is_smj_) {
-      ///// For inputs are build side as SortRelation, streamed side as input /////
+      ///// For inputs are build side as SortRelation, streamed side as input
+      ////////
       if (index == 0) {
         codes_str_ = "sort_relation_" + std::to_string(hash_relation_id_ + index) + "_" +
                      std::to_string(arg_id) + "_value";
@@ -881,7 +882,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
         field_type_ = right;
       }
     } else {
-      ///// For Inputs are one side HashRelation and other side regular array /////
+      ///// For Inputs are one side HashRelation and other side regular array
+      ////////
       if (field_list_v_.size() == 1) {
         prepare_ss << (*input_list_)[arg_id].first.second;
         if (!is_local_) {
