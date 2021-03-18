@@ -296,7 +296,15 @@
                       <goal>exec</goal>
                   </goals>
                   <configuration>
-                      <executable>${cpp.dir}/compile.sh</executable>
+                      <executable>bash</executable>
+                      <arguments>
+                          <argument>${cpp.dir}/compile.sh</argument>
+                          <argument>${cpp_tests}</argument>
+                          <argument>${build_arrow}</argument>
+                          <argument>${static_arrow}</argument>
+                          <argument>${build_protobuf}</argument>
+                          <argument>${arrow_root}</argument>
+                      </arguments>
                   </configuration>
               </execution>
           </executions>

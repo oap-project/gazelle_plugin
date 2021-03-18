@@ -30,6 +30,11 @@
   </licenses>
 
   <properties>
+    <cpp_tests>OFF</cpp_tests>
+    <build_arrow>ON</build_arrow>
+    <static_arrow>OFF</static_arrow>
+    <build_protobuf>ON</build_protobuf>
+    <arrow_root>/usr/local</arrow_root>
   </properties>
 
   <modules>

@@ -11,19 +11,16 @@ yum install gmock
 
 ## Build Native SQL Engine
 
-``` shell
-git clone -b ${version} https://github.com/oap-project/native-sql-engine.git
-cd oap-native-sql
-cd cpp/
-mkdir build/
-cd build/
-cmake .. -DTESTS=ON
-make -j
-```
+cmake parameters:
+BUILD_ARROW(Default is On): Build Arrow from Source
+STATIC_ARROW(Default is Off): When BUILD_ARROW is ON, you can choose to build static or shared Arrow library, please notice current only support to build SHARED ARROW.
+ARROW_ROOT(Default is /usr/local): When BUILD_ARROW is OFF, you can set the ARROW library path to link the existing library in your environment.
+BUILD_PROTOBUF(Default is On): Build Protobuf from Source
 
 ``` shell
-cd ../../core/
-mvn clean package -DskipTests
+git clone -b ${version} https://github.com/oap-project/native-sql-engine.git
+cd native-sql-engine
+mvn clean package -am -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dstatic_arrow=OFF -Darrow_root=/usr/local -Dbuild_protobuf=ON
 ```
 
 ### Additonal Notes
