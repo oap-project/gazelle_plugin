@@ -32,7 +32,7 @@ namespace precompile {
   };                                                                                    \
                                                                                         \
   TYPENAME::TYPENAME(arrow::MemoryPool* pool) { impl_ = std::make_shared<Impl>(pool); } \
-  arrow::Status TYPENAME::Append(CTYPE value) { return impl_->Append(value); }          \
+  arrow::Status TYPENAME::Append(const CTYPE& value) { return impl_->Append(value); }   \
   arrow::Status TYPENAME::AppendNull() { return impl_->AppendNull(); }                  \
   arrow::Status TYPENAME::Reserve(int64_t length) { return impl_->Reserve(length); }    \
   arrow::Status TYPENAME::AppendNulls(int64_t length) {                                 \
