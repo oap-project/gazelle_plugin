@@ -202,15 +202,12 @@ bool equal_with_nan(double left, double right) {
   return left == right;
 }
 
-arrow::Decimal128 round(arrow::Decimal128 in, 
-                        int32_t original_precision,
-                        int32_t original_scale,
-                        bool* overflow_,
-                        int32_t res_scale = 2) {
+arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,
+                        int32_t original_scale, bool* overflow_, int32_t res_scale = 2) {
   bool overflow = false;
   gandiva::BasicDecimalScalar128 val(in, original_precision, original_scale);
-  auto out = gandiva::decimalops::Round(val, original_precision, res_scale, 
-                                        res_scale, &overflow);
+  auto out = gandiva::decimalops::Round(val, original_precision, res_scale, res_scale,
+                                        &overflow);
   if (overflow) {
     *overflow_ = true;
   }
