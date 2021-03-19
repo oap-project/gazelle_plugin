@@ -521,7 +521,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
 
   arrow::Status Evaluate(const ArrayList& in) override {
     num_batches_++;
-    cached_key_.push_back(std::dynamic_pointer_cast<ArrayType_key>(in[key_id_]));
+    cached_key_.push_back(std::make_shared<ArrayType_key>(in[key_id_]));
     length_list_.push_back(in[key_id_]->length());
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
@@ -589,16 +589,14 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
       }
     }
     if (asc_) {
+      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+        return cached_key_[x.array_id]->GetView(x.id) <
+               cached_key_[y.array_id]->GetView(y.id);
+      };
       if (nulls_first_) {
-        ska_sort(indices_begin + nulls_total, indices_begin + items_total,
-                 [this](auto& x) -> decltype(auto) {
-                   return cached_key_[x.array_id]->GetView(x.id);
-                 });
+        gfx::timsort(indices_begin + nulls_total, indices_begin + items_total, comp);
       } else {
-        ska_sort(indices_begin, indices_begin + items_total - nulls_total,
-                 [this](auto& x) -> decltype(auto) {
-                   return cached_key_[x.array_id]->GetView(x.id);
-                 });
+        gfx::timsort(indices_begin, indices_begin + items_total - nulls_total, comp);
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
@@ -634,7 +632,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   }
 
  private:
-  using ArrayType_key = typename arrow::TypeTraits<DATATYPE>::ArrayType;
+  using ArrayType_key = typename TypeTraits<DATATYPE>::ArrayType;
   // using ArrayType_key = arrow::UInt32Array;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
   std::vector<arrow::ArrayVector> cached_;
