@@ -46,8 +46,6 @@ namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using namespace sparkcolumnarplugin::precompile;
 
-
-
 ///////////////  SortArraysToIndices  ////////////////
 class WindowSortKernel::Impl {
  public:
