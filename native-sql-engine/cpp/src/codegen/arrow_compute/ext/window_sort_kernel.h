@@ -46,71 +46,7 @@ namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using namespace sparkcolumnarplugin::precompile;
 
-class AppenderBase {
- public:
-  virtual ~AppenderBase() {}
 
-  virtual arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) {
-    return arrow::Status::NotImplemented("AppenderBase AddArray is abstract.");
-  }
-
-  virtual arrow::Status Append(uint16_t& array_id, uint16_t& item_id) {
-    return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
-  }
-
-  virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) {
-    return arrow::Status::NotImplemented("AppenderBase Finish is abstract.");
-  }
-
-  virtual arrow::Status Reset() {
-    return arrow::Status::NotImplemented("AppenderBase Reset is abstract.");
-  }
-};
-
-template <class DataType>
-class ArrayAppender : public AppenderBase {
- public:
-  ArrayAppender(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
-    std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
-                       &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
-  }
-  ~ArrayAppender() {}
-
-  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) {
-    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
-    cached_arr_.emplace_back(typed_arr_);
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Append(uint16_t& array_id, uint16_t& item_id) {
-    if (!cached_arr_[array_id]->IsNull(item_id)) {
-      auto val = cached_arr_[array_id]->GetView(item_id);
-      builder_->Append(cached_arr_[array_id]->GetView(item_id));
-    } else {
-      builder_->AppendNull();
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) {
-    builder_->Finish(out_);
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Reset() {
-    builder_->Reset();
-    return arrow::Status::OK();
-  }
-
- private:
-  using BuilderType_ = typename arrow::TypeTraits<DataType>::BuilderType;
-  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
-  std::unique_ptr<BuilderType_> builder_;
-  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
-  arrow::compute::ExecContext* ctx_;
-};
 
 ///////////////  SortArraysToIndices  ////////////////
 class WindowSortKernel::Impl {
