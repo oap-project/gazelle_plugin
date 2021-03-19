@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_BUILD_TYPE  "Release")
 
-set(ARROW_ROOT "/usr/local")
+set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow root dir")
 
 option(BUILD_ARROW "Build Arrow from Source" ON)
 option(STATIC_ARROW "Build Arrow with Static Libraries" OFF)
