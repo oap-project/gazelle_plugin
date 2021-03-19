@@ -692,11 +692,12 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
                                                             : (total_length_ - offset_);
       uint64_t count = 0;
-      while (count < length) {
-        auto item = indices_begin_ + offset_ + count++;
-        for (int i = 0; i < col_num_; i++) {
+      for (int i = 0; i < col_num_; i++) {
+        while (count < length) {
+          auto item = indices_begin_ + offset_ + count++;
           RETURN_NOT_OK(appender_list_[i]->Append(item->array_id, item->id));
         }
+        count = 0;
       }
       offset_ += length;
       ArrayList arrays;

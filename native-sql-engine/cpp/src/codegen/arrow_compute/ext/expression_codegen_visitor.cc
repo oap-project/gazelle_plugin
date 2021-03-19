@@ -507,8 +507,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else {
       auto childNode = node.children().at(0);
       auto childType =
-        std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
-      fix_ss << "round(" << child_visitor_list[0]->GetResult() << ", " 
+          std::dynamic_pointer_cast<arrow::Decimal128Type>(childNode->return_type());
+      fix_ss << "round(" << child_visitor_list[0]->GetResult() << ", "
              << childType->precision() << ", " << childType->scale() << ", &overflow";
     }
     if (child_visitor_list.size() > 1) {
