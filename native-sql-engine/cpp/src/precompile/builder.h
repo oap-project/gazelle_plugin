@@ -53,8 +53,8 @@ TYPED_BUILDER_DEFINE(Date64Builder, int64_t)
 class StringBuilder {
  public:
   StringBuilder(arrow::MemoryPool* pool);
-  arrow::Status Append(arrow::util::string_view val);
-  arrow::Status AppendString(std::string val);
+  arrow::Status Append(const arrow::util::string_view& val);
+  arrow::Status AppendString(const std::string& val);
   arrow::Status AppendNull();
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out);
   arrow::Status Reset();
@@ -67,7 +67,7 @@ class StringBuilder {
 class Decimal128Builder {
  public:
   Decimal128Builder(std::shared_ptr<arrow::DataType> type, arrow::MemoryPool* pool);
-  arrow::Status Append(arrow::Decimal128 val);
+  arrow::Status Append(const arrow::Decimal128& val);
   arrow::Status AppendNull();
   arrow::Status Reserve(int64_t);
   arrow::Status AppendNulls(int64_t);

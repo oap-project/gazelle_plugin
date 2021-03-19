@@ -69,10 +69,10 @@ class StringBuilder::Impl : public arrow::StringBuilder {
 StringBuilder::StringBuilder(arrow::MemoryPool* pool) {
   impl_ = std::make_shared<Impl>(pool);
 }
-arrow::Status StringBuilder::Append(arrow::util::string_view value) {
+arrow::Status StringBuilder::Append(const arrow::util::string_view& value) {
   return impl_->Append(value);
 }
-arrow::Status StringBuilder::AppendString(std::string value) {
+arrow::Status StringBuilder::AppendString(const std::string& value) {
   return impl_->Append(arrow::util::string_view(value));
 }
 arrow::Status StringBuilder::AppendNull() { return impl_->AppendNull(); }
@@ -94,7 +94,7 @@ Decimal128Builder::Decimal128Builder(std::shared_ptr<arrow::DataType> type,
                                      arrow::MemoryPool* pool) {
   impl_ = std::make_shared<Impl>(type, pool);
 }
-arrow::Status Decimal128Builder::Append(arrow::Decimal128 value) {
+arrow::Status Decimal128Builder::Append(const arrow::Decimal128& value) {
   return impl_->Append(value);
 }
 arrow::Status Decimal128Builder::AppendNull() { return impl_->AppendNull(); }
