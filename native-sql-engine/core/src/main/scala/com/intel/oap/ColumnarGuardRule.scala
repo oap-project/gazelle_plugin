@@ -159,7 +159,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.right,
             plan.isSkewJoin)
         case plan: WindowExec =>
-          if (!enableColumnarWindow) return false
+          if (!enableColumnarWindow || (plan.windowExpression.toString.contains("NULLS") && plan.windowExpression.toString.contains("sum")) ) return false
           val window = ColumnarWindowExec.create(
             plan.windowExpression,
             plan.partitionSpec,
