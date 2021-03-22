@@ -433,6 +433,16 @@ else()
                         LINK_PUBLIC ${PROTOBUF_LIBRARY})
 endif()
 
+# Build Arrow
+message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
+if(BUILD_ARROW)
+  build_arrow(${STATIC_ARROW})
+  message(STATUS "Building Static ARROW: ${STATIC_ARROW}")
+else() #
+  find_arrow()
+  message(STATUS "Use existing ARROW libraries")
+endif()
+
 add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
                    COMMAND ${PROTOC_BIN}
                            --proto_path
@@ -445,20 +455,9 @@ add_custom_command(OUTPUT ${PROTO_OUTPUT_FILES}
                    VERBATIM)
 add_custom_target(jni_proto ALL DEPENDS ${PROTO_OUTPUT_FILES})
 add_dependencies(jni_proto protobuf::libprotobuf)
-target_include_directories(spark_columnar_jni PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${JNI_INCLUDE_DIRS} ${source_root_directory} ${PROTO_OUTPUT_DIR} ${PROTOBUF_INCLUDE})
+target_include_directories(spark_columnar_jni PUBLIC ${CMAKE_SYSTEM_INCLUDE_PATH} ${JNI_INCLUDE_DIRS} ${source_root_directory} ${ARROW_INCLUDE_DIR} ${PROTO_OUTPUT_DIR} ${PROTOBUF_INCLUDE})
 set_target_properties(spark_columnar_jni PROPERTIES
-                      LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases
-)
-
-# Build Arrow
-message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
-if(BUILD_ARROW)
-  build_arrow(${STATIC_ARROW})
-  message(STATUS "Building Static ARROW: ${STATIC_ARROW}")
-else() #
-  find_arrow()
-  message(STATUS "Use existing ARROW libraries")
-endif()
+                      LIBRARY_OUTPUT_DIRECTORY ${root_directory}/releases)
 
 if(DEFINED ENV{HADOOP_HOME})
   set(LIBHDFS3_DESTINATION $ENV{HADOOP_HOME}/lib/native)
