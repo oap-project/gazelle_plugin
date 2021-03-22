@@ -296,6 +296,7 @@ macro(find_arrow)
 
   target_link_libraries(spark_columnar_jni
                       LINK_PUBLIC ${ARROW_LIB} ${GANDIVA_LIB})
+  target_include_directories(spark_columnar_jni PUBLIC ${ARROW_INCLUDE_DIR})
 endmacro()
 
 # Set up Proto
