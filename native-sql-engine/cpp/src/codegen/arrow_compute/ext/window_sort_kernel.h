@@ -37,6 +37,7 @@
 #include "precompile/builder.h"
 #include "precompile/type.h"
 #include "third_party/ska_sort.hpp"
+#include "third_party/timsort.hpp"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -44,72 +45,6 @@ namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using namespace sparkcolumnarplugin::precompile;
-
-class AppenderBase {
- public:
-  virtual ~AppenderBase() {}
-
-  virtual arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) {
-    return arrow::Status::NotImplemented("AppenderBase AddArray is abstract.");
-  }
-
-  virtual arrow::Status Append(uint16_t& array_id, uint16_t& item_id) {
-    return arrow::Status::NotImplemented("AppenderBase Append is abstract.");
-  }
-
-  virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) {
-    return arrow::Status::NotImplemented("AppenderBase Finish is abstract.");
-  }
-
-  virtual arrow::Status Reset() {
-    return arrow::Status::NotImplemented("AppenderBase Reset is abstract.");
-  }
-};
-
-template <class DataType>
-class ArrayAppender : public AppenderBase {
- public:
-  ArrayAppender(arrow::compute::ExecContext* ctx) : ctx_(ctx) {
-    std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
-                       &array_builder);
-    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
-  }
-  ~ArrayAppender() {}
-
-  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) {
-    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
-    cached_arr_.emplace_back(typed_arr_);
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Append(uint16_t& array_id, uint16_t& item_id) {
-    if (!cached_arr_[array_id]->IsNull(item_id)) {
-      auto val = cached_arr_[array_id]->GetView(item_id);
-      builder_->Append(cached_arr_[array_id]->GetView(item_id));
-    } else {
-      builder_->AppendNull();
-    }
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) {
-    builder_->Finish(out_);
-    return arrow::Status::OK();
-  }
-
-  arrow::Status Reset() {
-    builder_->Reset();
-    return arrow::Status::OK();
-  }
-
- private:
-  using BuilderType_ = typename arrow::TypeTraits<DataType>::BuilderType;
-  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
-  std::unique_ptr<BuilderType_> builder_;
-  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
-  arrow::compute::ExecContext* ctx_;
-};
 
 ///////////////  SortArraysToIndices  ////////////////
 class WindowSortKernel::Impl {
@@ -282,6 +217,7 @@ class WindowSortKernel::Impl {
 #include "precompile/builder.h"
 #include "precompile/type.h"
 #include "third_party/ska_sort.hpp"
+#include "third_party/timsort.hpp"
 using namespace sparkcolumnarplugin::precompile;
 
 class TypedSorterImpl : public CodeGenBase {
@@ -304,14 +240,14 @@ class TypedSorterImpl : public CodeGenBase {
 
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
-    int64_t buf_size = items_total * sizeof(ArrayItemIndex);
+    int64_t buf_size = items_total * sizeof(ArrayItemIndexS);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
 
     // start to partition not_null with null
-    ArrayItemIndex* indices_begin =
-        reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
-    ArrayItemIndex* indices_end = indices_begin + items_total;
+    ArrayItemIndexS* indices_begin =
+        reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
+    ArrayItemIndexS* indices_end = indices_begin + items_total;
 
     int64_t indices_i = 0;
 
@@ -329,7 +265,7 @@ class TypedSorterImpl : public CodeGenBase {
     )" + sort_func_str +
            R"(
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
-    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
+    RETURN_NOT_OK(MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total, indices_buf, out));
     return arrow::Status::OK();
   }
@@ -338,7 +274,7 @@ class TypedSorterImpl : public CodeGenBase {
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(FinishInternal(in, &indices_out));
     arrow::UInt64Builder builder;
-    auto *index = (ArrayItemIndex *) indices_out->value_data();
+    auto *index = (ArrayItemIndexS *) indices_out->value_data();
     for (int i = 0; i < indices_out->length(); i++) {
       uint64_t encoded = ((uint64_t) (index->array_id) << 16U) ^ ((uint64_t) (index->id));
       RETURN_NOT_OK(builder.Append(encoded));
@@ -362,7 +298,7 @@ class TypedSorterImpl : public CodeGenBase {
            R"(): ctx_(ctx), total_length_(indices_in->length()), indices_in_cache_(indices_in) {
      )" + result_iter_define_str +
            R"(
-      indices_begin_ = (ArrayItemIndex*)indices_in->value_data();
+      indices_begin_ = (ArrayItemIndexS*)indices_in->value_data();
     }
 
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
@@ -397,7 +333,7 @@ class TypedSorterImpl : public CodeGenBase {
            R"(
     std::shared_ptr<FixedSizeBinaryArray> indices_in_cache_;
     uint64_t offset_ = 0;
-    ArrayItemIndex* indices_begin_;
+    ArrayItemIndexS* indices_begin_;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> result_schema_;
     arrow::compute::ExecContext* ctx_;
@@ -421,7 +357,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   }
   std::string GetCompFunction(std::vector<int> sort_key_index_list) {
     std::stringstream ss;
-    ss << "auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& "
+    ss << "auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& "
           "y) {"
        << GetCompFunction_(0, sort_key_index_list) << "};";
     return ss.str();
@@ -472,7 +408,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   }
 
   std::string GetSortFunction(std::vector<int>& key_index_list) {
-    return "std::sort(indices_begin, indices_begin + "
+    return "gfx::timsort(indices_begin, indices_begin + "
            "items_total, "
            "comp);";
   }
@@ -585,7 +521,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
 
   arrow::Status Evaluate(const ArrayList& in) override {
     num_batches_++;
-    cached_key_.push_back(std::dynamic_pointer_cast<ArrayType_key>(in[key_id_]));
+    cached_key_.push_back(std::make_shared<ArrayType_key>(in[key_id_]));
     length_list_.push_back(in[key_id_]->length());
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
@@ -615,12 +551,12 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     }
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
-    int64_t buf_size = items_total * sizeof(ArrayItemIndex);
+    int64_t buf_size = items_total * sizeof(ArrayItemIndexS);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
-    ArrayItemIndex* indices_begin =
-        reinterpret_cast<ArrayItemIndex*>(indices_buf->mutable_data());
-    ArrayItemIndex* indices_end = indices_begin + items_total;
+    ArrayItemIndexS* indices_begin =
+        reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
+    ArrayItemIndexS* indices_end = indices_begin + items_total;
     int64_t indices_i = 0;
     int64_t indices_null = 0;
     // we should support nulls first and nulls last here
@@ -653,31 +589,29 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
       }
     }
     if (asc_) {
+      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
+        return cached_key_[x.array_id]->GetView(x.id) <
+               cached_key_[y.array_id]->GetView(y.id);
+      };
       if (nulls_first_) {
-        ska_sort(indices_begin + nulls_total, indices_begin + items_total,
-                 [this](auto& x) -> decltype(auto) {
-                   return cached_key_[x.array_id]->GetView(x.id);
-                 });
+        gfx::timsort(indices_begin + nulls_total, indices_begin + items_total, comp);
       } else {
-        ska_sort(indices_begin, indices_begin + items_total - nulls_total,
-                 [this](auto& x) -> decltype(auto) {
-                   return cached_key_[x.array_id]->GetView(x.id);
-                 });
+        gfx::timsort(indices_begin, indices_begin + items_total - nulls_total, comp);
       }
     } else {
-      auto comp = [this](const ArrayItemIndex& x, const ArrayItemIndex& y) {
+      auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
         return cached_key_[x.array_id]->GetView(x.id) >
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
-        std::sort(indices_begin + nulls_total, indices_begin + items_total, comp);
+        gfx::timsort(indices_begin + nulls_total, indices_begin + items_total, comp);
       } else {
-        std::sort(indices_begin, indices_begin + items_total - nulls_total, comp);
+        gfx::timsort(indices_begin, indices_begin + items_total - nulls_total, comp);
       }
     }
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
     RETURN_NOT_OK(
-        MakeFixedSizeBinaryType(sizeof(ArrayItemIndex) / sizeof(int32_t), &out_type));
+        MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total, indices_buf, out));
     return arrow::Status::OK();
   }
@@ -687,7 +621,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(FinishInternal(in, &indices_out));
     arrow::UInt64Builder builder;
-    auto* index = (ArrayItemIndex*)indices_out->value_data();
+    auto* index = (ArrayItemIndexS*)indices_out->value_data();
     for (int i = 0; i < indices_out->length(); i++) {
       uint64_t encoded = ((uint64_t)(index->array_id) << 16U) ^ ((uint64_t)(index->id));
       RETURN_NOT_OK(builder.Append(encoded));
@@ -698,7 +632,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   }
 
  private:
-  using ArrayType_key = typename arrow::TypeTraits<DATATYPE>::ArrayType;
+  using ArrayType_key = typename TypeTraits<DATATYPE>::ArrayType;
   // using ArrayType_key = arrow::UInt32Array;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
   std::vector<arrow::ArrayVector> cached_;

@@ -349,6 +349,11 @@ object ColumnarWindowExec {
       partitionSpec: Seq[Expression],
       orderSpec: Seq[SortOrder],
       child: SparkPlan): SparkPlan = {
-    createWithProjection(windowExpression, partitionSpec, orderSpec, child)
+    //TODO(): this is a quick fix on non-avg window issue
+    if (!windowExpression.toString.contains("avg")) {
+      new ColumnarWindowExec(windowExpression, partitionSpec, orderSpec, child)
+    } else {
+      createWithProjection(windowExpression, partitionSpec, orderSpec, child)
+    }
   }
 }
