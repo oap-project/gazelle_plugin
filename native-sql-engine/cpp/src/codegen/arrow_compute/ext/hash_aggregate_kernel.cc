@@ -44,8 +44,8 @@ namespace codegen {
 namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
-using precompile::StringHashMap;
 using precompile::enable_if_number_or_timestamp;
+using precompile::StringHashMap;
 
 ///////////////  SortArraysToIndices  ////////////////
 class HashAggregateKernel::Impl {

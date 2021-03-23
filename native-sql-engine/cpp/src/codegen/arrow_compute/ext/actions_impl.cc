@@ -3671,7 +3671,7 @@ arrow::Status MakeUniqueAction(
                                                                                    type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
-      case arrow::TimestampType::type_id: {
+    case arrow::TimestampType::type_id: {
       auto action_ptr =
           std::make_shared<UniqueAction<arrow::TimestampType, int64_t>>(ctx, type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);

@@ -76,9 +76,9 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using namespace sparkcolumnarplugin::precompile;
 
 template <typename T>
-using is_number_bool_date = std::integral_constant<bool, 
-    arrow::is_number_type<T>::value || arrow::is_boolean_type<T>::value || 
-    arrow::is_date_type<T>::value || arrow::is_timestamp_type<T>::value>;
+using is_number_bool_date = std::integral_constant<
+    bool, arrow::is_number_type<T>::value || arrow::is_boolean_type<T>::value ||
+              arrow::is_date_type<T>::value || arrow::is_timestamp_type<T>::value>;
 
 ///////////////  SortArraysToIndices  ////////////////
 class SortArraysToIndicesKernel::Impl {

@@ -58,13 +58,14 @@ using is_number_or_timestamp_type =
                            is_number_like_type<T>::value || is_timestamp_type<T>::value>;
 
 template <typename T>
-using enable_if_number_or_timestamp = std::enable_if_t<is_number_or_timestamp_type<T>::value>;
+using enable_if_number_or_timestamp =
+    std::enable_if_t<is_number_or_timestamp_type<T>::value>;
 
 template <typename T>
 using is_number_decimal_or_timestamp_type =
-    std::integral_constant<bool,
-                           is_number_like_type<T>::value || is_decimal_type<T>::value || 
-                           is_timestamp_type<T>::value>;
+    std::integral_constant<bool, is_number_like_type<T>::value ||
+                                     is_decimal_type<T>::value ||
+                                     is_timestamp_type<T>::value>;
 
 template <typename T>
 using enable_if_boolean = std::enable_if_t<is_boolean_type<T>::value>;

@@ -225,7 +225,7 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<" + prefix + "Date32" + tail + ">";
     case arrow::Date64Type::type_id:
       if (tail.empty())
-        return template_name + "<int64_t>";
+        return template_name + "<uint64_t>";
       else
         return template_name + "<" + prefix + "Date64" + tail + ">";
     case arrow::StringType::type_id:
@@ -245,7 +245,7 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<" + prefix + "Decimal128" + tail + ">";
     case arrow::TimestampType::type_id:
       if (tail.empty())
-        return template_name + "<uint64_t>";
+        return template_name + "<int64_t>";
       else
         return template_name + "<" + prefix + "Timestamp" + tail + ">";
     default:

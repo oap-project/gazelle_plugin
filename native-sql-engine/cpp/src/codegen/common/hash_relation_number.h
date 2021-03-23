@@ -26,7 +26,8 @@ using sparkcolumnarplugin::precompile::TypeTraits;
 /////////////////////////////////////////////////////////////////////////
 
 template <typename DataType>
-class TypedHashRelation<DataType, enable_if_number_or_timestamp<DataType>> : public HashRelation {
+class TypedHashRelation<DataType, enable_if_number_or_timestamp<DataType>>
+    : public HashRelation {
  public:
   using T = typename TypeTraits<DataType>::CType;
   TypedHashRelation(
