@@ -39,6 +39,8 @@ import java.util.jar.JarFile;
 /** Helper class for JNI related operations. */
 public class JniUtils {
   private static final String LIBRARY_NAME = "spark_columnar_jni";
+  private static final String ARROW_LIBRARY_NAME = "libarrow.so.300";
+  private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.300";
   private static boolean isLoaded = false;
   private static boolean isCodegenDependencyLoaded = false;
   private static List<String> codegenJarsLoadedCache = new ArrayList<>();
@@ -77,6 +79,8 @@ public class JniUtils {
       try {
         loadLibraryFromJar(tmp_dir);
       } catch (IOException ex) {
+        System.load(ARROW_LIBRARY_NAME);
+        System.load(GANDIVA_LIBRARY_NAME);
         System.loadLibrary(LIBRARY_NAME);
       }
       isLoaded = true;
@@ -108,6 +112,10 @@ public class JniUtils {
       if (tmp_dir == null) {
         tmp_dir = System.getProperty("java.io.tmpdir");
       }
+      final File arrowlibraryFile = moveFileFromJarToTemp(tmp_dir, ARROW_LIBRARY_NAME);
+      System.load(arrowlibraryFile.getAbsolutePath());
+      final File gandivalibraryFile = moveFileFromJarToTemp(tmp_dir, GANDIVA_LIBRARY_NAME);
+      System.load(gandivalibraryFile.getAbsolutePath());
       final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
       final File libraryFile = moveFileFromJarToTemp(tmp_dir, libraryToLoad);
       System.load(libraryFile.getAbsolutePath());
