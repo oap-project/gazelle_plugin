@@ -17,18 +17,19 @@
 
 package com.intel.oap.expression
 
+import java.lang
+
 import com.google.common.collect.Lists
 import com.google.common.collect.Sets
-
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.types.UTF8String
 
 import scala.collection.mutable.ListBuffer
 
@@ -54,27 +55,32 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
     val resultType = new ArrowType.Bool()
     if (value.dataType == StringType) {
       val newlist = hset.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.toString
+        if (expr.isInstanceOf[UTF8String]) {
+          expr.toString
+        } else {
+          expr.asInstanceOf[Literal].value.toString
+        }
       })
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
       (funcNode, resultType)
     } else if (value.dataType == IntegerType) {
-      val newlist = hset.toList.map (expr => {
-        expr match {
-          case integer: Integer =>
-            integer
-          case _ =>
-            expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
-        }
-      })
+      val newlist = hset.toList.map {
+        case integer: Integer =>
+          integer
+        case expr =>
+          expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
+      }
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionInt32(value_node: TreeNode, Sets.newHashSet(tlist))
       (funcNode, resultType)
     } else if (value.dataType == LongType) {
-      val newlist = hset.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.asInstanceOf[java.lang.Long]
-      })
+      val newlist = hset.toList.map {
+        case long: lang.Long =>
+          long
+        case expr =>
+          expr.asInstanceOf[Literal].value.asInstanceOf[lang.Long]
+      }
       val tlist = Lists.newArrayList(newlist:_*);
       val funcNode = TreeBuilder.makeInExpressionBigInt(value_node, Sets.newHashSet(tlist))
       (funcNode, resultType)

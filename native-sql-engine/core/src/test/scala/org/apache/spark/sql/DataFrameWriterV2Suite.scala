@@ -122,22 +122,24 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(v2.catalog.exists(_ == catalogPlugin))
   }
 
-  ignore("Append: basic append") {
-    spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
+  test("Append: basic append") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
-    checkAnswer(spark.table("testcat.table_name"), Seq.empty)
+      checkAnswer(spark.table("testcat.table_name"), Seq.empty)
 
-    spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("source").writeTo("testcat.table_name").append()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    spark.table("source2").writeTo("testcat.table_name").append()
+      spark.table("source2").writeTo("testcat.table_name").append()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c"), Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c"), Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+    }
   }
 
   test("Append: by name not position") {
@@ -165,42 +167,46 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("Overwrite: overwrite by expression: true") {
-    spark.sql(
-      "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
+  test("Overwrite: overwrite by expression: true") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql(
+        "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
-    checkAnswer(spark.table("testcat.table_name"), Seq.empty)
+      checkAnswer(spark.table("testcat.table_name"), Seq.empty)
 
-    spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("source").writeTo("testcat.table_name").append()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    spark.table("source2").writeTo("testcat.table_name").overwrite(lit(true))
+      spark.table("source2").writeTo("testcat.table_name").overwrite(lit(true))
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+    }
   }
 
-  ignore("Overwrite: overwrite by expression: id = 3") {
-    spark.sql(
-      "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
+  test("Overwrite: overwrite by expression: id = 3") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql(
+        "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
-    checkAnswer(spark.table("testcat.table_name"), Seq.empty)
+      checkAnswer(spark.table("testcat.table_name"), Seq.empty)
 
-    spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("source").writeTo("testcat.table_name").append()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    spark.table("source2").writeTo("testcat.table_name").overwrite($"id" === 3)
+      spark.table("source2").writeTo("testcat.table_name").overwrite($"id" === 3)
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+    }
   }
 
   test("Overwrite: by name not position") {
@@ -229,42 +235,46 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("OverwritePartitions: overwrite conflicting partitions") {
-    spark.sql(
-      "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
+  test("OverwritePartitions: overwrite conflicting partitions") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql(
+        "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
-    checkAnswer(spark.table("testcat.table_name"), Seq.empty)
+      checkAnswer(spark.table("testcat.table_name"), Seq.empty)
 
-    spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("source").writeTo("testcat.table_name").append()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    spark.table("source2").withColumn("id", $"id" - 2)
+      spark.table("source2").withColumn("id", $"id" - 2)
         .writeTo("testcat.table_name").overwritePartitions()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "d"), Row(3L, "e"), Row(4L, "f")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "d"), Row(3L, "e"), Row(4L, "f")))
+    }
   }
 
-  ignore("OverwritePartitions: overwrite all rows if not partitioned") {
-    spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
+  test("OverwritePartitions: overwrite all rows if not partitioned") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
-    checkAnswer(spark.table("testcat.table_name"), Seq.empty)
+      checkAnswer(spark.table("testcat.table_name"), Seq.empty)
 
-    spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("source").writeTo("testcat.table_name").append()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    spark.table("source2").writeTo("testcat.table_name").overwritePartitions()
+      spark.table("source2").writeTo("testcat.table_name").overwritePartitions()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+    }
   }
 
   test("OverwritePartitions: by name not position") {
@@ -293,64 +303,72 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("Create: basic behavior") {
-    spark.table("source").writeTo("testcat.table_name").create()
+  test("Create: basic behavior") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.table("source").writeTo("testcat.table_name").create()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning.isEmpty)
-    assert(table.properties == defaultOwnership.asJava)
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning.isEmpty)
+      assert(table.properties == defaultOwnership.asJava)
+    }
   }
 
-  ignore("Create: with using") {
-    spark.table("source").writeTo("testcat.table_name").using("foo").create()
+  test("Create: with using") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.table("source").writeTo("testcat.table_name").using("foo").create()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning.isEmpty)
-    assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning.isEmpty)
+      assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
+    }
   }
 
-  ignore("Create: with property") {
-    spark.table("source").writeTo("testcat.table_name").tableProperty("prop", "value").create()
+  test("Create: with property") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.table("source").writeTo("testcat.table_name").tableProperty("prop", "value").create()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning.isEmpty)
-    assert(table.properties === (Map("prop" -> "value") ++ defaultOwnership).asJava)
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning.isEmpty)
+      assert(table.properties === (Map("prop" -> "value") ++ defaultOwnership).asJava)
+    }
   }
 
-  ignore("Create: identity partitioned table") {
-    spark.table("source").writeTo("testcat.table_name").partitionedBy($"id").create()
+  test("Create: identity partitioned table") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.table("source").writeTo("testcat.table_name").partitionedBy($"id").create()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning === Seq(IdentityTransform(FieldReference("id"))))
-    assert(table.properties == defaultOwnership.asJava)
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning === Seq(IdentityTransform(FieldReference("id"))))
+      assert(table.properties == defaultOwnership.asJava)
+    }
   }
 
   test("Create: partitioned by years(ts)") {
@@ -442,77 +460,81 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
   }
 
-  ignore("Replace: basic behavior") {
-    spark.sql(
-      "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
-    spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
+  test("Replace: basic behavior") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql(
+        "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
+      spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the initial table
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning === Seq(IdentityTransform(FieldReference("id"))))
-    assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
+      // validate the initial table
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning === Seq(IdentityTransform(FieldReference("id"))))
+      assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
 
-    spark.table("source2")
+      spark.table("source2")
         .withColumn("even_or_odd", when(($"id" % 2) === 0, "even").otherwise("odd"))
         .writeTo("testcat.table_name").replace()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(4L, "d", "even"), Row(5L, "e", "odd"), Row(6L, "f", "even")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d", "even"), Row(5L, "e", "odd"), Row(6L, "f", "even")))
 
-    val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the replacement table
-    assert(replaced.name === "testcat.table_name")
-    assert(replaced.schema === new StructType()
+      // validate the replacement table
+      assert(replaced.name === "testcat.table_name")
+      assert(replaced.schema === new StructType()
         .add("id", LongType)
         .add("data", StringType)
         .add("even_or_odd", StringType))
-    assert(replaced.partitioning.isEmpty)
-    assert(replaced.properties === defaultOwnership.asJava)
+      assert(replaced.partitioning.isEmpty)
+      assert(replaced.properties === defaultOwnership.asJava)
+    }
   }
 
-  ignore("Replace: partitioned table") {
-    spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
-    spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
+  test("Replace: partitioned table") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
+      spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the initial table
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning.isEmpty)
-    assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
+      // validate the initial table
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning.isEmpty)
+      assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
 
-    spark.table("source2")
+      spark.table("source2")
         .withColumn("even_or_odd", when(($"id" % 2) === 0, "even").otherwise("odd"))
         .writeTo("testcat.table_name").partitionedBy($"id").replace()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(4L, "d", "even"), Row(5L, "e", "odd"), Row(6L, "f", "even")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d", "even"), Row(5L, "e", "odd"), Row(6L, "f", "even")))
 
-    val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the replacement table
-    assert(replaced.name === "testcat.table_name")
-    assert(replaced.schema === new StructType()
+      // validate the replacement table
+      assert(replaced.name === "testcat.table_name")
+      assert(replaced.schema === new StructType()
         .add("id", LongType)
         .add("data", StringType)
         .add("even_or_odd", StringType))
-    assert(replaced.partitioning === Seq(IdentityTransform(FieldReference("id"))))
-    assert(replaced.properties === defaultOwnership.asJava)
+      assert(replaced.partitioning === Seq(IdentityTransform(FieldReference("id"))))
+      assert(replaced.properties === defaultOwnership.asJava)
+    }
   }
 
   test("Replace: fail if table does not exist") {
@@ -523,91 +545,97 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     assert(exc.getMessage.contains("table_name"))
   }
 
-  ignore("CreateOrReplace: table does not exist") {
-    spark.table("source2").writeTo("testcat.table_name").createOrReplace()
+  test("CreateOrReplace: table does not exist") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.table("source2").writeTo("testcat.table_name").createOrReplace()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
 
-    val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the replacement table
-    assert(replaced.name === "testcat.table_name")
-    assert(replaced.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(replaced.partitioning.isEmpty)
-    assert(replaced.properties === defaultOwnership.asJava)
+      // validate the replacement table
+      assert(replaced.name === "testcat.table_name")
+      assert(replaced.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(replaced.partitioning.isEmpty)
+      assert(replaced.properties === defaultOwnership.asJava)
+    }
   }
 
-  ignore("CreateOrReplace: table exists") {
-    spark.sql(
-      "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
-    spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
+  test("CreateOrReplace: table exists") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      spark.sql(
+        "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
+      spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the initial table
-    assert(table.name === "testcat.table_name")
-    assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
-    assert(table.partitioning === Seq(IdentityTransform(FieldReference("id"))))
-    assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
+      // validate the initial table
+      assert(table.name === "testcat.table_name")
+      assert(table.schema === new StructType().add("id", LongType).add("data", StringType))
+      assert(table.partitioning === Seq(IdentityTransform(FieldReference("id"))))
+      assert(table.properties === (Map("provider" -> "foo") ++ defaultOwnership).asJava)
 
-    spark.table("source2")
+      spark.table("source2")
         .withColumn("even_or_odd", when(($"id" % 2) === 0, "even").otherwise("odd"))
         .writeTo("testcat.table_name").createOrReplace()
 
-    checkAnswer(
-      spark.table("testcat.table_name"),
-      Seq(Row(4L, "d", "even"), Row(5L, "e", "odd"), Row(6L, "f", "even")))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d", "even"), Row(5L, "e", "odd"), Row(6L, "f", "even")))
 
-    val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+      val replaced = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
 
-    // validate the replacement table
-    assert(replaced.name === "testcat.table_name")
-    assert(replaced.schema === new StructType()
+      // validate the replacement table
+      assert(replaced.name === "testcat.table_name")
+      assert(replaced.schema === new StructType()
         .add("id", LongType)
         .add("data", StringType)
         .add("even_or_odd", StringType))
-    assert(replaced.partitioning.isEmpty)
-    assert(replaced.properties === defaultOwnership.asJava)
+      assert(replaced.partitioning.isEmpty)
+      assert(replaced.properties === defaultOwnership.asJava)
+    }
   }
 
-  ignore("SPARK-30289 Create: partitioned by nested column") {
-    val schema = new StructType().add("ts", new StructType()
-      .add("created", TimestampType)
-      .add("modified", TimestampType)
-      .add("timezone", StringType))
+  test("SPARK-30289 Create: partitioned by nested column") {
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val schema = new StructType().add("ts", new StructType()
+        .add("created", TimestampType)
+        .add("modified", TimestampType)
+        .add("timezone", StringType))
 
-    val data = Seq(
-      Row(Row(Timestamp.valueOf("2019-06-01 10:00:00"), Timestamp.valueOf("2019-09-02 07:00:00"),
-        "America/Los_Angeles")),
-      Row(Row(Timestamp.valueOf("2019-08-26 18:00:00"), Timestamp.valueOf("2019-09-26 18:00:00"),
-        "America/Los_Angeles")),
-      Row(Row(Timestamp.valueOf("2018-11-23 18:00:00"), Timestamp.valueOf("2018-12-22 18:00:00"),
-        "America/New_York")))
-    val df = spark.createDataFrame(spark.sparkContext.parallelize(data, 1), schema)
+      val data = Seq(
+        Row(Row(Timestamp.valueOf("2019-06-01 10:00:00"), Timestamp.valueOf("2019-09-02 07:00:00"),
+          "America/Los_Angeles")),
+        Row(Row(Timestamp.valueOf("2019-08-26 18:00:00"), Timestamp.valueOf("2019-09-26 18:00:00"),
+          "America/Los_Angeles")),
+        Row(Row(Timestamp.valueOf("2018-11-23 18:00:00"), Timestamp.valueOf("2018-12-22 18:00:00"),
+          "America/New_York")))
+      val df = spark.createDataFrame(spark.sparkContext.parallelize(data, 1), schema)
 
-    df.writeTo("testcat.table_name")
-      .partitionedBy($"ts.timezone")
-      .create()
+      df.writeTo("testcat.table_name")
+        .partitionedBy($"ts.timezone")
+        .create()
 
-    val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
-      .asInstanceOf[InMemoryTable]
+      val table = catalog("testcat").loadTable(Identifier.of(Array(), "table_name"))
+        .asInstanceOf[InMemoryTable]
 
-    assert(table.name === "testcat.table_name")
-    assert(table.partitioning === Seq(IdentityTransform(FieldReference(Array("ts", "timezone")))))
-    checkAnswer(spark.table(table.name), data)
-    assert(table.dataMap.toArray.length == 2)
-    assert(table.dataMap(Seq(UTF8String.fromString("America/Los_Angeles"))).rows.size == 2)
-    assert(table.dataMap(Seq(UTF8String.fromString("America/New_York"))).rows.size == 1)
+      assert(table.name === "testcat.table_name")
+      assert(table.partitioning === Seq(IdentityTransform(FieldReference(Array("ts", "timezone")))))
+      checkAnswer(spark.table(table.name), data)
+      assert(table.dataMap.toArray.length == 2)
+      assert(table.dataMap(Seq(UTF8String.fromString("America/Los_Angeles"))).rows.size == 2)
+      assert(table.dataMap(Seq(UTF8String.fromString("America/New_York"))).rows.size == 1)
 
-    // TODO: `DataSourceV2Strategy` can not translate nested fields into source filter yet
-    // so the following sql will fail.
-    // sql("DELETE FROM testcat.table_name WHERE ts.timezone = \"America/Los_Angeles\"")
+      // TODO: `DataSourceV2Strategy` can not translate nested fields into source filter yet
+      // so the following sql will fail.
+      // sql("DELETE FROM testcat.table_name WHERE ts.timezone = \"America/Los_Angeles\"")
+    }
   }
 
   test("SPARK-30289 Create: partitioned by multiple transforms on nested columns") {
