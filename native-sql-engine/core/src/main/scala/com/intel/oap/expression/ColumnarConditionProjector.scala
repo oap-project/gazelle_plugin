@@ -48,6 +48,7 @@ import org.apache.arrow.util.AutoCloseables
 import org.apache.arrow.vector.ValueVector
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable.ListBuffer
 import scala.util.control.Breaks._
 
 class ColumnarConditionProjector(
@@ -463,10 +464,24 @@ object ColumnarConditionProjector extends Logging {
   class FieldOptimizedProjector(projectionSchema: Schema, resultSchema: Schema,
       exprs: java.util.List[ExpressionTree]) extends ProjectorWrapper {
 
-    val fieldExprs = exprs.asScala.zipWithIndex.filter {
-      case (expr, _) =>
+    val fieldExprs = ListBuffer[(ExpressionTree, Int)]()
+    val fieldExprNames = new util.HashSet[String]()
+
+    /**
+     * nonFieldExprs may include fields that are already appeared in projection list.
+     * To avoid sharing same buffers over output columns.
+     */
+    val nonFieldExprs = ListBuffer[(ExpressionTree, Int)]()
+
+    exprs.asScala.zipWithIndex.foreach {
+      case (expr, i) =>
         val root = getRoot(expr)
-        fieldClazz.isInstance(root)
+        if (fieldClazz.isInstance(root) && !fieldExprNames.contains(getField(root).getName)) {
+          fieldExprs.append((expr, i))
+          fieldExprNames.add(getField(root).getName)
+        } else {
+          nonFieldExprs.append((expr, i))
+        }
     }
 
     val fieldResultSchema = new Schema(
@@ -474,12 +489,6 @@ object ColumnarConditionProjector extends Logging {
         case (_, i) =>
           resultSchema.getFields.get(i)
       }.asJava)
-
-    val nonFieldExprs = exprs.asScala.zipWithIndex.filter {
-      case (expr, _) =>
-        val root = getRoot(expr)
-        !fieldClazz.isInstance(root)
-    }
 
     val nonFieldResultSchema = new Schema(
       nonFieldExprs.map {
