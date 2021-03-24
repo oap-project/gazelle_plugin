@@ -53,40 +53,89 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
       value.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val resultType = new ArrowType.Bool()
+    var inNode: TreeNode = null
+    var has_null = false
+
     if (value.dataType == StringType) {
-      val newlist = hset.toList.map (expr => {
-        if (expr.isInstanceOf[UTF8String]) {
-          expr.toString
+      var newlist: List[String] = List()
+      val hList = hset.toList
+      for (i <- hList.indices) {
+        if (hList(i) == null) {
+          has_null = true
         } else {
-          expr.asInstanceOf[Literal].value.toString
+          hList(i) match {
+            case expr@(str: UTF8String) =>
+              newlist = newlist :+ expr.toString
+            case literal: Literal =>
+              newlist = newlist :+ value.toString
+          }
         }
-      })
+      }
       val tlist = Lists.newArrayList(newlist:_*);
-      val funcNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
-      (funcNode, resultType)
+      inNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
     } else if (value.dataType == IntegerType) {
-      val newlist = hset.toList.map {
-        case integer: Integer =>
-          integer
-        case expr =>
-          expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
+      var newlist: List[Integer] = List()
+      val hList = hset.toList
+      for (i <- hList.indices) {
+        if (hList(i) == null) {
+          has_null = true
+        } else {
+          hList(i) match {
+            case integer: Integer =>
+              newlist = newlist :+ integer
+            case literal: Literal =>
+              newlist = newlist :+ value.asInstanceOf[Integer]
+          }
+        }
       }
       val tlist = Lists.newArrayList(newlist:_*);
-      val funcNode = TreeBuilder.makeInExpressionInt32(value_node: TreeNode, Sets.newHashSet(tlist))
-      (funcNode, resultType)
+      inNode = TreeBuilder.makeInExpressionInt32(value_node: TreeNode, Sets.newHashSet(tlist))
     } else if (value.dataType == LongType) {
-      val newlist = hset.toList.map {
-        case long: lang.Long =>
-          long
-        case expr =>
-          expr.asInstanceOf[Literal].value.asInstanceOf[lang.Long]
+      var newlist: List[lang.Long] = List()
+      val hList = hset.toList
+      for (i <- hList.indices) {
+        if (hList(i) == null) {
+          has_null = true
+        } else {
+          hList(i) match {
+            case long: lang.Long =>
+              newlist = newlist :+ long
+            case literal: Literal =>
+              newlist = newlist :+ value.asInstanceOf[lang.Long]
+          }
+        }
       }
       val tlist = Lists.newArrayList(newlist:_*);
-      val funcNode = TreeBuilder.makeInExpressionBigInt(value_node, Sets.newHashSet(tlist))
-      (funcNode, resultType)
+      inNode = TreeBuilder.makeInExpressionBigInt(value_node, Sets.newHashSet(tlist))
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${value.dataType}.")
     }
+
+    /** Null should be specially handled:
+    TRUE is returned when the non-NULL value in question is found in the list
+    FALSE is returned when the non-NULL value is not found in the list and the list does not contain NULL values
+    NULL is returned when the value is NULL, or the non-NULL value is not found in the list and the list contains at least one NULL value
+     */
+    val isnotnullNode = TreeBuilder.makeFunction(
+      "isnotnull", Lists.newArrayList(value_node), resultType)
+    val trueNode =
+      TreeBuilder.makeLiteral(true.asInstanceOf[java.lang.Boolean])
+    val falseNode =
+      TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
+    val nullNode =
+      TreeBuilder.makeNull(resultType)
+    val hasNullNode =
+      TreeBuilder.makeIf(
+        TreeBuilder.makeLiteral(has_null.asInstanceOf[java.lang.Boolean]),
+        trueNode, falseNode, resultType)
+
+    val notInNode = TreeBuilder.makeIf(
+      hasNullNode, nullNode, falseNode, resultType)
+    val isNotNullBranch =
+      TreeBuilder.makeIf(inNode, trueNode, notInNode, resultType)
+    val funcNode = TreeBuilder.makeIf(
+      isnotnullNode, isNotNullBranch, nullNode, resultType)
+    (funcNode, resultType)
   }
 }
 

@@ -440,7 +440,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       }
   }
 
-  ignore("IN/INSET with bytes, shorts, ints, dates") {
+  test("IN/INSET with bytes, shorts, ints, dates") {
     def check(): Unit = {
       val values = Seq(
         (Byte.MinValue, Some(Short.MinValue), Int.MinValue, Date.valueOf("2017-01-01")),
