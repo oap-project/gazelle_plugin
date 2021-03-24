@@ -294,6 +294,11 @@ macro(find_arrow)
     message(STATUS "Gandiva Library Can Be Found in ${GANDIVA_LIB}")
   endif()
 
+  file(COPY ${ARROW_LIB}.0.0 DESTINATION ${root_directory}/releases/)
+  file(COPY ${ARROW_LIB} DESTINATION ${root_directory}/releases/)
+  file(COPY ${GANDIVA_LIB}.0.0 DESTINATION ${root_directory}/releases/)
+  file(COPY ${GANDIVA_LIB} DESTINATION ${root_directory}/releases/)
+
   target_link_libraries(spark_columnar_jni
                       LINK_PUBLIC ${ARROW_LIB} ${GANDIVA_LIB})
   target_include_directories(spark_columnar_jni PUBLIC ${ARROW_INCLUDE_DIR})
