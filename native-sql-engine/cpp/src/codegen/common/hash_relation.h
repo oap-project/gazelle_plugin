@@ -27,6 +27,7 @@
 #include "precompile/unsafe_array.h"
 #include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
+#include "utils/macros.h"
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
@@ -142,6 +143,11 @@ class HashRelation {
   }
 
   arrow::Status InitHashTable(int init_key_capacity, int initial_bytesmap_capacity) {
+    if (init_key_capacity < 0 || initial_bytesmap_capacity < 0) {
+      THROW_NOT_OK(arrow::Status::Invalid(
+          "initialization size is overflowed, init_key_capacity is ", init_key_capacity,
+          ", initial_bytesmap_capacity is ", initial_bytesmap_capacity));
+    }
     hash_table_ = createUnsafeHashMap(ctx_->memory_pool(), init_key_capacity,
                                       initial_bytesmap_capacity, key_size_);
     return arrow::Status::OK();
