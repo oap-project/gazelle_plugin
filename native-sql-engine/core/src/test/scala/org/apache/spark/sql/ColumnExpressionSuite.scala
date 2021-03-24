@@ -585,7 +585,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
       Row(false, true) :: Row(true, false) :: Row(true, true) :: Nil)
   }
 
-  ignore("SPARK-7321 when conditional statements") {
+  test("SPARK-7321 when conditional statements") {
     val testData = (1 to 3).map(i => (i, i.toString)).toDF("key", "value")
 
     checkAnswer(

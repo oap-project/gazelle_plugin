@@ -61,15 +61,12 @@ class ColumnarCaseWhen(
     logInfo(s"children: ${branches.flatMap(b => b._1 :: b._2 :: Nil) ++ elseValue}")
     logInfo(s"branches: $branches")
     logInfo(s"else: $elseValue")
-    var i = 0
-    val size = branches.size
-    //TODO(): handle leveled branches
-
+    val i = 0
     val exprs = branches.flatMap(b => b._1 :: b._2 :: Nil) ++ elseValue
     val exprList = { exprs.filter(expr => !expr.isInstanceOf[Literal]) }
     val inputAttributes = exprList.toList.map(expr => ConverterUtils.getResultAttrFromExpr(expr))
 
-    var colCondExpr = branches(i)._1
+    val colCondExpr = branches(i)._1
     val (cond_node, condType): (TreeNode, ArrowType) =
       colCondExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
@@ -81,21 +78,42 @@ class ColumnarCaseWhen(
     val (ret_node, retType): (TreeNode, ArrowType) =
       colRetExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val elseValueExpr = elseValue.getOrElse(null)
-    val (else_node, elseType): (TreeNode, ArrowType) = if (elseValueExpr != null) {
-      var colElseValueExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(elseValueExpr)
-      if (rename && colElseValueExpr.isInstanceOf[AttributeReference]) {
-        colElseValueExpr = new ColumnarBoundReference(inputAttributes.indexOf(colElseValueExpr),
-                                                    colElseValueExpr.dataType, colElseValueExpr.nullable)
-      }
-      colElseValueExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    } else {
-      (TreeBuilder.makeNull(retType), retType)
-    }
-
-    val funcNode = TreeBuilder.makeIf(cond_node, ret_node, else_node, retType)
+    val funcNode = TreeBuilder.makeIf(cond_node, ret_node,
+        elseNode(args, i + 1, inputAttributes, retType), retType)
     (funcNode, retType)
+  }
 
+  def elseNode(args: java.lang.Object, idx: Int,
+                inputAttributes: List[AttributeReference], retType: ArrowType): TreeNode = {
+    if (idx == branches.size) {
+      val elseValueExpr = elseValue.orNull
+      val (else_node, elseType): (TreeNode, ArrowType) = if (elseValueExpr != null) {
+        var colElseValueExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(elseValueExpr)
+        if (rename && colElseValueExpr.isInstanceOf[AttributeReference]) {
+          colElseValueExpr = new ColumnarBoundReference(inputAttributes.indexOf(colElseValueExpr),
+            colElseValueExpr.dataType, colElseValueExpr.nullable)
+        }
+        colElseValueExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      } else {
+        (TreeBuilder.makeNull(retType), retType)
+      }
+      return else_node
+    }
+    val colCondExpr = branches(idx)._1
+    val (cond_node, condType): (TreeNode, ArrowType) =
+      colCondExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    var colRetExpr = branches(idx)._2
+    if (rename && colRetExpr.isInstanceOf[AttributeReference]) {
+      colRetExpr = new ColumnarBoundReference(inputAttributes.indexOf(colRetExpr),
+        colRetExpr.dataType, colRetExpr.nullable)
+    }
+    val (ret_node, ret_type): (TreeNode, ArrowType) =
+      colRetExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val funcNode = TreeBuilder.makeIf(cond_node, ret_node,
+        elseNode(args, idx + 1, inputAttributes, retType), retType)
+    funcNode
   }
 }
 
