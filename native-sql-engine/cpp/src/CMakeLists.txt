@@ -157,8 +157,8 @@ macro(build_arrow STATIC_ARROW)
                       -DARROW_JSON=ON
                       -DARROW_FLIGHT=OFF
                       -DARROW_JEMALLOC=ON
-                      -DARROW_SIMD_LEVEL=AVX512
-                      -DARROW_RUNTIME_SIMD_LEVEL=AVX512
+                      -DARROW_SIMD_LEVEL=AVX2
+                      -DARROW_RUNTIME_SIMD_LEVEL=MAX
                       -DARROW_DEPENDENCY_SOURCE=BUNDLED
                       -DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}
                       -DCMAKE_INSTALL_LIBDIR=lib)
