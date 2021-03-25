@@ -61,9 +61,9 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
     if (value.dataType == StringType) {
       var newlist: List[String] = List()
       list.toList.foreach (expr => {
-        val value = expr.asInstanceOf[Literal].value
-        if (value != null) {
-          newlist = newlist :+ value.toString
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.toString
         } else {
           has_null = true
         }
@@ -73,9 +73,9 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
     } else if (value.dataType == IntegerType) {
       var newlist: List[Integer] = List()
       list.toList.foreach (expr => {
-        val value = expr.asInstanceOf[Literal].value
-        if (value != null) {
-          newlist = newlist :+ value.asInstanceOf[Integer]
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.asInstanceOf[Integer]
         } else {
           has_null = true
         }
@@ -85,9 +85,9 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
     } else if (value.dataType == LongType) {
       var newlist: List[java.lang.Long] = List()
       list.toList.foreach (expr => {
-        val value = expr.asInstanceOf[Literal].value
-        if (value != null) {
-          newlist = newlist :+ value.asInstanceOf[java.lang.Long]
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.asInstanceOf[java.lang.Long]
         } else {
           has_null = true
         }
@@ -97,9 +97,9 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
     } else if (value.dataType == DateType) {
       var newlist: List[Integer] = List()
       list.toList.foreach (expr => {
-        val value = expr.asInstanceOf[Literal].value
-        if (value != null) {
-          newlist = newlist :+ value.asInstanceOf[Integer]
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.asInstanceOf[Integer]
         } else {
           has_null = true
         }
@@ -125,20 +125,19 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
       TreeBuilder.makeLiteral(true.asInstanceOf[java.lang.Boolean])
     val falseNode =
       TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
-    val nullNode =
-      TreeBuilder.makeNull(resultType)
-    val hasNullNode =
-      TreeBuilder.makeIf(
-        TreeBuilder.makeLiteral(has_null.asInstanceOf[java.lang.Boolean]),
-      trueNode, falseNode, resultType)
+    val nullNode = TreeBuilder.makeNull(resultType)
 
-    val notInNode = TreeBuilder.makeIf(
-      hasNullNode, nullNode, falseNode, resultType)
-    val isNotNullBranch =
-      TreeBuilder.makeIf(inNode, trueNode, notInNode, resultType)
-    val funcNode = TreeBuilder.makeIf(
-      isnotnullNode, isNotNullBranch, nullNode, resultType)
-    (funcNode, resultType)
+    if (!has_null) {
+      val funcNode = TreeBuilder.makeIf(
+        isnotnullNode, inNode, nullNode, resultType)
+      (funcNode, resultType)
+    } else {
+      val isnotnullBranch =
+        TreeBuilder.makeIf(inNode, trueNode, nullNode, resultType)
+      val funcNode = TreeBuilder.makeIf(
+        isnotnullNode, isnotnullBranch, nullNode, resultType)
+      (funcNode, resultType)
+    }
   }
 }
 

@@ -67,7 +67,7 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
             case expr@(str: UTF8String) =>
               newlist = newlist :+ expr.toString
             case literal: Literal =>
-              newlist = newlist :+ value.toString
+              newlist = newlist :+ literal.value.toString
           }
         }
       }
@@ -84,7 +84,7 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
             case integer: Integer =>
               newlist = newlist :+ integer
             case literal: Literal =>
-              newlist = newlist :+ value.asInstanceOf[Integer]
+              newlist = newlist :+ literal.value.asInstanceOf[Integer]
           }
         }
       }
@@ -101,7 +101,7 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
             case long: lang.Long =>
               newlist = newlist :+ long
             case literal: Literal =>
-              newlist = newlist :+ value.asInstanceOf[lang.Long]
+              newlist = newlist :+ literal.value.asInstanceOf[lang.Long]
           }
         }
       }
@@ -120,22 +120,19 @@ class ColumnarInSet(value: Expression, hset: Set[Any], original: Expression)
       "isnotnull", Lists.newArrayList(value_node), resultType)
     val trueNode =
       TreeBuilder.makeLiteral(true.asInstanceOf[java.lang.Boolean])
-    val falseNode =
-      TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
-    val nullNode =
-      TreeBuilder.makeNull(resultType)
-    val hasNullNode =
-      TreeBuilder.makeIf(
-        TreeBuilder.makeLiteral(has_null.asInstanceOf[java.lang.Boolean]),
-        trueNode, falseNode, resultType)
+    val nullNode = TreeBuilder.makeNull(resultType)
 
-    val notInNode = TreeBuilder.makeIf(
-      hasNullNode, nullNode, falseNode, resultType)
-    val isNotNullBranch =
-      TreeBuilder.makeIf(inNode, trueNode, notInNode, resultType)
-    val funcNode = TreeBuilder.makeIf(
-      isnotnullNode, isNotNullBranch, nullNode, resultType)
-    (funcNode, resultType)
+    if (!has_null) {
+      val funcNode = TreeBuilder.makeIf(
+        isnotnullNode, inNode, nullNode, resultType)
+      (funcNode, resultType)
+    } else {
+      val isnotnullBranch =
+        TreeBuilder.makeIf(inNode, trueNode, nullNode, resultType)
+      val funcNode = TreeBuilder.makeIf(
+        isnotnullNode, isnotnullBranch, nullNode, resultType)
+      (funcNode, resultType)
+    }
   }
 }
 
