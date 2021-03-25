@@ -186,10 +186,16 @@ class HashRelationKernel::Impl {
       if (num_total_cached_ > 32) {
         init_key_capacity = pow(2, ceil(log2(num_total_cached_)) + 1);
       }
+      long tmp_capacity = init_key_capacity;
       if (key_size_ != -1) {
-        init_bytes_map_capacity = init_key_capacity * 12;
+        tmp_capacity *= 12;
       } else {
-        init_bytes_map_capacity = init_key_capacity * 128;
+        tmp_capacity *= 128;
+      }
+      if (tmp_capacity > INT_MAX) {
+        init_bytes_map_capacity = INT_MAX;
+      } else {
+        init_bytes_map_capacity = tmp_capacity;
       }
       RETURN_NOT_OK(
           hash_relation_->InitHashTable(init_key_capacity, init_bytes_map_capacity));
