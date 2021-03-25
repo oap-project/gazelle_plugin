@@ -113,8 +113,82 @@ class ColumnarIsNull(child: Expression, original: Expression)
   }
 }
 
+class ColumnarMonth(child: Expression, original: Expression)
+    extends Month(child: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(LongType, StringType, DateType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarMonth.")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Int(32, true)
+    //FIXME(): requires utf8()/int64() as input
+    val cast_func =
+      TreeBuilder.makeFunction(
+        "castDATE",
+        Lists.newArrayList(child_node),
+        new ArrowType.Date(DateUnit.MILLISECOND))
+    val funcNode =
+      TreeBuilder.makeFunction(
+        "extractMonth",
+        Lists.newArrayList(cast_func),
+        new ArrowType.Int(64, true))
+    val castNode =
+      TreeBuilder.makeFunction("castINT", Lists.newArrayList(funcNode), resultType)
+    (castNode, resultType)
+  }
+}
+
+class ColumnarDayOfMonth(child: Expression, original: Expression)
+  extends DayOfMonth(child: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(LongType, StringType, DateType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarDayOfMonth.")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Int(32, true)
+    //FIXME(): requires utf8()/int64() as input
+    val cast_func =
+    TreeBuilder.makeFunction(
+      "castDATE",
+      Lists.newArrayList(child_node),
+      new ArrowType.Date(DateUnit.MILLISECOND))
+    val funcNode =
+      TreeBuilder.makeFunction(
+        "extractDay",
+        Lists.newArrayList(cast_func),
+        new ArrowType.Int(64, true))
+    val castNode =
+      TreeBuilder.makeFunction("castINT", Lists.newArrayList(funcNode), resultType)
+    (castNode, resultType)
+  }
+}
+
 class ColumnarYear(child: Expression, original: Expression)
-    extends Year(child: Expression)
+  extends Year(child: Expression)
     with ColumnarExpression
     with Logging {
 
@@ -135,10 +209,10 @@ class ColumnarYear(child: Expression, original: Expression)
     val resultType = new ArrowType.Int(32, true)
     //FIXME(): requires utf8()/int64() as input
     val cast_func =
-      TreeBuilder.makeFunction(
-        "castDATE",
-        Lists.newArrayList(child_node),
-        new ArrowType.Date(DateUnit.MILLISECOND))
+    TreeBuilder.makeFunction(
+      "castDATE",
+      Lists.newArrayList(child_node),
+      new ArrowType.Date(DateUnit.MILLISECOND))
     val funcNode =
       TreeBuilder.makeFunction(
         "extractYear",
@@ -558,6 +632,10 @@ object ColumnarUnaryOperator {
       new ColumnarIsNotNull(child, i)
     case y: Year =>
       new ColumnarYear(child, y)
+    case m: Month =>
+      new ColumnarMonth(child, m)
+    case d: DayOfMonth =>
+      new ColumnarDayOfMonth(child, d)
     case n: Not =>
       new ColumnarNot(child, n)
     case a: Abs =>
