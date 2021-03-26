@@ -154,7 +154,10 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
     return arrow::Status::OK();
   }
 
-  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+  arrow::Status AppendNull() override {
+    RETURN_NOT_OK(builder_->AppendNull());
+    return arrow::Status::OK();
+  }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
     auto status = builder_->Finish(out_);
@@ -241,7 +244,10 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+  arrow::Status AppendNull() override {
+    RETURN_NOT_OK(builder_->AppendNull());
+    return arrow::Status::OK();
+  }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
     auto status = builder_->Finish(out_);
@@ -326,7 +332,10 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
     return arrow::Status::OK();
   }
 
-  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+  arrow::Status AppendNull() override {
+    RETURN_NOT_OK(builder_->AppendNull());
+    return arrow::Status::OK();
+  }
 
   arrow::Status AppendExistence(bool is_exist) { return builder_->Append(is_exist); }
 
@@ -410,7 +419,10 @@ class ArrayAppender<DataType, enable_if_decimal<DataType>> : public AppenderBase
     return arrow::Status::OK();
   }
 
-  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+  arrow::Status AppendNull() override {
+    RETURN_NOT_OK(builder_->AppendNull());
+    return arrow::Status::OK();
+  }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
     auto status = builder_->Finish(out_);
@@ -494,7 +506,10 @@ class ArrayAppender<DataType, enable_if_timestamp<DataType>> : public AppenderBa
     return arrow::Status::OK();
   }
 
-  arrow::Status AppendNull() override { return builder_->AppendNull(); }
+  arrow::Status AppendNull() override {
+    RETURN_NOT_OK(builder_->AppendNull());
+    return arrow::Status::OK();
+  }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
     auto status = builder_->Finish(out_);
