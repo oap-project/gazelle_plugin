@@ -149,7 +149,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("cube") {
+  test("cube") {
     checkAnswer(
       courseSales.cube("course", "year").sum("earnings"),
       Row("Java", 2012, 20000.0) ::
@@ -173,7 +173,7 @@ class DataFrameAggregateSuite extends QueryTest
     assert(cube0.where("date IS NULL").count > 0)
   }
 
-  ignore("grouping and grouping_id") {
+  test("grouping and grouping_id") {
     checkAnswer(
       courseSales.cube("course", "year")
         .agg(grouping("course"), grouping("year"), grouping_id("course", "year")),
@@ -211,7 +211,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("grouping/grouping_id inside window function") {
+  test("grouping/grouping_id inside window function") {
 
     val w = Window.orderBy(sum("earnings"))
     checkAnswer(
@@ -231,7 +231,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-21980: References in grouping functions should be indexed with semanticEquals") {
+  test("SPARK-21980: References in grouping functions should be indexed with semanticEquals") {
     checkAnswer(
       courseSales.cube("course", "year")
         .agg(grouping("CouRse"), grouping("year")),
