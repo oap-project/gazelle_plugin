@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # This script is used to run native sql unit test
 # SPARK_HOME is required, Usage: ./run_ut.sh
