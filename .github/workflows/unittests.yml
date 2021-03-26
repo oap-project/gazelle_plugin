@@ -59,6 +59,45 @@ jobs:
           cd src
           ctest -R
 
+  scala-unit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - run: sudo swapoff -a
+      - run: free
+      - run: sudo apt-get update
+      - run: sudo apt-get install cmake
+      - run: sudo apt-get install libboost-all-dev
+      - name: Install Googletest
+        run: |
+          sudo apt-get install libgtest-dev
+          cd /usr/src/gtest
+          sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo make
+          sudo apt-get install google-mock
+      - name: Install Spark
+        run: |
+          cd /tmp
+          wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
+          tar -xf spark-3.0.0-bin-hadoop2.7.tgz
+          export SPARK_HOME=`pwd`/spark-3.0.0-bin-hadoop2.7
+      - name: Install OAP optimized Arrow (C++ libs)
+        run: |
+          cd /tmp
+          git clone https://github.com/oap-project/arrow.git
+          cd arrow && git checkout arrow-3.0.0-oap && cd cpp
+          mkdir build && cd build
+          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
+          sudo make install
+      - name: Run unit tests
+        run: |
+          cd native-sql-engine/tools
+          ./run_ut.sh
+
   formatting-check:
     name: Formatting Check
     runs-on: ubuntu-latest
