@@ -92,6 +92,22 @@ case class ColumnarShuffledHashJoinExec(
     }
   }
 
+  val builder_type = {
+    if (condition.isDefined) 1
+    else {
+      joinType match {
+        case LeftSemi =>
+          3
+        case LeftAnti =>
+          3
+        case j: ExistenceJoin =>
+          3
+        case other =>
+          1
+      }
+    }
+  }
+
   def buildCheck(): Unit = {
     // build check for condition
     val conditionExpr: Expression = condition.orNull
@@ -180,7 +196,8 @@ case class ColumnarShuffledHashJoinExec(
     ColumnarCodegenContext(
       inputSchema,
       null,
-      ColumnarConditionedProbeJoin.prepareHashBuildFunction(buildKeyExprs, buildPlan.output, 1))
+      ColumnarConditionedProbeJoin
+        .prepareHashBuildFunction(buildKeyExprs, buildPlan.output, builder_type))
   }
 
   override def supportColumnarCodegen: Boolean = true
@@ -256,7 +273,7 @@ case class ColumnarShuffledHashJoinExec(
       val hashRelationBatchHolder: ListBuffer[ColumnarBatch] = ListBuffer()
       val hash_relation_function =
         ColumnarConditionedProbeJoin
-          .prepareHashBuildFunction(buildKeyExprs, buildPlan.output, 1)
+          .prepareHashBuildFunction(buildKeyExprs, buildPlan.output, builder_type)
       val hash_relation_schema = ConverterUtils.toArrowSchema(buildPlan.output)
       val hash_relation_expr =
         TreeBuilder.makeExpression(
