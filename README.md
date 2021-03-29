@@ -101,7 +101,7 @@ orders.createOrReplaceTempView("orders")
 spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(20000, false)
 ```
 
-The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage.
+The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Native SQL engine still lacks some features, please check out the [limitations](./docs/limitations.md).
 
 
 ## Performance data
