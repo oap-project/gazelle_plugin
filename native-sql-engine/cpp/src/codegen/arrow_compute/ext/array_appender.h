@@ -473,14 +473,13 @@ static arrow::Status MakeAppender(arrow::compute::ExecContext* ctx,
 }
 #undef PROCESS_SUPPORTED_TYPES
 
-
 /// unsafe appender ////
 template <typename DataType, typename Enable = void>
 class UnsafeArrayAppender {};
 
-
 template <typename DataType>
-class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>> : public AppenderBase {
+class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>>
+    : public AppenderBase {
  public:
   UnsafeArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
@@ -520,13 +519,13 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>> : public
     if (repeated == 0) return arrow::Status::OK();
     if (has_null_ && cached_arr_[array_id]->null_count() > 0 &&
         cached_arr_[array_id]->IsNull(item_id)) {
-      //TODO: unloop here and use unsafeappend
+      // TODO: unloop here and use unsafeappend
       RETURN_NOT_OK(builder_->AppendNulls(repeated));
     } else {
       auto val = cached_arr_[array_id]->GetView(item_id);
       std::vector<CType> values;
       values.resize(repeated, val);
-      //TODO: unloop here and use unsafeappend
+      // TODO: unloop here and use unsafeappend
       RETURN_NOT_OK(builder_->AppendValues(values.data(), repeated));
     }
     return arrow::Status::OK();
@@ -545,9 +544,9 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>> : public
   }
 
   arrow::Status AppendNull() override {
-    //TODO: use unsafe append
-    return builder_->AppendNull(); 
-    }
+    // TODO: use unsafe append
+    return builder_->AppendNull();
+  }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
     auto status = builder_->Finish(out_);
@@ -558,7 +557,7 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>> : public
     builder_->Reserve(len);
     return arrow::Status::OK();
   }
-  
+
   arrow::Status Reset() override {
     builder_->Reset();
     return arrow::Status::OK();
@@ -575,7 +574,7 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>> : public
   bool has_null_ = false;
 };
 
-//TODO(): this is a fake unsafeappende for string array
+// TODO(): this is a fake unsafeappende for string array
 template <typename DataType>
 class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     : public AppenderBase {
@@ -646,9 +645,9 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     auto status = builder_->Finish(out_);
     return status;
   }
-  
+
   arrow::Status Reserve(uint64_t len) override {
-    //builder_->Reserve(len);
+    // builder_->Reserve(len);
     return arrow::Status::OK();
   }
 
@@ -667,9 +666,10 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   bool has_null_ = false;
 };
 
-//TOOD(): this is a fake unsafeappender for boolean array
+// TOOD(): this is a fake unsafeappender for boolean array
 template <typename DataType>
-class UnsafeArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public AppenderBase {
+class UnsafeArrayAppender<DataType, arrow::enable_if_boolean<DataType>>
+    : public AppenderBase {
  public:
   UnsafeArrayAppender(arrow::compute::ExecContext* ctx, AppenderType type = left)
       : ctx_(ctx), type_(type) {
@@ -739,9 +739,9 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public
     auto status = builder_->Finish(out_);
     return status;
   }
-  
+
   arrow::Status Reserve(uint64_t len) override {
-    //builder_->Reserve(len);
+    // builder_->Reserve(len);
     return arrow::Status::OK();
   }
 
@@ -764,7 +764,8 @@ template <typename DataType>
 class UnsafeArrayAppender<DataType, enable_if_decimal<DataType>> : public AppenderBase {
  public:
   UnsafeArrayAppender(arrow::compute::ExecContext* ctx,
-                std::shared_ptr<arrow::DataType> data_type, AppenderType type = left)
+                      std::shared_ptr<arrow::DataType> data_type,
+                      AppenderType type = left)
       : ctx_(ctx), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), data_type, &array_builder);
@@ -863,14 +864,14 @@ class UnsafeArrayAppender<DataType, enable_if_decimal<DataType>> : public Append
   PROCESS(arrow::Date64Type)             \
   PROCESS(arrow::StringType)
 static arrow::Status MakeUnsafeAppender(arrow::compute::ExecContext* ctx,
-                                  std::shared_ptr<arrow::DataType> type,
-                                  AppenderBase::AppenderType appender_type,
-                                  std::shared_ptr<AppenderBase>* out) {
+                                        std::shared_ptr<arrow::DataType> type,
+                                        AppenderBase::AppenderType appender_type,
+                                        std::shared_ptr<AppenderBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                         \
-  case InType::type_id: {                                                       \
+#define PROCESS(InType)                                                               \
+  case InType::type_id: {                                                             \
     auto app_ptr = std::make_shared<UnsafeArrayAppender<InType>>(ctx, appender_type); \
-    *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);                    \
+    *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);                          \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -887,8 +888,6 @@ static arrow::Status MakeUnsafeAppender(arrow::compute::ExecContext* ctx,
   return arrow::Status::OK();
 }
 #undef PROCESS_SUPPORTED_TYPES
-
-
 
 }  // namespace extra
 }  // namespace arrowcompute
