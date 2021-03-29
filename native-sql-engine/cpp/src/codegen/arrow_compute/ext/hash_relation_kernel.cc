@@ -75,6 +75,11 @@ class HashRelationKernel::Impl {
           std::dynamic_pointer_cast<gandiva::LiteralNode>(parameter_nodes[0])->holder());
       builder_type_ = std::stoi(builder_type_str);
     }
+    if (builder_type_ == 3) {
+      // This is for using unsafeHashMap while with skipDuplication strategy
+      semi_ = true;
+      builder_type_ = 1;
+    }
     if (builder_type_ == 0) {
       // builder_type_ == 0 will be abandoned in near future, won't support
       // decimal here.
@@ -227,11 +232,11 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::Decimal128Type)
         if (project_outputs.size() == 1) {
           switch (project_outputs[0]->type_id()) {
-#define PROCESS(InType)                                                       \
-  case TypeTraits<InType>::type_id: {                                         \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;              \
-    auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]);     \
-    RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, typed_key_arr)); \
+#define PROCESS(InType)                                                              \
+  case TypeTraits<InType>::type_id: {                                                \
+    using ArrayType = precompile::TypeTraits<InType>::ArrayType;                     \
+    auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]);            \
+    RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, typed_key_arr, semi_)); \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -252,7 +257,7 @@ class HashRelationKernel::Impl {
             RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
             payloads.push_back(payload);
           }
-          RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads));
+          RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads, semi_));
         }
       }
     }
@@ -281,6 +286,7 @@ class HashRelationKernel::Impl {
   std::vector<std::shared_ptr<arrow::Array>> key_hash_cached_;
   uint64_t num_total_cached_ = 0;
   int builder_type_ = 0;
+  bool semi_ = false;
   int key_size_ = -1;  // If key_size_ != 0, key will be stored directly in key_map
 
   class HashRelationResultIterator : public ResultIterator<HashRelation> {

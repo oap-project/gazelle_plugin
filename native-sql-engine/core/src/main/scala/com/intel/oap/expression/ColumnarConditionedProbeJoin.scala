@@ -55,7 +55,7 @@ object ColumnarConditionedProbeJoin extends Logging {
   def prepareHashBuildFunction(
       buildKeys: Seq[Expression],
       buildInputAttributes: Seq[Attribute],
-      builder_type: Int = 0,
+      builder_type: Int = 1,
       is_broadcast: Boolean = false): TreeNode = {
     val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
       Field
