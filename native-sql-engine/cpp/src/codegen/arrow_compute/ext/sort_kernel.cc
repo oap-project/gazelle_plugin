@@ -664,7 +664,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       for (int i = 0; i < col_num_; i++) {
         auto field = schema->field(i);
         std::shared_ptr<AppenderBase> appender;
-        THROW_NOT_OK(MakeAppender(ctx_, field->type(), appender_type, &appender));
+        THROW_NOT_OK(MakeUnsafeAppender(ctx_, field->type(), appender_type, &appender));
         appender_list_.push_back(appender);
       }
       for (int i = 0; i < col_num_; i++) {
@@ -693,6 +693,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
                                                             : (total_length_ - offset_);
       uint64_t count = 0;
       for (int i = 0; i < col_num_; i++) {
+        RETURN_NOT_OK(appender_list_[i]->Reserve(length));
         while (count < length) {
           auto item = indices_begin_ + offset_ + count++;
           RETURN_NOT_OK(appender_list_[i]->Append(item->array_id, item->id));
