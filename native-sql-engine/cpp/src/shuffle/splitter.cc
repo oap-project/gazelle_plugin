@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 
-#include <memory>
-#include <utility>
+#include "shuffle/splitter.h"
 
 #include <arrow/ipc/writer.h>
 #include <arrow/memory_pool.h>
@@ -25,7 +24,9 @@
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
 
-#include "shuffle/splitter.h"
+#include <memory>
+#include <utility>
+
 #include "shuffle/utils.h"
 #include "utils/macros.h"
 
@@ -317,8 +318,8 @@ arrow::Status Splitter::Init() {
   sub_dir_selection_.assign(configured_dirs_.size(), 0);
 
   // Both data_file and shuffle_index_file should be set through jni.
-  // For test purpose, Create a temporary subdirectory in the system temporary dir with
-  // prefix "columnar-shuffle"
+  // For test purpose, Create a temporary subdirectory in the system temporary
+  // dir with prefix "columnar-shuffle"
   if (options_.data_file.length() == 0) {
     ARROW_ASSIGN_OR_RAISE(options_.data_file, CreateTempShuffleFile(configured_dirs_[0]));
   }
@@ -329,14 +330,14 @@ arrow::Status Splitter::Init() {
 
   if (options_.compression_type == arrow::Compression::FASTPFOR) {
     ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-    arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
-    
+                          arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+
   } else if (options_.compression_type == arrow::Compression::LZ4_FRAME) {
     ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-    arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+                          arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
   } else {
-    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec,
-    arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
+    ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec, arrow::util::Codec::CreateInt32(
+                                                       arrow::Compression::UNCOMPRESSED));
   }
 
   return arrow::Status::OK();
@@ -344,8 +345,8 @@ arrow::Status Splitter::Init() {
 
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
   auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-  auto result = arrow::ipc::GetRecordBatchPayload(
-                           rb, options_.ipc_write_options, payload.get());
+  auto result =
+      arrow::ipc::GetRecordBatchPayload(rb, options_.ipc_write_options, payload.get());
   if (result.ok()) {
     return payload.get()->body_length;
   } else {
@@ -355,16 +356,17 @@ int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
 }
 
 arrow::Status Splitter::SetCompressType(arrow::Compression::type compressed_type) {
-   if (compressed_type == arrow::Compression::FASTPFOR) {
+  if (compressed_type == arrow::Compression::FASTPFOR) {
     ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
-    arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
-    
+                          arrow::util::Codec::CreateInt32(arrow::Compression::FASTPFOR));
+
   } else if (compressed_type == arrow::Compression::LZ4_FRAME) {
     ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
-    arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
+                          arrow::util::Codec::Create(arrow::Compression::LZ4_FRAME));
   } else {
-    ARROW_ASSIGN_OR_RAISE(options_.ipc_write_options.codec,
-    arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED) );
+    ARROW_ASSIGN_OR_RAISE(
+        options_.ipc_write_options.codec,
+        arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
   }
   return arrow::Status::OK();
 }
@@ -612,7 +614,8 @@ arrow::Status Splitter::SpillFixedSize(int64_t size, int64_t* actual) {
   while (current_spilled < size && try_count < 5) {
     try_count++;
     int64_t single_call_spilled;
-    ARROW_ASSIGN_OR_RAISE(int32_t spilled_partition_id, SpillLargestPartition(&single_call_spilled))
+    ARROW_ASSIGN_OR_RAISE(int32_t spilled_partition_id,
+                          SpillLargestPartition(&single_call_spilled))
     if (spilled_partition_id == -1) {
       break;
     }
@@ -655,8 +658,8 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
 }
 
 arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
-  // for the first input record batch, scan binary arrays and large binary arrays to get
-  // their empirical sizes
+  // for the first input record batch, scan binary arrays and large binary
+  // arrays to get their empirical sizes
   if (!empirical_size_calculated_) {
     auto num_rows = rb.num_rows();
     for (int i = 0; i < binary_array_idx_.size(); ++i) {
@@ -1070,15 +1073,14 @@ std::string Splitter::NextSpilledFileDir() {
   return spilled_file_dir;
 }
 
-arrow::Result<std::shared_ptr<arrow::ipc::IpcPayload>>
-Splitter::GetSchemaPayload() {
+arrow::Result<std::shared_ptr<arrow::ipc::IpcPayload>> Splitter::GetSchemaPayload() {
   if (schema_payload_ != nullptr) {
     return schema_payload_;
   }
   schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
   arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
-  RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(
-      *schema_, options_.ipc_write_options, dict_file_mapper, schema_payload_.get()));
+  RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*schema_, options_.ipc_write_options,
+                                             dict_file_mapper, schema_payload_.get()));
   return schema_payload_;
 }
 
@@ -1147,8 +1149,8 @@ arrow::Status HashSplitter::CreateProjector(
       default:
         hash = gandiva::TreeExprBuilder::MakeFunction("hash32", {expr->root(), hash},
                                                       arrow::int32());
-        /*return arrow::Status::NotImplemented("HashSplitter::CreateProjector doesn't
-           support type ", expr->result()->type()->ToString());*/
+        /*return arrow::Status::NotImplemented("HashSplitter::CreateProjector
+           doesn't support type ", expr->result()->type()->ToString());*/
     }
   }
   auto hash_expr =

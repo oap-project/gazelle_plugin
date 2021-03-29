@@ -29,8 +29,8 @@
 #define TEMP_UNSAFEROW_BUFFER_SIZE 1024
 static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
-/* Unsafe Row Layout (This unsafe row only used to append all fields data as continuous
- * memory, unable to be get data from)
+/* Unsafe Row Layout (This unsafe row only used to append all fields data as
+ * continuous memory, unable to be get data from)
  *
  * | validity | col 0 | col 1 | col 2 | ...
  * explain:

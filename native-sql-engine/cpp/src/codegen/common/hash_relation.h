@@ -27,6 +27,7 @@
 #include "precompile/unsafe_array.h"
 #include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
+#include "utils/macros.h"
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_number;
@@ -142,6 +143,11 @@ class HashRelation {
   }
 
   arrow::Status InitHashTable(int init_key_capacity, int initial_bytesmap_capacity) {
+    if (init_key_capacity < 0 || initial_bytesmap_capacity < 0) {
+      THROW_NOT_OK(arrow::Status::Invalid(
+          "initialization size is overflowed, init_key_capacity is ", init_key_capacity,
+          ", initial_bytesmap_capacity is ", initial_bytesmap_capacity));
+    }
     hash_table_ = createUnsafeHashMap(ctx_->memory_pool(), init_key_capacity,
                                       initial_bytesmap_capacity, key_size_);
     return arrow::Status::OK();
@@ -161,9 +167,9 @@ class HashRelation {
     return arrow::Status::Invalid("Error minimizing hash table");
   }
 
-  arrow::Status AppendKeyColumn(
-      std::shared_ptr<arrow::Array> in,
-      const std::vector<std::shared_ptr<UnsafeArray>>& payloads) {
+  arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
+                                const std::vector<std::shared_ptr<UnsafeArray>>& payloads,
+                                bool semi = false) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }
@@ -175,9 +181,14 @@ class HashRelation {
       for (auto payload_arr : payloads) {
         payload_arr->Append(i, &payload);
       }
-      // chendi: Since spark won't join rows contain null, we will skip null row.
+      // chendi: Since spark won't join rows contain null, we will skip null
+      // row.
       if (payload->isNullExists()) continue;
-      RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+      if (!semi) {
+        RETURN_NOT_OK(Insert(typed_array->GetView(i), payload, num_arrays_, i));
+      } else {
+        RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), payload, num_arrays_, i));
+      }
     }
 
     num_arrays_++;
@@ -189,7 +200,8 @@ class HashRelation {
             typename std::enable_if_t<!std::is_same<KeyArrayType, StringArray>::value>* =
                 nullptr>
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
-                                std::shared_ptr<KeyArrayType> original_key) {
+                                std::shared_ptr<KeyArrayType> original_key,
+                                bool semi = false) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }
@@ -205,8 +217,13 @@ class HashRelation {
         if (original_key->IsNull(i)) {
           RETURN_NOT_OK(InsertNull(num_arrays_, i));
         } else {
-          RETURN_NOT_OK(
-              Insert(typed_array->GetView(i), original_key->GetView(i), num_arrays_, i));
+          if (!semi) {
+            RETURN_NOT_OK(Insert(typed_array->GetView(i), original_key->GetView(i),
+                                 num_arrays_, i));
+          } else {
+            RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), original_key->GetView(i),
+                                        num_arrays_, i));
+          }
         }
       }
     }
@@ -217,7 +234,8 @@ class HashRelation {
   }
 
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in,
-                                std::shared_ptr<StringArray> original_key) {
+                                std::shared_ptr<StringArray> original_key,
+                                bool semi = false) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }
@@ -235,8 +253,13 @@ class HashRelation {
           RETURN_NOT_OK(InsertNull(num_arrays_, i));
         } else {
           auto str = original_key->GetString(i);
-          RETURN_NOT_OK(
-              Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+          if (!semi) {
+            RETURN_NOT_OK(
+                Insert(typed_array->GetView(i), str.data(), str.size(), num_arrays_, i));
+          } else {
+            RETURN_NOT_OK(InsertSkipDup(typed_array->GetView(i), str.data(), str.size(),
+                                        num_arrays_, i));
+          }
         }
       }
     }
@@ -450,6 +473,38 @@ class HashRelation {
     auto index = ArrayItemIndex(array_id, id);
     if (!append(hash_table_, payload, payload_len, v, (char*)&index,
                 sizeof(ArrayItemIndex))) {
+      return arrow::Status::CapacityError("Insert to HashMap failed.");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status InsertSkipDup(int32_t v, std::shared_ptr<UnsafeRow> payload,
+                              uint32_t array_id, uint32_t id) {
+    assert(hash_table_ != nullptr);
+    auto index = ArrayItemIndex(array_id, id);
+    if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
+                      sizeof(ArrayItemIndex))) {
+      return arrow::Status::CapacityError("Insert to HashMap failed.");
+    }
+    return arrow::Status::OK();
+  }
+
+  template <typename CType>
+  arrow::Status InsertSkipDup(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
+    assert(hash_table_ != nullptr);
+    auto index = ArrayItemIndex(array_id, id);
+    if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
+      return arrow::Status::CapacityError("Insert to HashMap failed.");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status InsertSkipDup(int32_t v, const char* payload, size_t payload_len,
+                              uint32_t array_id, uint32_t id) {
+    assert(hash_table_ != nullptr);
+    auto index = ArrayItemIndex(array_id, id);
+    if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
+                      sizeof(ArrayItemIndex))) {
       return arrow::Status::CapacityError("Insert to HashMap failed.");
     }
     return arrow::Status::OK();

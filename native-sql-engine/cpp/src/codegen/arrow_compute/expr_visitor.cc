@@ -101,7 +101,8 @@ arrow::Status BuilderVisitor::Visit(const gandiva::FunctionNode& node) {
         case BuilderVisitorNodeType::FunctionNode: {
           if (dependency) {
             return arrow::Status::Invalid(
-                "BuilderVisitor build ExprVisitor failed, got two depency while only "
+                "BuilderVisitor build ExprVisitor failed, got two depency "
+                "while only "
                 "support one.");
           }
           RETURN_NOT_OK(child_visitor->GetResult(&dependency));
@@ -117,8 +118,8 @@ arrow::Status BuilderVisitor::Visit(const gandiva::FunctionNode& node) {
       }
     }
 
-    // Add a new type of Function "Action", which will not create a new expr_visitor,
-    // instead, it will register itself to its dependency
+    // Add a new type of Function "Action", which will not create a new
+    // expr_visitor, instead, it will register itself to its dependency
     if (func_name.compare(0, 7, "action_") == 0) {
       if (dependency) {
         RETURN_NOT_OK(dependency->AppendAction(func_name, param_names));
@@ -130,7 +131,8 @@ arrow::Status BuilderVisitor::Visit(const gandiva::FunctionNode& node) {
         return arrow::Status::OK();
       } else {
         return arrow::Status::Invalid(
-            "BuilderVisitor is processing an action without dependency, this is "
+            "BuilderVisitor is processing an action without dependency, this "
+            "is "
             "invalid.");
       }
     }
@@ -671,7 +673,8 @@ arrow::Status ExprVisitor::MakeResultIterator(std::shared_ptr<arrow::Schema> sch
     RETURN_NOT_OK(impl_->MakeResultIterator(schema, out));
   } else {
     return arrow::Status::NotImplemented(
-        "FinishVsitor MakeResultIterator is not tested, so mark as not implemented "
+        "FinishVsitor MakeResultIterator is not tested, so mark as not "
+        "implemented "
         "here, "
         "codes are commented.");
   }
@@ -697,7 +700,8 @@ arrow::Status ExprVisitor::GetResult(
     std::vector<std::shared_ptr<arrow::Field>>* out_fields) {
   if (result_batch_list_.empty()) {
     return arrow::Status::Invalid(
-        "ArrowComputeExprVisitor::GetResult result_batch_list was not generated ",
+        "ArrowComputeExprVisitor::GetResult result_batch_list was not "
+        "generated ",
         func_name_);
   }
   *out = result_batch_list_;

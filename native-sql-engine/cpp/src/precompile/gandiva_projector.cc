@@ -17,7 +17,6 @@
 #include "precompile/gandiva_projector.h"
 
 #include <arrow/array.h>
-
 #include <arrow/record_batch.h>
 #include <arrow/type_fwd.h>
 #include <gandiva/projector.h>

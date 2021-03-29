@@ -206,10 +206,9 @@ arrow::Status MakeExprVector(JNIEnv* env, jbyteArray exprs_arr,
 
 jbyteArray ToSchemaByteArray(JNIEnv* env, std::shared_ptr<arrow::Schema> schema) {
   arrow::Status status;
-  //std::shared_ptr<arrow::Buffer> buffer;
+  // std::shared_ptr<arrow::Buffer> buffer;
   arrow::Result<std::shared_ptr<arrow::Buffer>> maybe_buffer;
-  maybe_buffer = arrow::ipc::SerializeSchema(*schema.get(),
-                                       arrow::default_memory_pool());
+  maybe_buffer = arrow::ipc::SerializeSchema(*schema.get(), arrow::default_memory_pool());
   if (!status.ok()) {
     std::string error_message =
         "Unable to convert schema to byte array, err is " + status.message();
@@ -225,13 +224,13 @@ jbyteArray ToSchemaByteArray(JNIEnv* env, std::shared_ptr<arrow::Schema> schema)
 arrow::Result<arrow::Compression::type> GetCompressionType(JNIEnv* env,
                                                            jstring codec_jstr) {
   auto codec_l = env->GetStringUTFChars(codec_jstr, JNI_FALSE);
-  
+
   std::string codec_u;
   std::transform(codec_l, codec_l + std::strlen(codec_l), std::back_inserter(codec_u),
                  ::tolower);
 
   ARROW_ASSIGN_OR_RAISE(auto compression_type,
-                        arrow::util::Codec::GetCompressionType(codec_u));              
+                        arrow::util::Codec::GetCompressionType(codec_u));
 
   if (compression_type == arrow::Compression::LZ4) {
     compression_type = arrow::Compression::LZ4_FRAME;

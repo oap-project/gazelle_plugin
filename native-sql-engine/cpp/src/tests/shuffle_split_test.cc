@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#include <iostream>
-
 #include <arrow/compute/api.h>
 #include <arrow/io/api.h>
 #include <arrow/ipc/reader.h>
@@ -24,6 +22,8 @@
 #include <arrow/record_batch.h>
 #include <arrow/util/io_util.h>
 #include <gtest/gtest.h>
+
+#include <iostream>
 
 #include "shuffle/splitter.h"
 #include "tests/test_utils.h"
@@ -124,7 +124,7 @@ class SplitterTest : public ::testing::Test {
     auto cntx = arrow::compute::ExecContext();
     std::shared_ptr<arrow::RecordBatch> res;
     auto maybe_res = arrow::compute::Take(*input_batch, *take_idx,
-                                       arrow::compute::TakeOptions{}, &cntx);
+                                          arrow::compute::TakeOptions{}, &cntx);
     res = *std::move(maybe_res);
     return res;
   }
@@ -427,7 +427,7 @@ TEST_F(SplitterTest, TestSpillFailWithOutOfMemory) {
 
 TEST_F(SplitterTest, TestSpillLargestPartition) {
   std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
-//  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
+  //  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
 
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;

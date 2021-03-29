@@ -49,8 +49,7 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 ///////////////  ConditionedProbe  ////////////////
 class ConditionedMergeJoinKernel::Impl {
  public:
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& left_key_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_node_list,
        const gandiva::NodeVector& right_key_node_list,
        const gandiva::NodeVector& left_schema_node_list,
        const gandiva::NodeVector& right_schema_node_list,
@@ -771,7 +770,8 @@ class ConditionedMergeJoinKernel::Impl {
     auto fill_null_name = "is_outer_null_" + relation_id;
     bool use_relation_for_stream = input.empty();
 
-    // define output list here, which will also be defined in class variables definition
+    // define output list here, which will also be defined in class variables
+    // definition
 
     int right_index_shift = 0;
     std::vector<int> left_output_idx_list;

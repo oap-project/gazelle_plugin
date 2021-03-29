@@ -16,20 +16,20 @@
  */
 
 #include <arrow/array/concatenate.h>
-#include <arrow/util/bitmap_ops.h>
 #include <arrow/compute/api.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
+#include <arrow/util/bitmap_ops.h>
 #include <gandiva/projector.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <numeric>
 #include <vector>
-#include <cmath>
 
 #include "array_appender.h"
 #include "cmp_function.h"
@@ -48,24 +48,24 @@
 /**
                  The Overall Implementation of Sort Kernel
  * In general, there are four kenels to use when sorting for different data.
-   SortArraysToIndicesKernel::Impl is the base class, and other three kernels, including 
-   SortInplaceKernel, SortOnekeyKernel and SortMultiplekeyKernel, extend it.
+   SortArraysToIndicesKernel::Impl is the base class, and other three kernels,
+including SortInplaceKernel, SortOnekeyKernel and SortMultiplekeyKernel, extend
+it.
  * Usage:
-   SortInplaceKernel is used when sorting for one non-string and non-bool col without 
-   payload.
-   SortOnekeyKernel is used when sorting for single key with payload, and one string 
-   or bool col without payload.
-   SortMultiplekeyKernel is used when sorting for multiple keys and codegen is disabled.
-   SortArraysToIndicesKernel::Impl is used when sorting for multiple keys and codegen 
-   is enabled.
- * In these kernels, usually ska_sort is used for asc direciton, and std sort is used 
-   for desc direciton. Timsort is used in multiple-key sort.
+   SortInplaceKernel is used when sorting for one non-string and non-bool col
+without payload. SortOnekeyKernel is used when sorting for single key with
+payload, and one string or bool col without payload. SortMultiplekeyKernel is
+used when sorting for multiple keys and codegen is disabled.
+   SortArraysToIndicesKernel::Impl is used when sorting for multiple keys and
+codegen is enabled.
+ * In these kernels, usually ska_sort is used for asc direciton, and std sort is
+used for desc direciton. Timsort is used in multiple-key sort.
  * Before sorting, projection and partition can be conducted.
-   If projection is required, it is completed before sorting, and the projected cols are 
-   used to do comparison.
-   If partition is required, null, NaN(for double and float only) and valid value are
-   partitioned before sorting.
-   FIXME: 1. datatype change after projection is not supported in SortInplaceKernel.
+   If projection is required, it is completed before sorting, and the projected
+cols are used to do comparison. If partition is required, null, NaN(for double
+and float only) and valid value are partitioned before sorting.
+   FIXME: 1. datatype change after projection is not supported in
+SortInplaceKernel.
 **/
 
 namespace sparkcolumnarplugin {
@@ -76,22 +76,20 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using namespace sparkcolumnarplugin::precompile;
 
 template <typename T>
-using is_number_bool_date = std::integral_constant<bool, 
-    arrow::is_number_type<T>::value || arrow::is_boolean_type<T>::value || 
-    arrow::is_date_type<T>::value>;
+using is_number_bool_date =
+    std::integral_constant<bool, arrow::is_number_type<T>::value ||
+                                     arrow::is_boolean_type<T>::value ||
+                                     arrow::is_date_type<T>::value>;
 
 ///////////////  SortArraysToIndices  ////////////////
 class SortArraysToIndicesKernel::Impl {
  public:
   Impl() {}
-  Impl(arrow::compute::ExecContext* ctx,
-       std::shared_ptr<arrow::Schema> result_schema,
+  Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
        std::shared_ptr<gandiva::Projector> key_projector,
        std::vector<std::shared_ptr<arrow::DataType>> projected_types,
        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-       std::vector<bool> sort_directions, 
-       std::vector<bool> nulls_order,
-       bool NaN_check)
+       std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check)
       : ctx_(ctx),
         result_schema_(result_schema),
         key_projector_(key_projector),
@@ -100,9 +98,9 @@ class SortArraysToIndicesKernel::Impl {
         nulls_order_(nulls_order),
         projected_types_(projected_types),
         NaN_check_(NaN_check) {
-    #ifdef DEBUG
-        std::cout << "use SortArraysToIndicesKernel::Impl" << std::endl;
-    #endif
+#ifdef DEBUG
+    std::cout << "use SortArraysToIndicesKernel::Impl" << std::endl;
+#endif
     for (auto field : key_field_list) {
       auto indices = result_schema->GetAllFieldIndices(field->name());
       if (indices.size() != 1) {
@@ -175,7 +173,7 @@ class SortArraysToIndicesKernel::Impl {
       cached_.resize(col_num_ + 1);
     }
     for (int i = 0; i < col_num_; i++) {
-        cached_[i].push_back(in[i]);
+      cached_[i].push_back(in[i]);
     }
     if (!key_projector_) {
       ArrayList key_cols;
@@ -184,7 +182,7 @@ class SortArraysToIndicesKernel::Impl {
       }
       sorter_->Evaluate(key_cols);
     } else {
-      std::vector<std::shared_ptr<arrow::Array>> projected_batch; 
+      std::vector<std::shared_ptr<arrow::Array>> projected_batch;
       // do projection here, and the projected arrays are used for comparison
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch = arrow::RecordBatch::Make(result_schema_, length, in);
@@ -262,15 +260,15 @@ class SortArraysToIndicesKernel::Impl {
     std::vector<std::shared_ptr<TypedSorterCodeGenImpl>> key_typed_codegen_list;
     if (key_projector_) {
       for (auto field : projected_field_list_) {
-        auto codegen = std::make_shared<TypedSorterCodeGenImpl>(
-            std::to_string(indice), field->type());
+        auto codegen = std::make_shared<TypedSorterCodeGenImpl>(std::to_string(indice),
+                                                                field->type());
         key_typed_codegen_list.push_back(codegen);
         indice++;
       }
     } else {
       for (auto field : key_field_list_) {
-        auto codegen = std::make_shared<TypedSorterCodeGenImpl>(
-            std::to_string(indice), field->type());
+        auto codegen = std::make_shared<TypedSorterCodeGenImpl>(std::to_string(indice),
+                                                                field->type());
         key_typed_codegen_list.push_back(codegen);
         indice++;
       }
@@ -320,7 +318,7 @@ class TypedSorterImpl : public CodeGenBase {
     // we should support nulls first and nulls last here
     // we should also support desc and asc here
     )" + comp_func_str +
-         comp_func_str_without_null +
+           comp_func_str_without_null +
            R"(
     // initiate buffer for all arrays
     std::shared_ptr<arrow::Buffer> indices_buf;
@@ -371,10 +369,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   std::string GetCachedInsert() {
     std::stringstream ss;
     for (int i = 0; i < key_index_list_.size(); i++) {
-      ss << "cached_" << i << "_.push_back(std::make_shared<ArrayType_" << i 
-         << ">(in[" << i << "]));\n"
+      ss << "cached_" << i << "_.push_back(std::make_shared<ArrayType_" << i << ">(in["
+         << i
+         << "]));\n"
          // update has_null_
-         << "if (!has_null_ && cached_" << i << "_[cached_" << i 
+         << "if (!has_null_ && cached_" << i << "_[cached_" << i
          << "_.size() - 1]->null_count() > 0) {"
          << "has_null_ = true;}" << std::endl;
     }
@@ -384,11 +383,12 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   std::string GetSortFunction() {
     std::stringstream ss;
     ss << "if (has_null_) {\n"
-       << "gfx::timsort(indices_begin, indices_begin + items_total_, comp);} else {\n" 
-       << "gfx::timsort(indices_begin, indices_begin + items_total_, comp_without_null);}"
+       << "gfx::timsort(indices_begin, indices_begin + items_total_, comp);} "
+          "else {\n"
+       << "gfx::timsort(indices_begin, indices_begin + items_total_, "
+          "comp_without_null);}"
        << std::endl;
     return ss.str();
-
   }
 
   std::string GetCompFunction(bool has_null) {
@@ -400,14 +400,15 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       projected = false;
     }
     if (has_null) {
-      ss << "auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {"
-         << GetCompFunction_(0, projected, key_field_list_,
-                             projected_types_, sort_directions_, nulls_order_);
+      ss << "auto comp = [this](const ArrayItemIndexS& x, const "
+            "ArrayItemIndexS& y) {"
+         << GetCompFunction_(0, projected, key_field_list_, projected_types_,
+                             sort_directions_, nulls_order_);
     } else {
       ss << "auto comp_without_null = "
          << "[this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {"
-         << GetCompFunction_Without_Null_(0, projected, key_field_list_,
-                                          projected_types_, sort_directions_);
+         << GetCompFunction_Without_Null_(0, projected, key_field_list_, projected_types_,
+                                          sort_directions_);
     }
     ss << "};\n";
     return ss.str();
@@ -441,11 +442,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
     auto is_x_null = array + std::to_string(cur_key_idx) + "_[x.array_id]->IsNull(x.id)";
     auto is_y_null = array + std::to_string(cur_key_idx) + "_[y.array_id]->IsNull(y.id)";
-    auto x_null_count = 
+    auto x_null_count =
         array + std::to_string(cur_key_idx) + "_[x.array_id]->null_count() > 0";
-    auto y_null_count = 
+    auto y_null_count =
         array + std::to_string(cur_key_idx) + "_[y.array_id]->null_count() > 0";
-    auto x_null = "(" + x_null_count + " && " + is_x_null + " )";  
+    auto x_null = "(" + x_null_count + " && " + is_x_null + " )";
     auto y_null = "(" + y_null_count + " && " + is_y_null + " )";
     auto is_x_nan = "std::isnan(" + x_num_value + ")";
     auto is_y_nan = "std::isnan(" + y_num_value + ")";
@@ -467,7 +468,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     } else {
       ss << "return true;\n}";
     }
-    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
+    // If datatype is floating, we need to do partition for NaN if NaN check is
+    // enabled
     if (data_type->id() == arrow::Type::DOUBLE || data_type->id() == arrow::Type::FLOAT) {
       if (NaN_check_) {
         ss << "else if (" << is_x_nan << ") {\n";
@@ -516,16 +518,15 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                          data_type->id() == arrow::Type::FLOAT)) {
         // need to check NaN
-        ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan
-           << " && " << is_y_nan << ") || (" << x_num_value << " == " << y_num_value
-           << ")) {";
+        ss << "if ((" << x_null << " && " << y_null << ") || (" << is_x_nan << " && "
+           << is_y_nan << ") || (" << x_num_value << " == " << y_num_value << ")) {";
       } else {
         ss << "if ((" << x_null << " && " << y_null << ") || (" << x_num_value
            << " == " << y_num_value << ")) {";
       }
     }
-    ss << GetCompFunction_(cur_key_idx + 1, projected, key_field_list, 
-                           projected_types, sort_directions, nulls_order)
+    ss << GetCompFunction_(cur_key_idx + 1, projected, key_field_list, projected_types,
+                           sort_directions, nulls_order)
        << "} else { " << comp_str << "}";
     return ss.str();
   }
@@ -560,8 +561,9 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
 
     // Multiple keys sorting w/ nulls first/last is supported.
     std::stringstream ss;
-    // If datatype is floating, we need to do partition for NaN if NaN check is enabled
-    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+    // If datatype is floating, we need to do partition for NaN if NaN check is
+    // enabled
+    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                        data_type->id() == arrow::Type::FLOAT)) {
       ss << "if (" << is_x_nan << ") {\n";
       if (asc) {
@@ -594,9 +596,9 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
         ss << "return " << x_num_value << " > " << y_num_value << ";\n";
       }
     }
-    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE || 
+    if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                        data_type->id() == arrow::Type::FLOAT)) {
-      ss << "}" << std::endl; 
+      ss << "}" << std::endl;
     }
     comp_str = ss.str();
     if ((cur_key_idx + 1) == sort_directions.size()) {
@@ -610,13 +612,13 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       if (NaN_check_ && (data_type->id() == arrow::Type::DOUBLE ||
                          data_type->id() == arrow::Type::FLOAT)) {
         // need to check NaN
-        ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" 
-           << x_num_value << " == " << y_num_value << ")) {";
+        ss << "if ((" << is_x_nan << " && " << is_y_nan << ") || (" << x_num_value
+           << " == " << y_num_value << ")) {";
       } else {
         ss << "if (" << x_num_value << " == " << y_num_value << ") {";
       }
     }
-    ss << GetCompFunction_Without_Null_(cur_key_idx + 1, projected, key_field_list, 
+    ss << GetCompFunction_Without_Null_(cur_key_idx + 1, projected, key_field_list,
                                         projected_types, sort_directions)
        << "} else { " << comp_str << "}";
     return ss.str();
@@ -639,10 +641,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       *out = sort_relation_;
       return arrow::Status::OK();
     }
+
    private:
     std::shared_ptr<SortRelation> sort_relation_;
   };
-  
+
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     SorterResultIterator(arrow::compute::ExecContext* ctx,
@@ -661,7 +664,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       for (int i = 0; i < col_num_; i++) {
         auto field = schema->field(i);
         std::shared_ptr<AppenderBase> appender;
-        THROW_NOT_OK(MakeAppender(ctx_, field->type(), appender_type, &appender));
+        THROW_NOT_OK(MakeUnsafeAppender(ctx_, field->type(), appender_type, &appender));
         appender_list_.push_back(appender);
       }
       for (int i = 0; i < col_num_; i++) {
@@ -674,7 +677,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       }
       batch_size_ = GetBatchSize();
     }
-    ~SorterResultIterator(){}
+    ~SorterResultIterator() {}
 
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 
@@ -689,11 +692,13 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
                                                             : (total_length_ - offset_);
       uint64_t count = 0;
-      while (count < length) {
-        auto item = indices_begin_ + offset_ + count++;
-        for (int i = 0; i < col_num_; i++) {
+      for (int i = 0; i < col_num_; i++) {
+        RETURN_NOT_OK(appender_list_[i]->Reserve(length));
+        while (count < length) {
+          auto item = indices_begin_ + offset_ + count++;
           RETURN_NOT_OK(appender_list_[i]->Append(item->array_id, item->id));
         }
+        count = 0;
       }
       offset_ += length;
       ArrayList arrays;
@@ -785,7 +790,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   // This function is used for non-float and non-double data without null value.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
-      typename std::enable_if_t<!std::is_floating_point<TYPE>::value && 
+      typename std::enable_if_t<!std::is_floating_point<TYPE>::value &&
                                 !std::is_same<TYPE, arrow::Decimal128>::value> {
     if (asc_) {
       ska_sort(indices_begin, indices_end);
@@ -795,7 +800,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
   }
 
-    // This function is used for non-float and non-double data without null value.
+  // This function is used for non-float and non-double data without null value.
   template <typename TYPE>
   auto SortNoNull(TYPE* indices_begin, TYPE* indices_end) ->
       typename std::enable_if_t<std::is_same<TYPE, arrow::Decimal128>::value> {
@@ -881,7 +886,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   // We should do partition for null.
   template <typename TYPE, typename ArrayType>
   auto Sort(int64_t* indices_begin, int64_t* indices_end, const ArrayType& values) ->
-      typename std::enable_if_t<!std::is_floating_point<TYPE>::value && 
+      typename std::enable_if_t<!std::is_floating_point<TYPE>::value &&
                                 !std::is_same<TYPE, arrow::Decimal128>::value> {
     std::iota(indices_begin, indices_end, 0);
     if (asc_) {
@@ -925,12 +930,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return values.GetView(left) < values.GetView(right);
       };
       if (nulls_first_) {
-        auto nulls_end = std::partition(indices_begin, indices_end, 
-            [&values](uint64_t ind) { return values.IsNull(ind); });
+        auto nulls_end =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return values.IsNull(ind); });
         std::sort(nulls_end, indices_end, comp);
       } else {
-        auto nulls_begin = std::partition(indices_begin, indices_end, 
-            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        auto nulls_begin =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return !values.IsNull(ind); });
         std::sort(indices_begin, nulls_begin, comp);
       }
     } else {
@@ -938,12 +945,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return values.GetView(left) > values.GetView(right);
       };
       if (nulls_first_) {
-        auto nulls_end = std::partition(indices_begin, indices_end,
-            [&values](uint64_t ind) { return values.IsNull(ind); });
+        auto nulls_end =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return values.IsNull(ind); });
         std::sort(nulls_end, indices_end, comp);
       } else {
-        auto nulls_begin = std::partition(indices_begin, indices_end,
-            [&values](uint64_t ind) { return !values.IsNull(ind); });
+        auto nulls_begin =
+            std::partition(indices_begin, indices_end,
+                           [&values](uint64_t ind) { return !values.IsNull(ind); });
         std::sort(indices_begin, nulls_begin, comp);
       }
     }
@@ -1020,14 +1029,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 
     bool HasNext() override {
-      if (total_offset_ >= total_length_) {
+      if (offset_ >= total_length_) {
         return false;
       }
       return true;
     }
 
-    // This class is used to copy a piece of memory from the sorted ArrayData 
-    // to a result array. 
+    // This class is used to copy a piece of memory from the sorted ArrayData
+    // to a result array.
     // It can be used only in sorted data because of null count calculation.
     template <typename KeyType>
     class SliceImpl {
@@ -1046,21 +1055,25 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         for (auto& data : out_data_.child_data) {
           data = std::make_shared<arrow::ArrayData>();
         }
-        // decide null_count
-        if (null_first) {
-          if ((offset + length) > null_total_) {
-            out_data_.null_count =
-                (null_total_ - offset > 0) ? (null_total_ - offset) : 0;
-          } else {
-            out_data_.null_count = length;
-          }
+        // decide null_count of this sliced array
+        if (null_total == 0) {
+          out_data_.null_count = 0;
         } else {
-          auto valid_total = total_length - null_total_;
-          if ((offset + length) < valid_total) {
-            out_data_.null_count = 0;
+          if (null_first) {
+            if ((offset + length) > null_total_) {
+              out_data_.null_count =
+                  (null_total_ - offset > 0) ? (null_total_ - offset) : 0;
+            } else {
+              out_data_.null_count = length;
+            }
           } else {
-            out_data_.null_count =
-                (offset - valid_total) > 0 ? length : (offset + length - valid_total);
+            auto valid_total = total_length - null_total_;
+            if ((offset + length) < valid_total) {
+              out_data_.null_count = 0;
+            } else {
+              out_data_.null_count =
+                  (offset - valid_total) > 0 ? length : (offset + length - valid_total);
+            }
           }
         }
       }
@@ -1098,7 +1111,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         bool AllSet() const { return data == nullptr; }
       };
 
-      arrow::Status SliceBuffer(const std::shared_ptr<arrow::Buffer>& buffer, 
+      arrow::Status SliceBuffer(const std::shared_ptr<arrow::Buffer>& buffer,
                                 std::shared_ptr<arrow::Buffer>* out) {
         ARROW_ASSIGN_OR_RAISE(*out, AllocateBuffer(size * length_, pool_));
         auto out_data = (*out)->mutable_data();
@@ -1107,30 +1120,9 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         return arrow::Status::OK();
       }
 
-      arrow::Status SliceBitmapImpl(
-          const Bitmap& bitmap, std::shared_ptr<arrow::Buffer>* out) {
-        auto length = bitmap.range.length;
-        auto offset = bitmap.range.offset;
-        ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
-        uint8_t* dst = (*out)->mutable_data();
-
-        int64_t bitmap_offset = 0;
-        if (bitmap.AllSet()) {
-          arrow::BitUtil::SetBitsTo(dst, offset, length, true);
-        } else {
-          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset);
-        }
-
-        // finally (if applicable) zero out any trailing bits
-        if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
-          dst[length_ / 8] &= preceding_bits;
-        }
-        return arrow::Status::OK();
-      }
-
       arrow::Status SliceBitmap(const std::shared_ptr<arrow::Buffer>& buffer,
                                 std::shared_ptr<arrow::Buffer>* out) {
-        Range range(size * offset_, size * length_);
+        Range range(offset_, length_);
         Bitmap bitmap = Bitmap(buffer, range);
 
         auto length = bitmap.range.length;
@@ -1138,16 +1130,10 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         ARROW_ASSIGN_OR_RAISE(*out, AllocateBitmap(length, pool_));
         uint8_t* dst = (*out)->mutable_data();
 
-        int64_t bitmap_offset = 0;
         if (bitmap.AllSet()) {
           arrow::BitUtil::SetBitsTo(dst, offset, length, true);
         } else {
-          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, bitmap_offset);
-        }
-
-        // finally (if applicable) zero out any trailing bits
-        if (auto preceding_bits = arrow::BitUtil::kPrecedingBitmask[length_ % 8]) {
-          dst[length_ / 8] &= preceding_bits;
+          arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, 0);
         }
         return arrow::Status::OK();
       }
@@ -1162,16 +1148,16 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     };
 
     arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
-      auto length = (total_length_ - total_offset_) > batch_size_
-                        ? batch_size_
-                        : (total_length_ - total_offset_);
+      auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
+                                                            : (total_length_ - offset_);
       arrow::ArrayData result_data = *result_arr_->data();
       arrow::ArrayData out_data;
-      SliceImpl<CTYPE>(result_data, ctx_->memory_pool(), length, total_offset_,
-                       nulls_total_, nulls_first_, total_length_).Slice(&out_data);
+      SliceImpl<CTYPE>(result_data, ctx_->memory_pool(), length, offset_, nulls_total_,
+                       nulls_first_, total_length_)
+          .Slice(&out_data);
       std::shared_ptr<arrow::Array> out_0 =
           MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
-      total_offset_ += length;
+      offset_ += length;
       *out = arrow::RecordBatch::Make(result_schema_, length, {out_0});
       return arrow::Status::OK();
     }
@@ -1180,8 +1166,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     using ArrayType_0 = typename arrow::TypeTraits<DATATYPE>::ArrayType;
     using BuilderType_0 = typename arrow::TypeTraits<DATATYPE>::BuilderType;
     std::shared_ptr<arrow::Array> result_arr_;
-    uint64_t total_offset_ = 0;
-    uint64_t valid_offset_ = 0;
+    uint64_t offset_ = 0;
     const uint64_t total_length_;
     const uint64_t nulls_total_;
     std::shared_ptr<arrow::Schema> result_schema_;
@@ -1333,7 +1318,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
             }
           } else {
             // values should be partitioned to:
-            // null, null, ..., NaN, NaN, ..., valid-1, valid-2, ..., valid-3, ...
+            // null, null, ..., NaN, NaN, ..., valid-1, valid-2, ..., valid-3,
+            // ...
             if (!std::isnan(cached_key_[array_id]->GetView(i))) {
               (indices_end - indices_i - 1)->array_id = array_id;
               (indices_end - indices_i - 1)->id = i;
@@ -1347,7 +1333,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
         } else {
           if (asc_) {
             // values should be partitioned to:
-            // valid-1, valid-2, ..., valid-3, ..., NaN, NaN, ..., null, null, ...
+            // valid-1, valid-2, ..., valid-3, ..., NaN, NaN, ..., null, null,
+            // ...
             if (!std::isnan(cached_key_[array_id]->GetView(i))) {
               (indices_begin + indices_i)->array_id = array_id;
               (indices_begin + indices_i)->id = i;
@@ -1359,7 +1346,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
             }
           } else {
             // values should be partitioned to:
-            // NaN, NaN, ..., valid-1, valid-2, ..., valid-3, ..., null, null, ...
+            // NaN, NaN, ..., valid-1, valid-2, ..., valid-3, ..., null, null,
+            // ...
             if (!std::isnan(cached_key_[array_id]->GetView(i))) {
               (indices_end - nulls_total_ - indices_i - 1)->array_id = array_id;
               (indices_end - nulls_total_ - indices_i - 1)->id = i;
@@ -1450,11 +1438,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
 
   template <typename T>
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, int64_t num_nan) 
+  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end, int64_t num_nan)
       -> typename std::enable_if_t<arrow::is_decimal_type<T>::value> {
     if (asc_) {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetView(x.id) < 
+        return cached_key_[x.array_id]->GetView(x.id) <
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
@@ -1466,7 +1454,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetView(x.id) > 
+        return cached_key_[x.array_id]->GetView(x.id) >
                cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
@@ -1527,45 +1515,44 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
 };
 
 ///////////////  SortArraysMultipleKeys  ////////////////
-class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
+class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
  public:
   SortMultiplekeyKernel(arrow::compute::ExecContext* ctx,
                         std::shared_ptr<arrow::Schema> result_schema,
                         std::shared_ptr<gandiva::Projector> key_projector,
                         std::vector<std::shared_ptr<arrow::DataType>> projected_types,
                         std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-                        std::vector<bool> sort_directions, 
-                        std::vector<bool> nulls_order,
+                        std::vector<bool> sort_directions, std::vector<bool> nulls_order,
                         bool NaN_check)
-      : ctx_(ctx), 
-        nulls_order_(nulls_order), 
-        sort_directions_(sort_directions), 
-        result_schema_(result_schema), 
+      : ctx_(ctx),
+        nulls_order_(nulls_order),
+        sort_directions_(sort_directions),
+        result_schema_(result_schema),
         key_projector_(key_projector),
         key_field_list_(key_field_list),
         NaN_check_(NaN_check) {
-      #ifdef DEBUG
-          std::cout << "UseSortMultiplekeyKernel" << std::endl;
-      #endif
-      for (auto field : key_field_list) {
-        auto indices = result_schema->GetAllFieldIndices(field->name());
-        if (indices.size() != 1) {
-          std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
-                    << field->ToString() << " from " << result_schema->ToString()
-                    << std::endl;
-          throw;
-        }
-        key_index_list_.push_back(indices[0]);
+#ifdef DEBUG
+    std::cout << "UseSortMultiplekeyKernel" << std::endl;
+#endif
+    for (auto field : key_field_list) {
+      auto indices = result_schema->GetAllFieldIndices(field->name());
+      if (indices.size() != 1) {
+        std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
+                  << field->ToString() << " from " << result_schema->ToString()
+                  << std::endl;
+        throw;
       }
-      col_num_ = result_schema->num_fields();
-      int i = 0;
-      for (auto type : projected_types) {
-        auto field = arrow::field(std::to_string(i), type);
-        projected_field_list_.push_back(field);
-        i++;
-      }
+      key_index_list_.push_back(indices[0]);
+    }
+    col_num_ = result_schema->num_fields();
+    int i = 0;
+    for (auto type : projected_types) {
+      auto field = arrow::field(std::to_string(i), type);
+      projected_field_list_.push_back(field);
+      i++;
+    }
   }
-  ~SortMultiplekeyKernel(){}
+  ~SortMultiplekeyKernel() {}
 
   arrow::Status Evaluate(const ArrayList& in) override {
     num_batches_++;
@@ -1573,14 +1560,14 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
       cached_.resize(col_num_ + 1);
     }
     for (int i = 0; i < col_num_; i++) {
-        cached_[i].push_back(in[i]);
+      cached_[i].push_back(in[i]);
     }
     if (key_projector_) {
       int projected_col_num = projected_field_list_.size();
       if (projected_.size() <= projected_col_num) {
         projected_.resize(projected_col_num + 1);
       }
-      std::vector<std::shared_ptr<arrow::Array>> projected_batch; 
+      std::vector<std::shared_ptr<arrow::Array>> projected_batch;
       // do projection here, and the projected arrays are used for comparison
       auto length = in.size() > 0 ? in[0]->length() : 0;
       auto in_batch = arrow::RecordBatch::Make(result_schema_, length, in);
@@ -1596,14 +1583,13 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  int compareInternal(int left_array_id, int64_t left_id, int right_array_id, 
+  int compareInternal(int left_array_id, int64_t left_id, int right_array_id,
                       int64_t right_id, int keys_num) {
     int key_idx = 0;
     while (key_idx < keys_num) {
       // In comparison, 1 represents for true, 0 for false, and 2 for equal.
       int cmp_res = 2;
-      cmp_functions_[key_idx](left_array_id, right_array_id, 
-                              left_id, right_id, cmp_res);
+      cmp_functions_[key_idx](left_array_id, right_array_id, left_id, right_id, cmp_res);
       if (cmp_res != 2) {
         return cmp_res;
       }
@@ -1612,10 +1598,10 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     return 2;
   }
 
-  bool compareRow(int left_array_id, int64_t left_id, int right_array_id, 
+  bool compareRow(int left_array_id, int64_t left_id, int right_array_id,
                   int64_t right_id, int keys_num) {
-    if (compareInternal(left_array_id, left_id, right_array_id, 
-                        right_id, keys_num) == 1) {
+    if (compareInternal(left_array_id, left_id, right_array_id, right_id, keys_num) ==
+        1) {
       return true;
     }
     return false;
@@ -1624,12 +1610,12 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
   auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int keys_num = sort_directions_.size();
     auto comp = [this, &keys_num](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return compareRow(x.array_id, x.id, y.array_id, y.id, keys_num);};
+      return compareRow(x.array_id, x.id, y.array_id, y.id, keys_num);
+    };
     gfx::timsort(indices_begin, indices_begin + items_total_, comp);
   }
 
-  void Partition(ArrayItemIndexS* indices_begin, 
-                 ArrayItemIndexS* indices_end) {
+  void Partition(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
     for (int array_id = 0; array_id < num_batches_; array_id++) {
@@ -1647,8 +1633,8 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
     int64_t buf_size = items_total_ * sizeof(ArrayItemIndexS);
     auto maybe_buffer = arrow::AllocateBuffer(buf_size, ctx_->memory_pool());
     indices_buf = *std::move(maybe_buffer);
-    ArrayItemIndexS* indices_begin = 
-      reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
+    ArrayItemIndexS* indices_begin =
+        reinterpret_cast<ArrayItemIndexS*>(indices_buf->mutable_data());
     ArrayItemIndexS* indices_end = indices_begin + items_total_;
     // do partition and sort here
     Partition(indices_begin, indices_end);
@@ -1657,13 +1643,11 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
       for (int i = 0; i < projected_field_list_.size(); i++) {
         projected_key_idx_list.push_back(i);
       }
-      MakeCmpFunction(
-          projected_, projected_field_list_, projected_key_idx_list, sort_directions_, 
-          nulls_order_, NaN_check_, cmp_functions_);
+      MakeCmpFunction(projected_, projected_field_list_, projected_key_idx_list,
+                      sort_directions_, nulls_order_, NaN_check_, cmp_functions_);
     } else {
-      MakeCmpFunction(
-          cached_, key_field_list_, key_index_list_, sort_directions_, 
-          nulls_order_, NaN_check_, cmp_functions_);
+      MakeCmpFunction(cached_, key_field_list_, key_index_list_, sort_directions_,
+                      nulls_order_, NaN_check_, cmp_functions_);
     }
     Sort(indices_begin, indices_end);
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
@@ -1702,18 +1686,13 @@ class SortMultiplekeyKernel  : public SortArraysToIndicesKernel::Impl {
 };
 
 arrow::Status SortArraysToIndicesKernel::Make(
-    arrow::compute::ExecContext* ctx, 
-    std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-    std::vector<bool> sort_directions, 
-    std::vector<bool> nulls_order, 
-    bool NaN_check,
-    bool do_codegen,
-    int result_type, 
-    std::shared_ptr<KernalBase>* out) {
+    std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check,
+    bool do_codegen, int result_type, std::shared_ptr<KernalBase>* out) {
   *out = std::make_shared<SortArraysToIndicesKernel>(
-      ctx, result_schema, sort_key_node, key_field_list, sort_directions, nulls_order, 
+      ctx, result_schema, sort_key_node, key_field_list, sort_directions, nulls_order,
       NaN_check, do_codegen, result_type);
   return arrow::Status::OK();
 }
@@ -1732,15 +1711,11 @@ arrow::Status SortArraysToIndicesKernel::Make(
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)
 SortArraysToIndicesKernel::SortArraysToIndicesKernel(
-    arrow::compute::ExecContext* ctx, 
-    std::shared_ptr<arrow::Schema> result_schema,
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,
     std::vector<std::shared_ptr<arrow::Field>> key_field_list,
-    std::vector<bool> sort_directions, 
-    std::vector<bool> nulls_order, 
-    bool NaN_check,
-    bool do_codegen,
-    int result_type) {
+    std::vector<bool> sort_directions, std::vector<bool> nulls_order, bool NaN_check,
+    bool do_codegen, int result_type) {
   // represents whether need to projection for sort keys
   bool pre_processed_key_ = false;
   gandiva::NodePtr key_project;
@@ -1781,14 +1756,14 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
           ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check));
     } else {
       switch (key_field_list[0]->type()->id()) {
-  #define PROCESS(InType)                                                               \
-    case InType::type_id: {                                                             \
-      using CType = typename arrow::TypeTraits<InType>::CType;                          \
-      impl_.reset(new SortInplaceKernel<InType, CType>(                                 \
-          ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check)); \
-    } break;
+#define PROCESS(InType)                                                               \
+  case InType::type_id: {                                                             \
+    using CType = typename arrow::TypeTraits<InType>::CType;                          \
+    impl_.reset(new SortInplaceKernel<InType, CType>(                                 \
+        ctx, result_schema, key_projector, sort_directions, nulls_order, NaN_check)); \
+  } break;
         PROCESS_SUPPORTED_TYPES(PROCESS)
-  #undef PROCESS
+#undef PROCESS
         default: {
           std::cout << "SortInplaceKernel type not supported, type is "
                     << key_field_list[0]->type() << std::endl;
@@ -1797,7 +1772,8 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
     }
   } else if (key_field_list.size() == 1 && result_schema->num_fields() >= 1) {
     // Will use SortOnekey when:
-    // 1. sorting for one col with payload 2. sorting for one string col or one bool col
+    // 1. sorting for one col with payload 2. sorting for one string col or one
+    // bool col
 #ifdef DEBUG
     std::cout << "UseSortOneKey" << std::endl;
 #endif
@@ -1813,12 +1789,12 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
             nulls_order, NaN_check));
       } else {
         switch (projected_types[0]->id()) {
-#define PROCESS(InType)                                                                \
-  case InType::type_id: {                                                              \
-    using CType = typename arrow::TypeTraits<InType>::CType;                           \
-    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector,        \
-                                                    key_field_list, sort_directions,   \
-                                                    nulls_order, NaN_check));          \
+#define PROCESS(InType)                                                         \
+  case InType::type_id: {                                                       \
+    using CType = typename arrow::TypeTraits<InType>::CType;                    \
+    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector, \
+                                             key_field_list, sort_directions,   \
+                                             nulls_order, NaN_check));          \
   } break;
           PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -1840,12 +1816,12 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
             nulls_order, NaN_check));
       } else {
         switch (key_field_list[0]->type()->id()) {
-#define PROCESS(InType)                                                                \
-  case InType::type_id: {                                                              \
-    using CType = typename arrow::TypeTraits<InType>::CType;                           \
-    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector,        \
-                                             key_field_list, sort_directions,          \
-                                             nulls_order, NaN_check));                 \
+#define PROCESS(InType)                                                         \
+  case InType::type_id: {                                                       \
+    using CType = typename arrow::TypeTraits<InType>::CType;                    \
+    impl_.reset(new SortOnekeyKernel<InType>(ctx, result_schema, key_projector, \
+                                             key_field_list, sort_directions,   \
+                                             nulls_order, NaN_check));          \
   } break;
           PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -1859,12 +1835,13 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
   } else {
     if (do_codegen) {
       // Will use Sort with Codegen for multiple-key sort
-      impl_.reset(new Impl(ctx, result_schema, key_projector, projected_types, 
+      impl_.reset(new Impl(ctx, result_schema, key_projector, projected_types,
                            key_field_list, sort_directions, nulls_order, NaN_check));
     } else {
       // Will use Sort without Codegen for multiple-key sort
-      impl_.reset(new SortMultiplekeyKernel(ctx, result_schema, key_projector, 
-          projected_types, key_field_list, sort_directions, nulls_order, NaN_check));
+      impl_.reset(new SortMultiplekeyKernel(ctx, result_schema, key_projector,
+                                            projected_types, key_field_list,
+                                            sort_directions, nulls_order, NaN_check));
     }
   }
   kernel_name_ = "SortArraysToIndicesKernel";

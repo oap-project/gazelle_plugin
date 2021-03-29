@@ -41,7 +41,8 @@ class ColumnarAdd(left: Expression, right: Expression, original: Expression)
     with Logging {
 
   // If casting between DecimalType, unnecessary cast is skipped to avoid data loss,
-  // because res type of "cast" is actually the res type of "add/subtract".
+  // because actually res type of "cast" is the res type in "add/subtract",
+  // and is the wider type in "multiply/divide".
   val left_val: Any = left match {
     case c: ColumnarCast =>
       if (c.child.dataType.isInstanceOf[DecimalType] &&
@@ -162,18 +163,41 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
     with ColumnarExpression
     with Logging {
 
+  val left_val: Any = left match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+        c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        left
+      }
+    case _ =>
+      left
+  }
+  val right_val: Any = right match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+        c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        right
+      }
+    case _ =>
+      right
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
-      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      left_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     var (right_node, right_type): (TreeNode, ArrowType) =
-      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      right_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
         var resultType = DecimalTypeUtil.getResultTypeForOperation(
           DecimalTypeUtil.OperationType.MULTIPLY, l, r)
         // Scaling down the unnecessary scale for Literal to avoid precision loss
-        val newLeftNode = left match {
+        val newLeftNode = left_val match {
           case literal: ColumnarLiteral =>
             val leftStr = literal.value.asInstanceOf[Decimal].toDouble.toString
             val newLeftPrecision = leftStr.length - 1
@@ -187,7 +211,7 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
           case _ =>
             left_node
         }
-        val newRightNode = right match {
+        val newRightNode = right_val match {
           case literal: ColumnarLiteral =>
             val rightStr = literal.value.asInstanceOf[Decimal].toDouble.toString
             val newRightPrecision = rightStr.length - 1
@@ -230,11 +254,33 @@ class ColumnarDivide(left: Expression, right: Expression,
     with ColumnarExpression
     with Logging {
 
+  val left_val: Any = left match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+        c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        left
+      }
+    case _ =>
+      left
+  }
+  val right_val: Any = right match {
+    case c: ColumnarCast =>
+      if (c.child.dataType.isInstanceOf[DecimalType] &&
+        c.dataType.isInstanceOf[DecimalType]) {
+        c.child
+      } else {
+        right
+      }
+    case _ =>
+      right
+  }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
-      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      left_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     var (right_node, right_type): (TreeNode, ArrowType) =
-      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      right_val.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     (left_type, right_type) match {
       case (l: ArrowType.Decimal, r: ArrowType.Decimal) =>
@@ -244,7 +290,7 @@ class ColumnarDivide(left: Expression, right: Expression,
           DecimalTypeUtil.getResultTypeForOperation(
             DecimalTypeUtil.OperationType.DIVIDE, l, r)
         }
-        val newLeftNode = left match {
+        val newLeftNode = left_val match {
           case literal: ColumnarLiteral =>
             val leftStr = literal.value.asInstanceOf[Decimal].toDouble.toString
             val newLeftPrecision = leftStr.length - 1
@@ -258,7 +304,7 @@ class ColumnarDivide(left: Expression, right: Expression,
           case _ =>
             left_node
         }
-        val newRightNode = right match {
+        val newRightNode = right_val match {
           case literal: ColumnarLiteral =>
             val rightStr = literal.value.asInstanceOf[Decimal].toDouble.toString
             val newRightPrecision = rightStr.length - 1

@@ -55,11 +55,10 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   auto res = castDECIMAL(left, left_precision, left_scale, out_precision, out_scale);
   ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
   bool overflow = false;
-  res = castDECIMALNullOnOverflow(left, left_precision, left_scale, out_precision, 
+  res = castDECIMALNullOnOverflow(left, left_precision, left_scale, out_precision,
                                   out_scale, &overflow);
   ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
-  res = add(left, left_precision, left_scale, right, right_precision, right_scale,
-            17, 9);
+  res = add(left, left_precision, left_scale, right, right_precision, right_scale, 17, 9);
   ASSERT_EQ(res, arrow::Decimal128("32344770.025749535"));
   res = subtract(left, left_precision, left_scale, right, right_precision, right_scale,
                  17, 9);
@@ -70,6 +69,10 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   res = divide(left, left_precision, left_scale, right, right_precision, right_scale,
                out_precision, out_scale, &overflow);
   ASSERT_EQ(res, arrow::Decimal128("13780.2495094037"));
+  res = round(left, left_precision, left_scale, &overflow, 4);
+  ASSERT_EQ(res, arrow::Decimal128("32342423.0129"));
+  res = arrow::Decimal128("-32342423.012875").Abs();
+  ASSERT_EQ(res, left);
 }
 
 TEST(TestArrowCompute, ArithmeticComparisonTest) {

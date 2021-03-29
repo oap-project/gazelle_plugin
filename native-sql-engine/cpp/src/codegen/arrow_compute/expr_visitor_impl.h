@@ -205,14 +205,17 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         for (auto col_id : partition_field_ids_) {
           if (col_id >= p_->in_record_batch_->num_columns()) {
             return arrow::Status::Invalid(
-                "WindowVisitorImpl: Partition field number overflows defined column "
+                "WindowVisitorImpl: Partition field number overflows defined "
+                "column "
                 "count");
           }
           auto col = p_->in_record_batch_->column(col_id);
           in1.push_back(col);
         }
 #ifdef DEBUG
-        std::cout << "[window kernel] Calling concat_kernel_->Evaluate(in1, &out1) on batch... " << std::endl;
+        std::cout << "[window kernel] Calling concat_kernel_->Evaluate(in1, "
+                     "&out1) on batch... "
+                  << std::endl;
 #endif
         RETURN_NOT_OK(concat_kernel_->Evaluate(in1, &out1));
 #ifdef DEBUG
@@ -222,7 +225,9 @@ class WindowVisitorImpl : public ExprVisitorImpl {
 
       std::shared_ptr<arrow::Array> in2 = out1;
 #ifdef DEBUG
-      std::cout << "[window kernel] Calling partition_kernel_->Evaluate(in2, &out2) on batch... " << std::endl;
+      std::cout << "[window kernel] Calling partition_kernel_->Evaluate(in2, "
+                   "&out2) on batch... "
+                << std::endl;
 #endif
       RETURN_NOT_OK(partition_kernel_->Evaluate(in2, &out2));
 #ifdef DEBUG
@@ -235,7 +240,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       for (auto col_id : function_param_field_ids_.at(func_id)) {
         if (col_id >= p_->in_record_batch_->num_columns()) {
           return arrow::Status::Invalid(
-              "WindowVisitorImpl: Function parameter number overflows defined column "
+              "WindowVisitorImpl: Function parameter number overflows defined "
+              "column "
               "count");
         }
         auto col = p_->in_record_batch_->column(col_id);
@@ -243,7 +249,9 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       }
       in3.push_back(out2);
 #ifdef DEBUG
-      std::cout << "[window kernel] Calling function_kernels_.at(func_id)->Evaluate(in3) on batch... " << std::endl;
+      std::cout << "[window kernel] Calling "
+                   "function_kernels_.at(func_id)->Evaluate(in3) on batch... "
+                << std::endl;
 #endif
       RETURN_NOT_OK(function_kernels_.at(func_id)->Evaluate(in3));
 #ifdef DEBUG
@@ -283,7 +291,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
           length = arr->length();
         } else if (length != arr->length()) {
           return arrow::Status::Invalid(
-              "WindowVisitorImpl: Return array length in the same batch are not the same "
+              "WindowVisitorImpl: Return array length in the same batch are "
+              "not the same "
               "for "
               "different window functions");
         }
@@ -291,7 +300,8 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       }
       if (length == -1) {
         return arrow::Status::Invalid(
-            "WindowVisitorImpl: No valid batch length returned for window functions");
+            "WindowVisitorImpl: No valid batch length returned for window "
+            "functions");
       }
       out.push_back(temp);
       out_sizes.push_back(length);
@@ -392,7 +402,8 @@ class EncodeVisitorImpl : public ExprVisitorImpl {
   int hash_table_type_;
 };
 
-////////////////////////// SortArraysToIndicesVisitorImpl ///////////////////////
+////////////////////////// SortArraysToIndicesVisitorImpl
+//////////////////////////
 class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
  public:
   SortArraysToIndicesVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
@@ -481,7 +492,8 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
       } break;
       default:
         return arrow::Status::NotImplemented(
-            "SortArraysToIndicesVisitorImpl: Does not support this type of input.");
+            "SortArraysToIndicesVisitorImpl: Does not support this type of "
+            "input.");
     }
     return arrow::Status::OK();
   }
@@ -500,7 +512,8 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
       } break;
       default:
         return arrow::Status::Invalid(
-            "SortArraysToIndicesVisitorImpl MakeResultIterator does not support "
+            "SortArraysToIndicesVisitorImpl MakeResultIterator does not "
+            "support "
             "dependency type other than Batch.");
     }
     return arrow::Status::OK();
@@ -610,7 +623,8 @@ class CachedRelationVisitorImpl : public ExprVisitorImpl {
   std::shared_ptr<arrow::Schema> result_schema_;
 };
 
-////////////////////////// ConditionedProbeArraysVisitorImpl ///////////////////////
+////////////////////////// ConditionedProbeArraysVisitorImpl
+//////////////////////////
 class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
  public:
   ConditionedProbeArraysVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
@@ -704,7 +718,8 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
       } break;
       default:
         return arrow::Status::Invalid(
-            "ConditionedProbeArraysVisitorImpl MakeResultIterator does not support "
+            "ConditionedProbeArraysVisitorImpl MakeResultIterator does not "
+            "support "
             "dependency type other than Batch.");
     }
     return arrow::Status::OK();
@@ -724,7 +739,8 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
   gandiva::NodeVector hash_configuration_list_;
 };
 
-////////////////////////// ConditionedJoinArraysVisitorImpl ///////////////////////
+////////////////////////// ConditionedJoinArraysVisitorImpl
+//////////////////////////
 class ConditionedJoinArraysVisitorImpl : public ExprVisitorImpl {
  public:
   ConditionedJoinArraysVisitorImpl(
@@ -798,7 +814,8 @@ class ConditionedJoinArraysVisitorImpl : public ExprVisitorImpl {
       } break;
       default:
         return arrow::Status::Invalid(
-            "ConditionedJoinArraysVisitorImpl MakeResultIterator does not support "
+            "ConditionedJoinArraysVisitorImpl MakeResultIterator does not "
+            "support "
             "dependency type other than Batch.");
     }
     return arrow::Status::OK();

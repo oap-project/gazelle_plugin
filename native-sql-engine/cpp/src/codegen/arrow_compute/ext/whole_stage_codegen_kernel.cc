@@ -216,8 +216,9 @@ class WholeStageCodeGenKernel::Impl {
   }
 
   /* *
-   * Expecting insert node is a function node whose function name is "child", and real
-   * function is its first child, if who has two children, second one is the next child.
+   * Expecting insert node is a function node whose function name is "child",
+   * and real function is its first child, if who has two children, second one
+   * is the next child.
    * */
   arrow::Status ParseNodeTree(std::shared_ptr<gandiva::Node> root_node,
                               int* hash_relation_index,
@@ -492,9 +493,9 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
       codes_ss << "return arrow::Status::OK();" << std::endl;
       codes_ss << "} // End of ProcessAndCacheOne" << std::endl << std::endl;
       codes_ss << "bool HasNext() override { return !should_stop_; }" << std::endl;
-      codes_ss
-          << "arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) override {"
-          << std::endl;
+      codes_ss << "arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* "
+                  "out) override {"
+               << std::endl;
       codes_ss << "uint64_t out_length = 0;" << std::endl;
       codes_ss << "int gp_idx = 0;" << std::endl;
     } else if (is_aggr_ && is_smj_) {

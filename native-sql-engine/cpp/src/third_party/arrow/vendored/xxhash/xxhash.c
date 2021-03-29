@@ -36,20 +36,22 @@
  *  Tuning parameters
  ***************************************/
 /*!XXH_FORCE_MEMORY_ACCESS :
- * By default, access to unaligned memory is controlled by `memcpy()`, which is safe and
- * portable. Unfortunately, on some target/compiler combinations, the generated assembly
- * is sub-optimal. The below switch allow to select different access method for improved
- * performance. Method 0 (default) : use `memcpy()`. Safe and portable. Method 1 :
- * `__packed` statement. It depends on compiler extension (ie, not portable). This method
- * is safe if your compiler supports it, and *generally* as fast or faster than `memcpy`.
- * Method 2 : direct access. This method doesn't depend on compiler but violate C
- * standard. It can generate buggy code on targets which do not support unaligned memory
- * accesses. But in some circumstances, it's the only known way to get the most
- * performance (ie GCC + ARMv6) See http://stackoverflow.com/a/32095106/646947 for
- * details. Prefer these methods in priority order (0 > 1 > 2)
+ * By default, access to unaligned memory is controlled by `memcpy()`, which is
+ * safe and portable. Unfortunately, on some target/compiler combinations, the
+ * generated assembly is sub-optimal. The below switch allow to select different
+ * access method for improved performance. Method 0 (default) : use `memcpy()`.
+ * Safe and portable. Method 1 :
+ * `__packed` statement. It depends on compiler extension (ie, not portable).
+ * This method is safe if your compiler supports it, and *generally* as fast or
+ * faster than `memcpy`. Method 2 : direct access. This method doesn't depend on
+ * compiler but violate C standard. It can generate buggy code on targets which
+ * do not support unaligned memory accesses. But in some circumstances, it's the
+ * only known way to get the most performance (ie GCC + ARMv6) See
+ * http://stackoverflow.com/a/32095106/646947 for details. Prefer these methods
+ * in priority order (0 > 1 > 2)
  */
-#ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command line for \
-                                   example */
+#ifndef XXH_FORCE_MEMORY_ACCESS /* can be defined externally, on command line \
+                                   for example */
 #if defined(__GNUC__) &&                                                                \
     (defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || \
      defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__))
@@ -63,9 +65,10 @@
 #endif
 
 /*!XXH_ACCEPT_NULL_INPUT_POINTER :
- * If input pointer is NULL, xxHash default behavior is to dereference it, triggering a
- * segfault. When this macro is enabled, xxHash actively checks input for null pointer. It
- * it is, result for null input pointers is the same as a null-length input.
+ * If input pointer is NULL, xxHash default behavior is to dereference it,
+ * triggering a segfault. When this macro is enabled, xxHash actively checks
+ * input for null pointer. It it is, result for null input pointers is the same
+ * as a null-length input.
  */
 #ifndef XXH_ACCEPT_NULL_INPUT_POINTER /* can be defined externally */
 #define XXH_ACCEPT_NULL_INPUT_POINTER 0
@@ -102,8 +105,8 @@
 /* *************************************
  *  Includes & Memory related functions
  ***************************************/
-/*! Modify the local functions below should you wish to use some other memory routines
- *   for malloc(), free() */
+/*! Modify the local functions below should you wish to use some other memory
+ * routines for malloc(), free() */
 #include <stdlib.h>
 static void* XXH_malloc(size_t s) { return malloc(s); }
 static void XXH_free(void* p) { free(p); }
@@ -186,14 +189,14 @@ typedef unsigned int U32;
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 2))
 
-/* Force direct memory access. Only works on CPU which support unaligned memory access in
- * hardware */
+/* Force direct memory access. Only works on CPU which support unaligned memory
+ * access in hardware */
 static U32 XXH_read32(const void* memPtr) { return *(const U32*)memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 1))
 
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for
- * some compilers */
+/* __pack instructions are safer, but compiler specific, hence potentially
+ * problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union {
   U32 u32;
@@ -216,8 +219,8 @@ static U32 XXH_read32(const void* memPtr) {
 /* ===   Endianess   === */
 typedef enum { XXH_bigEndian = 0, XXH_littleEndian = 1 } XXH_endianess;
 
-/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler command
- * line */
+/* XXH_CPU_LITTLE_ENDIAN can be defined externally, for example on the compiler
+ * command line */
 #ifndef XXH_CPU_LITTLE_ENDIAN
 static int XXH_isLittleEndian(void) {
   const union {
@@ -242,7 +245,8 @@ static int XXH_isLittleEndian(void) {
     __has_builtin(__builtin_rotateleft64)
 #define XXH_rotl32 __builtin_rotateleft32
 #define XXH_rotl64 __builtin_rotateleft64
-/* Note : although _rotl exists for minGW (GCC under windows), performance seems poor */
+/* Note : although _rotl exists for minGW (GCC under windows), performance seems
+ * poor */
 #elif defined(_MSC_VER)
 #define XXH_rotl32(x, r) _rotl(x, r)
 #define XXH_rotl64(x, r) _rotl64(x, r)
@@ -311,10 +315,11 @@ static U32 XXH32_round(U32 acc, U32 input) {
    * The reason we want to avoid vectorization is because despite working on
    * 4 integers at a time, there are multiple factors slowing XXH32 down on
    * SSE4:
-   * - There's a ridiculous amount of lag from pmulld (10 cycles of latency on newer
-   * chips!) making it slightly slower to multiply four integers at once compared to four
-   *   integers independently. Even when pmulld was fastest, Sandy/Ivy Bridge, it is
-   *   still not worth it to go into SSE just to multiply unless doing a long operation.
+   * - There's a ridiculous amount of lag from pmulld (10 cycles of latency on
+   * newer chips!) making it slightly slower to multiply four integers at once
+   * compared to four integers independently. Even when pmulld was fastest,
+   * Sandy/Ivy Bridge, it is still not worth it to go into SSE just to multiply
+   * unless doing a long operation.
    *
    * - Four instructions are required to rotate,
    *      movqda tmp,  v // not required with VEX encoding
@@ -325,15 +330,15 @@ static U32 XXH32_round(U32 acc, U32 input) {
    *      roll   v, 13    // reliably fast across the board
    *      shldl  v, v, 13 // Sandy Bridge and later prefer this for some reason
    *
-   * - Instruction level parallelism is actually more beneficial here because the
-   *   SIMD actually serializes this operation: While v1 is rotating, v2 can load data,
-   *   while v3 can multiply. SSE forces them to operate together.
+   * - Instruction level parallelism is actually more beneficial here because
+   * the SIMD actually serializes this operation: While v1 is rotating, v2 can
+   * load data, while v3 can multiply. SSE forces them to operate together.
    *
    * How this hack works:
-   * __asm__(""       // Declare an assembly block but don't declare any instructions
-   *          :       // However, as an Input/Output Operand,
-   *          "+r"    // constrain a read/write operand (+) as a general purpose register
-   * (r). (acc)   // and set acc as the operand
+   * __asm__(""       // Declare an assembly block but don't declare any
+   * instructions :       // However, as an Input/Output Operand,
+   *          "+r"    // constrain a read/write operand (+) as a general purpose
+   * register (r). (acc)   // and set acc as the operand
    * );
    *
    * Because of the 'r', the compiler has promised that seed will be in a
@@ -624,10 +629,10 @@ XXH_PUBLIC_API unsigned int XXH32_digest(const XXH32_state_t* state) {
 /*======   Canonical representation   ======*/
 
 /*! Default XXH result types are basic unsigned 32 and 64 bits.
- *   The canonical representation follows human-readable write convention, aka big-endian
- * (large digits first). These functions allow transformation of hash result into and from
- * its canonical format. This way, hash values can be written into a file or buffer,
- * remaining comparable across different systems.
+ *   The canonical representation follows human-readable write convention, aka
+ * big-endian (large digits first). These functions allow transformation of hash
+ * result into and from its canonical format. This way, hash values can be
+ * written into a file or buffer, remaining comparable across different systems.
  */
 
 XXH_PUBLIC_API void XXH32_canonicalFromHash(XXH32_canonical_t* dst, XXH32_hash_t hash) {
@@ -656,7 +661,8 @@ XXH_PUBLIC_API XXH32_hash_t XXH32_hashFromCanonical(const XXH32_canonical_t* src
 #include <stdint.h>
 typedef uint64_t U64;
 #else
-/* if compiler doesn't support unsigned long long, replace by another 64-bit type */
+/* if compiler doesn't support unsigned long long, replace by another 64-bit
+ * type */
 typedef unsigned long long U64;
 #endif
 #endif
@@ -664,14 +670,15 @@ typedef unsigned long long U64;
 /*! XXH_REROLL_XXH64:
  * Whether to reroll the XXH64_finalize() loop.
  *
- * Just like XXH32, we can unroll the XXH64_finalize() loop. This can be a performance
- * gain on 64-bit hosts, as only one jump is required.
+ * Just like XXH32, we can unroll the XXH64_finalize() loop. This can be a
+ * performance gain on 64-bit hosts, as only one jump is required.
  *
  * However, on 32-bit hosts, because arithmetic needs to be done with two 32-bit
- * registers, and 64-bit arithmetic needs to be simulated, it isn't beneficial to unroll.
- * The code becomes ridiculously large (the largest function in the binary on i386!), and
- * rerolling it saves anywhere from 3kB to 20kB. It is also slightly faster because it
- * fits into cache better and is more likely to be inlined by the compiler.
+ * registers, and 64-bit arithmetic needs to be simulated, it isn't beneficial
+ * to unroll. The code becomes ridiculously large (the largest function in the
+ * binary on i386!), and rerolling it saves anywhere from 3kB to 20kB. It is
+ * also slightly faster because it fits into cache better and is more likely to
+ * be inlined by the compiler.
  *
  * If XXH_REROLL is defined, this is ignored and the loop is always rerolled. */
 #ifndef XXH_REROLL_XXH64
@@ -692,14 +699,14 @@ typedef unsigned long long U64;
 
 #if (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 2))
 
-/* Force direct memory access. Only works on CPU which support unaligned memory access in
- * hardware */
+/* Force direct memory access. Only works on CPU which support unaligned memory
+ * access in hardware */
 static U64 XXH_read64(const void* memPtr) { return *(const U64*)memPtr; }
 
 #elif (defined(XXH_FORCE_MEMORY_ACCESS) && (XXH_FORCE_MEMORY_ACCESS == 1))
 
-/* __pack instructions are safer, but compiler specific, hence potentially problematic for
- * some compilers */
+/* __pack instructions are safer, but compiler specific, hence potentially
+ * problematic for some compilers */
 /* currently only defined for gcc and icc */
 typedef union {
   U32 u32;

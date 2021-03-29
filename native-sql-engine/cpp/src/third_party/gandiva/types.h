@@ -21,7 +21,8 @@
 
 #include "gandiva/gdv_function_stubs.h"
 
-// Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
+// Use the same names as in arrow data types. Makes it easy to write
+// pre-processor macros.
 using gdv_boolean = bool;
 using gdv_int8 = int8_t;
 using gdv_int16 = int16_t;

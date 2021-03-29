@@ -127,8 +127,7 @@ class WindowAggregateFunctionKernel : public KernalBase {
       std::shared_ptr<arrow::DataType> result_type,
       std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids,
       std::shared_ptr<ActionFactory> action);
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::string function_name,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<arrow::DataType> result_type,
                             std::shared_ptr<KernalBase>* out);
@@ -136,14 +135,17 @@ class WindowAggregateFunctionKernel : public KernalBase {
   arrow::Status Finish(ArrayList* out) override;
 
  private:
-  template<typename ValueType, typename BuilderType, typename ArrayType>
+  template <typename ValueType, typename BuilderType, typename ArrayType>
   arrow::Status Finish0(ArrayList* out, std::shared_ptr<arrow::DataType> data_type);
 
-  template<typename ValueType, typename BuilderType>
-  typename arrow::enable_if_decimal128<ValueType, arrow::Result<std::shared_ptr<BuilderType>>> createBuilder(std::shared_ptr<arrow::DataType> data_type);
+  template <typename ValueType, typename BuilderType>
+  typename arrow::enable_if_decimal128<ValueType,
+                                       arrow::Result<std::shared_ptr<BuilderType>>>
+  createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
-  template<typename ValueType, typename BuilderType>
-  typename arrow::enable_if_number<ValueType, arrow::Result<std::shared_ptr<BuilderType>>> createBuilder(std::shared_ptr<arrow::DataType> data_type);
+  template <typename ValueType, typename BuilderType>
+  typename arrow::enable_if_number<ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
+  createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
   arrow::compute::ExecContext* ctx_;
   std::shared_ptr<ActionFactory> action_;
@@ -175,20 +177,16 @@ class SortArraysToIndicesKernel : public KernalBase {
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order, 
-                            bool NaN_check,
-                            bool do_codegen,
-                            int result_type,
+                            std::vector<bool> nulls_order, bool NaN_check,
+                            bool do_codegen, int result_type,
                             std::shared_ptr<KernalBase>* out);
   SortArraysToIndicesKernel(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::Schema> result_schema,
                             gandiva::NodeVector sort_key_node,
                             std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                             std::vector<bool> sort_directions,
-                            std::vector<bool> nulls_order, 
-                            bool NaN_check,
-                            bool do_codegen,
-                            int result_type);
+                            std::vector<bool> nulls_order, bool NaN_check,
+                            bool do_codegen, int result_type);
   arrow::Status Evaluate(const ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
@@ -283,8 +281,7 @@ class WindowRankKernel : public KernalBase {
   WindowRankKernel(arrow::compute::ExecContext* ctx,
                    std::vector<std::shared_ptr<arrow::DataType>> type_list,
                    std::shared_ptr<WindowSortKernel::Impl> sorter, bool desc);
-  static arrow::Status Make(arrow::compute::ExecContext* ctx,
-                            std::string function_name,
+  static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out, bool desc);
   arrow::Status Evaluate(const ArrayList& in) override;

@@ -75,8 +75,14 @@ class HashRelationKernel::Impl {
           std::dynamic_pointer_cast<gandiva::LiteralNode>(parameter_nodes[0])->holder());
       builder_type_ = std::stoi(builder_type_str);
     }
+    if (builder_type_ == 3) {
+      // This is for using unsafeHashMap while with skipDuplication strategy
+      semi_ = true;
+      builder_type_ = 1;
+    }
     if (builder_type_ == 0) {
-      // builder_type_ == 0 will be abandoned in near future, won't support decimal here.
+      // builder_type_ == 0 will be abandoned in near future, won't support
+      // decimal here.
       if (key_nodes.size() == 1) {
         auto key_node = key_nodes[0];
         std::shared_ptr<TypedNodeVisitor> node_visitor;
@@ -185,10 +191,16 @@ class HashRelationKernel::Impl {
       if (num_total_cached_ > 32) {
         init_key_capacity = pow(2, ceil(log2(num_total_cached_)) + 1);
       }
+      long tmp_capacity = init_key_capacity;
       if (key_size_ != -1) {
-        init_bytes_map_capacity = init_key_capacity * 12;
+        tmp_capacity *= 12;
       } else {
-        init_bytes_map_capacity = init_key_capacity * 128;
+        tmp_capacity *= 128;
+      }
+      if (tmp_capacity > INT_MAX) {
+        init_bytes_map_capacity = INT_MAX;
+      } else {
+        init_bytes_map_capacity = tmp_capacity;
       }
       RETURN_NOT_OK(
           hash_relation_->InitHashTable(init_key_capacity, init_bytes_map_capacity));
@@ -200,8 +212,8 @@ class HashRelationKernel::Impl {
       } else {
         auto project_outputs = keys_cached_[idx];
 
-/* For single field fixed_size key, we simply insert to HashMap without append to unsafe
- * Row */
+/* For single field fixed_size key, we simply insert to HashMap without append
+ * to unsafe Row */
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
   PROCESS(arrow::BooleanType)            \
   PROCESS(arrow::UInt8Type)              \
@@ -220,11 +232,11 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::Decimal128Type)
         if (project_outputs.size() == 1) {
           switch (project_outputs[0]->type_id()) {
-#define PROCESS(InType)                                                       \
-  case TypeTraits<InType>::type_id: {                                         \
-    using ArrayType = precompile::TypeTraits<InType>::ArrayType;              \
-    auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]);     \
-    RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, typed_key_arr)); \
+#define PROCESS(InType)                                                              \
+  case TypeTraits<InType>::type_id: {                                                \
+    using ArrayType = precompile::TypeTraits<InType>::ArrayType;                     \
+    auto typed_key_arr = std::make_shared<ArrayType>(project_outputs[0]);            \
+    RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, typed_key_arr, semi_)); \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
@@ -245,7 +257,7 @@ class HashRelationKernel::Impl {
             RETURN_NOT_OK(MakeUnsafeArray(arr->type(), i++, arr, &payload));
             payloads.push_back(payload);
           }
-          RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads));
+          RETURN_NOT_OK(hash_relation_->AppendKeyColumn(key_array, payloads, semi_));
         }
       }
     }
@@ -274,6 +286,7 @@ class HashRelationKernel::Impl {
   std::vector<std::shared_ptr<arrow::Array>> key_hash_cached_;
   uint64_t num_total_cached_ = 0;
   int builder_type_ = 0;
+  bool semi_ = false;
   int key_size_ = -1;  // If key_size_ != 0, key will be stored directly in key_map
 
   class HashRelationResultIterator : public ResultIterator<HashRelation> {

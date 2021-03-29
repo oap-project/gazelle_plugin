@@ -858,7 +858,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
 
   if (!status.ok()) {
     std::string error_message =
-        "nativeProcessAndCache: ResultIterator process next failed with error msg " +
+        "nativeProcessAndCache: ResultIterator process next failed with error "
+        "msg " +
         status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
@@ -910,7 +911,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
 
   if (!status.ok()) {
     std::string error_message =
-        "nativeProcessAndCache: ResultIterator process next failed with error msg " +
+        "nativeProcessAndCache: ResultIterator process next failed with error "
+        "msg " +
         status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
@@ -957,12 +959,9 @@ Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(JNIEnv* env,
   buffer_holder_.Erase(id);
 }
 
-
-
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
     JNIEnv* env, jobject obj, jlong splitter_id, jlong size, jboolean call_by_self) {
-
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
     std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
@@ -1105,8 +1104,9 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   return shuffle_splitter_holder_.Insert(std::shared_ptr<Splitter>(splitter));
 }
 
-JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressType(
-   JNIEnv* env, jobject, jlong splitter_id, jstring compression_type_jstr) {
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_setCompressType(
+    JNIEnv* env, jobject, jlong splitter_id, jstring compression_type_jstr) {
   auto splitter = shuffle_splitter_holder_.Lookup(splitter_id);
   if (!splitter) {
     std::string error_message = "Invalid splitter id " + std::to_string(splitter_id);
@@ -1178,9 +1178,9 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
     if (!status.ok()) {
       // Throw IOException
       env->ThrowNew(io_exception_class,
-                  std::string("Native split: splitter split failed, error message is " +
-                              status.message())
-                      .c_str());
+                    std::string("Native split: splitter split failed, error message is " +
+                                status.message())
+                        .c_str());
     }
     return -1;
   }
@@ -1335,16 +1335,16 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
   decompression_schema_holder_.Erase(schema_holder_id);
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env, jobject obj) {
-//  malloc_stats_print(statsPrint, nullptr, nullptr);
+JNIEXPORT void JNICALL Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env,
+                                                                     jobject obj) {
+  //  malloc_stats_print(statsPrint, nullptr, nullptr);
   std::cout << "Calling malloc_trim... " << std::endl;
   malloc_trim(0);
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_tpc_MallocUtils_mallocStats(JNIEnv* env, jobject obj) {
-//  malloc_stats_print(statsPrint, nullptr, nullptr);
+JNIEXPORT void JNICALL Java_com_intel_oap_tpc_MallocUtils_mallocStats(JNIEnv* env,
+                                                                      jobject obj) {
+  //  malloc_stats_print(statsPrint, nullptr, nullptr);
   std::cout << "Calling malloc_stats... " << std::endl;
   malloc_stats();
 }

@@ -604,7 +604,8 @@ class ConditionedProbeArraysKernel::Impl {
     std::stringstream left_valid_ss;
     std::stringstream right_valid_ss;
     for (auto i : left_shuffle_index_list) {
-      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {" << std::endl;
+      left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->null_count()) {"
+                    << std::endl;
       left_valid_ss << "if (cached_0_" << i << "_[tmp.array_id]->IsNull(tmp.id)) {"
                     << std::endl;
       left_valid_ss << "  RETURN_NOT_OK(builder_0_" << i << "_->AppendNull());"
@@ -630,7 +631,7 @@ class ConditionedProbeArraysKernel::Impl {
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-         << "_->GetView(i)));" << std::endl;
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
@@ -687,7 +688,7 @@ class ConditionedProbeArraysKernel::Impl {
       right_valid_ss << "}" << std::endl;
       right_valid_ss << "} else {" << std::endl;
       right_valid_ss << "  RETURN_NOT_OK(builder_1_" << i << "_->Append(cached_1_" << i
-         << "_->GetView(i)));" << std::endl;
+                     << "_->GetView(i)));" << std::endl;
       right_valid_ss << "}" << std::endl;
     }
     std::string shuffle_str;
@@ -782,9 +783,9 @@ class ConditionedProbeArraysKernel::Impl {
     std::stringstream right_valid_ss;
     auto right_size = right_shuffle_index_list.size();
 
-    right_exist_ss
-        << "const bool exist = true; RETURN_NOT_OK(builder_1_exists_->Append(exist));"
-        << std::endl;
+    right_exist_ss << "const bool exist = true; "
+                      "RETURN_NOT_OK(builder_1_exists_->Append(exist));"
+                   << std::endl;
     right_not_exist_ss << "const bool not_exist = false; "
                           "RETURN_NOT_OK(builder_1_exists_->Append(not_exist));"
                        << std::endl;
@@ -854,7 +855,8 @@ class ConditionedProbeArraysKernel::Impl {
                                 right_shuffle_index_list);
       } break;
       default:
-        std::cout << "ConditionedProbeArraysTypedImpl only support join type: InnerJoin, "
+        std::cout << "ConditionedProbeArraysTypedImpl only support join type: "
+                     "InnerJoin, "
                      "RightJoin"
                   << std::endl;
         throw;
@@ -959,7 +961,8 @@ class ConditionedProbeArraysKernel::Impl {
       ss << "auto concat_kernel_arr_list = {" << evaluate_encode_join_key_str << "};"
          << std::endl;
       ss << "std::shared_ptr<arrow::Array> hash_in;" << std::endl;
-      ss << "RETURN_NOT_OK(hash_kernel_->Evaluate(concat_kernel_arr_list, &hash_in));"
+      ss << "RETURN_NOT_OK(hash_kernel_->Evaluate(concat_kernel_arr_list, "
+            "&hash_in));"
          << std::endl;
       ss << "auto typed_array = std::make_shared<Int64Array>(hash_in);" << std::endl;
     } else {

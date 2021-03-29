@@ -133,19 +133,23 @@ std::string ProduceCodes(std::string condition_check_str, std::string var_define
   ss << "class TESTCONDITION {" << std::endl;
   ss << " public:" << std::endl;
   if (!with_projection) {
-    ss << "  TESTCONDITION(std::vector<std::shared_ptr<arrow::RecordBatch>> table_0,"
+    ss << "  TESTCONDITION(std::vector<std::shared_ptr<arrow::RecordBatch>> "
+          "table_0,"
        << std::endl;
     ss << "                std::shared_ptr<arrow::RecordBatch> table_1) {" << std::endl;
     ss << var_prepare << std::endl;
     ss << "}" << std::endl;
   } else {
-    ss << "  TESTCONDITION(std::vector<std::shared_ptr<arrow::RecordBatch>> table_0,"
+    ss << "  TESTCONDITION(std::vector<std::shared_ptr<arrow::RecordBatch>> "
+          "table_0,"
        << std::endl;
     ss << "                std::shared_ptr<arrow::RecordBatch> table_1," << std::endl
-       << "                std::vector<std::vector<std::shared_ptr<arrow::Array>>> "
+       << "                "
+          "std::vector<std::vector<std::shared_ptr<arrow::Array>>> "
           "projected_0,"
        << std::endl
-       << "                std::vector<std::shared_ptr<arrow::Array>> projected_1) {"
+       << "                std::vector<std::shared_ptr<arrow::Array>> "
+          "projected_1) {"
        << std::endl;
     ss << var_prepare << std::endl;
     ss << "}" << std::endl;
@@ -163,11 +167,13 @@ std::string ProduceCodes(std::string condition_check_str, std::string var_define
     ss << "extern \"C\" void DoTest(" << std::endl
        << "    std::vector<std::shared_ptr<arrow::RecordBatch>> table_0," << std::endl
        << "    std::shared_ptr<arrow::RecordBatch> table_1," << std::endl
-       << "    std::vector<std::vector<std::shared_ptr<arrow::Array>>> projected_0,"
+       << "    std::vector<std::vector<std::shared_ptr<arrow::Array>>> "
+          "projected_0,"
        << std::endl
        << "    std::vector<std::shared_ptr<arrow::Array>> projected_1," << std::endl
        << "    std::vector<bool>* res) {" << std::endl;
-    ss << "  auto test = TESTCONDITION(table_0, table_1, projected_0, projected_1);"
+    ss << "  auto test = TESTCONDITION(table_0, table_1, projected_0, "
+          "projected_1);"
        << std::endl;
   }
   ss << "  int x = 0;" << std::endl;

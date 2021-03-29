@@ -47,8 +47,8 @@
 
 #pragma once
 
-#include <cstdlib>  // for malloc/realloc/free
 #include <cstddef>  // for ptrdiff_t
+#include <cstdlib>  // for malloc/realloc/free
 #include <new>      // for placement new
 
 namespace google {
@@ -82,9 +82,7 @@ class libc_allocator_with_realloc {
     return static_cast<pointer>(realloc(static_cast<void*>(p), n * sizeof(value_type)));
   }
 
-  size_type max_size() const {
-    return static_cast<size_type>(-1) / sizeof(value_type);
-  }
+  size_type max_size() const { return static_cast<size_type>(-1) / sizeof(value_type); }
 
   void construct(pointer p, const value_type& val) { new (p) value_type(val); }
   void destroy(pointer p) { p->~value_type(); }

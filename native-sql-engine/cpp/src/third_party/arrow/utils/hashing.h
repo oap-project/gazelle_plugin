@@ -70,8 +70,8 @@ struct ScalarHelperBase {
     // Generic hash computation for scalars.  Simply apply the string hash
     // to the bit representation of the value.
 
-    // XXX in the case of FP values, we'd like equal values to have the same hash,
-    // even if they have different bit representations...
+    // XXX in the case of FP values, we'd like equal values to have the same
+    // hash, even if they have different bit representations...
     return ComputeStringHash<AlgNum>(&value, sizeof(value));
   }
 };
@@ -94,7 +94,8 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>
 
     // Multiplying by the prime number mixes the low bits into the high bits,
     // then byte-swapping (which is a single CPU instruction) allows the
-    // combined high and low bits to participate in the initial hash table index.
+    // combined high and low bits to participate in the initial hash table
+    // index.
     auto h = static_cast<hash_t>(value);
     return BitUtil::ByteSwap(multipliers[AlgNum] * h);
   }
@@ -167,9 +168,9 @@ hash_t ComputeStringHash(const void* data, int64_t length) {
 #error XXH3_SECRET_SIZE_MIN changed, please fix kXxh3Secrets
 #endif
 
-  // XXH3_64bits_withSeed generates a secret based on the seed, which is too slow.
-  // Instead, we use hard-coded random secrets.  To maximize cache efficiency,
-  // they reuse the same memory area.
+  // XXH3_64bits_withSeed generates a secret based on the seed, which is too
+  // slow. Instead, we use hard-coded random secrets.  To maximize cache
+  // efficiency, they reuse the same memory area.
   static constexpr unsigned char kXxh3Secrets[XXH3_SECRET_SIZE_MIN + 1] = {
       0xe7, 0x8b, 0x13, 0xf9, 0xfc, 0xb5, 0x8e, 0xef, 0x81, 0x48, 0x2c, 0xbf, 0xf9, 0x9f,
       0xc1, 0x1e, 0x43, 0x6d, 0xbf, 0xa6, 0x6d, 0xb5, 0x72, 0xbc, 0x97, 0xd8, 0x61, 0x24,

@@ -25,9 +25,11 @@
 #include <arrow/type.h>
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
+
 #include <iostream>
 #include <memory>
 #include <sstream>
+
 #include "utils/macros.h"
 using namespace arrow;
 
