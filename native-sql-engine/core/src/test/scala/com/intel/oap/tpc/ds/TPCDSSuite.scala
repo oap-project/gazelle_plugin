@@ -38,7 +38,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
         .set("spark.sql.codegen.wholeStage", "true")
         .set("spark.sql.sources.useV1SourceList", "")
         .set("spark.sql.columnar.tmp_dir", "/tmp/")
-        .set("spark.sql.adaptive.enabled", "true")
+        .set("spark.sql.adaptive.enabled", "false")
         .set("spark.sql.columnar.sort.broadcastJoin", "true")
         .set("spark.storage.blockManagerSlaveTimeoutMs", "3600000")
         .set("spark.executor.heartbeatInterval", "3600000")
@@ -114,6 +114,16 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   test("window function with decimal input 3") {
     val df = spark.sql("SELECT i_item_sk, i_class_id, AVG(i_current_price)" +
         " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("window functions not used in TPC-DS") {
+    val df = spark.sql("SELECT i_item_sk, i_class_id," +
+      " MIN(i_current_price) OVER (PARTITION BY i_class_id)," +
+      " MAX(i_current_price) OVER (PARTITION BY i_class_id)," +
+      " COUNT(*) OVER (PARTITION BY i_class_id)" +
+      " FROM item LIMIT 1000")
     df.explain()
     df.show()
   }

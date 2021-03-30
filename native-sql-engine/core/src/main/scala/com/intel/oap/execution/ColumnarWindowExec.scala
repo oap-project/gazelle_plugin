@@ -21,20 +21,20 @@ import java.util.concurrent.TimeUnit
 
 import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.ColumnarPluginConfig
-import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
+import com.intel.oap.expression.{CodeGeneration, ColumnarLiteral, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, MakeDecimal, NamedExpression, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
-import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, AggregateFunction, Average, Sum}
+import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
+import org.apache.spark.sql.catalyst.expressions.aggregate.{AggregateExpression, AggregateFunction, Average, Count, Max, Min, Sum}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{ArrayType, DataType, DecimalType, DoubleType, LongType}
+import org.apache.spark.sql.types.{ArrayType, BooleanType, DataType, DecimalType, DoubleType, FloatType, IntegerType, LongType}
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.ExecutorManager
@@ -105,6 +105,19 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
             case _: Average =>
               checkAggFunctionSpec(expr.windowSpec)
               "avg"
+            case _: Min =>
+              checkAggFunctionSpec(expr.windowSpec)
+              "min"
+            case _: Max =>
+              checkAggFunctionSpec(expr.windowSpec)
+              "max"
+            case c: Count =>
+              checkAggFunctionSpec(expr.windowSpec)
+              if (c.children.exists(_.isInstanceOf[Literal])) {
+                "count_literal"
+              } else {
+                "count"
+              }
             case _: Rank =>
               checkRankSpec(expr.windowSpec)
               val desc: Option[Boolean] = orderSpec.foldLeft[Option[Boolean]](None) {
@@ -147,18 +160,21 @@ class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         val gWindowFunctions = windowFunctions.map { case (n, f) =>
           TreeBuilder.makeFunction(n,
             f.children
-                .map(e =>
-                  e match {
-                    case a: AttributeReference =>
-                      TreeBuilder.makeField(
-                        Field.nullable(a.name,
-                          CodeGeneration.getResultType(a.dataType)))
-                    case c: Cast =>
-                      TreeBuilder.makeField(
-                        Field.nullable(c.child.asInstanceOf[AttributeReference].name,
-                          CodeGeneration.getResultType(c.dataType))
-                      )
-                  }).toList.asJava,
+              .flatMap {
+                case a: AttributeReference =>
+                  Some(TreeBuilder.makeField(
+                    Field.nullable(a.name,
+                      CodeGeneration.getResultType(a.dataType))))
+                case c: Cast =>
+                  Some(TreeBuilder.makeField(
+                    Field.nullable(c.child.asInstanceOf[AttributeReference].name,
+                      CodeGeneration.getResultType(c.dataType))
+                  ))
+                case _: Literal =>
+                  None
+                case _ =>
+                  throw new IllegalStateException()
+              }.toList.asJava,
             NoneType.NONE_TYPE)
         }
         val groupingExpressions = partitionSpec.map(e => e.asInstanceOf[AttributeReference])
