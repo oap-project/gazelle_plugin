@@ -401,20 +401,20 @@ class DataFrameAggregateSuite extends QueryTest
       ("x", "q", null.asInstanceOf[String]))
       .toDF("key1", "key2", "key3")
 
-//    checkAnswer(
-//      df1.agg(countDistinct($"key1", $"key2")),
-//      Row(3)
-//    )
+    checkAnswer(
+      df1.agg(countDistinct($"key1", $"key2")),
+      Row(3)
+    )
 
     checkAnswer(
       df1.agg(countDistinct($"key1", $"key2", $"key3")),
       Row(3)
     )
 
-//    checkAnswer(
-//      df1.groupBy($"key1").agg(countDistinct($"key2", $"key3")),
-//      Seq(Row("a", 2), Row("x", 1))
-//    )
+    checkAnswer(
+      df1.groupBy($"key1").agg(countDistinct($"key2", $"key3")),
+      Seq(Row("a", 2), Row("x", 1))
+    )
   }
 
   test("zero count") {
@@ -951,7 +951,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("count_if") {
+  test("count_if") {
     withTempView("tempView") {
       Seq(("a", None), ("a", Some(1)), ("a", Some(2)), ("a", Some(3)),
         ("b", None), ("b", Some(4)), ("b", Some(5)), ("b", Some(6)))

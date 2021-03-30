@@ -299,12 +299,25 @@ class CountAction : public ActionBase {
       length_ = cache_.size();
     }
 
-    in_ = in_list[0];
+    in_list_ = in_list;
     row_id = 0;
+    bool has_null = false;
+    for (int i = 0; i < in_list.size(); i++) {
+      if (in_list_[i]->null_count()) {
+        has_null = true;
+        break;
+      }
+    }
     // prepare evaluate lambda
-    if (in_->null_count()) {
+    if (has_null) {
       *on_valid = [this](int dest_group_id) {
-        const bool is_null = in_->IsNull(row_id);
+        bool is_null = false;
+        for (int i = 0; i < in_list_.size(); i++) {
+          if (in_list_[i]->IsNull(row_id)) {
+            is_null = true;
+            break;
+          }
+        }
         if (!is_null) {
           cache_[dest_group_id] += 1;
         }
@@ -341,12 +354,23 @@ class CountAction : public ActionBase {
       cache_.resize(1, 0);
       length_ = 1;
     }
-    arrow::Datum output;
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
-    auto maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
-    output = *std::move(maybe_output);
-    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
-    cache_[0] += typed_scalar->value;
+    int length = in[0]->length();
+    int count_non_null = 0;
+    if (in.size() == 1) {
+      count_non_null = length - in[0]->null_count();
+    } else {
+      int count_null = 0;
+      for (int id = 0; id < length; id++) {
+        for (int colId = 0; colId < in.size(); colId++) {
+          if (in[colId]->IsNull(id)) {
+            count_null++;
+            break;
+          }
+        }
+      }
+      count_non_null = length - count_null;
+    }
+    cache_[0] += count_non_null;
     return arrow::Status::OK();
   }
 
@@ -399,7 +423,7 @@ class CountAction : public ActionBase {
   using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   // input
   arrow::compute::ExecContext* ctx_;
-  std::shared_ptr<arrow::Array> in_;
+  ArrayList in_list_;
   int32_t row_id;
   // result
   using CType = typename arrow::TypeTraits<arrow::Int64Type>::CType;
