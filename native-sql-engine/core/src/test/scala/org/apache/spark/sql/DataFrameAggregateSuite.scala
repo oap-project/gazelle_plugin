@@ -369,7 +369,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(6, 6.0))
   }
 
-  ignore("null count") {
+  test("null count") {
     checkAnswer(
       testData3.groupBy($"a").agg(count($"b")),
       Seq(Row(1, 0), Row(2, 1))
@@ -392,7 +392,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("multiple column distinct count") {
+  test("multiple column distinct count") {
     val df1 = Seq(
       ("a", "b", "c"),
       ("a", "b", "c"),
@@ -401,20 +401,20 @@ class DataFrameAggregateSuite extends QueryTest
       ("x", "q", null.asInstanceOf[String]))
       .toDF("key1", "key2", "key3")
 
-    checkAnswer(
-      df1.agg(countDistinct($"key1", $"key2")),
-      Row(3)
-    )
+//    checkAnswer(
+//      df1.agg(countDistinct($"key1", $"key2")),
+//      Row(3)
+//    )
 
     checkAnswer(
       df1.agg(countDistinct($"key1", $"key2", $"key3")),
       Row(3)
     )
 
-    checkAnswer(
-      df1.groupBy($"key1").agg(countDistinct($"key2", $"key3")),
-      Seq(Row("a", 2), Row("x", 1))
-    )
+//    checkAnswer(
+//      df1.groupBy($"key1").agg(countDistinct($"key2", $"key3")),
+//      Seq(Row("a", 2), Row("x", 1))
+//    )
   }
 
   test("zero count") {

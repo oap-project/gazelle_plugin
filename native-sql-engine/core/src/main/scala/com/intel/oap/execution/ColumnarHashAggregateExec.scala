@@ -107,6 +107,11 @@ case class ColumnarHashAggregateExec(
 
   buildCheck()
 
+  val onlyResultExpressions: Boolean =
+    if (groupingExpressions.isEmpty && aggregateExpressions.isEmpty &&
+        child.output.isEmpty && resultExpressions.nonEmpty) true
+    else false
+
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     var eval_elapse: Long = 0
 
@@ -152,7 +157,9 @@ case class ColumnarHashAggregateExec(
             if (cb.numRows != 0) {
               numRowsInput += cb.numRows
               val beforeEval = System.nanoTime()
-              if (hash_aggr_input_schema.getFields.size == 0) {
+              if (hash_aggr_input_schema.getFields.size == 0 &&
+                  aggregateExpressions.nonEmpty &&
+                  aggregateExpressions.head.aggregateFunction.isInstanceOf[Count]) {
                 // This is a special case used by only do count literal
                 skip_num_row += cb.numRows
                 skip_native = true
@@ -172,7 +179,9 @@ case class ColumnarHashAggregateExec(
           if (!processed) process
           if (skip_native) {
             skip_num_row > 0
-          } else if (groupingExpressions.isEmpty &&
+          } else if (onlyResultExpressions && hasNextCount == 1) {
+            true
+          } else if (!onlyResultExpressions && groupingExpressions.isEmpty &&
                      numRowsInput == 0 && hasNextCount == 1) {
             true
           } else {
@@ -186,7 +195,10 @@ case class ColumnarHashAggregateExec(
           if (skip_native) {
             // special handling for only count literal in this operator
             getResForCountLiteral
-          } else if (groupingExpressions.isEmpty &&
+          } else if (onlyResultExpressions && hasNextCount == 1) {
+            // special handling for only result expressions
+            getResForOnlyResExpr
+          } else if (!onlyResultExpressions && groupingExpressions.isEmpty &&
                      numRowsInput == 0 && hasNextCount == 1) {
             // special handling for empty input batch
             getResForEmptyInput
@@ -245,6 +257,18 @@ case class ColumnarHashAggregateExec(
             new ColumnarBatch(
               resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
           }
+        }
+        def getResForOnlyResExpr: ColumnarBatch = {
+          // fake input for projection
+          val inputColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          val valueVectors =
+            inputColumnVectors.map(columnVector => columnVector.getValueVector).toList
+          val projector = ColumnarProjection.create(child.output, resultExpressions)
+          val resultColumnVectorList = projector.evaluate(1, valueVectors)
+          new ColumnarBatch(
+            resultColumnVectorList.map(v => v.asInstanceOf[ColumnVector]).toArray,
+            1)
         }
         def getResForEmptyInput: ColumnarBatch = {
           val resultColumnVectors =
