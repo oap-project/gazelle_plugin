@@ -26,41 +26,78 @@ case class ColumnarNumaBindingInfo(
     numCoresPerExecutor: Int = -1) {}
 
 class ColumnarPluginConfig(conf: SQLConf) {
+  def getCpu():Boolean = {
+    val source = scala.io.Source.fromFile("/proc/cpuinfo")
+    val lines = try source.mkString finally source.close()
+    //TODO(): check CPU flags to enable/disable AVX512
+    lines.contains("GenuineIntel")
+  }
+
+  // for all operators
+  val enableCpu = getCpu()
+  
+  // enable or disable columnar sort
   val enableColumnarSort: Boolean =
-    conf.getConfString("spark.sql.columnar.sort", "false").toBoolean
+    conf.getConfString("spark.oap.sql.columnar.sort", "false").toBoolean && enableCpu
+  
+  // enable or disable codegen columnar sort
   val enableColumnarCodegenSort: Boolean =
-    conf.getConfString("spark.sql.columnar.codegen.sort", "true").toBoolean
-  val enableColumnarNaNCheck: Boolean =
-    conf.getConfString("spark.sql.columnar.nanCheck", "false").toBoolean
-  val enableColumnarBroadcastJoin: Boolean =
-    conf.getConfString("spark.sql.columnar.sort.broadcastJoin", "true").toBoolean
+    conf.getConfString("spark.oap.sql.columnar.codegen.sort", "true").toBoolean && enableCpu
+
+  // enable or disable columnar window  
   val enableColumnarWindow: Boolean =
-    conf.getConfString("spark.sql.columnar.window", "true").toBoolean
+    conf.getConfString("spark.oap.sql.columnar.window", "true").toBoolean && enableCpu
+
+  // enable or disable columnar sortmergejoin
   val enableColumnarSortMergeJoin: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "false").toBoolean
-  val enablePreferColumnar: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.preferColumnar", "false").toBoolean
-  val enableJoinOptimizationReplace: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.joinOptimizationReplace", "false").toBoolean
-  val joinOptimizationThrottle: Integer =
-    conf.getConfString("spark.oap.sql.columnar.joinOptimizationLevel", "6").toInt
+    conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "false").toBoolean && enableCpu
+
+  // enable or disable NAN check  
+  val enableColumnarNaNCheck: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.nanCheck", "true").toBoolean
+  
+  // enable or disable hashcompare in hashjoins or hashagg
+  val hashCompare: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.hashCompare", "true").toBoolean
+
+  // enable or disable columnar BroadcastHashJoin  
+  val enableColumnarBroadcastJoin: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.broadcastJoin", "true").toBoolean && enableCpu
+
+  // enable or disable columnar wholestagecodegen  
   val enableColumnarWholeStageCodegen: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.wholestagecodegen", "true").toBoolean
+    conf.getConfString("spark.oap.sql.columnar.wholestagecodegen", "true").toBoolean && enableCpu
+  
+  // enable or disable columnar exchange
   val enableColumnarShuffle: Boolean = conf
     .getConfString("spark.shuffle.manager", "sort")
-    .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager")
+    .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager") && enableCpu
+
+  // for all perf turnings
+  // prefer to use columnar operators if set to true  
+  val enablePreferColumnar: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.preferColumnar", "false").toBoolean
+
+  // fallback to row operators if there are several continous joins
+  val joinOptimizationThrottle: Integer =
+    conf.getConfString("spark.oap.sql.columnar.joinOptimizationLevel", "6").toInt
+
   val batchSize: Int =
     conf.getConfString("spark.sql.execution.arrow.maxRecordsPerBatch", "10000").toInt
+
+  // enable or disable metrics in columnar wholestagecodegen operator
   val enableMetricsTime: Boolean =
     conf.getConfString(
       "spark.oap.sql.columnar.wholestagecodegen.breakdownTime",
       "false").toBoolean
+  
+  // a folder to store the codegen files
   val tmpFile: String =
-    conf.getConfString("spark.sql.columnar.tmp_dir", null)
+    conf.getConfString("spark.oap.sql.columnar.tmp_dir", null)
+
   @deprecated val broadcastCacheTimeout: Int =
     conf.getConfString("spark.sql.columnar.sort.broadcast.cache.timeout", "-1").toInt
-  val hashCompare: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.hashCompare", "false").toBoolean
+
   // Whether to spill the partition buffers when buffers are full.
   // If false, the partition buffers will be cached in memory first,
   // and the cached buffers will be spilled when reach maximum memory.
@@ -70,8 +107,11 @@ class ColumnarPluginConfig(conf: SQLConf) {
   // The supported customized compression codec is lz4 and fastpfor.
   val columnarShuffleUseCustomizedCompressionCodec: String =
     conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
+  
+  // a helper flag to check if it's in unit test
   val isTesting: Boolean =
     conf.getConfString("spark.oap.sql.columnar.testing", "false").toBoolean
+
   val numaBindingInfo: ColumnarNumaBindingInfo = {
     val enableNumaBinding: Boolean =
       conf.getConfString("spark.oap.sql.columnar.numaBinding", "false").toBoolean
