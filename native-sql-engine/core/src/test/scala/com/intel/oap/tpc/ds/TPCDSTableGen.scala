@@ -63,10 +63,16 @@ class TPCDSTableGen(val spark: SparkSession, scale: Double, path: String)
       case "web_page" => webPageSchema
       case "web_site" => webSiteSchema
     }
-    writeParquetTable(name, rows, schema)
+    val partitionBy: List[String] = name match {
+      case "catalog_sales" => List("cs_sold_date_sk")
+      case "web_sales" => List("ws_sold_date_sk")
+      case _ => List[String]()
+    }
+    writeParquetTable(name, rows, schema, partitionBy)
   }
 
-  private def writeParquetTable(tableName: String, rows: List[Row], schema: StructType): Unit = {
+  private def writeParquetTable(tableName: String, rows: List[Row], schema: StructType,
+                                partitionBy: List[String]): Unit = {
     if (rows.isEmpty) {
       return
     }
@@ -87,10 +93,11 @@ class TPCDSTableGen(val spark: SparkSession, scale: Double, path: String)
     }
 
     convertedData.coalesce(1)
-        .write
-        .format("parquet")
-        .mode("overwrite")
-        .save(path + File.separator + tableName)
+      .write
+      .format("parquet")
+      .mode("overwrite")
+      .partitionBy(partitionBy.toArray: _*)
+      .save(path + File.separator + tableName)
   }
 
   override def gen(): Unit = {

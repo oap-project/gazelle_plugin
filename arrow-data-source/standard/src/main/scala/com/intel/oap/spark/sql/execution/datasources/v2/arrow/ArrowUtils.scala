@@ -94,6 +94,7 @@ object ArrowUtils {
     val partitionColumns = ArrowWritableColumnVector.allocateColumns(rowCount, partitionSchema)
     (0 until partitionColumns.length).foreach(i => {
       ColumnVectorUtils.populate(partitionColumns(i), partitionValues, i)
+      partitionColumns(i).setValueCount(rowCount)
       partitionColumns(i).setIsConstant()
     })
 
