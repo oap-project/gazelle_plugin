@@ -34,8 +34,8 @@ set(source_root_directory ${CMAKE_CURRENT_SOURCE_DIR})
 macro(build_protobuf)
   message(STATUS "Building Protocol Buffers from Source")
   set (PROTOBUF_SOURCE_URL
-       "https://github.com/protocolbuffers/protobuf/releases/download/v3.7.1/protobuf-all-3.7.1.tar.gz"
-        "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-v3.7.1.tar.gz"
+       "https://github.com/protocolbuffers/protobuf/releases/download/v3.13.0/protobuf-all-3.13.0.tar.gz"
+        "https://github.com/ursa-labs/thirdparty/releases/download/latest/protobuf-v3.13.0.tar.gz"
   )
   set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
@@ -71,7 +71,7 @@ macro(build_protobuf)
                       CONFIGURE_COMMAND "./configure" ${PROTOBUF_CONFIGURE_ARGS}
                       BUILD_COMMAND ${PROTOBUF_BUILD_COMMAND}
                       BUILD_IN_SOURCE 1
-                      URL_MD5 cda6ae370a5df941f8aa837c8a0292ba
+                      URL_MD5 cafa623d51361228c83c874d95f51992
                       URL ${PROTOBUF_SOURCE_URL}
   )
 
