@@ -1220,15 +1220,24 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] += data_[row_id];
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
         cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += data_[row_id];
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
@@ -1366,15 +1375,26 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] += in_->GetView(row_id);
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+
+    } else {
+      *on_valid = [this](int dest_group_id) {
         cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += in_->GetView(row_id);
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
