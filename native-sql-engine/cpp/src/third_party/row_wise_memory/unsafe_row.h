@@ -96,14 +96,21 @@ static inline void setNullAt(UnsafeRow* row, int index) {
   *(row->data + bitSetIdx) |= kBitmask[index % 8];
 }
 
-template <typename T>
-using is_number_alike =
-    std::integral_constant<bool, std::is_arithmetic<T>::value ||
-                                     std::is_floating_point<T>::value>;
-
-template <typename T, typename std::enable_if_t<is_number_alike<T>::value>* = nullptr>
+template <typename T, typename std::enable_if_t<std::is_arithmetic<T>::value &&
+                                     !std::is_floating_point<T>::value>* = nullptr>
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& val) {
   *((T*)(row->data + row->cursor)) = val;
+  row->cursor += sizeof(T);
+}
+
+template <typename T, typename std::enable_if_t<std::is_floating_point<T>::value>* = nullptr>
+static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& val) {
+  if (val < 0 && std::abs(val) < 0.0000001) {
+    // regard -0.0 as the same as 0.0
+    *((T*)(row->data + row->cursor)) = 0.0;
+  } else {
+    *((T*)(row->data + row->cursor)) = val;
+  }
   row->cursor += sizeof(T);
 }
 
