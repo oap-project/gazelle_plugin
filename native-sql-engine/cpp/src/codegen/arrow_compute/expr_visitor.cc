@@ -278,6 +278,8 @@ arrow::Status ExprVisitor::MakeWindow(
     auto child_function = std::dynamic_pointer_cast<gandiva::FunctionNode>(child);
     auto child_func_name = child_function->descriptor()->name();
     if (child_func_name == "sum" || child_func_name == "avg" ||
+        child_func_name == "min" || child_func_name == "max" ||
+        child_func_name == "count" || child_func_name == "count_literal" ||
         child_func_name == "rank_asc" || child_func_name == "rank_desc") {
       window_functions.push_back(child_function);
     } else if (child_func_name == "partitionSpec") {
@@ -457,6 +459,9 @@ arrow::Status ExprVisitor::MakeExprVisitorImpl(
     for (std::shared_ptr<gandiva::Node> child : window_function->children()) {
       std::shared_ptr<gandiva::FieldNode> field =
           std::dynamic_pointer_cast<gandiva::FieldNode>(child);
+      if (field == nullptr) {
+        continue;
+      }
       function_param_fields_of_each.push_back(field->field());
     }
     window_function_names.push_back(window_function_name);

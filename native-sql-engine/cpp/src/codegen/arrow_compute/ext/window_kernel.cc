@@ -37,6 +37,15 @@ class WindowAggregateFunctionKernel::ActionFactory {
       RETURN_NOT_OK(MakeSumAction(ctx, type, {return_type}, &action));
     } else if (action_name == "avg") {
       RETURN_NOT_OK(MakeAvgAction(ctx, type, {return_type}, &action));
+    } else if (action_name == "min") {
+      RETURN_NOT_OK(MakeMinAction(ctx, type, {return_type}, &action));
+    } else if (action_name == "max") {
+      RETURN_NOT_OK(MakeMaxAction(ctx, type, {return_type}, &action));
+    } else if (action_name == "count") {
+      RETURN_NOT_OK(MakeCountAction(ctx, {return_type}, &action));
+    } else if (action_name == "count_literal") {
+      RETURN_NOT_OK(MakeCountLiteralAction(ctx, 1, {return_type},
+                                           &action));  // fixme pass literal in
     } else {
       return arrow::Status::Invalid(
           "window aggregate function: unsupported action name: " + action_name);
@@ -55,15 +64,18 @@ arrow::Status WindowAggregateFunctionKernel::Make(
     arrow::compute::ExecContext* ctx, std::string function_name,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
     std::shared_ptr<arrow::DataType> result_type, std::shared_ptr<KernalBase>* out) {
-  if (type_list.size() != 1) {
+  if (type_list.size() > 1) {
     return arrow::Status::Invalid(
         "given more than 1 input argument for window function: " + function_name);
   }
   std::shared_ptr<ActionFactory> action;
 
-  if (function_name == "sum" || function_name == "avg") {
+  if (function_name == "sum" || function_name == "avg" || function_name == "min" ||
+      function_name == "max" || function_name == "count") {
     RETURN_NOT_OK(
         ActionFactory::Make(function_name, ctx, type_list[0], result_type, &action));
+  } else if (function_name == "count_literal") {
+    RETURN_NOT_OK(ActionFactory::Make(function_name, ctx, nullptr, result_type, &action));
   } else {
     return arrow::Status::Invalid("window function not supported: " + function_name);
   }
