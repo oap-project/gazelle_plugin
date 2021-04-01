@@ -59,13 +59,8 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       logDebug(s"Columnar Processing for ${actualPlan.getClass} is under RowGuard.")
       actualPlan.withNewChildren(actualPlan.children.map(replaceWithColumnarPlan))
     case plan: BatchScanExec =>
-      if (testing) {
-        // disable ColumnarBatchScanExec according to config
-        plan
-      } else {
-        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-        new ColumnarBatchScanExec(plan.output, plan.scan)
-      }
+      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      new ColumnarBatchScanExec(plan.output, plan.scan)
     case plan: ProjectExec =>
       val columnarChild = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")

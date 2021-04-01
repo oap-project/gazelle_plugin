@@ -26,7 +26,7 @@ import org.apache.spark.unsafe.types.UTF8String
 
 class ArrowWriterSuite extends SparkFunSuite {
 
-  test("simple") {
+  ignore("simple") {
     def check(dt: DataType, data: Seq[Any], timeZoneId: String = null): Unit = {
       val schema = new StructType().add("value", dt, nullable = true)
       val writer = ArrowWriter.create(schema, timeZoneId)
@@ -202,7 +202,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  test("struct") {
+  ignore("struct") {
     val schema = new StructType()
       .add("struct", new StructType().add("i", IntegerType).add("str", StringType))
     val writer = ArrowWriter.create(schema, null)
@@ -238,7 +238,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  test("nested struct") {
+  ignore("nested struct") {
     val schema = new StructType().add("struct",
       new StructType().add("nested", new StructType().add("i", IntegerType).add("str", StringType)))
     val writer = ArrowWriter.create(schema, null)

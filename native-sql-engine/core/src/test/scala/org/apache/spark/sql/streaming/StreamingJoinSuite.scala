@@ -53,12 +53,13 @@ class StreamingInnerJoinSuite extends StreamTest with StateStoreMetricsTest with
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
+      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   before {
     SparkSession.setActiveSession(spark)  // set this before force initializing 'joinExec'
@@ -515,12 +516,13 @@ class StreamingOuterJoinSuite extends StreamTest with StateStoreMetricsTest with
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
+      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   before {
     SparkSession.setActiveSession(spark) // set this before force initializing 'joinExec'

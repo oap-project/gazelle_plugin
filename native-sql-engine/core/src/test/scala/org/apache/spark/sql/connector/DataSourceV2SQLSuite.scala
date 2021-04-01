@@ -51,12 +51,13 @@ class DataSourceV2SQLSuite
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
+      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.sortmergejoin", "true")
       .set("spark.oap.sql.columnar.testing", "true")
 
   private val v2Source = classOf[FakeV2Provider].getName
@@ -743,32 +744,39 @@ class DataSourceV2SQLSuite
   }
 
   test("Relation: basic") {
-    val t1 = "testcat.ns1.ns2.tbl"
-    withTable(t1) {
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
-      checkAnswer(sql(s"TABLE $t1"), spark.table("source"))
-      checkAnswer(sql(s"SELECT * FROM $t1"), spark.table("source"))
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t1 = "testcat.ns1.ns2.tbl"
+      withTable(t1) {
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
+        checkAnswer(sql(s"TABLE $t1"), spark.table("source"))
+        checkAnswer(sql(s"SELECT * FROM $t1"), spark.table("source"))
+      }
     }
   }
 
   test("Relation: SparkSession.table()") {
-    val t1 = "testcat.ns1.ns2.tbl"
-    withTable(t1) {
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
-      checkAnswer(spark.table(s"$t1"), spark.table("source"))
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t1 = "testcat.ns1.ns2.tbl"
+      withTable(t1) {
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
+        checkAnswer(spark.table(s"$t1"), spark.table("source"))
+      }
     }
   }
 
   test("Relation: CTE") {
-    val t1 = "testcat.ns1.ns2.tbl"
-    withTable(t1) {
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
-      checkAnswer(
-        sql(s"""
-          |WITH cte AS (SELECT * FROM $t1)
-          |SELECT * FROM cte
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t1 = "testcat.ns1.ns2.tbl"
+      withTable(t1) {
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
+        checkAnswer(
+          sql(
+            s"""
+               |WITH cte AS (SELECT * FROM $t1)
+               |SELECT * FROM cte
         """.stripMargin),
-        spark.table("source"))
+          spark.table("source"))
+      }
     }
   }
 
@@ -784,85 +792,94 @@ class DataSourceV2SQLSuite
   }
 
   test("Relation: join tables in 2 catalogs") {
-    val t1 = "testcat.ns1.ns2.tbl"
-    val t2 = "testcat2.v2tbl"
-    withTable(t1, t2) {
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
-      sql(s"CREATE TABLE $t2 USING foo AS SELECT id, data FROM source2")
-      val df1 = spark.table("source")
-      val df2 = spark.table("source2")
-      val df_joined = df1.join(df2).where(df1("id") + 1 === df2("id"))
-      checkAnswer(
-        sql(s"""
-          |SELECT *
-          |FROM $t1 t1, $t2 t2
-          |WHERE t1.id + 1 = t2.id
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t1 = "testcat.ns1.ns2.tbl"
+      val t2 = "testcat2.v2tbl"
+      withTable(t1, t2) {
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
+        sql(s"CREATE TABLE $t2 USING foo AS SELECT id, data FROM source2")
+        val df1 = spark.table("source")
+        val df2 = spark.table("source2")
+        val df_joined = df1.join(df2).where(df1("id") + 1 === df2("id"))
+        checkAnswer(
+          sql(
+            s"""
+               |SELECT *
+               |FROM $t1 t1, $t2 t2
+               |WHERE t1.id + 1 = t2.id
         """.stripMargin),
-        df_joined)
+          df_joined)
+      }
     }
   }
 
   test("qualified column names for v2 tables") {
-    val t = "testcat.ns1.ns2.tbl"
-    withTable(t) {
-      sql(s"CREATE TABLE $t (id bigint, point struct<x: bigint, y: bigint>) USING foo")
-      sql(s"INSERT INTO $t VALUES (1, (10, 20))")
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t = "testcat.ns1.ns2.tbl"
+      withTable(t) {
+        sql(s"CREATE TABLE $t (id bigint, point struct<x: bigint, y: bigint>) USING foo")
+        sql(s"INSERT INTO $t VALUES (1, (10, 20))")
 
-      def check(tbl: String): Unit = {
-        checkAnswer(
-          sql(s"SELECT testcat.ns1.ns2.tbl.id, testcat.ns1.ns2.tbl.point.x FROM $tbl"),
-          Row(1, 10))
-        checkAnswer(sql(s"SELECT ns1.ns2.tbl.id, ns1.ns2.tbl.point.x FROM $tbl"), Row(1, 10))
-        checkAnswer(sql(s"SELECT ns2.tbl.id, ns2.tbl.point.x FROM $tbl"), Row(1, 10))
-        checkAnswer(sql(s"SELECT tbl.id, tbl.point.x FROM $tbl"), Row(1, 10))
+        def check(tbl: String): Unit = {
+          checkAnswer(
+            sql(s"SELECT testcat.ns1.ns2.tbl.id, testcat.ns1.ns2.tbl.point.x FROM $tbl"),
+            Row(1, 10))
+          checkAnswer(sql(s"SELECT ns1.ns2.tbl.id, ns1.ns2.tbl.point.x FROM $tbl"), Row(1, 10))
+          checkAnswer(sql(s"SELECT ns2.tbl.id, ns2.tbl.point.x FROM $tbl"), Row(1, 10))
+          checkAnswer(sql(s"SELECT tbl.id, tbl.point.x FROM $tbl"), Row(1, 10))
+        }
+
+        // Test with qualified table name "testcat.ns1.ns2.tbl".
+        check(t)
+
+        // Test if current catalog and namespace is respected in column resolution.
+        sql("USE testcat.ns1.ns2")
+        check("tbl")
+
+        val ex = intercept[AnalysisException] {
+          sql(s"SELECT ns1.ns2.ns3.tbl.id from $t")
+        }
+        assert(ex.getMessage.contains("cannot resolve '`ns1.ns2.ns3.tbl.id`"))
       }
-
-      // Test with qualified table name "testcat.ns1.ns2.tbl".
-      check(t)
-
-      // Test if current catalog and namespace is respected in column resolution.
-      sql("USE testcat.ns1.ns2")
-      check("tbl")
-
-      val ex = intercept[AnalysisException] {
-        sql(s"SELECT ns1.ns2.ns3.tbl.id from $t")
-      }
-      assert(ex.getMessage.contains("cannot resolve '`ns1.ns2.ns3.tbl.id`"))
     }
   }
 
   test("qualified column names for v1 tables") {
-    Seq(true, false).foreach { useV1Table =>
-      val format = if (useV1Table) "json" else v2Format
-      if (useV1Table) {
-        // unset this config to use the default v2 session catalog.
-        spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
-      } else {
-        spark.conf.set(
-          V2_SESSION_CATALOG_IMPLEMENTATION.key, classOf[InMemoryTableSessionCatalog].getName)
-      }
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      Seq(true, false).foreach { useV1Table =>
+        val format = if (useV1Table) "json" else v2Format
+        if (useV1Table) {
+          // unset this config to use the default v2 session catalog.
+          spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
+        } else {
+          spark.conf.set(
+            V2_SESSION_CATALOG_IMPLEMENTATION.key, classOf[InMemoryTableSessionCatalog].getName)
+        }
 
-      withTable("t") {
-        sql(s"CREATE TABLE t USING $format AS SELECT 1 AS i")
-        checkAnswer(sql("select i from t"), Row(1))
-        checkAnswer(sql("select t.i from t"), Row(1))
-        checkAnswer(sql("select default.t.i from t"), Row(1))
-        checkAnswer(sql("select spark_catalog.default.t.i from t"), Row(1))
-        checkAnswer(sql("select t.i from spark_catalog.default.t"), Row(1))
-        checkAnswer(sql("select default.t.i from spark_catalog.default.t"), Row(1))
-        checkAnswer(sql("select spark_catalog.default.t.i from spark_catalog.default.t"), Row(1))
+        withTable("t") {
+          sql(s"CREATE TABLE t USING $format AS SELECT 1 AS i")
+          checkAnswer(sql("select i from t"), Row(1))
+          checkAnswer(sql("select t.i from t"), Row(1))
+          checkAnswer(sql("select default.t.i from t"), Row(1))
+          checkAnswer(sql("select spark_catalog.default.t.i from t"), Row(1))
+          checkAnswer(sql("select t.i from spark_catalog.default.t"), Row(1))
+          checkAnswer(sql("select default.t.i from spark_catalog.default.t"), Row(1))
+          checkAnswer(sql("select spark_catalog.default.t.i from spark_catalog.default.t"), Row(1))
+        }
       }
     }
   }
 
   test("InsertInto: append - across catalog") {
-    val t1 = "testcat.ns1.ns2.tbl"
-    val t2 = "testcat2.db.tbl"
-    withTable(t1, t2) {
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT * FROM source")
-      sql(s"CREATE TABLE $t2 (id bigint, data string) USING foo")
-      sql(s"INSERT INTO $t2 SELECT * FROM $t1")
-      checkAnswer(spark.table(t2), spark.table("source"))
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t1 = "testcat.ns1.ns2.tbl"
+      val t2 = "testcat2.db.tbl"
+      withTable(t1, t2) {
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT * FROM source")
+        sql(s"CREATE TABLE $t2 (id bigint, data string) USING foo")
+        sql(s"INSERT INTO $t2 SELECT * FROM $t1")
+        checkAnswer(spark.table(t2), spark.table("source"))
+      }
     }
   }
 
@@ -1746,49 +1763,57 @@ class DataSourceV2SQLSuite
   }
 
   test("DeleteFrom: basic - delete with where clause") {
-    val t = "testcat.ns1.ns2.tbl"
-    withTable(t) {
-      sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
-      sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
-      sql(s"DELETE FROM $t WHERE id = 2")
-      checkAnswer(spark.table(t), Seq(
-        Row(3, "c", 3)))
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t = "testcat.ns1.ns2.tbl"
+      withTable(t) {
+        sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
+        sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
+        sql(s"DELETE FROM $t WHERE id = 2")
+        checkAnswer(spark.table(t), Seq(
+          Row(3, "c", 3)))
+      }
     }
   }
 
   test("DeleteFrom: delete from aliased target table") {
-    val t = "testcat.ns1.ns2.tbl"
-    withTable(t) {
-      sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
-      sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
-      sql(s"DELETE FROM $t AS tbl WHERE tbl.id = 2")
-      checkAnswer(spark.table(t), Seq(
-        Row(3, "c", 3)))
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t = "testcat.ns1.ns2.tbl"
+      withTable(t) {
+        sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
+        sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
+        sql(s"DELETE FROM $t AS tbl WHERE tbl.id = 2")
+        checkAnswer(spark.table(t), Seq(
+          Row(3, "c", 3)))
+      }
     }
   }
 
   test("DeleteFrom: normalize attribute names") {
-    val t = "testcat.ns1.ns2.tbl"
-    withTable(t) {
-      sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
-      sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
-      sql(s"DELETE FROM $t AS tbl WHERE tbl.ID = 2")
-      checkAnswer(spark.table(t), Seq(
-        Row(3, "c", 3)))
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t = "testcat.ns1.ns2.tbl"
+      withTable(t) {
+        sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
+        sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
+        sql(s"DELETE FROM $t AS tbl WHERE tbl.ID = 2")
+        checkAnswer(spark.table(t), Seq(
+          Row(3, "c", 3)))
+      }
     }
   }
 
   test("DeleteFrom: fail if has subquery") {
-    val t = "testcat.ns1.ns2.tbl"
-    withTable(t) {
-      sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
-      sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
-      val exc = intercept[AnalysisException] {
-        sql(s"DELETE FROM $t WHERE id IN (SELECT id FROM $t)")
-      }
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t = "testcat.ns1.ns2.tbl"
+      withTable(t) {
+        sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
+        sql(s"INSERT INTO $t VALUES (2L, 'a', 2), (2L, 'b', 3), (3L, 'c', 3)")
+        val exc = intercept[AnalysisException] {
+          sql(s"DELETE FROM $t WHERE id IN (SELECT id FROM $t)")
+        }
 
-      assert(spark.table(t).count === 3)
-      assert(exc.getMessage.contains("Delete by condition with subquery is not supported"))
+        assert(spark.table(t).count === 3)
+        assert(exc.getMessage.contains("Delete by condition with subquery is not supported"))
+      }
     }
   }
 
@@ -2342,47 +2367,51 @@ class DataSourceV2SQLSuite
   }
 
   test("SPARK-30094: current namespace is used during table resolution") {
-    // unset this config to use the default v2 session catalog.
-    spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      // unset this config to use the default v2 session catalog.
+      spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
 
-    withTable("spark_catalog.default.t", "testcat.ns.t") {
-      sql("CREATE TABLE t USING parquet AS SELECT 1")
-      sql("CREATE TABLE testcat.ns.t USING parquet AS SELECT 2")
+      withTable("spark_catalog.default.t", "testcat.ns.t") {
+        sql("CREATE TABLE t USING parquet AS SELECT 1")
+        sql("CREATE TABLE testcat.ns.t USING parquet AS SELECT 2")
 
-      checkAnswer(sql("SELECT * FROM t"), Row(1))
+        checkAnswer(sql("SELECT * FROM t"), Row(1))
 
-      sql("USE testcat.ns")
-      checkAnswer(sql("SELECT * FROM t"), Row(2))
+        sql("USE testcat.ns")
+        checkAnswer(sql("SELECT * FROM t"), Row(2))
+      }
     }
   }
 
   test("SPARK-30284: CREATE VIEW should track the current catalog and namespace") {
-    // unset this config to use the default v2 session catalog.
-    spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
-    val sessionCatalogName = CatalogManager.SESSION_CATALOG_NAME
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      // unset this config to use the default v2 session catalog.
+      spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
+      val sessionCatalogName = CatalogManager.SESSION_CATALOG_NAME
 
-    sql("USE testcat.ns1.ns2")
-    sql("CREATE TABLE t USING foo AS SELECT 1 col")
-    checkAnswer(spark.table("t"), Row(1))
+      sql("USE testcat.ns1.ns2")
+      sql("CREATE TABLE t USING foo AS SELECT 1 col")
+      checkAnswer(spark.table("t"), Row(1))
 
-    withTempView("t") {
-      spark.range(10).createTempView("t")
-      withView(s"$sessionCatalogName.default.v") {
-        val e = intercept[AnalysisException] {
-          sql(s"CREATE VIEW $sessionCatalogName.default.v AS SELECT * FROM t")
-        }
-        assert(e.message.contains("referencing a temporary view"))
-      }
-    }
-
-    withTempView("t") {
-      withView(s"$sessionCatalogName.default.v") {
-        sql(s"CREATE VIEW $sessionCatalogName.default.v " +
-          "AS SELECT t1.col FROM t t1 JOIN ns1.ns2.t t2")
-        sql(s"USE $sessionCatalogName")
-        // The view should read data from table `testcat.ns1.ns2.t` not the temp view.
+      withTempView("t") {
         spark.range(10).createTempView("t")
-        checkAnswer(spark.table("v"), Row(1))
+        withView(s"$sessionCatalogName.default.v") {
+          val e = intercept[AnalysisException] {
+            sql(s"CREATE VIEW $sessionCatalogName.default.v AS SELECT * FROM t")
+          }
+          assert(e.message.contains("referencing a temporary view"))
+        }
+      }
+
+      withTempView("t") {
+        withView(s"$sessionCatalogName.default.v") {
+          sql(s"CREATE VIEW $sessionCatalogName.default.v " +
+            "AS SELECT t1.col FROM t t1 JOIN ns1.ns2.t t2")
+          sql(s"USE $sessionCatalogName")
+          // The view should read data from table `testcat.ns1.ns2.t` not the temp view.
+          spark.range(10).createTempView("t")
+          checkAnswer(spark.table("v"), Row(1))
+        }
       }
     }
   }
@@ -2469,29 +2498,31 @@ class DataSourceV2SQLSuite
   }
 
   test("SPARK-31015: star expression should work for qualified column names for v2 tables") {
-    val t = "testcat.ns1.ns2.tbl"
-    withTable(t) {
-      sql(s"CREATE TABLE $t (id bigint, name string) USING foo")
-      sql(s"INSERT INTO $t VALUES (1, 'hello')")
+    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      val t = "testcat.ns1.ns2.tbl"
+      withTable(t) {
+        sql(s"CREATE TABLE $t (id bigint, name string) USING foo")
+        sql(s"INSERT INTO $t VALUES (1, 'hello')")
 
-      def check(tbl: String): Unit = {
-        checkAnswer(sql(s"SELECT testcat.ns1.ns2.tbl.* FROM $tbl"), Row(1, "hello"))
-        checkAnswer(sql(s"SELECT ns1.ns2.tbl.* FROM $tbl"), Row(1, "hello"))
-        checkAnswer(sql(s"SELECT ns2.tbl.* FROM $tbl"), Row(1, "hello"))
-        checkAnswer(sql(s"SELECT tbl.* FROM $tbl"), Row(1, "hello"))
+        def check(tbl: String): Unit = {
+          checkAnswer(sql(s"SELECT testcat.ns1.ns2.tbl.* FROM $tbl"), Row(1, "hello"))
+          checkAnswer(sql(s"SELECT ns1.ns2.tbl.* FROM $tbl"), Row(1, "hello"))
+          checkAnswer(sql(s"SELECT ns2.tbl.* FROM $tbl"), Row(1, "hello"))
+          checkAnswer(sql(s"SELECT tbl.* FROM $tbl"), Row(1, "hello"))
+        }
+
+        // Test with qualified table name "testcat.ns1.ns2.tbl".
+        check(t)
+
+        // Test if current catalog and namespace is respected in column resolution.
+        sql("USE testcat.ns1.ns2")
+        check("tbl")
+
+        val ex = intercept[AnalysisException] {
+          sql(s"SELECT ns1.ns2.ns3.tbl.* from $t")
+        }
+        assert(ex.getMessage.contains("cannot resolve 'ns1.ns2.ns3.tbl.*"))
       }
-
-      // Test with qualified table name "testcat.ns1.ns2.tbl".
-      check(t)
-
-      // Test if current catalog and namespace is respected in column resolution.
-      sql("USE testcat.ns1.ns2")
-      check("tbl")
-
-      val ex = intercept[AnalysisException] {
-        sql(s"SELECT ns1.ns2.ns3.tbl.* from $t")
-      }
-      assert(ex.getMessage.contains("cannot resolve 'ns1.ns2.ns3.tbl.*"))
     }
   }
 

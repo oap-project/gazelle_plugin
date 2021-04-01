@@ -55,42 +55,88 @@ class ColumnarIn(value: Expression, list: Seq[Expression], original: Expression)
       value.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val resultType = new ArrowType.Bool()
+    var inNode: TreeNode = null
+    var has_null = false
 
     if (value.dataType == StringType) {
-      val newlist :List[String]= list.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.toString
-      });
-      val tlist = Lists.newArrayList(newlist:_*);
-
-      val funcNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
-      (funcNode, resultType)
+      var newlist: List[String] = List()
+      list.toList.foreach (expr => {
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.toString
+        } else {
+          has_null = true
+        }
+      })
+      val tlist = Lists.newArrayList(newlist:_*)
+      inNode = TreeBuilder.makeInExpressionString(value_node, Sets.newHashSet(tlist))
     } else if (value.dataType == IntegerType) {
-      val newlist :List[Integer]= list.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
-      });
-      val tlist = Lists.newArrayList(newlist:_*);
-
-      val funcNode = TreeBuilder.makeInExpressionInt32(value_node, Sets.newHashSet(tlist))
-      (funcNode, resultType)
+      var newlist: List[Integer] = List()
+      list.toList.foreach (expr => {
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.asInstanceOf[Integer]
+        } else {
+          has_null = true
+        }
+      })
+      val tlist = Lists.newArrayList(newlist:_*)
+      inNode = TreeBuilder.makeInExpressionInt32(value_node, Sets.newHashSet(tlist))
     } else if (value.dataType == LongType) {
-      val newlist :List[java.lang.Long]= list.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.asInstanceOf[java.lang.Long]
-      });
-      val tlist = Lists.newArrayList(newlist:_*);
-
-      val funcNode = TreeBuilder.makeInExpressionBigInt(value_node, Sets.newHashSet(tlist))
-      (funcNode, resultType)
+      var newlist: List[java.lang.Long] = List()
+      list.toList.foreach (expr => {
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.asInstanceOf[java.lang.Long]
+        } else {
+          has_null = true
+        }
+      })
+      val tlist = Lists.newArrayList(newlist:_*)
+      inNode = TreeBuilder.makeInExpressionBigInt(value_node, Sets.newHashSet(tlist))
     } else if (value.dataType == DateType) {
-      val newlist :List[Integer]= list.toList.map (expr => {
-        expr.asInstanceOf[Literal].value.asInstanceOf[Integer]
-      });
+      var newlist: List[Integer] = List()
+      list.toList.foreach (expr => {
+        val item = expr.asInstanceOf[Literal].value
+        if (item != null) {
+          newlist = newlist :+ item.asInstanceOf[Integer]
+        } else {
+          has_null = true
+        }
+      })
       val tlist = Lists.newArrayList(newlist:_*);
-      val cast_func = TreeBuilder.makeFunction("castINT", Lists.newArrayList(value_node), new ArrowType.Int(32, true))
+      val cast_func = TreeBuilder.makeFunction("castINT",
+        Lists.newArrayList(value_node),
+        new ArrowType.Int(32, true))
+      inNode = TreeBuilder.makeInExpressionInt32(cast_func, Sets.newHashSet(tlist))
+    } else {
+      throw new UnsupportedOperationException(
+        s"not currently supported: ${value.dataType}.")
+    }
 
-      val funcNode = TreeBuilder.makeInExpressionInt32(cast_func, Sets.newHashSet(tlist))
+    /** Null should be specially handled:
+    TRUE is returned when the non-NULL value in question is found in the list
+    FALSE is returned when the non-NULL value is not found in the list and the list does not contain NULL values
+    NULL is returned when the value is NULL, or the non-NULL value is not found in the list and the list contains at least one NULL value
+    */
+    val isnotnullNode = TreeBuilder.makeFunction(
+      "isnotnull", Lists.newArrayList(value_node), resultType)
+    val trueNode =
+      TreeBuilder.makeLiteral(true.asInstanceOf[java.lang.Boolean])
+    val falseNode =
+      TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
+    val nullNode = TreeBuilder.makeNull(resultType)
+
+    if (!has_null) {
+      val funcNode = TreeBuilder.makeIf(
+        isnotnullNode, inNode, nullNode, resultType)
       (funcNode, resultType)
     } else {
-      throw new UnsupportedOperationException(s"not currently supported: ${value.dataType}.")
+      val isnotnullBranch =
+        TreeBuilder.makeIf(inNode, trueNode, nullNode, resultType)
+      val funcNode = TreeBuilder.makeIf(
+        isnotnullNode, isnotnullBranch, nullNode, resultType)
+      (funcNode, resultType)
     }
   }
 }

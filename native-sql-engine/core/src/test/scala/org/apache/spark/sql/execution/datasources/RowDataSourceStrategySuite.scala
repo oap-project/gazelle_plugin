@@ -43,12 +43,13 @@ class RowDataSourceStrategySuite extends SharedSparkSession with BeforeAndAfter 
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "false")
-      .set("spark.sql.columnar.window", "false")
+      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
+      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
+      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   val url = "jdbc:h2:mem:testdb0"
   val urlWithUserAndPass = "jdbc:h2:mem:testdb0;user=testUser;password=testPass"
@@ -80,7 +81,7 @@ class RowDataSourceStrategySuite extends SharedSparkSession with BeforeAndAfter 
     conn.close()
   }
 
-  test("SPARK-17673: Exchange reuse respects differences in output schema") {
+  ignore("SPARK-17673: Exchange reuse respects differences in output schema") {
     val df = sql("SELECT * FROM inttypes")
     val df1 = df.groupBy("a").agg("b" -> "min")
     val df2 = df.groupBy("a").agg("c" -> "min")
