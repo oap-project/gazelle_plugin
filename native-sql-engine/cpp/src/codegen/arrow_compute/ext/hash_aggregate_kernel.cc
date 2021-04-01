@@ -855,55 +855,18 @@ class HashAggregateKernel::Impl {
       std::vector<int> indices;
       indices.resize(length, -1);
 
-      if (typed_key_in->null_count()) {
+      if (aggr_key_unsafe_row) {
         for (int i = 0; i < length; i++) {
           auto aggr_key_validity = true;
           arrow::util::string_view aggr_key;
-          if (aggr_key_unsafe_row) {
-            aggr_key_unsafe_row->reset();
-            int idx = 0;
-            for (auto payload_arr : payloads) {
-              payload_arr->Append(i, &aggr_key_unsafe_row);
-            }
-            aggr_key = arrow::util::string_view(aggr_key_unsafe_row->data,
-                                                aggr_key_unsafe_row->cursor);
-          } else {
-            aggr_key = typed_key_in->GetView(i);
-            aggr_key_validity =
-                typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
-          }
 
-          // for (int n = 0; n < aggr_key.size(); ++n) printf("%0X ",
-          // *(aggr_key.data() + n)); std::cout << std::endl;
-
-          // 3. get key from hash_table
-          int memo_index = 0;
-          if (!aggr_key_validity) {
-            memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
-          } else {
-            aggr_hash_table_->GetOrInsert(
-                aggr_key, [](int) {}, [](int) {}, &memo_index);
+          aggr_key_unsafe_row->reset();
+          int idx = 0;
+          for (auto payload_arr : payloads) {
+            payload_arr->Append(i, &aggr_key_unsafe_row);
           }
-
-          if (memo_index > max_group_id_) {
-            max_group_id_ = memo_index;
-          }
-          indices[i] = memo_index;
-        }
-      } else {
-        for (int i = 0; i < length; i++) {
-          arrow::util::string_view aggr_key;
-          if (aggr_key_unsafe_row) {
-            aggr_key_unsafe_row->reset();
-            int idx = 0;
-            for (auto payload_arr : payloads) {
-              payload_arr->Append(i, &aggr_key_unsafe_row);
-            }
-            aggr_key = arrow::util::string_view(aggr_key_unsafe_row->data,
-                                                aggr_key_unsafe_row->cursor);
-          } else {
-            aggr_key = typed_key_in->GetView(i);
-          }
+          aggr_key = arrow::util::string_view(aggr_key_unsafe_row->data,
+                                              aggr_key_unsafe_row->cursor);
 
           // 3. get key from hash_table
           int memo_index = 0;
@@ -915,6 +878,48 @@ class HashAggregateKernel::Impl {
             max_group_id_ = memo_index;
           }
           indices[i] = memo_index;
+        }
+      } else {
+        if (typed_key_in->null_count()) {
+          for (int i = 0; i < length; i++) {
+            auto aggr_key_validity = true;
+            arrow::util::string_view aggr_key;
+
+            aggr_key = typed_key_in->GetView(i);
+            aggr_key_validity =
+                typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
+
+            // 3. get key from hash_table
+            int memo_index = 0;
+            if (!aggr_key_validity) {
+              memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
+            } else {
+              aggr_hash_table_->GetOrInsert(
+                  aggr_key, [](int) {}, [](int) {}, &memo_index);
+            }
+
+            if (memo_index > max_group_id_) {
+              max_group_id_ = memo_index;
+            }
+            indices[i] = memo_index;
+          }
+        } else {
+          for (int i = 0; i < length; i++) {
+            arrow::util::string_view aggr_key;
+
+            aggr_key = typed_key_in->GetView(i);
+
+            // 3. get key from hash_table
+            int memo_index = 0;
+
+            aggr_hash_table_->GetOrInsert(
+                aggr_key, [](int) {}, [](int) {}, &memo_index);
+
+            if (memo_index > max_group_id_) {
+              max_group_id_ = memo_index;
+            }
+            indices[i] = memo_index;
+          }
         }
       }
 
