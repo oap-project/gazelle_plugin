@@ -876,7 +876,9 @@ class ConditionedMergeJoinKernel::Impl {
       case 4: { /* Existence join */
         RETURN_NOT_OK(GetExistenceJoin(cond_check, use_relation_for_stream, output));
       } break;
-      default: { } break; }
+      default: {
+      } break;
+    }
     (*output)->process_codes += process_ss.str();
     (*output)->definition_codes += define_ss.str();
 

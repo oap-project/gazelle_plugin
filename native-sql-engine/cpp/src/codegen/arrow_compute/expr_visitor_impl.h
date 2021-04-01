@@ -163,9 +163,9 @@ class WindowVisitorImpl : public ExprVisitorImpl {
       }
       function_param_field_ids_.push_back(function_param_field_ids_of_each);
 
-      if (window_function_name == "sum" || window_function_name == "avg" || window_function_name == "min"||
-          window_function_name == "max" || window_function_name == "count" ||
-          window_function_name == "count_literal") {
+      if (window_function_name == "sum" || window_function_name == "avg" ||
+          window_function_name == "min" || window_function_name == "max" ||
+          window_function_name == "count" || window_function_name == "count_literal") {
         RETURN_NOT_OK(extra::WindowAggregateFunctionKernel::Make(
             &p_->ctx_, window_function_name, function_param_type_list, return_type,
             &function_kernel));
@@ -251,12 +251,13 @@ class WindowVisitorImpl : public ExprVisitorImpl {
         input_values.push_back(col);
       }
       if (input_values.empty()) {
-        input_values.push_back(nullptr); // count_literal: requires for at least 1 column value input, no matter null it is
+        input_values.push_back(nullptr);  // count_literal: requires for at least 1 column
+                                          // value input, no matter null it is
       }
       for (const auto& val : input_values) {
-        in3.push_back(val); // single column
+        in3.push_back(val);  // single column
       }
-      in3.push_back(out2); // group_ids
+      in3.push_back(out2);  // group_ids
 #ifdef DEBUG
       std::cout << "[window kernel] Calling "
                    "function_kernels_.at(func_id)->Evaluate(in3) on batch... "

@@ -705,7 +705,8 @@ class HashAggregateKernel::Impl {
         if (!aggr_key_validity) {
           memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
-          aggr_hash_table_->GetOrInsert(aggr_key, [](int) {}, [](int) {}, &memo_index);
+          aggr_hash_table_->GetOrInsert(
+              aggr_key, [](int) {}, [](int) {}, &memo_index);
         }
 
         if (memo_index > max_group_id_) {
@@ -861,7 +862,8 @@ class HashAggregateKernel::Impl {
         if (!aggr_key_validity) {
           memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
-          aggr_hash_table_->GetOrInsert(aggr_key, [](int) {}, [](int) {}, &memo_index);
+          aggr_hash_table_->GetOrInsert(
+              aggr_key, [](int) {}, [](int) {}, &memo_index);
         }
 
         if (memo_index > max_group_id_) {
@@ -1013,7 +1015,8 @@ class HashAggregateKernel::Impl {
         if (!aggr_key_validity) {
           memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
         } else {
-          aggr_hash_table_->GetOrInsert(aggr_key, [](int) {}, [](int) {}, &memo_index);
+          aggr_hash_table_->GetOrInsert(
+              aggr_key, [](int) {}, [](int) {}, &memo_index);
         }
 
         if (memo_index > max_group_id_) {
