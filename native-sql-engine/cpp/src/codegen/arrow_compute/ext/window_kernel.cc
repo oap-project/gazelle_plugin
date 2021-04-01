@@ -38,13 +38,14 @@ class WindowAggregateFunctionKernel::ActionFactory {
     } else if (action_name == "avg") {
       RETURN_NOT_OK(MakeAvgAction(ctx, type, {return_type}, &action));
     } else if (action_name == "min") {
-        RETURN_NOT_OK(MakeMinAction(ctx, type, {return_type}, &action));
+      RETURN_NOT_OK(MakeMinAction(ctx, type, {return_type}, &action));
     } else if (action_name == "max") {
-        RETURN_NOT_OK(MakeMaxAction(ctx, type, {return_type}, &action));
+      RETURN_NOT_OK(MakeMaxAction(ctx, type, {return_type}, &action));
     } else if (action_name == "count") {
-        RETURN_NOT_OK(MakeCountAction(ctx, {return_type}, &action));
+      RETURN_NOT_OK(MakeCountAction(ctx, {return_type}, &action));
     } else if (action_name == "count_literal") {
-      RETURN_NOT_OK(MakeCountLiteralAction(ctx, 1, {return_type}, &action)); // fixme pass literal in
+      RETURN_NOT_OK(MakeCountLiteralAction(ctx, 1, {return_type},
+                                           &action));  // fixme pass literal in
     } else {
       return arrow::Status::Invalid(
           "window aggregate function: unsupported action name: " + action_name);
@@ -69,13 +70,12 @@ arrow::Status WindowAggregateFunctionKernel::Make(
   }
   std::shared_ptr<ActionFactory> action;
 
-  if (function_name == "sum" || function_name == "avg" || function_name == "min"||
-      function_name == "max" || function_name == "count" ) {
+  if (function_name == "sum" || function_name == "avg" || function_name == "min" ||
+      function_name == "max" || function_name == "count") {
     RETURN_NOT_OK(
         ActionFactory::Make(function_name, ctx, type_list[0], result_type, &action));
   } else if (function_name == "count_literal") {
-    RETURN_NOT_OK(
-        ActionFactory::Make(function_name, ctx, nullptr, result_type, &action));
+    RETURN_NOT_OK(ActionFactory::Make(function_name, ctx, nullptr, result_type, &action));
   } else {
     return arrow::Status::Invalid("window function not supported: " + function_name);
   }

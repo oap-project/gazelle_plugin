@@ -235,9 +235,7 @@ TEST(TestArrowComputeWindow, CountLiteralTest) {
       TreeExprBuilder::MakeFunction(
           "window",
           {
-              TreeExprBuilder::MakeFunction(
-                  "count_literal", {},
-                  null()),
+              TreeExprBuilder::MakeFunction("count_literal", {}, null()),
               TreeExprBuilder::MakeFunction(
                   "partitionSpec",
                   {TreeExprBuilder::MakeField(field("col_int", arrow::int32()))}, null()),
