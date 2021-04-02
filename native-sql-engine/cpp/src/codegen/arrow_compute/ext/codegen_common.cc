@@ -605,7 +605,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
 std::string exec(const char* cmd) {
   std::array<char, 128> buffer;
   std::string result;
-  FILE *file = popen(cmd, "r");
+  FILE* file = popen(cmd, "r");
   std::unique_ptr<FILE, decltype(&pclose)> pipe(file, pclose);
   if (!pipe) {
     pclose(file);

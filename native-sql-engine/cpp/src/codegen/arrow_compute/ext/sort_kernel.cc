@@ -165,12 +165,12 @@ class SortArraysToIndicesKernel::Impl {
       // process
       auto codes = ProduceCodes();
       // compile codes
-      const arrow::Status &status1 = CompileCodes(codes, signature_);
+      const arrow::Status& status1 = CompileCodes(codes, signature_);
       if (!status1.ok()) {
         FileSpinUnLock(file_lock);
         return status1;
       }
-      const arrow::Status &status2 = LoadLibrary(signature_, ctx_, &sorter_);
+      const arrow::Status& status2 = LoadLibrary(signature_, ctx_, &sorter_);
       if (!status2.ok()) {
         FileSpinUnLock(file_lock);
         return status1;
