@@ -73,7 +73,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       spark.sparkContext.parallelize(data), schema)
   }
 
-  ignore("drop") {
+  test("drop") {
     val input = createDF()
     val rows = input.collect()
 

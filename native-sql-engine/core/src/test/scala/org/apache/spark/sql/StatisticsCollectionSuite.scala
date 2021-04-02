@@ -113,7 +113,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  ignore("analyze empty table") {
+  test("analyze empty table") {
     val table = "emptyTable"
     withTable(table) {
       val df = Seq.empty[Int].toDF("key")
@@ -413,7 +413,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  ignore("invalidation of tableRelationCache after alter table add partition") {
+  test("invalidation of tableRelationCache after alter table add partition") {
     val table = "invalidate_catalog_cache_table"
     Seq(false, true).foreach { autoUpdate =>
       withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> autoUpdate.toString) {

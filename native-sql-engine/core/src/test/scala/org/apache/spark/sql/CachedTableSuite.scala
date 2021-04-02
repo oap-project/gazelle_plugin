@@ -742,7 +742,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
+  test("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
     withTable("t") {
       withTempPath { path =>
         Seq(1 -> "a").toDF("i", "j").write.parquet(path.getCanonicalPath)
@@ -824,7 +824,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("SPARK-19993 subquery with cached underlying relation") {
+  test("SPARK-19993 subquery with cached underlying relation") {
     withTempView("t1") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       spark.catalog.cacheTable("t1")
@@ -1029,7 +1029,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
       SHUFFLE_HASH)
   }
 
-  ignore("analyzes column statistics in cached query") {
+  test("analyzes column statistics in cached query") {
     def query(): DataFrame = {
       spark.range(100)
         .selectExpr("id % 3 AS c0", "id % 5 AS c1", "2 AS c2")
@@ -1048,6 +1048,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     val (c0, v1, v2) = (queryAttrs(0), queryAttrs(1), queryAttrs(2))
 
     // Analyzes one column in the query output
+    logInfo(s"get: ${cachedData.get}")
     cacheManager.analyzeColumnCacheQuery(spark, cachedData.get, v1 :: Nil)
     val queryStats2 = query().queryExecution.optimizedPlan.stats.attributeStats
     assert(queryStats2.map(_._1.name).toSet === Set("v1"))

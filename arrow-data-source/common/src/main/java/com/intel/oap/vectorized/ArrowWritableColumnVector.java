@@ -1572,6 +1572,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
 
     @Override
+    final void setDouble(int rowId, double value) {
+      long val = (long)value;
+      writer.setSafe(rowId, val);
+    }
+
+    @Override
     void setLongsLittleEndian(int rowId, int count, byte[] src, int srcIndex) {
       int srcOffset = srcIndex + Platform.BYTE_ARRAY_OFFSET;
       for (int i = 0; i < count; i++, srcOffset += 8) {

@@ -2509,7 +2509,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
     }
   }
 
-  ignore("count() for malformed input") {
+  test("count() for malformed input") {
     def countForMalformedJSON(expected: Long, input: Seq[String]): Unit = {
       val schema = new StructType().add("a", StringType)
       val strings = spark.createDataset(input)

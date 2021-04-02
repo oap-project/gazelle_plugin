@@ -112,7 +112,7 @@ class DataFrameSuite extends QueryTest
       testData.collect().toSeq)
   }
 
-  ignore("empty data frame") {
+  test("empty data frame") {
     assert(spark.emptyDataFrame.columns.toSeq === Seq.empty[String])
     assert(spark.emptyDataFrame.count() === 0)
   }

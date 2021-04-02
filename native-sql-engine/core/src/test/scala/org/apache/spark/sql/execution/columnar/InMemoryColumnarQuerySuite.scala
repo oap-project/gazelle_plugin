@@ -478,7 +478,7 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-22249: IN should work also with cached DataFrame") {
+  test("SPARK-22249: IN should work also with cached DataFrame") {
     val df = spark.range(10).cache()
     // with an empty list
     assert(df.filter($"id".isin()).count() == 0)

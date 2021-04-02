@@ -109,6 +109,7 @@ case class ColumnarHashAggregateExec(
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     var eval_elapse: Long = 0
+
     child.executeColumnar().mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
       val native_function = TreeBuilder.makeFunction(
@@ -138,11 +139,12 @@ case class ColumnarHashAggregateExec(
       }
 
       var numRowsInput = 0
+      var hasNextCount = 0
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         var processed = false
         var skip_native = false
-        var count_num_row = 0
+        var skip_num_row = 0
         def process: Unit = {
           while (iter.hasNext) {
             val cb = iter.next()
@@ -152,7 +154,7 @@ case class ColumnarHashAggregateExec(
               val beforeEval = System.nanoTime()
               if (hash_aggr_input_schema.getFields.size == 0) {
                 // This is a special case used by only do count literal
-                count_num_row += cb.numRows
+                skip_num_row += cb.numRows
                 skip_native = true
               } else {
                 val input_rb =
@@ -166,9 +168,13 @@ case class ColumnarHashAggregateExec(
           processed = true
         }
         override def hasNext: Boolean = {
+          hasNextCount += 1
           if (!processed) process
           if (skip_native) {
-            count_num_row > 0
+            skip_num_row > 0
+          } else if (groupingExpressions.isEmpty &&
+                     numRowsInput == 0 && hasNextCount == 1) {
+            true
           } else {
             nativeIterator.hasNext
           }
@@ -179,28 +185,17 @@ case class ColumnarHashAggregateExec(
           val beforeEval = System.nanoTime()
           if (skip_native) {
             // special handling for only count literal in this operator
-            val out_res = count_num_row
-            count_num_row = 0
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            resultColumnVectors.foreach { v =>
-              {
-                val numRows = v.dataType match {
-                  case t: IntegerType =>
-                    out_res.asInstanceOf[Number].intValue
-                  case t: LongType =>
-                    out_res.asInstanceOf[Number].longValue
-                }
-                v.put(0, numRows)
-              }
-            }
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+            getResForCountLiteral
+          } else if (groupingExpressions.isEmpty &&
+                     numRowsInput == 0 && hasNextCount == 1) {
+            // special handling for empty input batch
+            getResForEmptyInput
           } else {
             val output_rb = nativeIterator.next
             if (output_rb == null) {
               eval_elapse += System.nanoTime() - beforeEval
               val resultColumnVectors =
-                ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+                ArrowWritableColumnVector.allocateColumns(0, resultStructType)
               return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
             }
             val outputNumRows = output_rb.getLength
@@ -210,6 +205,104 @@ case class ColumnarHashAggregateExec(
             numOutputRows += outputNumRows
             numOutputBatches += 1
             new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
+          }
+        }
+        def getResForCountLiteral: ColumnarBatch = {
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          if (skip_num_row == 0) {
+            new ColumnarBatch(
+              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+          } else {
+            val out_res = skip_num_row
+            skip_num_row = 0
+            for (idx <- resultColumnVectors.indices) {
+              resultColumnVectors(idx).dataType match {
+                case t: IntegerType =>
+                  resultColumnVectors(idx)
+                    .put(0, out_res.asInstanceOf[Number].intValue)
+                case t: LongType =>
+                  resultColumnVectors(idx)
+                    .put(0, out_res.asInstanceOf[Number].longValue)
+                case t: DoubleType =>
+                  resultColumnVectors(idx)
+                    .put(0, out_res.asInstanceOf[Number].doubleValue())
+                case t: FloatType =>
+                  resultColumnVectors(idx)
+                    .put(0, out_res.asInstanceOf[Number].floatValue())
+                case t: ByteType =>
+                  resultColumnVectors(idx)
+                    .put(0, out_res.asInstanceOf[Number].byteValue())
+                case t: ShortType =>
+                  resultColumnVectors(idx)
+                    .put(0, out_res.asInstanceOf[Number].shortValue())
+                case t: StringType =>
+                  val values = (out_res :: Nil).map(_.toByte).toArray
+                  resultColumnVectors(idx)
+                    .putBytes(0, 1, values, 0)
+              }
+            }
+            new ColumnarBatch(
+              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+          }
+        }
+        def getResForEmptyInput: ColumnarBatch = {
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          var idx = 0
+          for (expIdx <- aggregateExpressions.indices) {
+            val mode = aggregateExpressions(expIdx).mode
+            val aggregateFunction = aggregateExpressions(expIdx).aggregateFunction
+            aggregateFunction match {
+              case Average(_) | StddevSamp(_) | Sum(_) | Max(_) | Min(_) =>
+                mode match {
+                  case Final =>
+                    resultColumnVectors(idx).putNull(0)
+                    idx += 1
+                  case _ =>
+                }
+              case Count(_) =>
+                mode match {
+                  case Final =>
+                    val out_res = 0
+                    resultColumnVectors(idx).dataType match {
+                      case t: IntegerType =>
+                        resultColumnVectors(idx)
+                          .put(0, out_res.asInstanceOf[Number].intValue)
+                      case t: LongType =>
+                        resultColumnVectors(idx)
+                          .put(0, out_res.asInstanceOf[Number].longValue)
+                      case t: DoubleType =>
+                        resultColumnVectors(idx)
+                          .put(0, out_res.asInstanceOf[Number].doubleValue())
+                      case t: FloatType =>
+                        resultColumnVectors(idx)
+                          .put(0, out_res.asInstanceOf[Number].floatValue())
+                      case t: ByteType =>
+                        resultColumnVectors(idx)
+                          .put(0, out_res.asInstanceOf[Number].byteValue())
+                      case t: ShortType =>
+                        resultColumnVectors(idx)
+                          .put(0, out_res.asInstanceOf[Number].shortValue())
+                      case t: StringType =>
+                        val values = (out_res :: Nil).map(_.toByte).toArray
+                        resultColumnVectors(idx)
+                          .putBytes(0, 1, values, 0)
+                    }
+                    idx += 1
+                  case _ =>
+                }
+              case other =>
+                throw new UnsupportedOperationException(s"not currently supported: $other.")
+            }
+          }
+          aggregateExpressions.head.mode match {
+            case Final =>
+              new ColumnarBatch(
+                resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+            case _ =>
+              new ColumnarBatch(
+                resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
           }
         }
       }

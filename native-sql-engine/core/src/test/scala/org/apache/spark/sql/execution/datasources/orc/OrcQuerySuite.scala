@@ -390,7 +390,7 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("SPARK-10623 Enable ORC PPD") {
+  test("SPARK-10623 Enable ORC PPD") {
     withTempPath { dir =>
       withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
         withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> "false") {
@@ -460,7 +460,7 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("SPARK-15198 Support for pushing down filters for boolean types") {
+  test("SPARK-15198 Support for pushing down filters for boolean types") {
     withSQLConf(SQLConf.ORC_FILTER_PUSHDOWN_ENABLED.key -> "true") {
       val data = (0 until 10).map(_ => (true, false))
       withOrcFile(data) { file =>
