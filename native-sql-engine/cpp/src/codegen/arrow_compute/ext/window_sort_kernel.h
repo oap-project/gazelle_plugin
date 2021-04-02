@@ -126,7 +126,7 @@ class WindowSortKernel::Impl {
 
  protected:
   std::shared_ptr<CodeGenBase> sorter;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
   std::string signature_;
   bool nulls_first_;
   bool asc_;
@@ -641,7 +641,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   // using ArrayType_key = arrow::UInt32Array;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
   std::vector<arrow::ArrayVector> cached_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
   std::shared_ptr<arrow::Schema> result_schema_;
   bool nulls_first_;
   bool asc_;

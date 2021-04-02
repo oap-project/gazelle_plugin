@@ -273,7 +273,7 @@ class HashAggregateKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class WindowRankKernel : public KernalBase {
@@ -449,7 +449,7 @@ class ConcatArrayListKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ConditionedProbeKernel : public KernalBase {
  public:

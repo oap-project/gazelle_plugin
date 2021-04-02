@@ -248,7 +248,7 @@ class SortArraysToIndicesKernel::Impl {
   // true for nulls_first, false for nulls_last
   std::vector<bool> nulls_order_;
   bool NaN_check_;
-  int col_num_;
+  int col_num_ = 0;
 
   class TypedSorterCodeGenImpl {
    public:

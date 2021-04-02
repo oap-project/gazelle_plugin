@@ -858,7 +858,9 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
   }
 
   auto iter = GetBatchIterator(env, id);
-  status = iter->ProcessAndCacheOne(in);
+  if (iter) {
+    status = iter->ProcessAndCacheOne(in);
+  }
 
   if (!status.ok()) {
     std::string error_message =

@@ -95,7 +95,7 @@ class WholeStageCodeGenKernel::Impl {
     auto function_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(node);
     auto func_name = function_node->descriptor()->name();
     if (func_name.compare(0, 22, "conditionedProbeArrays") == 0) {
-      int join_type;
+      int join_type = 0;
       gandiva::NodeVector left_schema_list;
       RETURN_NOT_OK(GetArguments(function_node, 0, &left_schema_list));
       gandiva::NodeVector right_schema_list;
@@ -132,7 +132,7 @@ class WholeStageCodeGenKernel::Impl {
           out));
 
     } else if (func_name.compare(0, 20, "conditionedMergeJoin") == 0) {
-      int join_type;
+      int join_type = 0;
       gandiva::NodeVector left_schema_list;
       RETURN_NOT_OK(GetArguments(function_node, 0, &left_schema_list));
       gandiva::NodeVector right_schema_list;
