@@ -332,7 +332,7 @@ gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list,
     seed = func_node;
   }
   func_node_list.push_back(func_node);
-  return gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
+  return gandiva::TreeExprBuilder::MakeExpression(func_node_list.at(0),
                                                   arrow::field("hash_key", ret_type));
 }
 
@@ -605,12 +605,19 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
 std::string exec(const char* cmd) {
   std::array<char, 128> buffer;
   std::string result;
-  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  FILE* file = popen(cmd, "r");
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(file, pclose);
   if (!pipe) {
+    pclose(file);
     throw std::runtime_error("popen() failed!");
   }
-  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
-    result += buffer.data();
+  try {
+    while (fgets(buffer.data(), sizeof buffer, pipe.get()) != nullptr) {
+      result += buffer.data();
+    }
+  } catch (...) {
+    pclose(file);
+    throw;
   }
   return result;
 }

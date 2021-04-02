@@ -1026,8 +1026,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) 
       field_type_ = mixed;
     }
     for (auto header : child_visitor->GetHeaders()) {
-      if (std::find(header_list_.begin(), header_list_.end(), header) ==
-          header_list_.end()) {
+      if (!header.empty() && std::find(header_list_.begin(), header_list_.end(),
+                                       header) == header_list_.end()) {
         header_list_.push_back(header);
       }
     }

@@ -501,6 +501,7 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
     switch (column_type_id_[i]) {
       case Type::SHUFFLE_BINARY: {
         auto builder = std::make_shared<arrow::BinaryBuilder>(options_.memory_pool);
+        assert(builder != nullptr);
         RETURN_NOT_OK(builder->Reserve(new_size));
         RETURN_NOT_OK(
             builder->ReserveData(binary_array_empirical_size_[binary_idx] * new_size));
@@ -510,6 +511,7 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
       }
       case Type::SHUFFLE_LARGE_BINARY: {
         auto builder = std::make_shared<arrow::LargeBinaryBuilder>(options_.memory_pool);
+        assert(builder != nullptr);
         RETURN_NOT_OK(builder->Reserve(new_size));
         RETURN_NOT_OK(builder->ReserveData(
             large_binary_array_empirical_size_[large_binary_idx] * new_size));
@@ -1171,6 +1173,9 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
                                   std::to_string(outputs.size()));
   }
   auto pid_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(0));
+  if (pid_arr == nullptr) {
+    return arrow::Status::Invalid("failed to cast outputs.at(0)");
+  }
   for (auto i = 0; i < num_rows; ++i) {
     // positive mod
     auto pid = pid_arr->Value(i) % num_partitions_;

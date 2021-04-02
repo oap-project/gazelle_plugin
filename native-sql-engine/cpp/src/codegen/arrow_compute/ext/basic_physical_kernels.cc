@@ -54,6 +54,7 @@ class ProjectKernel::Impl {
       auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(node);
       input_field_list_.push_back(field_node->field());
     }
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(
@@ -125,6 +126,7 @@ ProjectKernel::ProjectKernel(arrow::compute::ExecContext* ctx,
                              const gandiva::NodeVector& project_list) {
   impl_.reset(new Impl(ctx, input_field_node_list, project_list));
   kernel_name_ = "ProjectKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status ProjectKernel::MakeResultIterator(
@@ -153,6 +155,7 @@ class FilterKernel::Impl {
       auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(node);
       input_field_list_.push_back(field_node->field());
     }
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(
@@ -178,7 +181,8 @@ class FilterKernel::Impl {
                                                &condition_node_visitor));
     codegen_ctx->process_codes += condition_node_visitor->GetPrepare();
     for (auto header : condition_node_visitor->GetHeaders()) {
-      if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
+      if (!header.empty() &&
+          std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                     header) == codegen_ctx->header_codes.end()) {
         codegen_ctx->header_codes.push_back(header);
       }

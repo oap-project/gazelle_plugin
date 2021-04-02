@@ -54,6 +54,7 @@ class HashRelationKernel::Impl {
        std::shared_ptr<gandiva::Node> root_node,
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
       : ctx_(ctx), input_field_list_(input_field_list) {
+    pool_ = ctx_->memory_pool();
     std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_list;
     for (auto field : input_field_list) {
       std::shared_ptr<HashRelationColumn> hash_relation_column;
@@ -129,7 +130,11 @@ class HashRelationKernel::Impl {
         // If single key case, we can put key in KeyArray
         auto key_type = std::dynamic_pointer_cast<arrow::FixedWidthType>(
             key_hash_field_list[0]->type());
-        key_size_ = key_type->bit_width() / 8;
+        if (key_type) {
+          key_size_ = key_type->bit_width() / 8;
+        } else {
+          key_size_ = 0;
+        }
         hash_relation_ =
             std::make_shared<HashRelation>(ctx_, hash_relation_list, key_size_);
       } else {
