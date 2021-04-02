@@ -772,7 +772,7 @@ class ConditionedProbeKernel::Impl {
       if (typed_first_key_arr->null_count() == 0) {                           \
         fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
           return hash_relation_->Get(typed_key_array->GetView(i),             \
-                                    typed_first_key_arr->GetView(i));         \
+                                     typed_first_key_arr->GetView(i));        \
         };                                                                    \
       } else {                                                                \
         fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
@@ -780,7 +780,7 @@ class ConditionedProbeKernel::Impl {
             return hash_relation_->GetNull();                                 \
           } else {                                                            \
             return hash_relation_->Get(typed_key_array->GetView(i),           \
-                                      typed_first_key_arr->GetView(i));       \
+                                       typed_first_key_arr->GetView(i));      \
           }                                                                   \
         };                                                                    \
       }                                                                       \
@@ -794,7 +794,7 @@ class ConditionedProbeKernel::Impl {
                 if (typed_first_key_arr->null_count() == 0) {
                   fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
                     return hash_relation_->Get(typed_key_array->GetView(i),
-                                              typed_first_key_arr->GetString(i));
+                                               typed_first_key_arr->GetString(i));
                   };
                 } else {
                   fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
@@ -802,7 +802,7 @@ class ConditionedProbeKernel::Impl {
                       return hash_relation_->GetNull();
                     } else {
                       return hash_relation_->Get(typed_key_array->GetView(i),
-                                                typed_first_key_arr->GetString(i));
+                                                 typed_first_key_arr->GetString(i));
                     }
                   };
                 }
@@ -1076,7 +1076,9 @@ class ConditionedProbeKernel::Impl {
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            if(unsafe_key_row) {unsafe_key_row->reset();}
+            if (unsafe_key_row) {
+              unsafe_key_row->reset();
+            }
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }

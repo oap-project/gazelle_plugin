@@ -47,7 +47,7 @@ BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in) : cache_(in)
     if (typed_in) {                                                          \
       raw_value_ = typed_in->raw_values();                                   \
     } else {                                                                 \
-    raw_value_ = NULLPTR;                                                    \
+      raw_value_ = NULLPTR;                                                  \
     }                                                                        \
   }
 
