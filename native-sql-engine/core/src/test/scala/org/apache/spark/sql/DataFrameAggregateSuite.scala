@@ -732,8 +732,6 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  //TODO: failed ut
-  /*
   testWithWholeStageCodegenOnAndOff("SPARK-22951: dropDuplicates on empty dataFrames " +
     "should produce correct aggregate") { _ =>
     // explicit global aggregations
@@ -748,7 +746,6 @@ class DataFrameAggregateSuite extends QueryTest
     // global aggregation is converted to grouping aggregation:
     assert(spark.emptyDataFrame.dropDuplicates().count() == 0)
   }
-   */
 
   test("SPARK-21896: Window functions inside aggregate functions") {
     def checkWindowError(df: => DataFrame): Unit = {

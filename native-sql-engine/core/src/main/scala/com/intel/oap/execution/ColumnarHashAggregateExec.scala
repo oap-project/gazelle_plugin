@@ -273,6 +273,10 @@ case class ColumnarHashAggregateExec(
         def getResForEmptyInput: ColumnarBatch = {
           val resultColumnVectors =
             ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          if (aggregateExpressions.isEmpty) {
+            return new ColumnarBatch(
+              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+          }
           var idx = 0
           for (expIdx <- aggregateExpressions.indices) {
             val mode = aggregateExpressions(expIdx).mode
