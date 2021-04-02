@@ -426,7 +426,8 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
           for (int i = 0; i < length; i++) {
     )" << std::endl;
     } else {
-      codes_ss << "while (!should_stop_ && out_length < 10000) {" << std::endl;
+      codes_ss << "while (!should_stop_ && out_length < " << GetBatchSize() << ") {"
+               << std::endl;
     }
     // input preparation
     for (int i = 0; i < input_field_list.size(); i++) {
