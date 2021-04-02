@@ -402,6 +402,9 @@ class ConditionedProbeArraysKernel::Impl {
           left_projected_batch_list) {
     std::stringstream ss;
     for (auto name : left_projected_batch_list) {
+      if (name.first == nullptr || name.second.empty()) {
+        throw std::runtime_error("uninitialized value found");
+      }
       ss << "std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array") << ">> "
          << name.second << ";" << std::endl;
     }

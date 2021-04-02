@@ -655,6 +655,7 @@ WholeStageCodeGenKernel::WholeStageCodeGenKernel(
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list) {
   impl_.reset(new Impl(ctx, input_field_list, root_node, output_field_list));
   kernel_name_ = "WholeStageCodeGenKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status WholeStageCodeGenKernel::MakeResultIterator(

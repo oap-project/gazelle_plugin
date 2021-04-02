@@ -1173,6 +1173,9 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
                                   std::to_string(outputs.size()));
   }
   auto pid_arr = std::dynamic_pointer_cast<arrow::Int32Array>(outputs.at(0));
+  if (pid_arr == nullptr) {
+    return arrow::Status::Invalid("failed to cast outputs.at(0)");
+  }
   for (auto i = 0; i < num_rows; ++i) {
     // positive mod
     auto pid = pid_arr->Value(i) % num_partitions_;

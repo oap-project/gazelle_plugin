@@ -131,6 +131,8 @@ class ConditionedProbeKernel::Impl {
       THROW_NOT_OK(GetIndexList(result_schema_, left_field_list_, right_field_list_, true,
                                 &exist_index_, &result_schema_index_list_));
     }
+
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(
@@ -412,6 +414,9 @@ class ConditionedProbeKernel::Impl {
       auto iter = dependent_iter_list[0];
       auto typed_dependent =
           std::dynamic_pointer_cast<ResultIterator<HashRelation>>(iter);
+      if (typed_dependent == nullptr) {
+        throw std::runtime_error("casting on hash relation iterator failed");
+      }
       RETURN_NOT_OK(typed_dependent->Next(&hash_relation_));
 
       // chendi: previous result_schema_index_list design is little tricky, it
@@ -1860,6 +1865,7 @@ ConditionedProbeKernel::ConditionedProbeKernel(
                        right_schema_list, condition, join_type, result_schema,
                        hash_configuration_list, hash_relation_idx));
   kernel_name_ = "ConditionedProbeKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status ConditionedProbeKernel::MakeResultIterator(

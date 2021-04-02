@@ -129,6 +129,7 @@ class HashAggregateKernel::Impl {
       if (no_result_project) return;
     }
     result_expr_list_ = result_expr_node_list;
+    pool_ = nullptr;
   }
 
   virtual arrow::Status MakeResultIterator(
