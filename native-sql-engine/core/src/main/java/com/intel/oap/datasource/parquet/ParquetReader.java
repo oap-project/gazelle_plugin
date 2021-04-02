@@ -119,6 +119,9 @@ public class ParquetReader implements AutoCloseable {
     ArrowRecordBatchBuilderImpl recordBatchBuilderImpl =
         new ArrowRecordBatchBuilderImpl(recordBatchBuilder);
     ArrowRecordBatch batch = recordBatchBuilderImpl.build();
+    if (batch == null) {
+      throw new IllegalArgumentException("failed to build record batch");
+    }
     this.lastReadLength = batch.getLength();
     return batch;
   }

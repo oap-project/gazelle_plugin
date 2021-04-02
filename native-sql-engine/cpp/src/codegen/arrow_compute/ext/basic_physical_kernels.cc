@@ -54,6 +54,7 @@ class ProjectKernel::Impl {
       auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(node);
       input_field_list_.push_back(field_node->field());
     }
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(
@@ -125,6 +126,7 @@ ProjectKernel::ProjectKernel(arrow::compute::ExecContext* ctx,
                              const gandiva::NodeVector& project_list) {
   impl_.reset(new Impl(ctx, input_field_node_list, project_list));
   kernel_name_ = "ProjectKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status ProjectKernel::MakeResultIterator(
@@ -153,6 +155,7 @@ class FilterKernel::Impl {
       auto field_node = std::dynamic_pointer_cast<gandiva::FieldNode>(node);
       input_field_list_.push_back(field_node->field());
     }
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(

@@ -307,6 +307,7 @@ ConcatArrayKernel::ConcatArrayKernel(
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
   kernel_name_ = "ConcatArrayKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
