@@ -264,7 +264,7 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
   override def nodeName: String = plan.nodeName
   override def output: Seq[Attribute] = plan.output
 
-  private[sql] override val runId: UUID = plan.runId
+  override val runId: UUID = plan.runId
 
   override def outputPartitioning: Partitioning = plan.outputPartitioning
 
@@ -285,7 +285,7 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
     plan.completionFuture
 
   @transient
-  private[sql] override lazy val relationFuture
+  override lazy val relationFuture
       : java.util.concurrent.Future[broadcast.Broadcast[Any]] =
     plan.relationFuture
 
