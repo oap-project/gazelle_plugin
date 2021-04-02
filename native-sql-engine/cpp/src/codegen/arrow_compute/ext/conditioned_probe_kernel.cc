@@ -768,40 +768,44 @@ class ConditionedProbeKernel::Impl {
   case TypeTraits<InType>::type_id: {                                         \
     using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
     auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                             \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
-        return hash_relation_->Get(typed_key_array->GetView(i),               \
-                                   typed_first_key_arr->GetView(i));          \
-      };                                                                      \
-    } else {                                                                  \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
-        if (typed_first_key_arr->IsNull(i)) {                                 \
-          return hash_relation_->GetNull();                                   \
-        } else {                                                              \
+    if (typed_first_key_arr) {                                                \
+      if (typed_first_key_arr->null_count() == 0) {                           \
+        fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
           return hash_relation_->Get(typed_key_array->GetView(i),             \
-                                     typed_first_key_arr->GetView(i));        \
-        }                                                                     \
-      };                                                                      \
+                                    typed_first_key_arr->GetView(i));         \
+        };                                                                    \
+      } else {                                                                \
+        fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
+          if (typed_first_key_arr->IsNull(i)) {                               \
+            return hash_relation_->GetNull();                                 \
+          } else {                                                            \
+            return hash_relation_->Get(typed_key_array->GetView(i),           \
+                                      typed_first_key_arr->GetView(i));       \
+          }                                                                   \
+        };                                                                    \
+      }                                                                       \
     }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
             case TypeTraits<arrow::StringType>::type_id: {
               auto typed_first_key_arr = std::make_shared<StringArray>(key_payloads[0]);
-              if (typed_first_key_arr->null_count() == 0) {
-                fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
-                  return hash_relation_->Get(typed_key_array->GetView(i),
-                                             typed_first_key_arr->GetString(i));
-                };
-              } else {
-                fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
-                  if (typed_first_key_arr->IsNull(i)) {
-                    return hash_relation_->GetNull();
-                  } else {
+              if (typed_first_key_arr) {
+                if (typed_first_key_arr->null_count() == 0) {
+                  fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
                     return hash_relation_->Get(typed_key_array->GetView(i),
-                                               typed_first_key_arr->GetString(i));
-                  }
-                };
+                                              typed_first_key_arr->GetString(i));
+                  };
+                } else {
+                  fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
+                    if (typed_first_key_arr->IsNull(i)) {
+                      return hash_relation_->GetNull();
+                    } else {
+                      return hash_relation_->Get(typed_key_array->GetView(i),
+                                                typed_first_key_arr->GetString(i));
+                    }
+                  };
+                }
               }
             } break;
             default: {

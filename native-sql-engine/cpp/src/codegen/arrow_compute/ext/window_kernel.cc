@@ -111,16 +111,17 @@ arrow::Status WindowAggregateFunctionKernel::Evaluate(const ArrayList& in) {
   int32_t max_group_id = 0;
   std::shared_ptr<arrow::Array> group_id_array = in[1];
   auto group_ids = std::dynamic_pointer_cast<arrow::Int32Array>(group_id_array);
-  accumulated_group_ids_.push_back(group_ids);
-  for (int i = 0; i < group_ids->length(); i++) {
-    if (group_ids->IsNull(i)) {
-      continue;
-    }
-    if (group_ids->GetView(i) > max_group_id) {
-      max_group_id = group_ids->GetView(i);
+  if (group_ids) {
+    accumulated_group_ids_.push_back(group_ids);
+    for (int i = 0; i < group_ids->length(); i++) {
+      if (group_ids->IsNull(i)) {
+        continue;
+      }
+      if (group_ids->GetView(i) > max_group_id) {
+        max_group_id = group_ids->GetView(i);
+      }
     }
   }
-
   ArrayList action_input_data;
   action_input_data.push_back(in[0]);
   std::function<arrow::Status(int)> func;
@@ -128,15 +129,16 @@ arrow::Status WindowAggregateFunctionKernel::Evaluate(const ArrayList& in) {
   RETURN_NOT_OK(
       action_->Get()->Submit(action_input_data, max_group_id, &func, &null_func));
 
-  for (int row_id = 0; row_id < group_id_array->length(); row_id++) {
-    if (group_ids->IsNull(row_id)) {
-      RETURN_NOT_OK(null_func());
-      continue;
+  if (group_ids) {
+    for (int row_id = 0; row_id < group_id_array->length(); row_id++) {
+      if (group_ids->IsNull(row_id)) {
+        RETURN_NOT_OK(null_func());
+        continue;
+      }
+      auto group_id = group_ids->GetView(row_id);
+      RETURN_NOT_OK(func(group_id));
     }
-    auto group_id = group_ids->GetView(row_id);
-    RETURN_NOT_OK(func(group_id));
   }
-
   return arrow::Status::OK();
 }
 

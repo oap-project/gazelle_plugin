@@ -563,7 +563,9 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
   std::string GetProcessMaterializeCodes(std::shared_ptr<CodeGenContext> codegen_ctx) {
     std::stringstream codes_ss;
     int i = 0;
-    for (auto pair : codegen_ctx->output_list) {
+    auto out_list = codegen_ctx->output_list;
+    for (int i = 0; i < out_list.size(); i++) {
+      auto pair = out_list[i];
       auto name = pair.first.first;
       auto type = pair.second;
       auto validity = name + "_validity";

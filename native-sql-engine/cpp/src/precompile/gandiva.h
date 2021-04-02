@@ -30,7 +30,8 @@ int64_t castDATE64(int32_t in) { return castDATE_date32(in); }
 int64_t extractYear(int64_t millis) { return extractYear_timestamp(millis); }
 template <typename T>
 T round2(T val, int precision = 2) {
-  int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)precision, val);
+  double dVal = (double)val;
+  int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)precision, dVal);
   char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
   snprintf(buffer, charsNeeded, "%.*f", (int)precision, nextafter(val, val + 0.5));
   double result = atof(buffer);
