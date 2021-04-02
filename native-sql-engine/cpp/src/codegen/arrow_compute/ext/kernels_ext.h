@@ -115,7 +115,7 @@ class EncodeArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class WindowAggregateFunctionKernel : public KernalBase {
@@ -147,7 +147,7 @@ class WindowAggregateFunctionKernel : public KernalBase {
   typename arrow::enable_if_number<ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
   createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
   std::shared_ptr<ActionFactory> action_;
   std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
@@ -167,7 +167,7 @@ class HashArrayKernel : public KernalBase {
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class SortArraysToIndicesKernel : public KernalBase {
@@ -200,7 +200,7 @@ class SortArraysToIndicesKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class CachedRelationKernel : public KernalBase {
@@ -223,7 +223,7 @@ class CachedRelationKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class WindowSortKernel : public KernalBase {
@@ -243,7 +243,7 @@ class WindowSortKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class HashAggregateKernel : public KernalBase {
@@ -273,7 +273,7 @@ class HashAggregateKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
 class WindowRankKernel : public KernalBase {
@@ -299,7 +299,7 @@ class WindowRankKernel : public KernalBase {
 
  private:
   std::shared_ptr<WindowSortKernel::Impl> sorter_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
   std::vector<ArrayList> input_cache_;
   std::vector<std::shared_ptr<arrow::DataType>> type_list_;
   bool desc_;
@@ -347,7 +347,7 @@ class ConditionedProbeArraysKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ConditionedJoinArraysKernel : public KernalBase {
  public:
@@ -377,7 +377,7 @@ class ConditionedJoinArraysKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class WholeStageCodeGenKernel : public KernalBase {
  public:
@@ -401,7 +401,7 @@ class WholeStageCodeGenKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class HashRelationKernel : public KernalBase {
  public:
@@ -425,7 +425,7 @@ class HashRelationKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ConcatArrayListKernel : public KernalBase {
  public:
@@ -449,7 +449,7 @@ class ConcatArrayListKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ConditionedProbeKernel : public KernalBase {
  public:
@@ -484,7 +484,7 @@ class ConditionedProbeKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ConditionedMergeJoinKernel : public KernalBase {
  public:
@@ -518,7 +518,7 @@ class ConditionedMergeJoinKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ProjectKernel : public KernalBase {
  public:
@@ -542,7 +542,7 @@ class ProjectKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class FilterKernel : public KernalBase {
  public:
@@ -566,7 +566,7 @@ class FilterKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 class ConcatArrayKernel : public KernalBase {
  public:
@@ -581,7 +581,7 @@ class ConcatArrayKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
 };
 }  // namespace extra
 }  // namespace arrowcompute

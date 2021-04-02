@@ -47,6 +47,7 @@ class HashArraysKernel::Impl {
       }
       index++;
     }
+    assert(func_node_list.size() > 0);
     auto expr = gandiva::TreeExprBuilder::MakeExpression(
         func_node_list[0], arrow::field("projection_key", arrow::int64()));
     schema_ = arrow::schema(field_list);

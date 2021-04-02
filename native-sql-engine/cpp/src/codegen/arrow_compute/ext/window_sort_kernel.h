@@ -93,11 +93,16 @@ class WindowSortKernel::Impl {
     auto file_lock = FileSpinLock();
     auto status = LoadLibrary(signature_, ctx_, &sorter);
     if (!status.ok()) {
-      // process
-      auto codes = ProduceCodes(result_schema);
-      // compile codes
-      RETURN_NOT_OK(CompileCodes(codes, signature_));
-      RETURN_NOT_OK(LoadLibrary(signature_, ctx_, &sorter));
+      try {
+        // process
+        auto codes = ProduceCodes(result_schema);
+        // compile codes
+        auto s = CompileCodes(codes, signature_);
+        s = LoadLibrary(signature_, ctx_, &sorter);
+      } catch (const std::runtime_error& error) {
+        FileSpinUnLock(file_lock);
+        throw error;
+      }
     }
     FileSpinUnLock(file_lock);
     return arrow::Status::OK();
@@ -121,7 +126,7 @@ class WindowSortKernel::Impl {
 
  protected:
   std::shared_ptr<CodeGenBase> sorter;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
   std::string signature_;
   bool nulls_first_;
   bool asc_;
@@ -636,7 +641,7 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
   // using ArrayType_key = arrow::UInt32Array;
   std::vector<std::shared_ptr<ArrayType_key>> cached_key_;
   std::vector<arrow::ArrayVector> cached_;
-  arrow::compute::ExecContext* ctx_;
+  arrow::compute::ExecContext* ctx_ = nullptr;
   std::shared_ptr<arrow::Schema> result_schema_;
   bool nulls_first_;
   bool asc_;

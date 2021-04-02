@@ -84,7 +84,12 @@ using is_number_bool_date =
 ///////////////  SortArraysToIndices  ////////////////
 class SortArraysToIndicesKernel::Impl {
  public:
-  Impl() {}
+  Impl() {
+    ctx_ = nullptr;
+    col_num_ = 0;
+    NaN_check_ = false;
+  }
+
   Impl(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
        std::shared_ptr<gandiva::Projector> key_projector,
        std::vector<std::shared_ptr<arrow::DataType>> projected_types,
@@ -160,8 +165,16 @@ class SortArraysToIndicesKernel::Impl {
       // process
       auto codes = ProduceCodes();
       // compile codes
-      RETURN_NOT_OK(CompileCodes(codes, signature_));
-      RETURN_NOT_OK(LoadLibrary(signature_, ctx_, &sorter_));
+      const arrow::Status& status1 = CompileCodes(codes, signature_);
+      if (!status1.ok()) {
+        FileSpinUnLock(file_lock);
+        return status1;
+      }
+      const arrow::Status& status2 = LoadLibrary(signature_, ctx_, &sorter_);
+      if (!status2.ok()) {
+        FileSpinUnLock(file_lock);
+        return status1;
+      }
     }
     FileSpinUnLock(file_lock);
     return arrow::Status::OK();
@@ -235,7 +248,7 @@ class SortArraysToIndicesKernel::Impl {
   // true for nulls_first, false for nulls_last
   std::vector<bool> nulls_order_;
   bool NaN_check_;
-  int col_num_;
+  int col_num_ = 0;
 
   class TypedSorterCodeGenImpl {
    public:
@@ -1607,7 +1620,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     return false;
   }
 
-  auto Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
+  void Sort(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int keys_num = sort_directions_.size();
     auto comp = [this, &keys_num](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
       return compareRow(x.array_id, x.id, y.array_id, y.id, keys_num);

@@ -35,10 +35,10 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
         .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-        .set("spark.sql.codegen.wholeStage", "false")
+        .set("spark.sql.codegen.wholeStage", "true")
         .set("spark.sql.sources.useV1SourceList", "")
         .set("spark.sql.columnar.tmp_dir", "/tmp/")
-        .set("spark.sql.adaptive.enabled", "false")
+        .set("spark.sql.adaptive.enabled", "true")
         .set("spark.sql.columnar.sort.broadcastJoin", "true")
         .set("spark.storage.blockManagerSlaveTimeoutMs", "3600000")
         .set("spark.executor.heartbeatInterval", "3600000")
@@ -50,6 +50,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
         .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
         .set("spark.network.io.preferDirectBufs", "false")
+        .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
     return conf
   }
 

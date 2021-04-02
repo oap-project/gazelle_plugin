@@ -129,6 +129,7 @@ class HashAggregateKernel::Impl {
       if (no_result_project) return;
     }
     result_expr_list_ = result_expr_node_list;
+    pool_ = nullptr;
   }
 
   virtual arrow::Status MakeResultIterator(
@@ -491,8 +492,8 @@ class HashAggregateKernel::Impl {
     finish_ss << "if(do_hash_aggr_finish_" << level << ") {";
     for (int i = 0; i < action_idx; i++) {
       finish_ss << "aggr_action_list_" << level << "[" << i
-                << "]->Finish(do_hash_aggr_finish_" << level
-                << "_offset, 10000, &do_hash_aggr_finish_" << level << "_out);"
+                << "]->Finish(do_hash_aggr_finish_" << level << "_offset,"
+                << GetBatchSize() << ", &do_hash_aggr_finish_" << level << "_out);"
                 << std::endl;
     }
     finish_ss << "if (do_hash_aggr_finish_" << level << "_out.size() > 0) {" << std::endl;
@@ -755,7 +756,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, 10000, &outputs);
+        action->Finish(offset_, GetBatchSize(), &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -911,7 +912,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, 10000, &outputs);
+        action->Finish(offset_, GetBatchSize(), &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1065,7 +1066,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, 10000, &outputs);
+        action->Finish(offset_, GetBatchSize(), &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1113,6 +1114,7 @@ HashAggregateKernel::HashAggregateKernel(
   impl_.reset(new Impl(ctx, input_field_list, action_list, result_field_node_list,
                        result_expr_node_list));
   kernel_name_ = "HashAggregateKernelKernel";
+  ctx_ = ctx;
 }
 #undef PROCESS_SUPPORTED_TYPES
 

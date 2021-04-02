@@ -636,6 +636,10 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetDependency(
 JNIEXPORT jboolean JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeHasNext(
     JNIEnv* env, jobject obj, jlong id) {
   auto iter = GetBatchIterator(env, id);
+  if (iter == nullptr) {
+    std::string error_message = "faked to get batch iterator";
+    env->ThrowNew(io_exception_class, error_message.c_str());
+  }
   return iter->HasNext();
 }
 
@@ -854,7 +858,9 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOne(
   }
 
   auto iter = GetBatchIterator(env, id);
-  status = iter->ProcessAndCacheOne(in);
+  if (iter) {
+    status = iter->ProcessAndCacheOne(in);
+  }
 
   if (!status.ok()) {
     std::string error_message =

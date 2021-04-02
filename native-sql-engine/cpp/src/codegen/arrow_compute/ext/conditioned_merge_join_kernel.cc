@@ -88,6 +88,8 @@ class ConditionedMergeJoinKernel::Impl {
       THROW_NOT_OK(GetIndexList(result_schema_, left_field_list_, right_field_list_, true,
                                 &exist_index_, &result_schema_index_list_));
     }
+
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(

@@ -402,6 +402,9 @@ class ConditionedProbeArraysKernel::Impl {
           left_projected_batch_list) {
     std::stringstream ss;
     for (auto name : left_projected_batch_list) {
+      if (name.first == nullptr || name.second.empty()) {
+        throw std::runtime_error("uninitialized value found");
+      }
       ss << "std::vector<std::shared_ptr<" << GetTypeString(name.first, "Array") << ">> "
          << name.second << ";" << std::endl;
     }
@@ -477,7 +480,8 @@ class ConditionedProbeArraysKernel::Impl {
       std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
     std::stringstream ss;
     int i = 0;
-    for (auto name : name_list) {
+    for (int idx = 0; idx < name_list.size(); idx++) {
+      auto name = name_list[idx];
       ss << name.second << " = std::make_shared<" << GetTypeString(name.first, "Array")
          << ">(projected_batch[" << i++ << "]);" << std::endl;
     }
@@ -497,7 +501,8 @@ class ConditionedProbeArraysKernel::Impl {
   std::string GetResultIteratorProjectedSet(
       std::vector<std::pair<std::shared_ptr<arrow::DataType>, std::string>> name_list) {
     std::stringstream ss;
-    for (auto name : name_list) {
+    for (int i = 0; i < name_list.size(); i++) {
+      auto name = name_list[i];
       ss << name.second << " = " << name.second.substr(0, name.second.size() - 1) << ";"
          << std::endl;
     }
