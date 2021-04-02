@@ -564,8 +564,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
     std::stringstream codes_ss;
     int i = 0;
     auto out_list = codegen_ctx->output_list;
-    for (int i = 0; i < out_list.size(); i++) {
-      auto pair = out_list[i];
+    for (int j = 0; j < out_list.size(); j++) {
+      auto pair = out_list[j];
       auto name = pair.first.first;
       auto type = pair.second;
       auto validity = name + "_validity";

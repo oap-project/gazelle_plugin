@@ -171,8 +171,8 @@ class HashArrayKernel::Impl {
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx) {
     // create a new result array type here
-    std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {nullptr};
-    std::vector<std::shared_ptr<arrow::Field>> field_list = {nullptr};
+    std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
+    std::vector<std::shared_ptr<arrow::Field>> field_list = {};
 
     gandiva::ExpressionPtr expr;
     int index = 0;

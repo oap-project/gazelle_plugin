@@ -318,7 +318,7 @@ gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list,
                                        std::vector<int> key_index_list) {
   // This Project should be do upon GetGandivaKernel
   // So we need to treat inside functionNode as fieldNode.
-  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {nullptr};
+  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
   std::shared_ptr<arrow::DataType> ret_type;
   auto seed = gandiva::TreeExprBuilder::MakeLiteral((int32_t)0);
   gandiva::NodePtr func_node;
@@ -339,7 +339,7 @@ gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list,
 gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list) {
   // This Project should be do upon GetGandivaKernel
   // So we need to treat inside functionNode as fieldNode.
-  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {nullptr};
+  std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
   std::shared_ptr<arrow::DataType> ret_type;
   auto seed = gandiva::TreeExprBuilder::MakeLiteral((int32_t)0);
   gandiva::NodePtr func_node;
