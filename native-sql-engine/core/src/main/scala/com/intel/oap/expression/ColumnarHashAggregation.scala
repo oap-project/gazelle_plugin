@@ -344,6 +344,49 @@ class ColumnarHashAggregation(
     aggregateAttr.toList
   }
 
+  def existsAttrNotFound(allAggregateResultAttributes: List[Attribute])
+    : (Boolean, ListBuffer[Attribute], ListBuffer[Attribute]) = {
+    var notFoundInInput = false
+    var notFoundAttr = new ListBuffer[Attribute]()
+    var foundAttr = new ListBuffer[Attribute]()
+    if (resultExpressions.size == allAggregateResultAttributes.size) {
+      var resAllAttr = true
+      breakable {
+        for (expr <- resultExpressions) {
+          if (!expr.isInstanceOf[AttributeReference]) {
+            resAllAttr = false
+            break
+          }
+        }
+      }
+      if (resAllAttr) {
+        for (attr <- resultExpressions) {
+          if (allAggregateResultAttributes
+              .indexOf(attr.asInstanceOf[AttributeReference]) == -1) {
+            notFoundInInput = true
+            notFoundAttr += attr.asInstanceOf[AttributeReference]
+          } else {
+            foundAttr += attr.asInstanceOf[AttributeReference]
+          }
+        }
+      }
+    }
+    (notFoundInInput, notFoundAttr, foundAttr)
+  }
+
+  def getNewInputAttr(allAggregateResultAttributes: List[Attribute],
+                      notFoundAttr: ListBuffer[Attribute],
+                      foundAttr: ListBuffer[Attribute]): List[Attribute] = {
+    for (attr <- notFoundAttr) {
+      for (inputAttr <- allAggregateResultAttributes) {
+        if (attr.name.split('#')(0) == inputAttr.name.split('#')(0)) {
+          foundAttr += attr
+        }
+      }
+    }
+    foundAttr.toList
+  }
+
   def prepareKernelFunction: TreeNode = {
     // build gandiva projection here.
     ColumnarPluginConfig.getConf
@@ -413,13 +456,30 @@ class ColumnarHashAggregation(
       groupingAttributes.toList ::: getAttrForAggregateExpr(
         aggregateExpressions,
         aggregateAttributes)
-    val aggregateAttributeFieldList =
+    var aggregateAttributeFieldList =
       allAggregateResultAttributes.map(attr => {
         Field
           .nullable(
             s"${attr.name}#${attr.exprId.id}",
             CodeGeneration.getResultType(attr.dataType))
       })
+
+    // If all result expressions are Attribute, but some are not found in
+    // allAggregateResultAttributes
+    val (notFound, notFoundAttr, foundAttr) =
+      existsAttrNotFound(allAggregateResultAttributes)
+    if (notFound) {
+      val newResAttrList =
+        getNewInputAttr(allAggregateResultAttributes, notFoundAttr, foundAttr)
+      aggregateAttributeFieldList =
+        newResAttrList.map(attr => {
+          Field
+            .nullable(
+              s"${attr.name}#${attr.exprId.id}",
+              CodeGeneration.getResultType(attr.dataType))
+        })
+    }
+
     val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
 
     // 4. prepare after aggregate result expressions

@@ -593,7 +593,7 @@ class DataFrameAggregateSuite extends QueryTest
       Seq(Row(Seq(1.0, 2.0))))
   }
 
-  ignore("SPARK-14664: Decimal sum/avg over window should work.") {
+  test("SPARK-14664: Decimal sum/avg over window should work.") {
     checkAnswer(
       spark.sql("select sum(a) over () from values 1.0, 2.0, 3.0 T(a)"),
       Row(6.0) :: Row(6.0) :: Row(6.0) :: Nil)
@@ -992,7 +992,7 @@ class DataFrameAggregateSuite extends QueryTest
   }
 
   Seq(true, false).foreach { value =>
-    ignore(s"SPARK-31620: agg with subquery (whole-stage-codegen = $value)") {
+    test(s"SPARK-31620: agg with subquery (whole-stage-codegen = $value)") {
       withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> value.toString) {
         withTempView("t1", "t2") {
           sql("create temporary view t1 as select * from values (1, 2) as t1(a, b)")
