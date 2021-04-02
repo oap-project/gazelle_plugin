@@ -44,7 +44,11 @@ BooleanArray::BooleanArray(const std::shared_ptr<arrow::Array>& in) : cache_(in)
     null_count_ = in->null_count();                                          \
     null_bitmap_data_ = null_count_ == 0 ? NULLPTR : in->null_bitmap_data(); \
     auto typed_in = std::dynamic_pointer_cast<arrow::TYPENAME>(in);          \
-    raw_value_ = typed_in->raw_values();                                     \
+    if (typed_in) {                                                          \
+      raw_value_ = typed_in->raw_values();                                   \
+    } else {                                                                 \
+      raw_value_ = NULLPTR;                                                  \
+    }                                                                        \
   }
 
 TYPED_NUMERIC_ARRAY_IMPL(Int8Array, int8_t)

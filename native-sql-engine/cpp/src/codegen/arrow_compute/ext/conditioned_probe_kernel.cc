@@ -131,6 +131,8 @@ class ConditionedProbeKernel::Impl {
       THROW_NOT_OK(GetIndexList(result_schema_, left_field_list_, right_field_list_, true,
                                 &exist_index_, &result_schema_index_list_));
     }
+
+    pool_ = nullptr;
   }
 
   arrow::Status MakeResultIterator(
@@ -412,6 +414,9 @@ class ConditionedProbeKernel::Impl {
       auto iter = dependent_iter_list[0];
       auto typed_dependent =
           std::dynamic_pointer_cast<ResultIterator<HashRelation>>(iter);
+      if (typed_dependent == nullptr) {
+        throw std::runtime_error("casting on hash relation iterator failed");
+      }
       RETURN_NOT_OK(typed_dependent->Next(&hash_relation_));
 
       // chendi: previous result_schema_index_list design is little tricky, it
@@ -768,40 +773,44 @@ class ConditionedProbeKernel::Impl {
   case TypeTraits<InType>::type_id: {                                         \
     using ArrayType_ = precompile::TypeTraits<InType>::ArrayType;             \
     auto typed_first_key_arr = std::make_shared<ArrayType_>(key_payloads[0]); \
-    if (typed_first_key_arr->null_count() == 0) {                             \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
-        return hash_relation_->Get(typed_key_array->GetView(i),               \
-                                   typed_first_key_arr->GetView(i));          \
-      };                                                                      \
-    } else {                                                                  \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
-        if (typed_first_key_arr->IsNull(i)) {                                 \
-          return hash_relation_->GetNull();                                   \
-        } else {                                                              \
+    if (typed_first_key_arr) {                                                \
+      if (typed_first_key_arr->null_count() == 0) {                           \
+        fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
           return hash_relation_->Get(typed_key_array->GetView(i),             \
                                      typed_first_key_arr->GetView(i));        \
-        }                                                                     \
-      };                                                                      \
+        };                                                                    \
+      } else {                                                                \
+        fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
+          if (typed_first_key_arr->IsNull(i)) {                               \
+            return hash_relation_->GetNull();                                 \
+          } else {                                                            \
+            return hash_relation_->Get(typed_key_array->GetView(i),           \
+                                       typed_first_key_arr->GetView(i));      \
+          }                                                                   \
+        };                                                                    \
+      }                                                                       \
     }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
             case TypeTraits<arrow::StringType>::type_id: {
               auto typed_first_key_arr = std::make_shared<StringArray>(key_payloads[0]);
-              if (typed_first_key_arr->null_count() == 0) {
-                fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
-                  return hash_relation_->Get(typed_key_array->GetView(i),
-                                             typed_first_key_arr->GetString(i));
-                };
-              } else {
-                fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
-                  if (typed_first_key_arr->IsNull(i)) {
-                    return hash_relation_->GetNull();
-                  } else {
+              if (typed_first_key_arr) {
+                if (typed_first_key_arr->null_count() == 0) {
+                  fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
                     return hash_relation_->Get(typed_key_array->GetView(i),
                                                typed_first_key_arr->GetString(i));
-                  }
-                };
+                  };
+                } else {
+                  fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
+                    if (typed_first_key_arr->IsNull(i)) {
+                      return hash_relation_->GetNull();
+                    } else {
+                      return hash_relation_->Get(typed_key_array->GetView(i),
+                                                 typed_first_key_arr->GetString(i));
+                    }
+                  };
+                }
               }
             } break;
             default: {
@@ -1001,6 +1010,7 @@ class ConditionedProbeKernel::Impl {
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
         auto typed_key_array = std::dynamic_pointer_cast<arrow::Int32Array>(key_array);
+        assert(typed_key_array != nullptr);
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
@@ -1071,7 +1081,9 @@ class ConditionedProbeKernel::Impl {
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            unsafe_key_row->reset();
+            if (unsafe_key_row) {
+              unsafe_key_row->reset();
+            }
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
@@ -1853,6 +1865,7 @@ ConditionedProbeKernel::ConditionedProbeKernel(
                        right_schema_list, condition, join_type, result_schema,
                        hash_configuration_list, hash_relation_idx));
   kernel_name_ = "ConditionedProbeKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status ConditionedProbeKernel::MakeResultIterator(

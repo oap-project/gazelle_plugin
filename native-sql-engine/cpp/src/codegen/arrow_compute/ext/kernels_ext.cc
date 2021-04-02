@@ -195,6 +195,7 @@ class HashArrayKernel::Impl {
       }
       index++;
     }
+    assert(func_node_list.size() > 0);
     expr = gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
                                                     arrow::field("res", arrow::int64()));
 #ifdef DEBUG
@@ -307,6 +308,7 @@ ConcatArrayKernel::ConcatArrayKernel(
     std::vector<std::shared_ptr<arrow::DataType>> type_list) {
   impl_.reset(new Impl(ctx, type_list));
   kernel_name_ = "ConcatArrayKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status ConcatArrayKernel::Evaluate(const ArrayList& in,
@@ -323,6 +325,7 @@ class CachedRelationKernel::Impl {
         result_schema_(result_schema),
         key_field_list_(key_field_list),
         result_type_(result_type) {
+    pool_ = ctx_->memory_pool();
     for (auto field : key_field_list) {
       auto indices = result_schema->GetAllFieldIndices(field->name());
       if (indices.size() != 1) {

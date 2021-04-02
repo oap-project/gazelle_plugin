@@ -51,7 +51,7 @@ class ExprVisitor : public VisitorBase {
   //    "encodeArray"};
   std::vector<std::string> gdv{"add", "substract", "multiply", "divide"};
   std::vector<std::string> ce{};
-  int codegen_type;
+  int codegen_type = 0;
   arrow::Status Visit(const gandiva::FunctionNode& node);
 };
 }  // namespace codegen

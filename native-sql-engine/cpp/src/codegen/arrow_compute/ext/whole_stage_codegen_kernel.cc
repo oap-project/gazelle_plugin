@@ -95,7 +95,7 @@ class WholeStageCodeGenKernel::Impl {
     auto function_node = std::dynamic_pointer_cast<gandiva::FunctionNode>(node);
     auto func_name = function_node->descriptor()->name();
     if (func_name.compare(0, 22, "conditionedProbeArrays") == 0) {
-      int join_type;
+      int join_type = 0;
       gandiva::NodeVector left_schema_list;
       RETURN_NOT_OK(GetArguments(function_node, 0, &left_schema_list));
       gandiva::NodeVector right_schema_list;
@@ -132,7 +132,7 @@ class WholeStageCodeGenKernel::Impl {
           out));
 
     } else if (func_name.compare(0, 20, "conditionedMergeJoin") == 0) {
-      int join_type;
+      int join_type = 0;
       gandiva::NodeVector left_schema_list;
       RETURN_NOT_OK(GetArguments(function_node, 0, &left_schema_list));
       gandiva::NodeVector right_schema_list;
@@ -277,8 +277,8 @@ class WholeStageCodeGenKernel::Impl {
       // process
       try {
         // compile codes
-        RETURN_NOT_OK(CompileCodes(codes, signature_));
-        RETURN_NOT_OK(LoadLibrary(signature_, ctx_, out));
+        arrow::Status s = CompileCodes(codes, signature_);
+        s = LoadLibrary(signature_, ctx_, out);
       } catch (const std::runtime_error& error) {
         FileSpinUnLock(file_lock);
         throw error;
@@ -310,7 +310,9 @@ class WholeStageCodeGenKernel::Impl {
         gandiva_projector_list_.push_back(codegen_ctx->gandiva_projector);
     }
     for (auto header : headers) {
-      codes_ss << header << std::endl;
+      if (!header.empty()) {
+        codes_ss << header << std::endl;
+      }
     }
 
     if (is_aggr_) {
@@ -562,7 +564,9 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
   std::string GetProcessMaterializeCodes(std::shared_ptr<CodeGenContext> codegen_ctx) {
     std::stringstream codes_ss;
     int i = 0;
-    for (auto pair : codegen_ctx->output_list) {
+    auto out_list = codegen_ctx->output_list;
+    for (int j = 0; j < out_list.size(); j++) {
+      auto pair = out_list[j];
       auto name = pair.first.first;
       auto type = pair.second;
       auto validity = name + "_validity";
@@ -652,6 +656,7 @@ WholeStageCodeGenKernel::WholeStageCodeGenKernel(
     const std::vector<std::shared_ptr<arrow::Field>>& output_field_list) {
   impl_.reset(new Impl(ctx, input_field_list, root_node, output_field_list));
   kernel_name_ = "WholeStageCodeGenKernel";
+  ctx_ = nullptr;
 }
 
 arrow::Status WholeStageCodeGenKernel::MakeResultIterator(

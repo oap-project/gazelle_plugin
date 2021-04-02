@@ -183,11 +183,10 @@ public class JniUtils {
     try (final InputStream is = JniUtils.class.getClassLoader().getResourceAsStream(libraryToLoad)) {
       if (is == null) {
         throw new FileNotFoundException(libraryToLoad);
-      } else {
-        try {
-          Files.copy(is, temp.toPath());
-        } catch (Exception e) {
-        }
+      }
+      try {
+        Files.copy(is, temp.toPath());
+      } catch (Exception e) {
       }
     }
     return temp;

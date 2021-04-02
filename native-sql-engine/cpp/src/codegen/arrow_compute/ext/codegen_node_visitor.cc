@@ -805,7 +805,8 @@ std::string CodeGenNodeVisitor::GetNaNCheckStr(std::string left, std::string rig
 std::string CodeGenNodeVisitor::CombineValidity(std::vector<std::string> validity_list) {
   bool first = true;
   std::stringstream out;
-  for (auto validity : validity_list) {
+  for (int i = 0; i < validity_list.size(); i++) {
+    auto validity = validity_list[i];
     if (first) {
       if (validity.compare("true") != 0) {
         out << validity;

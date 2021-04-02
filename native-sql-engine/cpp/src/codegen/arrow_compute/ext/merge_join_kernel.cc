@@ -1506,6 +1506,7 @@ ConditionedJoinArraysKernel::ConditionedJoinArraysKernel(
     const std::shared_ptr<arrow::Schema>& result_schema) {
   impl_.reset(new Impl(ctx, left_key_list, right_key_list, func_node, join_type,
                        left_field_list, right_field_list, result_schema));
+  ctx_ = ctx;
   kernel_name_ = "ConditionedJoinArraysKernel";
 }
 
