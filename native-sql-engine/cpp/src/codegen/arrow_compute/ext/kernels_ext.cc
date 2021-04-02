@@ -171,8 +171,8 @@ class HashArrayKernel::Impl {
        std::vector<std::shared_ptr<arrow::DataType>> type_list)
       : ctx_(ctx) {
     // create a new result array type here
-    std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
-    std::vector<std::shared_ptr<arrow::Field>> field_list = {};
+    std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {nullptr};
+    std::vector<std::shared_ptr<arrow::Field>> field_list = {nullptr};
 
     gandiva::ExpressionPtr expr;
     int index = 0;
@@ -195,6 +195,7 @@ class HashArrayKernel::Impl {
       }
       index++;
     }
+    assert(func_node_list.size() > 0);
     expr = gandiva::TreeExprBuilder::MakeExpression(func_node_list[0],
                                                     arrow::field("res", arrow::int64()));
 #ifdef DEBUG
@@ -323,6 +324,7 @@ class CachedRelationKernel::Impl {
         result_schema_(result_schema),
         key_field_list_(key_field_list),
         result_type_(result_type) {
+    pool_ = ctx_->memory_pool();
     for (auto field : key_field_list) {
       auto indices = result_schema->GetAllFieldIndices(field->name());
       if (indices.size() != 1) {

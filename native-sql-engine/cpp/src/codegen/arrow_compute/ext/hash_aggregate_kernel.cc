@@ -1113,6 +1113,7 @@ HashAggregateKernel::HashAggregateKernel(
   impl_.reset(new Impl(ctx, input_field_list, action_list, result_field_node_list,
                        result_expr_node_list));
   kernel_name_ = "HashAggregateKernelKernel";
+  ctx_ = ctx;
 }
 #undef PROCESS_SUPPORTED_TYPES
 

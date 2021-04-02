@@ -277,8 +277,8 @@ class WholeStageCodeGenKernel::Impl {
       // process
       try {
         // compile codes
-        RETURN_NOT_OK(CompileCodes(codes, signature_));
-        RETURN_NOT_OK(LoadLibrary(signature_, ctx_, out));
+        arrow::Status s = CompileCodes(codes, signature_);
+        s = LoadLibrary(signature_, ctx_, out);
       } catch (const std::runtime_error& error) {
         FileSpinUnLock(file_lock);
         throw error;
@@ -310,7 +310,9 @@ class WholeStageCodeGenKernel::Impl {
         gandiva_projector_list_.push_back(codegen_ctx->gandiva_projector);
     }
     for (auto header : headers) {
-      codes_ss << header << std::endl;
+      if (!header.empty()) {
+        codes_ss << header << std::endl;
+      }
     }
 
     if (is_aggr_) {

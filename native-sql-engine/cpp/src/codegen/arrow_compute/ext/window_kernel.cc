@@ -388,7 +388,7 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
       std::shared_ptr<ArrayItemIndex> last_index = sorted_partition.at(j - 1);
       bool same = true;
       for (int column_id = 0; column_id < type_list_.size(); column_id++) {
-        bool s;
+        bool s = false;
         std::shared_ptr<arrow::DataType> type = type_list_.at(column_id);
         switch (type->id()) {
 #define PROCESS(InType, BUILDER_TYPE, ARRAY_TYPE)                               \
@@ -408,7 +408,7 @@ arrow::Status WindowRankKernel::Finish(ArrayList* out) {
           break;
         }
       }
-      if (same) {
+      if (same && rank_array[index->array_id] && rank_array[last_index->array_id]) {
         rank_array[index->array_id][index->id] =
             rank_array[last_index->array_id][last_index->id];
         continue;

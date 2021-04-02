@@ -1001,6 +1001,7 @@ class ConditionedProbeKernel::Impl {
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
         auto typed_key_array = std::dynamic_pointer_cast<arrow::Int32Array>(key_array);
+        assert(typed_key_array != nullptr);
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
@@ -1071,7 +1072,7 @@ class ConditionedProbeKernel::Impl {
           if (!do_unsafe_row) {
             index = fast_probe(i);
           } else {
-            unsafe_key_row->reset();
+            if(unsafe_key_row) {unsafe_key_row->reset();}
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }

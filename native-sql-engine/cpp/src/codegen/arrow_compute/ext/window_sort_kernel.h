@@ -93,11 +93,16 @@ class WindowSortKernel::Impl {
     auto file_lock = FileSpinLock();
     auto status = LoadLibrary(signature_, ctx_, &sorter);
     if (!status.ok()) {
+      try {
       // process
       auto codes = ProduceCodes(result_schema);
       // compile codes
-      RETURN_NOT_OK(CompileCodes(codes, signature_));
-      RETURN_NOT_OK(LoadLibrary(signature_, ctx_, &sorter));
+      auto s = CompileCodes(codes, signature_);
+      s = LoadLibrary(signature_, ctx_, &sorter);
+       } catch (const std::runtime_error& error) {
+        FileSpinUnLock(file_lock);
+        throw error;
+      }
     }
     FileSpinUnLock(file_lock);
     return arrow::Status::OK();

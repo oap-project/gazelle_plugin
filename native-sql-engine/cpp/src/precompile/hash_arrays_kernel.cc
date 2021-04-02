@@ -29,7 +29,7 @@ class HashArraysKernel::Impl {
        const std::vector<std::shared_ptr<arrow::Field>>& field_list)
       : pool_(pool) {
     int index = 0;
-    std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {};
+    std::vector<std::shared_ptr<gandiva::Node>> func_node_list = {nullptr};
     for (auto field : field_list) {
       auto field_node = gandiva::TreeExprBuilder::MakeField(field);
       auto func_node =
@@ -47,6 +47,7 @@ class HashArraysKernel::Impl {
       }
       index++;
     }
+    assert(func_node_list.size() > 0);
     auto expr = gandiva::TreeExprBuilder::MakeExpression(
         func_node_list[0], arrow::field("projection_key", arrow::int64()));
     schema_ = arrow::schema(field_list);

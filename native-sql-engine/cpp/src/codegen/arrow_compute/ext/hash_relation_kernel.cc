@@ -54,6 +54,7 @@ class HashRelationKernel::Impl {
        std::shared_ptr<gandiva::Node> root_node,
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
       : ctx_(ctx), input_field_list_(input_field_list) {
+    pool_ = ctx_->memory_pool();
     std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_list;
     for (auto field : input_field_list) {
       std::shared_ptr<HashRelationColumn> hash_relation_column;

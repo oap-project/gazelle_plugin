@@ -67,7 +67,7 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
 #endif
   }
 
-  ~ArrowComputeCodeGenerator() {
+  virtual ~ArrowComputeCodeGenerator() {
     expr_visitor_cache_.clear();
     visitor_list_.clear();
   }

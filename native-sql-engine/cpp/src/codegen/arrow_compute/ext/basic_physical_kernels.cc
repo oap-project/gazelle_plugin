@@ -178,7 +178,8 @@ class FilterKernel::Impl {
                                                &condition_node_visitor));
     codegen_ctx->process_codes += condition_node_visitor->GetPrepare();
     for (auto header : condition_node_visitor->GetHeaders()) {
-      if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
+      if (!header.empty() &&
+          std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                     header) == codegen_ctx->header_codes.end()) {
         codegen_ctx->header_codes.push_back(header);
       }
