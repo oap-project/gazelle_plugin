@@ -10,10 +10,41 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>spark-arrow-datasource-common</artifactId>
+    <properties>
+        <script.dir>${project.basedir}/script</script.dir>
+        <cpp_tests>OFF</cpp_tests>
+        <build_arrow>ON</build_arrow>
+        <static_arrow>OFF</static_arrow>
+        <arrow_root>/usr/local</arrow_root>
+    </properties>
     <build>
         <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
         <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
         <plugins>
+            <plugin>
+                <artifactId>exec-maven-plugin</artifactId>
+                <groupId>org.codehaus.mojo</groupId>
+                <version>1.6.0</version>
+                <executions>
+                    <execution>
+                    <id>Build arrow</id>
+                    <phase>generate-resources</phase>
+                    <goals>
+                        <goal>exec</goal>
+                    </goals>
+                    <configuration>
+                        <executable>bash</executable>
+                        <arguments>
+                            <argument>${script.dir}/build_arrow.sh</argument>
+                            <argument>--TESTS ${cpp_tests}</argument>
+                            <argument>--BUILD_ARROW ${build_arrow}</argument>
+                            <argument>--STATIC_ARROW ${static_arrow}</argument>
+                            <argument>--ARROW_ROOT ${arrow_root}</argument>
+                        </arguments>
+                    </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
