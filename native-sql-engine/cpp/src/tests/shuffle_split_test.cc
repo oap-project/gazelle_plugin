@@ -16,8 +16,8 @@
  */
 
 #include <arrow/compute/api.h>
-#include <arrow/io/api.h>
 #include <arrow/datum.h>
+#include <arrow/io/api.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/util.h>
 #include <arrow/record_batch.h>
@@ -125,8 +125,9 @@ class SplitterTest : public ::testing::Test {
     auto cntx = arrow::compute::ExecContext();
     std::shared_ptr<arrow::RecordBatch> res;
     ARROW_ASSIGN_OR_RAISE(
-      arrow::Datum result, arrow::compute::Take(arrow::Datum(input_batch),
-       arrow::Datum(take_idx), arrow::compute::TakeOptions{}, &cntx));
+        arrow::Datum result,
+        arrow::compute::Take(arrow::Datum(input_batch), arrow::Datum(take_idx),
+                             arrow::compute::TakeOptions{}, &cntx));
     return result.record_batch();
   }
 
