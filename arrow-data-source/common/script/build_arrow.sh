@@ -5,32 +5,28 @@ set -eu
 NPROC=$(nproc)
 
 TESTS=OFF
-BUILD_ARROW=ON
+BUILD_ARROW=OFF
 STATIC_ARROW=OFF
 ARROW_ROOT=/usr/local
 
 for arg in "$@"
 do
     case $arg in
-        -T|--TESTS)
-        TESTS=("$2")
+        -t=*|--tests=*)
+        TESTS=("${arg#*=}")
         shift # Remove argument name from processing
-        shift # Remove argument value from processing
         ;;
-        -A|--BUILD_ARROW)
-        BUILD_ARROW=("$2")
+        -a=*|--build_arrow=*)
+        BUILD_ARROW=("${arg#*=}")
         shift # Remove argument name from processing
-        shift # Remove argument value from processing
         ;;
-        -S|--STATIC_ARROW)
-        STATIC_ARROW=("$2")
+        -s=*|--static_arrow=*)
+        STATIC_ARROW=("${arg#*=}")
         shift # Remove argument name from processing
-        shift # Remove argument value from processing
         ;;
-        -AR|-ARROW_ROOT)
-        ARROW_ROOT=("$2")
+        -ar=*|--arrow_root=*)
+        ARROW_ROOT=("${arg#*=}")
         shift # Remove argument name from processing
-        shift # Remove argument value from processing
         ;;
         *)
         OTHER_ARGUMENTS+=("$1")
@@ -54,9 +50,10 @@ if [ -d build ]; then
 fi
 
 if [ $BUILD_ARROW == "ON" ]; then
+echo "Building Arrow from Source ..."
 mkdir build
 cd build
-ARROW_PREFIX="${CURRENT_DIR}/build"
+ARROW_PREFIX="${CURRENT_DIR}/build" # Use build directory as ARROW_PREFIX
 ARROW_SOURCE_DIR="${ARROW_PREFIX}/arrow_ep"
 ARROW_INSTALL_DIR="${ARROW_PREFIX}/arrow_install"
 
@@ -100,4 +97,8 @@ make install
 cd java        
 mvn clean install -P arrow-jni -am -Darrow.cpp.build.dir=${ARROW_INSTALL_DIR}/lib -DskipTests -Dcheckstyle.skip
 popd $ARROW_SOURCE_DIR
+echo "Finish to build Arrow from Source !!!"
+else
+echo "Use ARROW_ROOT as Arrow Library Path"
+echo "ARROW_ROOT=${ARROW_ROOT}"
 fi

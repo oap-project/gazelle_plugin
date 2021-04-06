@@ -13,7 +13,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_BUILD_TYPE  "Release")
 
-set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow root dir")
+set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow Root dir")
+set(ARROW_BFS_INSTALL_DIR "/usr/local" CACHE PATH "Arrow Build from Source dir")
 
 option(BUILD_ARROW "Build Arrow from Source" ON)
 option(STATIC_ARROW "Build Arrow with Static Libraries" OFF)
@@ -277,20 +278,22 @@ endmacro()
 
 # Find the existing Arrow library by using ARROW_RROT path
 macro(find_arrow)
+  set(ARROW_BUILD_FROM_SOURCE_LIB_DIR "${ARROW_BFS_INSTALL_DIR}/lib")
   set(ARROW_LIB_DIR "${ARROW_ROOT}/lib")
   set(ARROW_LIB64_DIR "${ARROW_ROOT}/lib64")
-  message(STATUS "Set Arrow Library Directory in ${ARROW_LIB_DIR} or ${ARROW_LIB64_DIR}")
+  message(STATUS "Set Arrow Library Directory in ${ARROW_BUILD_FROM_SOURCE_LIB_DIR} or ${ARROW_LIB_DIR} or ${ARROW_LIB64_DIR}")
+  set(ARROW_BUILD_FROM_SOURCE_INCLUDE_DIR "${ARROW_ROOT}/include")
   set(ARROW_INCLUDE_DIR "${ARROW_ROOT}/include")
-  message(STATUS "Set Arrow Include Directory in ${ARROW_INCLUDE_DIR}")
+  message(STATUS "Set Arrow Include Directory in ${ARROW_BUILD_FROM_SOURCE_INCLUDE_DIR} or ${ARROW_INCLUDE_DIR}")
 
-  find_library(ARROW_LIB NAMES libarrow.so.300 PATHS ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
+  find_library(ARROW_LIB NAMES libarrow.so.300 PATHS ${ARROW_BUILD_FROM_SOURCE_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
   if(NOT ARROW_LIB)
     message(FATAL_ERROR "Arrow Library Not Found")
   else()
     message(STATUS "Arrow Library Can Be Found in ${ARROW_LIB}")
   endif()
 
-  find_library(GANDIVA_LIB NAMES libgandiva.so.300 PATHS ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
+  find_library(GANDIVA_LIB NAMES libgandiva.so.300 PATHS ${ARROW_BUILD_FROM_SOURCE_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
   if(NOT GANDIVA_LIB)
     message(FATAL_ERROR "Gandiva Library Not Found")
   else()
@@ -304,7 +307,7 @@ macro(find_arrow)
 
   target_link_libraries(spark_columnar_jni
                       LINK_PUBLIC ${ARROW_LIB} ${GANDIVA_LIB})
-  target_include_directories(spark_columnar_jni PUBLIC ${ARROW_INCLUDE_DIR})
+  target_include_directories(spark_columnar_jni PUBLIC ${ARROW_INCLUDE_DIR} PUBLIC ${ARROW_BUILD_FROM_SOURCE_INCLUDE_DIR})
 endmacro()
 
 # Set up Proto
@@ -460,7 +463,7 @@ set_target_properties(spark_columnar_jni PROPERTIES
 )
 
 # Build Arrow
-message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
+#message(STATUS "Building ARROW from Source: ${BUILD_ARROW}")
 if(BUILD_ARROW)
   build_arrow(${STATIC_ARROW})
   message(STATUS "Building Static ARROW: ${STATIC_ARROW}")
