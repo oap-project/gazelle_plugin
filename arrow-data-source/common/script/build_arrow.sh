@@ -96,7 +96,7 @@ make install
 
 cd java        
 mvn clean install -P arrow-jni -am -Darrow.cpp.build.dir=${ARROW_INSTALL_DIR}/lib -DskipTests -Dcheckstyle.skip
-popd $ARROW_SOURCE_DIR
+popd
 echo "Finish to build Arrow from Source !!!"
 else
 echo "Use ARROW_ROOT as Arrow Library Path"
