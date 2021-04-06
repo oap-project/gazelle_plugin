@@ -377,12 +377,18 @@ class ColumnarHashAggregation(
   def getNewInputAttr(allAggregateResultAttributes: List[Attribute],
                       notFoundAttr: ListBuffer[Attribute],
                       foundAttr: ListBuffer[Attribute]): List[Attribute] = {
+    // This function replace the unfound attributes to those from result expressions.
     for (attr <- notFoundAttr) {
       for (inputAttr <- allAggregateResultAttributes) {
         if (attr.name.split('#')(0) == inputAttr.name.split('#')(0)) {
           foundAttr += attr
         }
       }
+    }
+    // If any attribute is still not found, an exception will be thrown.
+    if (existsAttrNotFound(foundAttr.toList)._1) {
+      throw new IllegalArgumentException(s"Attribute in resultExpressions " +
+        s"${resultExpressions} can't be found in input attributes: $foundAttr")
     }
     foundAttr.toList
   }
@@ -464,8 +470,9 @@ class ColumnarHashAggregation(
             CodeGeneration.getResultType(attr.dataType))
       })
 
-    // If all result expressions are Attribute, but some are not found in
-    // allAggregateResultAttributes
+    // If some Attributes in result expressions (contain attributes only) are not found
+    // in allAggregateResultAttributes, a new attribute list will be created
+    // or an exception will be thrown.
     val (notFound, notFoundAttr, foundAttr) =
       existsAttrNotFound(allAggregateResultAttributes)
     if (notFound) {

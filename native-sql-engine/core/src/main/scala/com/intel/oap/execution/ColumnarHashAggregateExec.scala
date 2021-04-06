@@ -109,7 +109,7 @@ case class ColumnarHashAggregateExec(
 
   val onlyResultExpressions: Boolean =
     if (groupingExpressions.isEmpty && aggregateExpressions.isEmpty &&
-        child.output.isEmpty && resultExpressions.nonEmpty) true
+      child.output.isEmpty && resultExpressions.nonEmpty) true
     else false
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
@@ -148,8 +148,13 @@ case class ColumnarHashAggregateExec(
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         var processed = false
+        /** Three special cases need to be handled in scala side:
+         * (1) count_literal (2) only result expressions (3) empty input
+         */
         var skip_native = false
-        var skip_num_row = 0
+        var onlyResExpr = false
+        var emptyInput = false
+        var count_num_row = 0
         def process: Unit = {
           while (iter.hasNext) {
             val cb = iter.next()
@@ -161,7 +166,7 @@ case class ColumnarHashAggregateExec(
                   aggregateExpressions.nonEmpty &&
                   aggregateExpressions.head.aggregateFunction.isInstanceOf[Count]) {
                 // This is a special case used by only do count literal
-                skip_num_row += cb.numRows
+                count_num_row += cb.numRows
                 skip_native = true
               } else {
                 val input_rb =
@@ -178,11 +183,13 @@ case class ColumnarHashAggregateExec(
           hasNextCount += 1
           if (!processed) process
           if (skip_native) {
-            skip_num_row > 0
+            count_num_row > 0
           } else if (onlyResultExpressions && hasNextCount == 1) {
+            onlyResExpr = true
             true
           } else if (!onlyResultExpressions && groupingExpressions.isEmpty &&
                      numRowsInput == 0 && hasNextCount == 1) {
+            emptyInput = true
             true
           } else {
             nativeIterator.hasNext
@@ -195,11 +202,10 @@ case class ColumnarHashAggregateExec(
           if (skip_native) {
             // special handling for only count literal in this operator
             getResForCountLiteral
-          } else if (onlyResultExpressions && hasNextCount == 1) {
+          } else if (onlyResExpr) {
             // special handling for only result expressions
             getResForOnlyResExpr
-          } else if (!onlyResultExpressions && groupingExpressions.isEmpty &&
-                     numRowsInput == 0 && hasNextCount == 1) {
+          } else if (emptyInput) {
             // special handling for empty input batch
             getResForEmptyInput
           } else {
@@ -222,12 +228,12 @@ case class ColumnarHashAggregateExec(
         def getResForCountLiteral: ColumnarBatch = {
           val resultColumnVectors =
             ArrowWritableColumnVector.allocateColumns(0, resultStructType)
-          if (skip_num_row == 0) {
+          if (count_num_row == 0) {
             new ColumnarBatch(
               resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
           } else {
-            val out_res = skip_num_row
-            skip_num_row = 0
+            val out_res = count_num_row
+            count_num_row = 0
             for (idx <- resultColumnVectors.indices) {
               resultColumnVectors(idx).dataType match {
                 case t: IntegerType =>
@@ -259,7 +265,8 @@ case class ColumnarHashAggregateExec(
           }
         }
         def getResForOnlyResExpr: ColumnarBatch = {
-          // fake input for projection
+          // This function has limited support for only-result-expression case.
+          // Fake input for projection:
           val inputColumnVectors =
             ArrowWritableColumnVector.allocateColumns(0, resultStructType)
           val valueVectors =
@@ -274,23 +281,24 @@ case class ColumnarHashAggregateExec(
           val resultColumnVectors =
             ArrowWritableColumnVector.allocateColumns(0, resultStructType)
           if (aggregateExpressions.isEmpty) {
+            // To align with spark, in this case, one empty row is returned.
             return new ColumnarBatch(
               resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
           }
+          // If groupby is not required, for Final mode, a default value will be
+          // returned if input is empty.
           var idx = 0
-          for (expIdx <- aggregateExpressions.indices) {
-            val mode = aggregateExpressions(expIdx).mode
-            val aggregateFunction = aggregateExpressions(expIdx).aggregateFunction
-            aggregateFunction match {
+          for (expr <- aggregateExpressions) {
+            expr.aggregateFunction match {
               case Average(_) | StddevSamp(_) | Sum(_) | Max(_) | Min(_) =>
-                mode match {
+                expr.mode match {
                   case Final =>
                     resultColumnVectors(idx).putNull(0)
                     idx += 1
                   case _ =>
                 }
               case Count(_) =>
-                mode match {
+                expr.mode match {
                   case Final =>
                     val out_res = 0
                     resultColumnVectors(idx).dataType match {
@@ -324,6 +332,7 @@ case class ColumnarHashAggregateExec(
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
           }
+          // will only put default value for Final mode
           aggregateExpressions.head.mode match {
             case Final =>
               new ColumnarBatch(
