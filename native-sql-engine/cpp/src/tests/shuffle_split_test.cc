@@ -124,8 +124,9 @@ class SplitterTest : public ::testing::Test {
 
     auto cntx = arrow::compute::ExecContext();
     std::shared_ptr<arrow::RecordBatch> res;
-    ARROW_ASSIGN_OR_RAISE(arrow::Datum result, arrow::compute::Take(arrow::Datum(input_batch), arrow::Datum(take_idx),
-                                          arrow::compute::TakeOptions{}, &cntx));
+    ARROW_ASSIGN_OR_RAISE(
+      arrow::Datum result, arrow::compute::Take(arrow::Datum(input_batch),
+       arrow::Datum(take_idx), arrow::compute::TakeOptions{}, &cntx));
     return result.record_batch();
   }
 
