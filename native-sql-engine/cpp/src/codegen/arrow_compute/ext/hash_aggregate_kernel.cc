@@ -377,7 +377,7 @@ class HashAggregateKernel::Impl {
           action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
                           << "_validity) {" << std::endl;
         } else {
-          // For action_count with mutiple-col input, will check the validity 
+          // For action_count with mutiple-col input, will check the validity
           // of all the input cols.
           action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
                           << "_validity";
@@ -385,7 +385,8 @@ class HashAggregateKernel::Impl {
             action_codes_ss << " && " << project_output_list[idx_v[i]].first.first
                             << "_validity";
           }
-          action_codes_ss << " && " << project_output_list[idx_v[idx_v.size() - 1]].first.first
+          action_codes_ss << " && "
+                          << project_output_list[idx_v[idx_v.size() - 1]].first.first
                           << "_validity) {" << std::endl;
         }
       }
@@ -395,8 +396,8 @@ class HashAggregateKernel::Impl {
           parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
         }
       } else {
-        // For action_count, only the first col will be used as input to Evaluate function, 
-        // in which it will not be used.
+        // For action_count, only the first col will be used as input to Evaluate
+        // function, in which it will not be used.
         parameter_list.push_back("(void*)&" + project_output_list[idx_v[0]].first.first);
       }
       action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx

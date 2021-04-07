@@ -3830,7 +3830,8 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
 TEST(TestArrowComputeWSCG, WSCGTestCountOnMutipleCols) {
   auto f0 = field("f0", utf8());
   auto f1 = field("f1", utf8());
-  auto f2 = field("f2", utf8());;
+  auto f2 = field("f2", utf8());
+  ;
   auto f_unique = field("unique", utf8());
   auto f_count = field("count", int64());
   auto f_res = field("res", uint32());
@@ -3841,10 +3842,10 @@ TEST(TestArrowComputeWSCG, WSCGTestCountOnMutipleCols) {
 
   auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
   auto n_count = TreeExprBuilder::MakeFunction("action_count", {arg1, arg2}, uint32());
-  auto n_proj = TreeExprBuilder::MakeFunction(
-      "aggregateExpressions", {arg0, arg1, arg2}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_groupby, n_count}, uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1, arg2}, uint32());
+  auto n_action =
+      TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby, n_count}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_count)},
@@ -3878,25 +3879,21 @@ TEST(TestArrowComputeWSCG, WSCGTestCountOnMutipleCols) {
   aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
       aggr_result_iterator_base);
 
-  std::vector<std::string> input_data = {
-      R"(["a", "a", "a", "x", "x"])",
-      R"(["b", "b", "b", "y", "q"])",
-      R"([null, "c", "d", "z", null])"};
+  std::vector<std::string> input_data = {R"(["a", "a", "a", "x", "x"])",
+                                         R"(["b", "b", "b", "y", "q"])",
+                                         R"([null, "c", "d", "z", null])"};
   MakeInputBatch(input_data, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
-  std::vector<std::string> input_data_2 = {
-      R"(["b", "a", "b", "a", "x"])",
-      R"(["b", "b", "b", null, "q"])",
-      R"(["c", null, "d", "z", null])"};
+  std::vector<std::string> input_data_2 = {R"(["b", "a", "b", "a", "x"])",
+                                           R"(["b", "b", "b", null, "q"])",
+                                           R"(["c", null, "d", "z", null])"};
   MakeInputBatch(input_data_2, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-  std::vector<std::string> expected_result_string = {
-      R"(["a", "x", "b"])",
-      "[2, 1, 2]"};
+  std::vector<std::string> expected_result_string = {R"(["a", "x", "b"])", "[2, 1, 2]"};
   MakeInputBatch(expected_result_string, arrow::schema(ret_types), &expected_result);
   if (aggr_result_iterator->HasNext()) {
     ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));

@@ -18,6 +18,7 @@
 #pragma once
 #include <arrow/memory_pool.h>
 #include <arrow/status.h>
+
 #include <cmath>
 
 #include "sparsehash/dense_hash_map"

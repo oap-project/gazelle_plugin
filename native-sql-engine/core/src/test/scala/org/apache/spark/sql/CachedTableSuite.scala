@@ -1048,7 +1048,6 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     val (c0, v1, v2) = (queryAttrs(0), queryAttrs(1), queryAttrs(2))
 
     // Analyzes one column in the query output
-    logInfo(s"get: ${cachedData.get}")
     cacheManager.analyzeColumnCacheQuery(spark, cachedData.get, v1 :: Nil)
     val queryStats2 = query().queryExecution.optimizedPlan.stats.attributeStats
     assert(queryStats2.map(_._1.name).toSet === Set("v1"))

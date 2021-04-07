@@ -114,7 +114,6 @@ case class ColumnarHashAggregateExec(
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     var eval_elapse: Long = 0
-
     child.executeColumnar().mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
       val native_function = TreeBuilder.makeFunction(
