@@ -791,42 +791,42 @@ class DataFrameAggregateSuite extends QueryTest
     checkAnswer(
       Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f").groupBy("f").count(),
       Row(0.0f, 2) :: Row(Float.NaN, 2) :: Nil)
-//    checkAnswer(
-//      Seq(0.0d, -0.0d, 0.0d/0.0d, Double.NaN).toDF("d").groupBy("d").count(),
-//      Row(0.0d, 2) :: Row(Double.NaN, 2) :: Nil)
+    checkAnswer(
+      Seq(0.0d, -0.0d, 0.0d/0.0d, Double.NaN).toDF("d").groupBy("d").count(),
+      Row(0.0d, 2) :: Row(Double.NaN, 2) :: Nil)
 
-//    // test with complicated type grouping expressions
-//    checkAnswer(
-//      Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f")
-//        .groupBy(array("f"), struct("f")).count(),
-//      Row(Seq(0.0f), Row(0.0f), 2) ::
-//        Row(Seq(Float.NaN), Row(Float.NaN), 2) :: Nil)
-//    checkAnswer(
-//      Seq(0.0d, -0.0d, 0.0d/0.0d, Double.NaN).toDF("d")
-//        .groupBy(array("d"), struct("d")).count(),
-//      Row(Seq(0.0d), Row(0.0d), 2) ::
-//        Row(Seq(Double.NaN), Row(Double.NaN), 2) :: Nil)
-//
-//    checkAnswer(
-//      Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f")
-//        .groupBy(array(struct("f")), struct(array("f"))).count(),
-//      Row(Seq(Row(0.0f)), Row(Seq(0.0f)), 2) ::
-//        Row(Seq(Row(Float.NaN)), Row(Seq(Float.NaN)), 2) :: Nil)
-//    checkAnswer(
-//      Seq(0.0d, -0.0d, 0.0d/0.0d, Double.NaN).toDF("d")
-//        .groupBy(array(struct("d")), struct(array("d"))).count(),
-//      Row(Seq(Row(0.0d)), Row(Seq(0.0d)), 2) ::
-//        Row(Seq(Row(Double.NaN)), Row(Seq(Double.NaN)), 2) :: Nil)
-//
-//    // test with complicated type grouping columns
-//    val df = Seq(
-//      (Array(-0.0f, 0.0f), Tuple2(-0.0d, Double.NaN), Seq(Tuple2(-0.0d, Double.NaN))),
-//      (Array(0.0f, -0.0f), Tuple2(0.0d, Double.NaN), Seq(Tuple2(0.0d, 0.0/0.0)))
-//    ).toDF("arr", "stru", "arrOfStru")
-//    checkAnswer(
-//      df.groupBy("arr", "stru", "arrOfStru").count(),
-//      Row(Seq(0.0f, 0.0f), Row(0.0d, Double.NaN), Seq(Row(0.0d, Double.NaN)), 2)
-//    )
+    // test with complicated type grouping expressions
+    checkAnswer(
+      Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f")
+        .groupBy(array("f"), struct("f")).count(),
+      Row(Seq(0.0f), Row(0.0f), 2) ::
+        Row(Seq(Float.NaN), Row(Float.NaN), 2) :: Nil)
+    checkAnswer(
+      Seq(0.0d, -0.0d, 0.0d/0.0d, Double.NaN).toDF("d")
+        .groupBy(array("d"), struct("d")).count(),
+      Row(Seq(0.0d), Row(0.0d), 2) ::
+        Row(Seq(Double.NaN), Row(Double.NaN), 2) :: Nil)
+
+    checkAnswer(
+      Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f")
+        .groupBy(array(struct("f")), struct(array("f"))).count(),
+      Row(Seq(Row(0.0f)), Row(Seq(0.0f)), 2) ::
+        Row(Seq(Row(Float.NaN)), Row(Seq(Float.NaN)), 2) :: Nil)
+    checkAnswer(
+      Seq(0.0d, -0.0d, 0.0d/0.0d, Double.NaN).toDF("d")
+        .groupBy(array(struct("d")), struct(array("d"))).count(),
+      Row(Seq(Row(0.0d)), Row(Seq(0.0d)), 2) ::
+        Row(Seq(Row(Double.NaN)), Row(Seq(Double.NaN)), 2) :: Nil)
+
+    // test with complicated type grouping columns
+    val df = Seq(
+      (Array(-0.0f, 0.0f), Tuple2(-0.0d, Double.NaN), Seq(Tuple2(-0.0d, Double.NaN))),
+      (Array(0.0f, -0.0f), Tuple2(0.0d, Double.NaN), Seq(Tuple2(0.0d, 0.0/0.0)))
+    ).toDF("arr", "stru", "arrOfStru")
+    checkAnswer(
+      df.groupBy("arr", "stru", "arrOfStru").count(),
+      Row(Seq(0.0f, 0.0f), Row(0.0d, Double.NaN), Seq(Row(0.0d, Double.NaN)), 2)
+    )
   }
 
   test("SPARK-27581: DataFrame countDistinct(\"*\") shouldn't fail with AnalysisException") {
