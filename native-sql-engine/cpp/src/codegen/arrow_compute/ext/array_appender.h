@@ -585,6 +585,7 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
                        &array_builder);
     builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+    string_len_ = 0;
   }
   ~UnsafeArrayAppender() {}
 
@@ -605,9 +606,23 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   arrow::Status Append(const uint16_t& array_id, const uint16_t& item_id) override {
     if (has_null_ && cached_arr_[array_id]->null_count() > 0 &&
         cached_arr_[array_id]->IsNull(item_id)) {
-      RETURN_NOT_OK(builder_->AppendNull());
+      if (init_) {
+builder_->UnsafeAppendNull();
+      } else {
+RETURN_NOT_OK(builder_->AppendNull());
+      }
+      
     } else {
-      RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item_id)));
+      auto str = cached_arr_[array_id]->GetView(item_id);
+      if (init_) {
+        builder_->UnsafeAppend(str);
+      } else {
+      if(str.length() > string_len_) {
+        string_len_ = str.length();
+      }
+      RETURN_NOT_OK(builder_->Append(str));
+      }
+
     }
     return arrow::Status::OK();
   }
@@ -647,12 +662,17 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   }
 
   arrow::Status Reserve(uint64_t len) override {
-    // builder_->Reserve(len);
+    if (init_) {
+      builder_->Reserve(len);
+      builder_->ReserveData(len*string_len_);
+    }
+    
     return arrow::Status::OK();
   }
 
   arrow::Status Reset() override {
     builder_->Reset();
+    string_len_ = 0;
     return arrow::Status::OK();
   }
 
@@ -663,6 +683,8 @@ class UnsafeArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
   arrow::compute::ExecContext* ctx_;
   AppenderType type_;
+  size_t string_len_;
+  bool init_;
   bool has_null_ = false;
 };
 
