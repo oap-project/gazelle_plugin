@@ -141,6 +141,7 @@ macro(build_arrow STATIC_ARROW)
                       -DARROW_GANDIVA_JAVA=ON
                       -DARROW_GANDIVA=ON
                       -DARROW_PARQUET=ON
+                      -DARROW_CSV=ON
                       -DARROW_HDFS=ON
                       -DARROW_BOOST_USE_SHARED=OFF
                       -DARROW_JNI=ON
