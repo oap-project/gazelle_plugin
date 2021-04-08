@@ -83,6 +83,7 @@ cmake ./cpp \
         -DARROW_WITH_FASTPFOR=ON \
         -DARROW_FILESYSTEM=ON \
         -DARROW_JSON=ON \
+        -DARROW_CSV=ON \
         -DARROW_FLIGHT=OFF \
         -DARROW_JEMALLOC=ON \
         -DARROW_SIMD_LEVEL=AVX2 \
