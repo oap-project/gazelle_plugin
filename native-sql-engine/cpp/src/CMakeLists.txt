@@ -267,7 +267,7 @@ macro(find_arrow)
   set(ARROW_LIB_DIR "${ARROW_ROOT}/lib")
   set(ARROW_LIB64_DIR "${ARROW_ROOT}/lib64")
   message(STATUS "Set Arrow Library Directory in ${ARROW_BFS_LIB_DIR} or ${ARROW_LIB_DIR} or ${ARROW_LIB64_DIR}")
-  set(ARROW_BFS_INCLUDE_DIR "${ARROW_ROOT}/include")
+  set(ARROW_BFS_INCLUDE_DIR "${ARROW_BFS_INSTALL_DIR}/include")
   set(ARROW_INCLUDE_DIR "${ARROW_ROOT}/include")
   message(STATUS "Set Arrow Include Directory in ${ARROW_BFS_INCLUDE_DIR} or ${ARROW_INCLUDE_DIR}")
 
