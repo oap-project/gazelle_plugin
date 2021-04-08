@@ -344,11 +344,7 @@ class ColumnarHashAggregation(
     aggregateAttr.toList
   }
 
-  def existsAttrNotFound(allAggregateResultAttributes: List[Attribute])
-    : (Boolean, ListBuffer[Attribute], ListBuffer[Attribute]) = {
-    var notFoundInInput = false
-    var notFoundAttr = new ListBuffer[Attribute]()
-    var foundAttr = new ListBuffer[Attribute]()
+  def existsAttrNotFound(allAggregateResultAttributes: List[Attribute]): Unit = {
     if (resultExpressions.size == allAggregateResultAttributes.size) {
       var resAllAttr = true
       breakable {
@@ -363,34 +359,12 @@ class ColumnarHashAggregation(
         for (attr <- resultExpressions) {
           if (allAggregateResultAttributes
               .indexOf(attr.asInstanceOf[AttributeReference]) == -1) {
-            notFoundInInput = true
-            notFoundAttr += attr.asInstanceOf[AttributeReference]
-          } else {
-            foundAttr += attr.asInstanceOf[AttributeReference]
+            throw new IllegalArgumentException(
+              s"$attr in resultExpressions is not found in allAggregateResultAttributes!")
           }
         }
       }
     }
-    (notFoundInInput, notFoundAttr, foundAttr)
-  }
-
-  def getNewInputAttr(allAggregateResultAttributes: List[Attribute],
-                      notFoundAttr: ListBuffer[Attribute],
-                      foundAttr: ListBuffer[Attribute]): List[Attribute] = {
-    // This function replace the unfound attributes to those from result expressions.
-    for (attr <- notFoundAttr) {
-      for (inputAttr <- allAggregateResultAttributes) {
-        if (attr.name.split('#')(0) == inputAttr.name.split('#')(0)) {
-          foundAttr += attr
-        }
-      }
-    }
-    // If any attribute is still not found, an exception will be thrown.
-    if (existsAttrNotFound(foundAttr.toList)._1) {
-      throw new IllegalArgumentException(s"Attribute in resultExpressions " +
-        s"${resultExpressions} can't be found in input attributes: $foundAttr")
-    }
-    foundAttr.toList
   }
 
   def prepareKernelFunction: TreeNode = {
@@ -462,7 +436,7 @@ class ColumnarHashAggregation(
       groupingAttributes.toList ::: getAttrForAggregateExpr(
         aggregateExpressions,
         aggregateAttributes)
-    var aggregateAttributeFieldList =
+    val aggregateAttributeFieldList =
       allAggregateResultAttributes.map(attr => {
         Field
           .nullable(
@@ -471,21 +445,8 @@ class ColumnarHashAggregation(
       })
 
     // If some Attributes in result expressions (contain attributes only) are not found
-    // in allAggregateResultAttributes, a new attribute list will be created
-    // or an exception will be thrown.
-    val (notFound, notFoundAttr, foundAttr) =
-      existsAttrNotFound(allAggregateResultAttributes)
-    if (notFound) {
-      val newResAttrList =
-        getNewInputAttr(allAggregateResultAttributes, notFoundAttr, foundAttr)
-      aggregateAttributeFieldList =
-        newResAttrList.map(attr => {
-          Field
-            .nullable(
-              s"${attr.name}#${attr.exprId.id}",
-              CodeGeneration.getResultType(attr.dataType))
-        })
-    }
+    // in allAggregateResultAttributes, an exception will be thrown.
+    existsAttrNotFound(allAggregateResultAttributes)
 
     val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
 

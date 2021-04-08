@@ -40,8 +40,6 @@ class ActionBase {
  public:
   virtual ~ActionBase() {}
 
-  virtual int RequiredColNum() { return 1; }
-
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
                                std::function<arrow::Status(int)>* on_valid,
                                std::function<arrow::Status()>* on_null);

@@ -59,7 +59,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
 
   val absTol = 1e-8
 
-  ignore("groupBy") {
+  test("groupBy") {
     checkAnswer(
       testData2.groupBy("a").agg(sum($"b")),
       Seq(Row(1, 3), Row(2, 3), Row(3, 3))
@@ -127,7 +127,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-18952: regexes fail codegen when used as keys due to bad forward-slash escapes") {
+  test("SPARK-18952: regexes fail codegen when used as keys due to bad forward-slash escapes") {
     val df = Seq(("some[thing]", "random-string")).toDF("key", "val")
 
     checkAnswer(
@@ -149,7 +149,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("cube") {
+  test("cube") {
     checkAnswer(
       courseSales.cube("course", "year").sum("earnings"),
       Row("Java", 2012, 20000.0) ::
@@ -173,7 +173,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     assert(cube0.where("date IS NULL").count > 0)
   }
 
-  ignore("grouping and grouping_id") {
+  test("grouping and grouping_id") {
     checkAnswer(
       courseSales.cube("course", "year")
         .agg(grouping("course"), grouping("year"), grouping_id("course", "year")),
@@ -211,7 +211,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("grouping/grouping_id inside window function") {
+  test("grouping/grouping_id inside window function") {
 
     val w = Window.orderBy(sum("earnings"))
     checkAnswer(
@@ -231,7 +231,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-21980: References in grouping functions should be indexed with semanticEquals") {
+  test("SPARK-21980: References in grouping functions should be indexed with semanticEquals") {
     checkAnswer(
       courseSales.cube("course", "year")
         .agg(grouping("CouRse"), grouping("year")),
@@ -302,14 +302,14 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("agg without groups and functions") {
+  test("agg without groups and functions") {
     checkAnswer(
       testData2.agg(lit(1)),
       Row(1)
     )
   }
 
-  ignore("average") {
+  test("average") {
     checkAnswer(
       testData2.agg(avg($"a"), mean($"a")),
       Row(2.0, 2.0))
@@ -350,7 +350,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
       Row(2.0, 2.0))
   }
 
-  ignore("zero average") {
+  test("zero average") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(avg($"a")),
@@ -369,7 +369,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
       Row(6, 6.0))
   }
 
-  ignore("null count") {
+  test("null count") {
     checkAnswer(
       testData3.groupBy($"a").agg(count($"b")),
       Seq(Row(1, 0), Row(2, 1))
@@ -392,7 +392,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("multiple column distinct count") {
+  test("multiple column distinct count") {
     val df1 = Seq(
       ("a", "b", "c"),
       ("a", "b", "c"),
@@ -417,14 +417,14 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("zero count") {
+  test("zero count") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(count($"a"), sumDistinct($"a")), // non-partial
       Row(0, null))
   }
 
-  ignore("stddev") {
+  test("stddev") {
     val testData2ADev = math.sqrt(4.0 / 5.0)
     checkAnswer(
       testData2.agg(stddev($"a"), stddev_pop($"a"), stddev_samp($"a")),
@@ -434,28 +434,28 @@ class TravisDataFrameAggregateSuite extends QueryTest
       Row(testData2ADev, math.sqrt(4 / 6.0), testData2ADev))
   }
 
-  ignore("zero stddev") {
+  test("zero stddev") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
-    emptyTableData.agg(stddev($"a"), stddev_pop($"a"), stddev_samp($"a")),
-    Row(null, null, null))
+      emptyTableData.agg(stddev($"a"), stddev_pop($"a"), stddev_samp($"a")),
+      Row(null, null, null))
   }
 
-  ignore("zero sum") {
+  test("zero sum") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(sum($"a")),
       Row(null))
   }
 
-  ignore("zero sum distinct") {
+  test("zero sum distinct") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(sumDistinct($"a")),
       Row(null))
   }
 
-  ignore("moments") {
+  test("moments") {
 
     val sparkVariance = testData2.agg(variance($"a"))
     checkAggregatesWithTol(sparkVariance, Row(4.0 / 5.0), absTol)
@@ -473,7 +473,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     checkAggregatesWithTol(sparkKurtosis, Row(-1.5), absTol)
   }
 
-  ignore("zero moments") {
+  test("zero moments") {
     val input = Seq((1, 2)).toDF("a", "b")
     checkAnswer(
       input.agg(stddev($"a"), stddev_samp($"a"), stddev_pop($"a"), variance($"a"),
@@ -495,7 +495,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
         Double.NaN, Double.NaN))
   }
 
-  ignore("null moments") {
+  test("null moments") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(emptyTableData.agg(
       variance($"a"), var_samp($"a"), var_pop($"a"), skewness($"a"), kurtosis($"a")),
@@ -547,7 +547,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-31500: collect_set() of BinaryType returns duplicate elements") {
+  test("SPARK-31500: collect_set() of BinaryType returns duplicate elements") {
     val bytesTest1 = "test1".getBytes
     val bytesTest2 = "test2".getBytes
     val df = Seq(bytesTest1, bytesTest1, bytesTest2).toDF("a")
@@ -593,7 +593,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
       Seq(Row(Seq(1.0, 2.0))))
   }
 
-  ignore("SPARK-14664: Decimal sum/avg over window should work.") {
+  test("SPARK-14664: Decimal sum/avg over window should work.") {
     checkAnswer(
       spark.sql("select sum(a) over () from values 1.0, 2.0, 3.0 T(a)"),
       Row(6.0) :: Row(6.0) :: Row(6.0) :: Nil)
@@ -602,7 +602,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
       Row(2.0) :: Row(2.0) :: Row(2.0) :: Nil)
   }
 
-  ignore("SQL decimal test (used for catching certain decimal handling bugs in aggregates)") {
+  test("SQL decimal test (used for catching certain decimal handling bugs in aggregates)") {
     checkAnswer(
       decimalData.groupBy($"a" cast DecimalType(10, 2)).agg(avg($"b" cast DecimalType(10, 2))),
       Seq(Row(new java.math.BigDecimal(1), new java.math.BigDecimal("1.5")),
@@ -626,7 +626,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
       limit2Df.select($"id"))
   }
 
-  ignore("SPARK-17237 remove backticks in a pivot result schema") {
+  test("SPARK-17237 remove backticks in a pivot result schema") {
     val df = Seq((2, 3, 4), (3, 4, 5)).toDF("a", "x", "y")
     withSQLConf(SQLConf.SUPPORT_QUOTED_REGEX_COLUMN_NAME.key -> "false") {
       checkAnswer(
@@ -645,7 +645,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
 
   private def assertNoExceptions(c: Column): Unit = {
     for ((wholeStage, useObjectHashAgg) <-
-         Seq((true, true), (true, false), (false, true), (false, false))) {
+           Seq((true, true), (true, false), (false, true), (false, false))) {
       withSQLConf(
         (SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key, wholeStage.toString),
         (SQLConf.USE_OBJECT_HASH_AGG.key, useObjectHashAgg.toString)) {
@@ -679,7 +679,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-19471: AggregationIterator does not initialize the generated result projection" +
+  test("SPARK-19471: AggregationIterator does not initialize the generated result projection" +
     " before using it") {
     Seq(
       monotonically_increasing_id(), spark_partition_id(),
@@ -732,8 +732,6 @@ class TravisDataFrameAggregateSuite extends QueryTest
     }
   }
 
-  //TODO: failed ut
-  /*
   testWithWholeStageCodegenOnAndOff("SPARK-22951: dropDuplicates on empty dataFrames " +
     "should produce correct aggregate") { _ =>
     // explicit global aggregations
@@ -748,7 +746,6 @@ class TravisDataFrameAggregateSuite extends QueryTest
     // global aggregation is converted to grouping aggregation:
     assert(spark.emptyDataFrame.dropDuplicates().count() == 0)
   }
-   */
 
   test("SPARK-21896: Window functions inside aggregate functions") {
     def checkWindowError(df: => DataFrame): Unit = {
@@ -790,7 +787,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
         "type: GroupBy]"))
   }
 
-  ignore("SPARK-26021: NaN and -0.0 in grouping expressions") {
+  test("SPARK-26021: NaN and -0.0 in grouping expressions") {
     checkAnswer(
       Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f").groupBy("f").count(),
       Row(0.0f, 2) :: Row(Float.NaN, 2) :: Nil)
@@ -842,7 +839,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     checkAnswer(countAndDistinct, Row(100000, 100))
   }
 
-  ignore("max_by") {
+  test("max_by") {
     val yearOfMaxEarnings =
       sql("SELECT course, max_by(year, earnings) FROM courseSales GROUP BY course")
     checkAnswer(yearOfMaxEarnings, Row("dotNET", 2013) :: Row("Java", 2013) :: Nil)
@@ -898,7 +895,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("min_by") {
+  test("min_by") {
     val yearOfMinEarnings =
       sql("SELECT course, min_by(year, earnings) FROM courseSales GROUP BY course")
     checkAnswer(yearOfMinEarnings, Row("dotNET", 2012) :: Row("Java", 2012) :: Nil)
@@ -954,7 +951,7 @@ class TravisDataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("count_if") {
+  test("count_if") {
     withTempView("tempView") {
       Seq(("a", None), ("a", Some(1)), ("a", Some(2)), ("a", Some(3)),
         ("b", None), ("b", Some(4)), ("b", Some(5)), ("b", Some(6)))
