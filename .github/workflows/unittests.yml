@@ -97,7 +97,7 @@ jobs:
       - name: Run unit tests
         run: |
           cd arrow-data-source
-          mvn clean install -DskipTests
+          mvn clean install -DskipTests -Dbuild_arrow=OFF
           cd ..
           mvn clean package -am -pl native-sql-engine/core -DskipTests -Dbuild_arrow=OFF
           cd native-sql-engine/core/
