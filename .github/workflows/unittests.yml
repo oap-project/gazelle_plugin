@@ -96,6 +96,7 @@ jobs:
           mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
       - name: Run unit tests
         run: |
+          mvn clean install -N
           cd arrow-data-source
           mvn clean install -DskipTests -Dbuild_arrow=OFF
           cd ..
