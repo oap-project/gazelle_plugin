@@ -36,21 +36,50 @@ class ColumnarPluginConfig(conf: SQLConf) {
   // for all operators
   val enableCpu = getCpu()
   
+  // enable or disable columnar batchscan
+  val enableColumnarBatchScan: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.batchscan", "true").toBoolean && enableCpu
+
+  // enable or disable columnar hashagg
+  val enableColumnarHashAgg: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.hashagg", "true").toBoolean && enableCpu
+
+  // enable or disable columnar project and filter
+  val enableColumnarProjFilter: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.projfilter", "true").toBoolean && enableCpu
+
   // enable or disable columnar sort
   val enableColumnarSort: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.sort", "false").toBoolean && enableCpu
+    conf.getConfString("spark.oap.sql.columnar.sort", "true").toBoolean && enableCpu
   
   // enable or disable codegen columnar sort
   val enableColumnarCodegenSort: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.codegen.sort", "true").toBoolean && enableCpu
+    conf.getConfString("spark.oap.sql.columnar.codegen.sort", "true").toBoolean && enableColumnarSort
 
   // enable or disable columnar window  
   val enableColumnarWindow: Boolean =
     conf.getConfString("spark.oap.sql.columnar.window", "true").toBoolean && enableCpu
+  
+  // enable or disable columnar shuffledhashjoin
+  val enableColumnarShuffledHashJoin: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.shuffledhashjoin", "true").toBoolean && enableCpu
 
   // enable or disable columnar sortmergejoin
+  // this should be set with preferSortMergeJoin=false
   val enableColumnarSortMergeJoin: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "false").toBoolean && enableCpu
+    conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "true").toBoolean && enableCpu
+
+  // enable or disable columnar union  
+  val enableColumnarUnion: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.union", "true").toBoolean && enableCpu
+
+  // enable or disable columnar expand
+  val enableColumnarExpand: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.expand", "true").toBoolean && enableCpu
+
+  // enable or disable columnar broadcastexchange
+  val enableColumnarBroadcastExchange: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.broadcastexchange", "true").toBoolean && enableCpu
 
   // enable or disable NAN check  
   val enableColumnarNaNCheck: Boolean =
