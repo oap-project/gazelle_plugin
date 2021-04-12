@@ -224,6 +224,9 @@ case class ColumnarCollapseCodegenStages(
       case p: ColumnarConditionProjectExec
           if (containsSubquery(p.condition) || containsSubquery(p.projectList)) =>
         new ColumnarInputAdapter(p.withNewChildren(p.children.map(insertWholeStageCodegen)))
+      case p: ColumnarConditionProjectExec
+          if (p.child.isInstanceOf[ColumnarWindowExec]) =>
+        new ColumnarInputAdapter(p.withNewChildren(p.children.map(insertWholeStageCodegen)))
       case j: ColumnarSortMergeJoinExec
           if j.buildPlan.isInstanceOf[ColumnarSortMergeJoinExec] || (j.buildPlan
             .isInstanceOf[ColumnarConditionProjectExec] && j.buildPlan
