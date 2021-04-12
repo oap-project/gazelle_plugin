@@ -745,7 +745,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
   }
 
   test("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
-    withSQLConf(("spark.oap.sql.columnar.testing", "true")) {
+    withSQLConf(("spark.oap.sql.columnar.batchscan", "true")) {
       withTempPath { dir =>
         val data = sparkContext.parallelize(0 to 10).toDF("id")
         data.write.parquet(dir.getCanonicalPath)
