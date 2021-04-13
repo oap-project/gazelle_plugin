@@ -1,7 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <parent>
+    <groupId>com.intel.oap</groupId>
+    <artifactId>native-sql-engine-parent</artifactId>
+    <version>1.1.0</version>
+  </parent>  
+
   <modelVersion>4.0.0</modelVersion>
-
-
   <groupId>com.intel.oap</groupId>
   <artifactId>spark-arrow-datasource</artifactId>
   <name>OAP Project Spark Arrow Datasource</name>
@@ -20,6 +24,11 @@
     <arrow.version>3.0.0</arrow.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <script.dir>${arrow.script.dir}</script.dir>
+    <datasource.cpp_tests>${cpp_tests}</datasource.cpp_tests>
+    <datasource.build_arrow>${build_arrow}</datasource.build_arrow>
+    <datasource.static_arrow>${static_arrow}</datasource.static_arrow>
+    <datasource.arrow_root>${arrow_root}</datasource.arrow_root>
   </properties>
 
   <repositories>
