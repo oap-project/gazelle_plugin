@@ -52,6 +52,15 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
   val enableColumnarSort = columnarConf.enableColumnarSort
   val enableColumnarWindow = columnarConf.enableColumnarWindow
   val enableColumnarSortMergeJoin = columnarConf.enableColumnarSortMergeJoin
+  val enableColumnarBatchScan = columnarConf.enableColumnarBatchScan
+  val enableColumnarProjFilter = columnarConf.enableColumnarProjFilter
+  val enableColumnarHashAgg = columnarConf.enableColumnarHashAgg
+  val enableColumnarUnion = columnarConf.enableColumnarUnion
+  val enableColumnarExpand = columnarConf.enableColumnarExpand
+  val enableColumnarShuffledHashJoin = columnarConf.enableColumnarShuffledHashJoin
+  val enableColumnarBroadcastExchange = columnarConf.enableColumnarBroadcastExchange
+  val enableColumnarBroadcastJoin = columnarConf.enableColumnarBroadcastJoin
+  
   val testing = columnarConf.isTesting
 
   private def tryConvertToColumnar(plan: SparkPlan): Boolean = {
