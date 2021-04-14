@@ -18,6 +18,7 @@
 package com.intel.oap
 
 import org.apache.spark.SparkConf
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.internal.SQLConf
 
 case class ColumnarNumaBindingInfo(
@@ -25,12 +26,18 @@ case class ColumnarNumaBindingInfo(
     totalCoreRange: Array[String] = null,
     numCoresPerExecutor: Int = -1) {}
 
-class ColumnarPluginConfig(conf: SQLConf) {
-  def getCpu():Boolean = {
+class ColumnarPluginConfig(conf: SQLConf) extends Logging {
+  def getCpu(): Boolean = {
     val source = scala.io.Source.fromFile("/proc/cpuinfo")
     val lines = try source.mkString finally source.close()
     //TODO(): check CPU flags to enable/disable AVX512
-    lines.contains("GenuineIntel")
+    if (lines.contains("GenuineIntel")) {
+      return true
+    } else {
+      //System.out.println(actualSchemaRoot.getRowCount());
+      logWarning("running on non-intel CPU, disable all columnar operators")
+      return false
+    }
   }
 
   // for all operators
