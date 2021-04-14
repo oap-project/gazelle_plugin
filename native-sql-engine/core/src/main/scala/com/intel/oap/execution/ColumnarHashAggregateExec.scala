@@ -387,7 +387,7 @@ case class ColumnarHashAggregateExec(
       val aggregateFunction = expr.aggregateFunction
       aggregateFunction match {
         case Average(_) | Sum(_) | Count(_) | Max(_) | Min(_) =>
-        case StddevSamp(_) =>
+        case StddevSamp(_, _) =>
           mode match {
             case Partial | Final =>
             case other =>

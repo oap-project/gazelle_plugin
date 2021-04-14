@@ -180,7 +180,7 @@ class ColumnarHashAggregation(
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
           TreeBuilder.makeFunction("action_min", childrenColumnarFuncNodeList.asJava, resultType)
-        case StddevSamp(_) =>
+        case StddevSamp(_,_) =>
           mode match {
             case Partial =>
               val childrenColumnarFuncNodeList =
@@ -316,7 +316,7 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-        case StddevSamp(_) =>
+        case StddevSamp(_,_) =>
           mode match {
             case Partial => {
               val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]

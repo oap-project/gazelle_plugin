@@ -62,8 +62,7 @@ import scala.concurrent.Future
 
 case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
-    child: SparkPlan,
-    canChangeNumPartitions: Boolean = true)
+    child: SparkPlan)
     extends Exchange {
 
   private[sql] lazy val writeMetrics =
@@ -158,9 +157,8 @@ case class ColumnarShuffleExchangeExec(
 
 class ColumnarShuffleExchangeAdaptor(
     override val outputPartitioning: Partitioning,
-    child: SparkPlan,
-    canChangeNumPartitions: Boolean = true)
-    extends ShuffleExchangeExec(outputPartitioning, child, canChangeNumPartitions) {
+    child: SparkPlan  )
+    extends ShuffleExchangeExec(outputPartitioning, child) {
 
   private[sql] lazy val writeMetrics =
     SQLShuffleWriteMetricsReporter.createShuffleWriteMetrics(sparkContext)

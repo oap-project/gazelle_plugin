@@ -127,7 +127,7 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
       context: TaskContext,
       metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
     val blocksByAddress = SparkEnv.get.mapOutputTracker
-      .getMapSizesByExecutorId(handle.shuffleId, startPartition, endPartition)
+      .getMapSizesByExecutorId(handle.shuffleId, 0, Int.MaxValue, startPartition, endPartition)
     if (handle.isInstanceOf[ColumnarShuffleHandle[K, _]]) {
       new BlockStoreShuffleReader(
         handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
@@ -154,7 +154,7 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
       endPartition: Int,
       context: TaskContext,
       metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
-    val blocksByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByRange(
+    val blocksByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
       handle.shuffleId,
       startMapIndex,
       endMapIndex,
