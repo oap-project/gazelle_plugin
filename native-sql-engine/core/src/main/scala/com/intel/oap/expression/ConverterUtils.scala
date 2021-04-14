@@ -225,13 +225,21 @@ object ConverterUtils extends Logging {
 
   def convertFromNetty(
       attributes: Seq[Attribute],
-      data: Array[Array[Byte]]): Iterator[ColumnarBatch] = {
+      data: Array[Array[Byte]],
+      columnIndices: Array[Int] = null): Iterator[ColumnarBatch] = {
     if (data.size == 0) {
       return new Iterator[ColumnarBatch] {
         override def hasNext: Boolean = false
         override def next(): ColumnarBatch = {
-          val resultStructType = StructType(
-            attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          val resultStructType = if (columnIndices == null) {
+            StructType(
+              attributes.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          } else {
+            StructType(
+              columnIndices
+                .map(i => attributes(i))
+                .map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+          }
           val resultColumnVectors =
             ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
           return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
@@ -306,7 +314,14 @@ object ConverterUtils extends Logging {
           val vectors = fromArrowRecordBatch(schema, batch, allocator)
           val length = batch.getLength
           batch.close
-          new ColumnarBatch(vectors.map(_.asInstanceOf[ColumnVector]), length)
+          if (columnIndices == null) {
+            new ColumnarBatch(vectors.map(_.asInstanceOf[ColumnVector]), length)
+          } else {
+            new ColumnarBatch(
+              columnIndices.map(i => vectors(i).asInstanceOf[ColumnVector]),
+              length)
+          }
+
         } catch {
           case e: Throwable =>
             messageReader.close

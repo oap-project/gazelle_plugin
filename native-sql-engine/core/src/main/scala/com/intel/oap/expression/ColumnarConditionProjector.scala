@@ -22,7 +22,11 @@ import java.util.Objects
 import java.util.concurrent.TimeUnit
 
 import com.google.common.collect.Lists
-import com.intel.oap.expression.ColumnarConditionProjector.{FieldOptimizedProjector, FilterProjector, ProjectorWrapper}
+import com.intel.oap.expression.ColumnarConditionProjector.{
+  FieldOptimizedProjector,
+  FilterProjector,
+  ProjectorWrapper
+}
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
@@ -106,7 +110,11 @@ class ColumnarConditionProjector(
   val resultSchema = ArrowUtils.fromArrowSchema(resultArrowSchema)
   if (skip) {
     logWarning(
-      s"Will do skip!!!\nconditionArrowSchema is ${conditionArrowSchema}, conditionOrdinalList is ${conditionOrdinalList}, \nprojectionArrowSchema is ${projectionArrowSchema}, projectionOrinalList is ${projectOrdinalList}, \nresult schema is ${resultArrowSchema}")
+      s"Will do skip!!!\nconditionArrowSchema is ${conditionArrowSchema}," +
+        s" conditionOrdinalList is ${conditionOrdinalList}, " +
+        s"\nprojectionArrowSchema is ${projectionArrowSchema}, " +
+        s"projectionOrinalList is ${projectOrdinalList}, " +
+        s"\nresult schema is ${resultArrowSchema}")
   }
 
   val conditioner = if (skip == false && condPrepareList != null) {
@@ -149,7 +157,11 @@ class ColumnarConditionProjector(
     val fieldNodesList = prepareList.map(_._1).toList.asJava
     try {
       if (withCond) {
-        new FilterProjector(projectionSchema, resultSchema, fieldNodesList, SelectionVectorType.SV_INT16)
+        new FilterProjector(
+          projectionSchema,
+          resultSchema,
+          fieldNodesList,
+          SelectionVectorType.SV_INT16)
       } else {
         new FieldOptimizedProjector(projectionSchema, resultSchema, fieldNodesList)
       }
@@ -157,7 +169,8 @@ class ColumnarConditionProjector(
       case e =>
         logError(
           s"\noriginalInputAttributes is ${originalInputAttributes} ${originalInputAttributes.map(
-            _.dataType)}, \nprojectionSchema is ${projectionSchema}, \nresultSchema is ${resultSchema}, \nProjection is ${prepareList.map(_._1.toProtobuf)}")
+            _.dataType)}, \nprojectionSchema is ${projectionSchema}, \nresultSchema is ${resultSchema}, \nProjection is ${prepareList
+            .map(_._1.toProtobuf)}")
         throw e
     }
   }
@@ -451,7 +464,10 @@ object ColumnarConditionProjector extends Logging {
       throw new UnsupportedOperationException
     }
 
-    def evaluate(recordBatch: ArrowRecordBatch, numRows: Int, selectionVector: SelectionVector): ColumnarBatch = {
+    def evaluate(
+        recordBatch: ArrowRecordBatch,
+        numRows: Int,
+        selectionVector: SelectionVector): ColumnarBatch = {
       throw new UnsupportedOperationException
     }
 
@@ -461,8 +477,11 @@ object ColumnarConditionProjector extends Logging {
   /**
    * Proxy projector that is optimized for field projections.
    */
-  class FieldOptimizedProjector(projectionSchema: Schema, resultSchema: Schema,
-      exprs: java.util.List[ExpressionTree]) extends ProjectorWrapper {
+  class FieldOptimizedProjector(
+      projectionSchema: Schema,
+      resultSchema: Schema,
+      exprs: java.util.List[ExpressionTree])
+      extends ProjectorWrapper {
 
     val fieldExprs = ListBuffer[(ExpressionTree, Int)]()
     val fieldExprNames = new util.HashSet[String]()
@@ -484,17 +503,15 @@ object ColumnarConditionProjector extends Logging {
         }
     }
 
-    val fieldResultSchema = new Schema(
-      fieldExprs.map {
-        case (_, i) =>
-          resultSchema.getFields.get(i)
-      }.asJava)
+    val fieldResultSchema = new Schema(fieldExprs.map {
+      case (_, i) =>
+        resultSchema.getFields.get(i)
+    }.asJava)
 
-    val nonFieldResultSchema = new Schema(
-      nonFieldExprs.map {
-        case (_, i) =>
-          resultSchema.getFields.get(i)
-      }.asJava)
+    val nonFieldResultSchema = new Schema(nonFieldExprs.map {
+      case (_, i) =>
+        resultSchema.getFields.get(i)
+    }.asJava)
 
     val nonFieldProjector: Option[Projector] =
       if (nonFieldExprs.isEmpty) {
@@ -502,9 +519,13 @@ object ColumnarConditionProjector extends Logging {
       } else {
         Some(
           Projector.make(
-            projectionSchema, nonFieldExprs.map {
-              case (e, _) => e
-            }.toList.asJava))
+            projectionSchema,
+            nonFieldExprs
+              .map {
+                case (e, _) => e
+              }
+              .toList
+              .asJava))
       }
 
     override def evaluate(recordBatch: ArrowRecordBatch): ColumnarBatch = {
@@ -513,15 +534,16 @@ object ColumnarConditionProjector extends Logging {
 
       // Execute expression-based projections
       val nonFieldResultColumnVectors =
-        ArrowWritableColumnVector.allocateColumns(numRows,
+        ArrowWritableColumnVector.allocateColumns(
+          numRows,
           ArrowUtils.fromArrowSchema(nonFieldResultSchema))
 
       val outputVectors = nonFieldResultColumnVectors
-          .map(columnVector => {
-            columnVector.getValueVector
-          })
-          .toList
-          .asJava
+        .map(columnVector => {
+          columnVector.getValueVector
+        })
+        .toList
+        .asJava
 
       nonFieldProjector.foreach {
         _.evaluate(recordBatch, outputVectors)
@@ -564,11 +586,10 @@ object ColumnarConditionProjector extends Logging {
       inAVs.foreach(_.close())
 
       // Projected vector count check
-      projectedAVs.foreach {
-        arrowVector =>
-          if (arrowVector == null) {
-            throw new IllegalStateException()
-          }
+      projectedAVs.foreach { arrowVector =>
+        if (arrowVector == null) {
+          throw new IllegalStateException()
+        }
       }
 
       val outputBatch =
@@ -582,22 +603,29 @@ object ColumnarConditionProjector extends Logging {
     }
   }
 
-  class FilterProjector(projectionSchema: Schema, resultSchema: Schema,
+  class FilterProjector(
+      projectionSchema: Schema,
+      resultSchema: Schema,
       exprs: java.util.List[ExpressionTree],
-      selectionVectorType: GandivaTypes.SelectionVectorType) extends ProjectorWrapper {
+      selectionVectorType: GandivaTypes.SelectionVectorType)
+      extends ProjectorWrapper {
     val projector = Projector.make(projectionSchema, exprs, selectionVectorType)
 
-    override def evaluate(recordBatch: ArrowRecordBatch, numRows: Int,
+    override def evaluate(
+        recordBatch: ArrowRecordBatch,
+        numRows: Int,
         selectionVector: SelectionVector): ColumnarBatch = {
       val resultColumnVectors =
-        ArrowWritableColumnVector.allocateColumns(numRows, ArrowUtils.fromArrowSchema(resultSchema))
+        ArrowWritableColumnVector.allocateColumns(
+          numRows,
+          ArrowUtils.fromArrowSchema(resultSchema))
 
       val outputVectors = resultColumnVectors
-          .map(columnVector => {
-            columnVector.getValueVector
-          })
-          .toList
-          .asJava
+        .map(columnVector => {
+          columnVector.getValueVector
+        })
+        .toList
+        .asJava
 
       projector.evaluate(recordBatch, selectionVector, outputVectors)
 
