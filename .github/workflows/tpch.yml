@@ -22,7 +22,7 @@ on:
 
 jobs:
   ram-usage-test:
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'No RAM Report') }}
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'RAM Report') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
