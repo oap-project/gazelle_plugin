@@ -38,6 +38,8 @@ We implemented common operators based on Apache Arrow Compute and Gandiva. The S
 
 We implemented columnar shuffle to improve the shuffle performance. With the columnar layout we could do very efficient data compression for different data format.
 
+Please check the operator supporting details [here](./docs/operators.md)
+
 ## Build the Plugin
 
 ### Building by Conda
