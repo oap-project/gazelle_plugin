@@ -49,6 +49,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
+        .set("spark.driver.bindAddress", "127.0.0.1")
         .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
         .set("spark.sql.codegen.wholeStage", "false")
         .set("spark.sql.sources.useV1SourceList", "")
