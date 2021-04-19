@@ -137,6 +137,7 @@ macro(build_arrow STATIC_ARROW)
                       -DARROW_BUILD_STATIC=OFF
                       -DARROW_BUILD_SHARED=ON
                       -DARROW_COMPUTE=ON
+                      -DARROW_S3=ON
                       -DARROW_GANDIVA_JAVA=ON
                       -DARROW_GANDIVA=ON
                       -DARROW_PARQUET=ON
@@ -208,8 +209,22 @@ macro(build_arrow STATIC_ARROW)
 
     # Copy Arrow Shared Library to releases directory for package jar
     ExternalProject_Add_Step(arrow_ep copy_arrow_binary
-                      COMMAND cp ${ARROW_PREFIX}/lib/libarrow.so.300 ${root_directory}/releases/
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_arrow_binary_300
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300 ${root_directory}/releases/
                       COMMENT "Copy libarrow.so.300 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_arrow_binary_300_0_0
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300.0.0 ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so.300.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
@@ -217,8 +232,22 @@ macro(build_arrow STATIC_ARROW)
 
     # Copy Gandiva Shared Library to releases directory for package jar
     ExternalProject_Add_Step(arrow_ep copy_gandiva_binary
-                      COMMAND cp ${ARROW_PREFIX}/lib/libgandiva.so.300 ${root_directory}/releases/
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_300
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300 ${root_directory}/releases/
                       COMMENT "Copy libgandiva.so.300 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_300_0_0
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300.0.0 ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so.300.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
