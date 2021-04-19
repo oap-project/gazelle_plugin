@@ -238,8 +238,8 @@ class UniqueAction : public ActionBase {
     std::shared_ptr<arrow::Array> arr_out;
     // appendValues to builder_
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         if (!null_flag_[offset + i]) {
           builder_->Append(cache_[offset + i]);
@@ -383,8 +383,8 @@ class CountAction : public ActionBase {
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       builder_->Append(cache_[offset + i]);
     }
 
@@ -507,8 +507,8 @@ class CountLiteralAction : public ActionBase {
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       builder_->Append(cache_[offset + i]);
     }
 
@@ -664,8 +664,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
       } else {
@@ -824,8 +824,8 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
       } else {
@@ -989,8 +989,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
       } else {
@@ -1147,8 +1147,8 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
       } else {
@@ -1297,8 +1297,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
       } else {
@@ -1448,8 +1448,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
       } else {
@@ -1615,12 +1615,12 @@ class AvgAction : public ActionBase {
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (int i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (int i = 0; i < res_length; i++) {
       cache_sum_[i + offset] /= cache_count_[i + offset];
     }
     std::shared_ptr<arrow::Array> arr_out;
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_sum_[offset + i]));
       } else {
@@ -1797,8 +1797,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
@@ -1970,8 +1970,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
@@ -2155,8 +2155,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
@@ -2330,8 +2330,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     sum_builder_->Reset();
     count_builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
@@ -2505,8 +2505,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (int i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (int i = 0; i < res_length; i++) {
       if (cache_count_[i + offset] == 0) {
         cache_sum_[i + offset] = 0;
       } else {
@@ -2514,7 +2514,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         cache_sum_[i + offset] /= cache_count_[i + offset];
       }
     }
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_sum_[offset + i]));
       } else {
@@ -2685,8 +2685,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (int i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (int i = 0; i < res_length; i++) {
       if (cache_count_[i + offset] == 0) {
         cache_sum_[i + offset] = 0;
       } else {
@@ -2698,7 +2698,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         cache_sum_[i + offset] /= cache_count_[i + offset];
       }
     }
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_sum_[offset + i]));
       } else {
@@ -2917,9 +2917,9 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     avg_builder_->Reset();
     m2_builder_->Reset();
 
-    length = (offset + length) > length_ ? (length_ - offset) : length;
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
 
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         if (cache_count_[i + offset] < 0.00001) {
           cache_sum_[i + offset] = 0;
@@ -3153,9 +3153,9 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     avg_builder_->Reset();
     m2_builder_->Reset();
 
-    length = (offset + length) > length_ ? (length_ - offset) : length;
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
 
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         if (cache_count_[i + offset] < 0.00001) {
           cache_sum_[i + offset] = 0;
@@ -3361,13 +3361,13 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (int i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (int i = 0; i < res_length; i++) {
       auto tmp = cache_m2_[i + offset] /
                  (cache_count_[i + offset] > 1 ? (cache_count_[i + offset] - 1) : 1);
       cache_m2_[i + offset] = sqrt(tmp);
     }
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_count_[offset + i] - 1 < 0.00001) {
         // append NaN if only one non-null value exists
         RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
@@ -3576,8 +3576,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     builder_->Reset();
-    length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (int i = 0; i < length; i++) {
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (int i = 0; i < res_length; i++) {
       arrow::Decimal128 tmp;
       if (cache_count_[i + offset] > 1) {
         tmp = cache_m2_[i + offset] / (cache_count_[i + offset] - 1);
@@ -3587,7 +3587,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 
       cache_m2_[i + offset] = tmp * tmp;
     }
-    for (uint64_t i = 0; i < length; i++) {
+    for (uint64_t i = 0; i < res_length; i++) {
       if (cache_count_[offset + i] - 1 < 0) {
         // append NaN if only one non-null value exists
         RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));

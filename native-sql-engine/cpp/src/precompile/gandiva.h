@@ -40,13 +40,7 @@ T round2(T val, int precision = 2) {
 }
 
 arrow::Decimal128 castDECIMAL(double val, int32_t precision, int32_t scale) {
-  double dVal = (double)val;
-  int charsNeeded = 1 + snprintf(NULL, 0, "%.*f", (int)scale, dVal);
-  char* buffer = reinterpret_cast<char*>(malloc(charsNeeded));
-  snprintf(buffer, sizeof(buffer), "%.*f", (int)scale, nextafter(val, val + 0.5));
-  auto decimal_str = std::string(buffer);
-  free(buffer);
-  return arrow::Decimal128::FromString(decimal_str).ValueOrDie();
+  return arrow::Decimal128::FromReal(val, precision, scale).ValueOrDie();
 }
 
 std::string castStringFromDecimal(arrow::Decimal128 val, int32_t scale) {

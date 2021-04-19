@@ -7,9 +7,41 @@
         <groupId>com.intel.oap</groupId>
         <version>1.1.0</version>
     </parent>
+    
     <modelVersion>4.0.0</modelVersion>
-
     <artifactId>spark-arrow-datasource-common</artifactId>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-memory-netty</artifactId>
+            <version>${arrow.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-dataset</artifactId>
+            <version>${arrow.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-buffer</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
     <build>
         <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
         <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
