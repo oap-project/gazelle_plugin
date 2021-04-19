@@ -17,7 +17,7 @@ set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow Root dir")
 set(ARROW_BFS_INSTALL_DIR "/usr/local" CACHE PATH "Arrow Build from Source dir")
 set(ARROW_LIB_NAME arrow)
 set(GANDIVA_LIB_NAME gandiva)
-set(ARROW_SHARED_LIBRARY_SUFFIX ".so.300")
+set(ARROW_SHARED_LIBRARY_SUFFIX ".so")
 
 option(BUILD_ARROW "Build Arrow from Source" ON)
 option(STATIC_ARROW "Build Arrow with Static Libraries" OFF)
@@ -137,6 +137,7 @@ macro(build_arrow STATIC_ARROW)
                       -DARROW_BUILD_STATIC=OFF
                       -DARROW_BUILD_SHARED=ON
                       -DARROW_COMPUTE=ON
+                      -DARROW_S3=ON
                       -DARROW_GANDIVA_JAVA=ON
                       -DARROW_GANDIVA=ON
                       -DARROW_PARQUET=ON
@@ -208,8 +209,22 @@ macro(build_arrow STATIC_ARROW)
 
     # Copy Arrow Shared Library to releases directory for package jar
     ExternalProject_Add_Step(arrow_ep copy_arrow_binary
-                      COMMAND cp ${ARROW_PREFIX}/lib/libarrow.so.300 ${root_directory}/releases/
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_arrow_binary_300
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300 ${root_directory}/releases/
                       COMMENT "Copy libarrow.so.300 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_arrow_binary_300_0_0
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300.0.0 ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so.300.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
@@ -217,8 +232,22 @@ macro(build_arrow STATIC_ARROW)
 
     # Copy Gandiva Shared Library to releases directory for package jar
     ExternalProject_Add_Step(arrow_ep copy_gandiva_binary
-                      COMMAND cp ${ARROW_PREFIX}/lib/libgandiva.so.300 ${root_directory}/releases/
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_300
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300 ${root_directory}/releases/
                       COMMENT "Copy libgandiva.so.300 to releases/"
+                      DEPENDEES mkdir download update patch configure build install java_install
+                      WORKING_DIRECTORY "${ARROW_PREFIX}/"
+    )
+
+    ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_300_0_0
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300.0.0 ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so.300.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
@@ -271,24 +300,22 @@ macro(find_arrow)
   set(ARROW_INCLUDE_DIR "${ARROW_ROOT}/include")
   message(STATUS "Set Arrow Include Directory in ${ARROW_BFS_INCLUDE_DIR} or ${ARROW_INCLUDE_DIR}")
 
-  find_library(ARROW_LIB NAMES libarrow.so.300 PATHS ${ARROW_BFS_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
+  find_library(ARROW_LIB NAMES ${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} PATHS ${ARROW_BFS_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
   if(NOT ARROW_LIB)
     message(FATAL_ERROR "Arrow Library Not Found")
   else()
     message(STATUS "Arrow Library Can Be Found in ${ARROW_LIB}")
   endif()
 
-  find_library(GANDIVA_LIB NAMES libgandiva.so.300 PATHS ${ARROW_BFS_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
+  find_library(GANDIVA_LIB NAMES ${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} PATHS ${ARROW_BFS_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
   if(NOT GANDIVA_LIB)
     message(FATAL_ERROR "Gandiva Library Not Found")
   else()
     message(STATUS "Gandiva Library Can Be Found in ${GANDIVA_LIB}")
   endif()
 
-  file(COPY ${ARROW_LIB}.0.0 DESTINATION ${root_directory}/releases/)
-  file(COPY ${ARROW_LIB} DESTINATION ${root_directory}/releases/)
-  file(COPY ${GANDIVA_LIB}.0.0 DESTINATION ${root_directory}/releases/)
-  file(COPY ${GANDIVA_LIB} DESTINATION ${root_directory}/releases/)
+  file(COPY ${ARROW_LIB} DESTINATION ${root_directory}/releases/ FOLLOW_SYMLINK_CHAIN)
+  file(COPY ${GANDIVA_LIB} DESTINATION ${root_directory}/releases/ FOLLOW_SYMLINK_CHAIN)
 
   if(EXISTS ${ARROW_BFS_INCLUDE_DIR})
     message(STATUS "COPY and Set Arrow Header to: ${ARROW_BFS_INCLUDE_DIR}")
