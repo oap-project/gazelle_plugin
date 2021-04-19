@@ -54,7 +54,7 @@ jobs:
           cd native-sql-engine/cpp/
           mkdir -p build
           cd build
-          cmake .. -DTESTS=1
+          cmake .. -DBUILD_ARROW=0 -DTESTS=1
           make
           cd src
           ctest -R
