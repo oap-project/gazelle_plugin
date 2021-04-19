@@ -2559,6 +2559,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
     auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
     scale_ = typed_type->scale();
+    res_precision_ = typed_type->precision();
     res_scale_ = typed_res_type->scale();
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
@@ -2660,10 +2661,11 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         cache_sum_[i] = 0;
       } else {
         cache_validity_[i] = true;
-        if (res_scale_ > scale_) {
+        if (res_scale_ != scale_) {
           cache_sum_[i] = cache_sum_[i].Rescale(scale_, res_scale_).ValueOrDie();
         }
-        cache_sum_[i] /= cache_count_[i];
+        cache_sum_[i] =
+            divide(cache_sum_[i], res_precision_, res_scale_, cache_count_[i]);
       }
     }
     cache_sum_.resize(length_);
@@ -2691,11 +2693,12 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         cache_sum_[i + offset] = 0;
       } else {
         cache_validity_[i + offset] = true;
-        if (res_scale_ > scale_) {
+        if (res_scale_ != scale_) {
           cache_sum_[i + offset] =
               cache_sum_[i + offset].Rescale(scale_, res_scale_).ValueOrDie();
         }
-        cache_sum_[i + offset] /= cache_count_[i + offset];
+        cache_sum_[i + offset] = divide(cache_sum_[i + offset], res_precision_,
+                                        res_scale_, cache_count_[i + offset]);
       }
     }
     for (uint64_t i = 0; i < res_length; i++) {
@@ -2724,6 +2727,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
   int in_null_count_ = 0;
   // result
   int scale_;
+  int res_precision_;
   int res_scale_;
   std::vector<ResCType> cache_sum_;
   std::vector<int64_t> cache_count_;

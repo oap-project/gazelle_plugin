@@ -73,6 +73,17 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   ASSERT_EQ(res, arrow::Decimal128("32342423.0129"));
   res = arrow::Decimal128("-32342423.012875").Abs();
   ASSERT_EQ(res, left);
+  // decimal divide int test
+  auto x = arrow::Decimal128("30.222215");
+  int32_t x_precision = 14;
+  int32_t x_scale = 6;
+  int64_t y = 8;
+  res = x / y;
+  // wrong result
+  ASSERT_EQ(res, arrow::Decimal128("3.777776"));
+  // correct result
+  res = divide(x, x_precision, x_scale, y);
+  ASSERT_EQ(res, arrow::Decimal128("3.777777"));
 }
 
 TEST(TestArrowCompute, ArithmeticComparisonTest) {

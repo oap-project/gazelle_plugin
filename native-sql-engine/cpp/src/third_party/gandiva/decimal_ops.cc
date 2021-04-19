@@ -400,6 +400,23 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
   return result;
 }
 
+BasicDecimal128 Divide(const BasicDecimalScalar128& x, int64_t y) {
+  if (y == 0) {
+    throw std::runtime_error("divide by zero error");
+  }
+  BasicDecimal128 result;
+  BasicDecimal128 remainder;
+  auto status = x.value().Divide(y, &result, &remainder);
+  DCHECK_EQ(status, arrow::DecimalStatus::kSuccess);
+  // round-up
+  // returns 1 for positive and zero values, -1 for negative values.
+  int64_t y_sign = y < 0 ? -1 : 1;
+  if (BasicDecimal128::Abs(2 * remainder) >= BasicDecimal128::Abs(y)) {
+    result += (x.value().Sign() ^ y_sign) + 1;
+  }
+  return result;
+}
+
 BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
                     const BasicDecimalScalar128& y, int32_t out_precision,
                     int32_t out_scale, bool* overflow) {
