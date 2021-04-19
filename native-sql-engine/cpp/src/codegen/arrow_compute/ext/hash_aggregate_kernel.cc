@@ -652,6 +652,7 @@ class HashAggregateKernel::Impl {
           pre_process_projector_(pre_process_projector),
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
+      batch_size_ = GetBatchSize();
       aggr_hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());
     }
 
@@ -756,7 +757,8 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, GetBatchSize(), &outputs);
+        // FIXME(): to work around NSE-241
+        action->Finish(offset_, 20000, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -781,6 +783,7 @@ class HashAggregateKernel::Impl {
     int max_group_id_ = -1;
     int offset_ = 0;
     int total_out_length_ = 0;
+    int batch_size_;
   };
 
   template <typename DataType>
@@ -802,6 +805,8 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+      std::cout << "using string hashagg res" << std::endl;
+      batch_size_ = GetBatchSize();
       if (key_index_list.size() > 1) {
         aggr_key_unsafe_row = std::make_shared<UnsafeRow>(key_index_list.size());
       }
@@ -912,7 +917,8 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, GetBatchSize(), &outputs);
+        // FIXME(): to work around NSE-241
+        action->Finish(offset_, 20000, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -939,6 +945,7 @@ class HashAggregateKernel::Impl {
     int max_group_id_ = -1;
     int offset_ = 0;
     int total_out_length_ = 0;
+    int batch_size_;
   };
 
   template <typename DataType>
@@ -961,6 +968,7 @@ class HashAggregateKernel::Impl {
           pre_process_projector_(pre_process_projector),
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
+      batch_size_ = GetBatchSize();
       aggr_hash_table_ =
           std::make_shared<precompile::Decimal128HashMap>(ctx->memory_pool());
     }
@@ -1066,7 +1074,8 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, GetBatchSize(), &outputs);
+        // FIXME(): to work around NSE-241
+        action->Finish(offset_, 20000, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1091,6 +1100,7 @@ class HashAggregateKernel::Impl {
     int max_group_id_ = -1;
     int offset_ = 0;
     int total_out_length_ = 0;
+    int batch_size_;
   };
 };
 arrow::Status HashAggregateKernel::Make(
