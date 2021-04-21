@@ -79,24 +79,6 @@ object ConverterUtils extends Logging {
     val cols = (0 until columnarBatch.numCols).toList.map(i =>
       columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
     createArrowRecordBatch(numRowsInBatch, cols)
-
-    /*val fieldNodes = new ListBuffer[ArrowFieldNode]()
-    val inputData = new ListBuffer[ArrowBuf]()
-    for (i <- 0 until columnarBatch.numCols()) {
-      val inputVector =
-        columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector()
-      fieldNodes += new ArrowFieldNode(numRowsInBatch, inputVector.getNullCount())
-      //FIXME for projection + in test
-      //fieldNodes += new ArrowFieldNode(numRowsInBatch, inputVector.getNullCount())
-      inputData += inputVector.getValidityBuffer()
-      if (inputVector.isInstanceOf[VarCharVector]) {
-        inputData += inputVector.getOffsetBuffer()
-      }
-      inputData += inputVector.getDataBuffer()
-      //FIXME for projection + in test
-      //inputData += inputVector.getValidityBuffer()
-    }
-    new ArrowRecordBatch(numRowsInBatch, fieldNodes.toList.asJava, inputData.toList.asJava)*/
   }
 
   def createArrowRecordBatch(numRowsInBatch: Int, cols: List[ValueVector]): ArrowRecordBatch = {

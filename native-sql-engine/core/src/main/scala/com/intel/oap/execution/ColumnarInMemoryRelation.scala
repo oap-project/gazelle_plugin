@@ -17,6 +17,7 @@
 
 package com.intel.oap.execution
 
+import java.io._
 import org.apache.commons.lang3.StringUtils
 
 import com.intel.oap.expression._
@@ -47,6 +48,21 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.{LongAccumulator, Utils}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
+import sun.misc.Cleaner
+
+private class Deallocator(var arrowColumnarBatch: Array[ColumnarBatch]) extends Runnable {
+
+  override def run(): Unit = {
+    try {
+      Option(arrowColumnarBatch).foreach(_.foreach(_.close))
+    } catch {
+      case e: Exception =>
+        // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
+        System.err.println("ColumnarHashedRelation: Error running deaallocator")
+        e.printStackTrace()
+    }
+  }
+}
 
 /**
  * The default implementation of CachedBatch.
@@ -55,9 +71,30 @@ import scala.collection.mutable.ArrayBuffer
  * @param buffers The buffers for serialized columns
  * @param stats The stat of columns
  */
-case class ArrowCachedBatch(numRows: Int, buffer: Array[Byte], stats: InternalRow = null)
-    extends SimpleMetricsCachedBatch {
+case class ArrowCachedBatch(
+    var numRows: Int,
+    var buffer: Array[ColumnarBatch],
+    stats: InternalRow)
+    extends SimpleMetricsCachedBatch
+    with Externalizable {
+  def this() = {
+    this(0, null, null)
+  }
   override def sizeInBytes: Long = buffer.size
+  override def writeExternal(out: ObjectOutput): Unit = {
+    // System.out.println(s"writeExternal for $this")
+    val rawArrowData = ConverterUtils.convertToNetty(buffer)
+    out.writeObject(rawArrowData)
+    buffer.foreach(_.close)
+  }
+
+  override def readExternal(in: ObjectInput): Unit = {
+    numRows = 0
+    val rawArrowData = in.readObject().asInstanceOf[Array[Byte]]
+    buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
+    // System.out.println(s"readExternal for $this")
+    Cleaner.create(this, new Deallocator(buffer))
+  }
 }
 
 /**
@@ -104,10 +141,10 @@ class ArrowColumnarCachedBatchSerializer extends SimpleMetricsCachedBatchSeriali
               _input += batch
             }
           }
-          val cacheBuffer = ConverterUtils.convertToNetty(_input.toArray)
-          _input.foreach(_.close)
-
-          ArrowCachedBatch(_numRows, cacheBuffer)
+          // To avoid mem copy, we only save columnVector reference here
+          val res = ArrowCachedBatch(_numRows, _input.toArray, null)
+          // System.out.println(s"convertForCacheInternal cachedBatch is ${res}")
+          res
         }
 
         def hasNext: Boolean = !processed
@@ -128,10 +165,22 @@ class ArrowColumnarCachedBatchSerializer extends SimpleMetricsCachedBatchSeriali
         if (cachedIter.hasNext) {
           val cachedColumnarBatch: ArrowCachedBatch =
             cachedIter.next.asInstanceOf[ArrowCachedBatch]
-          val rowCount = cachedColumnarBatch.numRows
+          // System.out.println(
+          //   s"convertCachedBatchToColumnarBatch cachedBatch is ${cachedColumnarBatch}")
           val rawData = cachedColumnarBatch.buffer
 
-          iter = ConverterUtils.convertFromNetty(cacheAttributes, Array(rawData), columnIndices)
+          iter = new Iterator[ColumnarBatch] {
+            val numBatches = rawData.size
+            var batchIdx = 0
+            override def hasNext: Boolean = batchIdx < numBatches
+            override def next(): ColumnarBatch = {
+              val vectors = columnIndices.map(i => rawData(batchIdx).column(i))
+              vectors.foreach(v => v.asInstanceOf[ArrowWritableColumnVector].retain())
+              val numRows = rawData(batchIdx).numRows
+              batchIdx += 1
+              new ColumnarBatch(vectors, numRows)
+            }
+          }
         }
         def next(): ColumnarBatch =
           if (iter != null) {
