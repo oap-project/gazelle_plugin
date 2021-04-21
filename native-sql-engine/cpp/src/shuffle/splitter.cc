@@ -1048,7 +1048,7 @@ arrow::Status Splitter::AppendBinary(
       auto value = src_arr->GetValue(row, &length);
       const auto& builder = dst_builders[partition_id_[row]];
       RETURN_NOT_OK(builder->ReserveData(length));
-      builder->UnsafeAppend(value, length);
+      builder->Append(value, length);
     }
   } else {
     for (auto row = 0; row < num_rows; ++row) {
@@ -1057,9 +1057,9 @@ arrow::Status Splitter::AppendBinary(
         auto value = src_arr->GetValue(row, &length);
         const auto& builder = dst_builders[partition_id_[row]];
         RETURN_NOT_OK(builder->ReserveData(length));
-        builder->UnsafeAppend(value, length);
+        builder->Append(value, length);
       } else {
-        dst_builders[partition_id_[row]]->UnsafeAppendNull();
+        dst_builders[partition_id_[row]]->AppendNull();
       }
     }
   }
