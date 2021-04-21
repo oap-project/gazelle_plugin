@@ -130,7 +130,7 @@ arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
   return arrow::Decimal128(out);
 }
 
-arrow::Decimal128 divide(arrow::Decimal128 x, int32_t precision, int32_t scale,
+arrow::Decimal128 divide(const arrow::Decimal128& x, int32_t precision, int32_t scale,
                          int64_t y) {
   gandiva::BasicDecimalScalar128 val(x, precision, scale);
   arrow::BasicDecimal128 out = gandiva::decimalops::Divide(val, y);
