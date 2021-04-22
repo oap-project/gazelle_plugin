@@ -30,9 +30,9 @@ jobs:
       - name: Checkout Pull Request
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: "${{ github.event.issue.pull_request.url }}"
-          PR_NUM: ${PR_URL##*/}
         run: |
+          PR_URL="${{ github.event.issue.pull_request.url }}"
+          PR_NUM=${PR_URL##*/}
           echo "Checking out from PR #$PR_NUM based on URL: $PR_URL"
           hub pr checkout $PR_NUM
       - name: Set up JDK 1.8
@@ -82,8 +82,7 @@ jobs:
         run: |
           mvn test -B -pl native-sql-engine/core/ -am -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
         env:
-          PR_URL: "${{ github.event.issue.pull_request.url }}"
-          PR_NUM: ${PR_URL##*/}
+          PR_URL: ${{ github.event.issue.pull_request.url }}
           MAVEN_OPTS: "-Xmx1G"
           COMMENT_CONTENT_PATH: "/tmp/comment.md"
           GITHUB_TOKEN: ${{ github.token }}

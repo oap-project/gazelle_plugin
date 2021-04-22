@@ -17,6 +17,7 @@
 package com.intel.oap.tpc.h
 
 import java.io.File
+import java.util.regex.Pattern
 
 import com.intel.oap.tags.CommentOnContextPR
 import org.apache.commons.io.FileUtils
@@ -62,7 +63,13 @@ class GitHubActionEntries extends FunSuite {
         throw new IllegalArgumentException("No GITHUB_TOKEN set")
       }
 
-      val prId = System.getenv("PR_NUM").toInt
+      val prUrl = System.getenv("PR_URL")
+      val pattern = new Pattern("^.*/(\d+)$")
+      val matcher = pattern.matcher(prUrl)
+      if (!matcher.matches()) {
+        throw new IllegalArgumentException("Unable to find pull request number in URL: " + prUrl)
+      }
+      val prId = matcher.group(1).toInt
 
       GitHubActionEntries.commentOnContextPR(repoSlug, prId, token,
         FileUtils.readFileToString(new File(commentContentPath)))
