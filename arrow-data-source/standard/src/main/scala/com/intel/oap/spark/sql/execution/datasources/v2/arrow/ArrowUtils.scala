@@ -156,6 +156,11 @@ object ArrowUtils {
 
   private def rewriteUri(uriStr: String): String = {
     val uri = URI.create(uriStr)
+    if (uri.getScheme == "s3" || uri.getScheme == "s3a") {
+      val s3Rewritten = new URI("s3", uri.getAuthority,
+        uri.getPath, uri.getQuery, uri.getFragment).toString
+      return s3Rewritten
+    }
     val sch = uri.getScheme match {
       case "hdfs" => "hdfs"
       case "file" => "file"
