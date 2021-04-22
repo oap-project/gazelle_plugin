@@ -106,8 +106,16 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     verifyParquet(
       spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-        .option(ArrowOptions.KEY_FILESYSTEM, "hdfs")
         .arrow(path))
+  }
+
+  test("simple sql query on s3") {
+    val path = "s3a://mlp-spark-dataset-bucket/test_arrowds_s3_small"
+    val frame = spark.read
+      .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+      .arrow(path)
+    frame.createOrReplaceTempView("stab")
+    assert(spark.sql("select id from stab").count() === 1000)
   }
 
   test("create catalog table") {
@@ -130,7 +138,6 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
     val frame = spark.read
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-      .option(ArrowOptions.KEY_FILESYSTEM, "hdfs")
       .arrow(path)
     frame.createOrReplaceTempView("ptab")
     verifyParquet(spark.sql("select * from ptab"))
@@ -142,7 +149,6 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile3)
     val frame = spark.read
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-      .option(ArrowOptions.KEY_FILESYSTEM, "hdfs")
       .arrow(path)
     frame.createOrReplaceTempView("ptab")
     val sqlFrame = spark.sql("select * from ptab")
@@ -163,7 +169,6 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
     val frame = spark.read
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-      .option(ArrowOptions.KEY_FILESYSTEM, "hdfs")
       .arrow(path)
     frame.createOrReplaceTempView("ptab")
     spark.sql("select col from ptab where col = 1").explain(true)
@@ -178,7 +183,6 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile2)
     val frame = spark.read
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-      .option(ArrowOptions.KEY_FILESYSTEM, "hdfs")
       .arrow(path)
     frame.createOrReplaceTempView("ptab")
     val rows = spark.sql("select * from ptab where col = 'b'").collect()
@@ -215,7 +219,6 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
     val frame = spark.read
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-      .option(ArrowOptions.KEY_FILESYSTEM, "hdfs")
       .arrow(path)
     frame.createOrReplaceTempView("ptab")
 
