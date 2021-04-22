@@ -18,11 +18,12 @@
 name: Native SQL Engine TPC-H Suite
 
 on:
-  pull_request
+  issue_comment:
+    types: [created, edited]
 
 jobs:
   ram-usage-test:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'RAM Report') }}
+    if: startsWith(github.event.comment.body, '@github-actions ram-usage-test')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
