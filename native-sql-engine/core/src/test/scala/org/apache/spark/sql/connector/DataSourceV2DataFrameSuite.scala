@@ -44,15 +44,12 @@ class DataSourceV2DataFrameSuite
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   before {
     spark.conf.set("spark.sql.catalog.testcat", classOf[InMemoryTableCatalog].getName)
@@ -80,7 +77,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("insertInto: append across catalog") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       val t2 = "testcat2.db.tbl"
       withTable(t1, t2) {
@@ -95,7 +92,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("saveAsTable: table doesn't exist => create table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -106,7 +103,7 @@ class DataSourceV2DataFrameSuite
   }
 
   ignore("saveAsTable: table exists => append by name") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING foo")
@@ -125,7 +122,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("saveAsTable: table overwrite and table doesn't exist => create table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -136,7 +133,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("saveAsTable: table overwrite and table exists => replace table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 USING foo AS SELECT 'c', 'd'")
@@ -148,7 +145,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("saveAsTable: ignore mode and table doesn't exist => create table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -159,7 +156,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("saveAsTable: ignore mode and table exists => do nothing") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -171,7 +168,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("SPARK-29778: saveAsTable: append mode takes write options") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       var plan: LogicalPlan = null
       val listener = new QueryExecutionListener {
         override def onSuccess(funcName: String, qe: QueryExecution, durationNs: Long): Unit = {
@@ -208,7 +205,7 @@ class DataSourceV2DataFrameSuite
   }
 
   test("Cannot write data with intervals to v2") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       withTable("testcat.table_name") {
         val testCatalog = spark.sessionState.catalogManager.catalog("testcat").asTableCatalog
         testCatalog.createTable(

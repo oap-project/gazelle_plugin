@@ -47,15 +47,12 @@ class DataSourceV2DataFrameSessionCatalogSuite
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   override protected def doInsert(tableName: String, insert: DataFrame, mode: SaveMode): Unit = {
     val dfw = insert.write.format(v2Format)

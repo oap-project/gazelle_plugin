@@ -53,15 +53,12 @@ abstract class InsertIntoTests(
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   /**
    * Insert data into a table using the insertInto statement. Implementations can be in SQL
@@ -70,7 +67,7 @@ abstract class InsertIntoTests(
   protected def doInsert(tableName: String, insert: DataFrame, mode: SaveMode = null): Unit
 
   test("insertInto: append") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = s"${catalogAndNamespace}tbl"
       sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
       val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -80,7 +77,7 @@ abstract class InsertIntoTests(
   }
 
   test("insertInto: append by position") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = s"${catalogAndNamespace}tbl"
       sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
       val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -92,7 +89,7 @@ abstract class InsertIntoTests(
   }
 
   test("insertInto: append partitioned table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -104,7 +101,7 @@ abstract class InsertIntoTests(
   }
 
   test("insertInto: overwrite non-partitioned table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = s"${catalogAndNamespace}tbl"
       sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
       val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
@@ -116,7 +113,7 @@ abstract class InsertIntoTests(
   }
 
   test("insertInto: overwrite partitioned table in static mode") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -132,7 +129,7 @@ abstract class InsertIntoTests(
 
 
   test("insertInto: overwrite partitioned table in static mode by position") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
         val t1 = s"${catalogAndNamespace}tbl"
         withTable(t1) {
@@ -179,7 +176,7 @@ abstract class InsertIntoTests(
   }
 
   dynamicOverwriteTest("insertInto: overwrite partitioned table in dynamic mode") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -195,7 +192,7 @@ abstract class InsertIntoTests(
   }
 
   dynamicOverwriteTest("insertInto: overwrite partitioned table in dynamic mode by position") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = s"${catalogAndNamespace}tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -277,7 +274,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: append to partitioned table - static clause") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -320,7 +317,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - dynamic clause - static mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
           val t1 = s"${catalogAndNamespace}tbl"
           withTableAndData(t1) { view =>
@@ -337,7 +334,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     dynamicOverwriteTest("InsertInto: overwrite - dynamic clause - dynamic mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -353,7 +350,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - missing clause - static mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
           val t1 = s"${catalogAndNamespace}tbl"
           withTableAndData(t1) { view =>
@@ -370,7 +367,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     dynamicOverwriteTest("InsertInto: overwrite - missing clause - dynamic mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format PARTITIONED BY (id)")
@@ -386,7 +383,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - static clause") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string, p1 int) " +
@@ -403,7 +400,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - mixed clause - static mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
           val t1 = s"${catalogAndNamespace}tbl"
           withTableAndData(t1) { view =>
@@ -421,7 +418,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - mixed clause reordered - static mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
           val t1 = s"${catalogAndNamespace}tbl"
           withTableAndData(t1) { view =>
@@ -439,7 +436,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - implicit dynamic partition - static mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.STATIC.toString) {
           val t1 = s"${catalogAndNamespace}tbl"
           withTableAndData(t1) { view =>
@@ -457,7 +454,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     dynamicOverwriteTest("InsertInto: overwrite - mixed clause - dynamic mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string, p int) " +
@@ -474,7 +471,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     dynamicOverwriteTest("InsertInto: overwrite - mixed clause reordered - dynamic mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string, p int) " +
@@ -491,7 +488,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     dynamicOverwriteTest("InsertInto: overwrite - implicit dynamic partition - dynamic mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string, p int) " +
@@ -508,7 +505,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("InsertInto: overwrite - multiple static partitions - dynamic mode") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         // Since all partitions are provided statically, this should be supported by everyone
         withSQLConf(PARTITION_OVERWRITE_MODE.key -> PartitionOverwriteMode.DYNAMIC.toString) {
           val t1 = s"${catalogAndNamespace}tbl"
@@ -528,7 +525,7 @@ trait InsertIntoSQLOnlyTests
     }
 
     test("do not double insert on INSERT INTO collect()") {
-      withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
         val t1 = s"${catalogAndNamespace}tbl"
         withTableAndData(t1) { view =>
           sql(s"CREATE TABLE $t1 (id bigint, data string) USING $v2Format")
