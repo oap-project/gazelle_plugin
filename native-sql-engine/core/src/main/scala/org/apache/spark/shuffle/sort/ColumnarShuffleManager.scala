@@ -122,6 +122,8 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
    */
   override def getReader[K, C](
       handle: ShuffleHandle,
+      startMapIndex: Int,
+      endMapIndex: Int,
       startPartition: Int,
       endPartition: Int,
       context: TaskContext,
@@ -146,37 +148,6 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
     }
   }
 
-  override def getReaderForRange[K, C](
-      handle: ShuffleHandle,
-      startMapIndex: Int,
-      endMapIndex: Int,
-      startPartition: Int,
-      endPartition: Int,
-      context: TaskContext,
-      metrics: ShuffleReadMetricsReporter): ShuffleReader[K, C] = {
-    val blocksByAddress = SparkEnv.get.mapOutputTracker.getMapSizesByExecutorId(
-      handle.shuffleId,
-      startMapIndex,
-      endMapIndex,
-      startPartition,
-      endPartition)
-    if (handle.isInstanceOf[ColumnarShuffleHandle[K, _]]) {
-      new BlockStoreShuffleReader(
-        handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
-        blocksByAddress,
-        context,
-        metrics,
-        serializerManager = bypassDecompressionSerializerManger,
-        shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
-    } else {
-      new BlockStoreShuffleReader(
-        handle.asInstanceOf[BaseShuffleHandle[K, _, C]],
-        blocksByAddress,
-        context,
-        metrics,
-        shouldBatchFetch = canUseBatchFetch(startPartition, endPartition, context))
-    }
-  }
 
   /** Remove a shuffle's metadata from the ShuffleManager. */
   override def unregisterShuffle(shuffleId: Int): Boolean = {

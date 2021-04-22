@@ -44,7 +44,7 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
   def children: Seq[SparkPlan] = Seq(child)
 }
 
-case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarGuardRule() extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getSessionConf
   val preferColumnar = columnarConf.enablePreferColumnar
   val optimizeLevel = columnarConf.joinOptimizationThrottle

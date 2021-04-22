@@ -58,7 +58,8 @@ class ColumnarInputAdapter(child: SparkPlan) extends InputAdapter(child) {
       prefix: String = "",
       addSuffix: Boolean = false,
       maxFields: Int,
-      printNodeId: Boolean): Unit = {
+      printNodeId: Boolean,
+      indent: Int = 0): Unit = {
     child.generateTreeString(
       depth,
       lastChildren,
@@ -67,7 +68,8 @@ class ColumnarInputAdapter(child: SparkPlan) extends InputAdapter(child) {
       prefix = "",
       addSuffix = false,
       maxFields,
-      printNodeId)
+      printNodeId,
+      indent)
   }
 }
 
@@ -112,7 +114,7 @@ class ColumnarInputAdapter(child: SparkPlan) extends InputAdapter(child) {
  * failed to generate/compile code.
  */
 case class ColumnarCollapseCodegenStages(
-    conf: SparkConf,
+    columnarWholeStageEnabled: Boolean,
     codegenStageCounter: AtomicInteger = new AtomicInteger(0))
     extends Rule[SparkPlan] {
 
@@ -286,8 +288,6 @@ case class ColumnarCollapseCodegenStages(
   }
 
   def apply(plan: SparkPlan): SparkPlan = {
-    def columnarWholeStageEnabled =
-      conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true)
     if (columnarWholeStageEnabled) {
       insertWholeStageCodegen(plan)
     } else {

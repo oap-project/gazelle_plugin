@@ -29,7 +29,9 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
-import org.apache.spark.sql.execution.joins.HashJoin
+import org.apache.spark.sql.execution.joins.{HashJoin,ShuffledJoin,BaseJoinExec}
+import org.apache.spark.sql.execution.joins.HashedRelationInfo
+import org.apache.spark.sql.catalyst.expressions.codegen.CodegenContext
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.util.ArrowUtils
@@ -52,9 +54,9 @@ case class ColumnarBroadcastHashJoinExec(
     left: SparkPlan,
     right: SparkPlan,
     projectList: Seq[NamedExpression] = null)
-    extends BinaryExecNode
+    extends BaseJoinExec
     with ColumnarCodegenSupport
-    with HashJoin {
+    with ShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
@@ -65,6 +67,11 @@ case class ColumnarBroadcastHashJoinExec(
     "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to build hash map"),
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"),
     "fetchTime" -> SQLMetrics.createTimingMetric(sparkContext, "broadcast result fetch time"))
+
+  protected lazy val (buildPlan, streamedPlan) = buildSide match {
+    case BuildLeft => (left, right)
+    case BuildRight => (right, left)
+  }
 
   val (buildKeyExprs, streamedKeyExprs) = {
     require(
@@ -130,12 +137,14 @@ case class ColumnarBroadcastHashJoinExec(
     throw new UnsupportedOperationException(
       s"ColumnarBroadcastHashJoinExec doesn't support doExecute")
   }
+
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       c.inputRDDs
     case _ =>
       Seq(streamedPlan.executeColumnar())
   }
+  
   override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       val childPlans = c.getBuildPlans

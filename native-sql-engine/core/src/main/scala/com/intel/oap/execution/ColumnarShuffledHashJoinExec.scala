@@ -52,7 +52,8 @@ import com.intel.oap.vectorized.ExpressionEvaluator
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.joins.ShuffledHashJoinExec
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
-import org.apache.spark.sql.execution.joins.HashJoin
+import org.apache.spark.sql.execution.joins.{HashJoin,ShuffledJoin,BaseJoinExec}
+import org.apache.spark.sql.execution.joins.HashedRelationInfo
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
@@ -66,9 +67,9 @@ case class ColumnarShuffledHashJoinExec(
     left: SparkPlan,
     right: SparkPlan,
     projectList: Seq[NamedExpression] = null)
-    extends BinaryExecNode
+    extends BaseJoinExec
     with ColumnarCodegenSupport
-    with HashJoin {
+    with ShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
@@ -80,6 +81,11 @@ case class ColumnarShuffledHashJoinExec(
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
   buildCheck()
+
+  protected lazy val (buildPlan, streamedPlan) = buildSide match {
+    case BuildLeft => (left, right)
+    case BuildRight => (right, left)
+  }
 
   val (buildKeyExprs, streamedKeyExprs) = {
     require(
@@ -169,12 +175,22 @@ case class ColumnarShuffledHashJoinExec(
       s"ColumnarShuffledHashJoinExec doesn't support doExecute")
   }
   override def supportsColumnar = true
+
+  // override def inputRDDs(): Seq[RDD[InternalRow]] = {
+  //   throw new UnsupportedOperationException("inputRDDs is used by codegen which we don't support")
+  // }
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       c.inputRDDs
     case _ =>
       Seq(streamedPlan.executeColumnar())
   }
+
+  // protected override def prepareRelation(ctx: CodegenContext): HashedRelationInfo = {
+  //   throw new UnsupportedOperationException(
+  //     "prepareRelation is used by codegen which we don't support")
+  // }
+
   override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       val childPlans = c.getBuildPlans

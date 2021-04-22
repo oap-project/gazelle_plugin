@@ -18,7 +18,7 @@
 package com.intel.oap
 
 import com.intel.oap.execution._
-import org.apache.spark.SparkConf
+import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
@@ -33,7 +33,7 @@ import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 
-case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
@@ -274,7 +274,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 
 }
 
-case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarPostOverrides() extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
@@ -321,10 +321,12 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   // Do not create rules in class initialization as we should access SQLConf while creating the rules. At this time
   // SQLConf may not be there yet.
-  def rowGuardOverrides = ColumnarGuardRule(conf)
-  def preOverrides = ColumnarPreOverrides(conf)
-  def postOverrides = ColumnarPostOverrides(conf)
-  def collapseOverrides = ColumnarCollapseCodegenStages(conf)
+  def rowGuardOverrides = ColumnarGuardRule()
+  def preOverrides = ColumnarPreOverrides()
+  def postOverrides = ColumnarPostOverrides()
+
+  val columnarWholeStageEnabled = conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true)
+  def collapseOverrides = ColumnarCollapseCodegenStages(columnarWholeStageEnabled)
 
   var isSupportAdaptive: Boolean = true
 

@@ -682,6 +682,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   @Override
+  public void putFloatsLittleEndian(int rowId, int count, byte[] src, int srcIndex) {
+
+  }
+
+  @Override
   public float getFloat(int rowId) {
     return accessor.getFloat(rowId);
   }
@@ -710,6 +715,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     writer.setDoubles(rowId, count, src, srcIndex);
   }
 
+  @Override
+  public void putDoublesLittleEndian(int rowId, int count, byte[] src, int srcIndex) {
+
+  }
+  
   @Override
   public void putDoubles(int rowId, int count, byte[] src, int srcIndex) {
     writer.setDoubles(rowId, count, src, srcIndex);
