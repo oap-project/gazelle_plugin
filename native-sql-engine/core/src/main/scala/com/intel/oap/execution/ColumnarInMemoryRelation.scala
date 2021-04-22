@@ -77,6 +77,7 @@ case class ArrowCachedBatch(
     stats: InternalRow)
     extends SimpleMetricsCachedBatch
     with Externalizable {
+  Cleaner.create(this, new Deallocator(buffer))
   def this() = {
     this(0, null, null)
   }
@@ -93,7 +94,6 @@ case class ArrowCachedBatch(
     val rawArrowData = in.readObject().asInstanceOf[Array[Byte]]
     buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
     // System.out.println(s"readExternal for $this")
-    Cleaner.create(this, new Deallocator(buffer))
   }
 }
 
