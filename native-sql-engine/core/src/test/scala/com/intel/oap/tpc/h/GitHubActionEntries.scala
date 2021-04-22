@@ -48,12 +48,12 @@ class GitHubActionEntries extends FunSuite {
         throw new IllegalArgumentException("No GITHUB_REPOSITORY set")
       }
 
-      val eventPath = System.getenv("PREVIOUS_EVENT_PATH")
+      val eventPath = System.getenv("GITHUB_EVENT_PATH")
       println("Reading essential env variables... " +
-          "Envs: PREVIOUS_EVENT_PATH: %s" .format(eventPath))
+          "Envs: GITHUB_EVENT_PATH: %s" .format(eventPath))
 
       if (StringUtils.isEmpty(eventPath)) {
-        throw new IllegalArgumentException("No PREVIOUS_EVENT_PATH set")
+        throw new IllegalArgumentException("No GITHUB_EVENT_PATH set")
       }
 
       val token = System.getenv("GITHUB_TOKEN")
@@ -62,8 +62,7 @@ class GitHubActionEntries extends FunSuite {
         throw new IllegalArgumentException("No GITHUB_TOKEN set")
       }
 
-      val ghEventPayloadJson = new ObjectMapper().readTree(FileUtils.readFileToString(new File(eventPath)))
-      val prId = ghEventPayloadJson.get("number").asInt()
+      val prId = System.getenv("PR_NUM").toInt
 
       GitHubActionEntries.commentOnContextPR(repoSlug, prId, token,
         FileUtils.readFileToString(new File(commentContentPath)))
