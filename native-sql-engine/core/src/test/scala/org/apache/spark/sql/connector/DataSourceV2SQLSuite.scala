@@ -50,11 +50,8 @@ class DataSourceV2SQLSuite
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
@@ -744,7 +741,7 @@ class DataSourceV2SQLSuite
   }
 
   test("Relation: basic") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
@@ -755,7 +752,7 @@ class DataSourceV2SQLSuite
   }
 
   test("Relation: SparkSession.table()") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
@@ -765,7 +762,7 @@ class DataSourceV2SQLSuite
   }
 
   test("Relation: CTE") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       withTable(t1) {
         sql(s"CREATE TABLE $t1 USING foo AS SELECT id, data FROM source")
@@ -792,7 +789,7 @@ class DataSourceV2SQLSuite
   }
 
   test("Relation: join tables in 2 catalogs") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       val t2 = "testcat2.v2tbl"
       withTable(t1, t2) {
@@ -814,7 +811,7 @@ class DataSourceV2SQLSuite
   }
 
   test("qualified column names for v2 tables") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t = "testcat.ns1.ns2.tbl"
       withTable(t) {
         sql(s"CREATE TABLE $t (id bigint, point struct<x: bigint, y: bigint>) USING foo")
@@ -845,7 +842,7 @@ class DataSourceV2SQLSuite
   }
 
   test("qualified column names for v1 tables") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       Seq(true, false).foreach { useV1Table =>
         val format = if (useV1Table) "json" else v2Format
         if (useV1Table) {
@@ -871,7 +868,7 @@ class DataSourceV2SQLSuite
   }
 
   test("InsertInto: append - across catalog") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t1 = "testcat.ns1.ns2.tbl"
       val t2 = "testcat2.db.tbl"
       withTable(t1, t2) {
@@ -1763,7 +1760,7 @@ class DataSourceV2SQLSuite
   }
 
   test("DeleteFrom: basic - delete with where clause") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t = "testcat.ns1.ns2.tbl"
       withTable(t) {
         sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1776,7 +1773,7 @@ class DataSourceV2SQLSuite
   }
 
   test("DeleteFrom: delete from aliased target table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t = "testcat.ns1.ns2.tbl"
       withTable(t) {
         sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1789,7 +1786,7 @@ class DataSourceV2SQLSuite
   }
 
   test("DeleteFrom: normalize attribute names") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t = "testcat.ns1.ns2.tbl"
       withTable(t) {
         sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -1802,7 +1799,7 @@ class DataSourceV2SQLSuite
   }
 
   test("DeleteFrom: fail if has subquery") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t = "testcat.ns1.ns2.tbl"
       withTable(t) {
         sql(s"CREATE TABLE $t (id bigint, data string, p int) USING foo PARTITIONED BY (id, p)")
@@ -2367,7 +2364,7 @@ class DataSourceV2SQLSuite
   }
 
   test("SPARK-30094: current namespace is used during table resolution") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       // unset this config to use the default v2 session catalog.
       spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
 
@@ -2384,7 +2381,7 @@ class DataSourceV2SQLSuite
   }
 
   test("SPARK-30284: CREATE VIEW should track the current catalog and namespace") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       // unset this config to use the default v2 session catalog.
       spark.conf.unset(V2_SESSION_CATALOG_IMPLEMENTATION.key)
       val sessionCatalogName = CatalogManager.SESSION_CATALOG_NAME
@@ -2498,7 +2495,7 @@ class DataSourceV2SQLSuite
   }
 
   test("SPARK-31015: star expression should work for qualified column names for v2 tables") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val t = "testcat.ns1.ns2.tbl"
       withTable(t) {
         sql(s"CREATE TABLE $t (id bigint, name string) USING foo")

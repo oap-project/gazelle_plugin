@@ -53,11 +53,8 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
       .set("spark.memory.offHeap.enabled", "true")
       .set("spark.memory.offHeap.size", "50m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.sql.columnar.codegen.hashAggregate", "false")
-      .set("spark.oap.sql.columnar.wholestagecodegen", "true")
-      .set("spark.sql.columnar.window", "true")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
@@ -123,7 +120,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Append: basic append") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
       checkAnswer(spark.table("testcat.table_name"), Seq.empty)
@@ -168,7 +165,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Overwrite: overwrite by expression: true") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql(
         "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
@@ -189,7 +186,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Overwrite: overwrite by expression: id = 3") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql(
         "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
@@ -236,7 +233,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("OverwritePartitions: overwrite conflicting partitions") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql(
         "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
 
@@ -258,7 +255,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("OverwritePartitions: overwrite all rows if not partitioned") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
       checkAnswer(spark.table("testcat.table_name"), Seq.empty)
@@ -304,7 +301,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Create: basic behavior") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.table("source").writeTo("testcat.table_name").create()
 
       checkAnswer(
@@ -321,7 +318,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Create: with using") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.table("source").writeTo("testcat.table_name").using("foo").create()
 
       checkAnswer(
@@ -338,7 +335,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Create: with property") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.table("source").writeTo("testcat.table_name").tableProperty("prop", "value").create()
 
       checkAnswer(
@@ -355,7 +352,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Create: identity partitioned table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.table("source").writeTo("testcat.table_name").partitionedBy($"id").create()
 
       checkAnswer(
@@ -461,7 +458,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Replace: basic behavior") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql(
         "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
       spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
@@ -500,7 +497,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Replace: partitioned table") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
       spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
 
@@ -546,7 +543,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("CreateOrReplace: table does not exist") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.table("source2").writeTo("testcat.table_name").createOrReplace()
 
       checkAnswer(
@@ -564,7 +561,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("CreateOrReplace: table exists") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       spark.sql(
         "CREATE TABLE testcat.table_name (id bigint, data string) USING foo PARTITIONED BY (id)")
       spark.sql("INSERT INTO TABLE testcat.table_name SELECT * FROM source")
@@ -603,7 +600,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("SPARK-30289 Create: partitioned by nested column") {
-    withSQLConf("spark.oap.sql.columnar.testing" -> "true") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
       val schema = new StructType().add("ts", new StructType()
         .add("created", TimestampType)
         .add("modified", TimestampType)

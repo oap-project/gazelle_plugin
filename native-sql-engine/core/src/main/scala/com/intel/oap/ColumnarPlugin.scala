@@ -35,7 +35,6 @@ import org.apache.spark.sql.internal.SQLConf
 case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
-  val testing: Boolean = columnarConf.isTesting
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
