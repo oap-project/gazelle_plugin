@@ -71,7 +71,7 @@ class StreamSuite extends StreamTest {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set("spark.redaction.string.regex", "file:/[\\w_]+")
 
   test("map with recovery") {

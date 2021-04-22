@@ -42,7 +42,7 @@ class ParquetProtobufCompatibilitySuite extends ParquetCompatibilityTest with Sh
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("unannotated array of primitive type") {
     checkAnswer(readResourceParquetFile("test-data/old-repeated-int.parquet"), Row(Seq(1, 2, 3)))

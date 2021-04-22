@@ -60,17 +60,11 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
   val enableColumnarShuffledHashJoin = columnarConf.enableColumnarShuffledHashJoin
   val enableColumnarBroadcastExchange = columnarConf.enableColumnarBroadcastExchange
   val enableColumnarBroadcastJoin = columnarConf.enableColumnarBroadcastJoin
-  
-  val testing = columnarConf.isTesting
 
   private def tryConvertToColumnar(plan: SparkPlan): Boolean = {
     try {
       val columnarPlan = plan match {
         case plan: BatchScanExec =>
-          if (testing) {
-            // disable ColumnarBatchScanExec according to config
-            return false
-          }
           if (!enableColumnarBatchScan) return false
           new ColumnarBatchScanExec(plan.output, plan.scan)
         case plan: FileSourceScanExec =>

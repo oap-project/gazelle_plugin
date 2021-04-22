@@ -65,7 +65,7 @@ class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveS
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private def getBatch(query: DataFrame): AdvancedBatch = {
     query.queryExecution.executedPlan.collect {

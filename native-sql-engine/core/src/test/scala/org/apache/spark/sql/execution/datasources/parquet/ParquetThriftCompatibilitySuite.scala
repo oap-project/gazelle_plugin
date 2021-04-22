@@ -43,7 +43,7 @@ class ParquetThriftCompatibilitySuite extends ParquetCompatibilityTest with Shar
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private val parquetFilePath = Thread.currentThread().getContextClassLoader.getResource(
     "test-data/parquet-thrift-compat.snappy.parquet")

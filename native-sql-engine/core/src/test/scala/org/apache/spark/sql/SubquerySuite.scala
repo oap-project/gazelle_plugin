@@ -50,7 +50,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set("spark.oap.sql.columnar.hashCompare", "true")
 
   setupTestData()

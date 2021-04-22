@@ -675,7 +675,7 @@ abstract class OrcQuerySuite extends OrcQueryTest with SharedSparkSession {
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("LZO compression options for writing to an ORC file") {
     withTempPath { file =>

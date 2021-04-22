@@ -55,7 +55,7 @@ class DatasetCacheSuite extends QueryTest
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   /**
    * Asserts that a cached [[Dataset]] will be built using the given number of other cached results.

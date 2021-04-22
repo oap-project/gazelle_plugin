@@ -143,10 +143,6 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   // The supported customized compression codec is lz4 and fastpfor.
   val columnarShuffleUseCustomizedCompressionCodec: String =
     conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
-  
-  // a helper flag to check if it's in unit test
-  val isTesting: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.testing", "false").toBoolean
 
   val numaBindingInfo: ColumnarNumaBindingInfo = {
     val enableNumaBinding: Boolean =

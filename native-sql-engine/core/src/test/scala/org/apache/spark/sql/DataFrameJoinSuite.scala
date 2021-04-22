@@ -56,7 +56,7 @@ class DataFrameJoinSuite extends QueryTest
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("join - join using") {
     val df = Seq(1, 2, 3).map(i => (i, i.toString)).toDF("int", "str")

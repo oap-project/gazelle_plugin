@@ -139,7 +139,7 @@ class ParquetSchemaInferenceSuite extends ParquetSchemaTest {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   testSchemaInference[(Boolean, Int, Long, Float, Double, Array[Byte])](
     "basic types",
@@ -389,7 +389,7 @@ class ParquetSchemaSuite extends ParquetSchemaTest {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("DataType string parser compatibility") {
     // This is the generated string from previous versions of the Spark SQL, using the following:

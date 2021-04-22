@@ -191,7 +191,7 @@ class OrcPartitionDiscoverySuite extends OrcPartitionDiscoveryTest with SharedSp
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
   test("read partitioned table - partition key included in orc file") {
@@ -300,7 +300,7 @@ class OrcV1PartitionDiscoverySuite extends OrcPartitionDiscoveryTest with Shared
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "orc")
 
   test("read partitioned table - partition key included in orc file") {

@@ -51,7 +51,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   lazy val df = spark.range(10)
   lazy val df1 = df.selectExpr("id as a1", "id as a2")

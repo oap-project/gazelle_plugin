@@ -45,6 +45,6 @@ class OrcV1SchemaPruningSuite extends SchemaPruningSuite {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "orc")
 }

@@ -65,7 +65,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("estimates the size of a limit 0 on outer join") {
     withTempView("test") {

@@ -52,7 +52,7 @@ class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedS
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("parquet files with different physical schemas but share the same logical schema") {
     import ParquetCompatibilityTest._

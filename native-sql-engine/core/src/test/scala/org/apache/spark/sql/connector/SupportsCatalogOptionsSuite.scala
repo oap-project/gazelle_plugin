@@ -58,7 +58,7 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private val catalogName = "testcat"
   private val format = classOf[CatalogSupportingInMemoryTableProvider].getName

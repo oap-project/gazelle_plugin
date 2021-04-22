@@ -69,7 +69,7 @@ abstract class JsonSuite extends QueryTest with SharedSparkSession with TestJson
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("Type promotion") {
     def checkTypePromotion(expected: Any, actual: Any): Unit = {

@@ -134,7 +134,7 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private lazy val tableWithSchemaExpected = (1 to 10).map { i =>
     Row(

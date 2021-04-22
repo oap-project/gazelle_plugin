@@ -2363,7 +2363,7 @@ class CSVv1Suite extends CSVSuite {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "csv")
 }
 
@@ -2387,7 +2387,7 @@ class CSVv2Suite extends CSVSuite {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }
 
@@ -2411,6 +2411,6 @@ class CSVLegacyTimeParserSuite extends CSVSuite {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
       .set(SQLConf.LEGACY_TIME_PARSER_POLICY, "legacy")
 }

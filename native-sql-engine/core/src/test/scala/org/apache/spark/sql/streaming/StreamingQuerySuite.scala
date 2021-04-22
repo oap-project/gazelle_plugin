@@ -67,7 +67,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   // To make === between double tolerate inexact values
   implicit val doubleEquality = TolerantNumerics.tolerantDoubleEquality(0.01)

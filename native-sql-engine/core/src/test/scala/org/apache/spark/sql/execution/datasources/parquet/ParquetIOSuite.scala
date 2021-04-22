@@ -101,7 +101,7 @@ class ParquetIOSuite extends QueryTest with ParquetTest with SharedSparkSession 
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   /**
    * Writes `data` to a Parquet file, reads it back and check file contents.

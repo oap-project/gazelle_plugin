@@ -61,7 +61,7 @@ abstract class InsertIntoTests(
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   /**
    * Insert data into a table using the insertInto statement. Implementations can be in SQL

@@ -64,7 +64,7 @@ class PartitionedWriteSuite extends QueryTest with SharedSparkSession {
       .set("spark.sql.columnar.sort.broadcastJoin", "true")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.testing", "true")
+      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("write many partitions") {
     val path = Utils.createTempDir()
