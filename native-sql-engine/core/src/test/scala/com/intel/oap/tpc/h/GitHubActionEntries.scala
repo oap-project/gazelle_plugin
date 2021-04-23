@@ -22,8 +22,8 @@ import java.util.regex.Pattern
 import com.intel.oap.tags.CommentOnContextPR
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
-import org.codehaus.jackson.map.ObjectMapper
-import org.kohsuke.github.{GHIssueComment, GitHubBuilder}
+import org.kohsuke.github.GHIssueComment
+import org.kohsuke.github.GitHubBuilder
 import org.scalatest.FunSuite
 
 class GitHubActionEntries extends FunSuite {
@@ -64,7 +64,7 @@ class GitHubActionEntries extends FunSuite {
       }
 
       val prUrl = System.getenv("PR_URL")
-      val pattern = new Pattern("^.*/(\d+)$")
+      val pattern = new Pattern("^.*/(\\d+)$")
       val matcher = pattern.matcher(prUrl)
       if (!matcher.matches()) {
         throw new IllegalArgumentException("Unable to find pull request number in URL: " + prUrl)
