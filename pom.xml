@@ -19,16 +19,6 @@
   <version>1.1.0</version>
   <packaging>pom</packaging>
 
-  <properties>
-    <scala.version>2.12.10</scala.version>
-    <scala.binary.version>2.12</scala.binary.version>
-    <spark.version>3.0.0</spark.version>
-    <arrow.version>3.0.0</arrow.version>
-    <hadoop.version>2.7.4</hadoop.version>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-  </properties>
-
   <name>Native SQL Engine Parent Pom</name>
   <url>https://github.com/oap-project/native-sql-engine.git</url>
 
@@ -40,6 +30,13 @@
   </licenses>
 
   <properties>
+    <scala.version>2.12.10</scala.version>
+    <scala.binary.version>2.12</scala.binary.version>
+    <spark.version>3.0.0</spark.version>
+    <arrow.version>3.0.0</arrow.version>
+    <hadoop.version>2.7.4</hadoop.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <arrow.script.dir>${project.basedir}/script</arrow.script.dir>
     <cpp_tests>OFF</cpp_tests>
     <build_arrow>ON</build_arrow>
