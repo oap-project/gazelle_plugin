@@ -757,8 +757,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        // FIXME(): to work around NSE-241
-        action->Finish(offset_, 20000, &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -917,8 +916,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        // FIXME(): to work around NSE-241
-        action->Finish(offset_, 20000, &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1074,8 +1072,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        // FIXME(): to work around NSE-241
-        action->Finish(offset_, 20000, &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();

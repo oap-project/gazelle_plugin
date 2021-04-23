@@ -47,6 +47,9 @@ arrow::BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
                               const BasicDecimalScalar128& y, int32_t out_precision,
                               int32_t out_scale, bool* overflow);
 
+// Divide 'x'(decimal) by 'y'(int64_t), and return the result.
+BasicDecimal128 Divide(const BasicDecimalScalar128& x, int64_t y);
+
 /// Divide 'x' by 'y', and return the remainder.
 arrow::BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
                            const BasicDecimalScalar128& y, int32_t out_precision,
