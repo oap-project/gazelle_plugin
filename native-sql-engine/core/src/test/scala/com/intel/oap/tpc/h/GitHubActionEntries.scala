@@ -64,7 +64,7 @@ class GitHubActionEntries extends FunSuite {
       }
 
       val prUrl = System.getenv("PR_URL")
-      val pattern = new Pattern("^.*/(\\d+)$")
+      val pattern = Pattern.compile("^.*/(\\d+)$")
       val matcher = pattern.matcher(prUrl)
       if (!matcher.matches()) {
         throw new IllegalArgumentException("Unable to find pull request number in URL: " + prUrl)
@@ -79,10 +79,11 @@ class GitHubActionEntries extends FunSuite {
 }
 
 object GitHubActionEntries {
-  def commentOnContextPR(repoSlug: String, prId: Int, token: String, comment: String): Option[GHIssueComment] = {
+  def commentOnContextPR(repoSlug: String, prId: Int, token: String,
+                         comment: String): Option[GHIssueComment] = {
     val inst = new GitHubBuilder()
-        .withAppInstallationToken(token)
-        .build()
+      .withAppInstallationToken(token)
+      .build()
 
     val repository = inst.getRepository(repoSlug)
     val pr = repository.getPullRequest(prId)
