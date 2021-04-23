@@ -3,7 +3,7 @@
     <groupId>com.intel.oap</groupId>
     <artifactId>native-sql-engine-parent</artifactId>
     <version>1.1.0</version>
-  </parent>  
+  </parent>
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.intel.oap</groupId>
@@ -18,12 +18,6 @@
     <module>parquet</module>
   </modules>
   <properties>
-    <scala.version>2.12.10</scala.version>
-    <scala.binary.version>2.12</scala.binary.version>
-    <spark.version>3.0.0</spark.version>
-    <arrow.version>3.0.0</arrow.version>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <script.dir>${arrow.script.dir}</script.dir>
     <datasource.cpp_tests>${cpp_tests}</datasource.cpp_tests>
     <datasource.build_arrow>${build_arrow}</datasource.build_arrow>
@@ -49,44 +43,44 @@
 
   <dependencies>
     <dependency>
-    <groupId>org.apache.hadoop</groupId>
-    <artifactId>hadoop-aws</artifactId>
-    <version>2.7.3</version>
-    <exclusions>
-      <exclusion>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-core</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-annotations</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-databind</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>javax.servlet</groupId>
-        <artifactId>servlet-api</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>com.sun.jersey</groupId>
-        <artifactId>jersey-core</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>com.sun.jersey</groupId>
-        <artifactId>jersey-json</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>com.sun.jersey</groupId>
-        <artifactId>jersey-server</artifactId>
-      </exclusion>
-      <exclusion>
-        <groupId>commons-httpclient</groupId>
-        <artifactId>commons-httpcore</artifactId>
-      </exclusion>
-    </exclusions>
-  </dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-aws</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>servlet-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.sun.jersey</groupId>
+          <artifactId>jersey-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.sun.jersey</groupId>
+          <artifactId>jersey-json</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.sun.jersey</groupId>
+          <artifactId>jersey-server</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>commons-httpclient</groupId>
+          <artifactId>commons-httpcore</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpcore</artifactId>
@@ -174,7 +168,7 @@
             <configuration>
               <executable>bash</executable>
               <arguments>
-              <argument>${script.dir}/build_arrow.sh</argument>
+                <argument>${script.dir}/build_arrow.sh</argument>
                 <argument>--tests=${datasource.cpp_tests}</argument>
                 <argument>--build_arrow=${datasource.build_arrow}</argument>
                 <argument>--static_arrow=${datasource.static_arrow}</argument>
