@@ -18,14 +18,23 @@
 name: Native SQL Engine TPC-H Suite
 
 on:
-  pull_request
+  issue_comment:
+    types: [created, edited]
 
 jobs:
   ram-usage-test:
-    if: ${{ contains(github.event.pull_request.labels.*.name, 'RAM Report') }}
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '@github-actions ram-usage-test') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Checkout Pull Request
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_URL="${{ github.event.issue.pull_request.url }}"
+          PR_NUM=${PR_URL##*/}
+          echo "Checking out from PR #$PR_NUM based on URL: $PR_URL"
+          hub pr checkout $PR_NUM
       - name: Set up JDK 1.8
         uses: actions/setup-java@v1
         with:
@@ -50,7 +59,7 @@ jobs:
           mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
       - name: Run Maven tests - BHJ
         run: |
-          mvn test -B -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+          mvn test -B -Dbuild_arrow=OFF -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
           MAVEN_OPTS: "-Xmx1G"
@@ -59,7 +68,7 @@ jobs:
           ENABLE_TPCH_TESTS: "true"
       - name: Run Maven tests - SMJ
         run: |
-          mvn test -B -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+          mvn test -B -Dbuild_arrow=OFF -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
           MAVEN_OPTS: "-Xmx1G"
@@ -69,14 +78,12 @@ jobs:
       - run: |
           cml-publish /tmp/comment_image_1.png --md > /tmp/comment.md
           cml-publish /tmp/comment_image_2.png --md >> /tmp/comment.md
-      - run: echo "::set-output name=event_path::${GITHUB_EVENT_PATH}"
-        id: output-envs
-      - uses: actions/upload-artifact@v2
-        with:
-          name: comment_content
-          path: /tmp/comment.md
-      - uses: actions/upload-artifact@v2
-        with:
-          name: pr_event
-          path: ${{steps.output-envs.outputs.event_path}}
-
+      - name: Run Maven tests - Report
+        run: |
+          mvn test -B -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -pl native-sql-engine/core/ -am -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
+        env:
+          PR_URL: ${{ github.event.issue.pull_request.url }}
+          MAVEN_OPTS: "-Xmx1G"
+          COMMENT_CONTENT_PATH: "/tmp/comment.md"
+          GITHUB_TOKEN: ${{ github.token }}
+          ENABLE_TPCH_TESTS: "true"
