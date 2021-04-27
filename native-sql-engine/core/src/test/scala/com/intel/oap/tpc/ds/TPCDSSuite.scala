@@ -106,7 +106,8 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   }
 
   test("window function with date input") {
-    val df = spark.sql("SELECT MAX(cc_rec_start_date) OVER (PARTITION BY cc_company)" +
+    val df = spark.sql("SELECT MAX(cc_rec_end_date) OVER (PARTITION BY cc_company)," +
+        "MIN(cc_rec_end_date) OVER (PARTITION BY cc_company)" +
         "FROM call_center LIMIT 100")
     df.explain()
     df.show()

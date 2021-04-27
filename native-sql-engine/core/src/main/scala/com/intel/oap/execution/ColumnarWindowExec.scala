@@ -474,7 +474,7 @@ object ColumnarWindowExec extends Logging {
     override protected def batches: Seq[ColumnarWindowOptimizations.Batch] =
       Batch("Remove Sort", FixedPoint(10), RemoveSort) ::
           Batch("Remove Coalesce Batches", FixedPoint(10), RemoveCoalesceBatches) ::
-          Batch("Cast Mutable Types", Once, CastMutableTypes) ::
+//          Batch("Cast Mutable Types", Once, CastMutableTypes) ::
           Batch("Add Projections", FixedPoint(1), AddProjectionsAroundWindow) ::
           Batch("Validate", Once, Validate) ::
           Nil
