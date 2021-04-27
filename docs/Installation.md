@@ -24,7 +24,7 @@ Based on the different environment, there are some parameters can be set via -D 
 | cpp_tests  | Enable or Disable CPP Tests | False |
 | build_arrow | Build Arrow from Source | True |
 | arrow_root | When build_arrow set to False, arrow_root will be enabled to find the location of your existing arrow library. | /usr/local |
-| build_protobuf | Build Protobuf from Source | True |
+| build_protobuf | Build Protobuf from Source. If set to False, default library path will be used to find protobuf library. | True |
 
 When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from [OAP Arrow](https://github.com/oap-project/arrow)
 If you wish to change any parameters from Arrow, you can change it from the build_arrow.sh script under native-sql-enge/arrow-data-source/script/.

@@ -37,7 +37,7 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 | spark.oap.sql.columnar.tmp_dir | Set up a folder to store the codegen files | /tmp |
 | spark.oap.sql.columnar.shuffle.customizedCompression.codec | Set up the codec to be used for Columnar Shuffle, default is lz4| lz4 |
 | spark.oap.sql.columnar.numaBinding | Set up NUMABinding, default is false| true |
-| spark.oap.sql.columnar.coreRange | Set up the core range for NUMABinding, only works when numaBinding set to true. <br /> The setting is based on the number of cores in your system. Use 72 cores as an example. | 0-17,36-53|18-35,54-71 |
+| spark.oap.sql.columnar.coreRange | Set up the core range for NUMABinding, only works when numaBinding set to true. <br /> The setting is based on the number of cores in your system. Use 72 cores as an example. | 0-17,36-53 &#124;18-35,54-71 |
 
 Below is an example for spark-default.conf, if you are using conda to install OAP project.
 
