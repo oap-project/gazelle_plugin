@@ -424,6 +424,9 @@ object ColumnarWindowExec extends Logging {
     }
   }
 
+  /**
+   * FIXME casting solution for timestamp/date32 support
+   */
   object CastMutableTypes extends Rule[SparkPlan] with PredicateHelper {
     override def apply(plan: SparkPlan): SparkPlan = plan transform {
       case p: ColumnarWindowExec => p.transformExpressionsDown {
