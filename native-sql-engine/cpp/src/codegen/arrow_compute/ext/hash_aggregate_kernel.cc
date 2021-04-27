@@ -804,7 +804,9 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+#ifdef DEBUG
       std::cout << "using string hashagg res" << std::endl;
+#endif
       batch_size_ = GetBatchSize();
       if (key_index_list.size() > 1) {
         aggr_key_unsafe_row = std::make_shared<UnsafeRow>(key_index_list.size());
@@ -858,9 +860,6 @@ class HashAggregateKernel::Impl {
           aggr_key_validity =
               typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
         }
-
-        // for (int n = 0; n < aggr_key.size(); ++n) printf("%0X ",
-        // *(aggr_key.data() + n)); std::cout << std::endl;
 
         // 3. get key from hash_table
         int memo_index = 0;
