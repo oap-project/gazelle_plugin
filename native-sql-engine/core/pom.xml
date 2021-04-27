@@ -30,10 +30,6 @@
   <properties>
     <cpp.dir>../cpp/</cpp.dir>
     <cpp.build.dir>../cpp/build/releases/</cpp.build.dir>
-    <arrow.version>3.0.0</arrow.version>
-    <spark.version>3.0.0</spark.version>
-    <scala.binary.version>2.12</scala.binary.version>
-    <scala.version>2.12.10</scala.version>
     <build.testJarPhase>none</build.testJarPhase>
     <build.copyDependenciesPhase>package</build.copyDependenciesPhase>
     <hadoop.deps.scope>provided</hadoop.deps.scope>
