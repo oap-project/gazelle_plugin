@@ -74,6 +74,16 @@ import java.io.{InputStream, OutputStream}
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 
 object ConverterUtils extends Logging {
+  def calcuateEstimatedSize(columnarBatch: ColumnarBatch): Long = {
+    val cols = (0 until columnarBatch.numCols).toList.map(i =>
+      columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
+    val nodes = new java.util.ArrayList[ArrowFieldNode]()
+    val buffers = new java.util.ArrayList[ArrowBuf]()
+    cols.foreach(vector => {
+      appendNodes(vector.asInstanceOf[FieldVector], nodes, buffers);
+    })
+    buffers.asScala.map(_.getPossibleMemoryConsumed()).sum
+  }
   def createArrowRecordBatch(columnarBatch: ColumnarBatch): ArrowRecordBatch = {
     val numRowsInBatch = columnarBatch.numRows()
     val cols = (0 until columnarBatch.numCols).toList.map(i =>

@@ -103,6 +103,11 @@ private[sql] case class CachedRDDBuilder(
     if (_cachedColumnBuffers != null) {
       synchronized {
         if (_cachedColumnBuffers != null) {
+          _cachedColumnBuffers.foreach(buffer => buffer match {
+            case b: com.intel.oap.execution.ArrowCachedBatch =>
+              b.release
+            case other =>
+          })
           _cachedColumnBuffers.unpersist(blocking)
           _cachedColumnBuffers = null
         }

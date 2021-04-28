@@ -54,11 +54,16 @@ private class Deallocator(var arrowColumnarBatch: Array[ColumnarBatch]) extends 
 
   override def run(): Unit = {
     try {
-      Option(arrowColumnarBatch).foreach(_.foreach(_.close))
+      Option(arrowColumnarBatch) match {
+        case Some(buffer) =>
+          //System.out.println(s"ArrowCachedBatch released in DeAllocator, First buffer name is ${buffer(0)}")
+          buffer.foreach(_.close)
+        case other =>
+      }
     } catch {
       case e: Exception =>
         // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
-        System.err.println("ColumnarHashedRelation: Error running deaallocator")
+        //System.err.println("ArrowCachedBatch-Deallocator: Error running deallocator")
         e.printStackTrace()
     }
   }
@@ -77,11 +82,26 @@ case class ArrowCachedBatch(
     stats: InternalRow)
     extends SimpleMetricsCachedBatch
     with Externalizable {
-  Cleaner.create(this, new Deallocator(buffer))
+  if (buffer != null) {
+    //System.out.println(s"ArrowCachedBatch constructed First buffer name is ${buffer(0)}")
+    Cleaner.create(this, new Deallocator(buffer))
+  }
   def this() = {
     this(0, null, null)
   }
-  override def sizeInBytes: Long = buffer.size
+  def release() = {
+    //System.out.println(s"ArrowCachedBatch released by clear cache, First buffer name is ${buffer(0)}")
+    buffer.foreach(_.close)
+  }
+  lazy val estimatedSize: Long = {
+    var size: Long = 0
+    buffer.foreach(batch => {
+      size += ConverterUtils.calcuateEstimatedSize(batch)
+    })
+    //System.out.println(s"ArrowCachedBatch${buffer(0)} estimated size is ${size}")
+    size
+  }
+  override def sizeInBytes: Long = estimatedSize
   override def writeExternal(out: ObjectOutput): Unit = {
     // System.out.println(s"writeExternal for $this")
     val rawArrowData = ConverterUtils.convertToNetty(buffer)
@@ -93,7 +113,8 @@ case class ArrowCachedBatch(
     numRows = 0
     val rawArrowData = in.readObject().asInstanceOf[Array[Byte]]
     buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
-    // System.out.println(s"readExternal for $this")
+    //System.out.println(s"ArrowCachedBatch constructed by deserilizer, First buffer name is ${buffer(0)}")
+    Cleaner.create(this, new Deallocator(buffer))
   }
 }
 
