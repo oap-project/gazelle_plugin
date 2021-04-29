@@ -73,10 +73,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           }
           plan
         case plan: InMemoryTableScanExec =>
-          if (plan.supportsColumnar) {
-            return false
-          }
-          plan
+          new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
         case plan: ProjectExec =>
           if(!enableColumnarProjFilter) return false
           new ColumnarConditionProjectExec(null, plan.projectList, plan.child)
