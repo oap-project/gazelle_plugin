@@ -329,7 +329,10 @@ class HashRelation {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }
     if (sizeof(payload) <= 8) {
-      if (*(CType*)recent_cached_key_ == payload) return recent_cached_key_probe_res_;
+      if (has_cached_ && *(CType*)recent_cached_key_ == payload) {
+        return recent_cached_key_probe_res_;
+      }
+      has_cached_ = true;
       *(CType*)recent_cached_key_ = payload;
     }
     int32_t v = hash32(payload, true);
@@ -445,6 +448,7 @@ class HashRelation {
   std::vector<ArrayItemIndex> arrayid_list_;
   int key_size_;
   char recent_cached_key_[8] = {0};
+  bool has_cached_ = false;
   int recent_cached_key_probe_res_ = -1;
 
   arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
