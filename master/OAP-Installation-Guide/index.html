@@ -79,16 +79,18 @@
                     <li class="toctree-l1 current"><a class="reference internal current" href="./">OAP Installation Guide</a>
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#contents">Contents</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#installing-oap">Installing OAP</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#extra-steps-for-shuffle-remote-pmem-extension">Extra Steps for Shuffle Remote PMem Extension</a>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#installing-oap">Installing OAP</a>
+        <ul>
+    <li class="toctree-l4"><a class="reference internal" href="#extra-steps-for-shuffle-remote-pmem-extension">Extra Steps for Shuffle Remote PMem Extension</a>
     </li>
         </ul>
     </li>
-    <li class="toctree-l2"><a class="reference internal" href="#configuration">Configuration</a>
+    <li class="toctree-l3"><a class="reference internal" href="#configuration">Configuration</a>
+    </li>
+        </ul>
     </li>
     </ul>
                     </li>
@@ -142,7 +144,7 @@ Follow steps below on <strong><em>every node</em></strong> of your cluster to se
 <li><a href="#installing-oap">Installing OAP</a></li>
 <li><a href="#configuration">Configuration</a></li>
 </ul>
-<h2 id="prerequisites">Prerequisites</h2>
+<h3 id="prerequisites">Prerequisites</h3>
 <ul>
 <li>
 <p><strong>OS Requirements</strong><br />
@@ -158,11 +160,19 @@ $ chmod +x Miniconda2-latest-Linux-x86_64.sh
 $ bash Miniconda2-latest-Linux-x86_64.sh 
 </code></pre>
 
-<p>For changes to take effect, close and re-open your current shell. To test your installation,  run the command <code>conda list</code> in your terminal window. A list of installed packages appears if it has been installed correctly.</p>
-<h2 id="installing-oap">Installing OAP</h2>
+<p>For changes to take effect, <strong><em>reload</em></strong> your current shell. 
+To test your installation,  run the command <code>conda list</code> in your terminal window. A list of installed packages appears if it has been installed correctly.</p>
+<h3 id="installing-oap">Installing OAP</h3>
+<p>Create a Conda environment and install OAP Conda package.</p>
+<pre><code class="bash">$ conda create -n oapenv -y python=3.7
+$ conda activate oapenv
+$ conda install -c conda-forge -c intel -y oap=1.1.0
+</code></pre>
+
+<p>Once finished steps above, you have completed OAP dependencies installation and OAP building, and will find built OAP jars under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code></p>
 <p>Dependencies below are required by OAP and all of them are included in OAP Conda package, they will be automatically installed in your cluster when you Conda install OAP. Ensure you have activated environment which you created in the previous steps.</p>
 <ul>
-<li><a href="https://github.com/Intel-bigdata/arrow">Arrow</a></li>
+<li><a href="https://github.com/oap-project/arrow/tree/arrow-3.0.0-oap-1.1">Arrow</a></li>
 <li><a href="http://arrow.apache.org/blog/2017/08/08/plasma-in-memory-object-store/">Plasma</a></li>
 <li><a href="https://anaconda.org/intel/memkind">Memkind</a></li>
 <li><a href="https://anaconda.org/intel/vmemcache">Vmemcache</a></li>
@@ -170,16 +180,9 @@ $ bash Miniconda2-latest-Linux-x86_64.sh
 <li><a href="https://github.com/pmem/pmdk">PMDK</a>  </li>
 <li><a href="https://software.intel.com/content/www/us/en/develop/tools/oneapi.html">OneAPI</a></li>
 </ul>
-<p>Create a conda environment and install OAP Conda package.</p>
-<pre><code class="bash">$ conda create -n oapenv -y python=3.7
-$ conda activate oapenv
-$ conda install -c conda-forge -c intel -y oap=1.0.0
-</code></pre>
-
-<p>Once finished steps above, you have completed OAP dependencies installation and OAP building, and will find built OAP jars under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code></p>
 <h4 id="extra-steps-for-shuffle-remote-pmem-extension">Extra Steps for Shuffle Remote PMem Extension</h4>
-<p>If you use one of OAP features -- <a href="https://github.com/oap-project/pmem-shuffle">PMmem Shuffle</a> with <strong>RDMA</strong>, you need to configure and validate RDMA, please refer to <a href="https://github.com/oap-project/pmem-shuffle#4-configure-and-validate-rdma">PMem Shuffle</a> for the details.</p>
-<h2 id="configuration">Configuration</h2>
+<p>If you use one of OAP features -- <a href="https://github.com/oap-project/pmem-shuffle">PMem Shuffle</a> with <strong>RDMA</strong>, you need to configure and validate RDMA, please refer to <a href="https://github.com/oap-project/pmem-shuffle#4-configure-and-validate-rdma">PMem Shuffle</a> for the details.</p>
+<h3 id="configuration">Configuration</h3>
 <p>Once finished steps above, make sure libraries installed by Conda can be linked by Spark, please add the following configuration settings to <code>$SPARK_HOME/conf/spark-defaults.conf</code>.</p>
 <pre><code>spark.executorEnv.LD_LIBRARY_PATH   $HOME/miniconda2/envs/oapenv/lib
 spark.executor.extraLibraryPath     $HOME/miniconda2/envs/oapenv/lib
@@ -188,7 +191,7 @@ spark.executor.extraClassPath       $HOME/miniconda2/envs/oapenv/oap_jars/$OAP_F
 spark.driver.extraClassPath         $HOME/miniconda2/envs/oapenv/oap_jars/$OAP_FEATURE.jar
 </code></pre>
 
-<p>And then you can follow the corresponding feature documents for more details to use them.</p>
+<p>Then you can follow the corresponding feature documents for more details to use them.</p>
               
             </div>
           </div>

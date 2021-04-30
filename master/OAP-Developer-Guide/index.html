@@ -84,19 +84,9 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#building-oap">Building OAP</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#prerequisites-for-building">Prerequisites for Building</a>
+    <li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a>
     </li>
     <li class="toctree-l3"><a class="reference internal" href="#building">Building</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#running-oap-unit-tests">Running OAP Unit Tests</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#building-sql-index-and-data-source-cache-with-pmem">Building SQL Index and Data Source Cache with PMem</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#prerequisites-for-building-with-pmem-support">Prerequisites for building with PMem support</a>
-    </li>
-    <li class="toctree-l4"><a class="reference internal" href="#building-package">Building package</a>
-    </li>
-        </ul>
     </li>
         </ul>
     </li>
@@ -140,88 +130,58 @@
             <div class="section">
               
                 <h1 id="oap-developer-guide">OAP Developer Guide</h1>
-<p>This document contains the instructions &amp; scripts on installing necessary dependencies and building OAP. 
+<p>This document contains the instructions &amp; scripts on installing necessary dependencies and building OAP modules. 
 You can get more detailed information from OAP each module below.</p>
 <ul>
-<li><a href="https://github.com/oap-project/sql-ds-cache/blob/master/docs/Developer-Guide.md">SQL Index and Data Source Cache</a></li>
-<li><a href="https://github.com/oap-project/pmem-common">PMem Common</a></li>
-<li><a href="https://github.com/oap-project/pmem-shuffle#5-install-dependencies-for-shuffle-remote-pmem-extension">PMem Shuffle</a></li>
-<li><a href="https://github.com/oap-project/remote-shuffle">Remote Shuffle</a></li>
-<li><a href="https://github.com/oap-project/oap-mllib">OAP MLlib</a></li>
-<li><a href="https://github.com/oap-project/arrow-data-source">Arrow Data Source</a></li>
-<li><a href="https://github.com/oap-project/native-sql-engine">Native SQL Engine</a></li>
+<li><a href="https://github.com/oap-project/sql-ds-cache/blob/v1.1.0-spark-3.0.0/docs/Developer-Guide.md">SQL Index and Data Source Cache</a></li>
+<li><a href="https://github.com/oap-project/pmem-common/tree/v1.1.0-spark-3.0.0">PMem Common</a></li>
+<li><a href="https://github.com/oap-project/pmem-spill/tree/v1.1.0-spark-3.0.0">PMem Spill</a></li>
+<li><a href="https://github.com/oap-project/pmem-shuffle/tree/v1.1.0-spark-3.0.0#5-install-dependencies-for-pmem-shuffle">PMem Shuffle</a></li>
+<li><a href="https://github.com/oap-project/remote-shuffle/tree/v1.1.0-spark-3.0.0">Remote Shuffle</a></li>
+<li><a href="https://github.com/oap-project/oap-mllib/tree/v1.1.0-spark-3.0.0">OAP MLlib</a></li>
+<li><a href="https://github.com/oap-project/native-sql-engine/tree/v1.1.0-spark-3.0.0">Native SQL Engine</a></li>
 </ul>
 <h2 id="building-oap">Building OAP</h2>
-<h3 id="prerequisites-for-building">Prerequisites for Building</h3>
-<p>OAP is built with <a href="http://maven.apache.org/">Apache Maven</a> and Oracle Java 8, and mainly required tools to install on your cluster are listed below.</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>We provide scripts to help automatically install dependencies required, please change to <strong>root</strong> user and run:</p>
+<pre><code># git clone -b &lt;tag-version&gt; https://github.com/oap-project/oap-tools.git
+# cd oap-tools
+# sh dev/install-compile-time-dependencies.sh
+</code></pre>
+
+<p><em>Note</em>: oap-tools tag version <code>v1.1.0-spark-3.0.0</code> corresponds to  all OAP modules' tag version <code>v1.1.0-spark-3.0.0</code>.</p>
+<p>Then the dependencies below will be installed:</p>
 <ul>
-<li><a href="https://help.directadmin.com/item.php?id=494">Cmake</a></li>
+<li><a href="https://cmake.org/install/">Cmake</a></li>
 <li><a href="https://gcc.gnu.org/wiki/InstallingGCC">GCC &gt; 7</a></li>
-<li><a href="https://github.com/memkind/memkind/tree/v1.10.1-rc2">Memkind</a></li>
+<li><a href="https://github.com/memkind/memkind/tree/v1.10.1">Memkind</a></li>
 <li><a href="https://github.com/pmem/vmemcache">Vmemcache</a></li>
 <li><a href="https://github.com/Intel-bigdata/HPNL">HPNL</a></li>
 <li><a href="https://github.com/pmem/pmdk">PMDK</a>  </li>
 <li><a href="https://software.intel.com/content/www/us/en/develop/tools/oneapi.html">OneAPI</a></li>
-<li>
-<p><a href="https://github.com/Intel-bigdata/arrow">Arrow</a></p>
-</li>
-<li>
-<p><strong>Requirements for Shuffle Remote PMem Extension</strong><br />
-If enable Shuffle Remote PMem extension with RDMA, you can refer to <a href="https://github.com/oap-project/pmem-shuffle">PMem Shuffle</a> to configure and validate RDMA in advance.</p>
-</li>
+<li><a href="https://github.com/oap-project/arrow/tree/arrow-3.0.0-oap-1.1">Arrow</a></li>
+<li><a href="https://llvm.org/">LLVM</a> </li>
 </ul>
-<p>We provide scripts below to help automatically install dependencies above <strong>except RDMA</strong>, need change to <strong>root</strong> account, run:</p>
-<pre><code># git clone -b &lt;tag-version&gt; https://github.com/Intel-bigdata/OAP.git
-# cd OAP
-# sh $OAP_HOME/dev/install-compile-time-dependencies.sh
-</code></pre>
-
 <p>Run the following command to learn more.</p>
-<pre><code># sh $OAP_HOME/dev/scripts/prepare_oap_env.sh --help
+<pre><code># sh dev/scripts/prepare_oap_env.sh --help
 </code></pre>
 
 <p>Run the following command to automatically install specific dependency such as Maven.</p>
-<pre><code># sh $OAP_HOME/dev/scripts/prepare_oap_env.sh --prepare_maven
+<pre><code># sh dev/scripts/prepare_oap_env.sh --prepare_maven
 </code></pre>
 
+<ul>
+<li><strong>Requirements for Shuffle Remote PMem Extension</strong><br />
+If enable Shuffle Remote PMem extension with RDMA, you can refer to <a href="https://github.com/oap-project/pmem-shuffle">PMem Shuffle</a> to configure and validate RDMA in advance.</li>
+</ul>
 <h3 id="building">Building</h3>
-<p>To build OAP package, run command below then you can find a tarball named <code>oap-$VERSION-bin-spark-$VERSION.tar.gz</code> under directory <code>$OAP_HOME/dev/release-package</code>.</p>
-<pre><code>$ sh $OAP_HOME/dev/compile-oap.sh
+<p>OAP is built with <a href="http://maven.apache.org/">Apache Maven</a> and Oracle Java 8.</p>
+<p>To build OAP package, run command below then you can find a tarball named <code>oap-$VERSION-bin-spark-$VERSION.tar.gz</code> under directory <code>$OAP_TOOLS_HOME/dev/release-package</code>.</p>
+<pre><code>$ sh $OAP_TOOLS_HOME/dev/compile-oap.sh
 </code></pre>
 
-<p>Building Specified OAP Module, such as <code>oap-cache</code>, run:</p>
-<pre><code>$ sh $OAP_HOME/dev/compile-oap.sh --oap-cache
-</code></pre>
-
-<h3 id="running-oap-unit-tests">Running OAP Unit Tests</h3>
-<p>Setup building environment manually for intel MLlib, and if your default GCC version is before 7.0 also need export <code>CC</code> &amp; <code>CXX</code> before using <code>mvn</code>, run</p>
-<pre><code>$ export CXX=$OAP_HOME/dev/thirdparty/gcc7/bin/g++
-$ export CC=$OAP_HOME/dev/thirdparty/gcc7/bin/gcc
-$ export ONEAPI_ROOT=/opt/intel/inteloneapi
-$ source /opt/intel/inteloneapi/daal/2021.1-beta07/env/vars.sh
-$ source /opt/intel/inteloneapi/tbb/2021.1-beta07/env/vars.sh
-$ source /tmp/oneCCL/build/_install/env/setvars.sh
-</code></pre>
-
-<p>Run all the tests:</p>
-<pre><code>$ mvn clean test
-</code></pre>
-
-<p>Run Specified OAP Module Unit Test, such as <code>oap-cache</code>:</p>
-<pre><code>$ mvn clean -pl com.intel.oap:oap-cache -am test
-
-</code></pre>
-
-<h3 id="building-sql-index-and-data-source-cache-with-pmem">Building SQL Index and Data Source Cache with PMem</h3>
-<h4 id="prerequisites-for-building-with-pmem-support">Prerequisites for building with PMem support</h4>
-<p>When using SQL Index and Data Source Cache with PMem, finish steps of <a href="#prerequisites-for-building">Prerequisites for building</a> to ensure needed dependencies have been installed.</p>
-<h4 id="building-package">Building package</h4>
-<p>You can build OAP with PMem support with command below:</p>
-<pre><code>$ sh $OAP_HOME/dev/compile-oap.sh
-</code></pre>
-
-<p>Or run:</p>
-<pre><code>$ mvn clean -q -Ppersistent-memory -Pvmemcache -DskipTests package
+<p>Building specified OAP Module, such as <code>sql-ds-cache</code>, run:</p>
+<pre><code>$ sh $OAP_TOOLS_HOME/dev/compile-oap.sh --sql-ds-cache
 </code></pre>
               
             </div>

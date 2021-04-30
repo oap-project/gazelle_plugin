@@ -161,24 +161,25 @@
 <p>A Native Engine for Spark SQL with vectorized SIMD optimizations</p>
 <h2 id="introduction">Introduction</h2>
 <p><img alt="Overview" src="../image/nativesql_arch.png" /></p>
-<p>Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. <a href="https://arrow.apache.org/">Apache Arrow</a> provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technoligies and brought better performance to Spark SQL.</p>
+<p>Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. <a href="https://arrow.apache.org/">Apache Arrow</a> provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technologies and brought better performance to Spark SQL.</p>
 <h2 id="key-features">Key Features</h2>
 <h3 id="apache-arrow-formatted-intermediate-data-among-spark-operator">Apache Arrow formatted intermediate data among Spark operator</h3>
 <p><img alt="Overview" src="../image/columnar.png" /></p>
 <p>With <a href="https://issues.apache.org/jira/browse/SPARK-27396">Spark 27396</a> its possible to pass a RDD of Columnarbatch to operators. We implemented this API with Arrow columnar format.</p>
 <h3 id="apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</h3>
 <p><img alt="Overview" src="../image/dataset.png" /></p>
-<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/arrow-data-source">Arrow Data Source</a></p>
+<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source">Arrow Data Source</a></p>
 <h3 id="apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</h3>
 <p><img alt="Overview" src="../image/kernel.png" /></p>
 <p>We implemented common operators based on Apache Arrow Compute and Gandiva. The SQL expression was compiled to one expression tree with protobuf and passed to native kernels. The native kernels will then evaluate the these expressions based on the input columnar batch.</p>
 <h3 id="native-columnar-shuffle-operator-with-efficient-compression-support">Native Columnar Shuffle Operator with efficient compression support</h3>
 <p><img alt="Overview" src="../image/shuffle.png" /></p>
 <p>We implemented columnar shuffle to improve the shuffle performance. With the columnar layout we could do very efficient data compression for different data format.</p>
+<p>Please check the operator supporting details <a href="../operators/">here</a></p>
 <h2 id="build-the-plugin">Build the Plugin</h2>
 <h3 id="building-by-conda">Building by Conda</h3>
 <p>If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a> for more information. Once finished <a href="../OAP-Installation-Guide/">OAP-Installation-Guide</a>, you can find built <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code>.
-Then you can just skip below steps and jump to Getting Started <a href="#get-started">Get Started</a>.</p>
+Then you can just skip below steps and jump to <a href="#get-started">Get Started</a>.</p>
 <h3 id="building-by-yourself">Building by yourself</h3>
 <p>If you prefer to build from the source code on your hand, please follow below steps to set up your environment.</p>
 <h3 id="prerequisite">Prerequisite</h3>
@@ -227,10 +228,22 @@ orders.createOrReplaceTempView(&quot;orders&quot;)
 spark.sql(&quot;select * from orders where o_orderdate &gt; date '1998-07-26'&quot;).show(20000, false)
 </code></pre>
 
-<p>The result should show up on Spark console and you can check the DAG diagram with some Columnar Processing stage.</p>
+<p>The result should show up on Spark console and you can check the DAG diagram with some Columnar Processing stage. Native SQL engine still lacks some features, please check out the <a href="../limitations/">limitations</a>.</p>
 <h2 id="performance-data">Performance data</h2>
-<p>For initial microbenchmark performance, we add 10 fields up with spark, data size is 200G data</p>
-<p><img alt="Performance" src="../image/performance.png" /></p>
+<p>For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
+All the testing environment for Decision Support Benchmark1&amp;2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
+* Decision Support Benchmark1 is a query set modified from <a href="http://tpc.org/tpch/default5.asp">TPC-H benchmark</a>. We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
+Overall, the result shows a 1.49X performance speed up from OAP v1.0-Native SQL Engine comparing to Vanilla SPARK 3.0.0.
+We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Native SQL Engine. The performance boost ratio may depend on the individual query.</p>
+<p><img alt="Performance" src="../image/decision_support_bench1_result_in_total.png" /></p>
+<p><img alt="Performance" src="../image/decision_support_bench1_result_by_query.png" /></p>
+<ul>
+<li>Decision Support Benchmark2 is a query set modified from <a href="http://tpc.org/tpcds/default5.asp">TPC-DS benchmark</a>. We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
+We pick up 10 queries which can be fully supported in OAP v1.0-Native SQL Engine and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.</li>
+</ul>
+<p><img alt="Performance" src="../image/decision_support_bench2_result_in_total.png" /></p>
+<p><img alt="Performance" src="../image/decision_support_bench2_result_by_query.png" /></p>
+<p>Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with native SQL Engine first and check the DAG or log file to see if all the operators can be supported in OAP-Native SQL Engine.</p>
 <h2 id="coding-style">Coding Style</h2>
 <ul>
 <li>For Java code, we used <a href="https://github.com/google/google-java-format">google-java-format</a></li>
