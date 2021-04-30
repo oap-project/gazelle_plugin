@@ -742,7 +742,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
+  test("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
     withTable("t") {
       withTempPath { path =>
         Seq(1 -> "a").toDF("i", "j").write.parquet(path.getCanonicalPath)
@@ -824,7 +824,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  ignore("SPARK-19993 subquery with cached underlying relation") {
+  test("SPARK-19993 subquery with cached underlying relation") {
     withTempView("t1") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       spark.catalog.cacheTable("t1")
@@ -1029,7 +1029,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
       SHUFFLE_HASH)
   }
 
-  ignore("analyzes column statistics in cached query") {
+  test("analyzes column statistics in cached query") {
     def query(): DataFrame = {
       spark.range(100)
         .selectExpr("id % 3 AS c0", "id % 5 AS c1", "2 AS c2")

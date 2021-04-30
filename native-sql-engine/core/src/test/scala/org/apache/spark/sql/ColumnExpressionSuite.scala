@@ -744,26 +744,28 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
-    withTempPath { dir =>
-      val data = sparkContext.parallelize(0 to 10).toDF("id")
-      data.write.parquet(dir.getCanonicalPath)
+  test("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
+    withSQLConf(("spark.oap.sql.columnar.batchscan", "true")) {
+      withTempPath { dir =>
+        val data = sparkContext.parallelize(0 to 10).toDF("id")
+        data.write.parquet(dir.getCanonicalPath)
 
-      // Test the 3 expressions when reading from files
-      val q = spark.read.parquet(dir.getCanonicalPath).select(
-        input_file_name(), expr("input_file_block_start()"), expr("input_file_block_length()"))
-      val firstRow = q.head()
-      assert(firstRow.getString(0).contains(dir.toURI.getPath))
-      assert(firstRow.getLong(1) == 0)
-      assert(firstRow.getLong(2) > 0)
+        // Test the 3 expressions when reading from files
+        val q = spark.read.parquet(dir.getCanonicalPath).select(
+          input_file_name(), expr("input_file_block_start()"), expr("input_file_block_length()"))
+        val firstRow = q.head()
+        assert(firstRow.getString(0).contains(dir.toURI.getPath))
+        assert(firstRow.getLong(1) == 0)
+        assert(firstRow.getLong(2) > 0)
 
-      // Now read directly from the original RDD without going through any files to make sure
-      // we are returning empty string, -1, and -1.
-      checkAnswer(
-        data.select(
-          input_file_name(), expr("input_file_block_start()"), expr("input_file_block_length()")
-        ).limit(1),
-        Row("", -1L, -1L))
+        // Now read directly from the original RDD without going through any files to make sure
+        // we are returning empty string, -1, and -1.
+        checkAnswer(
+          data.select(
+            input_file_name(), expr("input_file_block_start()"), expr("input_file_block_length()")
+          ).limit(1),
+          Row("", -1L, -1L))
+      }
     }
   }
 

@@ -344,6 +344,29 @@ class ColumnarHashAggregation(
     aggregateAttr.toList
   }
 
+  def existsAttrNotFound(allAggregateResultAttributes: List[Attribute]): Unit = {
+    if (resultExpressions.size == allAggregateResultAttributes.size) {
+      var resAllAttr = true
+      breakable {
+        for (expr <- resultExpressions) {
+          if (!expr.isInstanceOf[AttributeReference]) {
+            resAllAttr = false
+            break
+          }
+        }
+      }
+      if (resAllAttr) {
+        for (attr <- resultExpressions) {
+          if (allAggregateResultAttributes
+              .indexOf(attr.asInstanceOf[AttributeReference]) == -1) {
+            throw new IllegalArgumentException(
+              s"$attr in resultExpressions is not found in allAggregateResultAttributes!")
+          }
+        }
+      }
+    }
+  }
+
   def prepareKernelFunction: TreeNode = {
     // build gandiva projection here.
     ColumnarPluginConfig.getConf
@@ -420,6 +443,11 @@ class ColumnarHashAggregation(
             s"${attr.name}#${attr.exprId.id}",
             CodeGeneration.getResultType(attr.dataType))
       })
+
+    // If some Attributes in result expressions (contain attributes only) are not found
+    // in allAggregateResultAttributes, an exception will be thrown.
+    existsAttrNotFound(allAggregateResultAttributes)
+
     val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
 
     // 4. prepare after aggregate result expressions

@@ -392,7 +392,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     assert(result.schema.fieldNames.size === 1)
   }
 
-  ignore("DDL test with empty file") {
+  test("DDL test with empty file") {
     withView("carsTable") {
       spark.sql(
         s"""
@@ -1376,7 +1376,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
       }
   }
 
-  ignore("SPARK-21263: Invalid float and double are handled correctly in different modes") {
+  test("SPARK-21263: Invalid float and double are handled correctly in different modes") {
     val exception = intercept[SparkException] {
       spark.read.schema("a DOUBLE")
         .option("mode", "FAILFAST")
@@ -1862,7 +1862,7 @@ abstract class CSVSuite extends QueryTest with SharedSparkSession with TestCsvDa
     }
   }
 
-  ignore("count() for malformed input") {
+  test("count() for malformed input") {
     def countForMalformedCSV(expected: Long, input: Seq[String]): Unit = {
       val schema = new StructType().add("a", IntegerType)
       val strings = spark.createDataset(input)

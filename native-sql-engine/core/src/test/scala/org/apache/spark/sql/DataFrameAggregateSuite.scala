@@ -149,7 +149,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("cube") {
+  test("cube") {
     checkAnswer(
       courseSales.cube("course", "year").sum("earnings"),
       Row("Java", 2012, 20000.0) ::
@@ -173,7 +173,7 @@ class DataFrameAggregateSuite extends QueryTest
     assert(cube0.where("date IS NULL").count > 0)
   }
 
-  ignore("grouping and grouping_id") {
+  test("grouping and grouping_id") {
     checkAnswer(
       courseSales.cube("course", "year")
         .agg(grouping("course"), grouping("year"), grouping_id("course", "year")),
@@ -211,7 +211,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("grouping/grouping_id inside window function") {
+  test("grouping/grouping_id inside window function") {
 
     val w = Window.orderBy(sum("earnings"))
     checkAnswer(
@@ -231,7 +231,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("SPARK-21980: References in grouping functions should be indexed with semanticEquals") {
+  test("SPARK-21980: References in grouping functions should be indexed with semanticEquals") {
     checkAnswer(
       courseSales.cube("course", "year")
         .agg(grouping("CouRse"), grouping("year")),
@@ -302,7 +302,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("agg without groups and functions") {
+  test("agg without groups and functions") {
     checkAnswer(
       testData2.agg(lit(1)),
       Row(1)
@@ -350,7 +350,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(2.0, 2.0))
   }
 
-  ignore("zero average") {
+  test("zero average") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(avg($"a")),
@@ -369,7 +369,7 @@ class DataFrameAggregateSuite extends QueryTest
       Row(6, 6.0))
   }
 
-  ignore("null count") {
+  test("null count") {
     checkAnswer(
       testData3.groupBy($"a").agg(count($"b")),
       Seq(Row(1, 0), Row(2, 1))
@@ -392,7 +392,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("multiple column distinct count") {
+  test("multiple column distinct count") {
     val df1 = Seq(
       ("a", "b", "c"),
       ("a", "b", "c"),
@@ -417,7 +417,7 @@ class DataFrameAggregateSuite extends QueryTest
     )
   }
 
-  ignore("zero count") {
+  test("zero count") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(count($"a"), sumDistinct($"a")), // non-partial
@@ -441,14 +441,14 @@ class DataFrameAggregateSuite extends QueryTest
     Row(null, null, null))
   }
 
-  ignore("zero sum") {
+  test("zero sum") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(sum($"a")),
       Row(null))
   }
 
-  ignore("zero sum distinct") {
+  test("zero sum distinct") {
     val emptyTableData = Seq.empty[(Int, Int)].toDF("a", "b")
     checkAnswer(
       emptyTableData.agg(sumDistinct($"a")),
@@ -593,7 +593,7 @@ class DataFrameAggregateSuite extends QueryTest
       Seq(Row(Seq(1.0, 2.0))))
   }
 
-  ignore("SPARK-14664: Decimal sum/avg over window should work.") {
+  test("SPARK-14664: Decimal sum/avg over window should work.") {
     checkAnswer(
       spark.sql("select sum(a) over () from values 1.0, 2.0, 3.0 T(a)"),
       Row(6.0) :: Row(6.0) :: Row(6.0) :: Nil)
@@ -732,8 +732,6 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  //TODO: failed ut
-  /*
   testWithWholeStageCodegenOnAndOff("SPARK-22951: dropDuplicates on empty dataFrames " +
     "should produce correct aggregate") { _ =>
     // explicit global aggregations
@@ -748,7 +746,6 @@ class DataFrameAggregateSuite extends QueryTest
     // global aggregation is converted to grouping aggregation:
     assert(spark.emptyDataFrame.dropDuplicates().count() == 0)
   }
-   */
 
   test("SPARK-21896: Window functions inside aggregate functions") {
     def checkWindowError(df: => DataFrame): Unit = {
@@ -790,7 +787,7 @@ class DataFrameAggregateSuite extends QueryTest
         "type: GroupBy]"))
   }
 
-  ignore("SPARK-26021: NaN and -0.0 in grouping expressions") {
+  test("SPARK-26021: NaN and -0.0 in grouping expressions") {
     checkAnswer(
       Seq(0.0f, -0.0f, 0.0f/0.0f, Float.NaN).toDF("f").groupBy("f").count(),
       Row(0.0f, 2) :: Row(Float.NaN, 2) :: Nil)
@@ -954,7 +951,7 @@ class DataFrameAggregateSuite extends QueryTest
     }
   }
 
-  ignore("count_if") {
+  test("count_if") {
     withTempView("tempView") {
       Seq(("a", None), ("a", Some(1)), ("a", Some(2)), ("a", Some(3)),
         ("b", None), ("b", Some(4)), ("b", Some(5)), ("b", Some(6)))

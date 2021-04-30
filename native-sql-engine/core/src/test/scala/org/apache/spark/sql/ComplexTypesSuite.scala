@@ -80,7 +80,7 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
     checkNamedStruct(df.queryExecution.optimizedPlan, expectedCount = 0)
   }
 
-  ignore("named_struct is used in the top Project") {
+  test("named_struct is used in the top Project") {
     val df = spark.table("tab").selectExpr(
       "i5", "named_struct('a', i1, 'b', i2) as col1", "named_struct('a', i3, 'c', i4)")
       .selectExpr("col1.a", "col1")

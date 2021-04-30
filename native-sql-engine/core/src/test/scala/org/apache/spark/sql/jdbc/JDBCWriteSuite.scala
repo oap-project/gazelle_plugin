@@ -208,7 +208,7 @@ class JDBCWriteSuite extends SharedSparkSession with BeforeAndAfter {
     }
   }
 
-  ignore("Truncate") {
+  test("Truncate") {
     JdbcDialects.registerDialect(testH2Dialect)
     val df = spark.createDataFrame(sparkContext.parallelize(arr2x2), schema2)
     val df2 = spark.createDataFrame(sparkContext.parallelize(arr1x2), schema2)

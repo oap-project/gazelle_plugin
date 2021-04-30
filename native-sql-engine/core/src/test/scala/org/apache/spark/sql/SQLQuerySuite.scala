@@ -3192,7 +3192,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("reset command should not fail with cache") {
+  test("reset command should not fail with cache") {
     withTable("tbl") {
       val provider = spark.sessionState.conf.defaultDataSourceName
       sql(s"CREATE TABLE tbl(i INT, j STRING) USING $provider")

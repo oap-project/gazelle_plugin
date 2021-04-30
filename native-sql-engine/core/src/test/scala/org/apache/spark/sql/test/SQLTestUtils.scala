@@ -86,7 +86,7 @@ private[sql] trait SQLTestUtils extends SparkFunSuite with SQLTestUtilsBase with
   protected def testWithWholeStageCodegenOnAndOff(testName: String)(f: String => Unit): Unit = {
     Seq("false", "true").foreach { codegenEnabled =>
       val isTurnOn = if (codegenEnabled == "true") "on" else "off"
-      ignore(s"$testName (whole-stage-codegen ${isTurnOn})") {
+      test(s"$testName (whole-stage-codegen ${isTurnOn})") {
         withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> codegenEnabled) {
           f(codegenEnabled)
         }

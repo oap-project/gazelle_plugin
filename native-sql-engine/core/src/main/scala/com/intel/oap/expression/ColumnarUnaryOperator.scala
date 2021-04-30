@@ -623,6 +623,31 @@ class ColumnarMakeDecimal(
   }
 }
 
+class ColumnarNormalizeNaNAndZero(child: Expression, original: NormalizeNaNAndZero)
+    extends NormalizeNaNAndZero(child: Expression)
+    with ColumnarExpression
+    with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(FloatType, DoubleType)
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarNormalizeNaNAndZero")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val normalizeNode = TreeBuilder.makeFunction(
+      "normalize", Lists.newArrayList(child_node), childType)
+    (normalizeNode, childType)
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -652,8 +677,8 @@ object ColumnarUnaryOperator {
       new ColumnarBitwiseNot(child, n)
     case a: KnownFloatingPointNormalized =>
       child
-    case a: NormalizeNaNAndZero =>
-      child
+    case n: NormalizeNaNAndZero =>
+      new ColumnarNormalizeNaNAndZero(child, n)
     case a: PromotePrecision =>
       child
     case a: CheckOverflow =>

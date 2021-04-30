@@ -90,19 +90,20 @@ case class ColumnarExpandExec(
         private[this] val numGroups = columnarGroups.length
         private[this] val resultStructType =
           StructType(output.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
+        private[this] var input_cb: ColumnarBatch = _
 
         override def hasNext: Boolean = (-1 < idx && idx < numGroups) || iter.hasNext
 
         override def next(): ColumnarBatch = {
           if (idx <= 0) {
             // in the initial (-1) or beginning(0) of a new input row, fetch the next input tuple
-            val input_cb = iter.next()
-            input = (0 until input_cb.numCols).toList
-              .map(input_cb.column(_).asInstanceOf[ArrowWritableColumnVector].getValueVector)
+            input_cb = iter.next()
             numRows = input_cb.numRows
             numInputBatches += 1
             idx = 0
           }
+          input = columnarGroups(idx).ordinalList
+            .map(input_cb.column(_).asInstanceOf[ArrowWritableColumnVector].getValueVector)
 
           if (numRows == 0) {
             idx = -1

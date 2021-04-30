@@ -372,12 +372,33 @@ class HashAggregateKernel::Impl {
         action_codes_ss << project_output_list[i].first.second << std::endl;
         project_output_list[i].first.second = "";
       }
-      if (idx_v.size() > 0)
-        action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
-                        << "_validity) {" << std::endl;
+      if (idx_v.size() > 0) {
+        if (action_name_str_list[action_idx] != "\"action_count\"") {
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity) {" << std::endl;
+        } else {
+          // For action_count with mutiple-col input, will check the validity
+          // of all the input cols.
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity";
+          for (int i = 1; i < idx_v.size() - 1; i++) {
+            action_codes_ss << " && " << project_output_list[idx_v[i]].first.first
+                            << "_validity";
+          }
+          action_codes_ss << " && "
+                          << project_output_list[idx_v[idx_v.size() - 1]].first.first
+                          << "_validity) {" << std::endl;
+        }
+      }
       std::vector<std::string> parameter_list;
-      for (auto i : idx_v) {
-        parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+      if (action_name_str_list[action_idx] != "\"action_count\"") {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
+      } else {
+        // For action_count, only the first col will be used as input to Evaluate
+        // function, in which it will not be used.
+        parameter_list.push_back("(void*)&" + project_output_list[idx_v[0]].first.first);
       }
       action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
                       << "]->Evaluate(memo_index" << GetParameterList(parameter_list)

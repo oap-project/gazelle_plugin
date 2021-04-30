@@ -47,7 +47,7 @@ class DataFrameRangeSuite extends QueryTest with SharedSparkSession with Eventua
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
-  ignore("SPARK-7150 range api") {
+  test("SPARK-7150 range api") {
     // numSlice is greater than length
     val res1 = spark.range(0, 10, 1, 15).select("id")
     assert(res1.count == 10)

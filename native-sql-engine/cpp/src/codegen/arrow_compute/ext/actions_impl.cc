@@ -137,8 +137,6 @@ class UniqueAction : public ActionBase {
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -288,8 +286,6 @@ class CountAction : public ActionBase {
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -299,12 +295,25 @@ class CountAction : public ActionBase {
       length_ = cache_.size();
     }
 
-    in_ = in_list[0];
+    in_list_ = in_list;
     row_id = 0;
+    bool has_null = false;
+    for (int i = 0; i < in_list.size(); i++) {
+      if (in_list_[i]->null_count()) {
+        has_null = true;
+        break;
+      }
+    }
     // prepare evaluate lambda
-    if (in_->null_count()) {
+    if (has_null) {
       *on_valid = [this](int dest_group_id) {
-        const bool is_null = in_->IsNull(row_id);
+        bool is_null = false;
+        for (int i = 0; i < in_list_.size(); i++) {
+          if (in_list_[i]->IsNull(row_id)) {
+            is_null = true;
+            break;
+          }
+        }
         if (!is_null) {
           cache_[dest_group_id] += 1;
         }
@@ -341,12 +350,23 @@ class CountAction : public ActionBase {
       cache_.resize(1, 0);
       length_ = 1;
     }
-    arrow::Datum output;
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
-    auto maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
-    output = *std::move(maybe_output);
-    auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
-    cache_[0] += typed_scalar->value;
+    int length = in[0]->length();
+    int count_non_null = 0;
+    if (in.size() == 1) {
+      count_non_null = length - in[0]->null_count();
+    } else {
+      int count_null = 0;
+      for (int id = 0; id < length; id++) {
+        for (int colId = 0; colId < in.size(); colId++) {
+          if (in[colId]->IsNull(id)) {
+            count_null++;
+            break;
+          }
+        }
+      }
+      count_non_null = length - count_null;
+    }
+    cache_[0] += count_non_null;
     return arrow::Status::OK();
   }
 
@@ -399,7 +419,7 @@ class CountAction : public ActionBase {
   using ScalarType = typename arrow::TypeTraits<arrow::Int64Type>::ScalarType;
   // input
   arrow::compute::ExecContext* ctx_;
-  std::shared_ptr<arrow::Array> in_;
+  ArrayList in_list_;
   int32_t row_id;
   // result
   using CType = typename arrow::TypeTraits<arrow::Int64Type>::CType;
@@ -427,8 +447,6 @@ class CountLiteralAction : public ActionBase {
     std::cout << "Destruct CountLiteralAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 0; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -552,8 +570,6 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     std::cout << "Destruct MinAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -715,8 +731,6 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -877,8 +891,6 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -1038,8 +1050,6 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     std::cout << "Destruct MaxAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -1203,8 +1213,6 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -1349,8 +1357,6 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct SumAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -1498,8 +1504,6 @@ class AvgAction : public ActionBase {
     std::cout << "Destruct AvgAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -1682,8 +1686,6 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -1863,8 +1865,6 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -2038,8 +2038,6 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct SumCountMergeAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 2; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -2222,8 +2220,6 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 2; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -2393,8 +2389,6 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct AvgByCountAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 2; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -2573,8 +2567,6 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct AvgByCountAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 2; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -2770,8 +2762,6 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct StddevSampPartialAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
@@ -3007,8 +2997,6 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 1; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -3235,8 +3223,6 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 #endif
   }
 
-  int RequiredColNum() { return 3; }
-
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
                        std::function<arrow::Status()>* on_null) override {
@@ -3433,8 +3419,6 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Destruct StddevSampFinalAction" << std::endl;
 #endif
   }
-
-  int RequiredColNum() { return 3; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
                        std::function<arrow::Status(int)>* on_valid,
