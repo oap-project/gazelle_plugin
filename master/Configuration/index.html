@@ -122,7 +122,185 @@
             <div class="section">
               
                 <h1 id="spark-configurations-for-native-sql-engine">Spark Configurations for Native SQL Engine</h1>
-<p>Add below configuration to spark-defaults.conf</p>
+<p>There are many configuration could impact the Native SQL Engine performance and can be fine tune in Spark.
+You can add these configuration into spark-defaults.conf to enable or disable the setting.</p>
+<table>
+<thead>
+<tr>
+<th>Parameters</th>
+<th>Description</th>
+<th>Recommend Setting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>spark.driver.extraClassPath</td>
+<td>To add Arrow Data Source and Native SQL Engine jar file in Spark Driver</td>
+<td>/path/to/jar_file1:/path/to/jar_file2</td>
+</tr>
+<tr>
+<td>spark.executor.extraClassPath</td>
+<td>To add Arrow Data Source and Native SQL Engine jar file in Spark Executor</td>
+<td>/path/to/jar_file1:/path/to/jar_file2</td>
+</tr>
+<tr>
+<td>spark.executorEnv.LIBARROW_DIR</td>
+<td>To set up the location of Arrow library, by default it will search the loation of jar to be uncompressed</td>
+<td>/path/to/arrow_library/</td>
+</tr>
+<tr>
+<td>spark.executorEnv.CC</td>
+<td>To set up the location of gcc</td>
+<td>/path/to/gcc/</td>
+</tr>
+<tr>
+<td>spark.executor.memory</td>
+<td>To set up how much memory to be used for Spark Executor.</td>
+<td></td>
+</tr>
+<tr>
+<td>spark.memory.offHeap.size</td>
+<td>To set up how much memory to be used for Java OffHeap.<br /> Please notice Native SQL Engine will leverage this setting to allocate memory space for native usage even offHeap is disabled. <br /> The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Native SQL Engine</td>
+<td>30G</td>
+</tr>
+<tr>
+<td>spark.executor.extraJavaOptions</td>
+<td>To set up how much Direct Memory to be used for Native SQL Engine. The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Native SQL Engine</td>
+<td>-XX:MaxDirectMemorySize=30G</td>
+</tr>
+<tr>
+<td>spark.sql.sources.useV1SourceList</td>
+<td>Choose to use V1 source</td>
+<td>avro</td>
+</tr>
+<tr>
+<td>spark.sql.join.preferSortMergeJoin</td>
+<td>To turn off preferSortMergeJoin in Spark</td>
+<td>false</td>
+</tr>
+<tr>
+<td>spark.sql.extensions</td>
+<td>To turn on Native SQL Engine Plugin</td>
+<td>com.intel.oap.ColumnarPlugin</td>
+</tr>
+<tr>
+<td>spark.shuffle.manager</td>
+<td>To turn on Native SQL Engine Columnar Shuffle Plugin</td>
+<td>org.apache.spark.shuffle.sort.ColumnarShuffleManager</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.batchscan</td>
+<td>Enable or Disable Columnar Batchscan, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.hashagg</td>
+<td>Enable or Disable Columnar Hash Aggregate, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.projfilter</td>
+<td>Enable or Disable Columnar Project and Filter, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.codegen.sort</td>
+<td>Enable or Disable Columnar Sort, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.window</td>
+<td>Enable or Disable Columnar Window, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.shuffledhashjoin</td>
+<td>Enable or Disable ShffuledHashJoin, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.sortmergejoin</td>
+<td>Enable or Disable Columnar Sort Merge Join, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.union</td>
+<td>Enable or Disable Columnar Union, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.expand</td>
+<td>Enable or Disable Columnar Expand, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.broadcastexchange</td>
+<td>Enable or Disable Columnar Broadcast Exchange, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.nanCheck</td>
+<td>Enable or Disable Nan Check, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.hashCompare</td>
+<td>Enable or Disable Hash Compare in HashJoins or HashAgg, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.broadcastJoin</td>
+<td>Enable or Disable Columnar BradcastHashJoin, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.wholestagecodegen</td>
+<td>Enable or Disable Columnar WholeStageCodeGen, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.preferColumnar</td>
+<td>Enable or Disable Columnar Operators, default is false.<br /> This parameter could impact the performance in different case. In some cases, to set false can get some performance boost.</td>
+<td>false</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.joinOptimizationLevel</td>
+<td>Fallback to row operators if there are several continous joins</td>
+<td>6</td>
+</tr>
+<tr>
+<td>spark.sql.execution.arrow.maxRecordsPerBatch</td>
+<td>Set up the Max Records per Batch</td>
+<td>10000</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.wholestagecodegen.breakdownTime</td>
+<td>Enable or Disable metrics in Columnar WholeStageCodeGen</td>
+<td>false</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.tmp_dir</td>
+<td>Set up a folder to store the codegen files</td>
+<td>/tmp</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.shuffle.customizedCompression.codec</td>
+<td>Set up the codec to be used for Columnar Shuffle, default is lz4</td>
+<td>lz4</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.numaBinding</td>
+<td>Set up NUMABinding, default is false</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.coreRange</td>
+<td>Set up the core range for NUMABinding, only works when numaBinding set to true. <br /> The setting is based on the number of cores in your system. Use 72 cores as an example.</td>
+<td>0-17,36-53 &#124;18-35,54-71</td>
+</tr>
+</tbody>
+</table>
+<p>Below is an example for spark-default.conf, if you are using conda to install OAP project.</p>
 <pre><code>##### Columnar Process Configuration
 
 spark.sql.sources.useV1SourceList avro
@@ -143,8 +321,6 @@ spark.executorEnv.CC                $HOME/miniconda2/envs/oapenv/bin/gcc
 <pre><code>export CC=$HOME/miniconda2/envs/oapenv/bin/gcc
 export LIBARROW_DIR=$HOME/miniconda2/envs/oapenv/
 </code></pre>
-
-<p>About arrow-data-source.jar, you can refer <a href="https://oap-project.github.io/arrow-data-source/">Unified Arrow Data Source </a>.</p>
               
             </div>
           </div>

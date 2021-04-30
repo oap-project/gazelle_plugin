@@ -62,7 +62,7 @@
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#build-native-sql-engine">Build Native SQL Engine</a>
         <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#additonal-notes">Additonal Notes</a>
+    <li class="toctree-l3"><a class="reference internal" href="#additional-notes">Additional Notes</a>
     </li>
         </ul>
     </li>
@@ -139,18 +139,44 @@ yum install gmock
 <h2 id="build-native-sql-engine">Build Native SQL Engine</h2>
 <pre><code class="shell">git clone -b ${version} https://github.com/oap-project/native-sql-engine.git
 cd oap-native-sql
-cd cpp/
-mkdir build/
-cd build/
-cmake .. -DTESTS=ON
-make -j
+mvn clean package -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 </code></pre>
 
-<pre><code class="shell">cd ../../core/
-mvn clean package -DskipTests
-</code></pre>
-
-<h3 id="additonal-notes">Additonal Notes</h3>
+<p>Based on the different environment, there are some parameters can be set via -D with mvn.</p>
+<table>
+<thead>
+<tr>
+<th>Parameters</th>
+<th>Description</th>
+<th>Default Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cpp_tests</td>
+<td>Enable or Disable CPP Tests</td>
+<td>False</td>
+</tr>
+<tr>
+<td>build_arrow</td>
+<td>Build Arrow from Source</td>
+<td>True</td>
+</tr>
+<tr>
+<td>arrow_root</td>
+<td>When build_arrow set to False, arrow_root will be enabled to find the location of your existing arrow library.</td>
+<td>/usr/local</td>
+</tr>
+<tr>
+<td>build_protobuf</td>
+<td>Build Protobuf from Source. If set to False, default library path will be used to find protobuf library.</td>
+<td>True</td>
+</tr>
+</tbody>
+</table>
+<p>When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from <a href="https://github.com/oap-project/arrow">OAP Arrow</a>
+If you wish to change any parameters from Arrow, you can change it from the build_arrow.sh script under native-sql-enge/arrow-data-source/script/.</p>
+<h3 id="additional-notes">Additional Notes</h3>
 <p><a href="../InstallationNotes/">Notes for Installation Issues</a></p>
               
             </div>

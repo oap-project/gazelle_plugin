@@ -56,6 +56,8 @@
     <ul class="current">
     <li class="toctree-l2"><a class="reference internal" href="#gcc-installation">gcc installation</a>
     </li>
+    <li class="toctree-l2"><a class="reference internal" href="#llvm-70-installation">LLVM 7.0 installation</a>
+    </li>
     <li class="toctree-l2"><a class="reference internal" href="#cmake-installation">cmake installation</a>
     </li>
     <li class="toctree-l2"><a class="reference internal" href="#maven-installation">maven installation</a>
@@ -141,20 +143,21 @@
 <p>There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.</p>
 <ol>
-<li>gcc 9.3 or higher version</li>
+<li>GCC 7.0 or higher version</li>
+<li>LLVM 7.0 or higher version</li>
 <li>java8 OpenJDK -&gt; yum install java-1.8.0-openjdk</li>
-<li>cmake 3.2 or higher version</li>
-<li>maven 3.1.1 or higher version</li>
+<li>cmake 3.16 or higher version</li>
+<li>Maven 3.6.3 or higher version</li>
 <li>Hadoop 2.7.5 or higher version</li>
 <li>Spark 3.0.0 or higher version</li>
-<li>Intel Optimized Arrow 0.17.0</li>
+<li>Intel Optimized Arrow 3.0.0</li>
 </ol>
 <h2 id="gcc-installation">gcc installation</h2>
-<p>// installing gcc 9.3 or higher version</p>
-<p>Please notes for better performance support, gcc 9.3 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
+<p>// installing GCC 7.0 or higher version</p>
+<p>Please notes for better performance support, GCC 7.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
 https://gcc.gnu.org/install/index.html</p>
 <p>Follow the above website to download gcc.
-C++ library may ask a certain version, if you are using gcc 9.3 the version would be libstdc++.so.6.0.28.
+C++ library may ask a certain version, if you are using GCC 7.0 the version would be libstdc++.so.6.0.28.
 You may have to launch ./contrib/download_prerequisites command to install all the prerequisites for gcc.
 If you are facing downloading issue in download_prerequisites command, you can try to change ftp to http.</p>
 <p>//Follow the steps to configure gcc
@@ -171,10 +174,34 @@ export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
 
 <p>Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc</p>
 <p>//Verify if gcc has been installation
-Use gcc -v command to verify if your gcc version is correct.(Must larger than 9.3)</p>
+Use <code>gcc -v</code> command to verify if your gcc version is correct.(Must larger than 7.0)</p>
+<h2 id="llvm-70-installation">LLVM 7.0 installation</h2>
+<p>Arrow Gandiva depends on LLVM, and I noticed current version strictly depends on llvm7.0 if you installed any other version rather than 7.0, it will fail.</p>
+<pre><code class="shell">wget http://releases.llvm.org/7.0.1/llvm-7.0.1.src.tar.xz
+tar xf llvm-7.0.1.src.tar.xz
+cd llvm-7.0.1.src/
+cd tools
+wget http://releases.llvm.org/7.0.1/cfe-7.0.1.src.tar.xz
+tar xf cfe-7.0.1.src.tar.xz
+mv cfe-7.0.1.src clang
+cd ..
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j
+cmake --build . --target install
+# check if clang has also been compiled, if no
+cd tools/clang
+mkdir build
+cd build
+cmake ..
+make -j
+make install
+</code></pre>
+
 <h2 id="cmake-installation">cmake installation</h2>
 <p>If you are facing some trouble when installing cmake, please follow below steps to install cmake.</p>
-<pre><code>// installing cmake 3.2
+<pre><code>// installing Cmake 3.16.1
 sudo yum install cmake3
 
 // If you have an existing cmake, you can use below command to set it as an option within alternatives command
@@ -246,7 +273,7 @@ Add env variable to the system</p>
 </ul>
 <p>Please notes: If you choose to use libhdfs3.so, there are some other dependency libraries you have to installed such as libprotobuf or libcrypto.</p>
 <h2 id="intel-optimized-apache-arrow-installation">Intel Optimized Apache Arrow Installation</h2>
-<p>Intel Optimized Apache Arrow is MANDATORY to be used. However, we have a bundle a compiled arrow libraries(libarrow, libgandiva, libparquet) built by GCC9.3 included in the cpp/src/resources directory.
+<p>During the mvn compile command, it will launch a script(build_arrow.sh) to help install and compile a Intel custom Arrow library.
 If you wish to build Apache Arrow by yourself, please follow the guide to build and install Apache Arrow <a href="../ApacheArrowInstallation/">ArrowInstallation</a></p>
               
             </div>
