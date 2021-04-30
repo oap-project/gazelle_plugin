@@ -29,7 +29,7 @@ Please make sure your cmake version is qualified based on the prerequisite.
 
 # Apache Arrow
 ``` shell
-git clone https://github.com/Intel-bigdata/arrow.git
+git clone https://github.com/oap-project/arrow.git
 cd arrow && git checkout <version>
 mkdir -p arrow/cpp/release-build
 cd arrow/cpp/release-build
