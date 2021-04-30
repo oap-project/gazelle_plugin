@@ -6,10 +6,6 @@ A Spark DataSource implementation for reading files into Arrow compatible column
 
 The development of this library is still in progress. As a result some of the functionality may not be constantly stable for being used in production environments that have not been fully considered due to the limited testing capabilities so far.
 
-## Online Documentation
-
-You can find the all the Native SQL Engine documents on the [project web page](https://oap-project.github.io/arrow-data-source/).
-
 ## Build
 
 ### Prerequisite
@@ -17,17 +13,17 @@ You can find the all the Native SQL Engine documents on the [project web page](h
 There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.
 
-1. gcc 9.3 or higher version
+1. GCC 7.0 or higher version
 2. java8 OpenJDK -> yum install java-1.8.0-openjdk
-3. cmake 3.2 or higher version
-4. maven 3.1.1 or higher version
+3. cmake 3.16 or higher version
+4. maven 3.6 or higher version
 5. Hadoop 2.7.5 or higher version
 6. Spark 3.0.0 or higher version
 7. Intel Optimized Arrow 3.0.0
 
 ### Building by Conda
 
-If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./docs/OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./docs/OAP-Installation-Guide.md), you can find built `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
+If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](../docs/OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](../docs/OAP-Installation-Guide.md), you can find built `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
 Then you can just skip steps below and jump to [Get Started](#get-started).
 
 ### cmake installation
@@ -35,7 +31,7 @@ Then you can just skip steps below and jump to [Get Started](#get-started).
 If you are facing some trouble when installing cmake, please follow below steps to install cmake.
 
 ```
-// installing cmake 3.2
+// installing cmake 3.16.1
 sudo yum install cmake3
 
 // If you have an existing cmake, you can use below command to set it as an option within alternatives command
@@ -121,7 +117,7 @@ You have to use a customized Arrow to support for our datasets Java API.
 
 ```
 // build arrow-cpp
-git clone -b <version> https://github.com/Intel-bigdata/arrow.git
+git clone -b arrow-3.0.0-oap-1.1 https://github.com/oap-project/arrow.git
 cd arrow/cpp
 mkdir build
 cd build
@@ -213,7 +209,7 @@ spark.sql("SELECT * FROM my_temp_view LIMIT 10").show(10)
 
 To validate if ArrowDataSource works, you can go to the DAG to check if ArrowScan has been used from the above example query.
 
-![Image of ArrowDataSource Validation](./docs/image/arrowdatasource_validation.png)
+![Image of ArrowDataSource Validation](../docs/image/arrowdatasource_validation.png)
 
 
 ## Work together with ParquetDataSource (experimental)
