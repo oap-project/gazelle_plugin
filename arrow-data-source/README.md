@@ -13,10 +13,10 @@ The development of this library is still in progress. As a result some of the fu
 There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.
 
-1. gcc 9.3 or higher version
+1. GCC 7.0 or higher version
 2. java8 OpenJDK -> yum install java-1.8.0-openjdk
-3. cmake 3.2 or higher version
-4. maven 3.1.1 or higher version
+3. cmake 3.16 or higher version
+4. maven 3.6 or higher version
 5. Hadoop 2.7.5 or higher version
 6. Spark 3.0.0 or higher version
 7. Intel Optimized Arrow 3.0.0
@@ -31,7 +31,7 @@ Then you can just skip steps below and jump to [Get Started](#get-started).
 If you are facing some trouble when installing cmake, please follow below steps to install cmake.
 
 ```
-// installing cmake 3.2
+// installing cmake 3.16.1
 sudo yum install cmake3
 
 // If you have an existing cmake, you can use below command to set it as an option within alternatives command
@@ -117,7 +117,7 @@ You have to use a customized Arrow to support for our datasets Java API.
 
 ```
 // build arrow-cpp
-git clone -b <version> https://github.com/Intel-bigdata/arrow.git
+git clone -b arrow-3.0.0-oap-1.1 https://github.com/oap-project/arrow.git
 cd arrow/cpp
 mkdir build
 cd build

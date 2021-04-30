@@ -26,7 +26,7 @@ We provide scripts to help automatically install dependencies required, please c
 
 Then the dependencies below will be installed:
 
-* [Cmake](https://help.directadmin.com/item.php?id=494)
+* [Cmake](https://cmake.org/install/)
 * [GCC > 7](https://gcc.gnu.org/wiki/InstallingGCC)
 * [Memkind](https://github.com/memkind/memkind/tree/v1.10.1)
 * [Vmemcache](https://github.com/pmem/vmemcache)
