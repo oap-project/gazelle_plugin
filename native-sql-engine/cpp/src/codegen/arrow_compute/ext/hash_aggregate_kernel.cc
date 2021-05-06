@@ -46,7 +46,7 @@ namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using precompile::StringHashMap;
 
-///////////////  SortArraysToIndices  ////////////////
+///////////////  HashAgg Kernel  ////////////////
 class HashAggregateKernel::Impl {
  public:
   Impl(arrow::compute::ExecContext* ctx,

@@ -1351,6 +1351,9 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+    arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
+    builder_isempty_.reset(
+        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
   }
   ~SumAction() {
 #ifdef DEBUG
@@ -1439,8 +1442,10 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (cache_validity_[i]) {
         builder_->Append(cache_[i]);
+        builder_isempty_->Append(cache_[i]);
       } else {
         builder_->AppendNull();
+        builder_isempty_->AppendNull();
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -1453,18 +1458,24 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
+    std::shared_ptr<arrow::Array> arr_isempty_out;
     builder_->Reset();
+    builder_isempty_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < res_length; i++) {
       if (cache_validity_[offset + i]) {
         builder_->Append(cache_[offset + i]);
+        builder_isempty_->Append(cache_[offset + i]);
       } else {
         builder_->AppendNull();
+        builder_isempty_->AppendNull();
       }
     }
 
     RETURN_NOT_OK(builder_->Finish(&arr_out));
+    RETURN_NOT_OK(builder_isempty_->Finish(&arr_isempty_out));
     out->push_back(arr_out);
+    out->push_back(arr_isempty_out);
     return arrow::Status::OK();
   }
 
@@ -1482,6 +1493,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   std::vector<ResCType> cache_;
   std::vector<bool> cache_validity_;
   std::unique_ptr<ResBuilderType> builder_;
+  std::unique_ptr<ResBuilderType> builder_isempty_;
   uint64_t length_ = 0;
 };
 
