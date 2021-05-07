@@ -1348,12 +1348,14 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     std::cout << "Construct SumAction" << std::endl;
 #endif
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    std::unique_ptr<arrow::ArrayBuilder> array_builder_empty;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
-    arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
+    auto bool_type = std::make_shared<arrow::BooleanType>();
+    arrow::MakeBuilder(ctx_->memory_pool(), bool_type, &array_builder_empty);
     builder_isempty_.reset(
-        arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+        arrow::internal::checked_cast<arrow::TypeTraits<arrow::BooleanType>::BuilderType*>(array_builder_empty.release()));
   }
   ~SumAction() {
 #ifdef DEBUG
@@ -1442,7 +1444,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (cache_validity_[i]) {
         builder_->Append(cache_[i]);
-        builder_isempty_->Append(cache_[i]);
+        builder_isempty_->Append(true);
       } else {
         builder_->AppendNull();
         builder_isempty_->AppendNull();
@@ -1461,21 +1463,26 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     std::shared_ptr<arrow::Array> arr_isempty_out;
     builder_->Reset();
     builder_isempty_->Reset();
+    std::cout << "finish begin: " << cache_.size() <<  std::endl;
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    std::cout << "res len: " << res_length << "offset: " << offset << std::endl;
     for (uint64_t i = 0; i < res_length; i++) {
+      std::cout << "validity: " << cache_validity_[offset + i] << std::endl;
       if (cache_validity_[offset + i]) {
+        std::cout << "value: " << cache_[offset + i] << std::endl;
         builder_->Append(cache_[offset + i]);
-        builder_isempty_->Append(cache_[offset + i]);
+        builder_isempty_->Append(true);
       } else {
         builder_->AppendNull();
         builder_isempty_->AppendNull();
       }
     }
-
+    std::cout << "append done" << std::endl;
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     RETURN_NOT_OK(builder_isempty_->Finish(&arr_isempty_out));
     out->push_back(arr_out);
     out->push_back(arr_isempty_out);
+    std::cout << "finish done" << std::endl;
     return arrow::Status::OK();
   }
 
@@ -1493,7 +1500,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   std::vector<ResCType> cache_;
   std::vector<bool> cache_validity_;
   std::unique_ptr<ResBuilderType> builder_;
-  std::unique_ptr<ResBuilderType> builder_isempty_;
+  std::unique_ptr<arrow::TypeTraits<arrow::BooleanType>::BuilderType> builder_isempty_;
   uint64_t length_ = 0;
 };
 

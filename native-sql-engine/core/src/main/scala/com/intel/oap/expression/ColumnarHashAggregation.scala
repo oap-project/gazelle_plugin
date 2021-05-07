@@ -257,9 +257,18 @@ class ColumnarHashAggregation(
             case Partial | PartialMerge => {
               val sum = aggregateFunc.asInstanceOf[Sum]
               val aggBufferAttr = sum.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-              aggregateAttr += attr
-              res_index += 1
+              if (aggBufferAttr.size == 2) {
+                // decimal sum
+                val sum_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+                aggregateAttr += sum_attr
+                val isempty_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(1))
+                aggregateAttr += isempty_attr
+                res_index += 2
+              } else {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+                aggregateAttr += attr
+                res_index += 1
+              }
             }
             case Final => {
               aggregateAttr += aggregateAttributeList(res_index)

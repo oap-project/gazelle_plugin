@@ -942,10 +942,11 @@ class HashAggregateKernel::Impl {
         out_length += outputs[0]->length();
         offset_ += outputs[0]->length();
       }
-
+     std::cout << "out size" << outputs.size() << std::endl;
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
+            std::cout << "after proj" << std::endl;
       *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
       return arrow::Status::OK();
     }
@@ -1098,9 +1099,11 @@ class HashAggregateKernel::Impl {
         out_length += outputs[0]->length();
         offset_ += outputs[0]->length();
       }
+ 
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
+
       *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
       return arrow::Status::OK();
     }

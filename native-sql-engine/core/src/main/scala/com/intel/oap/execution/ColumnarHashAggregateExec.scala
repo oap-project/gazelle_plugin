@@ -125,6 +125,7 @@ case class ColumnarHashAggregateExec(
           .makeExpression(native_function, Field.nullable("result", new ArrowType.Int(32, true)))
       val hash_aggr_input_schema = ConverterUtils.toArrowSchema(child.output)
       val hash_aggr_out_schema = ConverterUtils.toArrowSchema(output)
+      logInfo(s"AAA: $hash_aggr_out_schema")
       val resultStructType = ArrowUtils.fromArrowSchema(hash_aggr_out_schema)
       val nativeKernel = new ExpressionEvaluator()
       nativeKernel
@@ -216,6 +217,7 @@ case class ColumnarHashAggregateExec(
               return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
             }
             val outputNumRows = output_rb.getLength
+            logInfo(s"BBB $outputNumRows")
             val output = ConverterUtils.fromArrowRecordBatch(hash_aggr_out_schema, output_rb)
             ConverterUtils.releaseArrowRecordBatch(output_rb)
             eval_elapse += System.nanoTime() - beforeEval
