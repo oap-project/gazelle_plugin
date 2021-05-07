@@ -126,16 +126,26 @@ class ColumnarHashAggregation(
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Sum(_) =>
-          val childrenColumnarFuncNodeList =
             mode match {
               case Partial =>
+              val childrenColumnarFuncNodeList =
                 aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
+                TreeBuilder.makeFunction("action_sum_partial", childrenColumnarFuncNodeList.asJava, resultType)
               case Final | PartialMerge =>
+              val childrenColumnarFuncNodeList =
                 List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+                //FIXME(): decimal adds isEmpty column
+                val sum = aggregateFunc.asInstanceOf[Sum]
+                val attrBuf = sum.inputAggBufferAttributes
+                if (attrBuf.size == 2) {
+                  inputAttrQueue.dequeue
+                }
+
+                TreeBuilder.makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
-          TreeBuilder.makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
+          
         case Count(_) =>
           mode match {
             case Partial =>
@@ -258,7 +268,7 @@ class ColumnarHashAggregation(
               val sum = aggregateFunc.asInstanceOf[Sum]
               val aggBufferAttr = sum.inputAggBufferAttributes
               if (aggBufferAttr.size == 2) {
-                // decimal sum
+                // decimal sum check sum.resultType
                 val sum_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
                 aggregateAttr += sum_attr
                 val isempty_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(1))
@@ -445,6 +455,7 @@ class ColumnarHashAggregation(
       groupingAttributes.toList ::: getAttrForAggregateExpr(
         aggregateExpressions,
         aggregateAttributes)
+
     val aggregateAttributeFieldList =
       allAggregateResultAttributes.map(attr => {
         Field

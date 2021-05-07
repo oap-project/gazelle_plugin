@@ -596,7 +596,11 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare("action_avg") == 0) {
+      } else if (action_name.compare("action_sum_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 2;
+        RETURN_NOT_OK(MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
+      }else if (action_name.compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, res_type_list, &action));
