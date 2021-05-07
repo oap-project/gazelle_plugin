@@ -58,5 +58,23 @@
         <hadoop.version>3.2.0</hadoop.version>
       </properties>
     </profile>
+    <profile>
+      <id>incremental-scala-compiler</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <scala.recompile.mode>incremental</scala.recompile.mode>
+      </properties>
+    </profile>
+    <profile>
+      <id>full-scala-compiler</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <scala.recompile.mode>all</scala.recompile.mode>
+      </properties>
+    </profile>
   </profiles>
 </project>

@@ -335,6 +335,9 @@
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
+        <configuration>
+          <recompileMode>${scala.recompile.mode}</recompileMode>
+        </configuration>
         <executions>
           <execution>
             <id>scala-compile-first</id>

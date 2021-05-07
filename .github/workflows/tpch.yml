@@ -59,7 +59,7 @@ jobs:
           mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
       - name: Run Maven tests - BHJ
         run: |
-          mvn test -B -Dbuild_arrow=OFF -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+          mvn test -B -P full-scala-compiler -Dbuild_arrow=OFF -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.BroadcastHashJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
           MAVEN_OPTS: "-Xmx1G"
@@ -68,7 +68,7 @@ jobs:
           ENABLE_TPCH_TESTS: "true"
       - name: Run Maven tests - SMJ
         run: |
-          mvn test -B -Dbuild_arrow=OFF -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
+          mvn test -B -P full-scala-compiler -Dbuild_arrow=OFF -pl native-sql-engine/core/ -am -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DmembersOnlySuites=com.intel.oap.tpc.h -DtagsToInclude=com.intel.oap.tags.SortMergeJoinMode -DargLine="-Xmx1G -XX:MaxDirectMemorySize=500M -Dio.netty.allocator.numDirectArena=1"
         env:
           MALLOC_ARENA_MAX: "4"
           MAVEN_OPTS: "-Xmx1G"
