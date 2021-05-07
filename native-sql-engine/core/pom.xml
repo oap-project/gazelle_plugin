@@ -290,6 +290,11 @@
       <version>3.6.5</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-auth</artifactId>
+      <version>${hadoop.version}</version>
+    </dependency>
   </dependencies>
 
   <build>
