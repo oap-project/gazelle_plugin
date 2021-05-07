@@ -80,7 +80,7 @@ jobs:
           cml-publish /tmp/comment_image_2.png --md >> /tmp/comment.md
       - name: Run Maven tests - Report
         run: |
-          mvn test -B -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -pl native-sql-engine/core/ -am -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
+          mvn test -B -P full-scala-compiler -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -pl native-sql-engine/core/ -am -DmembersOnlySuites=com.intel.oap.tpc.h -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -DtagsToInclude=com.intel.oap.tags.CommentOnContextPR -Dexec.skip=true
         env:
           PR_URL: ${{ github.event.issue.pull_request.url }}
           MAVEN_OPTS: "-Xmx1G"
