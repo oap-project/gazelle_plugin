@@ -457,7 +457,11 @@ class HashAggregateKernel::Impl {
         RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_sum_partial") == 0) {
         auto res_type_list = {result_field_list[result_id]};
-        result_id += 2;
+        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+          result_id += 2;
+        } else {
+          result_id += 1;
+        }
         RETURN_NOT_OK(MakeSumActionPartial(ctx_, type_list[type_id], res_type_list, &action));
       }else if (action_name_list[action_id].compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
@@ -602,7 +606,11 @@ class HashAggregateKernel::Impl {
         RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_sum_partial") == 0) {
         auto res_type_list = {result_field_list[result_id]};
-        result_id += 2;
+        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+          result_id += 2;
+        } else {
+          result_id += 1;
+        }
         RETURN_NOT_OK(MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
       }else if (action_name.compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
