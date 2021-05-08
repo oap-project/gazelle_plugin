@@ -3696,6 +3696,11 @@ arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
+    case arrow::Date32Type::type_id: {
+      using CType = typename arrow::TypeTraits<arrow::Date32Type>::CType;
+      auto action_ptr = std::make_shared<MinAction<arrow::Date32Type, CType>>(ctx, type);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
     case arrow::Decimal128Type::type_id: {
       auto action_ptr =
           std::make_shared<MinAction<arrow::Decimal128Type, arrow::Decimal128>>(ctx,
@@ -3721,6 +3726,11 @@ arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
+    case arrow::Date32Type::type_id: {
+      using CType = typename arrow::TypeTraits<arrow::Date32Type>::CType;
+      auto action_ptr = std::make_shared<MaxAction<arrow::Date32Type, CType>>(ctx, type);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
     case arrow::Decimal128Type::type_id: {
       auto action_ptr =
           std::make_shared<MaxAction<arrow::Decimal128Type, arrow::Decimal128>>(ctx,
