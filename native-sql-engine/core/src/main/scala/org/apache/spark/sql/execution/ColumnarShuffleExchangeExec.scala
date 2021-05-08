@@ -157,7 +157,8 @@ case class ColumnarShuffleExchangeExec(
 
 class ColumnarShuffleExchangeAdaptor(
     override val outputPartitioning: Partitioning,
-    child: SparkPlan  )
+    child: SparkPlan,
+    shuffleOrigin: ShuffleOrigin = ENSURE_REQUIREMENTS)
     extends ShuffleExchangeExec(outputPartitioning, child) {
 
   private[sql] lazy val writeMetrics =
