@@ -282,13 +282,13 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
             val vectors: Seq[WritableColumnVector] = 
               ArrowWritableColumnVector.allocateColumns(numRows, schema)
             var rowCount = 0
+            val start = System.nanoTime()
             while (rowCount < numRows && rowIterator.hasNext) {
               val row = rowIterator.next()
-              val start = System.nanoTime()
               converters.convert(row, vectors.toArray)
-              elapse += System.nanoTime() - start
               rowCount += 1
             }
+            elapse += System.nanoTime() - start
             vectors.foreach(v => v.asInstanceOf[ArrowWritableColumnVector].setValueCount(rowCount))
             processTime.set(NANOSECONDS.toMillis(elapse))
             numInputRows += rowCount
