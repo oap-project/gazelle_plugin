@@ -444,10 +444,6 @@ class ColumnarHashAggregation(
             CodeGeneration.getResultType(attr.dataType))
       })
 
-    // If some Attributes in result expressions (contain attributes only) are not found
-    // in allAggregateResultAttributes, an exception will be thrown.
-    existsAttrNotFound(allAggregateResultAttributes)
-
     val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
 
     // 4. prepare after aggregate result expressions
