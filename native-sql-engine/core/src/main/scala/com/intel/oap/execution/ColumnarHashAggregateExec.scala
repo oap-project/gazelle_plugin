@@ -290,7 +290,7 @@ case class ColumnarHashAggregateExec(
           var idx = 0
           for (expr <- aggregateExpressions) {
             expr.aggregateFunction match {
-              case Average(_) | StddevSamp(_) | Sum(_) | Max(_) | Min(_) =>
+              case Average(_) | StddevSamp(_, _) | Sum(_) | Max(_) | Min(_) =>
                 expr.mode match {
                   case Final =>
                     resultColumnVectors(idx).putNull(0)

@@ -52,8 +52,7 @@ import scala.util.Random
 case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     partitionSpec: Seq[Expression],
     orderSpec: Seq[SortOrder],
-    child: SparkPlan) extends WindowExecBase(windowExpression,
-  partitionSpec, orderSpec, child) {
+    child: SparkPlan) extends WindowExecBase {
 
   override def supportsColumnar: Boolean = true
 
