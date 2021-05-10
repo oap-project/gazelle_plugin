@@ -62,7 +62,8 @@ import scala.concurrent.Future
 
 case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
-    child: SparkPlan)
+    child: SparkPlan,
+    shuffleOrigin: ShuffleOrigin = ENSURE_REQUIREMENTS)
     extends Exchange {
 
   private[sql] lazy val writeMetrics =
