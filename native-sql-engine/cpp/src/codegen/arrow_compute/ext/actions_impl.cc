@@ -1352,7 +1352,6 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
-    
   }
   ~SumAction() {
 #ifdef DEBUG
@@ -1498,10 +1497,11 @@ class SumActionPartial {};
 
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
 class SumActionPartial<DataType, CType, ResDataType, ResCType,
-                precompile::enable_if_number<DataType>> : public ActionBase {
+                       precompile::enable_if_number<DataType>> : public ActionBase {
  public:
-  SumActionPartial(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            std::shared_ptr<arrow::DataType> res_type)
+  SumActionPartial(arrow::compute::ExecContext* ctx,
+                   std::shared_ptr<arrow::DataType> type,
+                   std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct SumActionPartial" << std::endl;
@@ -1645,10 +1645,11 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 /// Decimal ///
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
 class SumActionPartial<DataType, CType, ResDataType, ResCType,
-                precompile::enable_if_decimal<DataType>> : public ActionBase {
+                       precompile::enable_if_decimal<DataType>> : public ActionBase {
  public:
-  SumActionPartial(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            std::shared_ptr<arrow::DataType> res_type)
+  SumActionPartial(arrow::compute::ExecContext* ctx,
+                   std::shared_ptr<arrow::DataType> type,
+                   std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct SumActionPartial" << std::endl;
@@ -1658,11 +1659,12 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
-    
+
     auto bool_type = std::make_shared<arrow::BooleanType>();
     arrow::MakeBuilder(ctx_->memory_pool(), bool_type, &array_builder_empty);
-    builder_isempty_.reset(
-        arrow::internal::checked_cast<arrow::TypeTraits<arrow::BooleanType>::BuilderType*>(array_builder_empty.release()));
+    builder_isempty_.reset(arrow::internal::checked_cast<
+                           arrow::TypeTraits<arrow::BooleanType>::BuilderType*>(
+        array_builder_empty.release()));
   }
   ~SumActionPartial() {
 #ifdef DEBUG
@@ -4095,20 +4097,21 @@ arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
   return arrow::Status::OK();
 }
 
-arrow::Status MakeSumActionPartial(arrow::compute::ExecContext* ctx,
-                            std::shared_ptr<arrow::DataType> type,
-                            std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+arrow::Status MakeSumActionPartial(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                                  \
-  case InType::type_id: {                                                                \
-    using CType = typename arrow::TypeTraits<InType>::CType;                             \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                      \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                     \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                    \
-    auto action_ptr = std::make_shared<SumActionPartial<InType, CType, ResDataType, ResCType>>( \
-        ctx, type, res_type);                                                            \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                            \
+#define PROCESS(InType)                                                           \
+  case InType::type_id: {                                                         \
+    using CType = typename arrow::TypeTraits<InType>::CType;                      \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;               \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;              \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();             \
+    auto action_ptr =                                                             \
+        std::make_shared<SumActionPartial<InType, CType, ResDataType, ResCType>>( \
+            ctx, type, res_type);                                                 \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                     \
   } break;
 
     PROCESS_SUPPORTED_TYPES(PROCESS)
@@ -4116,7 +4119,7 @@ arrow::Status MakeSumActionPartial(arrow::compute::ExecContext* ctx,
     case arrow::Decimal128Type::type_id: {
       auto action_ptr =
           std::make_shared<SumActionPartial<arrow::Decimal128Type, arrow::Decimal128,
-                                     arrow::Decimal128Type, arrow::Decimal128>>(
+                                            arrow::Decimal128Type, arrow::Decimal128>>(
               ctx, type, res_type_list[0]);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
