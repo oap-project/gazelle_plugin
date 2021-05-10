@@ -60,6 +60,7 @@ jobs:
           ctest -R
 
   scala-unit-test:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '@github-actions scala-unit-test') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
