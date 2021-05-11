@@ -157,10 +157,6 @@ case class ColumnarShuffledHashJoinExec(
     if (projectList == null || projectList.isEmpty) super.output
     else projectList.map(_.toAttribute)
 
-  /*protected lazy val (buildPlan, streamedPlan, buildKeys, streamKeys) = buildSide match {
-    case BuildLeft => (left, right, leftKeys, rightKeys)
-    case BuildRight => (right, left, rightKeys, leftKeys)
-  }*/
 
   def getBuildPlan: SparkPlan = buildPlan
   override def updateMetrics(out_num_rows: Long, process_time: Long): Unit = {
@@ -176,20 +172,12 @@ case class ColumnarShuffledHashJoinExec(
   }
   override def supportsColumnar = true
 
-  // override def inputRDDs(): Seq[RDD[InternalRow]] = {
-  //   throw new UnsupportedOperationException("inputRDDs is used by codegen which we don't support")
-  // }
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       c.inputRDDs
     case _ =>
       Seq(streamedPlan.executeColumnar())
   }
-
-  // protected override def prepareRelation(ctx: CodegenContext): HashedRelationInfo = {
-  //   throw new UnsupportedOperationException(
-  //     "prepareRelation is used by codegen which we don't support")
-  // }
 
   override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
