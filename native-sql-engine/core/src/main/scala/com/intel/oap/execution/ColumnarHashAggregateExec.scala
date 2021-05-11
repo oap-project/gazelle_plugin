@@ -216,6 +216,7 @@ case class ColumnarHashAggregateExec(
               return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
             }
             val outputNumRows = output_rb.getLength
+
             val output = ConverterUtils.fromArrowRecordBatch(hash_aggr_out_schema, output_rb)
             ConverterUtils.releaseArrowRecordBatch(output_rb)
             eval_elapse += System.nanoTime() - beforeEval
@@ -289,7 +290,7 @@ case class ColumnarHashAggregateExec(
           var idx = 0
           for (expr <- aggregateExpressions) {
             expr.aggregateFunction match {
-              case Average(_) | StddevSamp(_) | Sum(_) | Max(_) | Min(_) =>
+              case Average(_) | StddevSamp(_, _) | Sum(_) | Max(_) | Min(_) =>
                 expr.mode match {
                   case Final =>
                     resultColumnVectors(idx).putNull(0)
@@ -387,7 +388,7 @@ case class ColumnarHashAggregateExec(
       val aggregateFunction = expr.aggregateFunction
       aggregateFunction match {
         case Average(_) | Sum(_) | Count(_) | Max(_) | Min(_) =>
-        case StddevSamp(_) =>
+        case StddevSamp(_, _) =>
           mode match {
             case Partial | Final =>
             case other =>

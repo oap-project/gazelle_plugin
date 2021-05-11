@@ -27,7 +27,6 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.sql.catalyst.rules.Rule
-import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.catalyst.plans._
@@ -59,7 +58,8 @@ class ColumnarInputAdapter(child: SparkPlan) extends InputAdapter(child) {
       prefix: String = "",
       addSuffix: Boolean = false,
       maxFields: Int,
-      printNodeId: Boolean): Unit = {
+      printNodeId: Boolean,
+      indent: Int = 0): Unit = {
     child.generateTreeString(
       depth,
       lastChildren,
@@ -68,7 +68,8 @@ class ColumnarInputAdapter(child: SparkPlan) extends InputAdapter(child) {
       prefix = "",
       addSuffix = false,
       maxFields,
-      printNodeId)
+      printNodeId,
+      indent)
   }
 }
 
@@ -113,7 +114,7 @@ class ColumnarInputAdapter(child: SparkPlan) extends InputAdapter(child) {
  * failed to generate/compile code.
  */
 case class ColumnarCollapseCodegenStages(
-    conf: SparkConf,
+    columnarWholeStageEnabled: Boolean,
     codegenStageCounter: AtomicInteger = new AtomicInteger(0))
     extends Rule[SparkPlan] {
 
@@ -287,8 +288,6 @@ case class ColumnarCollapseCodegenStages(
   }
 
   def apply(plan: SparkPlan): SparkPlan = {
-    def columnarWholeStageEnabled =
-      conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true)
     if (columnarWholeStageEnabled) {
       insertWholeStageCodegen(plan)
     } else {

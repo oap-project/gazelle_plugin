@@ -70,7 +70,7 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader 
 
   public VectorizedParquetArrowReader(String path, ZoneId convertTz, boolean useOffHeap,
       int capacity, StructType sourceSchema, StructType readDataSchema, String tmp_dir) {
-    super(convertTz, "", useOffHeap, capacity);
+    super(convertTz, "CORRECTED", "LEGACY", useOffHeap, capacity);
     this.capacity = capacity;
     this.path = path;
     this.tmp_dir = tmp_dir;

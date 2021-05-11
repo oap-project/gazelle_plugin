@@ -44,7 +44,7 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
   def children: Seq[SparkPlan] = Seq(child)
 }
 
-case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarGuardRule() extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getSessionConf
   val preferColumnar = columnarConf.enablePreferColumnar
   val optimizeLevel = columnarConf.joinOptimizationThrottle
@@ -103,8 +103,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           if (!enableColumnarShuffle) return false
           new ColumnarShuffleExchangeExec(
             plan.outputPartitioning,
-            plan.child,
-            plan.canChangeNumPartitions)
+            plan.child)
         case plan: ShuffledHashJoinExec =>
           if (!enableColumnarShuffledHashJoin) return false
           ColumnarShuffledHashJoinExec(

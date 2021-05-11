@@ -46,7 +46,7 @@ namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using precompile::StringHashMap;
 
-///////////////  SortArraysToIndices  ////////////////
+///////////////  HashAgg Kernel  ////////////////
 class HashAggregateKernel::Impl {
  public:
   Impl(arrow::compute::ExecContext* ctx,
@@ -455,7 +455,15 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_avg") == 0) {
+      } else if (action_name_list[action_id].compare("action_sum_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+          result_id += 2;
+        } else {
+          result_id += 1;
+        }
+        RETURN_NOT_OK(MakeSumActionPartial(ctx_, type_list[type_id], res_type_list, &action));
+      }else if (action_name_list[action_id].compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], res_type_list, &action));
@@ -596,6 +604,15 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
+      } else if (action_name.compare("action_sum_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+          result_id += 2;
+        } else {
+          result_id += 1;
+        }
+        RETURN_NOT_OK(
+            MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
@@ -942,7 +959,6 @@ class HashAggregateKernel::Impl {
         out_length += outputs[0]->length();
         offset_ += outputs[0]->length();
       }
-
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
@@ -1098,9 +1114,11 @@ class HashAggregateKernel::Impl {
         out_length += outputs[0]->length();
         offset_ += outputs[0]->length();
       }
+
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
+
       *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
       return arrow::Status::OK();
     }

@@ -51,7 +51,9 @@ import com.intel.oap.expression._
 import com.intel.oap.vectorized.ExpressionEvaluator
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.joins.ShuffledHashJoinExec
-import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide, HashJoin}
+import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
+import org.apache.spark.sql.execution.joins.{HashJoin,ShuffledJoin,BaseJoinExec}
+import org.apache.spark.sql.execution.joins.HashedRelationInfo
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
@@ -65,9 +67,9 @@ case class ColumnarShuffledHashJoinExec(
     left: SparkPlan,
     right: SparkPlan,
     projectList: Seq[NamedExpression] = null)
-    extends BinaryExecNode
+    extends BaseJoinExec
     with ColumnarCodegenSupport
-    with HashJoin {
+    with ShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
@@ -79,6 +81,11 @@ case class ColumnarShuffledHashJoinExec(
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
   buildCheck()
+
+  protected lazy val (buildPlan, streamedPlan) = buildSide match {
+    case BuildLeft => (left, right)
+    case BuildRight => (right, left)
+  }
 
   val (buildKeyExprs, streamedKeyExprs) = {
     require(
@@ -150,10 +157,6 @@ case class ColumnarShuffledHashJoinExec(
     if (projectList == null || projectList.isEmpty) super.output
     else projectList.map(_.toAttribute)
 
-  /*protected lazy val (buildPlan, streamedPlan, buildKeys, streamKeys) = buildSide match {
-    case BuildLeft => (left, right, leftKeys, rightKeys)
-    case BuildRight => (right, left, rightKeys, leftKeys)
-  }*/
 
   def getBuildPlan: SparkPlan = buildPlan
   override def updateMetrics(out_num_rows: Long, process_time: Long): Unit = {
@@ -168,12 +171,14 @@ case class ColumnarShuffledHashJoinExec(
       s"ColumnarShuffledHashJoinExec doesn't support doExecute")
   }
   override def supportsColumnar = true
+
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       c.inputRDDs
     case _ =>
       Seq(streamedPlan.executeColumnar())
   }
+
   override def getBuildPlans: Seq[(SparkPlan, SparkPlan)] = streamedPlan match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
       val childPlans = c.getBuildPlans

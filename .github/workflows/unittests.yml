@@ -60,6 +60,7 @@ jobs:
           ctest -R
 
   scala-unit-test:
+    if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '@github-actions scala-unit-test') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -82,8 +83,8 @@ jobs:
       - name: Install Spark
         run: |
           cd /tmp
-          wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
-          tar -xf spark-3.0.0-bin-hadoop2.7.tgz
+          wget http://archive.apache.org/dist/spark/spark-3.0.2/spark-3.0.2-bin-hadoop2.7.tgz
+          tar -xf spark-3.0.2-bin-hadoop2.7.tgz
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp

@@ -52,7 +52,7 @@ import com.intel.oap.expression._
 import com.intel.oap.vectorized.ExpressionEvaluator
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.joins._
-import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide}
+import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
 import org.apache.spark.sql.types.DecimalType
 
 /**
@@ -170,10 +170,9 @@ case class ColumnarSortMergeJoinExec(
       leftKeyOrdering.zip(rightKeyOrdering).map {
         case (lKey, rKey) =>
           // Also add the right key and its `sameOrderExpressions`
+          val sameOrderExpressions = ExpressionSet(lKey.sameOrderExpressions ++ rKey.children)
           SortOrder(
-            lKey.child,
-            Ascending,
-            lKey.sameOrderExpressions + rKey.child ++ rKey.sameOrderExpressions)
+            lKey.child, Ascending, sameOrderExpressions.toSeq)
       }
     // For left and right outer joins, the output is ordered by the streamed input's join keys.
     case LeftOuter => getKeyOrdering(leftKeys, left.outputOrdering)
@@ -193,7 +192,8 @@ case class ColumnarSortMergeJoinExec(
     if (SortOrder.orderingSatisfies(childOutputOrdering, requiredOrdering)) {
       keys.zip(childOutputOrdering).map {
         case (key, childOrder) =>
-          SortOrder(key, Ascending, childOrder.sameOrderExpressions + childOrder.child - key)
+        val sameOrderExpressionsSet = ExpressionSet(childOrder.children) - key
+          SortOrder(key, Ascending, sameOrderExpressionsSet.toSeq)
       }
     } else {
       requiredOrdering
