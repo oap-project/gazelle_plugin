@@ -1677,7 +1677,8 @@ class ConditionedProbeKernel::Impl {
       codes_ss << "      break;" << std::endl;
       codes_ss << "    }" << std::endl;
       codes_ss << "  }" << std::endl;
-      codes_ss << "  if (found) {" << std::endl;
+      codes_ss << "  if (!found) {" << std::endl;
+      codes_ss << "    continue;" << std::endl;
       codes_ss << "  }" << std::endl;
     }
     codes_ss << "}" << std::endl;
