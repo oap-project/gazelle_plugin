@@ -208,7 +208,7 @@ bool equal_with_nan(double left, double right) {
 double normalize_nan_zero(double in) {
   if (std::isnan(in)) {
     return 0.0 / 0.0;
-  } else if (in < 0 && std::abs(in) < 0.0000001) {
+  } else if (std::abs(in) < 0.0000001) {
     return 0.0;
   } else {
     return in;
