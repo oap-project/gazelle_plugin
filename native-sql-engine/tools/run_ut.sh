@@ -4,7 +4,7 @@
 # SPARK_HOME is required, Usage: ./run_ut.sh
 # Detailed test info is logged to oap-native-sql/tools/log-file.log
 
-cd ../core
+cd ../..
 spark_home=$(eval echo ${SPARK_HOME})
 if [ -z "${spark_home}" ]
 then
@@ -13,9 +13,9 @@ then
 else
   echo "SPARK_HOME is $spark_home"
 fi
-mvn test -am -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -Dmaven.test.failure.ignore=true -DargLine="-Dspark.test.home=$spark_home" &> ../tools/log-file.log
+mvn test -am -pl native-sql-engine/core -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -Dmaven.test.failure.ignore=true -DargLine="-Dspark.test.home=$spark_home" &>  native-sql-engine/tools/log-file.log
 
-cd ../tools/
+cd native-sql-engine/tools/
 tests_total=0
 module_tested=0
 module_should_test=1

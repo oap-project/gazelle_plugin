@@ -1550,7 +1550,7 @@ class ConditionedProbeKernel::Impl {
     if (cond_check) {
       codes_ss << "if (!" << condition_name << "(" << tmp_name << ", i)) {" << std::endl;
       // if all matches do not pass condition check, null will be appended later
-      codes_ss << "if ((" << range_index_name << " + 1 == " << range_size_name 
+      codes_ss << "if ((" << range_index_name << " + 1 == " << range_size_name
                << ") && outer_join_num_matches == 0) {" << std::endl;
       codes_ss << is_outer_null_name << " = true;" << std::endl;
       codes_ss << "} else {" << std::endl;
