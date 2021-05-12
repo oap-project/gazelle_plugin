@@ -24,9 +24,9 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
 import org.kohsuke.github.GHIssueComment
 import org.kohsuke.github.GitHubBuilder
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class GitHubActionEntries extends FunSuite {
+class GitHubActionEntries extends AnyFunSuite {
 
   test("comment on context pr", CommentOnContextPR) {
     def run(): Unit = {
