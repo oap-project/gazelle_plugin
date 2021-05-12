@@ -48,26 +48,8 @@ import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.{LongAccumulator, Utils}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
-import sun.misc.Cleaner
-
-private class Deallocator(var arrowColumnarBatch: Array[ColumnarBatch]) extends Runnable {
-
-  override def run(): Unit = {
-    try {
-      Option(arrowColumnarBatch) match {
-        case Some(buffer) =>
-          //System.out.println(s"ArrowCachedBatch released in DeAllocator, First buffer name is ${buffer(0)}")
-          buffer.foreach(_.close)
-        case other =>
-      }
-    } catch {
-      case e: Exception =>
-        // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
-        //System.err.println("ArrowCachedBatch-Deallocator: Error running deallocator")
-        e.printStackTrace()
-    }
-  }
-}
+import com.esotericsoftware.kryo.io.{Input, Output}
+import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
 
 /**
  * The default implementation of CachedBatch.
@@ -81,16 +63,12 @@ case class ArrowCachedBatch(
     var buffer: Array[ColumnarBatch],
     stats: InternalRow)
     extends SimpleMetricsCachedBatch
+    with KryoSerializable
     with Externalizable {
-  if (buffer != null) {
-    //System.out.println(s"ArrowCachedBatch constructed First buffer name is ${buffer(0)}")
-    Cleaner.create(this, new Deallocator(buffer))
-  }
   def this() = {
     this(0, null, null)
   }
   def release() = {
-    //System.out.println(s"ArrowCachedBatch released by clear cache, First buffer name is ${buffer(0)}")
     buffer.foreach(_.close)
   }
   lazy val estimatedSize: Long = {
@@ -98,23 +76,30 @@ case class ArrowCachedBatch(
     buffer.foreach(batch => {
       size += ConverterUtils.calcuateEstimatedSize(batch)
     })
-    //System.out.println(s"ArrowCachedBatch${buffer(0)} estimated size is ${size}")
     size
   }
   override def sizeInBytes: Long = estimatedSize
   override def writeExternal(out: ObjectOutput): Unit = {
-    // System.out.println(s"writeExternal for $this")
+    out.writeObject(numRows)
     val rawArrowData = ConverterUtils.convertToNetty(buffer)
     out.writeObject(rawArrowData)
     buffer.foreach(_.close)
   }
-
+  override def write(kryo: Kryo, out: Output): Unit = {
+    kryo.writeObject(out, numRows)
+    val rawArrowData = ConverterUtils.convertToNetty(buffer)
+    kryo.writeObject(out, rawArrowData)
+    buffer.foreach(_.close)
+  }
   override def readExternal(in: ObjectInput): Unit = {
-    numRows = 0
+    numRows = in.readObject().asInstanceOf[Integer]
     val rawArrowData = in.readObject().asInstanceOf[Array[Byte]]
     buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
-    //System.out.println(s"ArrowCachedBatch constructed by deserilizer, First buffer name is ${buffer(0)}")
-    Cleaner.create(this, new Deallocator(buffer))
+  }
+  override def read(kryo: Kryo, in: Input): Unit = {
+    numRows = kryo.readObject(in, classOf[Integer]).asInstanceOf[Integer]
+    val rawArrowData = kryo.readObject(in, classOf[Array[Byte]]).asInstanceOf[Array[Byte]]
+    buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
   }
 }
 
