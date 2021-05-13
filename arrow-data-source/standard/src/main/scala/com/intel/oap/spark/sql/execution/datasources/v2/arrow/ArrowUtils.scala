@@ -33,6 +33,7 @@ import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
+import org.apache.spark.sql.vectorized.ColumnVector
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
 object ArrowUtils {
@@ -97,7 +98,10 @@ object ArrowUtils {
       partitionColumns(i).setIsConstant()
     })
 
-    val batch = new ColumnarBatch(vectors ++ partitionColumns, rowCount)
+    val batch = new ColumnarBatch(
+      vectors.map(_.asInstanceOf[ColumnVector]) ++
+          partitionColumns.map(_.asInstanceOf[ColumnVector]),
+      rowCount)
     batch
   }
 

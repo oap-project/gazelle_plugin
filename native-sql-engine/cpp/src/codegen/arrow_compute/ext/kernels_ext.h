@@ -112,8 +112,8 @@ class EncodeArrayKernel : public KernalBase {
   arrow::Status Evaluate(const std::shared_ptr<arrow::Array>& in,
                          std::shared_ptr<arrow::Array>* out) override;
 
- private:
   class Impl;
+ private:
   std::unique_ptr<Impl> impl_;
   arrow::compute::ExecContext* ctx_ = nullptr;
 };
