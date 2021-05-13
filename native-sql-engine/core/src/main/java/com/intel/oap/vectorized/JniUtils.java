@@ -39,8 +39,8 @@ import java.util.jar.JarFile;
 /** Helper class for JNI related operations. */
 public class JniUtils {
   private static final String LIBRARY_NAME = "spark_columnar_jni";
-  private static final String ARROW_LIBRARY_NAME = "libarrow.so.300";
-  private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.300";
+  private static final String ARROW_LIBRARY_NAME = "libarrow.so.400";
+  private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.400";
   private static boolean isLoaded = false;
   private static boolean isCodegenDependencyLoaded = false;
   private static List<String> codegenJarsLoadedCache = new ArrayList<>();
