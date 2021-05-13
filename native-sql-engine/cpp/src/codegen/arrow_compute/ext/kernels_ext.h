@@ -113,6 +113,7 @@ class EncodeArrayKernel : public KernalBase {
                          std::shared_ptr<arrow::Array>* out) override;
 
   class Impl;
+
  private:
   std::unique_ptr<Impl> impl_;
   arrow::compute::ExecContext* ctx_ = nullptr;
