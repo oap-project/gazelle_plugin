@@ -40,8 +40,6 @@ class ActionBase {
  public:
   virtual ~ActionBase() {}
 
-  virtual int RequiredColNum() { return 1; }
-
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
                                std::function<arrow::Status(int)>* on_valid,
                                std::function<arrow::Status()>* on_null);
@@ -86,6 +84,11 @@ arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
                             std::shared_ptr<ActionBase>* out);
+
+arrow::Status MakeSumActionPartial(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
 
 arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,

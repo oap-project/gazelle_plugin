@@ -34,7 +34,6 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
-        .set("spark.driver.bindAddress", "127.0.0.1")
         .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
         .set("spark.sql.codegen.wholeStage", "true")
         .set("spark.sql.sources.useV1SourceList", "")
@@ -106,7 +105,15 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     df.show()
   }
 
-  test("window function with decimal input 2") {
+  test("window function with date input") {
+    val df = spark.sql("SELECT MAX(cc_rec_end_date) OVER (PARTITION BY cc_company)," +
+        "MIN(cc_rec_end_date) OVER (PARTITION BY cc_company)" +
+        "FROM call_center LIMIT 100")
+    df.explain()
+    df.show()
+  }
+
+  ignore("window function with decimal input 2") {
     val df = spark.sql("SELECT i_item_sk, i_class_id, RANK()" +
         " OVER (PARTITION BY i_class_id ORDER BY i_current_price) FROM item LIMIT 1000")
     df.explain()

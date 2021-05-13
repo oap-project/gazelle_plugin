@@ -46,7 +46,7 @@ namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using precompile::StringHashMap;
 
-///////////////  SortArraysToIndices  ////////////////
+///////////////  HashAgg Kernel  ////////////////
 class HashAggregateKernel::Impl {
  public:
   Impl(arrow::compute::ExecContext* ctx,
@@ -372,12 +372,33 @@ class HashAggregateKernel::Impl {
         action_codes_ss << project_output_list[i].first.second << std::endl;
         project_output_list[i].first.second = "";
       }
-      if (idx_v.size() > 0)
-        action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
-                        << "_validity) {" << std::endl;
+      if (idx_v.size() > 0) {
+        if (action_name_str_list[action_idx] != "\"action_count\"") {
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity) {" << std::endl;
+        } else {
+          // For action_count with mutiple-col input, will check the validity
+          // of all the input cols.
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity";
+          for (int i = 1; i < idx_v.size() - 1; i++) {
+            action_codes_ss << " && " << project_output_list[idx_v[i]].first.first
+                            << "_validity";
+          }
+          action_codes_ss << " && "
+                          << project_output_list[idx_v[idx_v.size() - 1]].first.first
+                          << "_validity) {" << std::endl;
+        }
+      }
       std::vector<std::string> parameter_list;
-      for (auto i : idx_v) {
-        parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+      if (action_name_str_list[action_idx] != "\"action_count\"") {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
+      } else {
+        // For action_count, only the first col will be used as input to Evaluate
+        // function, in which it will not be used.
+        parameter_list.push_back("(void*)&" + project_output_list[idx_v[0]].first.first);
       }
       action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
                       << "]->Evaluate(memo_index" << GetParameterList(parameter_list)
@@ -434,7 +455,15 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_avg") == 0) {
+      } else if (action_name_list[action_id].compare("action_sum_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+          result_id += 2;
+        } else {
+          result_id += 1;
+        }
+        RETURN_NOT_OK(MakeSumActionPartial(ctx_, type_list[type_id], res_type_list, &action));
+      }else if (action_name_list[action_id].compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], res_type_list, &action));
@@ -575,6 +604,15 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
+      } else if (action_name.compare("action_sum_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+          result_id += 2;
+        } else {
+          result_id += 1;
+        }
+        RETURN_NOT_OK(
+            MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
@@ -757,8 +795,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        // FIXME(): to work around NSE-241
-        action->Finish(offset_, 20000, &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -805,7 +842,9 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+#ifdef DEBUG
       std::cout << "using string hashagg res" << std::endl;
+#endif
       batch_size_ = GetBatchSize();
       if (key_index_list.size() > 1) {
         aggr_key_unsafe_row = std::make_shared<UnsafeRow>(key_index_list.size());
@@ -859,9 +898,6 @@ class HashAggregateKernel::Impl {
           aggr_key_validity =
               typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
         }
-
-        // for (int n = 0; n < aggr_key.size(); ++n) printf("%0X ",
-        // *(aggr_key.data() + n)); std::cout << std::endl;
 
         // 3. get key from hash_table
         int memo_index = 0;
@@ -917,14 +953,12 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        // FIXME(): to work around NSE-241
-        action->Finish(offset_, 20000, &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
         offset_ += outputs[0]->length();
       }
-
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
@@ -1074,16 +1108,17 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        // FIXME(): to work around NSE-241
-        action->Finish(offset_, 20000, &outputs);
+        action->Finish(offset_, batch_size_, &outputs);
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
         offset_ += outputs[0]->length();
       }
+
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
+
       *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
       return arrow::Status::OK();
     }

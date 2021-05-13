@@ -44,7 +44,7 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
   def children: Seq[SparkPlan] = Seq(child)
 }
 
-case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarGuardRule() extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getSessionConf
   val preferColumnar = columnarConf.enablePreferColumnar
   val optimizeLevel = columnarConf.joinOptimizationThrottle
@@ -60,17 +60,11 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
   val enableColumnarShuffledHashJoin = columnarConf.enableColumnarShuffledHashJoin
   val enableColumnarBroadcastExchange = columnarConf.enableColumnarBroadcastExchange
   val enableColumnarBroadcastJoin = columnarConf.enableColumnarBroadcastJoin
-  
-  val testing = columnarConf.isTesting
 
   private def tryConvertToColumnar(plan: SparkPlan): Boolean = {
     try {
       val columnarPlan = plan match {
         case plan: BatchScanExec =>
-          if (testing) {
-            // disable ColumnarBatchScanExec according to config
-            return false
-          }
           if (!enableColumnarBatchScan) return false
           new ColumnarBatchScanExec(plan.output, plan.scan)
         case plan: FileSourceScanExec =>
@@ -79,10 +73,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           }
           plan
         case plan: InMemoryTableScanExec =>
-          if (plan.supportsColumnar) {
-            return false
-          }
-          plan
+          new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
         case plan: ProjectExec =>
           if(!enableColumnarProjFilter) return false
           new ColumnarConditionProjectExec(null, plan.projectList, plan.child)
@@ -112,8 +103,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
           if (!enableColumnarShuffle) return false
           new ColumnarShuffleExchangeExec(
             plan.outputPartitioning,
-            plan.child,
-            plan.canChangeNumPartitions)
+            plan.child)
         case plan: ShuffledHashJoinExec =>
           if (!enableColumnarShuffledHashJoin) return false
           ColumnarShuffledHashJoinExec(
@@ -179,7 +169,7 @@ case class ColumnarGuardRule(conf: SparkConf) extends Rule[SparkPlan] {
             plan.isSkewJoin)
         case plan: WindowExec =>
           if (!enableColumnarWindow) return false
-          val window = ColumnarWindowExec.create(
+          val window = ColumnarWindowExec.createWithOptimizations(
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,

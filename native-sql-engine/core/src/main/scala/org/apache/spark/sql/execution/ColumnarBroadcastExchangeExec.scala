@@ -61,7 +61,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
 
   override lazy val metrics = Map(
     "dataSize" -> SQLMetrics.createSizeMetric(sparkContext, "data size"),
-    "numRows" -> SQLMetrics.createMetric(sparkContext, "number of Rows"),
+    "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of Rows"),
     "totalTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_broadcastExchange"),
     "collectTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to collect"),
     "buildTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to build"),
@@ -169,7 +169,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
 
         longMetric("collectTime") += NANOSECONDS.toMillis(System.nanoTime() - beforeCollect)
 
-        longMetric("numRows") += numRows
+        longMetric("numOutputRows") += numRows
         longMetric("dataSize") += dataSize
         if (dataSize >= BroadcastExchangeExec.MAX_BROADCAST_TABLE_BYTES) {
           throw new SparkException(
@@ -264,7 +264,7 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
   override def nodeName: String = plan.nodeName
   override def output: Seq[Attribute] = plan.output
 
-  private[sql] override val runId: UUID = plan.runId
+  override val runId: UUID = plan.runId
 
   override def outputPartitioning: Partitioning = plan.outputPartitioning
 
@@ -285,7 +285,7 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
     plan.completionFuture
 
   @transient
-  private[sql] override lazy val relationFuture
+  override lazy val relationFuture
       : java.util.concurrent.Future[broadcast.Broadcast[Any]] =
     plan.relationFuture
 

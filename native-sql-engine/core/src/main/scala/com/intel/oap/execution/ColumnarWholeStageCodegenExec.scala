@@ -101,7 +101,8 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       prefix: String = "",
       addSuffix: Boolean = false,
       maxFields: Int,
-      printNodeId: Boolean): Unit = {
+      printNodeId: Boolean,
+      indent: Int = 0): Unit = {
     val res = child.generateTreeString(
       depth,
       lastChildren,
@@ -110,7 +111,8 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       if (printNodeId) "* " else s"*($codegenStageId) ",
       false,
       maxFields,
-      printNodeId)
+      printNodeId,
+      indent)
     res
   }
 

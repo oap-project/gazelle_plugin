@@ -130,6 +130,13 @@ arrow::Decimal128 divide(arrow::Decimal128 left, int32_t left_precision,
   return arrow::Decimal128(out);
 }
 
+arrow::Decimal128 divide(const arrow::Decimal128& x, int32_t precision, int32_t scale,
+                         int64_t y) {
+  gandiva::BasicDecimalScalar128 val(x, precision, scale);
+  arrow::BasicDecimal128 out = gandiva::decimalops::Divide(val, y);
+  return arrow::Decimal128(out);
+}
+
 // A comparison with a NaN always returns false even when comparing with itself.
 // To get the same result as spark, we can regard NaN as big as Infinity when
 // doing comparison.
@@ -196,6 +203,16 @@ bool equal_with_nan(double left, double right) {
     return false;
   }
   return left == right;
+}
+
+double normalize_nan_zero(double in) {
+  if (std::isnan(in)) {
+    return 0.0 / 0.0;
+  } else if (in < 0 && std::abs(in) < 0.0000001) {
+    return 0.0;
+  } else {
+    return in;
+  }
 }
 
 arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,

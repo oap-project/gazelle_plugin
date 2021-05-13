@@ -126,16 +126,26 @@ class ColumnarHashAggregation(
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Sum(_) =>
-          val childrenColumnarFuncNodeList =
             mode match {
               case Partial =>
+              val childrenColumnarFuncNodeList =
                 aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
+                TreeBuilder.makeFunction("action_sum_partial", childrenColumnarFuncNodeList.asJava, resultType)
               case Final | PartialMerge =>
+              val childrenColumnarFuncNodeList =
                 List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+                //FIXME(): decimal adds isEmpty column
+                val sum = aggregateFunc.asInstanceOf[Sum]
+                val attrBuf = sum.inputAggBufferAttributes
+                if (attrBuf.size == 2) {
+                  inputAttrQueue.dequeue
+                }
+
+                TreeBuilder.makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
-          TreeBuilder.makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
+          
         case Count(_) =>
           mode match {
             case Partial =>
@@ -180,7 +190,7 @@ class ColumnarHashAggregation(
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
           TreeBuilder.makeFunction("action_min", childrenColumnarFuncNodeList.asJava, resultType)
-        case StddevSamp(_) =>
+        case StddevSamp(_,_) =>
           mode match {
             case Partial =>
               val childrenColumnarFuncNodeList =
@@ -257,9 +267,18 @@ class ColumnarHashAggregation(
             case Partial | PartialMerge => {
               val sum = aggregateFunc.asInstanceOf[Sum]
               val aggBufferAttr = sum.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
-              aggregateAttr += attr
-              res_index += 1
+              if (aggBufferAttr.size == 2) {
+                // decimal sum check sum.resultType
+                val sum_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+                aggregateAttr += sum_attr
+                val isempty_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(1))
+                aggregateAttr += isempty_attr
+                res_index += 2
+              } else {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+                aggregateAttr += attr
+                res_index += 1
+              }
             }
             case Final => {
               aggregateAttr += aggregateAttributeList(res_index)
@@ -316,7 +335,7 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-        case StddevSamp(_) =>
+        case StddevSamp(_,_) =>
           mode match {
             case Partial => {
               val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
@@ -342,6 +361,29 @@ class ColumnarHashAggregation(
       }
     }
     aggregateAttr.toList
+  }
+
+  def existsAttrNotFound(allAggregateResultAttributes: List[Attribute]): Unit = {
+    if (resultExpressions.size == allAggregateResultAttributes.size) {
+      var resAllAttr = true
+      breakable {
+        for (expr <- resultExpressions) {
+          if (!expr.isInstanceOf[AttributeReference]) {
+            resAllAttr = false
+            break
+          }
+        }
+      }
+      if (resAllAttr) {
+        for (attr <- resultExpressions) {
+          if (allAggregateResultAttributes
+              .indexOf(attr.asInstanceOf[AttributeReference]) == -1) {
+            throw new IllegalArgumentException(
+              s"$attr in resultExpressions is not found in allAggregateResultAttributes!")
+          }
+        }
+      }
+    }
   }
 
   def prepareKernelFunction: TreeNode = {
@@ -413,6 +455,7 @@ class ColumnarHashAggregation(
       groupingAttributes.toList ::: getAttrForAggregateExpr(
         aggregateExpressions,
         aggregateAttributes)
+
     val aggregateAttributeFieldList =
       allAggregateResultAttributes.map(attr => {
         Field
@@ -420,6 +463,7 @@ class ColumnarHashAggregation(
             s"${attr.name}#${attr.exprId.id}",
             CodeGeneration.getResultType(attr.dataType))
       })
+
     val nativeFuncNodes = groupingNativeFuncNodes ::: aggrNativeFuncNodes
 
     // 4. prepare after aggregate result expressions

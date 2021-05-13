@@ -3827,6 +3827,80 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
   }
 }
 
+TEST(TestArrowComputeWSCG, WSCGTestCountOnMutipleCols) {
+  auto f0 = field("f0", utf8());
+  auto f1 = field("f1", utf8());
+  auto f2 = field("f2", utf8());
+  ;
+  auto f_unique = field("unique", utf8());
+  auto f_count = field("count", int64());
+  auto f_res = field("res", uint32());
+
+  auto arg0 = TreeExprBuilder::MakeField(f0);
+  auto arg1 = TreeExprBuilder::MakeField(f1);
+  auto arg2 = TreeExprBuilder::MakeField(f2);
+
+  auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
+  auto n_count = TreeExprBuilder::MakeFunction("action_count", {arg1, arg2}, uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1, arg2}, uint32());
+  auto n_action =
+      TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby, n_count}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_count)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_count)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("child", {n_aggr}, uint32());
+  auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
+  auto aggr_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
+
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
+
+  auto sch = arrow::schema({f0, f1, f2});
+  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_count};
+
+  /////////////////////// Create Expression Evaluator ////////////////////
+  std::shared_ptr<CodeGenerator> expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
+
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+  std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
+  ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
+  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      aggr_result_iterator_base);
+
+  std::vector<std::string> input_data = {R"(["a", "a", "a", "x", "x"])",
+                                         R"(["b", "b", "b", "y", "q"])",
+                                         R"([null, "c", "d", "z", null])"};
+  MakeInputBatch(input_data, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  std::vector<std::string> input_data_2 = {R"(["b", "a", "b", "a", "x"])",
+                                           R"(["b", "b", "b", null, "q"])",
+                                           R"(["c", null, "d", "z", null])"};
+  MakeInputBatch(input_data_2, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  std::vector<std::string> expected_result_string = {R"(["a", "x", "b"])", "[2, 1, 2]"};
+  MakeInputBatch(expected_result_string, arrow::schema(ret_types), &expected_result);
+  if (aggr_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 TEST(TestArrowComputeWSCG, WSCGTestGroupbyHashAggregateTwoKeys) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", int64());

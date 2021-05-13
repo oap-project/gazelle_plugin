@@ -17,15 +17,16 @@
 package com.intel.oap.tpc.h
 
 import java.io.File
+import java.util.regex.Pattern
 
 import com.intel.oap.tags.CommentOnContextPR
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.StringUtils
-import org.codehaus.jackson.map.ObjectMapper
-import org.kohsuke.github.{GHIssueComment, GitHubBuilder}
-import org.scalatest.FunSuite
+import org.kohsuke.github.GHIssueComment
+import org.kohsuke.github.GitHubBuilder
+import org.scalatest.funsuite.AnyFunSuite
 
-class GitHubActionEntries extends FunSuite {
+class GitHubActionEntries extends AnyFunSuite {
 
   test("comment on context pr", CommentOnContextPR) {
     def run(): Unit = {
@@ -48,12 +49,12 @@ class GitHubActionEntries extends FunSuite {
         throw new IllegalArgumentException("No GITHUB_REPOSITORY set")
       }
 
-      val eventPath = System.getenv("PREVIOUS_EVENT_PATH")
+      val eventPath = System.getenv("GITHUB_EVENT_PATH")
       println("Reading essential env variables... " +
-          "Envs: PREVIOUS_EVENT_PATH: %s" .format(eventPath))
+          "Envs: GITHUB_EVENT_PATH: %s" .format(eventPath))
 
       if (StringUtils.isEmpty(eventPath)) {
-        throw new IllegalArgumentException("No PREVIOUS_EVENT_PATH set")
+        throw new IllegalArgumentException("No GITHUB_EVENT_PATH set")
       }
 
       val token = System.getenv("GITHUB_TOKEN")
@@ -62,8 +63,13 @@ class GitHubActionEntries extends FunSuite {
         throw new IllegalArgumentException("No GITHUB_TOKEN set")
       }
 
-      val ghEventPayloadJson = new ObjectMapper().readTree(FileUtils.readFileToString(new File(eventPath)))
-      val prId = ghEventPayloadJson.get("number").asInt()
+      val prUrl = System.getenv("PR_URL")
+      val pattern = Pattern.compile("^.*/(\\d+)$")
+      val matcher = pattern.matcher(prUrl)
+      if (!matcher.matches()) {
+        throw new IllegalArgumentException("Unable to find pull request number in URL: " + prUrl)
+      }
+      val prId = matcher.group(1).toInt
 
       GitHubActionEntries.commentOnContextPR(repoSlug, prId, token,
         FileUtils.readFileToString(new File(commentContentPath)))
@@ -73,10 +79,11 @@ class GitHubActionEntries extends FunSuite {
 }
 
 object GitHubActionEntries {
-  def commentOnContextPR(repoSlug: String, prId: Int, token: String, comment: String): Option[GHIssueComment] = {
+  def commentOnContextPR(repoSlug: String, prId: Int, token: String,
+                         comment: String): Option[GHIssueComment] = {
     val inst = new GitHubBuilder()
-        .withAppInstallationToken(token)
-        .build()
+      .withAppInstallationToken(token)
+      .build()
 
     val repository = inst.getRepository(repoSlug)
     val pr = repository.getPullRequest(prId)

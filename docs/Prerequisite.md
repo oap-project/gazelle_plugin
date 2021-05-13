@@ -3,23 +3,24 @@
 There are some requirements before you build the project.
 Please make sure you have already installed the software in your system.
 
-1. gcc 9.3 or higher version
-2. java8 OpenJDK -> yum install java-1.8.0-openjdk
-3. cmake 3.2 or higher version
-4. maven 3.1.1 or higher version
-5. Hadoop 2.7.5 or higher version
-6. Spark 3.0.0 or higher version
-7. Intel Optimized Arrow 0.17.0
+1. GCC 7.0 or higher version
+2. LLVM 7.0 or higher version
+3. java8 OpenJDK -> yum install java-1.8.0-openjdk
+4. cmake 3.16 or higher version
+5. Maven 3.6.3 or higher version
+6. Hadoop 2.7.5 or higher version
+7. Spark 3.0.0 or higher version
+8. Intel Optimized Arrow 3.0.0
 
 ## gcc installation
 
-// installing gcc 9.3 or higher version
+// installing GCC 7.0 or higher version
 
-Please notes for better performance support, gcc 9.3 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
+Please notes for better performance support, GCC 7.0 is a minimal requirement with Intel Microarchitecture such as SKYLAKE, CASCADELAKE, ICELAKE.
 https://gcc.gnu.org/install/index.html
 
 Follow the above website to download gcc.
-C++ library may ask a certain version, if you are using gcc 9.3 the version would be libstdc++.so.6.0.28.
+C++ library may ask a certain version, if you are using GCC 7.0 the version would be libstdc++.so.6.0.28.
 You may have to launch ./contrib/download_prerequisites command to install all the prerequisites for gcc.
 If you are facing downloading issue in download_prerequisites command, you can try to change ftp to http.
 
@@ -42,13 +43,40 @@ export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
 Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc
 
 //Verify if gcc has been installation
-Use gcc -v command to verify if your gcc version is correct.(Must larger than 9.3)
+Use `gcc -v` command to verify if your gcc version is correct.(Must larger than 7.0)
+
+## LLVM 7.0 installation
+
+Arrow Gandiva depends on LLVM, and I noticed current version strictly depends on llvm7.0 if you installed any other version rather than 7.0, it will fail.
+``` shell
+wget http://releases.llvm.org/7.0.1/llvm-7.0.1.src.tar.xz
+tar xf llvm-7.0.1.src.tar.xz
+cd llvm-7.0.1.src/
+cd tools
+wget http://releases.llvm.org/7.0.1/cfe-7.0.1.src.tar.xz
+tar xf cfe-7.0.1.src.tar.xz
+mv cfe-7.0.1.src clang
+cd ..
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build . -j
+cmake --build . --target install
+# check if clang has also been compiled, if no
+cd tools/clang
+mkdir build
+cd build
+cmake ..
+make -j
+make install
+```
+
 
 ## cmake installation
 If you are facing some trouble when installing cmake, please follow below steps to install cmake.
 
 ```
-// installing cmake 3.2
+// installing Cmake 3.16.1
 sudo yum install cmake3
 
 // If you have an existing cmake, you can use below command to set it as an option within alternatives command
@@ -146,6 +174,6 @@ Please notes: If you choose to use libhdfs3.so, there are some other dependency 
 
 ## Intel Optimized Apache Arrow Installation
 
-Intel Optimized Apache Arrow is MANDATORY to be used. However, we have a bundle a compiled arrow libraries(libarrow, libgandiva, libparquet) built by GCC9.3 included in the cpp/src/resources directory.
+During the mvn compile command, it will launch a script(build_arrow.sh) to help install and compile a Intel custom Arrow library.
 If you wish to build Apache Arrow by yourself, please follow the guide to build and install Apache Arrow [ArrowInstallation](./ApacheArrowInstallation.md)
 

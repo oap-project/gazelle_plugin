@@ -427,9 +427,11 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           auto& builder = partition_binary_builders_[binary_idx][partition_id];
           if (reset_buffers) {
             RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
           } else {
             auto data_size = builder->value_data_length();
             RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
             RETURN_NOT_OK(builder->Reserve(num_rows));
             RETURN_NOT_OK(builder->ReserveData(data_size));
           }
@@ -441,9 +443,11 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
               partition_large_binary_builders_[large_binary_idx][partition_id];
           if (reset_buffers) {
             RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
           } else {
             auto data_size = builder->value_data_length();
             RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
             RETURN_NOT_OK(builder->Reserve(num_rows));
             RETURN_NOT_OK(builder->ReserveData(data_size));
           }
@@ -699,6 +703,9 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
           RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
         } else {  // not first allocate, spill
           if (partition_id_cnt_[pid] > partition_buffer_size_[pid]) {  // need reallocate?
+            // TODO(): CacheRecordBatch will try to reset builder buffer
+            // AllocatePartitionBuffers will then Reserve memory for builder based on last
+            // recordbatch, the logic on reservation size should be cleaned up
             RETURN_NOT_OK(CacheRecordBatch(pid, true));
             RETURN_NOT_OK(SpillPartition(pid));
             RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
@@ -1047,6 +1054,7 @@ arrow::Status Splitter::AppendBinary(
       offset_type length;
       auto value = src_arr->GetValue(row, &length);
       const auto& builder = dst_builders[partition_id_[row]];
+      RETURN_NOT_OK(builder->Reserve(1));
       RETURN_NOT_OK(builder->ReserveData(length));
       builder->UnsafeAppend(value, length);
     }
@@ -1056,10 +1064,11 @@ arrow::Status Splitter::AppendBinary(
         offset_type length;
         auto value = src_arr->GetValue(row, &length);
         const auto& builder = dst_builders[partition_id_[row]];
+        RETURN_NOT_OK(builder->Reserve(1));
         RETURN_NOT_OK(builder->ReserveData(length));
         builder->UnsafeAppend(value, length);
       } else {
-        dst_builders[partition_id_[row]]->UnsafeAppendNull();
+        dst_builders[partition_id_[row]]->AppendNull();
       }
     }
   }

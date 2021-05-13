@@ -60,7 +60,6 @@ import com.google.common.collect.Lists;
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.ExpressionEvaluator
 import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
-import org.apache.spark.sql.execution.joins.{BuildLeft, BuildRight, BuildSide}
 
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.

@@ -35,8 +35,7 @@ import org.apache.spark.sql.vectorized.ColumnarBatch
  */
 case class ColumnarCustomShuffleReaderExec(
     child: SparkPlan,
-    partitionSpecs: Seq[ShufflePartitionSpec],
-    description: String)
+    partitionSpecs: Seq[ShufflePartitionSpec])
     extends UnaryExecNode {
   // We don't extends CustomShuffleReaderExec since it has private constructor
 
@@ -66,7 +65,7 @@ case class ColumnarCustomShuffleReaderExec(
     }
   }
 
-  override def stringArgs: Iterator[Any] = Iterator(description)
+  //override def stringArgs: Iterator[Any] = Iterator(description)
 
   private var cachedShuffleRDD: RDD[ColumnarBatch] = null
 

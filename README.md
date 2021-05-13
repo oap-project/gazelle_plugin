@@ -1,3 +1,7 @@
+##### \* LEGAL NOTICE: Your use of this software and any required dependent software (the "Software Package") is subject to the terms and conditions of the software license agreements for the Software Package, which may also include notices, disclaimers, or license terms for third party or open source software included in or with the Software Package, and your use indicates your acceptance of all such terms. Please refer to the "TPP.txt" or other similarly-named text file included with the Software Package for additional details.
+
+##### \* Optimized Analytics Package for Spark* Platform is under Apache 2.0 (https://www.apache.org/licenses/LICENSE-2.0).
+
 # Spark Native SQL Engine
 
 A Native Engine for Spark SQL with vectorized SIMD optimizations
@@ -10,7 +14,7 @@ You can find the all the Native SQL Engine documents on the [project web page](h
 
 ![Overview](./docs/image/nativesql_arch.png)
 
-Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. [Apache Arrow](https://arrow.apache.org/) provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technoligies and brought better performance to Spark SQL.
+Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. [Apache Arrow](https://arrow.apache.org/) provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technologies and brought better performance to Spark SQL.
 
 ## Key Features
 
@@ -40,29 +44,42 @@ We implemented columnar shuffle to improve the shuffle performance. With the col
 
 Please check the operator supporting details [here](./docs/operators.md)
 
-## Build the Plugin
+## How to use OAP: Native SQL Engine
+
+There are three ways to use OAP: Native SQL Engine,
+1. Use precompiled jars
+2. Building by Conda Environment
+3. Building by Yourself
+
+### Use precompiled jars
+
+Please go to [OAP's Maven Central Repository](https://repo1.maven.org/maven2/com/intel/oap/) to find Native SQL Engine jars.
+For usage, you will require below two jar files:
+1. spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
+2. spark-columnar-core-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-columnar-core/<version>/
+Please notice the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage. 
 
 ### Building by Conda
 
 If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to [OAP-Installation-Guide](./docs/OAP-Installation-Guide.md) for more information. Once finished [OAP-Installation-Guide](./docs/OAP-Installation-Guide.md), you can find built `spark-columnar-core-<version>-jar-with-dependencies.jar` under `$HOME/miniconda2/envs/oapenv/oap_jars`.
-Then you can just skip below steps and jump to Getting Started [Get Started](#get-started).
+Then you can just skip below steps and jump to [Get Started](#get-started).
 
 ### Building by yourself
 
 If you prefer to build from the source code on your hand, please follow below steps to set up your environment.
 
-### Prerequisite
+#### Prerequisite
+
 There are some requirements before you build the project.
 Please check the document [Prerequisite](./docs/Prerequisite.md) and make sure you have already installed the software in your system.
 If you are running a SPARK Cluster, please make sure all the software are installed in every single node.
 
-### Installation
+#### Installation
+
 Please check the document [Installation Guide](./docs/Installation.md) 
 
-### Configuration & Testing 
-Please check the document [Configuration Guide](./docs/Configuration.md)
-
 ## Get started
+
 To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
 SPARK related options are:
 
@@ -74,6 +91,8 @@ SPARK related options are:
 
 For Spark Standalone Mode, please set the above value as relative path to the jar file.
 For Spark Yarn Cluster Mode, please set the above value as absolute path to the jar file.
+
+More Configuration, please check the document [Configuration Guide](./docs/Configuration.md)
 
 Example to run Spark Shell with ArrowDataSource jar file
 ```

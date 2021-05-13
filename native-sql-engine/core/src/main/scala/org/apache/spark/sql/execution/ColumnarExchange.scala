@@ -50,11 +50,11 @@ abstract class ColumnarExchange extends UnaryExecNode {
  * Find out duplicated exchanges in the spark plan, then use the same exchange for all the
  * references.
  */
-case class ReuseColumnarExchange(conf: SparkConf) extends Rule[SparkPlan] {
+case class ReuseColumnarExchange() extends Rule[SparkPlan] {
 
   def apply(plan: SparkPlan): SparkPlan = {
-    def exchangeReuseEnabled =
-      conf.getBoolean("spark.sql.exchange.reuse", defaultValue = true)
+    def exchangeReuseEnabled = true //TODO(): allow to config
+      
     if (!exchangeReuseEnabled) {
       return plan
     }
@@ -96,11 +96,10 @@ case class ReuseColumnarExchange(conf: SparkConf) extends Rule[SparkPlan] {
     }
   }
 }
-case class ReuseColumnarSubquery(conf: SparkConf) extends Rule[SparkPlan] {
+case class ReuseColumnarSubquery() extends Rule[SparkPlan] {
 
   def apply(plan: SparkPlan): SparkPlan = {
-    def exchangeReuseEnabled =
-      conf.getBoolean("spark.sql.exchange.reuse", defaultValue = true)
+    def exchangeReuseEnabled = true //TODO(): allow to config
     if (!exchangeReuseEnabled) {
       return plan
     }

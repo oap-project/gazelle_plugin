@@ -1,0 +1,1 @@
+These Spark 3.0.0 SQL tests are failing after merging PR #272 (Upgrade Spark version to 3.1.1).

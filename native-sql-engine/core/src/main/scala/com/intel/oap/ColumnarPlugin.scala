@@ -18,7 +18,7 @@
 package com.intel.oap
 
 import com.intel.oap.execution._
-import org.apache.spark.SparkConf
+import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
@@ -26,16 +26,16 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 
-case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
-  val testing: Boolean = columnarConf.isTesting
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
@@ -61,6 +61,9 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarBatchScanExec(plan.output, plan.scan)
+    case plan: InMemoryTableScanExec =>
+      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
     case plan: ProjectExec =>
       val columnarChild = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
@@ -113,14 +116,12 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         if (isSupportAdaptive) {
           new ColumnarShuffleExchangeAdaptor(
             plan.outputPartitioning,
-            child,
-            plan.canChangeNumPartitions)
+            child)
         } else {
           CoalesceBatchesExec(
             ColumnarShuffleExchangeExec(
               plan.outputPartitioning,
-              child,
-              plan.canChangeNumPartitions))
+              child))
         }
       } else {
         plan.withNewChildren(Seq(child))
@@ -196,11 +197,11 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
         case shuffle: ColumnarShuffleExchangeAdaptor =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
-            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs, plan.description))
+            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
         case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
-            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs, plan.description))
+            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
         case ShuffleQueryStageExec(_, reused: ReusedExchangeExec) =>
           reused match {
             case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
@@ -208,8 +209,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
               CoalesceBatchesExec(
                 ColumnarCustomShuffleReaderExec(
                   plan.child,
-                  plan.partitionSpecs,
-                  plan.description))
+                  plan.partitionSpecs))
             case _ =>
               plan
           }
@@ -218,36 +218,17 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
       }
 
     case plan: WindowExec =>
-      if (columnarConf.enableColumnarWindow) {
-        val sortRemoved = plan.child match {
-          case sort: SortExec => // remove ordering requirements
-            replaceWithColumnarPlan(sort.child)
-          case _ =>
-            replaceWithColumnarPlan(plan.child)
-        }
-        // disable CoalesceBatchesExec to reduce Netty direct memory usage
-        val coalesceBatchRemoved = sortRemoved match {
-          case s: CoalesceBatchesExec =>
-            s.child
-          case _ => sortRemoved
-        }
-        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-        try {
-          val window = ColumnarWindowExec.create(
-            plan.windowExpression,
-            plan.partitionSpec,
-            plan.orderSpec,
-            coalesceBatchRemoved)
-          return window
-        } catch {
-          case _: Throwable =>
-            logInfo("Columnar Window: Falling back to regular Window...")
-        }
+      try {
+        ColumnarWindowExec.createWithOptimizations(
+          plan.windowExpression,
+          plan.partitionSpec,
+          plan.orderSpec,
+          replaceWithColumnarPlan(plan.child))
+      } catch {
+        case _: Throwable =>
+          logInfo("Columnar Window: Falling back to regular Window...")
+          plan
       }
-      logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
-      val children = plan.children.map(replaceWithColumnarPlan)
-      plan.withNewChildren(children)
-
     case p =>
       val children = plan.children.map(replaceWithColumnarPlan)
       logDebug(s"Columnar Processing for ${p.getClass} is currently not supported.")
@@ -293,7 +274,7 @@ case class ColumnarPreOverrides(conf: SparkConf) extends Rule[SparkPlan] {
 
 }
 
-case class ColumnarPostOverrides(conf: SparkConf) extends Rule[SparkPlan] {
+case class ColumnarPostOverrides() extends Rule[SparkPlan] {
   val columnarConf = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
@@ -340,10 +321,12 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
 
   // Do not create rules in class initialization as we should access SQLConf while creating the rules. At this time
   // SQLConf may not be there yet.
-  def rowGuardOverrides = ColumnarGuardRule(conf)
-  def preOverrides = ColumnarPreOverrides(conf)
-  def postOverrides = ColumnarPostOverrides(conf)
-  def collapseOverrides = ColumnarCollapseCodegenStages(conf)
+  def rowGuardOverrides = ColumnarGuardRule()
+  def preOverrides = ColumnarPreOverrides()
+  def postOverrides = ColumnarPostOverrides()
+
+  val columnarWholeStageEnabled = conf.getBoolean("spark.oap.sql.columnar.wholestagecodegen", defaultValue = true)
+  def collapseOverrides = ColumnarCollapseCodegenStages(columnarWholeStageEnabled)
 
   var isSupportAdaptive: Boolean = true
 

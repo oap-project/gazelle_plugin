@@ -112,11 +112,11 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   // for all perf turnings
   // prefer to use columnar operators if set to true  
   val enablePreferColumnar: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.preferColumnar", "false").toBoolean
+    conf.getConfString("spark.oap.sql.columnar.preferColumnar", "true").toBoolean
 
   // fallback to row operators if there are several continous joins
   val joinOptimizationThrottle: Integer =
-    conf.getConfString("spark.oap.sql.columnar.joinOptimizationLevel", "6").toInt
+    conf.getConfString("spark.oap.sql.columnar.joinOptimizationLevel", "12").toInt
 
   val batchSize: Int =
     conf.getConfString("spark.sql.execution.arrow.maxRecordsPerBatch", "10000").toInt
@@ -143,10 +143,6 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   // The supported customized compression codec is lz4 and fastpfor.
   val columnarShuffleUseCustomizedCompressionCodec: String =
     conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
-  
-  // a helper flag to check if it's in unit test
-  val isTesting: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.testing", "false").toBoolean
 
   val numaBindingInfo: ColumnarNumaBindingInfo = {
     val enableNumaBinding: Boolean =
