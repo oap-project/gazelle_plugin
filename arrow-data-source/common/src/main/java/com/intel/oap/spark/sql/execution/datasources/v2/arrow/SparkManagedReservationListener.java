@@ -17,7 +17,7 @@
 
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow;
 
-import org.apache.arrow.memory.ReservationListener;
+import org.apache.arrow.dataset.jni.ReservationListener;
 
 /**
  * Reserve Spark managed memory.
