@@ -76,12 +76,12 @@ case class ArrowPartitionReaderFactory(
       .toList
 
     val vsrItrList = taskList
-      .map(task => task.scan())
+      .map(task => task.execute())
 
     val batchItr = vsrItrList
       .toIterator
       .flatMap(itr => itr.asScala)
-      .map(bundledVectors => ArrowUtils.loadVectors(bundledVectors, partitionedFile.partitionValues,
+      .map(batch => ArrowUtils.loadBatch(batch, partitionedFile.partitionValues,
         readPartitionSchema, readDataSchema))
 
     new PartitionReader[ColumnarBatch] {
