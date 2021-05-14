@@ -26,7 +26,7 @@ import org.apache.spark.unsafe.types.UTF8String
 
 class ArrowWriterSuite extends SparkFunSuite {
 
-  ignore("simple") {
+  test("simple") {
     def check(dt: DataType, data: Seq[Any], timeZoneId: String = null): Unit = {
       val schema = new StructType().add("value", dt, nullable = true)
       val writer = ArrowWriter.create(schema, timeZoneId)
@@ -112,7 +112,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     check(TimestampType, (0 until 10).map(_ * 4.32e10.toLong), "America/Los_Angeles")
   }
 
-  ignore("array") {
+  test("array") {
     val schema = new StructType()
       .add("arr", ArrayType(IntegerType, containsNull = true), nullable = true)
     val writer = ArrowWriter.create(schema, null)
@@ -152,7 +152,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  ignore("nested array") {
+  test("nested array") {
     val schema = new StructType().add("nested", ArrayType(ArrayType(IntegerType)))
     val writer = ArrowWriter.create(schema, null)
     assert(writer.schema === schema)
@@ -202,7 +202,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  ignore("struct") {
+  test("struct") {
     val schema = new StructType()
       .add("struct", new StructType().add("i", IntegerType).add("str", StringType))
     val writer = ArrowWriter.create(schema, null)
@@ -238,7 +238,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  ignore("nested struct") {
+  test("nested struct") {
     val schema = new StructType().add("struct",
       new StructType().add("nested", new StructType().add("i", IntegerType).add("str", StringType)))
     val writer = ArrowWriter.create(schema, null)
@@ -268,7 +268,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  ignore("map") {
+  test("map") {
     val schema = new StructType()
       .add("map", MapType(IntegerType, StringType), nullable = true)
     val writer = ArrowWriter.create(schema, null)
@@ -311,7 +311,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  ignore("empty map") {
+  test("empty map") {
     val schema = new StructType()
       .add("map", MapType(IntegerType, StringType), nullable = true)
     val writer = ArrowWriter.create(schema, null)
@@ -326,7 +326,7 @@ class ArrowWriterSuite extends SparkFunSuite {
     writer.root.close()
   }
 
-  ignore("nested map") {
+  test("nested map") {
     val valueSchema = new StructType()
       .add("name", StringType)
       .add("age", IntegerType)

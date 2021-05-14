@@ -17,10 +17,10 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.SparkConf
-
 import scala.util.Random
-import org.scalatest.Matchers.the
+
+import org.scalatest.matchers.must.Matchers.the
+
 import org.apache.spark.sql.execution.WholeStageCodegenExec
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanHelper
 import org.apache.spark.sql.execution.aggregate.{HashAggregateExec, ObjectHashAggregateExec, SortAggregateExec}
@@ -31,7 +31,6 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.test.SQLTestData.DecimalData
 import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.types.CalendarInterval
 
 case class Fact(date: Int, hour: Int, minute: Int, room_name: String, temp: Double)
 
@@ -40,26 +39,9 @@ class DataFrameAggregateSuite extends QueryTest
   with AdaptiveSparkPlanHelper {
   import testImplicits._
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-
   val absTol = 1e-8
 
-  test("groupBy") {
+  ignore("groupBy") {
     checkAnswer(
       testData2.groupBy("a").agg(sum($"b")),
       Seq(Row(1, 3), Row(2, 3), Row(3, 3))
@@ -474,25 +456,51 @@ class DataFrameAggregateSuite extends QueryTest
   }
 
   test("zero moments") {
-    val input = Seq((1, 2)).toDF("a", "b")
-    checkAnswer(
-      input.agg(stddev($"a"), stddev_samp($"a"), stddev_pop($"a"), variance($"a"),
-        var_samp($"a"), var_pop($"a"), skewness($"a"), kurtosis($"a")),
-      Row(Double.NaN, Double.NaN, 0.0, Double.NaN, Double.NaN, 0.0,
-        Double.NaN, Double.NaN))
+    withSQLConf(SQLConf.LEGACY_STATISTICAL_AGGREGATE.key -> "true") {
+      val input = Seq((1, 2)).toDF("a", "b")
+      checkAnswer(
+        input.agg(stddev($"a"), stddev_samp($"a"), stddev_pop($"a"), variance($"a"),
+          var_samp($"a"), var_pop($"a"), skewness($"a"), kurtosis($"a")),
+        Row(Double.NaN, Double.NaN, 0.0, Double.NaN, Double.NaN, 0.0,
+          Double.NaN, Double.NaN))
 
-    checkAnswer(
-      input.agg(
-        expr("stddev(a)"),
-        expr("stddev_samp(a)"),
-        expr("stddev_pop(a)"),
-        expr("variance(a)"),
-        expr("var_samp(a)"),
-        expr("var_pop(a)"),
-        expr("skewness(a)"),
-        expr("kurtosis(a)")),
-      Row(Double.NaN, Double.NaN, 0.0, Double.NaN, Double.NaN, 0.0,
-        Double.NaN, Double.NaN))
+      checkAnswer(
+        input.agg(
+          expr("stddev(a)"),
+          expr("stddev_samp(a)"),
+          expr("stddev_pop(a)"),
+          expr("variance(a)"),
+          expr("var_samp(a)"),
+          expr("var_pop(a)"),
+          expr("skewness(a)"),
+          expr("kurtosis(a)")),
+        Row(Double.NaN, Double.NaN, 0.0, Double.NaN, Double.NaN, 0.0,
+          Double.NaN, Double.NaN))
+    }
+  }
+
+  test("SPARK-13860: zero moments LEGACY_STATISTICAL_AGGREGATE off") {
+    withSQLConf(SQLConf.LEGACY_STATISTICAL_AGGREGATE.key -> "false") {
+      val input = Seq((1, 2)).toDF("a", "b")
+      checkAnswer(
+        input.agg(stddev($"a"), stddev_samp($"a"), stddev_pop($"a"), variance($"a"),
+          var_samp($"a"), var_pop($"a"), skewness($"a"), kurtosis($"a")),
+        Row(null, null, 0.0, null, null, 0.0,
+          null, null))
+
+      checkAnswer(
+        input.agg(
+          expr("stddev(a)"),
+          expr("stddev_samp(a)"),
+          expr("stddev_pop(a)"),
+          expr("variance(a)"),
+          expr("var_samp(a)"),
+          expr("var_pop(a)"),
+          expr("skewness(a)"),
+          expr("kurtosis(a)")),
+        Row(null, null, 0.0, null, null, 0.0,
+          null, null))
+    }
   }
 
   test("null moments") {
@@ -993,7 +1001,8 @@ class DataFrameAggregateSuite extends QueryTest
 
   Seq(true, false).foreach { value =>
     ignore(s"SPARK-31620: agg with subquery (whole-stage-codegen = $value)") {
-      withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> value.toString) {
+      withSQLConf(
+        SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> value.toString) {
         withTempView("t1", "t2") {
           sql("create temporary view t1 as select * from values (1, 2) as t1(a, b)")
           sql("create temporary view t2 as select * from values (3, 4) as t2(c, d)")
@@ -1016,17 +1025,73 @@ class DataFrameAggregateSuite extends QueryTest
 
           // test SortAggregateExec
           var df = sql("select max(if(c > (select a from t1), 'str1', 'str2')) as csum from t2")
-          assert(df.queryExecution.executedPlan
-            .find { case _: SortAggregateExec => true }.isDefined)
+          assert(find(df.queryExecution.executedPlan)(_.isInstanceOf[SortAggregateExec]).isDefined)
           checkAnswer(df, Row("str1") :: Nil)
 
           // test ObjectHashAggregateExec
           df = sql("select collect_list(d), sum(if(c > (select a from t1), d, 0)) as csum from t2")
-          assert(df.queryExecution.executedPlan
-            .find { case _: ObjectHashAggregateExec => true }.isDefined)
+          assert(
+            find(df.queryExecution.executedPlan)(_.isInstanceOf[ObjectHashAggregateExec]).isDefined)
           checkAnswer(df, Row(Array(4), 4) :: Nil)
         }
       }
     }
   }
+
+  test("SPARK-32038: NormalizeFloatingNumbers should work on distinct aggregate") {
+    withTempView("view") {
+      val nan1 = java.lang.Float.intBitsToFloat(0x7f800001)
+      val nan2 = java.lang.Float.intBitsToFloat(0x7fffffff)
+
+      Seq(("mithunr", Float.NaN),
+        ("mithunr", nan1),
+        ("mithunr", nan2),
+        ("abellina", 1.0f),
+        ("abellina", 2.0f)).toDF("uid", "score").createOrReplaceTempView("view")
+
+      val df = spark.sql("select uid, count(distinct score) from view group by 1 order by 1 asc")
+      checkAnswer(df, Row("abellina", 2) :: Row("mithunr", 1) :: Nil)
+    }
+  }
+
+  test("SPARK-32136: NormalizeFloatingNumbers should work on null struct") {
+    val df = Seq(
+      A(None),
+      A(Some(B(None))),
+      A(Some(B(Some(1.0))))).toDF
+    val groupBy = df.groupBy("b").agg(count("*"))
+    checkAnswer(groupBy, Row(null, 1) :: Row(Row(null), 1) :: Row(Row(1.0), 1) :: Nil)
+  }
+
+  test("SPARK-32344: Unevaluable's set to FIRST/LAST ignoreNullsExpr in distinct aggregates") {
+    val queryTemplate = (agg: String) =>
+      s"SELECT $agg(DISTINCT v) FROM (SELECT v FROM VALUES 1, 2, 3 t(v) ORDER BY v)"
+    checkAnswer(sql(queryTemplate("FIRST")), Row(1))
+    checkAnswer(sql(queryTemplate("LAST")), Row(3))
+  }
+
+  test("SPARK-32906: struct field names should not change after normalizing floats") {
+    val df = Seq(Tuple1(Tuple2(-0.0d, Double.NaN)), Tuple1(Tuple2(0.0d, Double.NaN))).toDF("k")
+    val aggs = df.distinct().queryExecution.sparkPlan.collect { case a: HashAggregateExec => a }
+    assert(aggs.length == 2)
+    assert(aggs.head.output.map(_.dataType.simpleString).head ===
+      aggs.last.output.map(_.dataType.simpleString).head)
+  }
+
+  ignore("SPARK-33726: Aggregation on a table where a column name is reused") {
+    val query =
+      """|with T as (
+         |select id as a, -id as x from range(3)),
+         |U as (
+         |select id as b, cast(id as string) as x from range(3))
+         |select T.x, U.x, min(a) as ma, min(b) as mb
+         |from T join U on a=b
+         |group by U.x, T.x
+      """.stripMargin
+    val df = spark.sql(query)
+    checkAnswer(df, Row(0, "0", 0, 0) :: Row(-1, "1", 1, 1) :: Row(-2, "2", 2, 2) :: Nil)
+  }
 }
+
+case class B(c: Option[Double])
+case class A(b: Option[B])

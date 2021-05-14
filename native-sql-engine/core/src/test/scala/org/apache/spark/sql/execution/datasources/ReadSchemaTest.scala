@@ -21,7 +21,7 @@ import java.io.File
 
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.test.{SharedSparkSession, SQLTestUtils}
+import org.apache.spark.sql.test.SharedSparkSession
 
 /**
  * The reader schema is said to be evolved (or projected) when it changed after the data is
@@ -79,8 +79,7 @@ trait ReadSchemaTest extends QueryTest with SharedSparkSession {
 trait AddColumnTest extends ReadSchemaTest {
   import testImplicits._
 
-  // ignored in maven test
-  ignore("append column at the end") {
+  test("append column at the end") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -119,8 +118,7 @@ trait AddColumnTest extends ReadSchemaTest {
 trait AddColumnIntoTheMiddleTest extends ReadSchemaTest {
   import testImplicits._
 
-  // ignored in maven test
-  ignore("append column into middle") {
+  test("append column into middle") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 

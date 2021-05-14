@@ -17,14 +17,14 @@
 
 package org.apache.spark.sql.execution
 
-import org.scalatest.{Assertions, BeforeAndAfterEach, Matchers}
-import org.scalatest.concurrent.TimeLimits
+import org.scalatest.{Assertions, BeforeAndAfterEach}
+import org.scalatest.matchers.must.Matchers
 import org.scalatest.time.SpanSugar._
 
 import org.apache.spark.{SparkFunSuite, TestUtils}
 import org.apache.spark.deploy.SparkSubmitSuite
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{LocalSparkSession, QueryTest, Row, SparkSession}
+import org.apache.spark.sql.{QueryTest, Row, SparkSession}
 import org.apache.spark.sql.functions.{array, col, count, lit}
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.unsafe.Platform
@@ -36,7 +36,7 @@ class WholeStageCodegenSparkSubmitSuite extends SparkFunSuite
   with BeforeAndAfterEach
   with ResetSystemProperties {
 
-  ignore("Generated code on driver should not embed platform-specific constant") {
+  test("Generated code on driver should not embed platform-specific constant") {
     val unusedJar = TestUtils.createJarWithClasses(Seq.empty)
 
     // HotSpot JVM specific: Set up a local cluster with the driver/executor using mismatched

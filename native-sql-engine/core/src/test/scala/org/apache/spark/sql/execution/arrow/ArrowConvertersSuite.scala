@@ -27,7 +27,8 @@ import org.apache.arrow.memory.RootAllocator
 import org.apache.arrow.vector.{VectorLoader, VectorSchemaRoot}
 import org.apache.arrow.vector.ipc.JsonFileReader
 import org.apache.arrow.vector.util.{ByteArrayReadableSeekableByteChannel, Validator}
-import org.apache.spark.{SparkConf, SparkException, TaskContext}
+
+import org.apache.spark.{SparkException, TaskContext}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
@@ -40,23 +41,6 @@ import org.apache.spark.util.Utils
 
 class ArrowConvertersSuite extends SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   private var tempDataPath: String = _
 
@@ -1226,7 +1210,7 @@ class ArrowConvertersSuite extends SharedSparkSession {
 
   testQuietly("interval is unsupported for arrow") {
     val e = intercept[SparkException] {
-      calenderIntervalData.toDF().toArrowBatchRdd.collect()
+      calendarIntervalData.toDF().toArrowBatchRdd.collect()
     }
 
     assert(e.getCause.isInstanceOf[UnsupportedOperationException])

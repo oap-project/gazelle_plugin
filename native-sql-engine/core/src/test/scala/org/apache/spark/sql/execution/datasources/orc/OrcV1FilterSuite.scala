@@ -29,22 +29,9 @@ import org.apache.spark.sql.internal.SQLConf
 
 class OrcV1FilterSuite extends OrcFilterSuite {
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "orc")
 
   override def checkFilterPredicate(

@@ -18,7 +18,8 @@
 package org.apache.spark.sql.execution
 
 import scala.util.Random
-import org.apache.spark.{AccumulatorSuite, SparkConf}
+
+import org.apache.spark.AccumulatorSuite
 import org.apache.spark.sql.{RandomDataGenerator, Row}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.test.SharedSparkSession
@@ -31,24 +32,6 @@ import org.apache.spark.sql.types._
 class SortSuite extends SparkPlanTest with SharedSparkSession {
   import testImplicits.newProductEncoder
   import testImplicits.localSeqToDatasetHolder
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.columnar.nanCheck", "true")
 
   test("basic sorting using ExternalSort") {
 
@@ -114,6 +97,19 @@ class SortSuite extends SparkPlanTest with SharedSparkSession {
     }
   }
 
+  test("SPARK-33260: sort order is a Stream") {
+    val input = Seq(
+      ("Hello", 4, 2.0),
+      ("Hello", 1, 1.0),
+      ("World", 8, 3.0)
+    )
+    checkAnswer(
+      input.toDF("a", "b", "c"),
+      (child: SparkPlan) => SortExec(Stream('a.asc, 'b.asc, 'c.asc), global = true, child = child),
+      input.sortBy(t => (t._1, t._2, t._3)).map(Row.fromTuple),
+      sortAnswers = false)
+  }
+
   // Test sorting on different data types
   for (
     dataType <- DataTypeTestUtils.atomicTypes ++ Set(NullType);
@@ -123,19 +119,17 @@ class SortSuite extends SparkPlanTest with SharedSparkSession {
     randomDataGenerator <- RandomDataGenerator.forType(dataType, nullable)
   ) {
     test(s"sorting on $dataType with nullable=$nullable, sortOrder=$sortOrder") {
-      withSQLConf("spark.sql.columnar.nanCheck" -> "true") {
-        val inputData = Seq.fill(1000)(randomDataGenerator())
-        val inputDf = spark.createDataFrame(
-          sparkContext.parallelize(Random.shuffle(inputData).map(v => Row(v))),
-          StructType(StructField("a", dataType, nullable = true) :: Nil)
-        )
-        checkThatPlansAgree(
-          inputDf,
-          p => SortExec(sortOrder, global = true, p: SparkPlan, testSpillFrequency = 23),
-          ReferenceSort(sortOrder, global = true, _: SparkPlan),
-          sortAnswers = false
-        )
-      }
+      val inputData = Seq.fill(1000)(randomDataGenerator())
+      val inputDf = spark.createDataFrame(
+        sparkContext.parallelize(Random.shuffle(inputData).map(v => Row(v))),
+        StructType(StructField("a", dataType, nullable = true) :: Nil)
+      )
+      checkThatPlansAgree(
+        inputDf,
+        p => SortExec(sortOrder, global = true, p: SparkPlan, testSpillFrequency = 23),
+        ReferenceSort(sortOrder, global = true, _: SparkPlan),
+        sortAnswers = false
+      )
     }
   }
 }

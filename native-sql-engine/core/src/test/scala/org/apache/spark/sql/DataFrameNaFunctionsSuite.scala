@@ -17,32 +17,14 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.SparkConf
-
 import scala.collection.JavaConverters._
+
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.{StringType, StructType}
 
 class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   def createDF(): DataFrame = {
     Seq[(String, java.lang.Integer, java.lang.Double)](
@@ -334,7 +316,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
       Seq(Row(Row("b1", "b2"))))
   }
 
-  ignore("replace") {
+  test("replace") {
     val input = createDF()
 
     // Replace two numeric columns: age and height
@@ -366,7 +348,7 @@ class DataFrameNaFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(out1(5) === Row(null, null, null))
   }
 
-  ignore("replace with null") {
+  test("replace with null") {
     val input = Seq[(String, java.lang.Double, java.lang.Boolean)](
       ("Bob", 176.5, true),
       ("Alice", 164.3, false),

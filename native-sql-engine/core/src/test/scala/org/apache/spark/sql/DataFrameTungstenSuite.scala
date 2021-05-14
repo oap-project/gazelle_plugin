@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
@@ -30,26 +29,6 @@ import org.apache.spark.sql.types._
  */
 class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   test("test simple types") {
     val df = sparkContext.parallelize(Seq((1, 2))).toDF("a", "b")
@@ -95,7 +74,7 @@ class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
     assert(df.select("b").first() === Row(outerStruct))
   }
 
-  test("primitive data type accesses in persist data") {
+  ignore("primitive data type accesses in persist data") {
     val data = Seq(true, 1.toByte, 3.toShort, 7, 15.toLong,
       31.25.toFloat, 63.75, null)
     val dataTypes = Seq(BooleanType, ByteType, ShortType, IntegerType, LongType,

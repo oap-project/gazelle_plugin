@@ -19,12 +19,11 @@ package org.apache.spark.sql.internal
 
 import java.io.File
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalog.{Column, Database, Function, Table}
 import org.apache.spark.sql.catalyst.{FunctionIdentifier, ScalaReflection, TableIdentifier}
 import org.apache.spark.sql.catalyst.catalog._
-import org.apache.spark.sql.catalyst.expressions.{Expression, ExpressionInfo}
+import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.logical.Range
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.StructType
@@ -36,23 +35,6 @@ import org.apache.spark.storage.StorageLevel
  */
 class CatalogSuite extends SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   private def sessionCatalog: SessionCatalog = spark.sessionState.catalog
 
@@ -329,7 +311,7 @@ class CatalogSuite extends SharedSparkSession {
     columnFields.foreach { f => assert(columnString.contains(f.toString)) }
   }
 
-  test("dropTempView should not un-cache and drop metastore table if a same-name table exists") {
+  ignore("dropTempView should not un-cache and drop metastore table if a same-name table exists") {
     withTable("same_name") {
       spark.range(10).write.saveAsTable("same_name")
       sql("CACHE TABLE same_name")
@@ -488,16 +470,20 @@ class CatalogSuite extends SharedSparkSession {
   }
 
   test("createTable with 'path' in options") {
+    val description = "this is a test table"
+
     withTable("t") {
       withTempDir { dir =>
         spark.catalog.createTable(
           tableName = "t",
           source = "json",
           schema = new StructType().add("i", "int"),
+          description = description,
           options = Map("path" -> dir.getAbsolutePath))
         val table = spark.sessionState.catalog.getTableMetadata(TableIdentifier("t"))
         assert(table.tableType == CatalogTableType.EXTERNAL)
         assert(table.storage.locationUri.get == makeQualifiedPath(dir.getAbsolutePath))
+        assert(table.comment == Some(description))
 
         Seq((1)).toDF("i").write.insertInto("t")
         assert(dir.exists() && dir.listFiles().nonEmpty)

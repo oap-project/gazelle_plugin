@@ -17,10 +17,9 @@
 
 package org.apache.spark.sql
 
-import com.intel.oap.execution.ColumnarBroadcastHashJoinExec
 import org.apache.log4j.Level
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.catalyst.optimizer.EliminateResolvedHint
+
+import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide, EliminateResolvedHint}
 import org.apache.spark.sql.catalyst.plans.PlanTest
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.RuleExecutor
@@ -31,24 +30,6 @@ import org.apache.spark.sql.test.SharedSparkSession
 
 class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkPlanHelper {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   lazy val df = spark.range(10)
   lazy val df1 = df.selectExpr("id as a1", "id as a2")
@@ -368,15 +349,6 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     assert(broadcastHashJoins.head.buildSide == buildSide)
   }
 
-  private def assertColumnarBroadcastHashJoin(df: DataFrame, buildSide: BuildSide): Unit = {
-    val executedPlan = df.queryExecution.executedPlan
-    val broadcastHashJoins = collect(executedPlan) {
-      case b: ColumnarBroadcastHashJoinExec => b
-    }
-    assert(broadcastHashJoins.size == 1)
-    assert(broadcastHashJoins.head.buildSide == buildSide)
-  }
-
   private def assertBroadcastNLJoin(df: DataFrame, buildSide: BuildSide): Unit = {
     val executedPlan = df.queryExecution.executedPlan
     val broadcastNLJoins = collect(executedPlan) {
@@ -422,13 +394,13 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
 
       withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
         // Broadcast hint specified on one side
-        assertColumnarBroadcastHashJoin(
+        assertBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1)" :: Nil)), BuildLeft)
         assertBroadcastNLJoin(
           sql(nonEquiJoinQueryWithHint("BROADCAST(t2)" :: Nil)), BuildRight)
 
         // Determine build side based on the join type and child relation sizes
-        assertColumnarBroadcastHashJoin(
+        assertBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1, t2)" :: Nil)), BuildLeft)
         assertBroadcastNLJoin(
           sql(nonEquiJoinQueryWithHint("BROADCAST(t1, t2)" :: Nil, "left")), BuildRight)
@@ -436,11 +408,11 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
           sql(nonEquiJoinQueryWithHint("BROADCAST(t1, t2)" :: Nil, "right")), BuildLeft)
 
         // Use broadcast-hash join if hinted "broadcast" and equi-join
-        assertColumnarBroadcastHashJoin(
+        assertBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t2)" :: "SHUFFLE_HASH(t1)" :: Nil)), BuildRight)
-        assertColumnarBroadcastHashJoin(
+        assertBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1)" :: "MERGE(t1, t2)" :: Nil)), BuildLeft)
-        assertColumnarBroadcastHashJoin(
+        assertBroadcastHashJoin(
           sql(equiJoinQueryWithHint("BROADCAST(t1)" :: "SHUFFLE_REPLICATE_NL(t2)" :: Nil)),
           BuildLeft)
 
@@ -543,7 +515,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     }
   }
 
-  test("join strategy hint - shuffle-replicate-nl") {
+  ignore("join strategy hint - shuffle-replicate-nl") {
     withTempView("t1", "t2") {
       Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
       Seq((1, "1"), (2, "12.3"), (2, "123")).toDF("key", "value").createTempView("t2")
@@ -570,7 +542,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
           sql(nonEquiJoinQueryWithHint("SHUFFLE_HASH(t2)" :: "SHUFFLE_REPLICATE_NL(t1)" :: Nil)))
 
         // Shuffle-replicate-nl hint specified but not doable
-        assertColumnarBroadcastHashJoin(
+        assertBroadcastHashJoin(
           sql(equiJoinQueryWithHint("SHUFFLE_REPLICATE_NL(t1, t2)" :: Nil, "left")), BuildRight)
         assertBroadcastNLJoin(
           sql(nonEquiJoinQueryWithHint("SHUFFLE_REPLICATE_NL(t1, t2)" :: Nil, "right")), BuildLeft)
@@ -596,6 +568,33 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
         case _: ResolvedHint => fail("ResolvedHint should not appear after optimize.")
       }
       assert(joinHints == expectedHints)
+    }
+  }
+
+  test("SPARK-32220: Non Cartesian Product Join Result Correct with SHUFFLE_REPLICATE_NL hint") {
+    withTempView("t1", "t2") {
+      Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
+      Seq((1, "1"), (2, "12.3"), (2, "123")).toDF("key", "value").createTempView("t2")
+      val df1 = sql("SELECT /*+ shuffle_replicate_nl(t1) */ * from t1 join t2 ON t1.key = t2.key")
+      val df2 = sql("SELECT * from t1 join t2 ON t1.key = t2.key")
+      assert(df1.collect().size == df2.collect().size)
+
+      val df3 = sql("SELECT /*+ shuffle_replicate_nl(t1) */ * from t1 join t2")
+      val df4 = sql("SELECT * from t1 join t2")
+      assert(df3.collect().size == df4.collect().size)
+
+      val df5 = sql("SELECT /*+ shuffle_replicate_nl(t1) */ * from t1 join t2 ON t1.key < t2.key")
+      val df6 = sql("SELECT * from t1 join t2 ON t1.key < t2.key")
+      assert(df5.collect().size == df6.collect().size)
+
+      val df7 = sql("SELECT /*+ shuffle_replicate_nl(t1) */ * from t1 join t2 ON t1.key < 2")
+      val df8 = sql("SELECT * from t1 join t2 ON t1.key < 2")
+      assert(df7.collect().size == df8.collect().size)
+
+
+      val df9 = sql("SELECT /*+ shuffle_replicate_nl(t1) */ * from t1 join t2 ON t2.key < 2")
+      val df10 = sql("SELECT * from t1 join t2 ON t2.key < 2")
+      assert(df9.collect().size == df10.collect().size)
     }
   }
 }

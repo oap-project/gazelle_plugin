@@ -19,12 +19,11 @@ package org.apache.spark.sql.connector
 
 import java.util
 
-import org.apache.spark.SparkConf
-
 import scala.collection.JavaConverters._
+
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{DataFrame, QueryTest, Row, SQLContext, SparkSession}
-import org.apache.spark.sql.connector.catalog.{Identifier, SupportsRead, Table, TableCapability, TableProvider}
+import org.apache.spark.sql.{DataFrame, QueryTest, Row, SparkSession, SQLContext}
+import org.apache.spark.sql.connector.catalog.{Identifier, SupportsRead, Table, TableCapability}
 import org.apache.spark.sql.connector.expressions.Transform
 import org.apache.spark.sql.connector.read.{Scan, ScanBuilder, SupportsPushDownFilters, SupportsPushDownRequiredColumns, V1Scan}
 import org.apache.spark.sql.execution.RowDataSourceScanExec
@@ -36,23 +35,6 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 abstract class V1ReadFallbackSuite extends QueryTest with SharedSparkSession {
   protected def baseTableScan(): DataFrame
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("full scan") {
     val df = baseTableScan()

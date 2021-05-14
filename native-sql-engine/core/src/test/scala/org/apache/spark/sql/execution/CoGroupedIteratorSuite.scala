@@ -22,6 +22,7 @@ import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.catalyst.expressions.ExpressionEvalHelper
 
 class CoGroupedIteratorSuite extends SparkFunSuite with ExpressionEvalHelper {
+
   test("basic") {
     val leftInput = Seq(create_row(1, "a"), create_row(1, "b"), create_row(2, "c")).iterator
     val rightInput = Seq(create_row(1, 2L), create_row(2, 3L), create_row(3, 4L)).iterator

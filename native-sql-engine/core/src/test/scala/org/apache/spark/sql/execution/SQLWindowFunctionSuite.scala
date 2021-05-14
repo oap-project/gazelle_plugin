@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql.execution
 
-import org.apache.spark.SparkConf
 import org.apache.spark.TestUtils.assertSpilled
 import org.apache.spark.sql.{AnalysisException, QueryTest, Row}
 import org.apache.spark.sql.internal.SQLConf.{WINDOW_EXEC_BUFFER_IN_MEMORY_THRESHOLD, WINDOW_EXEC_BUFFER_SPILL_THRESHOLD}
@@ -32,23 +31,6 @@ case class WindowData(month: Int, area: String, product: Int)
 class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("window function: udaf with aggregate expression") {
     val data = Seq(
@@ -354,7 +336,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("window function: multiple window expressions in a single expression") {
+  test("window function: multiple window expressions in a single expression") {
     val nums = sparkContext.parallelize(1 to 10).map(x => (x, x % 2)).toDF("x", "y")
     nums.createOrReplaceTempView("nums")
 
@@ -390,7 +372,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
     spark.catalog.dropTempView("nums")
   }
 
-  ignore("window function: mutiple window expressions specified by range in a single expression") {
+  test("window function: multiple window expressions specified by range in a single expression") {
     val nums = sparkContext.parallelize(1 to 10).map(x => (x, x % 2)).toDF("x", "y")
     nums.createOrReplaceTempView("nums")
     withTempView("nums") {
@@ -430,7 +412,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("SPARK-7595: Window will cause resolve failed with self join") {
+  ignore("SPARK-7595: Window will cause resolve failed with self join") {
     checkAnswer(sql(
       """
         |with
@@ -442,7 +424,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
       """.stripMargin), Row(0, 1))
   }
 
-  test("SPARK-16633: lead/lag should return the default value if the offset row does not exist") {
+  ignore("SPARK-16633: lead/lag should return the default value if the offset row does not exist") {
     checkAnswer(sql(
       """
         |SELECT
@@ -488,7 +470,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
       Row(1, 3, null) :: Row(2, null, 4) :: Nil)
   }
 
-  ignore("test with low buffer spill threshold") {
+  test("test with low buffer spill threshold") {
     val nums = sparkContext.parallelize(1 to 10).map(x => (x, x % 2)).toDF("x", "y")
     nums.createOrReplaceTempView("nums")
 

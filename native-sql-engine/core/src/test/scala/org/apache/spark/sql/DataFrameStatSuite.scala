@@ -19,8 +19,8 @@ package org.apache.spark.sql
 
 import java.util.Random
 
-import org.apache.spark.SparkConf
-import org.scalatest.Matchers._
+import org.scalatest.matchers.must.Matchers._
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.stat.StatFunctions
 import org.apache.spark.sql.functions.{col, lit, struct}
@@ -30,23 +30,6 @@ import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructFiel
 
 class DataFrameStatSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   private def toLetter(i: Int): String = (i + 97).toChar.toString
 
@@ -429,8 +412,8 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
     // Original bug was a NullPointerException exception caused by calling collect(), test for this
     val resultRow = result.collect()(0)
 
-    assert(resultRow.get(0).asInstanceOf[Seq[String]].toSet == Set("1", "2", "3"))
-    assert(resultRow.get(1).asInstanceOf[Seq[String]].toSet == Set("a", "b", null))
+    assert(resultRow.get(0).asInstanceOf[scala.collection.Seq[String]].toSet == Set("1", "2", "3"))
+    assert(resultRow.get(1).asInstanceOf[scala.collection.Seq[String]].toSet == Set("a", "b", null))
   }
 
   test("sampleBy") {
@@ -519,7 +502,7 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
 class DataFrameStatPerfSuite extends QueryTest with SharedSparkSession with Logging {
 
   // Turn on this test if you want to test the performance of approximate quantiles.
-  test("computing quantiles should not take much longer than describe()") {
+  ignore("computing quantiles should not take much longer than describe()") {
     val df = spark.range(5000000L).toDF("col1").cache()
     def seconds(f: => Any): Double = {
       // Do some warmup

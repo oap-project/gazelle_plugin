@@ -17,17 +17,18 @@
 
 package org.apache.spark.sql.connector
 
-import org.apache.spark.SparkConf
-
 import scala.language.implicitConversions
 import scala.util.Try
+
 import org.scalatest.BeforeAndAfter
+
+import org.apache.spark.SparkException
 import org.apache.spark.sql.{DataFrame, QueryTest, SaveMode}
 import org.apache.spark.sql.catalyst.analysis.TableAlreadyExistsException
 import org.apache.spark.sql.catalyst.plans.logical.{AppendData, LogicalPlan, OverwriteByExpression}
 import org.apache.spark.sql.connector.catalog.{Identifier, SupportsCatalogOptions, TableCatalog}
 import org.apache.spark.sql.connector.catalog.CatalogManager.SESSION_CATALOG_NAME
-import org.apache.spark.sql.connector.expressions.{FieldReference, IdentityTransform, Transform}
+import org.apache.spark.sql.connector.expressions.{FieldReference, IdentityTransform}
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
 import org.apache.spark.sql.internal.SQLConf.V2_SESSION_CATALOG_IMPLEMENTATION
@@ -38,24 +39,6 @@ import org.apache.spark.sql.util.{CaseInsensitiveStringMap, QueryExecutionListen
 class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with BeforeAndAfter {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private val catalogName = "testcat"
   private val format = classOf[CatalogSupportingInMemoryTableProvider].getName
@@ -269,6 +252,22 @@ class SupportsCatalogOptionsSuite extends QueryTest with SharedSparkSession with
       checkV2Identifiers(saveAsTableRelation)
     } finally {
       spark.listenerManager.unregister(listener)
+    }
+  }
+
+  test("SPARK-33240: fail the query when instantiation on session catalog fails") {
+    try {
+      spark.sessionState.catalogManager.reset()
+      spark.conf.set(
+        V2_SESSION_CATALOG_IMPLEMENTATION.key, "InvalidCatalogClass")
+      val e = intercept[SparkException] {
+        sql(s"create table t1 (id bigint) using $format")
+      }
+
+      assert(e.getMessage.contains("Cannot find catalog plugin class"))
+      assert(e.getMessage.contains("InvalidCatalogClass"))
+    } finally {
+      spark.sessionState.catalogManager.reset()
     }
   }
 

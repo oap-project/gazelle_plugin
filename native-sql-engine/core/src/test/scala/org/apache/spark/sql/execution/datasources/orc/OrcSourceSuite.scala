@@ -30,9 +30,10 @@ import org.apache.orc.OrcProto.ColumnEncoding.Kind.{DICTIONARY_V2, DIRECT, DIREC
 import org.apache.orc.OrcProto.Stream.Kind
 import org.apache.orc.impl.RecordReaderImpl
 import org.scalatest.BeforeAndAfterAll
-import org.apache.spark.{SPARK_VERSION_SHORT, SparkConf, SparkException}
+
+import org.apache.spark.{SPARK_VERSION_SHORT, SparkException}
 import org.apache.spark.sql.{Row, SPARK_VERSION_METADATA_KEY}
-import org.apache.spark.sql.execution.datasources.SchemaMergeUtils
+import org.apache.spark.sql.execution.datasources.{CommonFileDataSourceSuite, SchemaMergeUtils}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.{LongType, StructField, StructType}
@@ -40,8 +41,10 @@ import org.apache.spark.util.Utils
 
 case class OrcData(intField: Int, stringField: String)
 
-abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
+abstract class OrcSuite extends OrcTest with BeforeAndAfterAll with CommonFileDataSourceSuite {
   import testImplicits._
+
+  override protected def dataSourceFormat = "orc"
 
   var orcTableDir: File = null
   var orcTableAsDir: File = null
@@ -119,8 +122,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
     }
   }
 
-  protected def testSelectiveDictionaryEncoding(isSelective: Boolean,
-      isHive23: Boolean = false): Unit = {
+  protected def testSelectiveDictionaryEncoding(isSelective: Boolean, isHiveOrc: Boolean): Unit = {
     val tableName = "orcTable"
 
     withTempDir { dir =>
@@ -173,7 +175,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
           // Hive 0.11 and RLE v2 is introduced in Hive 0.12 ORC with more improvements.
           // For more details, see https://orc.apache.org/specification/
           assert(stripe.getColumns(1).getKind === DICTIONARY_V2)
-          if (isSelective || isHive23) {
+          if (isSelective || isHiveOrc) {
             assert(stripe.getColumns(2).getKind === DIRECT_V2)
           } else {
             assert(stripe.getColumns(2).getKind === DICTIONARY_V2)
@@ -212,9 +214,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
           Seq(fs.listStatus(path1), fs.listStatus(path2), fs.listStatus(path3)).flatten
 
         val schema = SchemaMergeUtils.mergeSchemasInParallel(
-          spark,
-          fileStatuses,
-          schemaReader)
+          spark, Map.empty, fileStatuses, schemaReader)
 
         assert(schema.isDefined)
         assert(schema.get == StructType(Seq(
@@ -347,7 +347,7 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
 
   // SPARK-28885 String value is not allowed to be stored as numeric type with
   // ANSI store assignment policy.
-  test("SPARK-23340 Empty float/double array columns raise EOFException") {
+  ignore("SPARK-23340 Empty float/double array columns raise EOFException") {
     Seq(Seq(Array.empty[Float]).toDF(), Seq(Array.empty[Double]).toDF()).foreach { df =>
       withTempPath { path =>
         df.write.format("orc").save(path.getCanonicalPath)
@@ -543,27 +543,6 @@ abstract class OrcSuite extends OrcTest with BeforeAndAfterAll {
 
 class OrcSourceSuite extends OrcSuite with SharedSparkSession {
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-
   protected override def beforeAll(): Unit = {
     super.beforeAll()
 
@@ -603,7 +582,7 @@ class OrcSourceSuite extends OrcSuite with SharedSparkSession {
   }
 
   test("Enforce direct encoding column-wise selectively") {
-    testSelectiveDictionaryEncoding(isSelective = true)
+    testSelectiveDictionaryEncoding(isSelective = true, isHiveOrc = false)
   }
 
   test("SPARK-11412 read and merge orc schemas in parallel") {

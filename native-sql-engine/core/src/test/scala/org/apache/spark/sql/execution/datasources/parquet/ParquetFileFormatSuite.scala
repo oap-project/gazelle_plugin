@@ -18,29 +18,20 @@
 package org.apache.spark.sql.execution.datasources.parquet
 
 import org.apache.hadoop.fs.{FileSystem, Path}
+
 import org.apache.spark.{SparkConf, SparkException}
 import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.execution.datasources.CommonFileDataSourceSuite
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
-class ParquetFileFormatSuite extends QueryTest with ParquetTest with SharedSparkSession {
+abstract class ParquetFileFormatSuite
+  extends QueryTest
+  with ParquetTest
+  with SharedSparkSession
+  with CommonFileDataSourceSuite {
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
+  override protected def dataSourceFormat = "parquet"
 
   test("read parquet footers in parallel") {
     def testReadFooters(ignoreCorruptFiles: Boolean): Unit = {
@@ -72,4 +63,18 @@ class ParquetFileFormatSuite extends QueryTest with ParquetTest with SharedSpark
     }.getCause
     assert(exception.getMessage().contains("Could not read footer for file"))
   }
+}
+
+class ParquetFileFormatV1Suite extends ParquetFileFormatSuite {
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
+      .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
+}
+
+class ParquetFileFormatV2Suite extends ParquetFileFormatSuite {
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
+      .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }

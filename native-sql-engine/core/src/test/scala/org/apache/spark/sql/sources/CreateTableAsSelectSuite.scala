@@ -19,7 +19,7 @@ package org.apache.spark.sql.sources
 
 import java.io.File
 
-import org.apache.spark.{SparkConf, SparkException}
+import org.apache.spark.SparkException
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.catalog.BucketSpec
@@ -30,23 +30,6 @@ import org.apache.spark.util.Utils
 
 class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   protected override lazy val sql = spark.sql _
   private var path: File = null
@@ -95,8 +78,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  // ignored in maven test
-  ignore("CREATE TABLE USING AS SELECT based on the file without write permission") {
+  test("CREATE TABLE USING AS SELECT based on the file without write permission") {
     // setWritable(...) does not work on Windows. Please refer JDK-6728842.
     assume(!Utils.isWindows)
     val childPath = new File(path.toString, "child")
@@ -120,8 +102,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     path.setWritable(true)
   }
 
-  // ignored in maven test
-  ignore("create a table, drop it and create another one with the same name") {
+  test("create a table, drop it and create another one with the same name") {
     withTable("jsonTable") {
       sql(
         s"""
@@ -185,13 +166,13 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
         )
       }.getMessage
       assert(error.contains("Operation not allowed") &&
-        error.contains("CREATE TEMPORARY TABLE ... USING ... AS query"))
+        error.contains("CREATE TEMPORARY TABLE"))
     }
   }
 
   test("disallows CREATE EXTERNAL TABLE ... USING ... AS query") {
     withTable("t") {
-      val error = intercept[ParseException] {
+      val error = intercept[AnalysisException] {
         sql(
           s"""
              |CREATE EXTERNAL TABLE t USING PARQUET
@@ -256,7 +237,7 @@ class CreateTableAsSelectSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  test("create table using as select - with overriden max number of buckets") {
+  test("create table using as select - with overridden max number of buckets") {
     def createTableSql(numBuckets: Int): String =
       s"""
          |CREATE TABLE t USING PARQUET

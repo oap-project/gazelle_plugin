@@ -17,30 +17,15 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.SparkConf
+import scala.collection.JavaConverters._
+
 import org.apache.spark.sql.catalyst.expressions.CreateNamedStruct
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.test.SharedSparkSession
+import org.apache.spark.sql.types.{ArrayType, StructType}
 
 class ComplexTypesSuite extends QueryTest with SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
+  import testImplicits._
 
   override def beforeAll(): Unit = {
     super.beforeAll()
@@ -124,5 +109,12 @@ class ComplexTypesSuite extends QueryTest with SharedSparkSession {
       .selectExpr("cola.exp.i2", "cola.i4").filter("cola.i4 > 11")
     checkAnswer(df1, Row(10, 12) :: Row(11, 13) :: Nil)
     checkNamedStruct(df.queryExecution.optimizedPlan, expectedCount = 0)
+  }
+
+  test("SPARK-32167: get field from an array of struct") {
+    val innerStruct = new StructType().add("i", "int", nullable = true)
+    val schema = new StructType().add("arr", ArrayType(innerStruct, containsNull = false))
+    val df = spark.createDataFrame(List(Row(Seq(Row(1), Row(null)))).asJava, schema)
+    checkAnswer(df.select($"arr".getField("i")), Row(Seq(1, null)))
   }
 }

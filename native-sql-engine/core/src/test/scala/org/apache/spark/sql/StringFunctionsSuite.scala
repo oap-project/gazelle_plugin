@@ -17,30 +17,13 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
 
 class StringFunctionsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   ignore("string concat") {
     val df = Seq[(String, String, String)](("a", "b", null)).toDF("a", "b", "c")
@@ -66,6 +49,65 @@ class StringFunctionsSuite extends QueryTest with SharedSparkSession {
       Row("a||b"))
   }
 
+  test("SPARK-31993: concat_ws in agg function with plenty of string/array types columns") {
+    withSQLConf(SQLConf.CODEGEN_METHOD_SPLIT_THRESHOLD.key -> "1024",
+      SQLConf.CODEGEN_FACTORY_MODE.key -> "CODEGEN_ONLY") {
+
+      val (df, genColNames, genColValues) = prepareTestConcatWsColumns()
+      val groupedCols = Seq($"a") ++ genColNames.map(col)
+      val concatCols = Seq(collect_list($"b"), collect_list($"c")) ++ genColNames.map(col)
+      val df2 = df
+        .groupBy(groupedCols: _*)
+        .agg(concat_ws(",", concatCols: _*).as("con"))
+        .select("con")
+
+      val expected = Seq(
+        Row((Seq("b1", "b2") ++ genColValues).mkString(",")),
+        Row((Seq("b3", "b4") ++ genColValues).mkString(","))
+      )
+
+      checkAnswer(df2, expected)
+    }
+  }
+
+  // This test doesn't fail without SPARK-31993, but still be useful for regression test.
+  test("SPARK-31993: concat_ws in agg function with plenty of string types columns") {
+    withSQLConf(SQLConf.CODEGEN_METHOD_SPLIT_THRESHOLD.key -> "1024",
+      SQLConf.CODEGEN_FACTORY_MODE.key -> "CODEGEN_ONLY") {
+
+      val (df, genColNames, genColValues) = prepareTestConcatWsColumns()
+      val groupedCols = Seq($"a") ++ genColNames.map(col)
+      val concatCols = groupedCols
+      val df2 = df
+        .groupBy(groupedCols: _*)
+        .agg(concat_ws(",", concatCols: _*).as("con"))
+        .select("con")
+
+      val expected = Seq(
+        Row((Seq("a") ++ genColValues).mkString(",")),
+        Row((Seq("b") ++ genColValues).mkString(","))
+      )
+
+      checkAnswer(df2, expected)
+    }
+  }
+
+  private def prepareTestConcatWsColumns(): (DataFrame, Seq[String], Seq[String]) = {
+    val genColNames = (1 to 30).map { idx => s"col_$idx" }
+    val genColValues = (1 to 30).map { _.toString }
+    val genCols = genColValues.map(lit)
+
+    val df = Seq[(String, String, String)](
+      ("a", "b1", null),
+      ("a", "b2", null),
+      ("b", "b3", null),
+      ("b", "b4", null))
+      .toDF("a", "b", "c")
+      .withColumns(genColNames, genCols)
+
+    (df, genColNames, genColValues)
+  }
+
   test("string elt") {
     val df = Seq[(String, String, String, Int)](("hello", "world", null, 15))
       .toDF("a", "b", "c", "d")
@@ -86,7 +128,7 @@ class StringFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df.selectExpr("levenshtein(l, r)"), Seq(Row(3), Row(1)))
   }
 
-  ignore("string regex_replace / regex_extract") {
+  test("string regex_replace / regex_extract") {
     val df = Seq(
       ("100-200", "(\\d+)-(\\d+)", "300"),
       ("100-200", "(\\d+)-(\\d+)", "400"),
@@ -114,6 +156,7 @@ class StringFunctionsSuite extends QueryTest with SharedSparkSession {
 
   test("non-matching optional group") {
     val df = Seq(Tuple1("aaaac")).toDF("s")
+
     checkAnswer(
       df.select(regexp_extract($"s", "(foo)", 1)),
       Row("")
@@ -452,7 +495,7 @@ class StringFunctionsSuite extends QueryTest with SharedSparkSession {
       df.selectExpr("InitCap(x)", "InitCap(y)", "InitCap(z)"), Row("Ab", "A B", "Spark"))
   }
 
-  ignore("number format function") {
+  test("number format function") {
     val df = spark.range(1)
 
     checkAnswer(

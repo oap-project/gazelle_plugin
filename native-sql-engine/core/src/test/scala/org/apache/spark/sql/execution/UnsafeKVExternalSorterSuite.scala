@@ -35,24 +35,6 @@ import org.apache.spark.unsafe.map.BytesToBytesMap
  * Test suite for [[UnsafeKVExternalSorter]], with randomly generated test data.
  */
 class UnsafeKVExternalSorterSuite extends SparkFunSuite with SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-
   private val keyTypes = Seq(IntegerType, FloatType, DoubleType, StringType)
   private val valueTypes = Seq(IntegerType, FloatType, DoubleType, StringType)
 
@@ -228,23 +210,8 @@ class UnsafeKVExternalSorterSuite extends SparkFunSuite with SharedSparkSession 
   test("SPARK-23376: Create UnsafeKVExternalSorter with BytesToByteMap having duplicated keys") {
     val memoryManager = new TestMemoryManager(new SparkConf())
     val taskMemoryManager = new TaskMemoryManager(memoryManager, 0)
-    val map = new BytesToBytesMap(taskMemoryManager, 64, taskMemoryManager.pageSizeBytes())
-
-    // Key/value are a unsafe rows with a single int column
+    val map = createBytesToBytesMapWithDuplicateKeys(taskMemoryManager)
     val schema = new StructType().add("i", IntegerType)
-    val key = new UnsafeRow(1)
-    key.pointTo(new Array[Byte](32), 32)
-    key.setInt(0, 1)
-    val value = new UnsafeRow(1)
-    value.pointTo(new Array[Byte](32), 32)
-    value.setInt(0, 2)
-
-    for (_ <- 1 to 65) {
-      val loc = map.lookup(key.getBaseObject, key.getBaseOffset, key.getSizeInBytes)
-      loc.append(
-        key.getBaseObject, key.getBaseOffset, key.getSizeInBytes,
-        value.getBaseObject, value.getBaseOffset, value.getSizeInBytes)
-    }
 
     // Make sure we can successfully create a UnsafeKVExternalSorter with a `BytesToBytesMap`
     // which has duplicated keys and the number of entries exceeds its capacity.
@@ -262,5 +229,83 @@ class UnsafeKVExternalSorterSuite extends SparkFunSuite with SharedSparkSession 
     } finally {
       TaskContext.unset()
     }
+  }
+
+  test("SPARK-31952: create UnsafeKVExternalSorter with existing map should count spilled memory " +
+    "size correctly") {
+    val memoryManager = new TestMemoryManager(new SparkConf())
+    val taskMemoryManager = new TaskMemoryManager(memoryManager, 0)
+    val map = createBytesToBytesMapWithDuplicateKeys(taskMemoryManager)
+    val schema = new StructType().add("i", IntegerType)
+
+    try {
+      val context = new TaskContextImpl(0, 0, 0, 0, 0, taskMemoryManager, new Properties(), null)
+      TaskContext.setTaskContext(context)
+      val expectedSpillSize = map.getTotalMemoryConsumption
+      val sorter = new UnsafeKVExternalSorter(
+        schema,
+        schema,
+        sparkContext.env.blockManager,
+        sparkContext.env.serializerManager,
+        taskMemoryManager.pageSizeBytes(),
+        Int.MaxValue,
+        map)
+      assert(sorter.getSpillSize === expectedSpillSize)
+    } finally {
+      TaskContext.unset()
+    }
+  }
+
+  test("SPARK-31952: UnsafeKVExternalSorter.merge should accumulate totalSpillBytes") {
+    val memoryManager = new TestMemoryManager(new SparkConf())
+    val taskMemoryManager = new TaskMemoryManager(memoryManager, 0)
+    val map1 = createBytesToBytesMapWithDuplicateKeys(taskMemoryManager)
+    val map2 = createBytesToBytesMapWithDuplicateKeys(taskMemoryManager)
+    val schema = new StructType().add("i", IntegerType)
+
+    try {
+      val context = new TaskContextImpl(0, 0, 0, 0, 0, taskMemoryManager, new Properties(), null)
+      TaskContext.setTaskContext(context)
+      val expectedSpillSize = map1.getTotalMemoryConsumption + map2.getTotalMemoryConsumption
+      val sorter1 = new UnsafeKVExternalSorter(
+        schema,
+        schema,
+        sparkContext.env.blockManager,
+        sparkContext.env.serializerManager,
+        taskMemoryManager.pageSizeBytes(),
+        Int.MaxValue,
+        map1)
+      val sorter2 = new UnsafeKVExternalSorter(
+        schema,
+        schema,
+        sparkContext.env.blockManager,
+        sparkContext.env.serializerManager,
+        taskMemoryManager.pageSizeBytes(),
+        Int.MaxValue,
+        map2)
+      sorter1.merge(sorter2)
+      assert(sorter1.getSpillSize === expectedSpillSize)
+    } finally {
+      TaskContext.unset()
+    }
+  }
+
+  private def createBytesToBytesMapWithDuplicateKeys(taskMemoryManager: TaskMemoryManager)
+    : BytesToBytesMap = {
+    val map = new BytesToBytesMap(taskMemoryManager, 64, taskMemoryManager.pageSizeBytes())
+    // Key/value are a unsafe rows with a single int column
+    val key = new UnsafeRow(1)
+    key.pointTo(new Array[Byte](32), 32)
+    key.setInt(0, 1)
+    val value = new UnsafeRow(1)
+    value.pointTo(new Array[Byte](32), 32)
+    value.setInt(0, 2)
+    for (_ <- 1 to 65) {
+      val loc = map.lookup(key.getBaseObject, key.getBaseOffset, key.getSizeInBytes)
+      loc.append(
+        key.getBaseObject, key.getBaseOffset, key.getSizeInBytes,
+        value.getBaseObject, value.getBaseOffset, value.getSizeInBytes)
+    }
+    map
   }
 }

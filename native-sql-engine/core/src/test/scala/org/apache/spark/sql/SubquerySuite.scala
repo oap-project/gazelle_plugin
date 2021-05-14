@@ -17,38 +17,19 @@
 
 package org.apache.spark.sql
 
-import org.apache.spark.SparkConf
-
 import scala.collection.mutable.ArrayBuffer
+
 import org.apache.spark.sql.catalyst.expressions.SubqueryExpression
 import org.apache.spark.sql.catalyst.plans.logical.{Join, LogicalPlan, Sort}
 import org.apache.spark.sql.execution.{ColumnarToRowExec, ExecSubqueryExpression, FileSourceScanExec, InputAdapter, ReusedSubqueryExec, ScalarSubquery, SubqueryExec, WholeStageCodegenExec}
 import org.apache.spark.sql.execution.adaptive.{AdaptiveSparkPlanHelper, DisableAdaptiveExecution}
 import org.apache.spark.sql.execution.datasources.FileScanRDD
+import org.apache.spark.sql.execution.joins.{BaseJoinExec, BroadcastHashJoinExec, BroadcastNestedLoopJoinExec}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
 class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlanHelper {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
-      .set("spark.oap.sql.columnar.hashCompare", "true")
 
   setupTestData()
 
@@ -283,7 +264,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(3, 3.0) :: Nil)
   }
 
-  test("NOT IN predicate subquery") {
+  ignore("NOT IN predicate subquery") {
     checkAnswer(
       sql("select * from l where a not in (select c from r)"),
       Nil)
@@ -310,10 +291,10 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         " or l.a in (select c from r where l.b < r.d)"),
       Row(2, 1.0) :: Row(2, 1.0) :: Row(3, 3.0) :: Row(6, null) :: Nil)
 
-    intercept[AnalysisException] {
+    checkAnswer(
       sql("select * from l where a not in (select c from r)" +
-        " or a not in (select c from r where c is not null)")
-    }
+        " or a not in (select c from r where c is not null)"),
+      Row(1, 2.0) :: Row(1, 2.0) :: Nil)
   }
 
   test("complex IN predicate subquery") {
@@ -576,7 +557,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(3) :: Nil)
   }
 
-  test("SPARK-15370: COUNT bug in WHERE clause (Filter)") {
+  ignore("SPARK-15370: COUNT bug in WHERE clause (Filter)") {
     // Case 1: Canonical example of the COUNT bug
     checkAnswer(
       sql("select l.a from l where (select count(*) from r where l.a = r.c) < l.a"),
@@ -599,7 +580,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         :: Row(null, 0) :: Row(6, 1) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in HAVING clause (Filter)") {
+ ignore("SPARK-15370: COUNT bug in HAVING clause (Filter)") {
     checkAnswer(
       sql("select l.a as grp_a from l group by l.a " +
         "having (select count(*) from r where grp_a = r.c) = 0 " +
@@ -609,7 +590,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
 
   ignore("SPARK-15370: COUNT bug in Aggregate") {
     checkAnswer(
-      sql("select l.a as aval, sum((select count(*) from r where l.a = r.c)) as cnt " +
+      sql("select l.a as av6804al, sum((select count(*) from r where l.a = r.c)) as cnt " +
         "from l group by l.a order by aval"),
       Row(null, 0) :: Row(1, 0) :: Row(2, 4) :: Row(3, 1) :: Row(6, 1)  :: Nil)
   }
@@ -691,7 +672,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SPARK-17337: Incorrect column resolution leads to incorrect results") {
+  ignore("SPARK-17337: Incorrect column resolution leads to incorrect results") {
     withTempView("t1", "t2") {
       Seq(1, 2).toDF("c1").createOrReplaceTempView("t1")
       Seq(1).toDF("c2").createOrReplaceTempView("t2")
@@ -1012,7 +993,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         subqueryExpressions ++= (getSubqueryExpressions(s.plan) :+ s)
         s
     }
-    subqueryExpressions
+    subqueryExpressions.toSeq
   }
 
   private def getNumSorts(plan: LogicalPlan): Int = {
@@ -1333,7 +1314,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       // need to execute the query before we can examine fs.inputRDDs()
       assert(stripAQEPlan(df.queryExecution.executedPlan) match {
         case WholeStageCodegenExec(ColumnarToRowExec(InputAdapter(
-            fs @ FileSourceScanExec(_, _, _, partitionFilters, _, _, _)))) =>
+            fs @ FileSourceScanExec(_, _, _, partitionFilters, _, _, _, _, _)))) =>
           partitionFilters.exists(ExecSubqueryExpression.hasSubquery) &&
             fs.inputRDDs().forall(
               _.asInstanceOf[FileScanRDD].filePartitions.forall(
@@ -1599,7 +1580,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(3.0, false) :: Row(5.0, true) :: Row(null, false) :: Row(null, true) :: Nil)
   }
 
-  test("SPARK-28441: COUNT bug with non-foldable expression") {
+  ignore("SPARK-28441: COUNT bug with non-foldable expression") {
     // Case 1: Canonical example of the COUNT bug
     checkAnswer(
       sql("SELECT l.a FROM l WHERE (SELECT count(*) + cast(rand() as int) FROM r " +
@@ -1618,7 +1599,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) ::Row(null) :: Row(null) :: Row(6) :: Nil)
   }
 
-  test("SPARK-28441: COUNT bug in nested subquery with non-foldable expr") {
+  ignore("SPARK-28441: COUNT bug in nested subquery with non-foldable expr") {
     checkAnswer(
       sql("""
             |SELECT l.a FROM l
@@ -1633,7 +1614,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  test("SPARK-28441: COUNT bug with non-foldable expression in Filter condition") {
+  ignore("SPARK-28441: COUNT bug with non-foldable expression in Filter condition") {
     val df = sql("""
                    |SELECT
                    |  l.a
@@ -1665,5 +1646,111 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
                     |   ) = 2""".stripMargin)
     checkAnswer(df, df2)
     checkAnswer(df, Nil)
+  }
+
+  ignore("SPARK-32290: SingleColumn Null Aware Anti Join Optimize") {
+    Seq(true, false).foreach { enableNAAJ =>
+      Seq(true, false).foreach { enableAQE =>
+        Seq(true, false).foreach { enableCodegen =>
+          withSQLConf(
+            SQLConf.OPTIMIZE_NULL_AWARE_ANTI_JOIN.key -> enableNAAJ.toString,
+            SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> enableAQE.toString,
+            SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> enableCodegen.toString) {
+
+            def findJoinExec(df: DataFrame): BaseJoinExec = {
+              df.queryExecution.sparkPlan.collectFirst {
+                case j: BaseJoinExec => j
+              }.get
+            }
+
+            var df: DataFrame = null
+            var joinExec: BaseJoinExec = null
+
+            // single column not in subquery -- empty sub-query
+            df = sql("select * from l where a not in (select c from r where c > 10)")
+            checkAnswer(df, spark.table("l"))
+            if (enableNAAJ) {
+              joinExec = findJoinExec(df)
+              assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+              assert(joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+            } else {
+              assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+            }
+
+            // single column not in subquery -- sub-query include null
+            df = sql("select * from l where a not in (select c from r where d < 6.0)")
+            checkAnswer(df, Seq.empty)
+            if (enableNAAJ) {
+              joinExec = findJoinExec(df)
+              assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+              assert(joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+            } else {
+              assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+            }
+
+            // single column not in subquery -- streamedSide row is null
+            df =
+              sql("select * from l where b = 5.0 and a not in(select c from r where c is not null)")
+            checkAnswer(df, Seq.empty)
+            if (enableNAAJ) {
+              joinExec = findJoinExec(df)
+              assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+              assert(joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+            } else {
+              assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+            }
+
+            // single column not in subquery -- streamedSide row is not null, match found
+            df =
+              sql("select * from l where a = 6 and a not in (select c from r where c is not null)")
+            checkAnswer(df, Seq.empty)
+            if (enableNAAJ) {
+              joinExec = findJoinExec(df)
+              assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+              assert(joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+            } else {
+              assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+            }
+
+            // single column not in subquery -- streamedSide row is not null, match not found
+            df =
+              sql("select * from l where a = 1 and a not in (select c from r where c is not null)")
+            checkAnswer(df, Row(1, 2.0) :: Row(1, 2.0) :: Nil)
+            if (enableNAAJ) {
+              joinExec = findJoinExec(df)
+              assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+              assert(joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+            } else {
+              assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+            }
+
+            // single column not in subquery -- d = b + 10 joinKey found, match ExtractEquiJoinKeys
+            df = sql("select * from l where a not in (select c from r where d = b + 10)")
+            checkAnswer(df, spark.table("l"))
+            joinExec = findJoinExec(df)
+            assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+            assert(!joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+
+            // single column not in subquery -- d = b + 10 and b = 5.0 => d = 15, joinKey not found
+            // match ExtractSingleColumnNullAwareAntiJoin
+            df =
+              sql("select * from l where b = 5.0 and a not in (select c from r where d = b + 10)")
+            checkAnswer(df, Row(null, 5.0) :: Nil)
+            if (enableNAAJ) {
+              joinExec = findJoinExec(df)
+              assert(joinExec.isInstanceOf[BroadcastHashJoinExec])
+              assert(joinExec.asInstanceOf[BroadcastHashJoinExec].isNullAwareAntiJoin)
+            } else {
+              assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+            }
+
+            // multi column not in subquery
+            df = sql("select * from l where (a, b) not in (select c, d from r where c > 10)")
+            checkAnswer(df, spark.table("l"))
+            assert(findJoinExec(df).isInstanceOf[BroadcastNestedLoopJoinExec])
+          }
+        }
+      }
+    }
   }
 }

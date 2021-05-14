@@ -19,10 +19,9 @@ package org.apache.spark.sql.streaming.continuous
 
 import java.sql.Timestamp
 
-import org.apache.spark.{SparkConf, SparkContext, SparkException}
+import org.apache.spark.{SparkContext, SparkException}
 import org.apache.spark.scheduler.{SparkListener, SparkListenerTaskStart}
 import org.apache.spark.sql._
-import org.apache.spark.sql.execution.datasources.v2.ContinuousScanExec
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.execution.streaming.sources.ContinuousMemoryStream
@@ -32,24 +31,6 @@ import org.apache.spark.sql.streaming.{StreamTest, Trigger}
 import org.apache.spark.sql.test.TestSparkSession
 
 class ContinuousSuiteBase extends StreamTest {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-
   // We need more than the default local[2] to be able to schedule all partitions simultaneously.
   override protected def createSparkSession = new TestSparkSession(
     new SparkContext(
@@ -292,7 +273,7 @@ class ContinuousSuite extends ContinuousSuiteBase {
   }
 
   Seq(TestScalaUDF("udf"), TestPythonUDF("udf"), TestScalarPandasUDF("udf")).foreach { udf =>
-    ignore(s"continuous mode with various UDFs - ${udf.prettyName}") {
+    test(s"continuous mode with various UDFs - ${udf.prettyName}") {
       assume(
         shouldTestScalarPandasUDFs && udf.isInstanceOf[TestScalarPandasUDF] ||
         shouldTestPythonUDFs && udf.isInstanceOf[TestPythonUDF] ||

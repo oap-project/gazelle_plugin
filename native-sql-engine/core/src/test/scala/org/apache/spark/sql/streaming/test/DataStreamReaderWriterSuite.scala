@@ -23,16 +23,17 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration._
+
 import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkConf
 import org.mockito.ArgumentMatchers.{any, eq => meq}
 import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfter
+
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{StreamSinkProvider, StreamSourceProvider}
-import org.apache.spark.sql.streaming.{OutputMode, StreamTest, StreamingQuery, StreamingQueryException}
+import org.apache.spark.sql.streaming.{OutputMode, StreamingQuery, StreamingQueryException, StreamTest}
 import org.apache.spark.sql.streaming.Trigger._
 import org.apache.spark.sql.types._
 import org.apache.spark.util.Utils
@@ -42,11 +43,13 @@ object LastOptions {
   var mockStreamSourceProvider = mock(classOf[StreamSourceProvider])
   var mockStreamSinkProvider = mock(classOf[StreamSinkProvider])
   var parameters: Map[String, String] = null
+  var sinkParameters: Map[String, String] = null
   var schema: Option[StructType] = null
   var partitionColumns: Seq[String] = Nil
 
   def clear(): Unit = {
     parameters = null
+    sinkParameters = null
     schema = null
     partitionColumns = null
     reset(mockStreamSourceProvider)
@@ -86,8 +89,6 @@ class DefaultSource extends StreamSourceProvider with StreamSinkProvider {
       override def getOffset: Option[Offset] = Some(new LongOffset(0))
 
       override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
-        import spark.implicits._
-
         spark.internalCreateDataFrame(spark.sparkContext.emptyRDD, schema, isStreaming = true)
       }
 
@@ -100,7 +101,7 @@ class DefaultSource extends StreamSourceProvider with StreamSinkProvider {
       parameters: Map[String, String],
       partitionColumns: Seq[String],
       outputMode: OutputMode): Sink = {
-    LastOptions.parameters = parameters
+    LastOptions.sinkParameters = parameters
     LastOptions.partitionColumns = partitionColumns
     LastOptions.mockStreamSinkProvider.createSink(spark, parameters, partitionColumns, outputMode)
     (_: Long, _: DataFrame) => {}
@@ -108,23 +109,7 @@ class DefaultSource extends StreamSourceProvider with StreamSinkProvider {
 }
 
 class DataStreamReaderWriterSuite extends StreamTest with BeforeAndAfter {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
+  import testImplicits._
 
   private def newMetadataDir =
     Utils.createTempDir(namePrefix = "streaming.metadata").getCanonicalPath
@@ -187,16 +172,48 @@ class DataStreamReaderWriterSuite extends StreamTest with BeforeAndAfter {
 
     df.writeStream
       .format("org.apache.spark.sql.streaming.test")
-      .option("opt1", "1")
-      .options(Map("opt2" -> "2"))
+      .option("opt1", "5")
+      .options(Map("opt2" -> "4"))
       .options(map)
       .option("checkpointLocation", newMetadataDir)
       .start()
       .stop()
 
-    assert(LastOptions.parameters("opt1") == "1")
-    assert(LastOptions.parameters("opt2") == "2")
-    assert(LastOptions.parameters("opt3") == "3")
+    assert(LastOptions.sinkParameters("opt1") == "5")
+    assert(LastOptions.sinkParameters("opt2") == "4")
+    assert(LastOptions.sinkParameters("opt3") == "3")
+    assert(LastOptions.sinkParameters.contains("checkpointLocation"))
+  }
+
+  test("SPARK-32832: later option should override earlier options for load()") {
+    spark.readStream
+      .format("org.apache.spark.sql.streaming.test")
+      .option("paTh", "1")
+      .option("PATH", "2")
+      .option("Path", "3")
+      .option("patH", "4")
+      .option("path", "5")
+      .load()
+    assert(LastOptions.parameters("path") == "5")
+  }
+
+  test("SPARK-32832: later option should override earlier options for start()") {
+    val ds = spark.readStream
+      .format("org.apache.spark.sql.streaming.test")
+      .load()
+    assert(LastOptions.parameters.isEmpty)
+
+    ds.writeStream
+      .format("org.apache.spark.sql.streaming.test")
+      .option("checkpointLocation", newMetadataDir)
+      .option("paTh", "1")
+      .option("PATH", "2")
+      .option("Path", "3")
+      .option("patH", "4")
+      .option("path", "5")
+      .start()
+      .stop()
+    assert(LastOptions.sinkParameters("path") == "5")
   }
 
   test("partitioning") {
@@ -451,7 +468,6 @@ class DataStreamReaderWriterSuite extends StreamTest with BeforeAndAfter {
   }
 
   private def testMemorySinkCheckpointRecovery(chkLoc: String, provideInWriter: Boolean): Unit = {
-    import testImplicits._
     val ms = new MemoryStream[Int](0, sqlContext)
     val df = ms.toDF().toDF("a")
     val tableName = "test"
@@ -717,6 +733,83 @@ class DataStreamReaderWriterSuite extends StreamTest with BeforeAndAfter {
       queries.foreach(_.processAllAvailable())
     } finally {
       queries.foreach(_.stop())
+    }
+  }
+
+  test("SPARK-32516: 'path' cannot coexist with load()'s path parameter") {
+    def verifyLoadFails(f: => DataFrame): Unit = {
+      val e = intercept[AnalysisException](f)
+      assert(e.getMessage.contains(
+        "Either remove the path option, or call load() without the parameter"))
+    }
+
+    verifyLoadFails(spark.readStream.option("path", "tmp1").parquet("tmp2"))
+    verifyLoadFails(spark.readStream.option("path", "tmp1").parquet(""))
+    verifyLoadFails(spark.readStream.option("path", "tmp1").format("parquet").load("tmp2"))
+    verifyLoadFails(spark.readStream.option("path", "tmp1").format("parquet").load(""))
+
+    withClue("SPARK-32516: legacy behavior") {
+      withSQLConf(SQLConf.LEGACY_PATH_OPTION_BEHAVIOR.key -> "true") {
+        spark.readStream
+          .format("org.apache.spark.sql.streaming.test")
+          .option("path", "tmp1")
+          .load("tmp2")
+        // The legacy behavior overwrites the path option.
+        assert(LastOptions.parameters("path") == "tmp2")
+      }
+    }
+  }
+
+  test("SPARK-32516: 'path' cannot coexist with start()'s path parameter") {
+    val df = spark.readStream
+      .format("org.apache.spark.sql.streaming.test")
+      .load("tmp1")
+
+    def verifyStartFails(f: => StreamingQuery): Unit = {
+      val e = intercept[AnalysisException](f)
+      assert(e.getMessage.contains(
+        "Either remove the path option, or call start() without the parameter"))
+    }
+
+    verifyStartFails(
+      df.writeStream
+        .format("org.apache.spark.sql.streaming.test")
+        .option("path", "tmp2")
+        .start("tmp3"))
+    verifyStartFails(
+      df.writeStream
+        .format("org.apache.spark.sql.streaming.test")
+        .option("path", "tmp2")
+        .start(""))
+
+    withClue("SPARK-32516: legacy behavior") {
+      withTempDir { checkpointPath =>
+        withSQLConf(SQLConf.LEGACY_PATH_OPTION_BEHAVIOR.key -> "true",
+          SQLConf.CHECKPOINT_LOCATION.key -> checkpointPath.getAbsolutePath) {
+          df.writeStream
+            .format("org.apache.spark.sql.streaming.test")
+            .option("path", "tmp4")
+            .start("tmp5")
+            .stop()
+          // The legacy behavior overwrites the path option.
+          assert(LastOptions.sinkParameters("path") == "tmp5")
+        }
+      }
+    }
+  }
+
+  test("SPARK-32853: consecutive load/start calls should be allowed") {
+    val dfr = spark.readStream.format(classOf[DefaultSource].getName)
+    var df = dfr.load("1")
+    df = dfr.load("2")
+    withTempDir { checkpointPath =>
+      val dfw = df.writeStream
+        .option("checkpointLocation", checkpointPath.getCanonicalPath)
+        .format(classOf[DefaultSource].getName)
+      var query = dfw.start("1")
+      query.stop()
+      query = dfw.start("2")
+      query.stop()
     }
   }
 }

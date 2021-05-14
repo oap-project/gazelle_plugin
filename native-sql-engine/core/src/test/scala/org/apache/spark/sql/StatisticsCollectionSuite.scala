@@ -22,14 +22,14 @@ import java.net.URI
 import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
-import org.apache.spark.SparkConf
-
 import scala.collection.mutable
+
 import org.apache.spark.sql.catalyst.TableIdentifier
-import org.apache.spark.sql.catalyst.analysis.NoSuchTableException
 import org.apache.spark.sql.catalyst.catalog.CatalogColumnStat
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.catalyst.util.{DateTimeTestUtils, DateTimeUtils}
+import org.apache.spark.sql.catalyst.util.DateTimeTestUtils
+import org.apache.spark.sql.catalyst.util.DateTimeUtils.TimeZoneUTC
+import org.apache.spark.sql.functions.timestamp_seconds
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.test.SQLTestData.ArrayData
@@ -42,27 +42,6 @@ import org.apache.spark.util.Utils
  */
 class StatisticsCollectionSuite extends StatisticsCollectionTestBase with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("estimates the size of a limit 0 on outer join") {
     withTempView("test") {
@@ -327,7 +306,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  test("change stats after insert command for datasource table") {
+  ignore("change stats after insert command for datasource table") {
     val table = "change_stats_insert_datasource_table"
     Seq(false, true).foreach { autoUpdate =>
       withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> autoUpdate.toString) {
@@ -489,7 +468,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
         withTable(table) {
           TimeZone.setDefault(srcTimeZone)
           spark.range(start, end)
-            .select('id.cast(TimestampType).cast(t).as(column))
+            .select(timestamp_seconds($"id").cast(t).as(column))
             .write.saveAsTable(table)
           sql(s"ANALYZE TABLE $table COMPUTE STATISTICS FOR COLUMNS $column")
 
@@ -505,11 +484,11 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
 
     DateTimeTestUtils.outstandingZoneIds.foreach { zid =>
       val timeZone = TimeZone.getTimeZone(zid)
-      checkTimestampStats(DateType, DateTimeUtils.TimeZoneUTC, timeZone) { stats =>
+      checkTimestampStats(DateType, TimeZoneUTC, timeZone) { stats =>
         assert(stats.min.get.asInstanceOf[Int] == TimeUnit.SECONDS.toDays(start))
         assert(stats.max.get.asInstanceOf[Int] == TimeUnit.SECONDS.toDays(end - 1))
       }
-      checkTimestampStats(TimestampType, DateTimeUtils.TimeZoneUTC, timeZone) { stats =>
+      checkTimestampStats(TimestampType, TimeZoneUTC, timeZone) { stats =>
         assert(stats.min.get.asInstanceOf[Long] == TimeUnit.SECONDS.toMicros(start))
         assert(stats.max.get.asInstanceOf[Long] == TimeUnit.SECONDS.toMicros(end - 1))
       }
@@ -521,7 +500,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     queryStats.map(_._1.name).toSet
   }
 
-  ignore("analyzes column statistics in cached query") {
+  test("analyzes column statistics in cached query") {
     withTempView("cachedQuery") {
       sql(
         """CACHE TABLE cachedQuery AS
@@ -540,14 +519,14 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  test("analyzes column statistics in cached local temporary view") {
+  ignore("analyzes column statistics in cached local temporary view") {
     withTempView("tempView") {
       // Analyzes in a temporary view
       sql("CREATE TEMPORARY VIEW tempView AS SELECT * FROM range(1, 30)")
       val errMsg = intercept[AnalysisException] {
         sql("ANALYZE TABLE tempView COMPUTE STATISTICS FOR COLUMNS id")
       }.getMessage
-      assert(errMsg.contains(s"Table or view 'tempView' not found in database 'default'"))
+      assert(errMsg.contains("Temporary view `tempView` is not cached for analyzing columns"))
 
       // Cache the view then analyze it
       sql("CACHE TABLE tempView")
@@ -557,19 +536,21 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  test("analyzes column statistics in cached global temporary view") {
+  ignore("analyzes column statistics in cached global temporary view") {
     withGlobalTempView("gTempView") {
       val globalTempDB = spark.sharedState.globalTempViewManager.database
-      val errMsg1 = intercept[NoSuchTableException] {
+      val errMsg1 = intercept[AnalysisException] {
         sql(s"ANALYZE TABLE $globalTempDB.gTempView COMPUTE STATISTICS FOR COLUMNS id")
       }.getMessage
-      assert(errMsg1.contains(s"Table or view 'gTempView' not found in database '$globalTempDB'"))
+      assert(errMsg1.contains("Table or view not found for 'ANALYZE TABLE ... FOR COLUMNS ...': " +
+        s"$globalTempDB.gTempView"))
       // Analyzes in a global temporary view
       sql("CREATE GLOBAL TEMP VIEW gTempView AS SELECT * FROM range(1, 30)")
       val errMsg2 = intercept[AnalysisException] {
         sql(s"ANALYZE TABLE $globalTempDB.gTempView COMPUTE STATISTICS FOR COLUMNS id")
       }.getMessage
-      assert(errMsg2.contains(s"Table or view 'gTempView' not found in database '$globalTempDB'"))
+      assert(errMsg2.contains(
+        s"Temporary view `$globalTempDB`.`gTempView` is not cached for analyzing columns"))
 
       // Cache the view then analyze it
       sql(s"CACHE TABLE $globalTempDB.gTempView")

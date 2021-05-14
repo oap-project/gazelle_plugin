@@ -17,13 +17,20 @@
 
 package org.apache.spark.sql
 
+import java.io.{File, FilenameFilter}
+import java.nio.file.{Files, Paths}
+
 import scala.collection.mutable.HashSet
 import scala.concurrent.duration._
-import org.apache.spark.{CleanerListener, SparkConf}
+
+import org.apache.commons.io.FileUtils
+
+import org.apache.spark.CleanerListener
 import org.apache.spark.executor.DataReadMethod._
 import org.apache.spark.executor.DataReadMethod.DataReadMethod
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
 import org.apache.spark.sql.catalyst.TableIdentifier
+import org.apache.spark.sql.catalyst.analysis.TempTableAlreadyExistsException
 import org.apache.spark.sql.catalyst.expressions.SubqueryExpression
 import org.apache.spark.sql.catalyst.plans.logical.{BROADCAST, Join, JoinStrategyHint, SHUFFLE_HASH}
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
@@ -33,7 +40,7 @@ import org.apache.spark.sql.execution.columnar._
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.test.{SQLTestUtils, SharedSparkSession}
+import org.apache.spark.sql.test.{SharedSparkSession, SQLTestUtils}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.storage.{RDDBlockId, StorageLevel}
 import org.apache.spark.storage.StorageLevel.{MEMORY_AND_DISK_2, MEMORY_ONLY}
@@ -46,27 +53,6 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
   with SharedSparkSession
   with AdaptiveSparkPlanHelper {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   setupTestData()
 
@@ -128,7 +114,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }.sum
   }
 
-  test("cache temp table") {
+  ignore("cache temp table") {
     withTempView("tempTable") {
       testData.select("key").createOrReplaceTempView("tempTable")
       assertCached(sql("SELECT COUNT(*) FROM tempTable"), 0)
@@ -138,7 +124,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("unpersist an uncached table will not raise exception") {
+  ignore("unpersist an uncached table will not raise exception") {
     assert(None == spark.sharedState.cacheManager.lookupCachedData(testData))
     testData.unpersist(blocking = true)
     assert(None == spark.sharedState.cacheManager.lookupCachedData(testData))
@@ -152,7 +138,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     assert(None == spark.sharedState.cacheManager.lookupCachedData(testData))
   }
 
-  test("cache table as select") {
+  ignore("cache table as select") {
     withTempView("tempTable") {
       sql("CACHE TABLE tempTable AS SELECT key FROM testData")
       assertCached(sql("SELECT COUNT(*) FROM tempTable"))
@@ -160,7 +146,17 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("uncaching temp table") {
+  ignore("cache table as select - existing temp view") {
+    withTempView("tempView") {
+      sql("CREATE TEMPORARY VIEW tempView as SELECT 1")
+      val e = intercept[TempTableAlreadyExistsException] {
+        sql("CACHE TABLE tempView AS SELECT 1")
+      }
+      assert(e.getMessage.contains("Temporary view 'tempView' already exists"))
+    }
+  }
+
+  ignore("uncaching temp table") {
     withTempView("tempTable1", "tempTable2") {
       testData.select("key").createOrReplaceTempView("tempTable1")
       testData.select("key").createOrReplaceTempView("tempTable2")
@@ -177,7 +173,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("too big for memory") {
+  ignore("too big for memory") {
     withTempView("bigData") {
       val data = "*" * 1000
       sparkContext.parallelize(1 to 200000, 1).map(_ => BigData(data)).toDF()
@@ -188,20 +184,20 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("calling .cache() should use in-memory columnar caching") {
+  ignore("calling .cache() should use in-memory columnar caching") {
     spark.table("testData").cache()
     assertCached(spark.table("testData"))
     spark.table("testData").unpersist(blocking = true)
   }
 
-  test("calling .unpersist() should drop in-memory columnar cache") {
+  ignore("calling .unpersist() should drop in-memory columnar cache") {
     spark.table("testData").cache()
     spark.table("testData").count()
     spark.table("testData").unpersist(blocking = true)
     assertCached(spark.table("testData"), 0)
   }
 
-  test("isCached") {
+  ignore("isCached") {
     spark.catalog.cacheTable("testData")
 
     assertCached(spark.table("testData"))
@@ -218,7 +214,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     })
   }
 
-  test("SPARK-1669: cacheTable should be idempotent") {
+  ignore("SPARK-1669: cacheTable should be idempotent") {
     assert(!spark.table("testData").logicalPlan.isInstanceOf[InMemoryRelation])
 
     spark.catalog.cacheTable("testData")
@@ -238,7 +234,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     uncacheTable("testData")
   }
 
-  test("read from cached table and uncache") {
+  ignore("read from cached table and uncache") {
     spark.catalog.cacheTable("testData")
     checkAnswer(spark.table("testData"), testData.collect().toSeq)
     assertCached(spark.table("testData"))
@@ -248,7 +244,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     assertCached(spark.table("testData"), 0)
   }
 
-  test("SELECT star from cached table") {
+  ignore("SELECT star from cached table") {
     withTempView("selectStar") {
       sql("SELECT * FROM testData").createOrReplaceTempView("selectStar")
       spark.catalog.cacheTable("selectStar")
@@ -259,7 +255,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("Self-join cached") {
+  ignore("Self-join cached") {
     val unCachedAnswer =
       sql("SELECT * FROM testData a JOIN testData b ON a.key = b.key").collect()
     spark.catalog.cacheTable("testData")
@@ -269,7 +265,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     uncacheTable("testData")
   }
 
-  test("'CACHE TABLE' and 'UNCACHE TABLE' SQL statement") {
+  ignore("'CACHE TABLE' and 'UNCACHE TABLE' SQL statement") {
     sql("CACHE TABLE testData")
     assertCached(spark.table("testData"))
 
@@ -286,7 +282,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("CACHE TABLE tableName AS SELECT * FROM anotherTable") {
+  ignore("CACHE TABLE tableName AS SELECT * FROM anotherTable") {
     withTempView("testCacheTable") {
       sql("CACHE TABLE testCacheTable AS SELECT * FROM testData")
       assertCached(spark.table("testCacheTable"))
@@ -303,7 +299,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("CACHE TABLE tableName AS SELECT ...") {
+  ignore("CACHE TABLE tableName AS SELECT ...") {
     withTempView("testCacheTable") {
       sql("CACHE TABLE testCacheTable AS SELECT key FROM testData LIMIT 10")
       assertCached(spark.table("testCacheTable"))
@@ -320,7 +316,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("CACHE LAZY TABLE tableName") {
+  ignore("CACHE LAZY TABLE tableName") {
     sql("CACHE LAZY TABLE testData")
     assertCached(spark.table("testData"))
 
@@ -347,19 +343,19 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     assert(isExpectStorageLevel(rddId, level))
   }
 
-  test("SQL interface support storageLevel(DISK_ONLY)") {
+  ignore("SQL interface support storageLevel(DISK_ONLY)") {
     assertStorageLevel("('storageLevel' 'DISK_ONLY')", Disk)
   }
 
-  test("SQL interface support storageLevel(DISK_ONLY) with invalid options") {
+  ignore("SQL interface support storageLevel(DISK_ONLY) with invalid options") {
     assertStorageLevel("('storageLevel' 'DISK_ONLY', 'a' '1', 'b' '2')", Disk)
   }
 
-  test("SQL interface support storageLevel(MEMORY_ONLY)") {
+  ignore("SQL interface support storageLevel(MEMORY_ONLY)") {
     assertStorageLevel("('storageLevel' 'MEMORY_ONLY')", Memory)
   }
 
-  test("SQL interface cache SELECT ... support storageLevel(DISK_ONLY)") {
+  ignore("SQL interface cache SELECT ... support storageLevel(DISK_ONLY)") {
     withTempView("testCacheSelect") {
       sql("CACHE TABLE testCacheSelect OPTIONS('storageLevel' 'DISK_ONLY') SELECT * FROM testData")
       assertCached(spark.table("testCacheSelect"))
@@ -368,14 +364,14 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SQL interface support storageLevel(Invalid StorageLevel)") {
+  ignore("SQL interface support storageLevel(Invalid StorageLevel)") {
     val message = intercept[IllegalArgumentException] {
       sql("CACHE TABLE testData OPTIONS('storageLevel' 'invalid_storage_level')")
     }.getMessage
     assert(message.contains("Invalid StorageLevel: INVALID_STORAGE_LEVEL"))
   }
 
-  test("SQL interface support storageLevel(with LAZY)") {
+  ignore("SQL interface support storageLevel(with LAZY)") {
     sql("CACHE LAZY TABLE testData OPTIONS('storageLevel' 'disk_only')")
     assertCached(spark.table("testData"))
 
@@ -391,7 +387,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     assert(isExpectStorageLevel(rddId, Disk))
   }
 
-  test("InMemoryRelation statistics") {
+  ignore("InMemoryRelation statistics") {
     sql("CACHE TABLE testData")
     spark.table("testData").queryExecution.withCachedData.collect {
       case cached: InMemoryRelation =>
@@ -400,7 +396,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("Drops temporary table") {
+  ignore("Drops temporary table") {
     withTempView("t1") {
       testData.select("key").createOrReplaceTempView("t1")
       spark.table("t1")
@@ -409,7 +405,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("Drops cached temporary table") {
+  ignore("Drops cached temporary table") {
     withTempView("t1", "t2") {
       testData.select("key").createOrReplaceTempView("t1")
       testData.select("key").createOrReplaceTempView("t2")
@@ -424,7 +420,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("Clear all cache") {
+  ignore("Clear all cache") {
     withTempView("t1", "t2") {
       sql("SELECT key FROM testData LIMIT 10").createOrReplaceTempView("t1")
       sql("SELECT key FROM testData LIMIT 5").createOrReplaceTempView("t2")
@@ -442,7 +438,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("Ensure accumulators to be cleared after GC when uncacheTable") {
+  ignore("Ensure accumulators to be cleared after GC when uncacheTable") {
     withTempView("t1", "t2") {
       sql("SELECT key FROM testData LIMIT 10").createOrReplaceTempView("t1")
       sql("SELECT key FROM testData LIMIT 5").createOrReplaceTempView("t2")
@@ -493,7 +489,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-10327 Cache Table is not working while subquery has alias in its project list") {
+  ignore("SPARK-10327 Cache Table is not working while subquery has alias in its project list") {
     withTempView("abc") {
       sparkContext.parallelize((1, 1) :: (2, 2) :: Nil)
         .toDF("key", "value").selectExpr("key", "value", "key+1").createOrReplaceTempView("abc")
@@ -517,7 +513,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
       collect(df.queryExecution.executedPlan) { case e: ShuffleExchangeExec => e }.size == expected)
   }
 
-  test("A cached table preserves the partitioning and ordering of its cached SparkPlan") {
+  ignore("A cached table preserves the partitioning and ordering of its cached SparkPlan") {
     val table3x = testData.union(testData).union(testData)
     table3x.createOrReplaceTempView("testData3x")
 
@@ -663,7 +659,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-15870 DataFrame can't execute after uncacheTable") {
+  ignore("SPARK-15870 DataFrame can't execute after uncacheTable") {
     withTempView("selectStar") {
       val selectStar = sql("SELECT * FROM testData WHERE key = 1")
       selectStar.createOrReplaceTempView("selectStar")
@@ -680,7 +676,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-15915 Logical plans should use canonicalized plan when override sameResult") {
+  ignore("SPARK-15915 Logical plans should use canonicalized plan when override sameResult") {
     withTempView("localRelation") {
       val localRelation = Seq(1, 2, 3).toDF()
       localRelation.createOrReplaceTempView("localRelation")
@@ -690,7 +686,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19093 Caching in side subquery") {
+  ignore("SPARK-19093 Caching in side subquery") {
     withTempView("t1") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       spark.catalog.cacheTable("t1")
@@ -705,7 +701,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19093 scalar and nested predicate query") {
+  ignore("SPARK-19093 scalar and nested predicate query") {
     withTempView("t1", "t2", "t3", "t4") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       Seq(2).toDF("c1").createOrReplaceTempView("t2")
@@ -742,7 +738,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
+  ignore("SPARK-19765: UNCACHE TABLE should un-cache all cached plans that refer to this table") {
     withTable("t") {
       withTempPath { path =>
         Seq(1 -> "a").toDF("i", "j").write.parquet(path.getCanonicalPath)
@@ -761,7 +757,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("refreshByPath should refresh all cached plans with the specified path") {
+  ignore("refreshByPath should refresh all cached plans with the specified path") {
     withTempDir { dir =>
       val path = dir.getCanonicalPath()
 
@@ -777,7 +773,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19993 simple subquery caching") {
+  ignore("SPARK-19993 simple subquery caching") {
     withTempView("t1", "t2") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       Seq(2).toDF("c1").createOrReplaceTempView("t2")
@@ -805,7 +801,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19993 subquery caching with correlated predicates") {
+  ignore("SPARK-19993 subquery caching with correlated predicates") {
     withTempView("t1", "t2") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       Seq(1).toDF("c1").createOrReplaceTempView("t2")
@@ -824,7 +820,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19993 subquery with cached underlying relation") {
+  ignore("SPARK-19993 subquery with cached underlying relation") {
     withTempView("t1") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       spark.catalog.cacheTable("t1")
@@ -844,7 +840,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-19993 nested subquery caching and scalar + predicate subqueris") {
+  ignore("SPARK-19993 nested subquery caching and scalar + predicate subqueries") {
     withTempView("t1", "t2", "t3", "t4") {
       Seq(1).toDF("c1").createOrReplaceTempView("t1")
       Seq(2).toDF("c1").createOrReplaceTempView("t2")
@@ -881,7 +877,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-23312: vectorized cache reader can be disabled") {
+  ignore("SPARK-23312: vectorized cache reader can be disabled") {
     Seq(true, false).foreach { vectorized =>
       withSQLConf(SQLConf.CACHE_VECTORIZED_READER_ENABLED.key -> vectorized.toString) {
         val df = spark.range(10).cache()
@@ -895,31 +891,31 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
   }
 
   private def checkIfNoJobTriggered[T](f: => T): T = {
-    var numJobTrigered = 0
+    var numJobTriggered = 0
     val jobListener = new SparkListener {
       override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
-        numJobTrigered += 1
+        numJobTriggered += 1
       }
     }
     sparkContext.addSparkListener(jobListener)
     try {
       val result = f
       sparkContext.listenerBus.waitUntilEmpty()
-      assert(numJobTrigered === 0)
+      assert(numJobTriggered === 0)
       result
     } finally {
       sparkContext.removeSparkListener(jobListener)
     }
   }
 
-  test("SPARK-23880 table cache should be lazy and don't trigger any jobs") {
+  ignore("SPARK-23880 table cache should be lazy and don't trigger any jobs") {
     val cachedData = checkIfNoJobTriggered {
       spark.range(1002).filter($"id" > 1000).orderBy($"id".desc).cache()
     }
     assert(cachedData.collect === Seq(1001))
   }
 
-  test("SPARK-24596 Non-cascading Cache Invalidation - uncache temporary view") {
+  ignore("SPARK-24596 Non-cascading Cache Invalidation - uncache temporary view") {
     withTempView("t1", "t2") {
       sql("CACHE TABLE t1 AS SELECT * FROM testData WHERE key > 1")
       sql("CACHE TABLE t2 as SELECT * FROM t1 WHERE value > 1")
@@ -932,39 +928,67 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-24596 Non-cascading Cache Invalidation - drop temporary view") {
-    withTempView("t1", "t2") {
-      sql("CACHE TABLE t1 AS SELECT * FROM testData WHERE key > 1")
-      sql("CACHE TABLE t2 as SELECT * FROM t1 WHERE value > 1")
-
-      assert(spark.catalog.isCached("t1"))
-      assert(spark.catalog.isCached("t2"))
-      sql("DROP VIEW t1")
-      assert(spark.catalog.isCached("t2"))
-    }
-  }
-
-  test("SPARK-24596 Non-cascading Cache Invalidation - drop persistent view") {
-    withTable("t") {
-      spark.range(1, 10).toDF("key").withColumn("value", $"key" * 2)
-        .write.format("json").saveAsTable("t")
-      withView("t1") {
-        withTempView("t2") {
-          sql("CREATE VIEW t1 AS SELECT * FROM t WHERE key > 1")
-
-          sql("CACHE TABLE t1")
-          sql("CACHE TABLE t2 AS SELECT * FROM t1 WHERE value > 1")
+  ignore("SPARK-24596, SPARK-34052: cascading cache invalidation - drop temporary view") {
+    Seq(true, false).foreach { storeAnalyzed =>
+      withSQLConf(SQLConf.STORE_ANALYZED_PLAN_FOR_VIEW.key -> storeAnalyzed.toString) {
+        withTempView("t1", "t2") {
+          sql("CACHE TABLE t1 AS SELECT * FROM testData WHERE key > 1")
+          sql("CACHE TABLE t2 as SELECT * FROM t1 WHERE value > 1")
 
           assert(spark.catalog.isCached("t1"))
           assert(spark.catalog.isCached("t2"))
+
+          val oldView = spark.table("t2")
           sql("DROP VIEW t1")
-          assert(!spark.catalog.isCached("t2"))
+
+          // dropping a temp view trigger cache invalidation on dependents iff the config is
+          // turned off
+          assert(storeAnalyzed ==
+            spark.sharedState.cacheManager.lookupCachedData(oldView).isDefined)
+          if (!storeAnalyzed) {
+            // t2 should become invalid after t1 is dropped
+            val e = intercept[AnalysisException](spark.catalog.isCached("t2"))
+            assert(e.message.contains(s"Table or view not found"))
+          }
         }
       }
     }
   }
 
-  test("SPARK-24596 Non-cascading Cache Invalidation - uncache table") {
+  ignore("SPARK-24596, SPARK-34052: cascading cache invalidation - drop persistent view") {
+    Seq(true, false).foreach { storeAnalyzed =>
+      withSQLConf(SQLConf.STORE_ANALYZED_PLAN_FOR_VIEW.key -> storeAnalyzed.toString) {
+        withTable("t") {
+          spark.range(1, 10).toDF("key").withColumn("value", $"key" * 2)
+            .write.format("json").saveAsTable("t")
+          withView("t1") {
+            withTempView("t2") {
+              sql("CREATE VIEW t1 AS SELECT * FROM t WHERE key > 1")
+
+              sql("CACHE TABLE t1")
+              sql("CACHE TABLE t2 AS SELECT * FROM t1 WHERE value > 1")
+
+              assert(spark.catalog.isCached("t1"))
+              assert(spark.catalog.isCached("t2"))
+
+              val oldView = spark.table("t2")
+              sql("DROP VIEW t1")
+
+              // dropping a permanent view always trigger cache invalidation on dependents
+              assert(spark.sharedState.cacheManager.lookupCachedData(oldView).isEmpty)
+              if (!storeAnalyzed) {
+                // t2 should become invalid after t1 is dropped
+                val e = intercept[AnalysisException](spark.catalog.isCached("t2"))
+                assert(e.message.contains(s"Table or view not found"))
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ignore("SPARK-24596 Non-cascading Cache Invalidation - uncache table") {
     withTable("t") {
       spark.range(1, 10).toDF("key").withColumn("value", $"key" * 2)
         .write.format("json").saveAsTable("t")
@@ -984,7 +1008,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("Cache should respect the hint") {
+  ignore("Cache should respect the hint") {
     def testHint(df: Dataset[_], expectedHint: JoinStrategyHint): Unit = {
       val df2 = spark.range(2000).cache()
       df2.count()
@@ -1029,7 +1053,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
       SHUFFLE_HASH)
   }
 
-  test("analyzes column statistics in cached query") {
+  ignore("analyzes column statistics in cached query") {
     def query(): DataFrame = {
       spark.range(100)
         .selectExpr("id % 3 AS c0", "id % 5 AS c1", "2 AS c2")
@@ -1058,7 +1082,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     assert(queryStats3.map(_._1.name).toSet === Set("c0", "v1", "v2"))
   }
 
-  test("SPARK-27248 refreshTable should recreate cache with same cache name and storage level") {
+  ignore("SPARK-27248 refreshTable should recreate cache with same cache name and storage level") {
     // This section tests when a table is cached with its qualified name but it is refreshed with
     // its unqualified name.
     withTempDatabase { db =>
@@ -1150,7 +1174,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("cache supports for intervals") {
+  ignore("cache supports for intervals") {
     withTable("interval_cache") {
       Seq((1, "1 second"), (2, "2 seconds"), (2, null))
         .toDF("k", "v").write.saveAsTable("interval_cache")
@@ -1163,7 +1187,7 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
     }
   }
 
-  test("SPARK-30494 Fix the leak of cached data when replace an existing view") {
+  ignore("SPARK-30494 Fix the leak of cached data when replace an existing view") {
     withTempView("tempView") {
       spark.catalog.clearCache()
       sql("create or replace temporary view tempView as select 1")
@@ -1202,6 +1226,231 @@ class CachedTableSuite extends QueryTest with SQLTestUtils
       spark.sharedState.cacheManager.uncacheQuery(spark.table("view1"), cascade = false)
       // make sure there is no cached data leak
       assert(spark.sharedState.cacheManager.isEmpty)
+    }
+  }
+
+  ignore("SPARK-33228: Don't uncache data when replacing an existing view having the same plan") {
+    withTempView("tempView") {
+      spark.catalog.clearCache()
+      val df = spark.range(1).selectExpr("id a", "id b")
+      df.cache()
+      assert(spark.sharedState.cacheManager.lookupCachedData(df).isDefined)
+      df.createOrReplaceTempView("tempView")
+      assert(spark.sharedState.cacheManager.lookupCachedData(df).isDefined)
+      df.createOrReplaceTempView("tempView")
+      assert(spark.sharedState.cacheManager.lookupCachedData(df).isDefined)
+    }
+
+    withTempView("tempGlobalTempView") {
+      spark.catalog.clearCache()
+      val df = spark.range(1).selectExpr("id a", "id b")
+      df.cache()
+      assert(spark.sharedState.cacheManager.lookupCachedData(df).isDefined)
+      df.createOrReplaceGlobalTempView("tempGlobalTempView")
+      assert(spark.sharedState.cacheManager.lookupCachedData(df).isDefined)
+      df.createOrReplaceGlobalTempView("tempGlobalTempView")
+      assert(spark.sharedState.cacheManager.lookupCachedData(df).isDefined)
+    }
+  }
+
+  ignore("SPARK-33290: REFRESH TABLE should invalidate all caches referencing the table") {
+    withTable("t") {
+      withTempPath { path =>
+        withTempView("tempView1", "tempView2") {
+          Seq((1 -> "a")).toDF("i", "j").write.parquet(path.getCanonicalPath)
+          sql(s"CREATE TABLE t USING parquet LOCATION '${path.toURI}'")
+          sql("CREATE TEMPORARY VIEW tempView1 AS SELECT * FROM t")
+          sql("CACHE TABLE tempView2 AS SELECT i FROM tempView1")
+          checkAnswer(sql("SELECT * FROM tempView1"), Seq(Row(1, "a")))
+          checkAnswer(sql("SELECT * FROM tempView2"), Seq(Row(1)))
+
+          Utils.deleteRecursively(path)
+          sql("REFRESH TABLE tempView1")
+          checkAnswer(sql("SELECT * FROM tempView1"), Seq.empty)
+          checkAnswer(sql("SELECT * FROM tempView2"), Seq.empty)
+        }
+      }
+    }
+  }
+
+  ignore("SPARK-33729: REFRESH TABLE should not use cached/stale plan") {
+    def moveParquetFiles(src: File, dst: File): Unit = {
+      src.listFiles(new FilenameFilter {
+        override def accept(dir: File, name: String): Boolean = name.endsWith("parquet")
+      }).foreach { f =>
+        Files.move(f.toPath, Paths.get(dst.getAbsolutePath, f.getName))
+      }
+      // cleanup the rest of the files
+      src.listFiles().foreach(_.delete())
+      src.delete()
+    }
+
+    withTable("t") {
+      withTempDir { dir =>
+        val path1 = new File(dir, "path1")
+        Seq((1 -> "a")).toDF("i", "j").write.parquet(path1.getCanonicalPath)
+        moveParquetFiles(path1, dir)
+        sql(s"CREATE TABLE t (i INT, j STRING) USING parquet LOCATION '${dir.toURI}'")
+        sql("CACHE TABLE t")
+        checkAnswer(sql("SELECT * FROM t"), Row(1, "a") :: Nil)
+
+        val path2 = new File(dir, "path2")
+        Seq(2 -> "b").toDF("i", "j").write.parquet(path2.getCanonicalPath)
+        moveParquetFiles(path2, dir)
+        sql("REFRESH TABLE t")
+        checkAnswer(sql("SELECT * FROM t"), Row(1, "a") :: Row(2, "b") :: Nil)
+      }
+    }
+  }
+
+  ignore("SPARK-33647: cache table support for permanent view") {
+    withView("v1") {
+      spark.catalog.clearCache()
+      sql("create or replace view v1 as select 1")
+      sql("cache table v1")
+      assert(spark.sharedState.cacheManager.lookupCachedData(sql("select 1")).isDefined)
+      sql("create or replace view v1 as select 1, 2")
+      assert(spark.sharedState.cacheManager.lookupCachedData(sql("select 1")).isEmpty)
+      sql("cache table v1")
+      assert(spark.sharedState.cacheManager.lookupCachedData(sql("select 1, 2")).isDefined)
+    }
+  }
+
+  ignore("SPARK-33786: Cache's storage level should be respected when a table name is altered.") {
+    withTable("old", "new") {
+      withTempPath { path =>
+        def getStorageLevel(tableName: String): StorageLevel = {
+          val table = spark.table(tableName)
+          val cachedData = spark.sharedState.cacheManager.lookupCachedData(table).get
+          cachedData.cachedRepresentation.cacheBuilder.storageLevel
+        }
+        Seq(1 -> "a").toDF("i", "j").write.parquet(path.getCanonicalPath)
+        sql(s"CREATE TABLE old USING parquet LOCATION '${path.toURI}'")
+        sql("CACHE TABLE old OPTIONS('storageLevel' 'MEMORY_ONLY')")
+        val oldStorageLevel = getStorageLevel("old")
+
+        sql("ALTER TABLE old RENAME TO new")
+        val newStorageLevel = getStorageLevel("new")
+        assert(oldStorageLevel === newStorageLevel)
+      }
+    }
+  }
+
+  ignore("SPARK-33950: refresh cache after partition dropping") {
+    withTable("t") {
+      sql(s"CREATE TABLE t (id int, part int) USING parquet PARTITIONED BY (part)")
+      sql("INSERT INTO t PARTITION (part=0) SELECT 0")
+      sql("INSERT INTO t PARTITION (part=1) SELECT 1")
+      assert(!spark.catalog.isCached("t"))
+      sql("CACHE TABLE t")
+      assert(spark.catalog.isCached("t"))
+      checkAnswer(sql("SELECT * FROM t"), Seq(Row(0, 0), Row(1, 1)))
+      sql("ALTER TABLE t DROP PARTITION (part=0)")
+      assert(spark.catalog.isCached("t"))
+      checkAnswer(sql("SELECT * FROM t"), Seq(Row(1, 1)))
+    }
+  }
+
+  ignore("SPARK-34011: refresh cache after partition renaming") {
+    withTable("t") {
+      sql("CREATE TABLE t (id int, part int) USING parquet PARTITIONED BY (part)")
+      sql("INSERT INTO t PARTITION (part=0) SELECT 0")
+      sql("INSERT INTO t PARTITION (part=1) SELECT 1")
+      assert(!spark.catalog.isCached("t"))
+      sql("CACHE TABLE t")
+      assert(spark.catalog.isCached("t"))
+      QueryTest.checkAnswer(sql("SELECT * FROM t"), Seq(Row(0, 0), Row(1, 1)))
+      sql("ALTER TABLE t PARTITION (part=0) RENAME TO PARTITION (part=2)")
+      assert(spark.catalog.isCached("t"))
+      QueryTest.checkAnswer(sql("SELECT * FROM t"), Seq(Row(0, 2), Row(1, 1)))
+    }
+  }
+
+  private def testCacheRefreshing(cmd: String => DataFrame): Unit = {
+    withTable("t") {
+      sql("CREATE TABLE t (id int, part int) USING parquet PARTITIONED BY (part)")
+      sql("INSERT INTO t PARTITION (part=0) SELECT 0")
+      assert(!spark.catalog.isCached("t"))
+      sql("CACHE TABLE t")
+      assert(spark.catalog.isCached("t"))
+      checkAnswer(sql("SELECT * FROM t"), Seq(Row(0, 0)))
+
+      // Create new partition (part = 1) in the filesystem
+      val information = sql("SHOW TABLE EXTENDED LIKE 't' PARTITION (part = 0)")
+        .select("information")
+        .first().getString(0)
+      val part0Loc = information
+        .split("\\r?\\n")
+        .filter(_.startsWith("Location:"))
+        .head
+        .replace("Location: file:", "")
+      val part1Loc = part0Loc.replace("part=0", "part=1")
+      FileUtils.copyDirectory(new File(part0Loc), new File(part1Loc))
+
+      cmd(part1Loc)
+      assert(spark.catalog.isCached("t"))
+      checkAnswer(sql("SELECT * FROM t"), Seq(Row(0, 0), Row(0, 1)))
+    }
+  }
+
+  ignore("SPARK-34055: refresh cache in partition adding") {
+    testCacheRefreshing { location =>
+      sql(s"ALTER TABLE t ADD PARTITION (part=1) LOCATION '$location'")
+    }
+  }
+
+  ignore("SPARK-34027: refresh cache in partitions recovering") {
+    testCacheRefreshing { _ =>
+      sql("ALTER TABLE t RECOVER PARTITIONS")
+    }
+  }
+
+  ignore("SPARK-34052: cascading cache invalidation - CatalogImpl.dropTempView") {
+    Seq(true, false).foreach { storeAnalyzed =>
+      withSQLConf(SQLConf.STORE_ANALYZED_PLAN_FOR_VIEW.key -> storeAnalyzed.toString) {
+        withTempView("view1", "view2") {
+          sql("CREATE TEMPORARY VIEW view1 AS SELECT * FROM testData WHERE key > 1")
+          sql("CACHE TABLE view2 AS SELECT * FROM view1 WHERE value > 1")
+          assert(spark.catalog.isCached("view2"))
+
+          val oldView = spark.table("view2")
+          spark.catalog.dropTempView("view1")
+          assert(storeAnalyzed ==
+            spark.sharedState.cacheManager.lookupCachedData(oldView).isDefined)
+        }
+      }
+    }
+  }
+
+  ignore("SPARK-34052: cascading cache invalidation - CatalogImpl.dropGlobalTempView") {
+    Seq(true, false).foreach { storeAnalyzed =>
+      withSQLConf(SQLConf.STORE_ANALYZED_PLAN_FOR_VIEW.key -> storeAnalyzed.toString) {
+        withGlobalTempView("view1") {
+          withTempView("view2") {
+            val db = spark.sharedState.globalTempViewManager.database
+            sql("CREATE GLOBAL TEMPORARY VIEW view1 AS SELECT * FROM testData WHERE key > 1")
+            sql(s"CACHE TABLE view2 AS SELECT * FROM ${db}.view1 WHERE value > 1")
+            assert(spark.catalog.isCached("view2"))
+
+            val oldView = spark.table("view2")
+            spark.catalog.dropGlobalTempView("view1")
+            assert(storeAnalyzed ==
+              spark.sharedState.cacheManager.lookupCachedData(oldView).isDefined)
+          }
+        }
+      }
+    }
+  }
+
+  ignore("SPARK-34052: cached temp view should become invalid after the source table is dropped") {
+    val t = "t"
+    withTable(t) {
+      sql(s"CREATE TABLE $t USING parquet AS SELECT * FROM VALUES(1, 'a') AS $t(a, b)")
+      sql(s"CACHE TABLE v AS SELECT a FROM $t")
+      checkAnswer(sql("SELECT * FROM v"), Row(1) :: Nil)
+      sql(s"DROP TABLE $t")
+      val e = intercept[AnalysisException](sql("SELECT * FROM v"))
+      assert(e.message.contains(s"Table or view not found: $t"))
     }
   }
 }

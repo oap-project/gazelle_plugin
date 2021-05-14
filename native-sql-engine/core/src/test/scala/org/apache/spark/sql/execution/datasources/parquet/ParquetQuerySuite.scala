@@ -43,30 +43,9 @@ import org.apache.spark.util.Utils
 abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedSparkSession {
   import testImplicits._
 
-  override protected def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
-
   test("simple select queries") {
     withParquetTable((0 until 10).map(i => (i, i.toString)), "t") {
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
         checkAnswer(sql("SELECT _1 FROM t where t._1 > 5"), (6 until 10).map(Row.apply(_)))
         checkAnswer(sql("SELECT _1 FROM t as tmp where tmp._1 < 5"), (0 until 5).map(Row.apply(_)))
       }
@@ -137,7 +116,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
 
   test("SPARK-1913 regression: columns only referenced by pushed down filters should remain") {
     withParquetTable((1 to 10).map(Tuple1.apply), "t") {
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
         checkAnswer(sql("SELECT _1 FROM t WHERE _1 < 10"), (1 to 9).map(Row.apply(_)))
       }
     }
@@ -145,7 +124,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
 
   test("SPARK-5309 strings stored using dictionary compression in parquet") {
     withParquetTable((0 until 1000).map(i => ("same", "run_" + i /100, 1)), "t") {
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
 
         checkAnswer(sql("SELECT _1, _2, SUM(_3) FROM t GROUP BY _1, _2"),
           (0 until 10).map(i => Row("same", "run_" + i, 100)))
@@ -803,7 +782,6 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  // ignored in maven test
   test("SPARK-24230: filter row group using dictionary") {
     withSQLConf(("parquet.filter.dictionary.enabled", "true")) {
       // create a table with values from 0, 2, ..., 18 that will be dictionary-encoded
@@ -874,31 +852,29 @@ class ParquetV1QuerySuite extends ParquetQuerySuite {
   import testImplicits._
 
   override protected def sparkConf: SparkConf =
-    super.sparkConf
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
 
-  test("returning batch for wide table") {
+  ignore("returning batch for wide table") {
     withSQLConf(SQLConf.WHOLESTAGE_MAX_NUM_FIELDS.key -> "10") {
       withTempPath { dir =>
-        withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
-          val path = dir.getCanonicalPath
-          val df = spark.range(10).select(Seq.tabulate(11) { i => ('id + i).as(s"c$i") }: _*)
-          df.write.mode(SaveMode.Overwrite).parquet(path)
+        val path = dir.getCanonicalPath
+        val df = spark.range(10).select(Seq.tabulate(11) {i => ('id + i).as(s"c$i")} : _*)
+        df.write.mode(SaveMode.Overwrite).parquet(path)
 
-          // donot return batch, because whole stage codegen is disabled for wide table (>200 columns)
-          val df2 = spark.read.parquet(path)
-          val fileScan2 = df2.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
-          assert(!fileScan2.asInstanceOf[FileSourceScanExec].supportsColumnar)
-          checkAnswer(df2, df)
+        // do not return batch - whole stage codegen is disabled for wide table (>200 columns)
+        val df2 = spark.read.parquet(path)
+        val fileScan2 = df2.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
+        assert(!fileScan2.asInstanceOf[FileSourceScanExec].supportsColumnar)
+        checkAnswer(df2, df)
 
-          // return batch
-          val columns = Seq.tabulate(9) { i => s"c$i" }
-          val df3 = df2.selectExpr(columns: _*)
-          val fileScan3 = df3.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
-          // Rui: we disabled columnar reader
-          assert(!fileScan3.asInstanceOf[FileSourceScanExec].supportsColumnar)
-          checkAnswer(df3, df.selectExpr(columns: _*))
-        }
+        // return batch
+        val columns = Seq.tabulate(9) {i => s"c$i"}
+        val df3 = df2.selectExpr(columns : _*)
+        val fileScan3 = df3.queryExecution.sparkPlan.find(_.isInstanceOf[FileSourceScanExec]).get
+        assert(fileScan3.asInstanceOf[FileSourceScanExec].supportsColumnar)
+        checkAnswer(df3, df.selectExpr(columns : _*))
       }
     }
   }
@@ -908,18 +884,19 @@ class ParquetV2QuerySuite extends ParquetQuerySuite {
   import testImplicits._
 
   // TODO: enable Parquet V2 write path after file source V2 writers are workable.
-  override def sparkConf: SparkConf =
-    super.sparkConf
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
-  test("returning batch for wide table") {
+  ignore("returning batch for wide table") {
     withSQLConf(SQLConf.WHOLESTAGE_MAX_NUM_FIELDS.key -> "10") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath
         val df = spark.range(10).select(Seq.tabulate(11) {i => ('id + i).as(s"c$i")} : _*)
         df.write.mode(SaveMode.Overwrite).parquet(path)
 
-        // donot return batch, because whole stage codegen is disabled for wide table (>200 columns)
+        // do not return batch - whole stage codegen is disabled for wide table (>200 columns)
         val df2 = spark.read.parquet(path)
         val fileScan2 = df2.queryExecution.sparkPlan.find(_.isInstanceOf[BatchScanExec]).get
         val parquetScan2 = fileScan2.asInstanceOf[BatchScanExec].scan.asInstanceOf[ParquetScan]
@@ -933,8 +910,7 @@ class ParquetV2QuerySuite extends ParquetQuerySuite {
         val df3 = df2.selectExpr(columns : _*)
         val fileScan3 = df3.queryExecution.sparkPlan.find(_.isInstanceOf[BatchScanExec]).get
         val parquetScan3 = fileScan3.asInstanceOf[BatchScanExec].scan.asInstanceOf[ParquetScan]
-        // Rui: we disabled columnar reader
-        assert(!parquetScan3.createReaderFactory().supportColumnarReads(null))
+        assert(parquetScan3.createReaderFactory().supportColumnarReads(null))
         checkAnswer(df3, df.selectExpr(columns : _*))
       }
     }

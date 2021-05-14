@@ -22,8 +22,10 @@ import java.util
 import java.util.OptionalLong
 
 import scala.collection.JavaConverters._
+
 import test.org.apache.spark.sql.connector._
-import org.apache.spark.{SparkConf, SparkException}
+
+import org.apache.spark.SparkException
 import org.apache.spark.sql.{AnalysisException, DataFrame, QueryTest, Row}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.connector.catalog.{SupportsRead, Table, TableCapability, TableProvider}
@@ -36,7 +38,6 @@ import org.apache.spark.sql.execution.datasources.v2.{BatchScanExec, DataSourceV
 import org.apache.spark.sql.execution.exchange.{Exchange, ShuffleExchangeExec}
 import org.apache.spark.sql.execution.vectorized.OnHeapColumnVector
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{Filter, GreaterThan}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.{IntegerType, StructType}
@@ -45,24 +46,6 @@ import org.apache.spark.sql.vectorized.ColumnarBatch
 
 class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveSparkPlanHelper {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private def getBatch(query: DataFrame): AdvancedBatch = {
     query.queryExecution.executedPlan.collect {
@@ -149,12 +132,17 @@ class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveS
   }
 
   ignore("columnar batch scan implementation") {
-    Seq(classOf[ColumnarDataSourceV2], classOf[JavaColumnarDataSourceV2]).foreach { cls =>
-      withClue(cls.getName) {
-        val df = spark.read.format(cls.getName).load()
-        checkAnswer(df, (0 until 90).map(i => Row(i, -i)))
-        checkAnswer(df.select('j), (0 until 90).map(i => Row(-i)))
-        checkAnswer(df.filter('i > 50), (51 until 90).map(i => Row(i, -i)))
+      Seq(classOf[ColumnarDataSourceV2], classOf[JavaColumnarDataSourceV2]).foreach { cls =>
+        withClue(cls.getName) {
+          withSQLConf(
+            "spark.sql.parquet.enableVectorizedReader" -> "false",
+            "spark.sql.inMemoryColumnarStorage.enableVectorizedReader" -> "false",
+            "spark.sql.orc.enableVectorizedReader" -> "false") {
+            val df = spark.read.format(cls.getName).load()
+            checkAnswer(df, (0 until 90).map(i => Row(i, -i)))
+            checkAnswer(df.select('j), (0 until 90).map(i => Row(-i)))
+            checkAnswer(df.filter('i > 50), (51 until 90).map(i => Row(i, -i)))
+        }
       }
     }
   }
@@ -171,6 +159,19 @@ class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveS
         assert(df.schema == schema)
         assert(df.collect().isEmpty)
       }
+    }
+  }
+
+  test("SPARK-33369: Skip schema inference in DataframeWriter.save() if table provider " +
+    "supports external metadata") {
+    withTempDir { dir =>
+      val cls = classOf[SupportsExternalMetadataWritableDataSource].getName
+      spark.range(10).select('id as 'i, -'id as 'j).write.format(cls)
+          .option("path", dir.getCanonicalPath).mode("append").save()
+      val schema = new StructType().add("i", "long").add("j", "long")
+        checkAnswer(
+          spark.read.format(cls).option("path", dir.getCanonicalPath).schema(schema).load(),
+          spark.range(10).select('id, -'id))
     }
   }
 
@@ -285,7 +286,7 @@ class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveS
           }
         }
         // this input data will fail to read middle way.
-        val input = spark.range(10).select(failingUdf('id).as('i)).select('i, -'i as 'j)
+        val input = spark.range(15).select(failingUdf('id).as('i)).select('i, -'i as 'j)
         val e3 = intercept[SparkException] {
           input.write.format(cls.getName).option("path", path).mode("overwrite").save()
         }
@@ -409,6 +410,35 @@ class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveS
       }.flatten
       assert(subqueries.length == 1)
       checkAnswer(df, (0 until 3).map(i => Row(i)))
+    }
+  }
+
+  test("SPARK-32609: DataSourceV2 with different pushedfilters should be different") {
+    def getScanExec(query: DataFrame): BatchScanExec = {
+      query.queryExecution.executedPlan.collect {
+        case d: BatchScanExec => d
+      }.head
+    }
+
+    Seq(classOf[AdvancedDataSourceV2], classOf[JavaAdvancedDataSourceV2]).foreach { cls =>
+      withClue(cls.getName) {
+        val df = spark.read.format(cls.getName).load()
+        val q1 = df.select('i).filter('i > 6)
+        val q2 = df.select('i).filter('i > 5)
+        val scan1 = getScanExec(q1)
+        val scan2 = getScanExec(q2)
+        assert(!scan1.equals(scan2))
+      }
+    }
+  }
+
+  test("SPARK-33267: push down with condition 'in (..., null)' should not throw NPE") {
+    Seq(classOf[AdvancedDataSourceV2], classOf[JavaAdvancedDataSourceV2]).foreach { cls =>
+      withClue(cls.getName) {
+        val df = spark.read.format(cls.getName).load()
+        // before SPARK-33267 below query just threw NPE
+        df.select('i).where("i in (1, null)").collect()
+      }
     }
   }
 }
@@ -649,7 +679,7 @@ class ColumnarDataSourceV2 extends TestingV2Source {
 object ColumnarReaderFactory extends PartitionReaderFactory {
   private final val BATCH_SIZE = 20
 
-  override def supportColumnarReads(partition: InputPartition): Boolean = false
+  override def supportColumnarReads(partition: InputPartition): Boolean = true
 
   override def createReader(partition: InputPartition): PartitionReader[InternalRow] = {
     throw new UnsupportedOperationException
@@ -756,6 +786,16 @@ class SimpleWriteOnlyDataSource extends SimpleWritableDataSource {
         throw new SchemaReadAttemptException("schema should not be read.")
       }
     }
+  }
+}
+
+class SupportsExternalMetadataWritableDataSource extends SimpleWritableDataSource {
+  override def supportsExternalMetadata(): Boolean = true
+
+  override def inferSchema(options: CaseInsensitiveStringMap): StructType = {
+    throw new IllegalArgumentException(
+      "Dataframe writer should not require inferring table schema the data source supports" +
+        " external metadata.")
   }
 }
 

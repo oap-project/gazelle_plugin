@@ -19,7 +19,6 @@ package org.apache.spark.sql
 
 import java.sql.{Date, Timestamp}
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.catalyst.expressions.aggregate.ApproximatePercentile
 import org.apache.spark.sql.catalyst.expressions.aggregate.ApproximatePercentile.DEFAULT_PERCENTILE_ACCURACY
 import org.apache.spark.sql.catalyst.expressions.aggregate.ApproximatePercentile.PercentileDigest
@@ -31,23 +30,6 @@ import org.apache.spark.sql.test.SharedSparkSession
  */
 class ApproximatePercentileQuerySuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   private val table = "percentile_test"
 
@@ -168,7 +150,7 @@ class ApproximatePercentileQuerySuite extends QueryTest with SharedSparkSession 
       (1 to 1000).toDF("col").createOrReplaceTempView(table)
       checkAnswer(
         spark.sql(s"SELECT percentile_approx(col, array(0.25 + 0.25D), 200 + 800) FROM $table"),
-        Row(Seq(499))
+        Row(Seq(500))
       )
     }
   }
@@ -313,5 +295,24 @@ class ApproximatePercentileQuerySuite extends QueryTest with SharedSparkSession 
     assert(compressCounts > 0)
     buffer.quantileSummaries
     assert(buffer.isCompressed)
+  }
+
+  ignore("SPARK-32908: maximum target error in percentile_approx") {
+    withTempView(table) {
+      spark.read
+        .schema("col int")
+        .csv(testFile("test-data/percentile_approx-input.csv.bz2"))
+        .repartition(1)
+        .createOrReplaceTempView(table)
+      checkAnswer(
+        spark.sql(
+          s"""SELECT
+             |  percentile_approx(col, 0.77, 1000),
+             |  percentile_approx(col, 0.77, 10000),
+             |  percentile_approx(col, 0.77, 100000),
+             |  percentile_approx(col, 0.77, 1000000)
+             |FROM $table""".stripMargin),
+        Row(18, 17, 17, 17))
+    }
   }
 }

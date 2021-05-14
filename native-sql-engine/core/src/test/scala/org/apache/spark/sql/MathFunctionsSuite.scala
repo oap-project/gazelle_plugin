@@ -19,7 +19,6 @@ package org.apache.spark.sql
 
 import java.nio.charset.StandardCharsets
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.functions.{log => logarithm}
 import org.apache.spark.sql.internal.SQLConf
@@ -33,26 +32,6 @@ private object MathFunctionsTestData {
 class MathFunctionsSuite extends QueryTest with SharedSparkSession {
   import MathFunctionsTestData._
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
 
   private lazy val doubleData = (1 to 10).map(i => DoubleData(i * 0.2 - 1, i * -0.2 + 1)).toDF()
 
@@ -146,6 +125,11 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     testOneToOneMathFunction(sinh, math.sinh)
   }
 
+  test("asinh") {
+    testOneToOneMathFunction(asinh,
+      (x: Double) => math.log(x + math.sqrt(x * x + 1)) )
+  }
+
   test("cos") {
     testOneToOneMathFunction(cos, math.cos)
   }
@@ -158,6 +142,11 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
     testOneToOneMathFunction(cosh, math.cosh)
   }
 
+  test("acosh") {
+    testOneToOneMathFunction(acosh,
+      (x: Double) => math.log(x + math.sqrt(x * x - 1)) )
+  }
+
   test("tan") {
     testOneToOneMathFunction(tan, math.tan)
   }
@@ -168,6 +157,11 @@ class MathFunctionsSuite extends QueryTest with SharedSparkSession {
 
   test("tanh") {
     testOneToOneMathFunction(tanh, math.tanh)
+  }
+
+  test("atanh") {
+    testOneToOneMathFunction(atanh,
+      (x: Double) => (0.5 * (math.log1p(x) - math.log1p(-x))) )
   }
 
   test("degrees") {

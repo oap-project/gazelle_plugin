@@ -21,9 +21,7 @@ import java.io.File
 import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 import java.time.{ZoneId, ZoneOffset}
-import java.util.{Calendar, Locale, TimeZone}
-
-import scala.collection.mutable.ArrayBuffer
+import java.util.{Calendar, Locale}
 
 import com.google.common.io.Files
 import org.apache.hadoop.fs.Path
@@ -35,6 +33,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils
 import org.apache.spark.sql.catalyst.expressions.Literal
 import org.apache.spark.sql.catalyst.util.{DateFormatter, DateTimeUtils, TimestampFormatter}
+import org.apache.spark.sql.catalyst.util.DateTimeUtils.TimeZoneUTC
 import org.apache.spark.sql.execution.datasources._
 import org.apache.spark.sql.execution.datasources.{PartitionPath => Partition}
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, FileTable}
@@ -54,27 +53,6 @@ abstract class ParquetPartitionDiscoverySuite
   extends QueryTest with ParquetTest with SharedSparkSession {
   import PartitioningUtils._
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   val defaultPartitionName = ExternalCatalogUtils.DEFAULT_PARTITION_NAME
 
@@ -109,7 +87,7 @@ abstract class ParquetPartitionDiscoverySuite
     check("1990-02-24 12:00:30",
       Literal.create(Timestamp.valueOf("1990-02-24 12:00:30"), TimestampType))
 
-    val c = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+    val c = Calendar.getInstance(TimeZoneUTC)
     c.set(1990, 1, 24, 12, 0, 30)
     c.set(Calendar.MILLISECOND, 0)
     check("1990-02-24 12:00:30",
@@ -1066,8 +1044,9 @@ abstract class ParquetPartitionDiscoverySuite
 class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
   import testImplicits._
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
 
   test("read partitioned table - partition key included in Parquet file") {
@@ -1165,12 +1144,14 @@ class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
   }
 
   test("SPARK-18108 Parquet reader fails when data column types conflict with partition ones") {
-    withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+    withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
       withTempPath { dir =>
-        val path = dir.getCanonicalPath
-        val df = Seq((1L, 2.0)).toDF("a", "b")
-        df.write.parquet(s"$path/a=1")
-        checkAnswer(spark.read.parquet(s"$path"), Seq(Row(1, 2.0)))
+        withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
+          val path = dir.getCanonicalPath
+          val df = Seq((1L, 2.0)).toDF("a", "b")
+          df.write.parquet(s"$path/a=1")
+          checkAnswer(spark.read.parquet(s"$path"), Seq(Row(1, 2.0)))
+        }
       }
     }
   }
@@ -1178,7 +1159,7 @@ class ParquetV1PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
   test("SPARK-21463: MetadataLogFileIndex should respect userSpecifiedSchema for partition cols") {
     withTempDir { tempDir =>
       val output = new File(tempDir, "output").toString
-      val checkpoint = new File(tempDir, "chkpoint").toString
+      val checkpoint = new File(tempDir, "checkpoint").toString
       try {
         val stream = MemoryStream[(String, Int)]
         val df = stream.toDS().toDF("time", "value")
@@ -1212,8 +1193,9 @@ class ParquetV2PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
   import testImplicits._
 
   // TODO: enable Parquet V2 write path after file source V2 writers are workable.
-  override def sparkConf: SparkConf =
-    super.sparkConf
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
   test("read partitioned table - partition key included in Parquet file") {
@@ -1323,7 +1305,7 @@ class ParquetV2PartitionDiscoverySuite extends ParquetPartitionDiscoverySuite {
   test("SPARK-21463: MetadataLogFileIndex should respect userSpecifiedSchema for partition cols") {
     withTempDir { tempDir =>
       val output = new File(tempDir, "output").toString
-      val checkpoint = new File(tempDir, "chkpoint").toString
+      val checkpoint = new File(tempDir, "checkpoint").toString
       try {
         val stream = MemoryStream[(String, Int)]
         val df = stream.toDS().toDF("time", "value")

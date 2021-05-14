@@ -17,33 +17,14 @@
 
 package org.apache.spark.sql.test
 
-import org.apache.spark.SparkConf
-import org.scalatest.WordSpec
-import org.apache.spark.sql.Dataset
+import org.scalatest.wordspec.AnyWordSpec
 
 /**
  * The purpose of this suite is to make sure that generic WordSpec-based scala
  * tests work with a shared spark session
  */
-class GenericWordSpecSuite extends WordSpec with SharedSparkSessionBase {
+class GenericWordSpecSuite extends AnyWordSpec with SharedSparkSessionBase {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   private def ds = Seq((1, 1), (2, 1), (3, 2), (4, 2), (5, 3), (6, 3), (7, 4), (8, 4)).toDS
 

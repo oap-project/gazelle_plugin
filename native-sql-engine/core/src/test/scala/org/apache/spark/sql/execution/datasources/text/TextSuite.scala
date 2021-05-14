@@ -26,31 +26,16 @@ import org.apache.hadoop.io.compress.GzipCodec
 
 import org.apache.spark.{SparkConf, TestUtils}
 import org.apache.spark.sql.{AnalysisException, DataFrame, QueryTest, Row, SaveMode}
+import org.apache.spark.sql.execution.datasources.CommonFileDataSourceSuite
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.util.Utils
 
-abstract class TextSuite extends QueryTest with SharedSparkSession {
+abstract class TextSuite extends QueryTest with SharedSparkSession with CommonFileDataSourceSuite {
   import testImplicits._
 
-  override protected def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
+  override protected def dataSourceFormat = "text"
 
   test("reading text file") {
     verifyFrame(spark.read.format("text").load(testFile))
@@ -255,12 +240,14 @@ abstract class TextSuite extends QueryTest with SharedSparkSession {
 
 class TextV1Suite extends TextSuite {
   override protected def sparkConf: SparkConf =
-    super.sparkConf
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "text")
 }
 
 class TextV2Suite extends TextSuite {
-  override def sparkConf: SparkConf =
-    super.sparkConf
+  override protected def sparkConf: SparkConf =
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 }

@@ -18,7 +18,8 @@
 package org.apache.spark.sql.connector
 
 import scala.collection.JavaConverters._
-import org.apache.spark.{SparkConf, SparkException}
+
+import org.apache.spark.SparkException
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.connector.catalog.CatalogV2Util.withDefaultOwnership
 import org.apache.spark.sql.connector.catalog.Table
@@ -26,23 +27,6 @@ import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 
 trait AlterTableTests extends SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   protected def getTableMetadata(tableName: String): Table
 
@@ -1154,6 +1138,22 @@ trait AlterTableTests extends SharedSparkSession {
 
       assert(updated.name === tableName)
       assert(updated.properties === withDefaultOwnership(Map("provider" -> v2Format)).asJava)
+    }
+  }
+
+  test("AlterTable: replace columns") {
+    val t = s"${catalogAndNamespace}table_name"
+    withTable(t) {
+      sql(s"CREATE TABLE $t (col1 int, col2 int COMMENT 'c2') USING $v2Format")
+      sql(s"ALTER TABLE $t REPLACE COLUMNS (col2 string, col3 int COMMENT 'c3')")
+
+      val tableName = fullTableName(t)
+      val table = getTableMetadata(tableName)
+
+      assert(table.name === tableName)
+      assert(table.schema === StructType(Seq(
+        StructField("col2", StringType),
+        StructField("col3", IntegerType).withComment("c3"))))
     }
   }
 }

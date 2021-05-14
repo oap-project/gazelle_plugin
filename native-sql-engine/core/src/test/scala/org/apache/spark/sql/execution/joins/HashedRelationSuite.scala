@@ -19,6 +19,7 @@ package org.apache.spark.sql.execution.joins
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
 
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Random
 
@@ -36,23 +37,6 @@ import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.collection.CompactBuffer
 
 class HashedRelationSuite extends SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   val mm = new TaskMemoryManager(
     new UnifiedMemoryManager(
@@ -161,6 +145,7 @@ class HashedRelationSuite extends SharedSparkSession {
     }
 
     val longRelation2 = LongHashedRelation(rows.iterator ++ rows.iterator, key, 100, mm)
+        .asInstanceOf[LongHashedRelation]
     assert(!longRelation2.keyIsUnique)
     (0 until 100).foreach { i =>
       val rows = longRelation2.get(i).toArray
@@ -375,6 +360,45 @@ class HashedRelationSuite extends SharedSparkSession {
     assert(java.util.Arrays.equals(os.toByteArray, os2.toByteArray))
   }
 
+  test("SPARK-31511: Make BytesToBytesMap iterators thread-safe") {
+    val ser = sparkContext.env.serializer.newInstance()
+    val key = Seq(BoundReference(0, LongType, false))
+
+    val unsafeProj = UnsafeProjection.create(
+      Seq(BoundReference(0, LongType, false), BoundReference(1, IntegerType, true)))
+    val rows = (0 until 10000).map(i => unsafeProj(InternalRow(Int.int2long(i), i + 1)).copy())
+    val unsafeHashed = UnsafeHashedRelation(rows.iterator, key, 1, mm)
+
+    val os = new ByteArrayOutputStream()
+    val thread1 = new Thread {
+      override def run(): Unit = {
+        val out = new ObjectOutputStream(os)
+        unsafeHashed.asInstanceOf[UnsafeHashedRelation].writeExternal(out)
+        out.flush()
+      }
+    }
+
+    val thread2 = new Thread {
+      override def run(): Unit = {
+        val threadOut = new ObjectOutputStream(new ByteArrayOutputStream())
+        unsafeHashed.asInstanceOf[UnsafeHashedRelation].writeExternal(threadOut)
+        threadOut.flush()
+      }
+    }
+
+    thread1.start()
+    thread2.start()
+    thread1.join()
+    thread2.join()
+
+    val unsafeHashed2 = ser.deserialize[UnsafeHashedRelation](ser.serialize(unsafeHashed))
+    val os2 = new ByteArrayOutputStream()
+    val out2 = new ObjectOutputStream(os2)
+    unsafeHashed2.writeExternal(out2)
+    out2.flush()
+    assert(java.util.Arrays.equals(os.toByteArray, os2.toByteArray))
+  }
+
   // This test require 4G heap to run, should run it manually
   ignore("build HashedRelation that is larger than 1G") {
     val unsafeProj = UnsafeProjection.create(
@@ -403,7 +427,7 @@ class HashedRelationSuite extends SharedSparkSession {
   }
 
   // This test require 4G heap to run, should run it manually
-  test("build HashedRelation with more than 100 millions rows") {
+  ignore("build HashedRelation with more than 100 millions rows") {
     val unsafeProj = UnsafeProjection.create(
       Seq(BoundReference(0, IntegerType, false),
         BoundReference(1, StringType, true)))
@@ -594,6 +618,100 @@ class HashedRelationSuite extends SharedSparkSession {
       val key = HashJoin.extractKeyExprAt(keys, i)
       val proj = UnsafeProjection.create(key)
       assert(proj(packedKeys).get(0, dt) == -i - 1)
+    }
+  }
+
+  test("EmptyHashedRelation override methods behavior test") {
+    val buildKey = Seq(BoundReference(0, LongType, false))
+    val hashed = HashedRelation(Seq.empty[InternalRow].toIterator, buildKey, 1, mm)
+    assert(hashed == EmptyHashedRelation)
+
+    val key = InternalRow(1L)
+    assert(hashed.get(0L) == null)
+    assert(hashed.get(key) == null)
+    assert(hashed.getValue(0L) == null)
+    assert(hashed.getValue(key) == null)
+
+    assert(hashed.keys().isEmpty)
+    assert(hashed.keyIsUnique)
+    assert(hashed.estimatedSize == 0)
+  }
+
+  test("SPARK-32399: test methods related to key index") {
+    val schema = StructType(StructField("a", IntegerType, true) :: Nil)
+    val toUnsafe = UnsafeProjection.create(schema)
+    val key = Seq(BoundReference(0, IntegerType, true))
+    val row = Seq(BoundReference(0, IntegerType, true), BoundReference(1, IntegerType, true))
+    val unsafeProj = UnsafeProjection.create(row)
+    var rows = (0 until 100).map(i => {
+      val k = if (i % 10 == 0) null else i % 10
+      unsafeProj(InternalRow(k, i)).copy()
+    })
+    rows = unsafeProj(InternalRow(-1, -1)).copy() +: rows
+    val unsafeRelation = UnsafeHashedRelation(rows.iterator, key, 10, mm, allowsNullKey = true)
+    val keyIndexToKeyMap = new mutable.HashMap[Int, String]
+    val keyIndexToValueMap = new mutable.HashMap[Int, Seq[Int]]
+
+    // test getWithKeyIndex()
+    (0 until 10).foreach(i => {
+      val key = if (i == 0) InternalRow(null) else InternalRow(i)
+      val valuesWithKeyIndex = unsafeRelation.getWithKeyIndex(toUnsafe(key)).map(
+        v => (v.getKeyIndex, v.getValue.getInt(1))).toArray
+      val keyIndex = valuesWithKeyIndex.head._1
+      val actualValues = valuesWithKeyIndex.map(_._2)
+      val expectedValues = (0 until 10).map(j => j * 10 + i)
+      if (i == 0) {
+        keyIndexToKeyMap(keyIndex) = "null"
+      } else {
+        keyIndexToKeyMap(keyIndex) = i.toString
+      }
+      keyIndexToValueMap(keyIndex) = actualValues
+      // key index is non-negative
+      assert(keyIndex >= 0)
+      // values are expected
+      assert(actualValues.sortWith(_ < _) === expectedValues)
+    })
+    // key index is unique per key
+    val numUniqueKeyIndex = (0 until 10).flatMap(i => {
+      val key = if (i == 0) InternalRow(null) else InternalRow(i)
+      val keyIndex = unsafeRelation.getWithKeyIndex(toUnsafe(key)).map(_.getKeyIndex).toSeq
+      keyIndex
+    }).distinct.size
+    assert(numUniqueKeyIndex == 10)
+    // NULL for non-existing key
+    assert(unsafeRelation.getWithKeyIndex(toUnsafe(InternalRow(100))) == null)
+
+    // test getValueWithKeyIndex()
+    val valuesWithKeyIndex = unsafeRelation.getValueWithKeyIndex(toUnsafe(InternalRow(-1)))
+    val keyIndex = valuesWithKeyIndex.getKeyIndex
+    keyIndexToKeyMap(keyIndex) = "-1"
+    keyIndexToValueMap(keyIndex) = Seq(-1)
+    // key index is non-negative
+    assert(valuesWithKeyIndex.getKeyIndex >= 0)
+    // value is expected
+    assert(valuesWithKeyIndex.getValue.getInt(1) == -1)
+    // NULL for non-existing key
+    assert(unsafeRelation.getValueWithKeyIndex(toUnsafe(InternalRow(100))) == null)
+
+    // test valuesWithKeyIndex()
+    val keyIndexToRowMap = unsafeRelation.valuesWithKeyIndex().map(
+      v => (v.getKeyIndex, v.getValue.copy())).toSeq.groupBy(_._1)
+    assert(keyIndexToRowMap.size == 11)
+    keyIndexToRowMap.foreach {
+      case (keyIndex, row) =>
+        val expectedKey = keyIndexToKeyMap(keyIndex)
+        val expectedValues = keyIndexToValueMap(keyIndex)
+        // key index returned from valuesWithKeyIndex()
+        // should be the same as returned from getWithKeyIndex()
+        if (expectedKey == "null") {
+          assert(row.head._2.isNullAt(0))
+        } else {
+          assert(row.head._2.getInt(0).toString == expectedKey)
+        }
+        // values returned from valuesWithKeyIndex()
+        // should have same value and order as returned from getWithKeyIndex()
+        val actualValues = row.map(_._2.getInt(1))
+        assert(actualValues === expectedValues)
     }
   }
 }

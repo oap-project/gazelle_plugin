@@ -23,25 +23,9 @@ import org.apache.spark.SparkConf
 import org.apache.spark.sql.internal.SQLConf
 
 class SingleLevelAggregateHashMapSuite extends DataFrameAggregateSuite with BeforeAndAfter {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set(SQLConf.CODEGEN_FALLBACK.key, "false")
-      .set(SQLConf.ENABLE_TWOLEVEL_AGG_MAP.key, "false")
+  override protected def sparkConf: SparkConf = super.sparkConf
+    .set(SQLConf.CODEGEN_FALLBACK.key, "false")
+    .set(SQLConf.ENABLE_TWOLEVEL_AGG_MAP.key, "false")
 
   // adding some checking after each test is run, assuring that the configs are not changed
   // in test code
@@ -54,25 +38,9 @@ class SingleLevelAggregateHashMapSuite extends DataFrameAggregateSuite with Befo
 }
 
 class TwoLevelAggregateHashMapSuite extends DataFrameAggregateSuite with BeforeAndAfter {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set(SQLConf.CODEGEN_FALLBACK.key, "false")
-      .set(SQLConf.ENABLE_TWOLEVEL_AGG_MAP.key, "true")
+  override protected def sparkConf: SparkConf = super.sparkConf
+    .set(SQLConf.CODEGEN_FALLBACK.key, "false")
+    .set(SQLConf.ENABLE_TWOLEVEL_AGG_MAP.key, "true")
 
   // adding some checking after each test is run, assuring that the configs are not changed
   // in test code
@@ -88,25 +56,10 @@ class TwoLevelAggregateHashMapWithVectorizedMapSuite
   extends DataFrameAggregateSuite
   with BeforeAndAfter {
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set(SQLConf.CODEGEN_FALLBACK.key, "false")
-      .set(SQLConf.ENABLE_TWOLEVEL_AGG_MAP.key, "true")
-      .set(SQLConf.ENABLE_VECTORIZED_HASH_MAP.key, "true")
+  override protected def sparkConf: SparkConf = super.sparkConf
+    .set(SQLConf.CODEGEN_FALLBACK.key, "false")
+    .set(SQLConf.ENABLE_TWOLEVEL_AGG_MAP.key, "true")
+    .set(SQLConf.ENABLE_VECTORIZED_HASH_MAP.key, "true")
 
   // adding some checking after each test is run, assuring that the configs are not changed
   // in test code

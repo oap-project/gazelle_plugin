@@ -25,9 +25,8 @@ import java.sql.Timestamp
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit._
 
-import org.apache.spark.SparkConf
-
 import scala.collection.JavaConverters._
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.AnalysisException
 import org.apache.spark.sql.connector.read.streaming.{Offset, SparkDataStream}
@@ -36,29 +35,12 @@ import org.apache.spark.sql.execution.datasources.v2.StreamingDataSourceV2Relati
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.execution.streaming.continuous._
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.streaming.{StreamTest, StreamingQueryException}
+import org.apache.spark.sql.streaming.{StreamingQueryException, StreamTest}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 class TextSocketStreamSuite extends StreamTest with SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   override def afterEach(): Unit = {
     sqlContext.streams.active.foreach(_.stop())
@@ -110,7 +92,7 @@ class TextSocketStreamSuite extends StreamTest with SharedSparkSession {
     assert(ds.isInstanceOf[TextSocketSourceProvider], "Could not find socket source")
   }
 
-  ignore("basic usage") {
+  test("basic usage") {
     serverThread = new ServerThread()
     serverThread.start()
 
@@ -223,7 +205,7 @@ class TextSocketStreamSuite extends StreamTest with SharedSparkSession {
       "TextSocketSourceProvider source does not support user-specified schema"))
   }
 
-  ignore("input row metrics") {
+  test("input row metrics") {
     serverThread = new ServerThread()
     serverThread.start()
 
@@ -254,7 +236,7 @@ class TextSocketStreamSuite extends StreamTest with SharedSparkSession {
     }
   }
 
-  ignore("verify ServerThread only accepts the first connection") {
+  test("verify ServerThread only accepts the first connection") {
     serverThread = new ServerThread()
     serverThread.start()
 

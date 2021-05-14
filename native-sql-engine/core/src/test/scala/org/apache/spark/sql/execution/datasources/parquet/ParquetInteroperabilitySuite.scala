@@ -21,36 +21,17 @@ import java.io.File
 import java.time.ZoneOffset
 
 import org.apache.commons.io.FileUtils
-import org.apache.hadoop.fs.{FileSystem, Path, PathFilter}
+import org.apache.hadoop.fs.{Path, PathFilter}
 import org.apache.parquet.format.converter.ParquetMetadataConverter.NO_FILTER
 import org.apache.parquet.hadoop.ParquetFileReader
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName
-import org.apache.spark.SparkConf
+
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
 class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
-
   test("parquet files with different physical schemas but share the same logical schema") {
     import ParquetCompatibilityTest._
 
@@ -184,7 +165,7 @@ class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedS
               // the assumption on column stats, and also the end-to-end behavior.
 
               val hadoopConf = spark.sessionState.newHadoopConf()
-              val fs = FileSystem.get(hadoopConf)
+              val fs = new Path(tableDir.getAbsolutePath).getFileSystem(hadoopConf)
               val parts = fs.listStatus(new Path(tableDir.getAbsolutePath), new PathFilter {
                 override def accept(path: Path): Boolean = !path.getName.startsWith("_")
               })
@@ -202,7 +183,7 @@ class ParquetInteroperabilitySuite extends ParquetCompatibilityTest with SharedS
                 val oneBlockColumnMeta = oneBlockMeta.getColumns().get(0)
                 // This is the important assert.  Column stats are written, but they are ignored
                 // when the data is read back as mentioned above, b/c int96 is unsigned.  This
-                // assert makes sure this holds even if we change parquet versions (if eg. there
+                // assert makes sure this holds even if we change parquet versions (if e.g. there
                 // were ever statistics even on unsigned columns).
                 assert(!oneBlockColumnMeta.getStatistics.hasNonNullValue)
               }

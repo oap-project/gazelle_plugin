@@ -20,10 +20,12 @@ package org.apache.spark.sql.sources
 import java.io.File
 import java.sql.Timestamp
 
-import org.apache.hadoop.mapreduce.TaskAttemptContext
-import org.apache.spark.{SparkConf, TestUtils}
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.mapreduce.{JobContext, TaskAttemptContext}
+
+import org.apache.spark.TestUtils
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{QueryTest, Row}
+import org.apache.spark.sql.{AnalysisException, QueryTest, Row}
 import org.apache.spark.sql.catalyst.catalog.ExternalCatalogUtils
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.execution.datasources.SQLHadoopMapReduceCommitProtocol
@@ -44,24 +46,6 @@ private class OnlyDetectCustomPathFileCommitProtocol(jobId: String, path: String
 
 class PartitionedWriteSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   test("write many partitions") {
     val path = Utils.createTempDir()
@@ -172,5 +156,57 @@ class PartitionedWriteSuite extends QueryTest with SharedSparkSession {
         checkPartitionValues(files.head, "2016-12-01 08:00:00")
       }
     }
+  }
+
+  test("SPARK-31968: duplicate partition columns check") {
+    withTempPath { f =>
+      val e = intercept[AnalysisException](
+        Seq((3, 2)).toDF("a", "b").write.partitionBy("b", "b").csv(f.getAbsolutePath))
+      assert(e.getMessage.contains("Found duplicate column(s) b, b: `b`"))
+    }
+  }
+
+  test("SPARK-27194 SPARK-29302: Fix commit collision in dynamic partition overwrite mode") {
+    withSQLConf(SQLConf.PARTITION_OVERWRITE_MODE.key ->
+      SQLConf.PartitionOverwriteMode.DYNAMIC.toString,
+      SQLConf.FILE_COMMIT_PROTOCOL_CLASS.key ->
+        classOf[PartitionFileExistCommitProtocol].getName) {
+      withTempDir { d =>
+        withTable("t") {
+          sql(
+            s"""
+               | create table t(c1 int, p1 int) using parquet partitioned by (p1)
+               | location '${d.getAbsolutePath}'
+            """.stripMargin)
+
+          val df = Seq((1, 2)).toDF("c1", "p1")
+          df.write
+            .partitionBy("p1")
+            .mode("overwrite")
+            .saveAsTable("t")
+          checkAnswer(sql("select * from t"), df)
+        }
+      }
+    }
+  }
+}
+
+/**
+ * A file commit protocol with pre-created partition file. when try to overwrite partition dir
+ * in dynamic partition mode, FileAlreadyExist exception would raise without SPARK-27194
+ */
+private class PartitionFileExistCommitProtocol(
+    jobId: String,
+    path: String,
+    dynamicPartitionOverwrite: Boolean)
+  extends SQLHadoopMapReduceCommitProtocol(jobId, path, dynamicPartitionOverwrite) {
+  override def setupJob(jobContext: JobContext): Unit = {
+    super.setupJob(jobContext)
+    val stagingDir = new File(new Path(path).toUri.getPath, s".spark-staging-$jobId")
+    stagingDir.mkdirs()
+    val stagingPartDir = new File(stagingDir, "p1=2")
+    stagingPartDir.mkdirs()
+    val conflictTaskFile = new File(stagingPartDir, s"part-00000-$jobId.c000.snappy.parquet")
+    conflictTaskFile.createNewFile()
   }
 }

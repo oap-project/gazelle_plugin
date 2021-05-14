@@ -58,7 +58,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
 
   protected def checkQueryExecution(df: DataFrame): Unit
 
-  ignore("unpartitioned writing and batch reading") {
+  test("unpartitioned writing and batch reading") {
     val inputData = MemoryStream[Int]
     val df = inputData.toDF()
 
@@ -90,7 +90,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  ignore("SPARK-21167: encode and decode path correctly") {
+  test("SPARK-21167: encode and decode path correctly") {
     val inputData = MemoryStream[String]
     val ds = inputData.toDS()
 
@@ -119,7 +119,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  ignore("partitioned writing and batch reading") {
+  test("partitioned writing and batch reading") {
     val inputData = MemoryStream[Int]
     val ds = inputData.toDS()
 
@@ -162,7 +162,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  ignore("partitioned writing and batch reading with 'basePath'") {
+  test("partitioned writing and batch reading with 'basePath'") {
     withTempDir { outputDir =>
       withTempDir { checkpointDir =>
         val outputPath = outputDir.getAbsolutePath
@@ -202,7 +202,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
   // This tests whether FileStreamSink works with aggregations. Specifically, it tests
   // whether the correct streaming QueryExecution (i.e. IncrementalExecution) is used to
   // to execute the trigger for writing data to file sink. See SPARK-18440 for more details.
-  ignore("writing with aggregation") {
+  test("writing with aggregation") {
 
     // Since FileStreamSink currently only supports append mode, we will test FileStreamSink
     // with aggregations using event time windows and watermark, which allows
@@ -210,7 +210,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     val inputData = MemoryStream[Long]
     val inputDF = inputData.toDF.toDF("time")
     val outputDf = inputDF
-      .selectExpr("CAST(time AS timestamp) AS timestamp")
+      .selectExpr("timestamp_seconds(time) AS timestamp")
       .withWatermark("timestamp", "10 seconds")
       .groupBy(window($"timestamp", "5 seconds"))
       .count()
@@ -428,7 +428,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  ignore("special characters in output path") {
+  test("special characters in output path") {
     withTempDir { tempDir =>
       val checkpointDir = new File(tempDir, "chk")
       val outputDir = new File(tempDir, "output @#output")
@@ -526,7 +526,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  ignore("Handle FileStreamSink metadata correctly for empty partition") {
+  test("Handle FileStreamSink metadata correctly for empty partition") {
     Seq("parquet", "orc", "text", "json").foreach { format =>
       val inputData = MemoryStream[String]
       val df = inputData.toDF()
@@ -555,10 +555,12 @@ abstract class FileStreamSinkSuite extends StreamTest {
             }
           }
 
-          val fs = new Path(outputDir.getCanonicalPath).getFileSystem(
-            spark.sessionState.newHadoopConf())
-          val sinkLog = new FileStreamSinkLog(FileStreamSinkLog.VERSION, spark,
-            outputDir.getCanonicalPath)
+          val outputDirPath = new Path(outputDir.getCanonicalPath)
+          val hadoopConf = spark.sessionState.newHadoopConf()
+          val fs = outputDirPath.getFileSystem(hadoopConf)
+          val logPath = FileStreamSink.getMetadataLogPath(fs, outputDirPath, conf)
+
+          val sinkLog = new FileStreamSinkLog(FileStreamSinkLog.VERSION, spark, logPath.toString)
 
           val allFiles = sinkLog.allFiles()
           // only files from non-empty partition should be logged
@@ -648,23 +650,9 @@ class FileStreamSinkV1Suite extends FileStreamSinkSuite {
 }
 
 class FileStreamSinkV2Suite extends FileStreamSinkSuite {
-
   override protected def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
+    super
+      .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
   override def checkQueryExecution(df: DataFrame): Unit = {

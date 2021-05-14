@@ -19,6 +19,7 @@ package org.apache.spark.sql.streaming
 
 import java.io.{File, InterruptedIOException, IOException, UncheckedIOException}
 import java.nio.channels.ClosedByInterruptException
+import java.time.ZoneId
 import java.util.concurrent.{CountDownLatch, ExecutionException, TimeUnit}
 
 import scala.concurrent.TimeoutException
@@ -34,7 +35,7 @@ import org.apache.spark.{SparkConf, SparkContext, TaskContext, TestUtils}
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.plans.logical.Range
-import org.apache.spark.sql.catalyst.streaming.InternalOutputModes
+import org.apache.spark.sql.catalyst.streaming.{InternalOutputModes, StreamingRelationV2}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.execution.{LocalLimitExec, SimpleMode, SparkPlan}
 import org.apache.spark.sql.execution.command.ExplainCommand
@@ -45,31 +46,12 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.StreamSourceProvider
 import org.apache.spark.sql.streaming.util.{BlockOnStopSourceProvider, StreamManualClock}
-import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
+import org.apache.spark.sql.types.{IntegerType, LongType, StructField, StructType}
 import org.apache.spark.util.Utils
 
 class StreamSuite extends StreamTest {
 
   import testImplicits._
-
-  override protected def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
-      .set("spark.redaction.string.regex", "file:/[\\w_]+")
 
   test("map with recovery") {
     val inputData = MemoryStream[Int]
@@ -458,8 +440,8 @@ class StreamSuite extends StreamTest {
     assert(OutputMode.Update === InternalOutputModes.Update)
   }
 
-  //override protected def sparkConf: SparkConf = super.sparkConf
-  //  .set("spark.redaction.string.regex", "file:/[\\w_]+")
+  override protected def sparkConf: SparkConf = super.sparkConf
+    .set("spark.redaction.string.regex", "file:/[\\w_]+")
 
   test("explain - redaction") {
     val replacement = "*********"
@@ -735,7 +717,7 @@ class StreamSuite extends StreamTest {
       CheckAnswer((1, 2), (2, 2), (3, 2)))
   }
 
-  test("recover from a Spark v2.1 checkpoint") {
+  testQuietly("recover from a Spark v2.1 checkpoint") {
     var inputData: MemoryStream[Int] = null
     var query: DataStreamWriter[Row] = null
 
@@ -1082,13 +1064,13 @@ class StreamSuite extends StreamTest {
   }
 
   test("SPARK-30657: streaming limit should not apply on limits on state subplans") {
-    val streanData = MemoryStream[Int]
-    val streamingDF = streanData.toDF().toDF("value")
+    val streamData = MemoryStream[Int]
+    val streamingDF = streamData.toDF().toDF("value")
     val staticDF = spark.createDataset(Seq(1)).toDF("value").orderBy("value")
     testStream(streamingDF.join(staticDF.limit(1), "value"))(
-      AddData(streanData, 1, 2, 3),
+      AddData(streamData, 1, 2, 3),
       CheckAnswer(Row(1)),
-      AddData(streanData, 1, 3, 5),
+      AddData(streamData, 1, 3, 5),
       CheckAnswer(Row(1), Row(1)))
   }
 
@@ -1152,7 +1134,7 @@ class StreamSuite extends StreamTest {
     verifyLocalLimit(inputDF.toDF("value").join(staticDF, "value"), expectStreamingLimit = false)
 
     verifyLocalLimit(
-      inputDF.groupBy().count().limit(1),
+      inputDF.groupBy("value").count().limit(1),
       expectStreamingLimit = false,
       outputMode = OutputMode.Complete())
   }
@@ -1210,12 +1192,12 @@ class StreamSuite extends StreamTest {
     }
   }
 
-  ignore("SPARK-26379 Structured Streaming - Exception on adding current_timestamp " +
+  test("SPARK-26379 Structured Streaming - Exception on adding current_timestamp " +
     " to Dataset - use v2 sink") {
     testCurrentTimestampOnStreamingQuery()
   }
 
-  ignore("SPARK-26379 Structured Streaming - Exception on adding current_timestamp " +
+  test("SPARK-26379 Structured Streaming - Exception on adding current_timestamp " +
     " to Dataset - use v1 sink") {
     testCurrentTimestampOnStreamingQuery()
   }
@@ -1237,7 +1219,8 @@ class StreamSuite extends StreamTest {
     }
 
     var lastTimestamp = System.currentTimeMillis()
-    val currentDate = DateTimeUtils.millisToDays(lastTimestamp)
+    val currentDate = DateTimeUtils.microsToDays(
+      DateTimeUtils.millisToMicros(lastTimestamp), ZoneId.systemDefault)
     testStream(df) (
       AddData(input, 1),
       CheckLastBatch { rows: Seq[Row] =>
@@ -1284,7 +1267,7 @@ class StreamSuite extends StreamTest {
 }
 
 abstract class FakeSource extends StreamSourceProvider {
-  private val fakeSchema = StructType(StructField("a", IntegerType) :: Nil)
+  private val fakeSchema = StructType(StructField("a", LongType) :: Nil)
 
   override def sourceSchema(
       spark: SQLContext,
@@ -1306,7 +1289,7 @@ class FakeDefaultSource extends FakeSource {
     new Source {
       private var offset = -1L
 
-      override def schema: StructType = StructType(StructField("a", IntegerType) :: Nil)
+      override def schema: StructType = StructType(StructField("a", LongType) :: Nil)
 
       override def getOffset: Option[Offset] = {
         if (offset >= 10) {

@@ -17,10 +17,9 @@
 
 package org.apache.spark.sql.execution.streaming.sources
 
-import org.apache.spark.SparkConf
-
 import scala.collection.mutable
 import scala.language.implicitConversions
+
 import org.apache.spark.sql._
 import org.apache.spark.sql.execution.streaming.MemoryStream
 import org.apache.spark.sql.functions._
@@ -30,23 +29,6 @@ case class KV(key: Int, value: Long)
 
 class ForeachBatchSinkSuite extends StreamTest {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("foreachBatch with non-stateful query") {
     val mem = MemoryStream[Int]
@@ -61,7 +43,7 @@ class ForeachBatchSinkSuite extends StreamTest {
       check(in = 5, 6, 7)(out = 7, 8, 9))
   }
 
-  ignore("foreachBatch with stateful query in update mode") {
+  test("foreachBatch with stateful query in update mode") {
     val mem = MemoryStream[Int]
     val ds = mem.toDF()
       .select($"value" % 2 as "key")
@@ -79,7 +61,7 @@ class ForeachBatchSinkSuite extends StreamTest {
       check(in = 2, 3)(out = (0, 2L), (1, 2L)))
   }
 
-  ignore("foreachBatch with stateful query in complete mode") {
+  test("foreachBatch with stateful query in complete mode") {
     val mem = MemoryStream[Int]
     val ds = mem.toDF()
       .select($"value" % 2 as "key")

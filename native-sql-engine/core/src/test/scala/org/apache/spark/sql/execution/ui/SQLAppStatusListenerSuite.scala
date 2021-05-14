@@ -30,6 +30,7 @@ import org.apache.spark.executor.ExecutorMetrics
 import org.apache.spark.internal.config
 import org.apache.spark.internal.config.Status._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.resource.ResourceProfile
 import org.apache.spark.scheduler._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
@@ -53,23 +54,9 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
 
   import testImplicits._
 
-  override protected def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set(LIVE_ENTITY_UPDATE_PERIOD, 0L).set(ASYNC_TRACKING_ENABLED, false)
+  override protected def sparkConf = {
+    super.sparkConf.set(LIVE_ENTITY_UPDATE_PERIOD, 0L).set(ASYNC_TRACKING_ENABLED, false)
+  }
 
   private var kvstore: ElementTrackingStore = _
 
@@ -101,7 +88,8 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       name = "",
       rddInfos = Nil,
       parentIds = Nil,
-      details = "")
+      details = "",
+      resourceProfileId = ResourceProfile.DEFAULT_RESOURCE_PROFILE_ID)
   }
 
   private def createTaskInfo(
@@ -221,21 +209,24 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       (1L, 0, 0, createAccumulatorInfos(accumulatorUpdates))
     )))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 2))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 2).toMap)
 
     // Driver accumulator updates don't belong to this execution should be filtered and no
     // exception will be thrown.
     listener.onOtherEvent(SparkListenerDriverAccumUpdates(0, Seq((999L, 2L))))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 2))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 2).toMap)
 
     listener.onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate("", Seq(
       // (task id, stage id, stage attempt, accum updates)
       (0L, 0, 0, createAccumulatorInfos(accumulatorUpdates)),
-      (1L, 0, 0, createAccumulatorInfos(accumulatorUpdates.mapValues(_ * 2)))
+      (1L, 0, 0, createAccumulatorInfos(accumulatorUpdates.mapValues(_ * 2).toMap))
     )))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 3))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 3).toMap)
 
     // Retrying a stage should reset the metrics
     listener.onStageSubmitted(SparkListenerStageSubmitted(createStageInfo(0, 1)))
@@ -248,7 +239,8 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       (1L, 0, 1, createAccumulatorInfos(accumulatorUpdates))
     )))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 2))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 2).toMap)
 
     // Ignore the task end for the first attempt
     listener.onTaskEnd(SparkListenerTaskEnd(
@@ -256,11 +248,12 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       stageAttemptId = 0,
       taskType = "",
       reason = null,
-      createTaskInfo(0, 0, accums = accumulatorUpdates.mapValues(_ * 100)),
+      createTaskInfo(0, 0, accums = accumulatorUpdates.mapValues(_ * 100).toMap),
       new ExecutorMetrics,
       null))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 2))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 2).toMap)
 
     // Finish two tasks
     listener.onTaskEnd(SparkListenerTaskEnd(
@@ -268,7 +261,7 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       stageAttemptId = 1,
       taskType = "",
       reason = null,
-      createTaskInfo(0, 0, accums = accumulatorUpdates.mapValues(_ * 2)),
+      createTaskInfo(0, 0, accums = accumulatorUpdates.mapValues(_ * 2).toMap),
       new ExecutorMetrics,
       null))
     listener.onTaskEnd(SparkListenerTaskEnd(
@@ -276,11 +269,12 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       stageAttemptId = 1,
       taskType = "",
       reason = null,
-      createTaskInfo(1, 0, accums = accumulatorUpdates.mapValues(_ * 3)),
+      createTaskInfo(1, 0, accums = accumulatorUpdates.mapValues(_ * 3).toMap),
       new ExecutorMetrics,
       null))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 5))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 5).toMap)
 
     // Summit a new stage
     listener.onStageSubmitted(SparkListenerStageSubmitted(createStageInfo(1, 0)))
@@ -293,7 +287,8 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       (1L, 1, 0, createAccumulatorInfos(accumulatorUpdates))
     )))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 7))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 7).toMap)
 
     // Finish two tasks
     listener.onTaskEnd(SparkListenerTaskEnd(
@@ -301,7 +296,7 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       stageAttemptId = 0,
       taskType = "",
       reason = null,
-      createTaskInfo(0, 0, accums = accumulatorUpdates.mapValues(_ * 3)),
+      createTaskInfo(0, 0, accums = accumulatorUpdates.mapValues(_ * 3).toMap),
       new ExecutorMetrics,
       null))
     listener.onTaskEnd(SparkListenerTaskEnd(
@@ -309,11 +304,12 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
       stageAttemptId = 0,
       taskType = "",
       reason = null,
-      createTaskInfo(1, 0, accums = accumulatorUpdates.mapValues(_ * 3)),
+      createTaskInfo(1, 0, accums = accumulatorUpdates.mapValues(_ * 3).toMap),
       new ExecutorMetrics,
       null))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 11))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 11).toMap)
 
     assertJobs(statusStore.execution(executionId), running = Seq(0))
 
@@ -327,7 +323,45 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
 
     assertJobs(statusStore.execution(executionId), completed = Seq(0))
 
-    checkAnswer(statusStore.executionMetrics(executionId), accumulatorUpdates.mapValues(_ * 11))
+    checkAnswer(statusStore.executionMetrics(executionId),
+      accumulatorUpdates.mapValues(_ * 11).toMap)
+  }
+
+  test("control a plan explain mode in listeners via SQLConf") {
+
+    def checkPlanDescription(mode: String, expected: Seq[String]): Unit = {
+      var checkDone = false
+      val listener = new SparkListener {
+        override def onOtherEvent(event: SparkListenerEvent): Unit = {
+          event match {
+            case SparkListenerSQLExecutionStart(_, _, _, planDescription, _, _) =>
+              assert(expected.forall(planDescription.contains))
+              checkDone = true
+            case _ => // ignore other events
+          }
+        }
+      }
+      spark.sparkContext.addSparkListener(listener)
+      withSQLConf(SQLConf.UI_EXPLAIN_MODE.key -> mode) {
+        createTestDataFrame.collect()
+        try {
+          spark.sparkContext.listenerBus.waitUntilEmpty()
+          assert(checkDone)
+        } finally {
+          spark.sparkContext.removeSparkListener(listener)
+        }
+      }
+    }
+
+    Seq(("simple", Seq("== Physical Plan ==")),
+        ("extended", Seq("== Parsed Logical Plan ==", "== Analyzed Logical Plan ==",
+          "== Optimized Logical Plan ==", "== Physical Plan ==")),
+        ("codegen", Seq("WholeStageCodegen subtrees")),
+        ("cost", Seq("== Optimized Logical Plan ==", "Statistics(sizeInBytes")),
+        ("formatted", Seq("== Physical Plan ==", "Output", "Arguments"))).foreach {
+      case (mode, expected) =>
+        checkPlanDescription(mode, expected)
+    }
   }
 
   test("onExecutionEnd happens before onJobEnd(JobSucceeded)") {
@@ -644,6 +678,138 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
     val df = createTestDataFrame.select(count("*"))
     val sparkPlanInfo = SparkPlanInfo.fromSparkPlan(df.queryExecution.executedPlan)
     assert(sparkPlanInfo.nodeName === "WholeStageCodegen (2)")
+  }
+
+  ignore("SPARK-32615,SPARK-33016: SQLMetrics validation after sparkPlanInfo updated in AQE") {
+    val statusStore = createStatusStore()
+    val listener = statusStore.listener.get
+
+    val executionId = 0
+    val df = createTestDataFrame
+
+    // oldPlan SQLMetrics
+    // SQLPlanMetric(duration,0,timing)
+    // SQLPlanMetric(number of output rows,1,sum)
+    // SQLPlanMetric(number of output rows,2,sum)
+    val oldPlan = SparkPlanInfo.fromSparkPlan(df.queryExecution.executedPlan)
+    val oldAccumulatorIds =
+      SparkPlanGraph(oldPlan)
+        .allNodes.flatMap(_.metrics.map(_.accumulatorId))
+
+    listener.onOtherEvent(SparkListenerSQLExecutionStart(
+      executionId,
+      "test",
+      "test",
+      df.queryExecution.toString,
+      oldPlan,
+      System.currentTimeMillis()))
+
+    listener.onJobStart(SparkListenerJobStart(
+      jobId = 0,
+      time = System.currentTimeMillis(),
+      stageInfos = Seq(createStageInfo(0, 0)),
+      createProperties(executionId)))
+
+    listener.onStageSubmitted(SparkListenerStageSubmitted(createStageInfo(0, 0)))
+    listener.onTaskStart(SparkListenerTaskStart(0, 0, createTaskInfo(0, 0)))
+
+    assert(statusStore.executionMetrics(executionId).isEmpty)
+
+    // update old metrics with Id 1 & 2, since 0 is timing metrics,
+    // timing metrics has a complicated string presentation so we don't test it here.
+    val oldMetricsValueMap = oldAccumulatorIds.sorted.tail.map(id => (id, 100L)).toMap
+    listener.onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate("", Seq(
+      (0L, 0, 0, createAccumulatorInfos(oldMetricsValueMap))
+    )))
+
+    assert(statusStore.executionMetrics(executionId).size == 2)
+    statusStore.executionMetrics(executionId).foreach { m =>
+      assert(m._2 == "100")
+    }
+
+    listener.onTaskEnd(SparkListenerTaskEnd(
+      stageId = 0,
+      stageAttemptId = 0,
+      taskType = "",
+      reason = null,
+      createTaskInfo(0, 0),
+      new ExecutorMetrics,
+      null))
+
+    listener.onStageCompleted(SparkListenerStageCompleted(createStageInfo(0, 0)))
+
+    listener.onJobEnd(SparkListenerJobEnd(
+      jobId = 0,
+      time = System.currentTimeMillis(),
+      JobSucceeded
+    ))
+
+    val df2 = createTestDataFrame.filter("_2 > 2")
+    // newPlan SQLMetrics
+    // SQLPlanMetric(duration,3,timing)
+    // SQLPlanMetric(number of output rows,4,sum)
+    // SQLPlanMetric(number of output rows,5,sum)
+    val newPlan = SparkPlanInfo.fromSparkPlan(df2.queryExecution.executedPlan)
+    val newAccumulatorIds =
+      SparkPlanGraph(newPlan)
+        .allNodes.flatMap(_.metrics.map(_.accumulatorId))
+
+    // Assume that AQE update sparkPlanInfo with newPlan
+    // ExecutionMetrics will be appended using newPlan's SQLMetrics
+    listener.onOtherEvent(SparkListenerSQLAdaptiveExecutionUpdate(
+      executionId,
+      "test",
+      newPlan))
+
+    listener.onJobStart(SparkListenerJobStart(
+      jobId = 1,
+      time = System.currentTimeMillis(),
+      stageInfos = Seq(createStageInfo(1, 0)),
+      createProperties(executionId)))
+
+    listener.onStageSubmitted(SparkListenerStageSubmitted(createStageInfo(1, 0)))
+    listener.onTaskStart(SparkListenerTaskStart(1, 0, createTaskInfo(0, 0)))
+
+    // historical metrics will be kept despite of the newPlan updated.
+    assert(statusStore.executionMetrics(executionId).size == 2)
+
+    // update new metrics with Id 4 & 5, since 3 is timing metrics,
+    // timing metrics has a complicated string presentation so we don't test it here.
+    val newMetricsValueMap = newAccumulatorIds.sorted.tail.map(id => (id, 500L)).toMap
+    listener.onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate("", Seq(
+      (0L, 1, 0, createAccumulatorInfos(newMetricsValueMap))
+    )))
+
+    assert(statusStore.executionMetrics(executionId).size == 4)
+    statusStore.executionMetrics(executionId).foreach { m =>
+      assert(m._2 == "100" || m._2 == "500")
+    }
+
+    listener.onTaskEnd(SparkListenerTaskEnd(
+      stageId = 1,
+      stageAttemptId = 0,
+      taskType = "",
+      reason = null,
+      createTaskInfo(0, 0),
+      new ExecutorMetrics,
+      null))
+
+    listener.onStageCompleted(SparkListenerStageCompleted(createStageInfo(1, 0)))
+
+    listener.onJobEnd(SparkListenerJobEnd(
+      jobId = 1,
+      time = System.currentTimeMillis(),
+      JobSucceeded
+    ))
+
+    // aggregateMetrics should contains all metrics from job 0 and job 1
+    val aggregateMetrics = listener.liveExecutionMetrics(executionId)
+    if (aggregateMetrics.isDefined) {
+      assert(aggregateMetrics.get.keySet.size == 4)
+    }
+
+    listener.onOtherEvent(SparkListenerSQLExecutionEnd(
+      executionId, System.currentTimeMillis()))
   }
 }
 

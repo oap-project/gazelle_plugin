@@ -32,6 +32,7 @@ import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.window.WindowExec
 
 // Disable AQE because AdaptiveSparkPlanExec does not have a logical plan link
+@deprecated("This test suite is not suitable for native sql engine.", "Mo Rui")
 class LogicalPlanTagInSparkPlanSuite extends TPCDSQuerySuite with DisableAdaptiveExecutionSuite {
 
   override protected def checkGeneratedCode(

@@ -17,14 +17,12 @@
 
 package org.apache.spark.sql.execution
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.{Dataset, QueryTest, Row, SaveMode}
 import org.apache.spark.sql.catalyst.expressions.codegen.{ByteCodeStats, CodeAndComment, CodeGenerator}
 import org.apache.spark.sql.execution.adaptive.DisableAdaptiveExecutionSuite
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
-import org.apache.spark.sql.execution.joins.BroadcastHashJoinExec
-import org.apache.spark.sql.execution.joins.SortMergeJoinExec
+import org.apache.spark.sql.execution.joins.{BroadcastHashJoinExec, ShuffledHashJoinExec, SortMergeJoinExec}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
@@ -35,23 +33,6 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
   with DisableAdaptiveExecutionSuite {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("range/filter should be combined") {
     val df = spark.range(10).filter("id = 1").selectExpr("id + 1")
@@ -78,21 +59,43 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     assert(df.collect() === Array(Row(0, 1), Row(2, 1), Row(4, 1)))
   }
 
-  test("BroadcastHashJoin should be included in WholeStageCodegen") {
+  ignore("BroadcastHashJoin should be included in WholeStageCodegen") {
     val rdd = spark.sparkContext.makeRDD(Seq(Row(1, "1"), Row(1, "1"), Row(2, "2")))
     val schema = new StructType().add("k", IntegerType).add("v", StringType)
     val smallDF = spark.createDataFrame(rdd, schema)
     val df = spark.range(10).join(broadcast(smallDF), col("k") === col("id"))
-    // Rui: ignored plan check
-    /*
     assert(df.queryExecution.executedPlan.find(p =>
       p.isInstanceOf[WholeStageCodegenExec] &&
         p.asInstanceOf[WholeStageCodegenExec].child.isInstanceOf[BroadcastHashJoinExec]).isDefined)
-    */
     assert(df.collect() === Array(Row(1, 1, "1"), Row(1, 1, "1"), Row(2, 2, "2")))
   }
 
-  test("Sort should be included in WholeStageCodegen") {
+  ignore("ShuffledHashJoin should be included in WholeStageCodegen") {
+    withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "30",
+        SQLConf.SHUFFLE_PARTITIONS.key -> "2",
+        SQLConf.PREFER_SORTMERGEJOIN.key -> "false") {
+      val df1 = spark.range(5).select($"id".as("k1"))
+      val df2 = spark.range(15).select($"id".as("k2"))
+      val df3 = spark.range(6).select($"id".as("k3"))
+
+      // test one shuffled hash join
+      val oneJoinDF = df1.join(df2, $"k1" === $"k2")
+      assert(oneJoinDF.queryExecution.executedPlan.collect {
+        case WholeStageCodegenExec(_ : ShuffledHashJoinExec) => true
+      }.size === 1)
+      checkAnswer(oneJoinDF, Seq(Row(0, 0), Row(1, 1), Row(2, 2), Row(3, 3), Row(4, 4)))
+
+      // test two shuffled hash joins
+      val twoJoinsDF = df1.join(df2, $"k1" === $"k2").join(df3, $"k1" === $"k3")
+      assert(twoJoinsDF.queryExecution.executedPlan.collect {
+        case WholeStageCodegenExec(_ : ShuffledHashJoinExec) => true
+      }.size === 2)
+      checkAnswer(twoJoinsDF,
+        Seq(Row(0, 0, 0), Row(1, 1, 1), Row(2, 2, 2), Row(3, 3, 3), Row(4, 4, 4)))
+    }
+  }
+
+  ignore("Sort should be included in WholeStageCodegen") {
     val df = spark.range(3, 0, -1).toDF().sort(col("id"))
     val plan = df.queryExecution.executedPlan
     assert(plan.find(p =>
@@ -130,7 +133,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     assert(ds.collect() === Array(0, 6))
   }
 
-  test("cache for primitive type should be in WholeStageCodegen with InMemoryTableScanExec") {
+  ignore("cache for primitive type should be in WholeStageCodegen with InMemoryTableScanExec") {
     import testImplicits._
 
     val dsInt = spark.range(3).cache()
@@ -322,7 +325,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     }
   }
 
-  test("SPARK-23598: Codegen working for lots of aggregation operations without runtime errors") {
+  ignore("SPARK-23598: Codegen working for lots of aggregation operations without runtime errors") {
     withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
       var df = Seq((8, "bat"), (15, "mouse"), (5, "horse")).toDF("age", "name")
       for (i <- 0 until 70) {
@@ -352,7 +355,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     checkAnswer(df, Seq(Row(1, 3), Row(2, 3)))
   }
 
-  test("SPARK-26572: evaluate non-deterministic expressions for aggregate results") {
+  ignore("SPARK-26572: evaluate non-deterministic expressions for aggregate results") {
     withSQLConf(
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> Long.MaxValue.toString,
       SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
@@ -361,11 +364,10 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
       // BroadcastHashJoinExec with a HashAggregateExec child containing no aggregate expressions
       val distinctWithId = baseTable.distinct().withColumn("id", monotonically_increasing_id())
         .join(baseTable, "idx")
-//      assert(distinctWithId.queryExecution.executedPlan.collectFirst {
-//        case WholeStageCodegenExec(
-//        // Rui: different plan
-//          ProjectExec(_, BroadcastHashJoinExec(_, _, _, _, _, _: HashAggregateExec, _))) => true
-//      }.isDefined)
+      assert(distinctWithId.queryExecution.executedPlan.collectFirst {
+        case WholeStageCodegenExec(
+          ProjectExec(_, BroadcastHashJoinExec(_, _, _, _, _, _: HashAggregateExec, _, _))) => true
+      }.isDefined)
       checkAnswer(distinctWithId, Seq(Row(1, 0), Row(1, 0)))
 
       // BroadcastHashJoinExec with a HashAggregateExec child containing a Final mode aggregate
@@ -373,10 +375,10 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
       val groupByWithId =
         baseTable.groupBy("idx").sum().withColumn("id", monotonically_increasing_id())
         .join(baseTable, "idx")
-//      assert(groupByWithId.queryExecution.executedPlan.collectFirst {
-//        case WholeStageCodegenExec(
-//          ProjectExec(_, BroadcastHashJoinExec(_, _, _, _, _, _: HashAggregateExec, _))) => true
-//      }.isDefined)
+      assert(groupByWithId.queryExecution.executedPlan.collectFirst {
+        case WholeStageCodegenExec(
+          ProjectExec(_, BroadcastHashJoinExec(_, _, _, _, _, _: HashAggregateExec, _, _))) => true
+      }.isDefined)
       checkAnswer(groupByWithId, Seq(Row(1, 2, 0), Row(1, 2, 0)))
     }
   }
@@ -396,15 +398,15 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     // Case2: The parent of a LocalTableScanExec supports WholeStageCodegen.
     // In this case, the LocalTableScanExec should be within a WholeStageCodegen domain
     // and no more InputAdapter is inserted as the direct parent of the LocalTableScanExec.
-    val aggedDF = Seq(1, 2, 3).toDF.groupBy("value").sum()
-    val executedPlan = aggedDF.queryExecution.executedPlan
+    val aggregatedDF = Seq(1, 2, 3).toDF.groupBy("value").sum()
+    val executedPlan = aggregatedDF.queryExecution.executedPlan
 
     // HashAggregateExec supports WholeStageCodegen and it's the parent of
     // LocalTableScanExec so LocalTableScanExec should be within a WholeStageCodegen domain.
     assert(
       executedPlan.find {
         case WholeStageCodegenExec(
-          HashAggregateExec(_, _, _, _, _, _, _: LocalTableScanExec)) => false
+          HashAggregateExec(_, _, _, _, _, _, _: LocalTableScanExec)) => true
         case _ => false
       }.isDefined,
       "LocalTableScanExec should be within a WholeStageCodegen domain.")

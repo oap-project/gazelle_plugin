@@ -20,34 +20,19 @@ package org.apache.spark.sql.execution.streaming.sources
 import java.util.concurrent.ConcurrentLinkedQueue
 
 import scala.collection.mutable
+
 import org.scalatest.BeforeAndAfter
-import org.apache.spark.{SparkConf, SparkException}
+
+import org.apache.spark.SparkException
 import org.apache.spark.sql.ForeachWriter
 import org.apache.spark.sql.execution.streaming.MemoryStream
-import org.apache.spark.sql.functions.{count, window}
-import org.apache.spark.sql.streaming.{OutputMode, StreamTest, StreamingQueryException}
+import org.apache.spark.sql.functions.{count, timestamp_seconds, window}
+import org.apache.spark.sql.streaming.{OutputMode, StreamingQueryException, StreamTest}
 import org.apache.spark.sql.test.SharedSparkSession
 
 class ForeachWriterSuite extends StreamTest with SharedSparkSession with BeforeAndAfter {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   after {
     sqlContext.streams.active.foreach(_.stop())
@@ -174,11 +159,11 @@ class ForeachWriterSuite extends StreamTest with SharedSparkSession with BeforeA
     }
   }
 
-  ignore("foreach with watermark: complete") {
+  test("foreach with watermark: complete") {
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
@@ -208,11 +193,11 @@ class ForeachWriterSuite extends StreamTest with SharedSparkSession with BeforeA
     }
   }
 
-  ignore("foreach with watermark: append") {
+  test("foreach with watermark: append") {
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
@@ -348,6 +333,6 @@ class TestForeachWriter extends ForeachWriter[Int] {
 
   override def close(errorOrNull: Throwable): Unit = {
     events += ForeachWriterSuite.Close(error = Option(errorOrNull))
-    ForeachWriterSuite.addEvents(events)
+    ForeachWriterSuite.addEvents(events.toSeq)
   }
 }

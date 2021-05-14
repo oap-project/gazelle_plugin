@@ -185,6 +185,23 @@ object InMemoryRelation {
     relation
   }
 
+  def apply(
+             storageLevel: StorageLevel,
+             qe: QueryExecution,
+             tableName: Option[String]): InMemoryRelation = {
+    val optimizedPlan = qe.optimizedPlan
+    val serializer = getSerializer(optimizedPlan.conf)
+    val child = if (serializer.supportsColumnarInput(optimizedPlan.output)) {
+      convertToColumnarIfPossible(qe.executedPlan)
+    } else {
+      qe.executedPlan
+    }
+    val cacheBuilder = CachedRDDBuilder(serializer, storageLevel, child, tableName)
+    val relation = new InMemoryRelation(child.output, cacheBuilder, optimizedPlan.outputOrdering)
+    relation.statsOfPlanToCache = optimizedPlan.stats
+    relation
+  }
+
   /**
    * This API is intended only to be used for testing.
    */

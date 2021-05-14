@@ -19,18 +19,18 @@ package org.apache.spark.sql.connector
 
 import java.util
 
-import org.apache.spark.SparkConf
-
 import scala.collection.JavaConverters._
+
 import org.apache.spark.sql.{AnalysisException, DataFrame, SQLContext}
 import org.apache.spark.sql.catalyst.analysis.{AnalysisSuite, NamedRelation}
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, EqualTo, Literal}
 import org.apache.spark.sql.catalyst.plans.logical._
-import org.apache.spark.sql.connector.catalog.{CatalogPlugin, Identifier, Table, TableCapability, TableProvider}
+import org.apache.spark.sql.catalyst.streaming.StreamingRelationV2
+import org.apache.spark.sql.connector.catalog.{Table, TableCapability}
 import org.apache.spark.sql.connector.catalog.TableCapability._
 import org.apache.spark.sql.execution.datasources.DataSource
 import org.apache.spark.sql.execution.datasources.v2.{DataSourceV2Relation, TableCapabilityCheck}
-import org.apache.spark.sql.execution.streaming.{Offset, Source, StreamingRelation, StreamingRelationV2}
+import org.apache.spark.sql.execution.streaming.{Offset, Source, StreamingRelation}
 import org.apache.spark.sql.sources.StreamSourceProvider
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.{LongType, StringType, StructType}
@@ -38,32 +38,17 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap
 
 class TableCapabilityCheckSuite extends AnalysisSuite with SharedSparkSession {
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-
   private val emptyMap = CaseInsensitiveStringMap.empty
   private def createStreamingRelation(table: Table, v1Relation: Option[StreamingRelation]) = {
     StreamingRelationV2(
-      new FakeV2Provider,
+      Some(new FakeV2Provider),
       "fake",
       table,
       CaseInsensitiveStringMap.empty(),
       TableCapabilityCheckSuite.schema.toAttributes,
-      v1Relation)(spark)
+      None,
+      None,
+      v1Relation)
   }
 
   private def createStreamingRelationV1() = {

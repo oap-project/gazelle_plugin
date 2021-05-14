@@ -31,28 +31,11 @@ import org.apache.spark.sql.test.SharedSparkSession
 class DatasetSerializerRegistratorSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set(KRYO_USER_REGISTRATORS, TestRegistrator().getClass.getCanonicalName)
 
-//  override protected def sparkConf: SparkConf = {
-//    // Make sure we use the KryoRegistrator
-//    super.sparkConf.set(KRYO_USER_REGISTRATORS, TestRegistrator().getClass.getCanonicalName)
-//  }
+  override protected def sparkConf: SparkConf = {
+    // Make sure we use the KryoRegistrator
+    super.sparkConf.set(KRYO_USER_REGISTRATORS, Seq(TestRegistrator().getClass.getCanonicalName))
+  }
 
   test("Kryo registrator") {
     implicit val kryoEncoder = Encoders.kryo[KryoData]

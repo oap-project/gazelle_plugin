@@ -19,16 +19,16 @@ package org.apache.spark.sql.execution.ui
 
 import java.util
 import java.util.{Locale, Properties}
-
 import javax.servlet.http.HttpServletRequest
-import org.apache.spark.SparkConf
 
 import scala.xml.Node
-import org.mockito.Mockito.{RETURNS_SMART_NULLS, mock, when}
+
+import org.mockito.Mockito.{mock, when, RETURNS_SMART_NULLS}
 import org.scalatest.BeforeAndAfter
+
 import org.apache.spark.scheduler.{JobFailed, SparkListenerJobEnd, SparkListenerJobStart}
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.execution.{SQLExecution, SparkPlanInfo}
+import org.apache.spark.sql.execution.{SparkPlanInfo, SQLExecution}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.status.ElementTrackingStore
 import org.apache.spark.util.kvstore.InMemoryStore
@@ -36,23 +36,6 @@ import org.apache.spark.util.kvstore.InMemoryStore
 class AllExecutionsPageSuite extends SharedSparkSession with BeforeAndAfter {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   var kvstore: ElementTrackingStore = _
 

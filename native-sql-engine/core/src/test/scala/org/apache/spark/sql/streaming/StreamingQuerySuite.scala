@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.util.concurrent.CountDownLatch
 
 import scala.collection.mutable
+
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang3.RandomStringUtils
 import org.apache.hadoop.fs.Path
@@ -29,10 +30,14 @@ import org.scalactic.TolerantNumerics
 import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
 import org.scalatestplus.mockito.MockitoSugar
-import org.apache.spark.{SparkConf, SparkException, TestUtils}
+
+import org.apache.spark.{SparkException, TestUtils}
 import org.apache.spark.internal.Logging
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.{AnalysisException, Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Literal, Rand, Randn, Shuffle, Uuid}
+import org.apache.spark.sql.catalyst.plans.logical.LocalRelation
+import org.apache.spark.sql.catalyst.streaming.InternalOutputModes.Complete
 import org.apache.spark.sql.connector.read.InputPartition
 import org.apache.spark.sql.connector.read.streaming.{Offset => OffsetV2}
 import org.apache.spark.sql.execution.exchange.ReusedExchangeExec
@@ -47,24 +52,6 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
 
   import AwaitTerminationTester._
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   // To make === between double tolerate inexact values
   implicit val doubleEquality = TolerantNumerics.tolerantDoubleEquality(0.01)
@@ -533,7 +520,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     )
   }
 
-  ignore("input row calculation with same V2 source used twice in self-join") {
+  test("input row calculation with same V2 source used twice in self-join") {
     def checkQuery(check: AssertOnQuery): Unit = {
       val memoryStream = MemoryStream[Int]
       // TODO: currently the streaming framework always add a dummy Project above streaming source
@@ -718,7 +705,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     val q2 = startQuery(input(1).toDS.map { i =>
       // Emulate that `StreamingQuery` get captured with normal usage unintentionally.
       // It should not fail the query.
-      q1
+      val q = q1
       i
     }, "stream_serializable_test_2")
     val q3 = startQuery(input(2).toDS.map { i =>
@@ -885,7 +872,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     assert(uuids.distinct.size == 2)
   }
 
-  ignore("Rand/Randn in streaming query should not produce same results in each execution") {
+  test("Rand/Randn in streaming query should not produce same results in each execution") {
     val rands = mutable.ArrayBuffer[Double]()
     def collectRand: Seq[Row] => Unit = { rows: Seq[Row] =>
       rows.foreach { r =>
@@ -905,7 +892,7 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
     assert(rands.distinct.size == 4)
   }
 
-  ignore("Shuffle in streaming query should not produce same results in each execution") {
+  test("Shuffle in streaming query should not produce same results in each execution") {
     val rands = mutable.ArrayBuffer[Seq[Int]]()
     def collectShuffle: Seq[Row] => Unit = { rows: Seq[Row] =>
       rows.foreach { r =>
@@ -1119,6 +1106,90 @@ class StreamingQuerySuite extends StreamTest with BeforeAndAfter with Logging wi
         "file://foo:bar@b ar/foo/bar",
         "file://f oo:bar@bar/foo/bar").foreach { p =>
       assert(!StreamExecution.containsSpecialCharsInPath(new Path(p)), s"failed to check $p")
+    }
+  }
+
+  test("SPARK-32456: SQL union in streaming query of append mode without watermark") {
+    val inputData1 = MemoryStream[Int]
+    val inputData2 = MemoryStream[Int]
+    withTempView("s1", "s2") {
+      inputData1.toDF().createOrReplaceTempView("s1")
+      inputData2.toDF().createOrReplaceTempView("s2")
+      val unioned = spark.sql(
+        "select s1.value from s1 union select s2.value from s2")
+      checkExceptionMessage(unioned)
+    }
+  }
+
+  test("SPARK-32456: distinct in streaming query of append mode without watermark") {
+    val inputData = MemoryStream[Int]
+    withTempView("deduptest") {
+      inputData.toDF().toDF("value").createOrReplaceTempView("deduptest")
+      val distinct = spark.sql("select distinct value from deduptest")
+      checkExceptionMessage(distinct)
+    }
+  }
+
+  test("SPARK-32456: distinct in streaming query of complete mode") {
+    val inputData = MemoryStream[Int]
+    withTempView("deduptest") {
+      inputData.toDF().toDF("value").createOrReplaceTempView("deduptest")
+      val distinct = spark.sql("select distinct value from deduptest")
+
+      testStream(distinct, Complete)(
+        AddData(inputData, 1, 2, 3, 3, 4),
+        CheckAnswer(Row(1), Row(2), Row(3), Row(4))
+      )
+    }
+  }
+
+  testQuietly("limit on empty batch should not cause state store error") {
+    // The source only produces two batches, the first batch is empty and the second batch has data.
+    val source = new Source {
+      var batchId = 0
+      override def stop(): Unit = {}
+      override def getOffset: Option[Offset] = {
+        Some(LongOffset(batchId + 1))
+      }
+      override def getBatch(start: Option[Offset], end: Offset): DataFrame = {
+        if (batchId == 0) {
+          batchId += 1
+          Dataset.ofRows(spark, LocalRelation(schema.toAttributes, Nil, isStreaming = true))
+        } else {
+          Dataset.ofRows(spark,
+            LocalRelation(schema.toAttributes, InternalRow(10) :: Nil, isStreaming = true))
+        }
+      }
+      override def schema: StructType = MockSourceProvider.fakeSchema
+    }
+
+    MockSourceProvider.withMockSources(source) {
+      val df = spark.readStream
+        .format("org.apache.spark.sql.streaming.util.MockSourceProvider")
+        .load()
+        .limit(1)
+
+      testStream(df)(
+        StartStream(),
+        AssertOnQuery { q =>
+          q.processAllAvailable()
+          true
+        },
+        CheckAnswer(10))
+    }
+  }
+
+  private def checkExceptionMessage(df: DataFrame): Unit = {
+    withTempDir { outputDir =>
+      withTempDir { checkpointDir =>
+        val exception = intercept[AnalysisException](
+          df.writeStream
+            .option("checkpointLocation", checkpointDir.getCanonicalPath)
+            .start(outputDir.getCanonicalPath))
+        assert(exception.getMessage.contains(
+          "Append output mode not supported when there are streaming aggregations on streaming " +
+            "DataFrames/DataSets without watermark"))
+      }
     }
   }
 

@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql.execution.columnar
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.test.SQLTestData._
@@ -26,24 +25,6 @@ import org.apache.spark.sql.test.SQLTestData._
 class PartitionBatchPruningSuite extends SharedSparkSession {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-
 
   private lazy val originalColumnBatchSize = spark.conf.get(SQLConf.COLUMN_BATCH_SIZE)
   private lazy val originalInMemoryPartitionPruning =
@@ -125,7 +106,6 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
   checkBatchPruning("SELECT key FROM pruningData WHERE 88 < key", 1, 2)(89 to 100)
   checkBatchPruning("SELECT key FROM pruningData WHERE 89 <= key", 1, 2)(89 to 100)
   // Do not filter on array type
-  /*
   checkBatchPruning("SELECT _1 FROM pruningArrayData WHERE _1 = array(1)", 5, 10)(Seq(Array(1)))
   checkBatchPruning("SELECT _1 FROM pruningArrayData WHERE _1 <= array(1)", 5, 10)(Seq(Array(1)))
   checkBatchPruning("SELECT _1 FROM pruningArrayData WHERE _1 >= array(1)", 5, 10)(
@@ -133,7 +113,6 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
   // Do not filter on binary type
   checkBatchPruning(
     "SELECT _1 FROM pruningBinaryData WHERE _1 == binary(chr(1))", 5, 10)(Seq(Array(1.toByte)))
-   */
 
   // IS NULL
   checkBatchPruning("SELECT key FROM pruningData WHERE value IS NULL", 5, 5) {
@@ -164,7 +143,6 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
   checkBatchPruning("SELECT key FROM pruningData WHERE key IN (1, 11)", 1, 2)(Seq(1, 11))
   checkBatchPruning("SELECT key FROM pruningData WHERE key IN (1, 21, 41, 61, 81)", 5, 5)(
     Seq(1, 21, 41, 61, 81))
-  /*
   checkBatchPruning("SELECT CAST(s AS INT) FROM pruningStringData WHERE s = '100'", 1, 1)(Seq(100))
   checkBatchPruning("SELECT CAST(s AS INT) FROM pruningStringData WHERE s < '102'", 1, 1)(
     Seq(100, 101))
@@ -174,7 +152,6 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
   // Do not filter on array type
   checkBatchPruning("SELECT _1 FROM pruningArrayData WHERE _1 IN (array(1), array(2, 2))", 5, 10)(
     Seq(Array(1), Array(2, 2)))
-   */
 
   // With unsupported `InSet` predicate
   {
@@ -187,7 +164,6 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
   }
 
   // Support `StartsWith` predicate
-  /*
   checkBatchPruning("SELECT CAST(s AS INT) FROM pruningStringData WHERE s like '18%'", 1, 1)(
     180 to 189
   )
@@ -195,10 +171,9 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
     100 to 200
   )
   checkBatchPruning("SELECT CAST(s AS INT) FROM pruningStringData WHERE '18%' like s", 5, 11)(Seq())
-   */
 
   // With disable IN_MEMORY_PARTITION_PRUNING option
-  test("disable IN_MEMORY_PARTITION_PRUNING") {
+  ignore("disable IN_MEMORY_PARTITION_PRUNING") {
     spark.conf.set(SQLConf.IN_MEMORY_PARTITION_PRUNING.key, false)
 
     val df = sql("SELECT key FROM pruningData WHERE key = 1")
@@ -218,7 +193,7 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
       expectedReadBatches: Int)(
       expectedQueryResult: => Seq[Any]): Unit = {
 
-    test(query) {
+    ignore(query) {
       val df = sql(query)
       val queryExecution = df.queryExecution
 

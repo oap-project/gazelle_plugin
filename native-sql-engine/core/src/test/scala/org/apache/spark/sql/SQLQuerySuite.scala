@@ -22,17 +22,18 @@ import java.net.{MalformedURLException, URL}
 import java.sql.{Date, Timestamp}
 import java.util.concurrent.atomic.AtomicBoolean
 
-import org.apache.spark.{AccumulatorSuite, SparkConf, SparkException}
+import org.apache.spark.{AccumulatorSuite, SparkException}
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
 import org.apache.spark.sql.catalyst.expressions.GenericRow
 import org.apache.spark.sql.catalyst.expressions.aggregate.{Complete, Partial}
-import org.apache.spark.sql.catalyst.optimizer.{ConvertToLocalRelation, NestedColumnAliasingSuite}
+import org.apache.spark.sql.catalyst.optimizer.{ConstantFolding, ConvertToLocalRelation, NestedColumnAliasingSuite, ReorderAssociativeOperator}
 import org.apache.spark.sql.catalyst.plans.logical.Project
 import org.apache.spark.sql.catalyst.util.StringUtils
 import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanHelper
 import org.apache.spark.sql.execution.aggregate.{HashAggregateExec, ObjectHashAggregateExec, SortAggregateExec}
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.command.FunctionsCommand
+import org.apache.spark.sql.execution.datasources.SchemaColumnConvertNotSupportedException
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.datasources.v2.orc.OrcScan
 import org.apache.spark.sql.execution.datasources.v2.parquet.ParquetScan
@@ -46,27 +47,6 @@ import org.apache.spark.unsafe.types.CalendarInterval
 
 class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlanHelper {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   setupTestData()
 
@@ -226,7 +206,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  test("SPARK-7158 collect and take return different results") {
+  ignore("SPARK-7158 collect and take return different results") {
     import java.util.UUID
 
     val df = Seq(Tuple1(1), Tuple1(2), Tuple1(3)).toDF("index")
@@ -659,7 +639,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(3))
   }
 
-  ignore("null count") {
+  test("null count") {
     checkAnswer(
       sql("SELECT a, COUNT(b) FROM testData3 GROUP BY a"),
       Seq(Row(1, 0), Row(2, 1)))
@@ -670,7 +650,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(2, 1, 2, 2, 1))
   }
 
-  ignore("count of empty table") {
+  test("count of empty table") {
     withTempView("t") {
       Seq.empty[(Int, Int)].toDF("a", "b").createOrReplaceTempView("t")
       checkAnswer(
@@ -803,7 +783,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null, null, 6, "F") :: Nil)
   }
 
-  ignore("SPARK-11111 null-safe join should not use cartesian product") {
+  test("SPARK-11111 null-safe join should not use cartesian product") {
     val df = sql("select count(*) from testData a join testData b on (a.key <=> b.key)")
     val cp = df.queryExecution.sparkPlan.collect {
       case cp: CartesianProductExec => cp
@@ -947,7 +927,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("EXCEPT") {
+  test("EXCEPT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData EXCEPT SELECT * FROM upperCaseData"),
       Row(1, "a") ::
@@ -960,7 +940,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData EXCEPT SELECT * FROM upperCaseData"), Nil)
   }
 
-  ignore("MINUS") {
+  test("MINUS") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData MINUS SELECT * FROM upperCaseData"),
       Row(1, "a") :: Row(2, "b") :: Row(3, "c") :: Row(4, "d") :: Nil)
@@ -970,7 +950,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData MINUS SELECT * FROM upperCaseData"), Nil)
   }
 
-  ignore("INTERSECT") {
+  test("INTERSECT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData INTERSECT SELECT * FROM lowerCaseData"),
       Row(1, "a") ::
@@ -1253,7 +1233,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1))
   }
 
-  test(
+  testQuietly(
     "SPARK-16748: SparkExceptions during planning should not wrapped in TreeNodeException") {
     intercept[SparkException] {
       val df = spark.range(0, 5).map(x => (1 / x).toString).toDF("a").orderBy("a")
@@ -1261,7 +1241,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("Multiple join") {
+  ignore("Multiple join") {
     checkAnswer(
       sql(
         """SELECT a.key, b.key, c.key
@@ -1337,7 +1317,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  test("oder by asc by default when not specify ascending and descending") {
+  test("order by asc by default when not specify ascending and descending") {
     checkAnswer(
       sql("SELECT a, b FROM testData2 ORDER BY a desc, b"),
       Seq(Row(3, 1), Row(3, 2), Row(2, 1), Row(2, 2), Row(1, 1), Row(1, 2))
@@ -1567,7 +1547,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(new CalendarInterval(-(12 * 3 - 3), -7 * 7, -123)))
   }
 
-  ignore("aggregation with codegen updates peak execution memory") {
+  test("aggregation with codegen updates peak execution memory") {
     AccumulatorSuite.verifyPeakExecutionMemorySet(sparkContext, "aggregation with codegen") {
       testCodeGen(
         "SELECT key, count(value) FROM testData GROUP BY key",
@@ -2081,7 +2061,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(false) :: Row(true) :: Nil)
   }
 
-  ignore("filter on a grouping column that is not presented in SELECT") {
+  test("filter on a grouping column that is not presented in SELECT") {
     checkAnswer(
       sql("select count(1) from (select 1 as a) t group by a having a > 0"),
       Row(1) :: Nil)
@@ -2578,7 +2558,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
 
   test("SPARK-16674: field names containing dots for both fields and partitioned fields") {
     withTempPath { path =>
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
         val data = (1 to 10).map(i => (i, s"data-$i", i % 2, if ((i % 2) == 0) "a" else "b"))
           .toDF("col.1", "col.2", "part.col1", "part.col2")
         data.write
@@ -2646,7 +2626,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
   test("should be able to resolve a persistent view") {
     withTable("t1", "t2") {
       withView("v1") {
-        withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+        withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
           sql("CREATE TABLE `t1` USING parquet AS SELECT * FROM VALUES(1, 1) AS t1(a, b)")
           sql("CREATE TABLE `t2` USING parquet AS SELECT * FROM VALUES('a', 2, 1.0) AS t2(d, e, f)")
           sql("CREATE VIEW `v1`(x, y) AS SELECT * FROM t1")
@@ -2828,7 +2808,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
 
   test("SPARK-23079: constraints should be inferred correctly with aliases") {
     withTable("t") {
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
         spark.range(5).write.saveAsTable("t")
         val t = spark.read.table("t")
         val left = t.withColumn("xid", $"id" + lit(1)).as("x")
@@ -2839,7 +2819,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SRARK-22266: the same aggregate function was calculated multiple times") {
+  test("SPARK-22266: the same aggregate function was calculated multiple times") {
     val query = "SELECT a, max(b+1), max(b+1) + 1 FROM testData2 GROUP BY a"
     val df = sql(query)
     val physical = df.queryExecution.sparkPlan
@@ -2904,7 +2884,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
 
   test("SPARK-22356: overlapped columns between data and partition schema in data source tables") {
     withTempPath { path =>
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
         Seq((1, 1, 1), (1, 2, 1)).toDF("i", "p", "j")
           .write.mode("overwrite").parquet(new File(path, "p=1").getCanonicalPath)
         withTable("t") {
@@ -2922,7 +2902,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
 
   test("SPARK-24696 ColumnPruning rule fails to remove extra Project") {
     withTable("fact_stats", "dim_stats") {
-      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+      withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
         val factData = Seq((1, 1, 99, 1), (2, 2, 99, 2), (3, 1, 99, 3), (4, 2, 99, 4))
         val storeData = Seq((1, "BW", "DE"), (2, "AZ", "US"))
         spark.udf.register("filterND", udf((value: Int) => value > 2).asNondeterministic)
@@ -2975,7 +2955,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-25084: 'distribute by' on multiple columns may lead to codegen issue") {
+  test("SPARK-25084: 'distribute by' on multiple columns may lead to codegen issue") {
     withView("spark_25084") {
       val count = 1000
       val df = spark.range(count)
@@ -3000,7 +2980,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SPARK-25988: self join with aliases on partitioned tables #1") {
+  ignore("SPARK-25988: self join with aliases on partitioned tables #1") {
     withTempView("tmpView1", "tmpView2") {
       withTable("tab1", "tab2") {
         sql(
@@ -3053,7 +3033,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SPARK-26366: verify ReplaceExceptWithFilter") {
+  ignore("SPARK-26366: verify ReplaceExceptWithFilter") {
     Seq(true, false).foreach { enabled =>
       withSQLConf(SQLConf.REPLACE_EXCEPT_WITH_FILTER.key -> enabled.toString) {
         val df = spark.createDataFrame(
@@ -3123,7 +3103,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
           assert(scan.isInstanceOf[ParquetScan])
           assert(scan.asInstanceOf[ParquetScan].pushedFilters === filters)
         case _ =>
-          fail(s"unknow format $format")
+          fail(s"unknown format $format")
       }
     }
 
@@ -3152,47 +3132,51 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-26709: OptimizeMetadataOnlyQuery does not handle empty records correctly") {
+  test("SPARK-26709: OptimizeMetadataOnlyQuery does not handle empty records correctly") {
     withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> "parquet") {
       Seq(true, false).foreach { enableOptimizeMetadataOnlyQuery =>
         withSQLConf(SQLConf.OPTIMIZER_METADATA_ONLY.key ->
           enableOptimizeMetadataOnlyQuery.toString) {
           withTable("t") {
-            sql("CREATE TABLE t (col1 INT, p1 INT) USING PARQUET PARTITIONED BY (p1)")
-            sql("INSERT INTO TABLE t PARTITION (p1 = 5) SELECT ID FROM range(1, 1)")
-            if (enableOptimizeMetadataOnlyQuery) {
-              // The result is wrong if we enable the configuration.
-              checkAnswer(sql("SELECT MAX(p1) FROM t"), Row(5))
-            } else {
-              checkAnswer(sql("SELECT MAX(p1) FROM t"), Row(null))
+            withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
+              sql("CREATE TABLE t (col1 INT, p1 INT) USING PARQUET PARTITIONED BY (p1)")
+              sql("INSERT INTO TABLE t PARTITION (p1 = 5) SELECT ID FROM range(1, 1)")
+              if (enableOptimizeMetadataOnlyQuery) {
+                // The result is wrong if we enable the configuration.
+                checkAnswer(sql("SELECT MAX(p1) FROM t"), Row(5))
+              } else {
+                checkAnswer(sql("SELECT MAX(p1) FROM t"), Row(null))
+              }
+              checkAnswer(sql("SELECT MAX(col1) FROM t"), Row(null))
             }
-            checkAnswer(sql("SELECT MAX(col1) FROM t"), Row(null))
           }
 
           withTempPath { path =>
-            val tabLocation = path.getCanonicalPath
-            val partLocation1 = tabLocation + "/p=3"
-            val partLocation2 = tabLocation + "/p=1"
-            // SPARK-23271 empty RDD when saved should write a metadata only file
-            val df = spark.emptyDataFrame.select(lit(1).as("col"))
-            df.write.parquet(partLocation1)
-            val df2 = spark.range(10).toDF("col")
-            df2.write.parquet(partLocation2)
-            val readDF = spark.read.parquet(tabLocation)
-            if (enableOptimizeMetadataOnlyQuery) {
-              // The result is wrong if we enable the configuration.
-              checkAnswer(readDF.selectExpr("max(p)"), Row(3))
-            } else {
-              checkAnswer(readDF.selectExpr("max(p)"), Row(1))
+            withSQLConf("spark.sql.parquet.enableVectorizedReader" -> "false") {
+              val tabLocation = path.getCanonicalPath
+              val partLocation1 = tabLocation + "/p=3"
+              val partLocation2 = tabLocation + "/p=1"
+              // SPARK-23271 empty RDD when saved should write a metadata only file
+              val df = spark.emptyDataFrame.select(lit(1).as("col"))
+              df.write.parquet(partLocation1)
+              val df2 = spark.range(10).toDF("col")
+              df2.write.parquet(partLocation2)
+              val readDF = spark.read.parquet(tabLocation)
+              if (enableOptimizeMetadataOnlyQuery) {
+                // The result is wrong if we enable the configuration.
+                checkAnswer(readDF.selectExpr("max(p)"), Row(3))
+              } else {
+                checkAnswer(readDF.selectExpr("max(p)"), Row(1))
+              }
+              checkAnswer(readDF.selectExpr("max(col)"), Row(9))
             }
-            checkAnswer(readDF.selectExpr("max(col)"), Row(9))
           }
         }
       }
     }
   }
 
-  test("reset command should not fail with cache") {
+  ignore("reset command should not fail with cache") {
     withTable("tbl") {
       val provider = spark.sessionState.conf.defaultDataSourceName
       sql(s"CREATE TABLE tbl(i INT, j STRING) USING $provider")
@@ -3283,36 +3267,32 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     sql("DROP VIEW t1")
   }
 
-  test("SPARK-28156: self-join should not miss cached view") {
+  ignore("SPARK-28156: self-join should not miss cached view") {
     withTable("table1") {
       withView("table1_vw") {
         withTempView("cachedview") {
-          withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
-            withSQLConf(SQLConf.CACHE_VECTORIZED_READER_ENABLED.key -> "false") {
-              val df = Seq.tabulate(5) { x => (x, x + 1, x + 2, x + 3) }.toDF("a", "b", "c", "d")
-              df.write.mode("overwrite").format("orc").saveAsTable("table1")
-              sql("drop view if exists table1_vw")
-              sql("create view table1_vw as select * from table1")
+          val df = Seq.tabulate(5) { x => (x, x + 1, x + 2, x + 3) }.toDF("a", "b", "c", "d")
+          df.write.mode("overwrite").format("orc").saveAsTable("table1")
+          sql("drop view if exists table1_vw")
+          sql("create view table1_vw as select * from table1")
 
-              val cachedView = sql("select a, b, c, d from table1_vw")
+          val cachedView = sql("select a, b, c, d from table1_vw")
 
-              cachedView.createOrReplaceTempView("cachedview")
-              cachedView.persist()
+          cachedView.createOrReplaceTempView("cachedview")
+          cachedView.persist()
 
-              val queryDf = sql(
-                s"""select leftside.a, leftside.b
-                   |from cachedview leftside
-                   |join cachedview rightside
-                   |on leftside.a = rightside.a
+          val queryDf = sql(
+            s"""select leftside.a, leftside.b
+               |from cachedview leftside
+               |join cachedview rightside
+               |on leftside.a = rightside.a
            """.stripMargin)
 
-              val inMemoryTableScan = collect(queryDf.queryExecution.executedPlan) {
-                case i: InMemoryTableScanExec => i
-              }
-              assert(inMemoryTableScan.size == 2)
-              checkAnswer(queryDf, Row(0, 1) :: Row(1, 2) :: Row(2, 3) :: Row(3, 4) :: Row(4, 5) :: Nil)
-            }
+          val inMemoryTableScan = collect(queryDf.queryExecution.executedPlan) {
+            case i: InMemoryTableScanExec => i
           }
+          assert(inMemoryTableScan.size == 2)
+          checkAnswer(queryDf, Row(0, 1) :: Row(1, 2) :: Row(2, 3) :: Row(3, 4) :: Row(4, 5) :: Nil)
         }
       }
     }
@@ -3372,7 +3352,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-29682: Conflicting attributes in Expand are resolved") {
+  test("SPARK-29682: Conflicting attributes in Expand are resolved") {
     val numsDF = Seq(1, 2, 3).toDF("nums")
     val cubeDF = numsDF.cube("nums").agg(max(lit(0)).as("agcol"))
 
@@ -3461,8 +3441,38 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     checkAnswer(df2, Row(1) :: Nil)
   }
 
+  test("SPARK-30279 Support 32 or more grouping attributes for GROUPING_ID()") {
+    withTempView("t") {
+      sql("CREATE TEMPORARY VIEW t AS SELECT * FROM " +
+        s"VALUES(${(0 until 65).map { _ => 1 }.mkString(", ")}, 3) AS " +
+        s"t(${(0 until 65).map { i => s"k$i" }.mkString(", ")}, v)")
+
+      def testGropingIDs(numGroupingSet: Int, expectedIds: Seq[Any] = Nil): Unit = {
+        val groupingCols = (0 until numGroupingSet).map { i => s"k$i" }
+        val df = sql("SELECT GROUPING_ID(), SUM(v) FROM t GROUP BY " +
+          s"GROUPING SETS ((${groupingCols.mkString(",")}), (${groupingCols.init.mkString(",")}))")
+        checkAnswer(df, expectedIds.map { id => Row(id, 3) })
+      }
+
+      withSQLConf(SQLConf.LEGACY_INTEGER_GROUPING_ID.key -> "true") {
+        testGropingIDs(32, Seq(0, 1))
+        val errMsg = intercept[AnalysisException] {
+          testGropingIDs(33)
+        }.getMessage
+        assert(errMsg.contains("Grouping sets size cannot be greater than 32"))
+      }
+
+      withSQLConf(SQLConf.LEGACY_INTEGER_GROUPING_ID.key -> "false") {
+        testGropingIDs(64, Seq(0L, 1L))
+        val errMsg = intercept[AnalysisException] {
+          testGropingIDs(65)
+        }.getMessage
+        assert(errMsg.contains("Grouping sets size cannot be greater than 64"))
+      }
+    }
+  }
+
   test("SPARK-31166: UNION map<null, null> and other maps should not fail") {
-    val df1 = sql("(SELECT map()) UNION ALL (SELECT map(1, 2))")
     checkAnswer(
       sql("(SELECT map()) UNION ALL (SELECT map(1, 2))"),
       Seq(Row(Map[Int, Int]()), Row(Map(1 -> 2))))
@@ -3478,12 +3488,457 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
+  test("SPARK-31594: Do not display the seed of rand/randn with no argument in output schema") {
+    def checkIfSeedExistsInExplain(df: DataFrame): Unit = {
+      val output = new java.io.ByteArrayOutputStream()
+      Console.withOut(output) {
+        df.explain()
+      }
+      val projectExplainOutput = output.toString.split("\n").find(_.contains("Project")).get
+      assert(projectExplainOutput.matches(""".*randn?\(-?[0-9]+\).*"""))
+    }
+    val df1 = sql("SELECT rand()")
+    assert(df1.schema.head.name === "rand()")
+    checkIfSeedExistsInExplain(df1)
+    val df2 = sql("SELECT rand(1L)")
+    assert(df2.schema.head.name === "rand(1)")
+    checkIfSeedExistsInExplain(df2)
+    val df3 = sql("SELECT randn()")
+    assert(df3.schema.head.name === "randn()")
+    checkIfSeedExistsInExplain(df1)
+    val df4 = sql("SELECT randn(1L)")
+    assert(df4.schema.head.name === "randn(1)")
+    checkIfSeedExistsInExplain(df2)
+  }
+
+  test("SPARK-31670: Trim unnecessary Struct field alias in Aggregate/GroupingSets") {
+    withTempView("t") {
+      sql(
+        """
+          |CREATE TEMPORARY VIEW t(a, b, c) AS
+          |SELECT * FROM VALUES
+          |('A', 1, NAMED_STRUCT('row_id', 1, 'json_string', '{"i": 1}')),
+          |('A', 2, NAMED_STRUCT('row_id', 2, 'json_string', '{"i": 1}')),
+          |('A', 2, NAMED_STRUCT('row_id', 2, 'json_string', '{"i": 2}')),
+          |('B', 1, NAMED_STRUCT('row_id', 3, 'json_string', '{"i": 1}')),
+          |('C', 3, NAMED_STRUCT('row_id', 4, 'json_string', '{"i": 1}'))
+        """.stripMargin)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, c.json_string, SUM(b)
+            |FROM t
+            |GROUP BY a, c.json_string
+            |""".stripMargin),
+        Row("A", "{\"i\": 1}", 3) :: Row("A", "{\"i\": 2}", 2) ::
+          Row("B", "{\"i\": 1}", 1) :: Row("C", "{\"i\": 1}", 3) :: Nil)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, c.json_string, SUM(b)
+            |FROM t
+            |GROUP BY a, c.json_string
+            |WITH CUBE
+            |""".stripMargin),
+        Row("A", "{\"i\": 1}", 3) :: Row("A", "{\"i\": 2}", 2) :: Row("A", null, 5) ::
+          Row("B", "{\"i\": 1}", 1) :: Row("B", null, 1) ::
+          Row("C", "{\"i\": 1}", 3) :: Row("C", null, 3) ::
+          Row(null, "{\"i\": 1}", 7) :: Row(null, "{\"i\": 2}", 2) :: Row(null, null, 9) :: Nil)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, get_json_object(c.json_string, '$.i'), SUM(b)
+            |FROM t
+            |GROUP BY a, get_json_object(c.json_string, '$.i')
+            |WITH CUBE
+            |""".stripMargin),
+        Row("A", "1", 3) :: Row("A", "2", 2) :: Row("A", null, 5) ::
+          Row("B", "1", 1) :: Row("B", null, 1) ::
+          Row("C", "1", 3) :: Row("C", null, 3) ::
+          Row(null, "1", 7) :: Row(null, "2", 2) :: Row(null, null, 9) :: Nil)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, c.json_string AS json_string, SUM(b)
+            |FROM t
+            |GROUP BY a, c.json_string
+            |WITH CUBE
+            |""".stripMargin),
+        Row("A", null, 5) :: Row("A", "{\"i\": 1}", 3) :: Row("A", "{\"i\": 2}", 2) ::
+          Row("B", null, 1) :: Row("B", "{\"i\": 1}", 1) ::
+          Row("C", null, 3) :: Row("C", "{\"i\": 1}", 3) ::
+          Row(null, null, 9) :: Row(null, "{\"i\": 1}", 7) :: Row(null, "{\"i\": 2}", 2) :: Nil)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, c.json_string as js, SUM(b)
+            |FROM t
+            |GROUP BY a, c.json_string
+            |WITH CUBE
+            |""".stripMargin),
+        Row("A", null, 5) :: Row("A", "{\"i\": 1}", 3) :: Row("A", "{\"i\": 2}", 2) ::
+          Row("B", null, 1) :: Row("B", "{\"i\": 1}", 1) ::
+          Row("C", null, 3) :: Row("C", "{\"i\": 1}", 3) ::
+          Row(null, null, 9) :: Row(null, "{\"i\": 1}", 7) :: Row(null, "{\"i\": 2}", 2) :: Nil)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, c.json_string as js, SUM(b)
+            |FROM t
+            |GROUP BY a, c.json_string
+            |WITH ROLLUP
+            |""".stripMargin),
+        Row("A", null, 5) :: Row("A", "{\"i\": 1}", 3) :: Row("A", "{\"i\": 2}", 2) ::
+          Row("B", null, 1) :: Row("B", "{\"i\": 1}", 1) ::
+          Row("C", null, 3) :: Row("C", "{\"i\": 1}", 3) ::
+          Row(null, null, 9) :: Nil)
+
+      checkAnswer(
+        sql(
+          """
+            |SELECT a, c.json_string, SUM(b)
+            |FROM t
+            |GROUP BY a, c.json_string
+            |GROUPING sets((a),(a, c.json_string))
+            |""".stripMargin),
+        Row("A", null, 5) :: Row("A", "{\"i\": 1}", 3) :: Row("A", "{\"i\": 2}", 2) ::
+          Row("B", null, 1) :: Row("B", "{\"i\": 1}", 1) ::
+          Row("C", null, 3) :: Row("C", "{\"i\": 1}", 3) :: Nil)
+    }
+  }
+
   test("SPARK-31761: test byte, short, integer overflow for (Divide) integral type") {
     checkAnswer(sql("Select -2147483648 DIV -1"), Seq(Row(Integer.MIN_VALUE.toLong * -1)))
     checkAnswer(sql("select CAST(-128 as Byte) DIV CAST (-1 as Byte)"),
       Seq(Row(Byte.MinValue.toLong * -1)))
     checkAnswer(sql("select CAST(-32768 as short) DIV CAST (-1 as short)"),
       Seq(Row(Short.MinValue.toLong * -1)))
+  }
+
+  test("normalize special floating numbers in subquery") {
+    withTempView("v1", "v2", "v3") {
+      Seq(-0.0).toDF("d").createTempView("v1")
+      Seq(0.0).toDF("d").createTempView("v2")
+      spark.range(2).createTempView("v3")
+
+      // non-correlated subquery
+      checkAnswer(sql("SELECT (SELECT v1.d FROM v1 JOIN v2 ON v1.d = v2.d)"), Row(-0.0))
+      // correlated subquery
+      checkAnswer(
+        sql(
+          """
+            |SELECT id FROM v3 WHERE EXISTS
+            |  (SELECT v1.d FROM v1 JOIN v2 ON v1.d = v2.d WHERE id > 0)
+            |""".stripMargin), Row(1))
+    }
+  }
+
+  test("SPARK-31875: remove hints from plan when spark.sql.optimizer.disableHints = true") {
+    withSQLConf(SQLConf.DISABLE_HINTS.key -> "true") {
+      withTempView("t1", "t2") {
+        Seq[Integer](1, 2).toDF("c1").createOrReplaceTempView("t1")
+        Seq[Integer](1, 2).toDF("c1").createOrReplaceTempView("t2")
+        val repartitionHints = Seq(
+          "COALESCE(2)",
+          "REPARTITION(c1)",
+          "REPARTITION(c1, 2)",
+          "REPARTITION_BY_RANGE(c1, 2)",
+          "REPARTITION_BY_RANGE(c1)"
+        )
+        val joinHints = Seq(
+          "BROADCASTJOIN (t1)",
+          "MAPJOIN(t1)",
+          "SHUFFLE_MERGE(t1)",
+          "MERGEJOIN(t1)",
+          "SHUFFLE_REPLICATE_NL(t1)"
+        )
+
+        repartitionHints.foreach { hintName =>
+          val sqlText = s"SELECT /*+ $hintName */ * FROM t1"
+          val sqlTextWithoutHint = "SELECT * FROM t1"
+          val expectedPlan = sql(sqlTextWithoutHint)
+          val actualPlan = sql(sqlText)
+          comparePlans(actualPlan.queryExecution.analyzed, expectedPlan.queryExecution.analyzed)
+        }
+
+        joinHints.foreach { hintName =>
+          val sqlText = s"SELECT /*+ $hintName */ * FROM t1 INNER JOIN t2 ON t1.c1 = t2.c1"
+          val sqlTextWithoutHint = "SELECT * FROM t1 INNER JOIN t2 ON t1.c1 = t2.c1"
+          val expectedPlan = sql(sqlTextWithoutHint)
+          val actualPlan = sql(sqlText)
+          comparePlans(actualPlan.queryExecution.analyzed, expectedPlan.queryExecution.analyzed)
+        }
+      }
+    }
+  }
+
+  test("SPARK-32372: ResolveReferences.dedupRight should only rewrite attributes for ancestor " +
+    "plans of the conflict plan") {
+    sql("SELECT name, avg(age) as avg_age FROM person GROUP BY name")
+      .createOrReplaceTempView("person_a")
+    sql("SELECT p1.name, p2.avg_age FROM person p1 JOIN person_a p2 ON p1.name = p2.name")
+      .createOrReplaceTempView("person_b")
+    sql("SELECT * FROM person_a UNION SELECT * FROM person_b")
+      .createOrReplaceTempView("person_c")
+    checkAnswer(
+      sql("SELECT p1.name, p2.avg_age FROM person_c p1 JOIN person_c p2 ON p1.name = p2.name"),
+      Row("jim", 20.0) :: Row("mike", 30.0) :: Nil)
+  }
+
+  test("SPARK-32280: Avoid duplicate rewrite attributes when there're multiple JOINs") {
+    sql("SELECT 1 AS id").createOrReplaceTempView("A")
+    sql("SELECT id, 'foo' AS kind FROM A").createOrReplaceTempView("B")
+    sql("SELECT l.id as id FROM B AS l LEFT SEMI JOIN B AS r ON l.kind = r.kind")
+      .createOrReplaceTempView("C")
+    checkAnswer(sql("SELECT 0 FROM ( SELECT * FROM B JOIN C USING (id)) " +
+      "JOIN ( SELECT * FROM B JOIN C USING (id)) USING (id)"), Row(0))
+  }
+
+  ignore("SPARK-32788: non-partitioned table scan should not have partition filter") {
+    withTable("t") {
+      spark.range(1).write.saveAsTable("t")
+      checkAnswer(sql("SELECT id FROM t WHERE (SELECT true)"), Row(0L))
+    }
+  }
+
+  test("SPARK-33306: Timezone is needed when cast Date to String") {
+    withTempView("t1", "t2") {
+      spark.sql("select to_date(concat('2000-01-0', id)) as d from range(1, 2)")
+        .createOrReplaceTempView("t1")
+      spark.sql("select concat('2000-01-0', id) as d from range(1, 2)")
+        .createOrReplaceTempView("t2")
+      val result = Date.valueOf("2000-01-01")
+
+      checkAnswer(sql("select t1.d from t1 join t2 on t1.d = t2.d"), Row(result))
+      withSQLConf(SQLConf.LEGACY_CAST_DATETIME_TO_STRING.key -> "true") {
+        checkAnswer(sql("select t1.d from t1 join t2 on t1.d = t2.d"), Row(result))
+      }
+    }
+  }
+
+  test("SPARK-33338: GROUP BY using literal map should not fail") {
+    withTempDir { dir =>
+      sql(s"CREATE TABLE t USING ORC LOCATION '${dir.toURI}' AS SELECT map('k1', 'v1') m, 'k1' k")
+      Seq(
+        "SELECT map('k1', 'v1')[k] FROM t GROUP BY 1",
+        "SELECT map('k1', 'v1')[k] FROM t GROUP BY map('k1', 'v1')[k]",
+        "SELECT map('k1', 'v1')[k] a FROM t GROUP BY a").foreach { statement =>
+        checkAnswer(sql(statement), Row("v1"))
+      }
+    }
+  }
+
+  ignore("SPARK-33677: LikeSimplification should be skipped if pattern contains any escapeChar") {
+    withTempView("df") {
+      Seq("m@ca").toDF("s").createOrReplaceTempView("df")
+
+      val e = intercept[AnalysisException] {
+        sql("SELECT s LIKE 'm%@ca' ESCAPE '%' FROM df").collect()
+      }
+      assert(e.message.contains("the pattern 'm%@ca' is invalid, " +
+        "the escape character is not allowed to precede '@'"))
+
+      checkAnswer(sql("SELECT s LIKE 'm@@ca' ESCAPE '@' FROM df"), Row(true))
+    }
+  }
+
+  test("SPARK-33591: null as string partition literal value 'null' after setting legacy conf") {
+    withSQLConf(SQLConf.LEGACY_PARSE_NULL_PARTITION_SPEC_AS_STRING_LITERAL.key -> "true") {
+      val t = "tbl"
+      withTable("tbl") {
+        sql(s"CREATE TABLE $t (col1 INT, p1 STRING) USING PARQUET PARTITIONED BY (p1)")
+        sql(s"INSERT INTO TABLE $t PARTITION (p1 = null) SELECT 0")
+        checkAnswer(spark.sql(s"SELECT * FROM $t"), Row(0, "null"))
+      }
+    }
+  }
+
+  test("SPARK-33593: Vector reader got incorrect data with binary partition value") {
+    Seq("false", "true").foreach(value => {
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> value) {
+        withTable("t1") {
+          sql(
+            """CREATE TABLE t1(name STRING, id BINARY, part BINARY)
+              |USING PARQUET PARTITIONED BY (part)""".stripMargin)
+          sql("INSERT INTO t1 PARTITION(part = 'Spark SQL') VALUES('a', X'537061726B2053514C')")
+          checkAnswer(sql("SELECT name, cast(id as string), cast(part as string) FROM t1"),
+            Row("a", "Spark SQL", "Spark SQL"))
+        }
+      }
+
+      withSQLConf(SQLConf.ORC_VECTORIZED_READER_ENABLED.key -> value) {
+        withTable("t2") {
+          sql(
+            """CREATE TABLE t2(name STRING, id BINARY, part BINARY)
+              |USING ORC PARTITIONED BY (part)""".stripMargin)
+          sql("INSERT INTO t2 PARTITION(part = 'Spark SQL') VALUES('a', X'537061726B2053514C')")
+          checkAnswer(sql("SELECT name, cast(id as string), cast(part as string) FROM t2"),
+            Row("a", "Spark SQL", "Spark SQL"))
+        }
+      }
+    })
+  }
+
+  test("SPARK-33945: handles a random seed consisting of an expr tree") {
+    val excludedRules = Seq(ConstantFolding, ReorderAssociativeOperator).map(_.ruleName)
+    withSQLConf(SQLConf.OPTIMIZER_EXCLUDED_RULES.key -> excludedRules.mkString(",")) {
+      Seq("rand", "randn").foreach { f =>
+        // Just checks if a query works correctly
+        sql(s"SELECT $f(1 + 1)").collect()
+
+        val msg = intercept[AnalysisException] {
+          sql(s"SELECT $f(id + 1) FROM range(0, 3)").collect()
+        }.getMessage
+        assert(msg.contains("must be an integer, long, or null constant"))
+      }
+    }
+  }
+
+  test("SPARK-34212 Parquet should read decimals correctly") {
+    def readParquet(schema: String, path: File): DataFrame = {
+      spark.read.schema(schema).parquet(path.toString)
+    }
+
+    withTempPath { path =>
+      // a is int-decimal (4 bytes), b is long-decimal (8 bytes), c is binary-decimal (16 bytes)
+      val df = sql("SELECT 1.0 a, CAST(1.23 AS DECIMAL(17, 2)) b, CAST(1.23 AS DECIMAL(36, 2)) c")
+      df.write.parquet(path.toString)
+
+      Seq(true, false).foreach { vectorizedReader =>
+        withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> vectorizedReader.toString) {
+          // We can read the decimal parquet field with a larger precision, if scale is the same.
+          val schema = "a DECIMAL(9, 1), b DECIMAL(18, 2), c DECIMAL(38, 2)"
+          checkAnswer(readParquet(schema, path), df)
+        }
+      }
+
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+        val schema1 = "a DECIMAL(3, 2), b DECIMAL(18, 3), c DECIMAL(37, 3)"
+        checkAnswer(readParquet(schema1, path), df)
+        val schema2 = "a DECIMAL(3, 0), b DECIMAL(18, 1), c DECIMAL(37, 1)"
+        checkAnswer(readParquet(schema2, path), Row(1, 1.2, 1.2))
+      }
+
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
+        Seq("a DECIMAL(3, 2)", "b DECIMAL(18, 1)", "c DECIMAL(37, 1)").foreach { schema =>
+          val e = intercept[SparkException] {
+            readParquet(schema, path).collect()
+          }.getCause.getCause
+          assert(e.isInstanceOf[SchemaColumnConvertNotSupportedException])
+        }
+      }
+    }
+
+    // tests for parquet types without decimal metadata.
+    withTempPath { path =>
+      val df = sql(s"SELECT 1 a, 123456 b, ${Int.MaxValue.toLong * 10} c, CAST('1.2' AS BINARY) d")
+      df.write.parquet(path.toString)
+
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "false") {
+        checkAnswer(readParquet("a DECIMAL(3, 2)", path), sql("SELECT 1.00"))
+        checkAnswer(readParquet("b DECIMAL(3, 2)", path), Row(null))
+        checkAnswer(readParquet("b DECIMAL(11, 1)", path), sql("SELECT 123456.0"))
+        checkAnswer(readParquet("c DECIMAL(11, 1)", path), Row(null))
+        checkAnswer(readParquet("c DECIMAL(13, 0)", path), df.select("c"))
+        val e = intercept[SparkException] {
+          readParquet("d DECIMAL(3, 2)", path).collect()
+        }.getCause
+        assert(e.getMessage.contains("Please read this column/field as Spark BINARY type"))
+      }
+
+      withSQLConf(SQLConf.PARQUET_VECTORIZED_READER_ENABLED.key -> "true") {
+        Seq("a DECIMAL(3, 2)", "c DECIMAL(18, 1)", "d DECIMAL(37, 1)").foreach { schema =>
+          val e = intercept[SparkException] {
+            readParquet(schema, path).collect()
+          }.getCause.getCause
+          assert(e.isInstanceOf[SchemaColumnConvertNotSupportedException])
+        }
+      }
+    }
+  }
+
+  test("SPARK-34421: Resolve temporary objects in temporary views with CTEs") {
+    val tempFuncName = "temp_func"
+    withUserDefinedFunction(tempFuncName -> true) {
+      spark.udf.register(tempFuncName, identity[Int](_))
+
+      val tempViewName = "temp_view"
+      withTempView(tempViewName) {
+        sql(s"CREATE TEMPORARY VIEW $tempViewName AS SELECT 1")
+
+        val testViewName = "test_view"
+
+        withTempView(testViewName) {
+          sql(
+            s"""
+              |CREATE TEMPORARY VIEW $testViewName AS
+              |WITH cte AS (
+              |  SELECT $tempFuncName(0)
+              |)
+              |SELECT * FROM cte
+              |""".stripMargin)
+          checkAnswer(sql(s"SELECT * FROM $testViewName"), Row(0))
+        }
+
+        withTempView(testViewName) {
+          sql(
+            s"""
+              |CREATE TEMPORARY VIEW $testViewName AS
+              |WITH cte AS (
+              |  SELECT * FROM $tempViewName
+              |)
+              |SELECT * FROM cte
+              |""".stripMargin)
+          checkAnswer(sql(s"SELECT * FROM $testViewName"), Row(1))
+        }
+      }
+    }
+  }
+
+  test("SPARK-34421: Resolve temporary objects in permanent views with CTEs") {
+    val tempFuncName = "temp_func"
+    withUserDefinedFunction((tempFuncName, true)) {
+      spark.udf.register(tempFuncName, identity[Int](_))
+
+      val tempViewName = "temp_view"
+      withTempView(tempViewName) {
+        sql(s"CREATE TEMPORARY VIEW $tempViewName AS SELECT 1")
+
+        val testViewName = "test_view"
+
+        val e = intercept[AnalysisException] {
+          sql(
+            s"""
+              |CREATE VIEW $testViewName AS
+              |WITH cte AS (
+              |  SELECT * FROM $tempViewName
+              |)
+              |SELECT * FROM cte
+              |""".stripMargin)
+        }
+        assert(e.message.contains("Not allowed to create a permanent view " +
+          s"`default`.`$testViewName` by referencing a temporary view $tempViewName"))
+
+        val e2 = intercept[AnalysisException] {
+          sql(
+            s"""
+              |CREATE VIEW $testViewName AS
+              |WITH cte AS (
+              |  SELECT $tempFuncName(0)
+              |)
+              |SELECT * FROM cte
+              |""".stripMargin)
+        }
+        assert(e2.message.contains("Not allowed to create a permanent view " +
+          s"`default`.`$testViewName` by referencing a temporary function `$tempFuncName`"))
+      }
+    }
   }
 }
 

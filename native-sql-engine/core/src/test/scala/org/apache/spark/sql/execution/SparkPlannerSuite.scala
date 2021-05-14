@@ -17,7 +17,6 @@
 
 package org.apache.spark.sql.execution
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst.expressions.Attribute
 import org.apache.spark.sql.catalyst.plans.logical.{LeafNode, LocalRelation, LogicalPlan, ReturnAnswer, Union}
@@ -25,23 +24,6 @@ import org.apache.spark.sql.test.SharedSparkSession
 
 class SparkPlannerSuite extends SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("Ensure to go down only the first branch, not any other possible branches") {
 
@@ -55,9 +37,9 @@ class SparkPlannerSuite extends SharedSparkSession {
         case ReturnAnswer(child) =>
           planned += 1
           planLater(child) :: planLater(NeverPlanned) :: Nil
-        case Union(children) =>
+        case u: Union =>
           planned += 1
-          UnionExec(children.map(planLater)) :: planLater(NeverPlanned) :: Nil
+          UnionExec(u.children.map(planLater)) :: planLater(NeverPlanned) :: Nil
         case LocalRelation(output, data, _) =>
           planned += 1
           LocalTableScanExec(output, data) :: planLater(NeverPlanned) :: Nil

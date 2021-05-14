@@ -19,20 +19,20 @@ package org.apache.spark.sql
 
 import java.sql.Timestamp
 
-import org.apache.spark.SparkConf
-
 import scala.collection.JavaConverters._
+
 import org.scalatest.BeforeAndAfter
-import org.apache.spark.sql.catalyst.analysis.{CannotReplaceMissingTableException, NoSuchTableException, TableAlreadyExistsException}
+
+import org.apache.spark.sql.catalyst.analysis.{CannotReplaceMissingTableException, TableAlreadyExistsException}
 import org.apache.spark.sql.catalyst.plans.logical.{AppendData, LogicalPlan, OverwriteByExpression, OverwritePartitionsDynamic}
 import org.apache.spark.sql.connector.{InMemoryTable, InMemoryTableCatalog}
 import org.apache.spark.sql.connector.catalog.{Identifier, TableCatalog}
 import org.apache.spark.sql.connector.expressions.{BucketTransform, DaysTransform, FieldReference, HoursTransform, IdentityTransform, LiteralValue, MonthsTransform, YearsTransform}
 import org.apache.spark.sql.execution.QueryExecution
 import org.apache.spark.sql.execution.datasources.v2.DataSourceV2Relation
+import org.apache.spark.sql.sources.FakeSourceOne
 import org.apache.spark.sql.test.SharedSparkSession
-import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructType}
-import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.types.{IntegerType, LongType, StringType, StructType, TimestampType}
 import org.apache.spark.sql.util.QueryExecutionListener
 import org.apache.spark.unsafe.types.UTF8String
 import org.apache.spark.util.Utils
@@ -41,24 +41,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   import org.apache.spark.sql.connector.catalog.CatalogV2Implicits._
   import org.apache.spark.sql.functions._
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private def catalog(name: String): TableCatalog = {
     spark.sessionState.catalogManager.catalog(name).asTableCatalog
@@ -76,6 +58,7 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   after {
+    spark.sessionState.catalog.reset()
     spark.sessionState.catalogManager.reset()
     spark.sessionState.conf.clear()
   }
@@ -139,6 +122,20 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     }
   }
 
+  test("Append: write to a temp view of v2 relation") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+      spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
+      spark.table("testcat.table_name").createOrReplaceTempView("temp_view")
+      spark.table("source").writeTo("temp_view").append()
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+      checkAnswer(
+        spark.table("temp_view"),
+        Seq(Row(1L, "a"), Row(2L, "b"), Row(3L, "c")))
+    }
+  }
+
   test("Append: by name not position") {
     spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
@@ -157,11 +154,36 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Append: fail if table does not exist") {
-    val exc = intercept[NoSuchTableException] {
+    val exc = intercept[AnalysisException] {
       spark.table("source").writeTo("testcat.table_name").append()
     }
 
-    assert(exc.getMessage.contains("table_name"))
+    assert(exc.getMessage.contains("Table or view not found: testcat.table_name"))
+  }
+
+  test("Append: fail if it writes to a temp view that is not v2 relation") {
+    spark.range(10).createOrReplaceTempView("temp_view")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("temp_view").append()
+    }
+    assert(exc.getMessage.contains("Cannot write into temp view temp_view as it's not a " +
+      "data source v2 relation"))
+  }
+
+  test("Append: fail if it writes to a view") {
+    spark.sql("CREATE VIEW v AS SELECT 1")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("v").append()
+    }
+    assert(exc.getMessage.contains("Writing into a view is not allowed"))
+  }
+
+  test("Append: fail if it writes to a v1 table") {
+    sql(s"CREATE TABLE table_name USING ${classOf[FakeSourceOne].getName}")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("table_name").append()
+    }
+    assert(exc.getMessage.contains("Cannot write into v1 table: `default`.`table_name`"))
   }
 
   test("Overwrite: overwrite by expression: true") {
@@ -206,6 +228,22 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     }
   }
 
+  test("Overwrite: write to a temp view of v2 relation") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+      spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
+      spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("testcat.table_name").createOrReplaceTempView("temp_view")
+
+      spark.table("source2").writeTo("testcat.table_name").overwrite(lit(true))
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("temp_view"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+    }
+  }
+
   test("Overwrite: by name not position") {
     spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
@@ -225,11 +263,36 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("Overwrite: fail if table does not exist") {
-    val exc = intercept[NoSuchTableException] {
+    val exc = intercept[AnalysisException] {
       spark.table("source").writeTo("testcat.table_name").overwrite(lit(true))
     }
 
-    assert(exc.getMessage.contains("table_name"))
+    assert(exc.getMessage.contains("Table or view not found: testcat.table_name"))
+  }
+
+  test("Overwrite: fail if it writes to a temp view that is not v2 relation") {
+    spark.range(10).createOrReplaceTempView("temp_view")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("temp_view").overwrite(lit(true))
+    }
+    assert(exc.getMessage.contains("Cannot write into temp view temp_view as it's not a " +
+      "data source v2 relation"))
+  }
+
+  test("Overwrite: fail if it writes to a view") {
+    spark.sql("CREATE VIEW v AS SELECT 1")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("v").overwrite(lit(true))
+    }
+    assert(exc.getMessage.contains("Writing into a view is not allowed"))
+  }
+
+  test("Overwrite: fail if it writes to a v1 table") {
+    sql(s"CREATE TABLE table_name USING ${classOf[FakeSourceOne].getName}")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("table_name").overwrite(lit(true))
+    }
+    assert(exc.getMessage.contains("Cannot write into v1 table: `default`.`table_name`"))
   }
 
   test("OverwritePartitions: overwrite conflicting partitions") {
@@ -274,6 +337,22 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     }
   }
 
+  test("OverwritePartitions: write to a temp view of v2 relation") {
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+      spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
+      spark.table("source").writeTo("testcat.table_name").append()
+      spark.table("testcat.table_name").createOrReplaceTempView("temp_view")
+
+      spark.table("source2").writeTo("testcat.table_name").overwritePartitions()
+      checkAnswer(
+        spark.table("testcat.table_name"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+      checkAnswer(
+        spark.table("temp_view"),
+        Seq(Row(4L, "d"), Row(5L, "e"), Row(6L, "f")))
+    }
+  }
+
   test("OverwritePartitions: by name not position") {
     spark.sql("CREATE TABLE testcat.table_name (id bigint, data string) USING foo")
 
@@ -293,11 +372,36 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   }
 
   test("OverwritePartitions: fail if table does not exist") {
-    val exc = intercept[NoSuchTableException] {
+    val exc = intercept[AnalysisException] {
       spark.table("source").writeTo("testcat.table_name").overwritePartitions()
     }
 
-    assert(exc.getMessage.contains("table_name"))
+    assert(exc.getMessage.contains("Table or view not found: testcat.table_name"))
+  }
+
+  test("OverwritePartitions: fail if it writes to a temp view that is not v2 relation") {
+    spark.range(10).createOrReplaceTempView("temp_view")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("temp_view").overwritePartitions()
+    }
+    assert(exc.getMessage.contains("Cannot write into temp view temp_view as it's not a " +
+      "data source v2 relation"))
+  }
+
+  test("OverwritePartitions: fail if it writes to a view") {
+    spark.sql("CREATE VIEW v AS SELECT 1")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("v").overwritePartitions()
+    }
+    assert(exc.getMessage.contains("Writing into a view is not allowed"))
+  }
+
+  test("OverwritePartitions: fail if it writes to a v1 table") {
+    sql(s"CREATE TABLE table_name USING ${classOf[FakeSourceOne].getName}")
+    val exc = intercept[AnalysisException] {
+      spark.table("source").writeTo("table_name").overwritePartitions()
+    }
+    assert(exc.getMessage.contains("Cannot write into v1 table: `default`.`table_name`"))
   }
 
   test("Create: basic behavior") {
@@ -372,7 +476,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     spark.table("source")
         .withColumn("ts", lit("2019-06-01 10:00:00.000000").cast("timestamp"))
         .writeTo("testcat.table_name")
-        .tableProperty("allow-unsupported-transforms", "true")
         .partitionedBy(years($"ts"))
         .create()
 
@@ -386,7 +489,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     spark.table("source")
         .withColumn("ts", lit("2019-06-01 10:00:00.000000").cast("timestamp"))
         .writeTo("testcat.table_name")
-        .tableProperty("allow-unsupported-transforms", "true")
         .partitionedBy(months($"ts"))
         .create()
 
@@ -400,7 +502,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     spark.table("source")
         .withColumn("ts", lit("2019-06-01 10:00:00.000000").cast("timestamp"))
         .writeTo("testcat.table_name")
-        .tableProperty("allow-unsupported-transforms", "true")
         .partitionedBy(days($"ts"))
         .create()
 
@@ -414,7 +515,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
     spark.table("source")
         .withColumn("ts", lit("2019-06-01 10:00:00.000000").cast("timestamp"))
         .writeTo("testcat.table_name")
-        .tableProperty("allow-unsupported-transforms", "true")
         .partitionedBy(hours($"ts"))
         .create()
 
@@ -427,7 +527,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
   test("Create: partitioned by bucket(4, id)") {
     spark.table("source")
         .writeTo("testcat.table_name")
-        .tableProperty("allow-unsupported-transforms", "true")
         .partitionedBy(bucket(4, $"id"))
         .create()
 
@@ -642,7 +741,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
         lit("2019-09-02 07:00:00.000000").cast("timestamp") as "modified",
         lit("America/Los_Angeles") as "timezone"))
       .writeTo("testcat.table_name")
-      .tableProperty("allow-unsupported-transforms", "true")
       .partitionedBy(
         years($"ts.created"), months($"ts.created"), days($"ts.created"), hours($"ts.created"),
         years($"ts.modified"), months($"ts.modified"), days($"ts.modified"), hours($"ts.modified")
@@ -670,7 +768,6 @@ class DataFrameWriterV2Suite extends QueryTest with SharedSparkSession with Befo
         lit("2019-09-02 07:00:00.000000").cast("timestamp") as "modified",
         lit("America/Los_Angeles") as "timezone"))
       .writeTo("testcat.table_name")
-      .tableProperty("allow-unsupported-transforms", "true")
       .partitionedBy(bucket(4, $"ts.timezone"))
       .create()
 

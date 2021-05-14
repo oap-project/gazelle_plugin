@@ -20,8 +20,10 @@ package org.apache.spark.sql
 import scala.concurrent.duration._
 import scala.math.abs
 import scala.util.Random
+
 import org.scalatest.concurrent.Eventually
-import org.apache.spark.{SparkConf, SparkException}
+
+import org.apache.spark.SparkException
 import org.apache.spark.scheduler.{SparkListener, SparkListenerTaskStart}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
@@ -29,23 +31,6 @@ import org.apache.spark.sql.test.SharedSparkSession
 
 
 class DataFrameRangeSuite extends QueryTest with SharedSparkSession with Eventually {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("SPARK-7150 range api") {
     // numSlice is greater than length
@@ -121,8 +106,6 @@ class DataFrameRangeSuite extends QueryTest with SharedSparkSession with Eventua
     assert(res17.collect === (1 to 10).map(i => Row(i)).toArray)
   }
 
-  //TODO: failed ut
-  /*
   testWithWholeStageCodegenOnAndOff("Range with randomized parameters") { codegenEnabled =>
     val MAX_NUM_STEPS = 10L * 1000
 
@@ -188,7 +171,6 @@ class DataFrameRangeSuite extends QueryTest with SharedSparkSession with Eventua
 
     sparkContext.removeSparkListener(listener)
   }
-  */
 
   test("SPARK-20430 Initialize Range parameters in a driver side") {
     withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "false") {

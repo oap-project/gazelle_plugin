@@ -24,15 +24,17 @@ import java.util.{Calendar, Date, Locale}
 import java.util.concurrent.TimeUnit._
 
 import org.apache.commons.io.FileUtils
-import org.apache.spark.SparkConf
-import org.scalatest.{BeforeAndAfter, Matchers}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.matchers.should.Matchers._
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{AnalysisException, Dataset}
 import org.apache.spark.sql.catalyst.plans.logical.EventTimeWatermark
 import org.apache.spark.sql.catalyst.util.DateTimeTestUtils.UTC
 import org.apache.spark.sql.execution.streaming._
 import org.apache.spark.sql.execution.streaming.sources.MemorySink
-import org.apache.spark.sql.functions.{count, window}
+import org.apache.spark.sql.functions.{count, timestamp_seconds, window}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.streaming.OutputMode._
 import org.apache.spark.util.Utils
@@ -40,23 +42,6 @@ import org.apache.spark.util.Utils
 class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matchers with Logging {
 
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   after {
     sqlContext.streams.active.foreach(_.stop())
@@ -146,7 +131,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     // No event time metrics when there is no watermarking
     val inputData1 = MemoryStream[Int]
     val aggWithoutWatermark = inputData1.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
       .select($"window".getField("start").cast("long").as[Long], $"count".as[Long])
@@ -163,7 +148,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     // All event time metrics where watermarking is set
     val inputData2 = MemoryStream[Int]
     val aggWithWatermark = inputData2.toDF()
-        .withColumn("eventTime", $"value".cast("timestamp"))
+        .withColumn("eventTime", timestamp_seconds($"value"))
         .withWatermark("eventTime", "10 seconds")
         .groupBy(window($"eventTime", "5 seconds") as 'window)
         .agg(count("*") as 'count)
@@ -186,7 +171,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     // All event time metrics where watermarking is set
     val inputData = MemoryStream[Int]
     val aggWithWatermark = inputData.toDF()
-        .withColumn("eventTime", $"value".cast("timestamp"))
+        .withColumn("eventTime", timestamp_seconds($"value"))
         .withWatermark("eventTime", "10 seconds")
         .groupBy(window($"eventTime", "5 seconds") as 'window)
         .agg(count("*") as 'count)
@@ -241,7 +226,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     // All event time metrics where watermarking is set
     val inputData = MemoryStream[Int]
     val aggWithWatermark = inputData.toDF()
-        .withColumn("eventTime", $"value".cast("timestamp"))
+        .withColumn("eventTime", timestamp_seconds($"value"))
         .withWatermark("eventTime", "10 seconds")
         .groupBy(window($"eventTime", "5 seconds") as 'window)
         .agg(count("*") as 'count)
@@ -303,7 +288,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
@@ -315,9 +300,11 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
       AddData(inputData, 25),   // Advance watermark to 15 seconds
       CheckNewAnswer((10, 5)),
       assertNumStateRows(2),
+      assertNumRowsDroppedByWatermark(0),
       AddData(inputData, 10),   // Should not emit anything as data less than watermark
       CheckNewAnswer(),
-      assertNumStateRows(2)
+      assertNumStateRows(2),
+      assertNumRowsDroppedByWatermark(1)
     )
   }
 
@@ -326,7 +313,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     spark.conf.set(SQLConf.SHUFFLE_PARTITIONS.key, "10")
 
     val windowedAggregation = inputData.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
@@ -338,12 +325,15 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
       AddData(inputData, 25),     // Advance watermark to 15 seconds
       CheckNewAnswer((25, 1)),
       assertNumStateRows(2),
+      assertNumRowsDroppedByWatermark(0),
       AddData(inputData, 10, 25), // Ignore 10 as its less than watermark
       CheckNewAnswer((25, 2)),
       assertNumStateRows(2),
+      assertNumRowsDroppedByWatermark(1),
       AddData(inputData, 10),     // Should not emit anything as data less than watermark
       CheckNewAnswer(),
-      assertNumStateRows(2)
+      assertNumStateRows(2),
+      assertNumRowsDroppedByWatermark(1)
     )
   }
 
@@ -353,7 +343,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
 
     val input = MemoryStream[Long]
     val aggWithWatermark = input.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "2 years 5 months")
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
@@ -385,7 +375,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
   test("recovery") {
     val inputData = MemoryStream[Int]
     val df = inputData.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .groupBy(window($"eventTime", "5 seconds") as 'window)
       .agg(count("*") as 'count)
@@ -420,14 +410,14 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     val first = MemoryStream[Int]
 
     val firstDf = first.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .select('value)
 
     val second = MemoryStream[Int]
 
     val secondDf = second.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "5 seconds")
       .select('value)
 
@@ -497,7 +487,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
-        .withColumn("eventTime", $"value".cast("timestamp"))
+        .withColumn("eventTime", timestamp_seconds($"value"))
         .withWatermark("eventTime", "10 seconds")
         .groupBy(window($"eventTime", "5 seconds") as 'window)
         .agg(count("*") as 'count)
@@ -522,7 +512,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     val inputData = MemoryStream[Int]
 
     val windowedAggregation = inputData.toDF()
-        .withColumn("eventTime", $"value".cast("timestamp"))
+        .withColumn("eventTime", timestamp_seconds($"value"))
         .withWatermark("eventTime", "10 seconds")
         .groupBy($"eventTime")
         .agg(count("*") as 'count)
@@ -561,8 +551,8 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
 
   test("the new watermark should override the old one") {
     val df = MemoryStream[(Long, Long)].toDF()
-      .withColumn("first", $"_1".cast("timestamp"))
-      .withColumn("second", $"_2".cast("timestamp"))
+      .withColumn("first", timestamp_seconds($"_1"))
+      .withColumn("second", timestamp_seconds($"_2"))
       .withWatermark("first", "1 minute")
       .withWatermark("second", "2 minutes")
 
@@ -574,7 +564,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
 
   test("EventTime watermark should be ignored in batch query.") {
     val df = testData
-      .withColumn("eventTime", $"key".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"key"))
       .withWatermark("eventTime", "1 minute")
       .select("eventTime")
       .as[Long]
@@ -613,7 +603,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
   test("SPARK-27340 Alias on TimeWindow expression cause watermark metadata lost") {
     val inputData = MemoryStream[Int]
     val aliasWindow = inputData.toDF()
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
       .select(window($"eventTime", "5 seconds") as 'aliasWindow)
     // Check the eventTime metadata is kept in the top level alias.
@@ -643,7 +633,7 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     def testWithFlag(flag: Boolean): Unit = withClue(s"with $flagKey = $flag") {
       val inputData = MemoryStream[Int]
       val windowedAggregation = inputData.toDF()
-        .withColumn("eventTime", $"value".cast("timestamp"))
+        .withColumn("eventTime", timestamp_seconds($"value"))
         .withWatermark("eventTime", "10 seconds")
         .groupBy(window($"eventTime", "5 seconds") as 'window)
         .agg(count("*") as 'count)
@@ -779,10 +769,10 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
       input1: MemoryStream[Int],
       input2: MemoryStream[Int]): Dataset[_] = {
     val df1 = input1.toDF
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "10 seconds")
     val df2 = input2.toDF
-      .withColumn("eventTime", $"value".cast("timestamp"))
+      .withColumn("eventTime", timestamp_seconds($"value"))
       .withWatermark("eventTime", "15 seconds")
     df1.union(df2).select($"eventTime".cast("int"))
   }
@@ -797,6 +787,20 @@ class EventTimeWatermarkSuite extends StreamTest with BeforeAndAfter with Matche
     q.processAllAvailable()
     val progressWithData = q.recentProgress.lastOption.get
     assert(progressWithData.stateOperators(0).numRowsTotal === numTotalRows)
+    true
+  }
+
+  private def assertNumRowsDroppedByWatermark(
+      numRowsDroppedByWatermark: Long): AssertOnQuery = AssertOnQuery { q =>
+    q.processAllAvailable()
+    val progressWithData = q.recentProgress.filterNot { p =>
+      // filter out batches which are falling into one of types:
+      // 1) doesn't execute the batch run
+      // 2) empty input batch
+      p.inputRowsPerSecond == 0
+    }.lastOption.get
+    assert(progressWithData.stateOperators(0).numRowsDroppedByWatermark
+      === numRowsDroppedByWatermark)
     true
   }
 

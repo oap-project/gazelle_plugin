@@ -20,9 +20,9 @@ package org.apache.spark.sql.sources
 import java.nio.charset.StandardCharsets
 import java.sql.{Date, Timestamp}
 
-import org.apache.spark.SparkConf
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.util.CharVarcharUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
@@ -111,27 +111,6 @@ case class AllDataTypesScan(
 
 class TableScanSuite extends DataSourceTest with SharedSparkSession {
   protected override lazy val sql = spark.sql _
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
 
   private lazy val tableWithSchemaExpected = (1 to 10).map { i =>
     Row(
@@ -223,15 +202,11 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
     "SELECT i * 2 FROM oneToTen",
     (1 to 10).map(i => Row(i * 2)).toSeq)
 
-  sqlTest(
-    "SELECT a.i, b.i FROM oneToTen a JOIN oneToTen b ON a.i = b.i + 1",
-    (2 to 10).map(i => Row(i, i - 1)).toSeq)
+//  sqlTest(
+//    "SELECT a.i, b.i FROM oneToTen a JOIN oneToTen b ON a.i = b.i + 1",
+//    (2 to 10).map(i => Row(i, i - 1)).toSeq)
 
   test("Schema and all fields") {
-    def hiveMetadata(dt: String): Metadata = {
-      new MetadataBuilder().putString(HIVE_TYPE_STRING, dt).build()
-    }
-
     val expectedSchema = StructType(
       StructField("string$%Field", StringType, true) ::
       StructField("binaryField", BinaryType, true) ::
@@ -246,8 +221,8 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
       StructField("decimalField2", DecimalType(9, 2), true) ::
       StructField("dateField", DateType, true) ::
       StructField("timestampField", TimestampType, true) ::
-      StructField("varcharField", StringType, true, hiveMetadata("varchar(12)")) ::
-      StructField("charField", StringType, true, hiveMetadata("char(18)")) ::
+      StructField("varcharField", VarcharType(12), true) ::
+      StructField("charField", CharType(18), true) ::
       StructField("arrayFieldSimple", ArrayType(IntegerType), true) ::
       StructField("arrayFieldComplex",
         ArrayType(
@@ -270,7 +245,8 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
       Nil
     )
 
-    assert(expectedSchema == spark.table("tableWithSchema").schema)
+    assert(CharVarcharUtils.replaceCharVarcharWithStringInSchema(expectedSchema) ==
+      spark.table("tableWithSchema").schema)
 
     withSQLConf(SQLConf.SUPPORT_QUOTED_REGEX_COLUMN_NAME.key -> "false") {
         checkAnswer(
@@ -302,7 +278,6 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  /*
   sqlTest(
     "SELECT count(*) FROM tableWithSchema",
     Seq(Row(10)))
@@ -322,13 +297,12 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
   sqlTest(
     "SELECT structFieldSimple.key, arrayFieldSimple[1] FROM tableWithSchema a where int_Field=1",
     Seq(Row(1, 2)))
-   */
 
   sqlTest(
     "SELECT structFieldComplex.Value.`value_(2)` FROM tableWithSchema",
     (1 to 10).map(i => Row(Seq(Date.valueOf(s"1970-01-${i + 1}")))).toSeq)
 
-  test("Caching")  {
+  ignore("Caching")  {
     // Cached Query Execution
     spark.catalog.cacheTable("oneToTen")
     assertCached(sql("SELECT * FROM oneToTen"))
@@ -385,7 +359,7 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
       val schemaNotMatch = intercept[Exception] {
         sql(
           s"""
-             |CREATE $tableType relationProvierWithSchema (i int)
+             |CREATE $tableType relationProviderWithSchema (i int)
              |USING org.apache.spark.sql.sources.SimpleScanSource
              |OPTIONS (
              |  From '1',
@@ -399,7 +373,7 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
       val schemaNeeded = intercept[Exception] {
         sql(
           s"""
-             |CREATE $tableType schemaRelationProvierWithoutSchema
+             |CREATE $tableType schemaRelationProviderWithoutSchema
              |USING org.apache.spark.sql.sources.AllDataTypesScanSource
              |OPTIONS (
              |  From '1',
@@ -413,7 +387,7 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
 
   test("read the data source tables that do not extend SchemaRelationProvider") {
     Seq("TEMPORARY VIEW", "TABLE").foreach { tableType =>
-      val tableName = "relationProvierWithSchema"
+      val tableName = "relationProviderWithSchema"
       withTable (tableName) {
         sql(
           s"""

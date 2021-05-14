@@ -22,39 +22,18 @@ import java.nio.charset.StandardCharsets
 import java.util.{List => JList, Map => JMap}
 
 import scala.collection.JavaConverters._
+
 import org.apache.avro.Schema
 import org.apache.avro.generic.IndexedRecord
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.avro.AvroParquetWriter
 import org.apache.parquet.hadoop.ParquetWriter
-import org.apache.spark.SparkConf
+
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.execution.datasources.parquet.test.avro._
 import org.apache.spark.sql.test.SharedSparkSession
 
 class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with SharedSparkSession {
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
-      .set("spark.sql.parquet.enableVectorizedReader", "false")
-      .set("spark.sql.orc.enableVectorizedReader", "false")
-      .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
-      .set("spark.oap.sql.columnar.batchscan", "false")
-
   private def withWriter[T <: IndexedRecord]
       (path: String, schema: Schema)
       (f: ParquetWriter[T] => Unit): Unit = {
@@ -185,7 +164,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  test("nullable arrays (parquet-avro 1.7.0 does not properly support this)") {
+  ignore("nullable arrays (parquet-avro 1.7.0 does not properly support this)") {
     // TODO Complete this test case after upgrading to parquet-mr 1.8+
   }
 

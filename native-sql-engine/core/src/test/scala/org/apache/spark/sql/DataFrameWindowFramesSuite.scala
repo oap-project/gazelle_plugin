@@ -17,9 +17,6 @@
 
 package org.apache.spark.sql
 
-import java.sql.Date
-
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.test.SharedSparkSession
@@ -29,23 +26,6 @@ import org.apache.spark.sql.test.SharedSparkSession
  */
 class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("lead/lag with empty data frame") {
     val df = Seq.empty[(Int, String)].toDF("key", "value")
@@ -252,7 +232,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
       Row("one", 4, 4) :: Row("one", 4, 4) :: Row("two", 6, 6) :: Row("two", 6, 6) :: Nil)
   }
 
-  ignore("unbounded preceding/following rows between with aggregation") {
+  test("unbounded preceding/following rows between with aggregation") {
     val df = Seq((1, "1"), (2, "2"), (2, "3"), (1, "3"), (3, "2"), (4, "3")).toDF("key", "value")
     val window = Window.partitionBy($"value").orderBy($"key")
 
@@ -267,7 +247,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
         Row(4, 4, 4) :: Nil)
   }
 
-  ignore("reverse unbounded preceding/following rows between with aggregation") {
+  test("reverse unbounded preceding/following rows between with aggregation") {
     val df = Seq((1, "1"), (2, "2"), (2, "3"), (1, "3"), (3, "2"), (4, "3")).toDF("key", "value")
     val window = Window.partitionBy($"value").orderBy($"key".desc)
 
@@ -282,7 +262,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
         Row(1, 1, 1) :: Nil)
   }
 
-  ignore("unbounded preceding/following range between with aggregation") {
+  test("unbounded preceding/following range between with aggregation") {
     val df = Seq((5, "1"), (5, "2"), (4, "2"), (6, "2"), (3, "1"), (2, "2")).toDF("key", "value")
     val window = Window.partitionBy("value").orderBy("key")
 
@@ -299,7 +279,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
   }
 
   // This is here to illustrate the fact that reverse order also reverses offsets.
-  ignore("reverse preceding/following range between with aggregation") {
+  test("reverse preceding/following range between with aggregation") {
     val df = Seq(1, 2, 4, 3, 2, 1).toDF("value")
     val window = Window.orderBy($"value".desc)
 
@@ -312,7 +292,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
         Row(2, 13, 2) :: Row(1, 13, null) :: Nil)
   }
 
-  ignore("sliding rows between with aggregation") {
+  test("sliding rows between with aggregation") {
     val df = Seq((1, "1"), (2, "1"), (2, "2"), (1, "1"), (2, "2")).toDF("key", "value")
     val window = Window.partitionBy($"value").orderBy($"key").rowsBetween(-1, 2)
 
@@ -324,7 +304,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
         Row(2, 2.0d) :: Nil)
   }
 
-  ignore("reverse sliding rows between with aggregation") {
+  test("reverse sliding rows between with aggregation") {
     val df = Seq((1, "1"), (2, "1"), (2, "2"), (1, "1"), (2, "2")).toDF("key", "value")
     val window = Window.partitionBy($"value").orderBy($"key".desc).rowsBetween(-1, 2)
 
@@ -336,7 +316,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
         Row(2, 2.0d) :: Nil)
   }
 
-  ignore("sliding range between with aggregation") {
+  test("sliding range between with aggregation") {
     val df = Seq((1, "1"), (1, "1"), (3, "1"), (2, "2"), (2, "1"), (2, "2")).toDF("key", "value")
     val window = Window.partitionBy($"value").orderBy($"key").rangeBetween(-1, 1)
 
@@ -348,7 +328,7 @@ class DataFrameWindowFramesSuite extends QueryTest with SharedSparkSession {
         Row(2, 2.0d) :: Row(2, 2.0d) :: Nil)
   }
 
-  ignore("reverse sliding range between with aggregation") {
+  test("reverse sliding range between with aggregation") {
     val df = Seq(
       (1, "Thin", "Cell Phone", 6000),
       (2, "Normal", "Tablet", 1500),

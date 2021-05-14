@@ -22,7 +22,8 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 import scala.collection.JavaConverters._
-import org.apache.spark.{SparkConf, SparkException}
+
+import org.apache.spark.SparkException
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
@@ -30,23 +31,6 @@ import org.apache.spark.sql.types._
 
 class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
-
-  override def sparkConf: SparkConf =
-    super.sparkConf
-      .setAppName("test")
-      .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
-      .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-      .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
-      //.set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-      .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "50m")
-      .set("spark.sql.join.preferSortMergeJoin", "false")
-      .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      //.set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
-      .set("spark.sql.columnar.sort.broadcastJoin", "true")
-      .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
 
   test("from_csv with empty options") {
     val df = Seq("1").toDS()
@@ -96,16 +80,16 @@ class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
   test("schema_of_csv - infers schemas") {
     checkAnswer(
       spark.range(1).select(schema_of_csv(lit("0.1,1"))),
-      Seq(Row("struct<_c0:double,_c1:int>")))
+      Seq(Row("STRUCT<`_c0`: DOUBLE, `_c1`: INT>")))
     checkAnswer(
       spark.range(1).select(schema_of_csv("0.1,1")),
-      Seq(Row("struct<_c0:double,_c1:int>")))
+      Seq(Row("STRUCT<`_c0`: DOUBLE, `_c1`: INT>")))
   }
 
   test("schema_of_csv - infers schemas using options") {
     val df = spark.range(1)
       .select(schema_of_csv(lit("0.1 1"), Map("sep" -> " ").asJava))
-    checkAnswer(df, Seq(Row("struct<_c0:double,_c1:int>")))
+    checkAnswer(df, Seq(Row("STRUCT<`_c0`: DOUBLE, `_c1`: INT>")))
   }
 
   test("to_csv - struct") {
@@ -227,6 +211,32 @@ class CsvFunctionsSuite extends QueryTest with SharedSparkSession {
         Map.empty[String, String].asJava)).collect()
       assert(readback(0).getAs[Row](0).getAs[Date](0).getTime >= 0)
     }
+  }
+
+  test("support foldable schema by from_csv") {
+    val options = Map[String, String]().asJava
+    val schema = concat_ws(",", lit("i int"), lit("s string"))
+    checkAnswer(
+      Seq("""1,"a"""").toDS().select(from_csv($"value", schema, options)),
+      Row(Row(1, "a")))
+
+    val errMsg = intercept[AnalysisException] {
+      Seq(("1", "i int")).toDF("csv", "schema")
+        .select(from_csv($"csv", $"schema", options)).collect()
+    }.getMessage
+    assert(errMsg.contains("Schema should be specified in DDL format as a string literal"))
+
+    val errMsg2 = intercept[AnalysisException] {
+      Seq("1").toDF("csv").select(from_csv($"csv", lit(1), options)).collect()
+    }.getMessage
+    assert(errMsg2.contains("The expression '1' is not a valid schema string"))
+  }
+
+  test("schema_of_csv - infers the schema of foldable CSV string") {
+    val input = concat_ws(",", lit(0.1), lit(1))
+    checkAnswer(
+      spark.range(1).select(schema_of_csv(input)),
+      Seq(Row("STRUCT<`_c0`: DOUBLE, `_c1`: INT>")))
   }
 
   test("optional datetime parser does not affect csv time formatting") {
