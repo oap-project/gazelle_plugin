@@ -85,6 +85,12 @@
         <groupId>org.apache.spark</groupId>
         <artifactId>spark-catalyst_${scala.binary.version}</artifactId>
         <version>${spark.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
         <scope>provided</scope>
       </dependency>
       <dependency>
@@ -201,6 +207,24 @@
       </activation>
       <properties>
         <scala.recompile.mode>all</scala.recompile.mode>
+      </properties>
+    </profile>
+    <profile>
+      <id>arrow-netty</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
+      </properties>
+    </profile>
+    <profile>
+      <id>arrow-unsafe</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
       </properties>
     </profile>
   </profiles>

@@ -98,7 +98,7 @@ jobs:
       - name: Run unit tests
         run: |
           mvn clean install -N
-          cd arrow-data-source
+          cd arrow-data-sourcemaster
           mvn clean install -DskipTests -Dbuild_arrow=OFF
           cd ..
           mvn clean package -P full-scala-compiler -am -pl native-sql-engine/core -DskipTests -Dbuild_arrow=OFF
