@@ -78,7 +78,7 @@
     <dependency>
        <groupId>org.apache.arrow</groupId>
        <artifactId>arrow-memory-netty</artifactId>
-       <version>3.0.0</version>
+       <version>${arrow.version}</version>
        <scope>runtime</scope>
     </dependency>
     <dependency>
@@ -133,11 +133,6 @@
       <artifactId>spark-arrow-datasource-common</artifactId>
       <groupId>com.intel.oap</groupId>
       <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>com.google.flatbuffers</groupId>
-      <artifactId>flatbuffers-java</artifactId>
-      <version>1.9.0</version>
     </dependency>
     <dependency>
       <groupId>org.scalacheck</groupId>
@@ -259,8 +254,14 @@
     </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-auth</artifactId>
-      <version>${hadoop.version}</version>
+      <artifactId>hadoop-client</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>spark-arrow-datasource-standard</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 
