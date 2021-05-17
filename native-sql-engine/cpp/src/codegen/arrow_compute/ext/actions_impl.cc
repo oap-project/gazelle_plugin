@@ -1444,6 +1444,7 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
         }
       }
     }
+    return arrow::Status::OK();
   }
 
   arrow::Status Evaluate(int dest_group_id, void* data) {
