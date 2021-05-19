@@ -54,7 +54,7 @@ object ArrowUtils {
     readSchema(files.toList.head, options) // todo merge schema
 
   def isOriginalFormatSplitable(options: ArrowOptions): Boolean = {
-    val format = getFormat(options).getOrElse(throw new IllegalStateException)
+    val format = getFormat(options)
     format match {
       case org.apache.arrow.dataset.file.FileFormat.PARQUET =>
         true
@@ -66,7 +66,7 @@ object ArrowUtils {
   def makeArrowDiscovery(file: String, startOffset: Long, length: Long,
                          options: ArrowOptions): FileSystemDatasetFactory = {
 
-    val format = getFormat(options).getOrElse(throw new IllegalStateException)
+    val format = getFormat(options)
     val allocator = SparkMemoryUtils.contextAllocator()
     val factory = new FileSystemDatasetFactory(allocator,
       SparkMemoryUtils.contextMemoryPool(),
@@ -105,13 +105,13 @@ object ArrowUtils {
     batch
   }
 
-  private def getFormat(
-    options: ArrowOptions): Option[org.apache.arrow.dataset.file.FileFormat] = {
-    Option(options.originalFormat match {
+  def getFormat(
+    options: ArrowOptions): org.apache.arrow.dataset.file.FileFormat = {
+    options.originalFormat match {
       case "parquet" => org.apache.arrow.dataset.file.FileFormat.PARQUET
       case "csv" => org.apache.arrow.dataset.file.FileFormat.CSV
       case _ => throw new IllegalArgumentException("Unrecognizable format")
-    })
+    }
   }
 
   private def rewriteUri(uriStr: String): String = {
