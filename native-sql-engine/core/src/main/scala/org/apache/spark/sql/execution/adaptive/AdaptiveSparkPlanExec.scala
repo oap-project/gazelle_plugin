@@ -399,10 +399,8 @@ case class AdaptiveSparkPlanExec(
   private def createQueryStages(plan: SparkPlan): CreateStageResult = plan match {
     case e: Exchange =>
       // First have a quick check in the `stageCache` without having to traverse down the node.
-      logInfo(s"AAA orig: ${e.schema}")
       context.stageCache.get(e.canonicalized) match {
         case Some(existingStage) if conf.exchangeReuseEnabled && (existingStage.schema == e.schema) =>
-          logInfo(s"AAA reuse: ${existingStage.schema}")
           val stage = reuseQueryStage(existingStage, e)
           val isMaterialized = stage.resultOption.get().isDefined
           CreateStageResult(
