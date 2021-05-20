@@ -107,7 +107,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           .asScala
           .toList
       val itrList = taskList
-        .map(task => task.scan())
+        .map(task => task.execute())
 
       Option(TaskContext.get()).foreach(_.addTaskCompletionListener[Unit](_ => {
         itrList.foreach(_.close())
@@ -120,7 +120,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
       val itr = itrList
         .toIterator
         .flatMap(itr => itr.asScala)
-        .map(vsr => ArrowUtils.loadVectors(vsr, file.partitionValues, partitionSchema,
+        .map(batch => ArrowUtils.loadBatch(batch, file.partitionValues, partitionSchema,
           requiredSchema))
       new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
     }

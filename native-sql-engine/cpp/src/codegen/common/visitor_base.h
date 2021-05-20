@@ -48,6 +48,10 @@ class VisitorBase : public gandiva::NodeVisitor {
   arrow::Status Visit(const gandiva::InExpressionNode<std::string>& node) override {
     return arrow::Status::OK();
   }
+  arrow::Status Visit(
+      const gandiva::InExpressionNode<gandiva::DecimalScalar128>& node) override {
+    return arrow::Status::OK();
+  }
 };
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin

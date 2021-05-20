@@ -128,7 +128,7 @@ macro(build_arrow STATIC_ARROW)
   ExternalProject_Add(arrow_ep
                       GIT_REPOSITORY https://github.com/oap-project/arrow.git
                       SOURCE_DIR ${ARROW_SOURCE_DIR}
-                      GIT_TAG arrow-3.0.0-oap
+                      GIT_TAG arrow-4.0.0-oap-1.1.1
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${ARROW_PREFIX}
                       INSTALL_COMMAND make install
@@ -216,15 +216,15 @@ macro(build_arrow STATIC_ARROW)
     )
 
     ExternalProject_Add_Step(arrow_ep copy_arrow_binary_300
-                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300 ${root_directory}/releases/
-                      COMMENT "Copy libarrow.so.300 to releases/"
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.400 ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so.400 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
 
     ExternalProject_Add_Step(arrow_ep copy_arrow_binary_300_0_0
-                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300.0.0 ${root_directory}/releases/
-                      COMMENT "Copy libarrow.so.300.0.0 to releases/"
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.400.0.0 ${root_directory}/releases/
+                      COMMENT "Copy libarrow.so.400.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
@@ -239,15 +239,15 @@ macro(build_arrow STATIC_ARROW)
     )
 
     ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_300
-                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300 ${root_directory}/releases/
-                      COMMENT "Copy libgandiva.so.300 to releases/"
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.400 ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so.400 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
 
     ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_300_0_0
-                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.300.0.0 ${root_directory}/releases/
-                      COMMENT "Copy libgandiva.so.300.0.0 to releases/"
+                      COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX}.400.0.0 ${root_directory}/releases/
+                      COMMENT "Copy libgandiva.so.400.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
@@ -321,13 +321,11 @@ macro(find_arrow)
     message(STATUS "COPY and Set Arrow Header to: ${ARROW_BFS_INCLUDE_DIR}")
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/arrow DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/gandiva DESTINATION ${root_directory}/releases/include)
-    file(COPY ${ARROW_BFS_INCLUDE_DIR}/jni DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/parquet DESTINATION ${root_directory}/releases/include)
   else()
     message(STATUS "COPY and Set Arrow Header to: ${ARROW_INCLUDE_DIR}")
     file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_INCLUDE_DIR}/gandiva DESTINATION ${root_directory}/releases/include)
-    file(COPY ${ARROW_INCLUDE_DIR}/jni DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_INCLUDE_DIR}/parquet DESTINATION ${root_directory}/releases/include)
   endif()
 
