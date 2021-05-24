@@ -18,11 +18,11 @@
 package com.intel.oap.spark.sql
 
 import java.lang
+import java.net.URI
 import java.util.Collections
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
-
-import scala.util.control.Breaks._
+import java.util.regex.Pattern
 
 import com.intel.oap.spark.sql.ArrowWriteQueue.EOS_BATCH
 import com.intel.oap.spark.sql.ArrowWriteQueue.ScannerImpl
@@ -38,7 +38,15 @@ class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, outputFileURI: Str
   private val scanner = new ScannerImpl(schema)
 
   private val writeThread = new Thread(() => {
-    DatasetFileWriter.write(scanner, fileFormat, outputFileURI)
+    URI.create(outputFileURI) // validate uri
+    val matcher = ArrowWriteQueue.TAILING_FILENAME_REGEX.matcher(outputFileURI)
+    if (!matcher.matches()) {
+      throw new IllegalArgumentException("illegal out put file uri: " + outputFileURI)
+    }
+    val dirURI = matcher.group(1)
+    val fileName = matcher.group(2)
+
+    DatasetFileWriter.write(scanner, fileFormat, dirURI, Array(), 1, fileName)
   })
 
   writeThread.start()
@@ -54,7 +62,8 @@ class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, outputFileURI: Str
 }
 
 object ArrowWriteQueue {
-  val EOS_BATCH = new ArrowRecordBatch(0, Collections.emptyList(), Collections.emptyList())
+  private val TAILING_FILENAME_REGEX = Pattern.compile("^(.*)/([^/]+)$")
+  private val EOS_BATCH = new ArrowRecordBatch(0, Collections.emptyList(), Collections.emptyList())
 
   class ScannerImpl(schema: Schema) extends Scanner {
     private val writeQueue = new ArrayBlockingQueue[ArrowRecordBatch](64)
