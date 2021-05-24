@@ -471,7 +471,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         precompile/unsafe_array.cc
         precompile/gandiva_projector.cc
         third_party/gandiva/decimal_ops.cc
-	      third_party/gandiva/time.cc
+        third_party/gandiva/time.cc
         )
 
 add_subdirectory(third_party/gandiva)

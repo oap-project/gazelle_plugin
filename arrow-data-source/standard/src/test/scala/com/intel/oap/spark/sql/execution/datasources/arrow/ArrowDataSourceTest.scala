@@ -254,16 +254,17 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     assert(fdGrowth < 100)
   }
 
-  private val csvFile = "people.csv"
+  private val csvFile1 = "people.csv"
+  private val csvFile2 = "example.csv"
 
   ignore("read csv file without specifying original format") {
     // not implemented
     verifyFrame(spark.read.format("arrow")
-        .load(ArrowDataSourceTest.locateResourcePath(csvFile)), 1, 2)
+        .load(ArrowDataSourceTest.locateResourcePath(csvFile1)), 1, 2)
   }
 
   test("read csv file") {
-    val path = ArrowDataSourceTest.locateResourcePath(csvFile)
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile1)
     verifyFrame(
       spark.read
         .format("arrow")
@@ -271,8 +272,17 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
         .load(path), 2, 3)
   }
 
+  test("read csv file 2") {
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile2)
+    verifyFrame(
+      spark.read
+          .format("arrow")
+          .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
+          .load(path), 34, 9)
+  }
+
   test("read csv file - programmatic API ") {
-    val path = ArrowDataSourceTest.locateResourcePath(csvFile)
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile1)
     verifyFrame(
       spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
