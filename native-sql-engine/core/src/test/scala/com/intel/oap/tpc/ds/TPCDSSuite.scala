@@ -60,7 +60,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     super.beforeAll()
     LogManager.getRootLogger.setLevel(Level.WARN)
     val tGen = new TPCDSTableGen(spark, 0.01D, TPCDS_WRITE_PATH)
-//    tGen.gen()
+    tGen.gen()
     tGen.createTables()
     runner = new TPCRunner(spark, TPCDS_QUERIES_RESOURCE)
   }
