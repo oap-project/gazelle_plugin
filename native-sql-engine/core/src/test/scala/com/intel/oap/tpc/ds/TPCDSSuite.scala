@@ -26,7 +26,7 @@ import org.apache.spark.sql.test.SharedSparkSession
 class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "6g"
-  private val TPCDS_QUERIES_RESOURCE = "tpcds-queries"
+  private val TPCDS_QUERIES_RESOURCE = "tpcds"
   private val TPCDS_WRITE_PATH = "/tmp/tpcds-generated"
 
   private var runner: TPCRunner = _
@@ -60,7 +60,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     super.beforeAll()
     LogManager.getRootLogger.setLevel(Level.WARN)
     val tGen = new TPCDSTableGen(spark, 0.01D, TPCDS_WRITE_PATH)
-    tGen.gen()
+//    tGen.gen()
     tGen.createTables()
     runner = new TPCRunner(spark, TPCDS_QUERIES_RESOURCE)
   }
@@ -133,6 +133,15 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
       " MAX(i_current_price) OVER (PARTITION BY i_class_id)," +
       " COUNT(*) OVER (PARTITION BY i_class_id)" +
       " FROM item LIMIT 1000")
+    df.explain()
+    df.show()
+  }
+
+  test("simple UDF") {
+    spark.udf.register("strLenScala",
+      (s: String) => Option(s).map(_.length).orElse(Option(0)).get)
+    val df = spark.sql("SELECT i_item_sk, i_item_desc, strLenScala(i_item_desc) FROM " +
+        "item LIMIT 100")
     df.explain()
     df.show()
   }
