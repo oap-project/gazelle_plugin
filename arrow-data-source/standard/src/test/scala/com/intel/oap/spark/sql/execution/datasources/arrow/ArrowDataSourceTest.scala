@@ -101,7 +101,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     super.afterAll()
   }
 
-  test("reading parquet file") {
+  test("read parquet file") {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
     verifyParquet(
       spark.read
@@ -254,28 +254,44 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     assert(fdGrowth < 100)
   }
 
-  // csv cases: not implemented
-  private val csvFile = "cars.csv"
+  private val csvFile1 = "people.csv"
+  private val csvFile2 = "example.csv"
 
-  ignore("reading csv file without specifying original format") {
-    verifyCsv(spark.read.format("arrow").load(csvFile))
+  ignore("read csv file without specifying original format") {
+    // not implemented
+    verifyFrame(spark.read.format("arrow")
+        .load(ArrowDataSourceTest.locateResourcePath(csvFile1)), 1, 2)
   }
 
-  ignore("reading csv file") {
-    val path = ArrowDataSourceTest.locateResourcePath(csvFile)
-    verifyCsv(
+  test("read csv file") {
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile1)
+    verifyFrame(
       spark.read
         .format("arrow")
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
-        .load(path))
+        .load(path), 2, 3)
   }
 
-  ignore("read csv file - programmatic API ") {
-    val path = ArrowDataSourceTest.locateResourcePath(csvFile)
-    verifyCsv(
+  test("read csv file 2") {
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile2)
+    verifyFrame(
+      spark.read
+          .format("arrow")
+          .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
+          .load(path), 34, 9)
+  }
+
+  test("read csv file - programmatic API ") {
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile1)
+    verifyFrame(
       spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
-        .arrow(path))
+        .arrow(path), 2, 3)
+  }
+
+  def verifyFrame(frame: DataFrame, rowCount: Int, columnCount: Int): Unit = {
+    assert(frame.schema.length === columnCount)
+    assert(frame.collect().length === rowCount)
   }
 
   def verifyCsv(frame: DataFrame): Unit = {
@@ -283,10 +299,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   }
 
   def verifyParquet(frame: DataFrame): Unit = {
-    assert(
-      frame.schema ===
-        StructType(Seq(StructField("col", LongType))))
-    assert(frame.collect().length === 5)
+    verifyFrame(frame, 5, 1)
   }
 
   def delete(path: String): Unit = {
