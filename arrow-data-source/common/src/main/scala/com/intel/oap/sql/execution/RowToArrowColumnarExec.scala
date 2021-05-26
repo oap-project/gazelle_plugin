@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package com.intel.oap.execution
+package com.intel.oap.sql.execution
+
+import java.util.concurrent.TimeUnit._
 
 import com.intel.oap.vectorized._
 
-import java.util.concurrent.TimeUnit._
-import scala.collection.JavaConverters._
-
-import org.apache.spark.{broadcast, TaskContext}
+import org.apache.spark.broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, SpecializedGetters, UnsafeProjection}
-import org.apache.spark.sql.catalyst.expressions.codegen._
-import org.apache.spark.sql.catalyst.expressions.codegen.Block._
+import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.catalyst.expressions.SortOrder
+import org.apache.spark.sql.catalyst.expressions.SpecializedGetters
 import org.apache.spark.sql.catalyst.plans.physical.Partitioning
-import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.execution.RowToColumnarExec
-import org.apache.spark.sql.execution.vectorized.{OffHeapColumnVector, OnHeapColumnVector, WritableColumnVector}
-import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
+import org.apache.spark.sql.execution.metric.SQLMetric
+import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.execution.vectorized.OffHeapColumnVector
+import org.apache.spark.sql.execution.vectorized.WritableColumnVector
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
 class RowToColumnConverter(schema: StructType) extends Serializable {
   private val converters = schema.fields.map {
@@ -279,7 +278,7 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
           }
 
           override def next(): ColumnarBatch = {
-            val vectors: Seq[WritableColumnVector] = 
+            val vectors: Seq[WritableColumnVector] =
               ArrowWritableColumnVector.allocateColumns(numRows, schema)
             var rowCount = 0
             while (rowCount < numRows && rowIterator.hasNext) {
@@ -297,7 +296,7 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
             last_cb
           }
         }
-        new CloseableColumnBatchIterator(res)
+        new UnsafeItr(res)
       } else {
         Iterator.empty
       }

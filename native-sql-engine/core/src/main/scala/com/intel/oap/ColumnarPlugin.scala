@@ -61,6 +61,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarBatchScanExec(plan.output, plan.scan)
+    case plan: CoalesceExec =>
+      ColumnarCoalesceExec(plan.numPartitions, replaceWithColumnarPlan(plan.child))
     case plan: InMemoryTableScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)

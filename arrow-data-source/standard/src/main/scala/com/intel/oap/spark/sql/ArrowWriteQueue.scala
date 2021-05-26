@@ -20,6 +20,7 @@ package com.intel.oap.spark.sql
 import java.lang
 import java.net.URI
 import java.util.Collections
+import java.util.UUID
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
@@ -47,7 +48,7 @@ class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, outputFileURI: Str
     val fileName = matcher.group(2)
 
     DatasetFileWriter.write(scanner, fileFormat, dirURI, Array(), 1, fileName)
-  })
+  }, "ArrowWriteQueue - " + UUID.randomUUID().toString)
 
   writeThread.start()
 

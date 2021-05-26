@@ -21,6 +21,7 @@ import com.intel.oap.spark.sql.ArrowWriteExtension.ArrowWritePostRule
 import com.intel.oap.spark.sql.ArrowWriteExtension.DummyRule
 import com.intel.oap.spark.sql.ArrowWriteExtension.SimpleColumnarRule
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat
+import com.intel.oap.sql.execution.RowToArrowColumnarExec
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.SparkSession
@@ -74,9 +75,21 @@ object ArrowWriteExtension {
             }
           case _ => plan.withNewChildren(plan.children.map(apply))
         }
+      case rc @ DataWritingCommandExec(cmd, child) =>
+        cmd match {
+          case command: InsertIntoHadoopFsRelationCommand =>
+            if (command.fileFormat
+                .isInstanceOf[ArrowFileFormat]) {
+              rc.withNewChildren(Array(ColumnarToFakeRowAdaptor(RowToArrowColumnarExec(child))))
+            } else {
+              plan.withNewChildren(plan.children.map(apply))
+            }
+          case _ => plan.withNewChildren(plan.children.map(apply))
+        }
       case plan: SparkPlan => plan.withNewChildren(plan.children.map(apply))
     }
   }
+
   private case class ColumnarToFakeRowAdaptor(child: SparkPlan) extends ColumnarToRowTransition {
     assert(child.supportsColumnar)
 

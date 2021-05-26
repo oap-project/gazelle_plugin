@@ -23,7 +23,6 @@ import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
 import com.intel.oap.spark.sql.ArrowWriteQueue
-import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat.UnsafeItr
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
@@ -39,6 +38,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.OutputWriter
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
@@ -168,36 +168,4 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 }
 
 object ArrowFileFormat {
-  class UnsafeItr[T](delegate: Iterator[ColumnarBatch])
-    extends Iterator[ColumnarBatch] {
-    val holder = new ColumnarBatchRetainer()
-
-    override def hasNext: Boolean = {
-      holder.release()
-      val hasNext = delegate.hasNext
-      hasNext
-    }
-
-    override def next(): ColumnarBatch = {
-      val b = delegate.next()
-      holder.retain(b)
-      b
-    }
-  }
-
-  class ColumnarBatchRetainer {
-    private var retained: Option[ColumnarBatch] = None
-
-    def retain(batch: ColumnarBatch): Unit = {
-      if (retained.isDefined) {
-        throw new IllegalStateException
-      }
-      retained = Some(batch)
-    }
-
-    def release(): Unit = {
-      retained.foreach(b => b.close())
-      retained = None
-    }
-  }
 }

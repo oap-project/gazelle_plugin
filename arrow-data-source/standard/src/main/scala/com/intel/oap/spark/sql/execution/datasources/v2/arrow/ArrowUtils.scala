@@ -50,8 +50,12 @@ object ArrowUtils {
     }
   }
 
-  def readSchema(files: Seq[FileStatus], options: CaseInsensitiveStringMap): Option[StructType] =
+  def readSchema(files: Seq[FileStatus], options: CaseInsensitiveStringMap): Option[StructType] = {
+    if (files.isEmpty) {
+      throw new IllegalArgumentException("No input file specified")
+    }
     readSchema(files.toList.head, options) // todo merge schema
+  }
 
   def isOriginalFormatSplitable(options: ArrowOptions): Boolean = {
     val format = getFormat(options)
