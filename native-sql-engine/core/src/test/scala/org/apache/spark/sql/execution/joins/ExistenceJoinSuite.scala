@@ -192,76 +192,76 @@ class ExistenceJoinSuite extends SparkPlanTest with SharedSparkSession {
     }
   }
 
-//  testExistenceJoin(
-//    "test single condition (equal) for left semi join",
-//    LeftSemi,
-//    left,
-//    right,
-//    singleConditionEQ,
-//    Seq(Row(2, 1.0), Row(2, 1.0), Row(3, 3.0), Row(6, null)))
-//
-//  testExistenceJoin(
-//    "test single unique condition (equal) for left semi join",
-//    LeftSemi,
-//    left,
-//    right.select(right.col("c")).distinct(), /* Trigger BHJs and SHJs unique key code path! */
-//    singleConditionEQ,
-//    Seq(Row(2, 1.0), Row(2, 1.0), Row(3, 3.0), Row(6, null)))
-//
-//  testExistenceJoin(
-//    "test composed condition (equal & non-equal) for left semi join",
-//    LeftSemi,
-//    left,
-//    right,
-//    composedConditionEQ,
-//    Seq(Row(2, 1.0), Row(2, 1.0)))
-//
-//  testExistenceJoin(
-//    "test composed condition (both non-equal) for left semi join",
-//    LeftSemi,
-//    left,
-//    right,
-//    composedConditionNEQ,
-//    Seq(Row(1, 2.0), Row(1, 2.0), Row(2, 1.0), Row(2, 1.0)))
-//
-//  testExistenceJoin(
-//    "test single condition (equal) for left Anti join",
-//    LeftAnti,
-//    left,
-//    right,
-//    singleConditionEQ,
-//    Seq(Row(1, 2.0), Row(1, 2.0), Row(null, null), Row(null, 5.0)))
-//
-//
-//  testExistenceJoin(
-//    "test single unique condition (equal) for left Anti join",
-//    LeftAnti,
-//    left,
-//    right.select(right.col("c")).distinct(), /* Trigger BHJs and SHJs unique key code path! */
-//    singleConditionEQ,
-//    Seq(Row(1, 2.0), Row(1, 2.0), Row(null, null), Row(null, 5.0)))
-//
-//  testExistenceJoin(
-//    "test composed condition (equal & non-equal) test for anti join",
-//    LeftAnti,
-//    left,
-//    right,
-//    composedConditionEQ,
-//    Seq(Row(1, 2.0), Row(1, 2.0), Row(3, 3.0), Row(6, null), Row(null, 5.0), Row(null, null)))
-//
-//  testExistenceJoin(
-//    "test composed condition (both non-equal) for anti join",
-//    LeftAnti,
-//    left,
-//    right,
-//    composedConditionNEQ,
-//    Seq(Row(3, 3.0), Row(6, null), Row(null, 5.0), Row(null, null)))
-//
-//  testExistenceJoin(
-//    "test composed unique condition (both non-equal) for anti join",
-//    LeftAnti,
-//    left,
-//    rightUniqueKey,
-//    (left.col("a") === rightUniqueKey.col("c") && left.col("b") < rightUniqueKey.col("d")).expr,
-//    Seq(Row(1, 2.0), Row(1, 2.0), Row(3, 3.0), Row(null, null), Row(null, 5.0), Row(6, null)))
+  testExistenceJoin(
+    "test single condition (equal) for left semi join",
+    LeftSemi,
+    left,
+    right,
+    singleConditionEQ,
+    Seq(Row(2, 1.0), Row(2, 1.0), Row(3, 3.0), Row(6, null)))
+
+  testExistenceJoin(
+    "test single unique condition (equal) for left semi join",
+    LeftSemi,
+    left,
+    right.select(right.col("c")).distinct(), /* Trigger BHJs and SHJs unique key code path! */
+    singleConditionEQ,
+    Seq(Row(2, 1.0), Row(2, 1.0), Row(3, 3.0), Row(6, null)))
+
+  testExistenceJoin(
+    "test composed condition (equal & non-equal) for left semi join",
+    LeftSemi,
+    left,
+    right,
+    composedConditionEQ,
+    Seq(Row(2, 1.0), Row(2, 1.0)))
+
+  testExistenceJoin(
+    "test composed condition (both non-equal) for left semi join",
+    LeftSemi,
+    left,
+    right,
+    composedConditionNEQ,
+    Seq(Row(1, 2.0), Row(1, 2.0), Row(2, 1.0), Row(2, 1.0)))
+
+  testExistenceJoin(
+    "test single condition (equal) for left Anti join",
+    LeftAnti,
+    left,
+    right,
+    singleConditionEQ,
+    Seq(Row(1, 2.0), Row(1, 2.0), Row(null, null), Row(null, 5.0)))
+
+
+  testExistenceJoin(
+    "test single unique condition (equal) for left Anti join",
+    LeftAnti,
+    left,
+    right.select(right.col("c")).distinct(), /* Trigger BHJs and SHJs unique key code path! */
+    singleConditionEQ,
+    Seq(Row(1, 2.0), Row(1, 2.0), Row(null, null), Row(null, 5.0)))
+
+  testExistenceJoin(
+    "test composed condition (equal & non-equal) test for anti join",
+    LeftAnti,
+    left,
+    right,
+    composedConditionEQ,
+    Seq(Row(1, 2.0), Row(1, 2.0), Row(3, 3.0), Row(6, null), Row(null, 5.0), Row(null, null)))
+
+  testExistenceJoin(
+    "test composed condition (both non-equal) for anti join",
+    LeftAnti,
+    left,
+    right,
+    composedConditionNEQ,
+    Seq(Row(3, 3.0), Row(6, null), Row(null, 5.0), Row(null, null)))
+
+  testExistenceJoin(
+    "test composed unique condition (both non-equal) for anti join",
+    LeftAnti,
+    left,
+    rightUniqueKey,
+    (left.col("a") === rightUniqueKey.col("c") && left.col("b") < rightUniqueKey.col("d")).expr,
+    Seq(Row(1, 2.0), Row(1, 2.0), Row(3, 3.0), Row(null, null), Row(null, 5.0), Row(6, null)))
 }

@@ -52,7 +52,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
         .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
         .set("spark.sql.codegen.wholeStage", "false")
         .set("spark.sql.sources.useV1SourceList", "")
-        .set("spark.sql.columnar.tmp_dir", "/tmp/")
+        .set("spark.oap.sql.columnar.tmp_dir", "/tmp/")
         .set("spark.sql.adaptive.enabled", "false")
         .set("spark.sql.columnar.sort.broadcastJoin", "true")
         .set("spark.storage.blockManagerSlaveTimeoutMs", "3600000")
