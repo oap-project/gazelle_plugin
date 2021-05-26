@@ -18,6 +18,8 @@
 package com.intel.oap
 
 import com.intel.oap.execution._
+import com.intel.oap.sql.execution.RowToArrowColumnarExec
+
 import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
