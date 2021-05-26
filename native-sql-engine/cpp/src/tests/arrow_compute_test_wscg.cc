@@ -3732,17 +3732,21 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
   auto f1 = field("f1", float64());
   auto f2 = field("f2", float64());
   auto f3 = field("f3", float64());
+  auto f4 = field("f4", utf8());
 
   auto f_sum = field("sum", int64());
   auto f_count = field("count", int64());
   auto f_avg = field("avg", float64());
   auto f_stddev = field("stddev", float64());
+  auto f_min = field("min", utf8());
+  auto f_max = field("max", utf8());
   auto f_res = field("res", uint32());
 
   auto arg0 = TreeExprBuilder::MakeField(f0);
   auto arg1 = TreeExprBuilder::MakeField(f1);
   auto arg2 = TreeExprBuilder::MakeField(f2);
   auto arg3 = TreeExprBuilder::MakeField(f3);
+  auto arg4 = TreeExprBuilder::MakeField(f4);
 
   auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg0}, int64());
   auto n_count = TreeExprBuilder::MakeFunction("action_count", {arg0}, int64());
@@ -3751,22 +3755,27 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
       TreeExprBuilder::MakeFunction("action_avgByCount", {arg1, arg0}, float64());
   auto n_stddev = TreeExprBuilder::MakeFunction("action_stddev_samp_final",
                                                 {arg1, arg2, arg3}, float64());
+  auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg4}, utf8());
+  auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg4}, utf8());
 
   auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
-                                              {arg0, arg1, arg2, arg3}, uint32());
+                                              {arg0, arg1, arg2, arg3, arg4}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_sum, n_count, n_sum_count, n_avg, n_stddev}, uint32());
+      "aggregateActions", {n_sum, n_count, n_sum_count, n_avg, n_stddev, n_min, n_max},
+      uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
        TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
-       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev),
+       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max)},
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
       {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
        TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
-       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev)},
+       TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_stddev),
+       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
@@ -3776,9 +3785,9 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
 
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
 
-  auto sch = arrow::schema({f0, f1, f2, f3});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_sum,   f_count, f_sum,
-                                                   f_count, f_avg,   f_stddev};
+  auto sch = arrow::schema({f0, f1, f2, f3, f4});
+  std::vector<std::shared_ptr<Field>> ret_types = {f_sum, f_count,  f_sum, f_count,
+                                                   f_avg, f_stddev, f_min, f_max};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
@@ -3801,7 +3810,9 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
       "[2, 4, 5, 7, 8, 2, 45, 32, 23, 12, 14, 16, 18, 19, 23, 25, 57, 59, 12, "
       "1]",
       "[2, 4, 5, 7, 8, 2, 45, 32, 23, 12, 14, 16, 18, 19, 23, 25, 57, 59, 12, "
-      "1]"};
+      "1]",
+      R"(["BJK", "SH", "SZ", "NY", "WH", "WH", "AU", "BJ", "SH", "DL", "cD", "CD", 
+          "Bj", "LA", "HZ", "LA", "WH", "NY", "WH", "WH"])"};
   MakeInputBatch(input_data, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
@@ -3812,14 +3823,17 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
       "[2, 4, 5, 7, 8, 2, 45, 32, 23, 12, 14, 16, 18, 19, 23, 25, 57, 59, 12, "
       "1]",
       "[2, 4, 5, 7, 8, 2, 45, 32, 23, 12, 14, 16, 18, 19, 23, 25, 57, 59, 12, "
-      "1]"};
+      "1]",
+      R"(["BJ", "SHL", "SZ", "NY", "WH", "WH", "au", "BJ", "SH", "DL", "cD", "CD", 
+          "Bj", "LA", "HZ", "LA", "WH", "NY", "WHZ", "wH"])"};
   MakeInputBatch(input_data_2, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-  std::vector<std::string> expected_result_string = {"[221]", "[39]",      "[221]",
-                                                     "[39]",  "[4.30973]", "[17.2996]"};
+  std::vector<std::string> expected_result_string = {
+      "[221]",     "[39]",      "[221]",     "[39]",
+      "[4.30973]", "[17.2996]", R"(["AU"])", R"(["wH"])"};
   MakeInputBatch(expected_result_string, arrow::schema(ret_types), &expected_result);
   if (aggr_result_iterator->HasNext()) {
     ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));

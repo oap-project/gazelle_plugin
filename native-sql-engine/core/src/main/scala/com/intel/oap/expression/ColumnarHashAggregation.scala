@@ -128,20 +128,23 @@ class ColumnarHashAggregation(
         case Sum(_) =>
             mode match {
               case Partial =>
-              val childrenColumnarFuncNodeList =
-                aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
-                TreeBuilder.makeFunction("action_sum_partial", childrenColumnarFuncNodeList.asJava, resultType)
+                val childrenColumnarFuncNodeList =
+                  aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
+                TreeBuilder.makeFunction(
+                  "action_sum_partial",
+                  childrenColumnarFuncNodeList.asJava, resultType)
               case Final | PartialMerge =>
-              val childrenColumnarFuncNodeList =
-                List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+                val childrenColumnarFuncNodeList =
+                  List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
                 //FIXME(): decimal adds isEmpty column
                 val sum = aggregateFunc.asInstanceOf[Sum]
                 val attrBuf = sum.inputAggBufferAttributes
                 if (attrBuf.size == 2) {
                   inputAttrQueue.dequeue
                 }
-
-                TreeBuilder.makeFunction("action_sum", childrenColumnarFuncNodeList.asJava, resultType)
+                TreeBuilder.makeFunction(
+                  "action_sum",
+                  childrenColumnarFuncNodeList.asJava, resultType)
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
