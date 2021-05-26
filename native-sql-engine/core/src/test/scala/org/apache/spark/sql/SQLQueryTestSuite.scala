@@ -154,6 +154,12 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     // Fewer shuffle partitions to speed up testing.
     .set(SQLConf.SHUFFLE_PARTITIONS, 4)
 
+  /** For Debug Use only
+   * List of test cases to test, in lower cases. */
+  protected def testList: Set[String] = Set(
+
+  )
+
   /** List of test cases to ignore, in lower cases. */
   protected def ignoreList: Set[String] = Set(
     "ignored.sql",   // Do NOT remove this one. It is here to test the ignore functionality.
@@ -177,22 +183,20 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "postgreSQL/window_part3.sql",
     "postgreSQL/join.sql",
     // result mismatch
-    "null-handling.sql",
     "cte-legacy.sql",
     "decimalArithmeticOperations.sql",
-    "outer-join.sql",
+    "outer-join.sql", // different order
     "like-all.sql",
     "charvarchar.sql",
     "union.sql",
-    "explain-aqe.sql",
+    "explain-aqe.sql", // plan check
     "misc-functions.sql",
-    "cte-nonlegacy.sql",
-    "explain.sql",
+    "cte-nonlegacy.sql", // Schema did not match
+    "explain.sql", // plan check
     "cte-nested.sql",
     "describe.sql",
     "like-any.sql",
     "order-by-nulls-ordering.sql",
-    "subquery/in-subquery/in-multiple-columns.sql",
     "subquery/in-subquery/in-joins.sql",
     "subquery/scalar-subquery/scalar-subquery-select.sql",
     "subquery/exists-subquery/exists-basic.sql",
@@ -203,12 +207,11 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "typeCoercion/native/windowFrameCoercion.sql",
     "postgreSQL/aggregates_part1.sql",
     "postgreSQL/window_part1.sql",
-    "postgreSQL/union.sql",
+    "postgreSQL/union.sql",  // aggregate-groupby
     "postgreSQL/aggregates_part2.sql",
-    "postgreSQL/int4.sql",
+    "postgreSQL/int4.sql", // exception expected
     "postgreSQL/select_implicit.sql",
     "postgreSQL/numeric.sql",
-    "postgreSQL/window_part2.sql",
     "postgreSQL/int8.sql",
     "postgreSQL/select_having.sql",
     "postgreSQL/create_view.sql",
@@ -216,11 +219,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "udf/udf-window.sql",
     "udf/postgreSQL/udf-aggregates_part1.sql",
     "udf/postgreSQL/udf-aggregates_part2.sql",
-    "udf/postgreSQL/udf-join.sql",
-    "operators.sql",
-    "limit.sql",
-    "subquery/subquery-in-from.sql",
-    "postgreSQL/select_distinct.sql",
+    "udf/postgreSQL/udf-join.sql", // Scala and Python UDF
     "postgreSQL/limit.sql",
     "postgreSQL/select.sql"
   )
@@ -312,6 +311,13 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
         test(testCase.name) {
           runTest(testCase)
         }
+        // To run only the set test
+//        if (testList.exists(t =>
+//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+//          test(testCase.name) {
+//            runTest(testCase)
+//          }
+//        }
     }
   }
 
@@ -518,7 +524,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
         outputs.size
       }
 
-      outputs.zip(expectedOutputs).zipWithIndex.foreach { case ((output, expected), i) =>
+       outputs.zip(expectedOutputs).zipWithIndex.foreach { case ((output, expected), i) =>
         assertResult(expected.sql, s"SQL query did not match for query #$i\n${expected.sql}") {
           output.sql
         }
