@@ -17,6 +17,9 @@
 
 #include <arrow/array/concatenate.h>
 #include <arrow/compute/api.h>
+#include <arrow/ipc/writer.h>
+#include <arrow/ipc/options.h>
+#include <arrow/io/file.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -1247,6 +1250,33 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
+arrow::Status Spill(const ArrayList& in) {
+    arrow::ipc::IpcPayload payload;
+    arrow::ipc::IpcWriteOptions options_;
+    auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
+    arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
+
+    std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
+    std::string spilled_file_; //TODO(): create tmp file
+    ARROW_ASSIGN_OR_RAISE(spilled_file_os_, arrow::io::FileOutputStream::Open(spilled_file_, true));
+
+    int32_t metadata_length = -1;
+    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(payload, options_, spilled_file_os_.get(), &metadata_length));
+    return arrow::Status::OK();
+}
+
+arrow::Status Merge(std::vector<arrow::ArrayVector> out) {
+/*
+    ASSERT_OK_AND_ASSIGN(*out_serialized, stream->Finish());
+    io::BufferReader io_reader(*out_serialized);
+    ASSERT_OK(ReadMessage(&io_reader).Value(out));
+*/
+  std::string spilled_file_; //TODO(): read tmp file
+    ARROW_ASSIGN_OR_RAISE(
+        auto spilled_file_is_,
+        arrow::io::MemoryMappedFile::Open(spilled_file_, arrow::io::FileMode::READ));
+    return arrow::Status::OK();
+}
   void PartitionNulls(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
