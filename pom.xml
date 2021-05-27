@@ -34,6 +34,7 @@
     <scala.binary.version>2.12</scala.binary.version>
     <spark.version>3.1.1</spark.version>
     <arrow.version>4.0.0</arrow.version>
+    <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
     <hadoop.version>2.7.4</hadoop.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
