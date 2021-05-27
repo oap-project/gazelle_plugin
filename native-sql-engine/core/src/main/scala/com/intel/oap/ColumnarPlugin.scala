@@ -18,6 +18,8 @@
 package com.intel.oap
 
 import com.intel.oap.execution._
+import com.intel.oap.sql.execution.RowToArrowColumnarExec
+
 import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
@@ -61,6 +63,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarBatchScanExec(plan.output, plan.scan)
+    case plan: CoalesceExec =>
+      ColumnarCoalesceExec(plan.numPartitions, replaceWithColumnarPlan(plan.child))
     case plan: InMemoryTableScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)

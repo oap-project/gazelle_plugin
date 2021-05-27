@@ -33,27 +33,14 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
-import org.apache.arrow.vector.ipc.message.{
-  ArrowFieldNode,
-  ArrowRecordBatch,
-  IpcOption,
-  MessageChannelReader,
-  MessageResult,
-  MessageSerializer
-}
-import org.apache.arrow.vector.ipc.message.{
-  ArrowFieldNode,
-  ArrowRecordBatch,
-  IpcOption,
-  MessageChannelReader,
-  MessageResult,
-  MessageSerializer
-}
+import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
+import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -62,9 +49,9 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+
 import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
 import java.nio.channels.{Channels, WritableByteChannel}
 
@@ -73,46 +60,19 @@ import java.io.{InputStream, OutputStream}
 
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+
 object ConverterUtils extends Logging {
   def calcuateEstimatedSize(columnarBatch: ColumnarBatch): Long = {
-    val cols = (0 until columnarBatch.numCols).toList.map(i =>
-      columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
-    val nodes = new java.util.ArrayList[ArrowFieldNode]()
-    val buffers = new java.util.ArrayList[ArrowBuf]()
-    cols.foreach(vector => {
-      appendNodes(vector.asInstanceOf[FieldVector], nodes, buffers);
-    })
-    buffers.asScala.map(_.getPossibleMemoryConsumed()).sum
+    SparkVectorUtils.estimateSize(columnarBatch)
   }
+
   def createArrowRecordBatch(columnarBatch: ColumnarBatch): ArrowRecordBatch = {
-    val numRowsInBatch = columnarBatch.numRows()
-    val cols = (0 until columnarBatch.numCols).toList.map(i =>
-      columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
-    createArrowRecordBatch(numRowsInBatch, cols)
+    SparkVectorUtils.toArrowRecordBatch(columnarBatch)
   }
 
   def createArrowRecordBatch(numRowsInBatch: Int, cols: List[ValueVector]): ArrowRecordBatch = {
-    val nodes = new java.util.ArrayList[ArrowFieldNode]()
-    val buffers = new java.util.ArrayList[ArrowBuf]()
-    cols.foreach(vector => {
-      appendNodes(vector.asInstanceOf[FieldVector], nodes, buffers);
-    })
-    new ArrowRecordBatch(numRowsInBatch, nodes, buffers);
-  }
-
-  def appendNodes(
-      vector: FieldVector,
-      nodes: java.util.List[ArrowFieldNode],
-      buffers: java.util.List[ArrowBuf]): Unit = {
-    nodes.add(new ArrowFieldNode(vector.getValueCount, vector.getNullCount))
-    val fieldBuffers = vector.getFieldBuffers
-    val expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType())
-    if (fieldBuffers.size != expectedBufferCount) {
-      throw new IllegalArgumentException(
-        s"wrong number of buffers for field ${vector.getField} in vector ${vector.getClass.getSimpleName}. found: ${fieldBuffers}")
-    }
-    buffers.addAll(fieldBuffers)
-    vector.getChildrenFromFields.asScala.foreach(child => appendNodes(child, nodes, buffers))
+    SparkVectorUtils.toArrowRecordBatch(numRowsInBatch, cols)
   }
 
   def convertToNetty(iter: Array[ColumnarBatch], out: OutputStream): Unit = {

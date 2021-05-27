@@ -21,7 +21,8 @@ import java.net.URLDecoder
 
 import scala.collection.JavaConverters._
 
-import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat.UnsafeItr
+import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
+import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
@@ -29,11 +30,16 @@ import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.Job
+import org.apache.hadoop.mapreduce.TaskAttemptContext
+import org.apache.parquet.hadoop.codec.CodecConfig
 
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
+import org.apache.spark.sql.execution.datasources.OutputWriter
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
@@ -53,19 +59,44 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
     ArrowUtils.readSchema(files, new CaseInsensitiveStringMap(options.asJava))
   }
 
-  override def inferSchema(
-                            sparkSession: SparkSession,
+  override def inferSchema(sparkSession: SparkSession,
                             options: Map[String, String],
                             files: Seq[FileStatus]): Option[StructType] = {
     convert(files, options)
   }
 
-  override def prepareWrite(
-                             sparkSession: SparkSession,
+  override def prepareWrite(sparkSession: SparkSession,
                              job: Job,
                              options: Map[String, String],
                              dataSchema: StructType): OutputWriterFactory = {
-    throw new UnsupportedOperationException("Write is not supported for Arrow source")
+    val arrowOptions = new ArrowOptions(new CaseInsensitiveStringMap(options.asJava).asScala.toMap)
+    new OutputWriterFactory {
+      override def getFileExtension(context: TaskAttemptContext): String = {
+        ArrowUtils.getFormat(arrowOptions) match {
+          case org.apache.arrow.dataset.file.FileFormat.PARQUET =>
+            CodecConfig.from(context).getCodec.getExtension + ".parquet"
+          case f => throw new IllegalArgumentException("Unimplemented file type to write: " + f)
+        }
+      }
+
+      override def newInstance(path: String, dataSchema: StructType,
+          context: TaskAttemptContext): OutputWriter = {
+        val writeQueue = new ArrowWriteQueue(ArrowUtils.toArrowSchema(dataSchema),
+          ArrowUtils.getFormat(arrowOptions), path)
+
+        new OutputWriter {
+          override def write(row: InternalRow): Unit = {
+            val batch = row.asInstanceOf[FakeRow].batch
+            writeQueue.enqueue(SparkVectorUtils
+                .toArrowRecordBatch(batch))
+          }
+
+          override def close(): Unit = {
+            writeQueue.close()
+          }
+        }
+      }
+    }
   }
 
   override def supportBatch(sparkSession: SparkSession, dataSchema: StructType): Boolean = true
@@ -137,36 +168,4 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 }
 
 object ArrowFileFormat {
-  class UnsafeItr[T](delegate: Iterator[ColumnarBatch])
-    extends Iterator[ColumnarBatch] {
-    val holder = new ColumnarBatchRetainer()
-
-    override def hasNext: Boolean = {
-      holder.release()
-      val hasNext = delegate.hasNext
-      hasNext
-    }
-
-    override def next(): ColumnarBatch = {
-      val b = delegate.next()
-      holder.retain(b)
-      b
-    }
-  }
-
-  class ColumnarBatchRetainer {
-    private var retained: Option[ColumnarBatch] = None
-
-    def retain(batch: ColumnarBatch): Unit = {
-      if (retained.isDefined) {
-        throw new IllegalStateException
-      }
-      retained = Some(batch)
-    }
-
-    def release(): Unit = {
-      retained.foreach(b => b.close())
-      retained = None
-    }
-  }
 }

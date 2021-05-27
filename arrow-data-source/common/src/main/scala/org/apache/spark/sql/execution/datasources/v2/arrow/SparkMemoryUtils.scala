@@ -226,4 +226,41 @@ object SparkMemoryUtils {
     val list = new util.ArrayList[NativeMemoryPool](leakedMemoryPools)
     list.asScala.toList
   }
+
+  class UnsafeItr[T <: AutoCloseable](delegate: Iterator[T])
+      extends Iterator[T] {
+    val holder = new GenericRetainer[T]()
+
+    SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+      holder.release()
+    })
+
+    override def hasNext: Boolean = {
+      holder.release()
+      val hasNext = delegate.hasNext
+      hasNext
+    }
+
+    override def next(): T = {
+      val b = delegate.next()
+      holder.retain(b)
+      b
+    }
+  }
+
+  class GenericRetainer[T <: AutoCloseable] {
+    private var retained: Option[T] = None
+
+    def retain(batch: T): Unit = {
+      if (retained.isDefined) {
+        throw new IllegalStateException
+      }
+      retained = Some(batch)
+    }
+
+    def release(): Unit = {
+      retained.foreach(b => b.close())
+      retained = None
+    }
+  }
 }

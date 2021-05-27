@@ -20,16 +20,20 @@ package com.intel.oap.spark.sql.execution.datasources.arrow
 import java.io.File
 import java.lang.management.ManagementFactory
 
+import com.intel.oap.spark.sql.ArrowWriteExtension
 import com.intel.oap.spark.sql.DataFrameReaderImplicits._
+import com.intel.oap.spark.sql.DataFrameWriterImplicits._
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
 import com.sun.management.UnixOperatingSystemMXBean
 import org.apache.commons.io.FileUtils
 
 import org.apache.spark.SparkConf
+import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{DataFrame, QueryTest, Row}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.internal.StaticSQLConf.SPARK_SESSION_EXTENSIONS
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
 
@@ -43,6 +47,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(10 * 1024 * 1024))
+    conf.set(SPARK_SESSION_EXTENSIONS.key, classOf[ArrowWriteExtension].getCanonicalName)
     conf
   }
 
@@ -103,13 +108,13 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
   test("read parquet file") {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
-    verifyParquet(
+    verifyFrame(
       spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
-        .arrow(path))
+        .arrow(path), 5, 1)
   }
 
-  test("simple sql query on s3") {
+  ignore("simple sql query on s3") {
     val path = "s3a://mlp-spark-dataset-bucket/test_arrowds_s3_small"
     val frame = spark.read
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
@@ -123,7 +128,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     spark.catalog.createTable("ptab", path, "arrow")
     val sql = "select * from ptab"
     spark.sql(sql).explain()
-    verifyParquet(spark.sql(sql))
+    verifyFrame(spark.sql(sql), 5, 1)
   }
 
   test("create table statement") {
@@ -140,9 +145,10 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
       .arrow(path)
     frame.createOrReplaceTempView("ptab")
-    verifyParquet(spark.sql("select * from ptab"))
-    verifyParquet(spark.sql("select col from ptab"))
-    verifyParquet(spark.sql("select col from ptab where col is not null or col is null"))
+    verifyFrame(spark.sql("select * from ptab"), 5, 1)
+    verifyFrame(spark.sql("select col from ptab"), 5, 1)
+    verifyFrame(spark.sql("select col from ptab where col is not null or col is null"),
+      5, 1)
   }
 
   test("simple SQL query on parquet file - 2") {
@@ -163,6 +169,28 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     assert(rows(2).get(0) == "apple")
     assert(rows(2).get(1) == 300)
     assert(rows.length === 3)
+  }
+
+  test("simple parquet write") {
+    val path = ArrowDataSourceTest.locateResourcePath(parquetFile3)
+    val frame = spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+        .arrow(path)
+    frame.createOrReplaceTempView("ptab")
+    val sqlFrame = spark.sql("select * from ptab")
+
+    val writtenPath = FileUtils.getTempDirectory + File.separator + "written.parquet"
+    sqlFrame.write.mode(SaveMode.Overwrite)
+        .option(ArrowOptions.KEY_TARGET_FORMAT, "parquet")
+        .arrow(writtenPath)
+
+    val frame2 = spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+        .arrow(writtenPath)
+    frame2.createOrReplaceTempView("ptab2")
+    val sqlFrame2 = spark.sql("select * from ptab2")
+
+    verifyFrame(sqlFrame2, 3, 1)
   }
 
   test("simple SQL query on parquet file with pushed filters") {
@@ -230,7 +258,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
     val initialFdCount = getFdCount
     for (_ <- 0 until 100) {
-      verifyParquet(spark.sql("select * from ptab"))
+      verifyFrame(spark.sql("select * from ptab"), 5, 1)
     }
     val fdGrowth = getFdCount - initialFdCount
     assert(fdGrowth < 100)
@@ -248,7 +276,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
     val initialFdCount = getFdCount
     for (_ <- 0 until 100) {
-      verifyParquet(spark.sql("select * from ptab2"))
+      verifyFrame(spark.sql("select * from ptab2"), 5, 1)
     }
     val fdGrowth = getFdCount - initialFdCount
     assert(fdGrowth < 100)
