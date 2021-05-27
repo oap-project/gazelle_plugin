@@ -548,6 +548,13 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
   std::string env_gcc = std::string(env_gcc_);
 
+  char* env_codegen_option_ = std::getenv("CODEGEN_OPTION");
+
+  if (env_codegen_option_ == nullptr) {
+    env_codegen_option_ = " -O3 -march=native ";
+  }
+   std::string env_codegen_option = std::string(env_codegen_option_);
+
   const char* env_arrow_dir = std::getenv("LIBARROW_DIR");
   std::string arrow_header;
   std::string arrow_lib, arrow_lib2;
@@ -563,8 +570,8 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   // compile the code
   std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
                     arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
-                    nativesql_lib + cppfile + " -o " + libfile +
-                    " -O3 -march=native -shared -fPIC -lspark_columnar_jni 2> " + logfile;
+                    nativesql_lib + cppfile + " -o " + libfile + env_codegen_option +
+                    " -shared -fPIC -lspark_columnar_jni 2> " + logfile;
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
@@ -577,10 +584,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
     std::cout << "compilation failed, see " << logfile << std::endl;
     std::cout << cmd << std::endl;
-    /*cmd = "ls -R -l " + GetTempPath() + "; cat " + logfile;
-    system(cmd.c_str());*/
     return arrow::Status::Invalid("compilation failed, see ", logfile);
-    // exit(EXIT_FAILURE);
   }
   cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
         signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so";
