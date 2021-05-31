@@ -39,6 +39,10 @@ class KernalBase {
  public:
   KernalBase() {}
   virtual ~KernalBase() {}
+  virtual arrow::Status Evaluate(ArrayList& in) {
+      return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
+                                         kernel_name_, ", input is arrayList.");
+  }
   virtual arrow::Status Evaluate(const ArrayList& in) {
     return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
                                          kernel_name_, ", input is arrayList.");
@@ -197,7 +201,7 @@ class SortArraysToIndicesKernel : public KernalBase {
                             std::vector<bool> sort_directions,
                             std::vector<bool> nulls_order, bool NaN_check,
                             bool do_codegen, int result_type);
-  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;

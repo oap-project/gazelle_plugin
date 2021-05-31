@@ -17,8 +17,7 @@
 
 #include <arrow/array/concatenate.h>
 #include <arrow/compute/api.h>
-#include <arrow/ipc/writer.h>
-#include <arrow/ipc/options.h>
+#include <arrow/ipc/api.h>
 #include <arrow/io/file.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
@@ -182,7 +181,7 @@ class SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  virtual arrow::Status Evaluate(const ArrayList& in) {
+  virtual arrow::Status Evaluate(ArrayList& in) {
     num_batches_++;
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
@@ -318,7 +317,7 @@ class TypedSorterImpl : public CodeGenBase {
  public:
   TypedSorterImpl(arrow::compute::ExecContext* ctx) : ctx_(ctx) {}
 
-  arrow::Status Evaluate(const ArrayList& in) override {
+  arrow::Status Evaluate(ArrayList& in) override {
     num_batches_++;
     )" + cached_insert_str +
            R"(
@@ -760,7 +759,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         key_projector_(key_projector),
         NaN_check_(NaN_check) {}
 
-  arrow::Status Evaluate(const ArrayList& in) override {
+  arrow::Status Evaluate(ArrayList& in) override {
     num_batches_++;
     // do projection here
     arrow::ArrayVector outputs;
@@ -1224,7 +1223,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
   ~SortOnekeyKernel() {}
 
-  arrow::Status Evaluate(const ArrayList& in) override {
+  arrow::Status Evaluate(ArrayList& in) override {
     num_batches_++;
     // do projection here
     arrow::ArrayVector outputs;
@@ -1235,8 +1234,9 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       cached_key_.push_back(std::make_shared<ArrayType_key>(outputs[0]));
       nulls_total_ += outputs[0]->null_count();
     } else {
-      cached_key_.push_back(std::make_shared<ArrayType_key>(in[key_id_]));
       nulls_total_ += in[key_id_]->null_count();
+      cached_key_.push_back(std::make_shared<ArrayType_key>(in[key_id_]));
+
     }
 
     items_total_ += in[key_id_]->length();
@@ -1244,39 +1244,97 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
     }
-    for (int i = 0; i < col_num_; i++) {
-      cached_[i].push_back(in[i]);
+
+    std::cout << "key idx: " << key_id_ << std::endl;
+    // TODO(): a flag to enable/disable spill
+    if (1) {
+      Spill(in);
+    
+      for(int i = 0; i < in.size(); i++) {
+        if (i != key_id_) {
+          std::cout << "count: " << in[i].use_count() << std::endl;
+          in[i].reset();
+      }
+    }
+    // for(int i = 0 ; i < in.size(); i++) {
+    //   arrow::PrettyPrint(*in[i].get(), 2, &std::cout);
+    // }
+    
+    } else {
+      for (int i = 0; i < col_num_; i++) {
+        cached_[i].push_back(in[i]);
+      }
+    }   
+    return arrow::Status::OK();
+  }
+
+  std::string random_string( size_t length )
+  {
+      auto randchar = []() -> char
+      {
+          const char charset[] =
+          "0123456789"
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+          "abcdefghijklmnopqrstuvwxyz";
+          const size_t max_index = (sizeof(charset) - 1);
+          return charset[ rand() % max_index ];
+      };
+      std::string str(length,0);
+      std::generate_n( str.begin(), length, randchar );
+      return str;
+  }
+
+  arrow::Status Spill(const ArrayList& in) {
+      arrow::ipc::IpcPayload payload;
+      arrow::ipc::IpcWriteOptions options_;
+      auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
+
+      arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
+      std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
+      std::string spilled_file_ = "/tmp/sort_spill.arrow" + random_string(10); //TODO(): get tmp dir
+      ARROW_ASSIGN_OR_RAISE(spilled_file_os_, arrow::io::FileOutputStream::Open(spilled_file_, true));
+
+      int32_t metadata_length = -1;
+      auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
+      RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*result_schema_.get(), options_, dict_file_mapper, schema_payload_.get()));
+      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(*schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
+
+      arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
+      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(payload, options_, spilled_file_os_.get(), &metadata_length));
+
+      spill_file_list.push_back(spilled_file_);
+
+      return arrow::Status::OK();
+  }
+
+  arrow::Result<std::shared_ptr<arrow::ipc::RecordBatchReader>>
+  GetRecordBatchStreamReader(const std::string& file_name) {
+    ARROW_ASSIGN_OR_RAISE(auto file_, arrow::io::ReadableFile::Open(file_name))
+    ARROW_ASSIGN_OR_RAISE(auto file_reader,
+                         arrow::ipc::RecordBatchStreamReader::Open(file_));
+    return file_reader;
+  }
+
+  arrow::Status Merge(ArrayList* out) {
+
+    for(const auto& file_path : spill_file_list) {
+      std::cout << "reading: " << file_path << std::endl;
+      std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+      ARROW_ASSIGN_OR_RAISE(file_reader, GetRecordBatchStreamReader(file_path));
+
+      std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+      RETURN_NOT_OK(file_reader->ReadAll(&batches));
+      
+      auto batch = batches[0];
+      //arrow::PrettyPrint(*batch.get(), 2, &std::cout);
+      for (int i = 0; i < batch->num_columns(); i++) {
+        out->push_back(batch->column(i));
+        cached_[i].push_back(batch->column(i));
+      }
     }
     return arrow::Status::OK();
   }
 
-arrow::Status Spill(const ArrayList& in) {
-    arrow::ipc::IpcPayload payload;
-    arrow::ipc::IpcWriteOptions options_;
-    auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
-    arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
-
-    std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
-    std::string spilled_file_; //TODO(): create tmp file
-    ARROW_ASSIGN_OR_RAISE(spilled_file_os_, arrow::io::FileOutputStream::Open(spilled_file_, true));
-
-    int32_t metadata_length = -1;
-    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(payload, options_, spilled_file_os_.get(), &metadata_length));
-    return arrow::Status::OK();
-}
-
-arrow::Status Merge(std::vector<arrow::ArrayVector> out) {
-/*
-    ASSERT_OK_AND_ASSIGN(*out_serialized, stream->Finish());
-    io::BufferReader io_reader(*out_serialized);
-    ASSERT_OK(ReadMessage(&io_reader).Value(out));
-*/
-  std::string spilled_file_; //TODO(): read tmp file
-    ARROW_ASSIGN_OR_RAISE(
-        auto spilled_file_is_,
-        arrow::io::MemoryMappedFile::Open(spilled_file_, arrow::io::FileMode::READ));
-    return arrow::Status::OK();
-}
   void PartitionNulls(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
     int64_t indices_i = 0;
     int64_t indices_null = 0;
@@ -1527,6 +1585,11 @@ arrow::Status Merge(std::vector<arrow::ArrayVector> out) {
     RETURN_NOT_OK(
         MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
+
+    if (1) { //TODO: make this configurable
+      ArrayList out;
+      Merge(&out);
+    }
     return arrow::Status::OK();
   }
 
@@ -1555,6 +1618,8 @@ arrow::Status Merge(std::vector<arrow::ArrayVector> out) {
   uint64_t nulls_total_ = 0;
   int col_num_;
   int key_id_;
+
+  std::vector<std::string> spill_file_list;
 };
 
 ///////////////  SortArraysMultipleKeys  ////////////////
@@ -1597,7 +1662,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
   }
   ~SortMultiplekeyKernel() {}
 
-  arrow::Status Evaluate(const ArrayList& in) override {
+  arrow::Status Evaluate(ArrayList& in) override {
     num_batches_++;
     if (cached_.size() <= col_num_) {
       cached_.resize(col_num_ + 1);
@@ -1893,7 +1958,7 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
 }
 #undef PROCESS_SUPPORTED_TYPES
 
-arrow::Status SortArraysToIndicesKernel::Evaluate(const ArrayList& in) {
+arrow::Status SortArraysToIndicesKernel::Evaluate(ArrayList& in) {
   return impl_->Evaluate(in);
 }
 
