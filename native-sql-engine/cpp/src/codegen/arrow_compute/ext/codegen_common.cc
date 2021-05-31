@@ -553,7 +553,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   if (env_codegen_option_ == nullptr) {
     env_codegen_option_ = " -O3 -march=native ";
   }
-   std::string env_codegen_option = std::string(env_codegen_option_);
+  std::string env_codegen_option = std::string(env_codegen_option_);
 
   const char* env_arrow_dir = std::getenv("LIBARROW_DIR");
   std::string arrow_header;
