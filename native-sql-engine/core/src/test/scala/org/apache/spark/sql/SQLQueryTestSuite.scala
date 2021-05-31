@@ -164,24 +164,69 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   protected def ignoreList: Set[String] = Set(
     "ignored.sql",   // Do NOT remove this one. It is here to test the ignore functionality.
     // segfault and compilation error
-    "group-by.sql",
+    "group-by.sql", // IndexOutOfBoundsException
     "show-tblproperties.sql",
-    "except.sql",
     "group-by-filter.sql",
+    /* Expected "[2	4]", but got "[7	7]" Result did not match for query #4
+    SELECT COUNT(a) FILTER (WHERE a = 1), COUNT(b) FILTER (WHERE a > 1) FROM testData */
     "subquery/in-subquery/not-in-unit-tests-single-column.sql",
-    "subquery/in-subquery/in-having.sql",
+    /* Expected "[]", but got "[2	3.0
+    4	5.0
+    NULL	1.0]" Result did not match for query #3
+    SELECT *
+    FROM   m
+    WHERE  a NOT IN (SELECT c
+                     FROM   s
+                     WHERE  d = 1.0) -- Only matches (null, 1.0)*/
     "subquery/in-subquery/simple-in.sql",
+    /*Expected "1	[NULL
+      2	1]", but got "1	[3
+      1	NULL
+      2	1
+      NULL	3]" Result did not match for query #12
+      SELECT a1, a2
+      FROM   a
+      WHERE  a1 NOT IN (SELECT b.b1
+                        FROM   b
+                        WHERE  a.a2 = b.b2)*/
     "subquery/in-subquery/nested-not-in.sql",
-    "subquery/in-subquery/not-in-joins.sql",
-    "subquery/in-subquery/in-order-by.sql",
+    /*
+    Expected "[]", but got "[5	5]" Result did not match for query #17
+SELECT *
+FROM   s1
+WHERE  NOT (a > 5
+            OR a IN (SELECT c
+                     FROM   s2))*/
     "subquery/scalar-subquery/scalar-subquery-predicate.sql",
     "subquery/exists-subquery/exists-cte.sql",
     "subquery/exists-subquery/exists-joins-and-set-ops.sql",
     "typeCoercion/native/widenSetOperationTypes.sql",
+    /*Expected "true[]", but got "true[
+true]" Result did not match for query #118
+SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t*/
     "postgreSQL/groupingsets.sql",
+    /*
+    Expected "NULL	foox
+0	[NULL
+1	NULL
+2	NULL
+3	NULL]", but got "NULL	foox
+0	[x
+1	x
+2	x
+3	x]" Result did not match for query #22
+select four, x || 'x'
+  from (select four, ten, 'foo' as x from tenk1) as t
+  group by grouping sets (four, x)
+  order by four
+    */
     "postgreSQL/aggregates_part3.sql",
-    "postgreSQL/window_part3.sql",
-    "postgreSQL/join.sql",
+    /*
+    Expected "[101]", but got "[0]" Result did not match for query #1
+select min(unique1) filter (where unique1 > 100) from tenk1
+    */
+    "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
+    "postgreSQL/join.sql", // compilation eror
     // result mismatch
     "cte-legacy.sql",
     "decimalArithmeticOperations.sql",

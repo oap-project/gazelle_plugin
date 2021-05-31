@@ -28,7 +28,7 @@ class TravisSQLConvertedSuite extends QueryTest
   with AdaptiveSparkPlanHelper {
   import testImplicits._
 
-  ignore("BHJ") {
+  test("BHJ") {
     Seq(("one", 1), ("two", 2), ("three", 3), ("one", 3))
       .toDF("k", "v").createOrReplaceTempView("t1")
     Seq(("one", 1), ("two", 22), ("one", 5), ("one", 7), ("two", 5))
@@ -217,6 +217,42 @@ class TravisSQLConvertedSuite extends QueryTest
     val df = sql("SELECT udf(udf(a)) as a FROM (SELECT udf(0) a, udf(0) b " +
       "UNION ALL SELECT udf(SUM(1)) a, udf(CAST(0 AS BIGINT)) b UNION ALL " +
       "SELECT udf(0) a, udf(0) b) T")
+    df.show()
+  }
+
+  test("two inner joins with condition") {
+    spark
+      .read
+      .format("csv")
+      .options(Map("delimiter" -> "\t", "header" -> "false"))
+      .schema(
+        """
+          |unique1 int,
+          |unique2 int,
+          |two int,
+          |four int,
+          |ten int,
+          |twenty int,
+          |hundred int,
+          |thousand int,
+          |twothousand int,
+          |fivethous int,
+          |tenthous int,
+          |odd int,
+          |even int,
+          |stringu1 string,
+          |stringu2 string,
+          |string4 string
+        """.stripMargin)
+      .load(testFile("test-data/postgresql/tenk.data"))
+      .write
+      .format("parquet")
+      .saveAsTable("tenk1")
+    Seq(0, 123456, -123456, 2147483647, -2147483647)
+      .toDF("f1").createOrReplaceTempView("INT4_TBL")
+    val df = sql("select a.f1, b.f1, t.thousand, t.tenthous from tenk1 t, " +
+      "(select sum(f1)+1 as f1 from int4_tbl i4a) a, (select sum(f1) as f1 from int4_tbl i4b) b " +
+      "where b.f1 = t.thousand and a.f1 = b.f1 and (a.f1+b.f1+999) = t.tenthous")
     df.show()
   }
 

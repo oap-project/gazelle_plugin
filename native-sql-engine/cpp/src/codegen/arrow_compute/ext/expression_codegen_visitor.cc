@@ -81,6 +81,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -91,6 +92,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -102,6 +104,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -112,6 +115,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       ", " + child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -123,6 +127,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       " <= " + child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -134,6 +139,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -145,6 +151,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       " >= " + child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -156,6 +163,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -167,6 +175,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       " == " + child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -177,6 +186,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                       child_visitor_list[1]->GetResult() + ")";
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
+    check_str_ = real_validity_str_;
     ss << real_validity_str_ << " && " << real_codes_str_;
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -188,6 +198,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     if (child_visitor_list[0]->GetPreCheck() != "") {
       check_validity = child_visitor_list[0]->GetPreCheck() + " && ";
     }
+    check_str_ = CombineValidity(
+        {child_visitor_list[0]->GetPreCheck(), child_visitor_list[0]->GetRealValidity()});
     ss << check_validity << child_visitor_list[0]->GetRealValidity() << " && !"
        << child_visitor_list[0]->GetRealResult();
     for (int i = 0; i < 1; i++) {
@@ -1122,7 +1134,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) 
   if (child_visitor_list.size() == 2) {
     real_validity_str_ = CombineValidity(
         {child_visitor_list[0]->GetPreCheck(), child_visitor_list[1]->GetPreCheck()});
-    ;
+    check_str_ = real_validity_str_;
   }
   return arrow::Status::OK();
 }
