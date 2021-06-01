@@ -385,6 +385,18 @@ object ConverterUtils extends Logging {
     }
   }
 
+  def printBatch(cb: ColumnarBatch): Unit = {
+    var batch = ""
+    for (rowId <- 0 until cb.numRows()) {
+      var row = ""
+      for (colId <- 0 until cb.numCols()) {
+        row += (cb.column(colId).getUTF8String(rowId) + " ")
+      }
+      batch += (row + "\n")
+    }
+    logWarning(s"batch:\n$batch")
+  }
+
   def getColumnarFuncNode(
       expr: Expression,
       attributes: Seq[Attribute] = null): (TreeNode, ArrowType) = {

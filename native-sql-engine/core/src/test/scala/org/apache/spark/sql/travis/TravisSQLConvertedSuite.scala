@@ -40,7 +40,8 @@ class TravisSQLConvertedSuite extends QueryTest
   }
 
   test("max") {
-    val df = sql("SELECT max(c) FROM (WITH t(c) AS (SELECT 1) SELECT * FROM t)")
+    val df = sql("SELECT sum(c), max(c), avg(c), count(c), stddev_samp(c) " +
+      "FROM (WITH t(c) AS (SELECT 1) SELECT * FROM t)")
     df.show()
   }
 

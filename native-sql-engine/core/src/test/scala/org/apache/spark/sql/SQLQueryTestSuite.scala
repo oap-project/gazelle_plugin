@@ -157,7 +157,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
-
+    "cte-legacy.sql"
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -226,9 +226,9 @@ select four, x || 'x'
 select min(unique1) filter (where unique1 > 100) from tenk1
     */
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
-    "postgreSQL/join.sql", // compilation eror
+//    "postgreSQL/join.sql", // compilation eror
     // result mismatch
-    "cte-legacy.sql",
+//    "cte-legacy.sql",
     "decimalArithmeticOperations.sql",
     "outer-join.sql", // different order
     "like-all.sql",
@@ -353,16 +353,16 @@ select min(unique1) filter (where unique1 > 100) from tenk1
         }
       case _ =>
         // Create a test case to run this case.
-        test(testCase.name) {
-          runTest(testCase)
-        }
-        // To run only the set test
-//        if (testList.exists(t =>
-//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-//          test(testCase.name) {
-//            runTest(testCase)
-//          }
+//        test(testCase.name) {
+//          runTest(testCase)
 //        }
+        // To run only the set test
+        if (testList.exists(t =>
+          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+          test(testCase.name) {
+            runTest(testCase)
+          }
+        }
     }
   }
 
