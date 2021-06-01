@@ -964,7 +964,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-26352: join reordering should not change the order of columns") {
+  test("SPARK-26352: join reordering should not change the order of columns") {
     withTable("tab1", "tab2", "tab3") {
       spark.sql("select 1 as x, 100 as y").write.saveAsTable("tab1")
       spark.sql("select 42 as i, 200 as j").write.saveAsTable("tab2")

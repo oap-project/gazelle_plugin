@@ -1538,20 +1538,29 @@ class ConditionedProbeKernel::Impl {
     codes_ss << range_size_name << " = " << item_index_list_name << ".size();"
              << std::endl;
     codes_ss << "}" << std::endl;
+    if (cond_check) {
+      codes_ss << "int outer_join_num_matches = 0;" << std::endl;
+    }
     codes_ss << "for (int " << range_index_name << " = 0; " << range_index_name << " < "
              << range_size_name << "; " << range_index_name << "++) {" << std::endl;
     codes_ss << "if (!" << item_index_list_name << ".empty()) {" << std::endl;
     codes_ss << tmp_name << " = " << item_index_list_name << "[" << range_index_name
              << "];" << std::endl;
     codes_ss << is_outer_null_name << " = false;" << std::endl;
+    if (cond_check) {
+      codes_ss << "if (!" << condition_name << "(" << tmp_name << ", i)) {" << std::endl;
+      // if all matches do not pass condition check, null will be appended later
+      codes_ss << "if ((" << range_index_name << " + 1 == " << range_size_name
+               << ") && outer_join_num_matches == 0) {" << std::endl;
+      codes_ss << is_outer_null_name << " = true;" << std::endl;
+      codes_ss << "} else {" << std::endl;
+      codes_ss << "  continue;" << std::endl;
+      codes_ss << "}\n}" << std::endl;
+      codes_ss << "outer_join_num_matches++;" << std::endl;
+    }
     codes_ss << "} else {" << std::endl;
     codes_ss << is_outer_null_name << " = true;" << std::endl;
     codes_ss << "}" << std::endl;
-    if (cond_check) {
-      codes_ss << "if (!" << condition_name << "(" << tmp_name << ", i)) {" << std::endl;
-      codes_ss << "  continue;" << std::endl;
-      codes_ss << "}" << std::endl;
-    }
     finish_codes_ss << "} // end of Outer Join" << std::endl;
     (*output)->process_codes += codes_ss.str();
     (*output)->finish_codes += finish_codes_ss.str();
@@ -1668,7 +1677,8 @@ class ConditionedProbeKernel::Impl {
       codes_ss << "      break;" << std::endl;
       codes_ss << "    }" << std::endl;
       codes_ss << "  }" << std::endl;
-      codes_ss << "  if (found) {" << std::endl;
+      codes_ss << "  if (!found) {" << std::endl;
+      codes_ss << "    continue;" << std::endl;
       codes_ss << "  }" << std::endl;
     }
     codes_ss << "}" << std::endl;
