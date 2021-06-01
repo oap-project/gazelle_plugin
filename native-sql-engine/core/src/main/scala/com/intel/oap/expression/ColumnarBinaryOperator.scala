@@ -105,6 +105,20 @@ class ColumnarLike(left: Expression, right: Expression, original: Expression)
     extends Like(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    if (original.asInstanceOf[Like].escapeChar.toString.nonEmpty) {
+      throw new UnsupportedOperationException(
+        s"escapeChar is not supported in ColumnarLike")
+    }
+    if (!right.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException(
+        s"Gandiva 'like' function requires a literal as the second parameter.")
+    }
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

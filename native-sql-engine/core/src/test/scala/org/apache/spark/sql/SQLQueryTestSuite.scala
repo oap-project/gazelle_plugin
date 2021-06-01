@@ -157,7 +157,8 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
-    "cte-legacy.sql"
+    "cte-legacy.sql",
+    "like-all.sql"
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -231,7 +232,7 @@ select min(unique1) filter (where unique1 > 100) from tenk1
 //    "cte-legacy.sql",
     "decimalArithmeticOperations.sql",
     "outer-join.sql", // different order
-    "like-all.sql",
+//    "like-all.sql",
     "charvarchar.sql",
     "union.sql",
     "explain-aqe.sql", // plan check
