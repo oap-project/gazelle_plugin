@@ -1602,7 +1602,10 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_[0] += typed_scalar->value;
-    if (!cache_validity_[0]) cache_validity_[0] = true;
+    // If all values are null, result for sum will be null.
+    if (!cache_validity_[0] && (in[0]->length() != in[0]->null_count())) {
+      cache_validity_[0] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -1630,6 +1633,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     RETURN_NOT_OK(builder_->AppendValues(cache_, cache_validity_));
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
+    std::cout << "val: " << cache_validity_[0] << std::endl;
 
     return arrow::Status::OK();
   }
@@ -3319,6 +3323,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (cache_count_[i] == 0) {
         cache_sum_[i] = 0;
+        cache_validity_[i] = false;
       } else {
         cache_validity_[i] = true;
         cache_sum_[i] /= cache_count_[i];
@@ -3341,6 +3346,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < res_length; i++) {
       if (cache_count_[i + offset] == 0) {
         cache_sum_[i + offset] = 0;
+        cache_validity_[i] = false;
       } else {
         cache_validity_[i + offset] = true;
         cache_sum_[i + offset] /= cache_count_[i + offset];
