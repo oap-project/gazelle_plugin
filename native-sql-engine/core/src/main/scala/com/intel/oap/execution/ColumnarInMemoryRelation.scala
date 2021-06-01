@@ -64,11 +64,12 @@ case class ArrowCachedBatch(
     stats: InternalRow)
     extends SimpleMetricsCachedBatch
     with KryoSerializable
-    with Externalizable {
+    with Externalizable 
+    with AutoCloseable {
   def this() = {
     this(0, null, null)
   }
-  def release() = {
+  override def close() = {
     buffer.foreach(_.close)
   }
   lazy val estimatedSize: Long = {
