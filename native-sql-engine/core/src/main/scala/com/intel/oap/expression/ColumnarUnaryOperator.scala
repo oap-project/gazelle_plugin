@@ -18,7 +18,6 @@
 package com.intel.oap.expression
 
 import com.google.common.collect.Lists
-
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression._
@@ -31,8 +30,9 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.types._
-
 import scala.collection.mutable.ListBuffer
+
+import org.apache.arrow.vector.types.TimeUnit
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -450,6 +450,13 @@ class ColumnarCast(
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castDECIMAL")
       }
+    } else if (dataType.isInstanceOf[TimestampType]) {
+      val supported = List(LongType, DateType, StringType)
+      if (supported.indexOf(child.dataType) == -1 &&
+          !child.dataType.isInstanceOf[DecimalType]) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in castDECIMAL")
+      }
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
     }
@@ -459,7 +466,12 @@ class ColumnarCast(
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val resultType = CodeGeneration.getResultType(dataType)
+    val toType = CodeGeneration.getResultType(dataType)
+    val child_node0 = childType match {
+      case _: ArrowType.Timestamp =>
+        ConverterUtils.convertTimestampToMilli(child_node, childType)._1
+      case _ => child_node
+    }
     if (dataType == StringType) {
       val limitLen: java.lang.Long = childType match {
         case int: ArrowType.Int if int.getBitWidth == 8 => 4
@@ -476,6 +488,7 @@ class ColumnarCast(
         case decimal: ArrowType.Decimal =>
           // Add two to precision for decimal point and negative sign
           (decimal.getPrecision() + 2)
+        case _: ArrowType.Timestamp => 24
         case _ =>
           throw new UnsupportedOperationException(
             s"ColumnarCast to String doesn't support ${childType}")
@@ -484,63 +497,74 @@ class ColumnarCast(
       val funcNode =
         TreeBuilder.makeFunction(
           "castVARCHAR",
-          Lists.newArrayList(child_node, limitLenNode),
-          resultType)
-      (funcNode, resultType)
+          Lists.newArrayList(child_node0, limitLenNode),
+          toType)
+      (funcNode, toType)
     } else if (dataType == ByteType) {
       val funcNode =
-        TreeBuilder.makeFunction("castBYTE", Lists.newArrayList(child_node), resultType)
-      (funcNode, resultType)
+        TreeBuilder.makeFunction("castBYTE", Lists.newArrayList(child_node0), toType)
+      (funcNode, toType)
     } else if (dataType == IntegerType) {
       val funcNode = child.dataType match {
         case d: DecimalType =>
           val half_node = TreeBuilder.makeDecimalLiteral("0.5", 2, 1)
           val round_down_node = TreeBuilder.makeFunction(
             "subtract",
-            Lists.newArrayList(child_node, half_node),
+            Lists.newArrayList(child_node0, half_node),
             childType)
           val long_node = TreeBuilder.makeFunction(
             "castBIGINT",
             Lists.newArrayList(round_down_node),
             new ArrowType.Int(64, true))
-          TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), resultType)
+          TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), toType)
         case other =>
-          TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node), resultType)
+          TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
       }
-      (funcNode, resultType)
+      (funcNode, toType)
     } else if (dataType == LongType) {
       val funcNode =
-        TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node), resultType)
-      (funcNode, resultType)
+        TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0), toType)
+      (funcNode, toType)
       //(child_node, childType)
     } else if (dataType == FloatType) {
       val funcNode = child.dataType match {
         case d: DecimalType =>
           val double_node = TreeBuilder.makeFunction(
             "castFLOAT8",
-            Lists.newArrayList(child_node),
+            Lists.newArrayList(child_node0),
             new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))
-          TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(double_node), resultType)
+          TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(double_node), toType)
         case other =>
-          TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node), resultType)
+          TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
       }
-      (funcNode, resultType)
+      (funcNode, toType)
     } else if (dataType == DoubleType) {
       val funcNode =
-        TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node), resultType)
-      (funcNode, resultType)
+        TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+      (funcNode, toType)
     } else if (dataType == DateType) {
       val funcNode =
-        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node), resultType)
-      (funcNode, resultType)
+        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node0), toType)
+      (funcNode, toType)
     } else if (dataType.isInstanceOf[DecimalType]) {
       dataType match {
         case d: DecimalType =>
           val dType = CodeGeneration.getResultType(d)
           val funcNode =
-            TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node), dType)
+            TreeBuilder.makeFunction("castDECIMAL", Lists.newArrayList(child_node0), dType)
           (funcNode, dType)
       }
+    } else if (dataType.isInstanceOf[TimestampType]) {
+      val arrowTsType = toType match {
+        case ts: ArrowType.Timestamp => ts
+        case _ => throw new IllegalArgumentException("Not an Arrow timestamp type: " + toType)
+      }
+      // convert to milli, then convert to micro
+      val intermediateType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, arrowTsType.getTimezone)
+      val funcNode =
+        TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(child_node0),
+          intermediateType)
+      ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
     }

@@ -58,8 +58,12 @@ import java.nio.channels.{Channels, WritableByteChannel}
 import com.google.common.collect.Lists
 import java.io.{InputStream, OutputStream}
 
+import org.apache.arrow.vector.types.TimeUnit
+import org.apache.arrow.vector.types.pojo.ArrowType
+import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 
 object ConverterUtils extends Logging {
@@ -471,8 +475,43 @@ object ConverterUtils extends Logging {
     case d: StringType =>
     case d: DateType =>
     case d: DecimalType =>
+    case d: TimestampType =>
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
+  }
+
+  def convertTimestampToMilli(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
+    if (inType.getTypeID != ArrowTypeID.Timestamp) {
+      throw new IllegalArgumentException(s"Value type to convert must be timestamp")
+    }
+    val inTimestamp = inType.asInstanceOf[ArrowType.Timestamp]
+    inTimestamp.getUnit match {
+      case TimeUnit.MILLISECOND => (inNode, inType)
+      case TimeUnit.MICROSECOND =>
+        // truncate from micro to milli
+        val outType = new ArrowType.Timestamp(TimeUnit.MILLISECOND,
+          inTimestamp.getTimezone)
+        (TreeBuilder.makeFunction(
+          "convertTimestampUnit",
+          Lists.newArrayList(inNode), outType), outType)
+    }
+  }
+
+  def convertTimestampToMicro(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
+    if (inType.getTypeID != ArrowTypeID.Timestamp) {
+      throw new IllegalArgumentException(s"Value type to convert must be timestamp")
+    }
+    val inTimestamp = inType.asInstanceOf[ArrowType.Timestamp]
+    inTimestamp.getUnit match {
+      case TimeUnit.MICROSECOND => (inNode, inType)
+      case TimeUnit.MILLISECOND =>
+        // truncate from micro to milli
+        val outType = new ArrowType.Timestamp(TimeUnit.MICROSECOND,
+          inTimestamp.getTimezone)
+        (TreeBuilder.makeFunction(
+          "convertTimestampUnit",
+          Lists.newArrayList(inNode), outType), outType)
+    }
   }
 
   def powerOfTen(pow: Int): (String, Int, Int) = {

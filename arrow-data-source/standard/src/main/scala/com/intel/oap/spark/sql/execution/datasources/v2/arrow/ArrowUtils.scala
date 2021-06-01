@@ -18,6 +18,7 @@
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import java.net.URI
+import java.time.ZoneId
 
 import scala.collection.JavaConverters._
 
@@ -28,6 +29,7 @@ import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.hadoop.fs.FileStatus
 
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
 import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils
 import org.apache.spark.sql.internal.SQLConf
@@ -83,7 +85,7 @@ object ArrowUtils {
 
   def toArrowSchema(t: StructType): Schema = {
     // fixme this might be platform dependent
-    SparkSchemaUtils.toArrowSchema(t, SQLConf.get.sessionLocalTimeZone)
+    SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getGandivaCompatibleTimeZoneID())
   }
 
   def loadBatch(input: ArrowRecordBatch, partitionValues: InternalRow,

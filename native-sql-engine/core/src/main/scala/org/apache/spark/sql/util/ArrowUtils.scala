@@ -48,12 +48,8 @@ object ArrowUtils {
     case DecimalType.Fixed(precision, scale) => new ArrowType.Decimal(precision, scale)
     case DateType => new ArrowType.Date(DateUnit.DAY)
     case TimestampType =>
-      if (timeZoneId == null) {
-        throw new UnsupportedOperationException(
-          s"${TimestampType.catalogString} must supply timeZoneId parameter")
-      } else {
-        new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
-      }
+      // null time zone ID allowed
+      new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
   }
