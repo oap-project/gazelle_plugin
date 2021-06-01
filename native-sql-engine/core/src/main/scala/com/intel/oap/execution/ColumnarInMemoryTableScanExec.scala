@@ -61,7 +61,7 @@ case class ColumnarInMemoryTableScanExec(
    * If true, get data from ColumnVector in ColumnarBatch, which are generally faster.
    * If false, get data from UnsafeRow build from CachedBatch
    */
-  override val supportsColumnar: Boolean = true
+  override val supportsColumnar: Boolean = relation.cachedPlan.supportsColumnar
 
   private lazy val columnarInputRDD: RDD[ColumnarBatch] = {
     val numOutputRows = longMetric("numOutputRows")
