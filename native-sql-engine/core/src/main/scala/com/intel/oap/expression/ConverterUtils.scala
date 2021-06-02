@@ -480,11 +480,31 @@ object ConverterUtils extends Logging {
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 
-  def convertTimestampToMilli(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
+  private def asTimestampType(inType: ArrowType): ArrowType.Timestamp = {
     if (inType.getTypeID != ArrowTypeID.Timestamp) {
       throw new IllegalArgumentException(s"Value type to convert must be timestamp")
     }
-    val inTimestamp = inType.asInstanceOf[ArrowType.Timestamp]
+    inType.asInstanceOf[ArrowType.Timestamp]
+  }
+
+  def convertTimestampZone(inNode: TreeNode, inType: ArrowType,
+      toZone: String): (TreeNode, ArrowType) = {
+    throw new UnsupportedOperationException("not implemented") // fixme 20210602 hongze
+    val inTimestamp = asTimestampType(inType)
+    val fromZone = inTimestamp.getTimezone
+
+    val (outNode0: TreeNode, outTimestamp0: ArrowType.Timestamp) =
+      if (SparkSchemaUtils.timeZoneIDEquals(fromZone, toZone)) {
+        val outType = new ArrowType.Timestamp(inTimestamp.getUnit, toZone)
+        (inNode, outType)
+      } else {
+        // todo conversion
+      }
+    (outNode0, outTimestamp0)
+  }
+
+  def convertTimestampToMilli(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
+    val inTimestamp = asTimestampType(inType)
     inTimestamp.getUnit match {
       case TimeUnit.MILLISECOND => (inNode, inType)
       case TimeUnit.MICROSECOND =>
@@ -498,10 +518,7 @@ object ConverterUtils extends Logging {
   }
 
   def convertTimestampToMicro(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
-    if (inType.getTypeID != ArrowTypeID.Timestamp) {
-      throw new IllegalArgumentException(s"Value type to convert must be timestamp")
-    }
-    val inTimestamp = inType.asInstanceOf[ArrowType.Timestamp]
+    val inTimestamp = asTimestampType(inType)
     inTimestamp.getUnit match {
       case TimeUnit.MICROSECOND => (inNode, inType)
       case TimeUnit.MILLISECOND =>

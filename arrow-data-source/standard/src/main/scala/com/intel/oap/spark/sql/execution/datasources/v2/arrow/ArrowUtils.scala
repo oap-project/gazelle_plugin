@@ -85,7 +85,7 @@ object ArrowUtils {
 
   def toArrowSchema(t: StructType): Schema = {
     // fixme this might be platform dependent
-    SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getGandivaCompatibleTimeZoneID())
+    SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getLocalTimezoneID())
   }
 
   def loadBatch(input: ArrowRecordBatch, partitionValues: InternalRow,

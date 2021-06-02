@@ -224,7 +224,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
         val evaluator = new ExpressionEvaluator()
         val resultSchema = new Schema(resultField.getChildren)
         val arrowSchema = ArrowUtils.toArrowSchema(child.schema,
-          SparkSchemaUtils.getGandivaCompatibleTimeZoneID())
+          SparkSchemaUtils.getLocalTimezoneID())
         evaluator.build(arrowSchema,
           List(TreeBuilder.makeExpression(window,
             resultField)).asJava, resultSchema, true)
@@ -443,8 +443,8 @@ object ColumnarWindowExec extends Logging {
                 Cast(we.copy(
                   windowFunction =
                       ae.copy(aggregateFunction = Min(Cast(Cast(e, TimestampType,
-                        Some(SparkSchemaUtils.getGandivaCompatibleTimeZoneID())), LongType)))),
-                  TimestampType), DateType, Some(SparkSchemaUtils.getGandivaCompatibleTimeZoneID()))
+                        Some(SparkSchemaUtils.getLocalTimezoneID())), LongType)))),
+                  TimestampType), DateType, Some(SparkSchemaUtils.getLocalTimezoneID()))
             case _ => we
           }
           case Max(e) => e.dataType match {
@@ -457,8 +457,8 @@ object ColumnarWindowExec extends Logging {
                 Cast(we.copy(
                   windowFunction =
                       ae.copy(aggregateFunction = Max(Cast(Cast(e, TimestampType,
-                        Some(SparkSchemaUtils.getGandivaCompatibleTimeZoneID())), LongType)))),
-                  TimestampType), DateType, Some(SparkSchemaUtils.getGandivaCompatibleTimeZoneID()))
+                        Some(SparkSchemaUtils.getLocalTimezoneID())), LongType)))),
+                  TimestampType), DateType, Some(SparkSchemaUtils.getLocalTimezoneID()))
             case _ => we
           }
           case _ => we

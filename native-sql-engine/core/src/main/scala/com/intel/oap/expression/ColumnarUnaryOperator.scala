@@ -451,11 +451,10 @@ class ColumnarCast(
           s"${child.dataType} is not supported in castDECIMAL")
       }
     } else if (dataType.isInstanceOf[TimestampType]) {
-      val supported = List(LongType, DateType, StringType)
-      if (supported.indexOf(child.dataType) == -1 &&
-          !child.dataType.isInstanceOf[DecimalType]) {
+      val supported = List(StringType)
+      if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(
-          s"${child.dataType} is not supported in castDECIMAL")
+          s"${child.dataType} is not supported in castTIMESTAMP")
       }
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")
@@ -468,7 +467,11 @@ class ColumnarCast(
 
     val toType = CodeGeneration.getResultType(dataType)
     val child_node0 = childType match {
-      case _: ArrowType.Timestamp =>
+      case ts: ArrowType.Timestamp =>
+        if (ts.getTimezone != null) {
+          throw new UnsupportedOperationException(s"zoned timestamp is not supported" +
+              s" in cast input")
+        }
         ConverterUtils.convertTimestampToMilli(child_node, childType)._1
       case _ => child_node
     }

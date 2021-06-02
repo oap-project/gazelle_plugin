@@ -28,7 +28,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 
 object CodeGeneration {
-  val timeZoneId = SparkSchemaUtils.getGandivaCompatibleTimeZoneID()
+  val timeZoneId = SparkSchemaUtils.getLocalTimezoneID()
 
   def getResultType(left: ArrowType, right: ArrowType): ArrowType = {
     //TODO(): remove this API

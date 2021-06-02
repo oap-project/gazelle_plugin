@@ -48,8 +48,8 @@ object ArrowUtils {
     case DecimalType.Fixed(precision, scale) => new ArrowType.Decimal(precision, scale)
     case DateType => new ArrowType.Date(DateUnit.DAY)
     case TimestampType =>
-      // null time zone ID allowed
-      new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
+      // Spark timestamp type is epoch micro. Use none-zoned timestamp in Arrow
+      new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
   }
@@ -68,7 +68,8 @@ object ArrowUtils {
     case ArrowType.Binary.INSTANCE => BinaryType
     case d: ArrowType.Decimal => DecimalType(d.getPrecision, d.getScale)
     case date: ArrowType.Date if date.getUnit == DateUnit.DAY => DateType
-    case ts: ArrowType.Timestamp if ts.getUnit == TimeUnit.MICROSECOND => TimestampType
+    case ts: ArrowType.Timestamp if (ts.getUnit == TimeUnit.MICROSECOND
+        && ts.getTimezone == null) => TimestampType
     case _ => throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 

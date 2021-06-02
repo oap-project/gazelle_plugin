@@ -80,7 +80,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
    */
   public static ArrowWritableColumnVector[] allocateColumns(
       int capacity, StructType schema) {
-    String timeZoneId = SparkSchemaUtils.getGandivaCompatibleTimeZoneID();
+    String timeZoneId = SparkSchemaUtils.getLocalTimezoneID();
     Schema arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId);
     VectorSchemaRoot new_root =
         VectorSchemaRoot.create(arrowSchema, SparkMemoryUtils.contextAllocator());
@@ -165,7 +165,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     super(capacity, dataType);
     vectorCount.getAndIncrement();
     refCnt.getAndIncrement();
-    String timeZoneId = SparkSchemaUtils.getGandivaCompatibleTimeZoneID();
+    String timeZoneId = SparkSchemaUtils.getLocalTimezoneID();
     List<Field> fields =
         Arrays.asList(ArrowUtils.toArrowField("col", dataType, true, timeZoneId));
     Schema arrowSchema = new Schema(fields);
@@ -270,8 +270,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       return new BinaryWriter((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       return new DateWriter((DateDayVector) vector);
-    } else if (vector instanceof TimeStampVector) {
-      return new TimestampWriter((TimeStampVector) vector);
+    } else if (vector instanceof TimeStampMicroVector) {
+      return new TimestampWriter((TimeStampMicroVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       ArrowVectorWriter elementVector = createVectorWriter(listVector.getDataVector());
@@ -1794,9 +1794,9 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   private static class TimestampWriter extends ArrowVectorWriter {
-    private final TimeStampVector writer;
+    private final TimeStampMicroVector writer;
 
-    TimestampWriter(TimeStampVector vector) {
+    TimestampWriter(TimeStampMicroVector vector) {
       super(vector);
       this.writer = vector;
     }

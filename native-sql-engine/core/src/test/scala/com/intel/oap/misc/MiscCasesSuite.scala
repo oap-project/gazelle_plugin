@@ -52,7 +52,6 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
         .set("spark.network.io.preferDirectBufs", "false")
         .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
-        .set("spark.sql.session.timeZone", "UTC")
     return conf
   }
 
