@@ -460,20 +460,19 @@ case class ColumnarHashAggregateExec(
         case Average(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType)
-          mode match {
-            case Partial => {
-              val avg = aggregateFunc.asInstanceOf[Average]
-              val aggBufferAttr = avg.inputAggBufferAttributes
-              for (index <- aggBufferAttr.indices) {
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-                if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                    !attr.dataType.isInstanceOf[DecimalType]) {
-                  throw new UnsupportedOperationException(
-                    s"${attr.dataType} is not supported in Columnar Average")
-                }
-              }
-              res_index += 2
+          val avg = aggregateFunc.asInstanceOf[Average]
+          val aggBufferAttr = avg.inputAggBufferAttributes
+          for (index <- aggBufferAttr.indices) {
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+            if (supportedTypes.indexOf(attr.dataType) == -1 &&
+              !attr.dataType.isInstanceOf[DecimalType]) {
+              throw new UnsupportedOperationException(
+                s"${attr.dataType} is not supported in Columnar Average")
             }
+          }
+          mode match {
+            case Partial =>
+              res_index += 2
             case PartialMerge => res_index += 1
             case Final => res_index += 1
             case other =>
@@ -483,29 +482,22 @@ case class ColumnarHashAggregateExec(
         case Sum(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType)
+          val sum = aggregateFunc.asInstanceOf[Sum]
+          val aggBufferAttr = sum.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Sum")
+          }
           mode match {
-            case Partial | PartialMerge => {
-              val sum = aggregateFunc.asInstanceOf[Sum]
-              val aggBufferAttr = sum.inputAggBufferAttributes
+            case Partial | PartialMerge =>
               if (aggBufferAttr.size == 2) {
                 // decimal sum check sum.resultType
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-                if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                    !attr.dataType.isInstanceOf[DecimalType]) {
-                  throw new UnsupportedOperationException(
-                    s"${attr.dataType} is not supported in Columnar Sum")
-                }
                 res_index += 2
               } else {
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-                if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                  !attr.dataType.isInstanceOf[DecimalType]) {
-                  throw new UnsupportedOperationException(
-                    s"${attr.dataType} is not supported in Columnar Sum")
-                }
                 res_index += 1
               }
-            }
             case Final => res_index += 1
             case other =>
               throw new UnsupportedOperationException(
@@ -513,55 +505,60 @@ case class ColumnarHashAggregateExec(
           }
         case Count(_) =>
           mode match {
-            case Partial | PartialMerge | Final => {
+            case Partial | PartialMerge | Final =>
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar Count")
           }
         case Max(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
-            FloatType, DoubleType, DateType, BooleanType, StringType)
+            FloatType, DoubleType, BooleanType, StringType)
+          val max = aggregateFunc.asInstanceOf[Max]
+          val aggBufferAttr = max.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Max")
+          }
+          // DateType is not supported in Max without grouping
+          if (groupingExpressions.isEmpty && attr.dataType == DateType) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Max without grouping")
+          }
           mode match {
-            case Partial => {
-              val max = aggregateFunc.asInstanceOf[Max]
-              val aggBufferAttr = max.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-              if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                !attr.dataType.isInstanceOf[DecimalType]) {
-                throw new UnsupportedOperationException(
-                  s"${attr.dataType} is not supported in Columnar Max")
-              }
+            case Partial | PartialMerge | Final =>
               res_index += 1
             }
-            case PartialMerge | Final => res_index += 1
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
-          }
         case Min(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType, StringType)
+          val min = aggregateFunc.asInstanceOf[Min]
+          val aggBufferAttr = min.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Min")
+          }
+          // DateType is not supported in Min without grouping
+          if (groupingExpressions.isEmpty && attr.dataType == DateType) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Min without grouping")
+          }
           mode match {
-            case Partial => {
-              val min = aggregateFunc.asInstanceOf[Min]
-              val aggBufferAttr = min.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-              if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                !attr.dataType.isInstanceOf[DecimalType]) {
-                throw new UnsupportedOperationException(
-                  s"${attr.dataType} is not supported in Columnar Min")
-              }
+            case Partial | PartialMerge | Final =>
               res_index += 1
-            }
-            case PartialMerge | Final => res_index += 1
             case other =>
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar Min")
           }
-        case StddevSamp(_,_) =>
+        case StddevSamp(_, _) =>
           mode match {
-            case Partial => {
+            case Partial =>
               val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
                 FloatType, DoubleType, BooleanType)
               val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
@@ -575,8 +572,7 @@ case class ColumnarHashAggregateExec(
                 }
               }
               res_index += 3
-            }
-            case Final => {
+            case Final =>
               val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
                 FloatType, DoubleType)
               val attr = aggregateAttributeList(res_index)
@@ -585,7 +581,6 @@ case class ColumnarHashAggregateExec(
                   s"${attr.dataType} is not supported in Columnar StddevSampFinal")
               }
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar StddevSamp")

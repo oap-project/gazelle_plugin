@@ -158,7 +158,8 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
     "cte-legacy.sql",
-    "like-all.sql"
+    "like-all.sql",
+    "subquery/scalar-subquery/scalar-subquery-predicate.sql"
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -198,7 +199,7 @@ FROM   s1
 WHERE  NOT (a > 5
             OR a IN (SELECT c
                      FROM   s2))*/
-    "subquery/scalar-subquery/scalar-subquery-predicate.sql",
+//    "subquery/scalar-subquery/scalar-subquery-predicate.sql",
     "subquery/exists-subquery/exists-cte.sql",
     "subquery/exists-subquery/exists-joins-and-set-ops.sql",
     "typeCoercion/native/widenSetOperationTypes.sql",

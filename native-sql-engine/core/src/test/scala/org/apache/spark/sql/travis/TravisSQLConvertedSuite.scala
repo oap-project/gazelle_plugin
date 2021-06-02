@@ -257,4 +257,56 @@ class TravisSQLConvertedSuite extends QueryTest
     df.show()
   }
 
+  test("min_max") {
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1a", 16, 12, 21L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-06-04 01:02:00.001"), Date.valueOf("2014-06-04")),
+      ("val1a", 16, 12, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.001"), Date.valueOf("2014-05-05")),
+      ("val1d", null, 16, 22L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), null),
+      ("val1d", null, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.001"), null),
+      ("val1e", 10, null, 25L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.001"), Date.valueOf("2014-09-04")),
+      ("val1d", 10, null, 12L, 17.0, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.001"), Date.valueOf("2014-04-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")))
+      .toDF("t1a", "t1b", "t1c", "t1d", "t1e", "t1f", "t1g", "t1h", "t1i")
+      .createOrReplaceTempView("t1")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val2a", 6, 12, 14L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:01:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 119L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1c", 12, 16, 219L, 17, 25D, 26E2, Timestamp.valueOf("2016-05-04 01:01:00.000"), Date.valueOf("2016-05-04")),
+      ("val1b", null, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2017-05-04 01:01:00.000"), null),
+      ("val2e", 8, null, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1f", 19, null, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 12, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-05")),
+      ("val1e", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:01:00.000"), Date.valueOf("2014-09-04")),
+      ("val1f", 19, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:01:00.000"), Date.valueOf("2014-10-04")),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), null))
+      .toDF("t2a", "t2b", "t2c", "t2d", "t2e", "t2f", "t2g", "t2h", "t2i")
+      .createOrReplaceTempView("t2")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val3a", 6, 12, 110L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.000"), Date.valueOf("2014-04-04")),
+      ("val3a", 6, 12, 10L, 15, 20D, 20E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 219L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:02:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.000"), Date.valueOf("2014-07-04")),
+      ("val3c", 17, 16, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:02:00.000"), Date.valueOf("2014-08-04")),
+      ("val3c", 17, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.000"), Date.valueOf("2014-09-05")),
+      ("val1b", null, 16, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:02:00.000"), null),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-11-04 01:02:00.000"), null),
+      ("val3b", 8, null, 719L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val3b", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:02:00.000"), Date.valueOf("2015-05-04")))
+      .toDF("t3a", "t3b", "t3c", "t3d", "t3e", "t3f", "t3g", "t3h", "t3i")
+      .createOrReplaceTempView("t3")
+
+    val df = sql("SELECT t1a, t1h FROM t1 WHERE  date(t1h) = (SELECT min(t2i) FROM t2)")
+    df.show()
+  }
+
 }
