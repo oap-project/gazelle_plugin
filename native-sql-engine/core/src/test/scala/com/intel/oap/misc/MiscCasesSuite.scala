@@ -99,4 +99,39 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
         expected)
     }
   }
+
+  test("timestamp data type - cast to long") {
+    withTempView("timestamps") {
+      val timestamps = Seq(0, 1000, 2000, 3000)
+          .map(i => Tuple1(new Timestamp(i))).toDF("time")
+      timestamps.createOrReplaceTempView("timestamps")
+      checkAnswer(
+        sql("SELECT cast(time as long) FROM timestamps"),
+        Seq(
+          Row(0L),
+          Row(1L),
+          Row(2L),
+          Row(3L)
+        ))
+    }
+  }
+
+  test("timestamp data type - cast from long") {
+    withTempView("timestamps") {
+      val timestamps =
+        Seq(
+          (0L),
+          (1L),
+          (2L),
+          (3L)).toDF("time")
+      timestamps.createOrReplaceTempView("timestamps")
+
+      val expected = Seq(0, 1000, 2000, 3000).map(i => Tuple1(new Timestamp(i)))
+          .toDF("time")
+
+      checkAnswer(
+        sql("SELECT cast(time as timestamp) FROM timestamps"),
+        expected)
+    }
+  }
 }

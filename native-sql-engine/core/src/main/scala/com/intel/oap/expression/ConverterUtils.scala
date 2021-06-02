@@ -57,12 +57,14 @@ import java.nio.channels.{Channels, WritableByteChannel}
 
 import com.google.common.collect.Lists
 import java.io.{InputStream, OutputStream}
+import java.util.concurrent.TimeUnit.SECONDS
 
 import org.apache.arrow.vector.types.TimeUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 
+import org.apache.spark.sql.catalyst.util.DateTimeConstants.MICROS_PER_SECOND
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 

@@ -419,7 +419,7 @@ class ColumnarCast(
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castINT")
       }
     } else if (datatype == LongType) {
-      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType)
+      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType, TimestampType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
@@ -451,7 +451,7 @@ class ColumnarCast(
           s"${child.dataType} is not supported in castDECIMAL")
       }
     } else if (dataType.isInstanceOf[TimestampType]) {
-      val supported = List(StringType)
+      val supported = List(StringType, LongType)
       if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castTIMESTAMP")
@@ -525,10 +525,17 @@ class ColumnarCast(
       }
       (funcNode, toType)
     } else if (dataType == LongType) {
-      val funcNode =
-        TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0), toType)
-      (funcNode, toType)
-      //(child_node, childType)
+      child.dataType match {
+        case _: TimestampType => (
+            // Convert milli to seconds. See org.apache.spark.sql.catalyst.expressions.Cast#489L
+            TreeBuilder.makeFunction("divide",
+              Lists.newArrayList(
+                TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0),
+                  toType),
+                TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), toType), toType)
+        case _ => (TreeBuilder.makeFunction("castBIGINT",
+          Lists.newArrayList(child_node0), toType), toType)
+      }
     } else if (dataType == FloatType) {
       val funcNode = child.dataType match {
         case d: DecimalType =>
@@ -562,10 +569,15 @@ class ColumnarCast(
         case ts: ArrowType.Timestamp => ts
         case _ => throw new IllegalArgumentException("Not an Arrow timestamp type: " + toType)
       }
+
       // convert to milli, then convert to micro
       val intermediateType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, arrowTsType.getTimezone)
       val funcNode =
-        TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(child_node0),
+        TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(
+          // convert second to milli sec
+          TreeBuilder.makeFunction("multiply",
+          Lists.newArrayList(child_node0,
+            TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), childType)),
           intermediateType)
       ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
     } else {
