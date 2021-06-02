@@ -309,4 +309,11 @@ class TravisSQLConvertedSuite extends QueryTest
     df.show()
   }
 
+  test("groupby") {
+    var df = sql("SELECT COUNT(DISTINCT b), COUNT(DISTINCT b, c) FROM (SELECT 1 AS a, 2 AS b, 3 AS c) GROUP BY a")
+    df.show()
+    df = sql("SELECT 1 FROM range(10) HAVING true")
+    df.show()
+  }
+
 }

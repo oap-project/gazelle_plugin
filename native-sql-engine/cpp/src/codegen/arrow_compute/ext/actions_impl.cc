@@ -459,7 +459,7 @@ class CountLiteralAction : public ActionBase {
 
     // prepare evaluate lambda
     *on_valid = [this](int dest_group_id) {
-      cache_[dest_group_id] += arg_;
+      cache_[dest_group_id] += 1;
       return arrow::Status::OK();
     };
 
@@ -496,7 +496,7 @@ class CountLiteralAction : public ActionBase {
     auto target_group_size = dest_group_id + 1;
     if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    cache_[dest_group_id] += arg_;
+    cache_[dest_group_id] += 1;
     return arrow::Status::OK();
   }
 

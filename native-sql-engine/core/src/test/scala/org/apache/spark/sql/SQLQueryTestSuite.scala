@@ -159,14 +159,15 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   protected def testList: Set[String] = Set(
     "cte-legacy.sql",
     "like-all.sql",
-    "subquery/scalar-subquery/scalar-subquery-predicate.sql"
+    "subquery/scalar-subquery/scalar-subquery-predicate.sql",
+    "group-by.sql"
   )
 
   /** List of test cases to ignore, in lower cases. */
   protected def ignoreList: Set[String] = Set(
     "ignored.sql",   // Do NOT remove this one. It is here to test the ignore functionality.
     // segfault and compilation error
-    "group-by.sql", // IndexOutOfBoundsException
+//    "group-by.sql", // IndexOutOfBoundsException
     "show-tblproperties.sql",
     "group-by-filter.sql",
     /* Expected "[2	4]", but got "[7	7]" Result did not match for query #4
