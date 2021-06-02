@@ -128,12 +128,19 @@ class HashRelationKernel::Impl {
       if (key_hash_field_list.size() == 1 &&
           key_hash_field_list[0]->type()->id() != arrow::Type::STRING) {
         // If single key case, we can put key in KeyArray
-        auto key_type = std::dynamic_pointer_cast<arrow::FixedWidthType>(
-            key_hash_field_list[0]->type());
-        if (key_type) {
-          key_size_ = key_type->bit_width() / 8;
+        if (key_hash_field_list[0]->type()->id() != arrow::Type::BOOL) {
+          auto key_type = std::dynamic_pointer_cast<arrow::FixedWidthType>(
+              key_hash_field_list[0]->type());
+          if (key_type) {
+            key_size_ = key_type->bit_width() / 8;
+          } else {
+            key_size_ = 0;
+          }
         } else {
-          key_size_ = 0;
+          // BooleanType within arrow use a single bit instead of the C 8-bits layout,
+          // so bit_width() for BooleanType return 1 instead of 8.
+          // We need to handle this case specially.
+          key_size_ = 1;
         }
         hash_relation_ =
             std::make_shared<HashRelation>(ctx_, hash_relation_list, key_size_);

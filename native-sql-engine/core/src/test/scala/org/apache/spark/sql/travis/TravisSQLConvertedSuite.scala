@@ -310,9 +310,24 @@ class TravisSQLConvertedSuite extends QueryTest
   }
 
   test("groupby") {
-    var df = sql("SELECT COUNT(DISTINCT b), COUNT(DISTINCT b, c) FROM (SELECT 1 AS a, 2 AS b, 3 AS c) GROUP BY a")
-    df.show()
-    df = sql("SELECT 1 FROM range(10) HAVING true")
+//    var df = sql("SELECT COUNT(DISTINCT b), COUNT(DISTINCT b, c) FROM (SELECT 1 AS a, 2 AS b, 3 AS c) GROUP BY a")
+//    df.show()
+//    val df = sql("SELECT 1 FROM range(10) HAVING true")
+//    df.show()
+    Seq[(Integer, java.lang.Boolean)](
+      (1, true),
+      (1, false),
+      (2, true),
+      (3, false),
+      (3, null),
+      (4, null),
+      (4, null),
+      (5, null),
+      (5, true),
+      (5, false))
+      .toDF("k", "v")
+      .createOrReplaceTempView("test_agg")
+    val df = sql("SELECT k,\n       Every(v) AS every\nFROM   test_agg\nWHERE  k = 2\n       AND v IN (SELECT Any(v)\n                 FROM   test_agg\n                 WHERE  k = 1)\nGROUP  BY k")
     df.show()
   }
 
