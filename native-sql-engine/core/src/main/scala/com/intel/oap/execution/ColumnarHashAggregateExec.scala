@@ -553,9 +553,9 @@ case class ColumnarHashAggregateExec(
           mode match {
             case Partial | PartialMerge | Final =>
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
+          }
         case Min(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType, StringType)

@@ -1068,20 +1068,20 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
       length_ = cache_validity_.size();
     }
 
-    in_ = in_list[0];
+    in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
-    data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
+    // data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
       if (!cache_validity_[dest_group_id]) {
-        cache_[dest_group_id] = data_[row_id];
+        cache_[dest_group_id] = in_->GetView(row_id);
       }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         cache_validity_[dest_group_id] = true;
-        if (data_[row_id] > cache_[dest_group_id]) {
-          cache_[dest_group_id] = data_[row_id];
+        if (in_->GetView(row_id) > cache_[dest_group_id]) {
+          cache_[dest_group_id] = in_->GetView(row_id);
         }
       }
       row_id++;
@@ -1183,11 +1183,12 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
   }
 
  private:
+  using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
   using ScalarType = typename arrow::TypeTraits<DataType>::ScalarType;
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
-  std::shared_ptr<arrow::Array> in_;
+  std::shared_ptr<ArrayType> in_;
   CType* data_;
   int row_id;
   int in_null_count_ = 0;

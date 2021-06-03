@@ -327,7 +327,11 @@ class TravisSQLConvertedSuite extends QueryTest
       (5, false))
       .toDF("k", "v")
       .createOrReplaceTempView("test_agg")
-    val df = sql("SELECT k,\n       Every(v) AS every\nFROM   test_agg\nWHERE  k = 2\n       AND v IN (SELECT Any(v)\n                 FROM   test_agg\n                 WHERE  k = 1)\nGROUP  BY k")
+//    val df = sql("SELECT k,\n       Every(v) AS every\nFROM   test_agg\nWHERE  k = 2\n       AND v IN (SELECT Any(v)\n                 FROM   test_agg\n                 WHERE  k = 1)\nGROUP  BY k")
+//    df.show()
+//    val df = sql("SELECT k, max(v) FROM test_agg GROUP BY k HAVING max(v) = true")
+//    df.show()
+    val df = sql("SELECT every(v), some(v), any(v), bool_and(v), bool_or(v) FROM test_agg WHERE 1 = 0")
     df.show()
   }
 
