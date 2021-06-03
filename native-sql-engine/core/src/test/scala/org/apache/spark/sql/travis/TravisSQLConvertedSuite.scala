@@ -335,4 +335,21 @@ class TravisSQLConvertedSuite extends QueryTest
     df.show()
   }
 
+  test("group-by-filter") {
+    Seq[(Integer, Integer)](
+      (1, 1),
+      (1, 2),
+      (2, 1),
+      (2, 2),
+      (3, 1),
+      (3, 2),
+      (null, 1),
+      (3, null),
+      (null, null))
+      .toDF("a", "b")
+      .createOrReplaceTempView("testData")
+    val df = sql("SELECT COUNT(a) FILTER (WHERE a = 1), COUNT(b) FILTER (WHERE a > 1) FROM testData")
+    df.show()
+  }
+
 }
