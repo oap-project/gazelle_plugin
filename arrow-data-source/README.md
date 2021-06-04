@@ -18,8 +18,8 @@ Please make sure you have already installed the software in your system.
 3. cmake 3.16 or higher version
 4. maven 3.6 or higher version
 5. Hadoop 2.7.5 or higher version
-6. Spark 3.0.0 or higher version
-7. Intel Optimized Arrow 3.0.0
+6. Spark 3.1.1 or higher version
+7. Intel Optimized Arrow 4.0.0
 
 ### Building by Conda
 
@@ -145,14 +145,14 @@ mvn clean -DskipTests package
 readlink -f standard/target/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar
 ```
 
-### Download Spark 3.0.0
+### Download Spark 3.1.1
 
-Currently ArrowDataSource works on the Spark 3.0.0 version.
+Currently ArrowDataSource works on the Spark 3.1.1 version.
 
 ```
-wget http://archive.apache.org/dist/spark/spark-3.0.0/spark-3.0.0-bin-hadoop2.7.tgz
-tar -xf ./spark-3.0.0-bin-hadoop2.7.tgz
-export SPARK_HOME=`pwd`/spark-3.0.0-bin-hadoop2.7
+wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+tar -xf ./spark-3.1.1-bin-hadoop2.7.tgz
+export SPARK_HOME=`pwd`/spark-3.1.1-bin-hadoop2.7
 ```
 
 If you are new to Apache Spark, please go though [Spark's official deploying guide](https://spark.apache.org/docs/latest/cluster-overview.html) before getting started with ArrowDataSource.

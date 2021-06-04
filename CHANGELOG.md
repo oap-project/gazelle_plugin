@@ -1,13 +1,151 @@
 # Change log
-Generated on 2021-04-29
+Generated on 2021-06-02
+
+## Release 1.1.1
+
+### Native SQL Engine
+
+#### Features
+|||
+|:---|:---|
+|[#304](https://github.com/oap-project/native-sql-engine/issues/304)|Upgrade to Arrow 4.0.0|
+|[#285](https://github.com/oap-project/native-sql-engine/issues/285)|ColumnarWindow: Support Date/Timestamp input in MAX/MIN|
+|[#297](https://github.com/oap-project/native-sql-engine/issues/297)|Disable incremental compiler in CI|
+|[#245](https://github.com/oap-project/native-sql-engine/issues/245)|Support columnar rdd cache|
+|[#276](https://github.com/oap-project/native-sql-engine/issues/276)|Add option to switch Hadoop version|
+|[#274](https://github.com/oap-project/native-sql-engine/issues/274)|Comment to trigger tpc-h RAM test|
+|[#256](https://github.com/oap-project/native-sql-engine/issues/256)|CI: do not run ram report for each PR|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#325](https://github.com/oap-project/native-sql-engine/issues/325)|java.util.ConcurrentModificationException: mutation occurred during iteration|
+|[#329](https://github.com/oap-project/native-sql-engine/issues/329)|numPartitions are not the same|
+|[#318](https://github.com/oap-project/native-sql-engine/issues/318)|fix Spark 311 on data source v2|
+|[#311](https://github.com/oap-project/native-sql-engine/issues/311)|Build reports errors|
+|[#302](https://github.com/oap-project/native-sql-engine/issues/302)|test on v2 failed due to an exception|
+|[#257](https://github.com/oap-project/native-sql-engine/issues/257)|different version of slf4j-log4j|
+|[#293](https://github.com/oap-project/native-sql-engine/issues/293)|Fix BHJ loss if key = 0|
+|[#248](https://github.com/oap-project/native-sql-engine/issues/248)|arrow dependency must put after arrow installation|
+
+#### PRs
+|||
+|:---|:---|
+|[#332](https://github.com/oap-project/native-sql-engine/pull/332)|[NSE-325] fix incremental compile issue with 4.5.x scala-maven-plugin|
+|[#335](https://github.com/oap-project/native-sql-engine/pull/335)|[NSE-329] fix out partitioning in BHJ and SHJ|
+|[#328](https://github.com/oap-project/native-sql-engine/pull/328)|[NSE-318]check schema before reuse exchange|
+|[#307](https://github.com/oap-project/native-sql-engine/pull/307)|[NSE-304] Upgrade to Arrow 4.0.0|
+|[#312](https://github.com/oap-project/native-sql-engine/pull/312)|[NSE-311] Build reports errors|
+|[#272](https://github.com/oap-project/native-sql-engine/pull/272)|[NSE-273] support spark311|
+|[#303](https://github.com/oap-project/native-sql-engine/pull/303)|[NSE-302] fix v2 test|
+|[#306](https://github.com/oap-project/native-sql-engine/pull/306)|[NSE-304] Upgrade to Arrow 4.0.0: Change basic GHA TPC-H test target …|
+|[#286](https://github.com/oap-project/native-sql-engine/pull/286)|[NSE-285] ColumnarWindow: Support Date input in MAX/MIN|
+|[#298](https://github.com/oap-project/native-sql-engine/pull/298)|[NSE-297] Disable incremental compiler in GHA CI|
+|[#291](https://github.com/oap-project/native-sql-engine/pull/291)|[NSE-257] fix multiple slf4j bindings|
+|[#294](https://github.com/oap-project/native-sql-engine/pull/294)|[NSE-293] fix unsafemap with key = '0'|
+|[#233](https://github.com/oap-project/native-sql-engine/pull/233)|[NSE-207] fix issues found from aggregate unit tests|
+|[#246](https://github.com/oap-project/native-sql-engine/pull/246)|[NSE-245]Adding columnar RDD cache support|
+|[#289](https://github.com/oap-project/native-sql-engine/pull/289)|[NSE-206]Update installation guide and configuration guide.|
+|[#277](https://github.com/oap-project/native-sql-engine/pull/277)|[NSE-276] Add option to switch Hadoop version|
+|[#275](https://github.com/oap-project/native-sql-engine/pull/275)|[NSE-274] Comment to trigger tpc-h RAM test|
+|[#271](https://github.com/oap-project/native-sql-engine/pull/271)|[NSE-196] clean up configs in unit tests|
+|[#258](https://github.com/oap-project/native-sql-engine/pull/258)|[NSE-257] fix different versions of slf4j-log4j12|
+|[#259](https://github.com/oap-project/native-sql-engine/pull/259)|[NSE-248] fix arrow dependency order|
+|[#249](https://github.com/oap-project/native-sql-engine/pull/249)|[NSE-241] fix hashagg result length|
+|[#255](https://github.com/oap-project/native-sql-engine/pull/255)|[NSE-256] do not run ram report test on each PR|
+
+
+### SQL DS Cache
+
+#### Features
+|||
+|:---|:---|
+|[#118](https://github.com/oap-project/sql-ds-cache/issues/118)|port to Spark 3.1.1|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#121](https://github.com/oap-project/sql-ds-cache/issues/121)|OAP Index creation stuck issue|
+
+#### PRs
+|||
+|:---|:---|
+|[#132](https://github.com/oap-project/sql-ds-cache/pull/132)|Fix SampleBasedStatisticsSuite UnitTest case|
+|[#122](https://github.com/oap-project/sql-ds-cache/pull/122)|[ sql-ds-cache-121] Fix Index stuck issues|
+|[#119](https://github.com/oap-project/sql-ds-cache/pull/119)|[SQL-DS-CACHE-118][POAE7-1130] port sql-ds-cache to Spark3.1.1|
+
+
+### OAP MLlib
+
+#### Features
+|||
+|:---|:---|
+|[#26](https://github.com/oap-project/oap-mllib/issues/26)|[PIP] Support Spark 3.0.1 / 3.0.2 and upcoming 3.1.1|
+
+#### PRs
+|||
+|:---|:---|
+|[#39](https://github.com/oap-project/oap-mllib/pull/39)|[ML-26] Build for different spark version by -Pprofile|
+
+
+### PMEM Spill
+
+#### Features
+|||
+|:---|:---|
+|[#34](https://github.com/oap-project/pmem-spill/issues/34)|Support vanilla  spark 3.1.1|
+
+#### PRs
+|||
+|:---|:---|
+|[#41](https://github.com/oap-project/pmem-spill/pull/41)|[PMEM-SPILL-34][POAE7-1119]Port RDD cache to Spark 3.1.1 as separate module|
+
+
+### PMEM Common
+
+#### Features
+|||
+|:---|:---|
+|[#10](https://github.com/oap-project/pmem-common/issues/10)|add -mclflushopt flag to enable clflushopt for gcc|
+|[#8](https://github.com/oap-project/pmem-common/issues/8)|use clflushopt instead of clflush |
+
+#### PRs
+|||
+|:---|:---|
+|[#11](https://github.com/oap-project/pmem-common/pull/11)|[PMEM-COMMON-10][POAE7-1010]Add -mclflushopt flag to enable clflushop…|
+|[#9](https://github.com/oap-project/pmem-common/pull/9)|[PMEM-COMMON-8][POAE7-896]use clflush optimize version for clflush|
+
+
+### PMEM Shuffle
+
+#### Features
+|||
+|:---|:---|
+|[#15](https://github.com/oap-project/pmem-shuffle/issues/15)|Doesn't work with Spark3.1.1|
+
+#### PRs
+|||
+|:---|:---|
+|[#16](https://github.com/oap-project/pmem-shuffle/pull/16)|[pmem-shuffle-15] Make pmem-shuffle support Spark3.1.1|
+
+
+### Remote Shuffle
+
+#### Features
+|||
+|:---|:---|
+|[#18](https://github.com/oap-project/remote-shuffle/issues/18)|upgrade to Spark-3.1.1|
+|[#11](https://github.com/oap-project/remote-shuffle/issues/11)|Support DAOS Object Async API|
+
+#### PRs
+|||
+|:---|:---|
+|[#19](https://github.com/oap-project/remote-shuffle/pull/19)|[REMOTE-SHUFFLE-18] upgrade to Spark-3.1.1|
+|[#14](https://github.com/oap-project/remote-shuffle/pull/14)|[REMOTE-SHUFFLE-11] Support DAOS Object Async API|
+
+
 
 ## Release 1.1.0
-* [Native SQL Engine](#native-sql-engine)
-* [SQL DS Cache](#sql-ds-cache)
-* [OAP MLlib](#oap-mllib)
-* [PMEM Spill](#pmem-spill)
-* [PMEM Shuffle](#pmem-shuffle)
-* [Remote Shuffle](#remote-shuffle)
 
 ### Native SQL Engine
 
@@ -264,7 +402,7 @@ Generated on 2021-04-29
 |[#6](https://github.com/oap-project/pmem-shuffle/pull/6)|[PMEM-SHUFFLE-7] enable fsdax mode in pmem-shuffle|
 
 
-### Remote-Shuffle
+### Remote Shuffle
 
 #### Features
 |||
