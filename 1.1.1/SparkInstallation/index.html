@@ -9,7 +9,7 @@
   
   
   <link rel="shortcut icon" href="../img/favicon.ico">
-  <title>InstallationNotes - Native SQL Engine - master</title>
+  <title>SparkInstallation - Native SQL Engine - 1.1.1</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
   <link rel="stylesheet" href="../css/theme.css" />
@@ -18,8 +18,8 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "InstallationNotes";
-    var mkdocs_page_input_path = "InstallationNotes.md";
+    var mkdocs_page_name = "SparkInstallation";
+    var mkdocs_page_input_path = "SparkInstallation.md";
     var mkdocs_page_url = null;
   </script>
   
@@ -38,7 +38,7 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
     <div class="wy-side-scroll">
       <div class="wy-side-nav-search">
-        <a href=".." class="icon icon-home"> Native SQL Engine - master</a>
+        <a href=".." class="icon icon-home"> Native SQL Engine - 1.1.1</a>
         <div role="search">
   <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
@@ -59,18 +59,18 @@
                     <li class="toctree-l1"><a class="reference internal" href="../Installation/">Installation</a>
                     </li>
                 </ul>
-                <ul class="current">
-                    <li class="toctree-l1 current"><a class="reference internal current" href="./">InstallationNotes</a>
-    <ul class="current">
-    </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../InstallationNotes/">InstallationNotes</a>
                     </li>
                 </ul>
                 <ul>
                     <li class="toctree-l1"><a class="reference internal" href="../Configuration/">Configuration</a>
                     </li>
                 </ul>
-                <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
+                <ul class="current">
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">SparkInstallation</a>
+    <ul class="current">
+    </ul>
                     </li>
                 </ul>
                 <ul>
@@ -98,7 +98,7 @@
       
       <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
         <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="..">Native SQL Engine - master</a>
+        <a href="..">Native SQL Engine - 1.1.1</a>
       </nav>
 
       
@@ -110,7 +110,7 @@
     
       
     
-    <li>InstallationNotes</li>
+    <li>SparkInstallation</li>
     <li class="wy-breadcrumbs-aside">
       
     </li>
@@ -121,53 +121,41 @@
           <div role="main">
             <div class="section">
               
-                <h3 id="notes-for-installation-issues">Notes for Installation Issues</h3>
-<ul>
-<li>
-<p>Before the Installation, if you have installed other version of oap-native-sql, remove all installed lib and include from system path: libarrow<em> libgandiva</em> libspark-columnar-jni*</p>
-</li>
-<li>
-<p>libgandiva_jni.so was not found inside JAR</p>
-</li>
-</ul>
-<p>change property 'arrow.cpp.build.dir' to $ARROW_DIR/cpp/release-build/release/ in gandiva/pom.xml. If you do not want to change the contents of pom.xml, specify it like this:</p>
-<pre><code>mvn clean install -P arrow-jni -am -Darrow.cpp.build.dir=/root/git/t/arrow/cpp/release-build/release/ -DskipTests -Dcheckstyle.skip
+                <h3 id="download-spark-311">Download Spark 3.1.1</h3>
+<p>Currently Native SQL Engine works on the Spark 3.1.1 version.</p>
+<pre><code>wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop3.2.tgz
+sudo mkdir -p /opt/spark &amp;&amp; sudo mv spark-3.1.1-bin-hadoop3.2.tgz /opt/spark
+sudo cd /opt/spark &amp;&amp; sudo tar -xf spark-3.1.1-bin-hadoop3.2.tgz
+export SPARK_HOME=/opt/spark/spark-3.1.1-bin-hadoop3.2/
 </code></pre>
 
-<ul>
-<li>No rule to make target '../src/protobuf_ep', needed by `src/proto/Exprs.pb.cc'</li>
-</ul>
-<p>remove the existing libprotobuf installation, then the script for find_package() will be able to download protobuf.</p>
-<ul>
-<li>can't find the libprotobuf.so.13 in the shared lib</li>
-</ul>
-<p>copy the libprotobuf.so.13 from $OAP_DIR/oap-native-sql/cpp/src/resources to /usr/lib64/</p>
-<ul>
-<li>unable to load libhdfs: libgsasl.so.7: cannot open shared object file</li>
-</ul>
-<p>libgsasl is missing, run <code>yum install libgsasl</code></p>
-<ul>
-<li>CentOS 7.7 looks like didn't provide the glibc we required, so binaries packaged on F30 won't work.</li>
-</ul>
-<pre><code>20/04/21 17:46:17 WARN TaskSetManager: Lost task 0.1 in stage 1.0 (TID 2, 10.0.0.143, executor 6): java.lang.UnsatisfiedLinkError: /tmp/libgandiva_jni.sobe729912-3bbe-4bd0-bb96-4c7ce2e62336: /lib64/libm.so.6: version `GLIBC_2.29' not found (required by /tmp/libgandiva_jni.sobe729912-3bbe-4bd0-bb96-4c7ce2e62336)
+<h3 id="or-building-spark-from-source"><a href="https://spark.apache.org/docs/latest/building-spark.html">Or building Spark from source</a></h3>
+<pre><code class="shell">git clone https://github.com/intel-bigdata/spark.git
+cd spark &amp;&amp; git checkout native-sql-engine-clean
+# check spark supported hadoop version
+grep \&lt;hadoop\.version\&gt; -r pom.xml
+    &lt;hadoop.version&gt;2.7.4&lt;/hadoop.version&gt;
+    &lt;hadoop.version&gt;3.2.0&lt;/hadoop.version&gt;
+# so we should build spark specifying hadoop version as 3.2
+./build/mvn -Pyarn -Phadoop-3.2 -Dhadoop.version=3.2.0 -DskipTests clean install
 </code></pre>
 
-<ul>
-<li>Missing symbols due to old GCC version.</li>
-</ul>
-<pre><code>[root@vsr243 release-build]# nm /usr/local/lib64/libparquet.so | grep ZN5boost16re_detail_10710012perl_matcherIN9__gnu_cxx17__normal_iteratorIPKcSsEESaINS_9sub_matchIS6_EEENS_12regex_traitsIcNS_16cpp_regex_traitsIcEEEEE14construct_initERKNS_11basic_regexIcSD_EENS_15regex_constants12_match_flagsE
-_ZN5boost16re_detail_10710012perl_matcherIN9__gnu_cxx17__normal_iteratorIPKcSsEESaINS_9sub_matchIS6_EEENS_12regex_traitsIcNS_16cpp_regex_traitsIcEEEEE14construct_initERKNS_11basic_regexIcSD_EENS_15regex_constants12_match_flagsE
+<p>Specify SPARK_HOME to spark path</p>
+<pre><code class="shell">export SPARK_HOME=${HADOOP_PATH}
 </code></pre>
 
-<p>Need to compile all packags with newer GCC:</p>
-<pre><code>[root@vsr243 ~]# export CXX=/usr/local/bin/g++
-[root@vsr243 ~]# export CC=/usr/local/bin/gcc
+<h3 id="hadoop-building-from-source">Hadoop building from source</h3>
+<pre><code class="shell">git clone https://github.com/apache/hadoop.git
+cd hadoop
+git checkout rel/release-3.2.0
+# only build binary for hadoop
+mvn clean install -Pdist -DskipTests -Dtar
+# build binary and native library such as libhdfs.so for hadoop
+# mvn clean install -Pdist,native -DskipTests -Dtar
 </code></pre>
 
-<ul>
-<li>Can not connect to hdfs @sr602</li>
-</ul>
-<p>vsr606, vsr243 are both not able to connect to hdfs @sr602, need to skipTests to generate the jar</p>
+<pre><code class="shell">export HADOOP_HOME=${HADOOP_PATH}/hadoop-dist/target/hadoop-3.2.0/
+</code></pre>
               
             </div>
           </div>
@@ -175,10 +163,10 @@ _ZN5boost16re_detail_10710012perl_matcherIN9__gnu_cxx17__normal_iteratorIPKcSsEE
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="../Configuration/" class="btn btn-neutral float-right" title="Configuration">Next <span class="icon icon-circle-arrow-right"></span></a>
+        <a href="../ApacheArrowInstallation/" class="btn btn-neutral float-right" title="ApacheArrowInstallation">Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
-        <a href="../Installation/" class="btn btn-neutral" title="Installation"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../Configuration/" class="btn btn-neutral" title="Configuration"><span class="icon icon-circle-arrow-left"></span> Previous</a>
       
     </div>
   
@@ -204,10 +192,10 @@ _ZN5boost16re_detail_10710012perl_matcherIN9__gnu_cxx17__normal_iteratorIPKcSsEE
     <span class="rst-current-version" data-toggle="rst-current-version">
       
       
-        <span><a href="../Installation/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+        <span><a href="../Configuration/" style="color: #fcfcfc;">&laquo; Previous</a></span>
       
       
-        <span style="margin-left: 15px"><a href="../Configuration/" style="color: #fcfcfc">Next &raquo;</a></span>
+        <span style="margin-left: 15px"><a href="../ApacheArrowInstallation/" style="color: #fcfcfc">Next &raquo;</a></span>
       
     </span>
 </div>
