@@ -6,7 +6,11 @@ A Native Engine for Spark SQL with vectorized SIMD optimizations
 
 ![Overview](./image/nativesql_arch.png)
 
-Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. [Apache Arrow](https://arrow.apache.org/) provided CPU-cache friendly columnar in-memory layout, its SIMD optimized kernels and LLVM based SQL engine Gandiva are also very efficient. Native SQL Engine used these technologies and brought better performance to Spark SQL.
+Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. [Apache Arrow](https://arrow.apache.org/) provided CPU-cache friendly columnar in-memory layout, its SIMD-optimized kernels and LLVM-based SQL engine Gandiva are also very efficient.
+
+Native SQL Engine reimplements Spark SQL execution layer with SIMD-friendly columnar data processing based on Apache Arrow, 
+and leverages Arrow's CPU-cache friendly columnar in-memory layout, SIMD-optimized kernels and LLVM-based expression engine to bring better performance to Spark SQL.
+
 
 ## Key Features
 
@@ -36,7 +40,20 @@ We implemented columnar shuffle to improve the shuffle performance. With the col
 
 Please check the operator supporting details [here](./operators.md)
 
-## Build the Plugin
+## How to use OAP: Native SQL Engine
+
+There are three ways to use OAP: Native SQL Engine,
+1. Use precompiled jars
+2. Building by Conda Environment
+3. Building by Yourself
+
+### Use precompiled jars
+
+Please go to [OAP's Maven Central Repository](https://repo1.maven.org/maven2/com/intel/oap/) to find Native SQL Engine jars.
+For usage, you will require below two jar files:
+1. spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
+2. spark-columnar-core-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-columnar-core/<version>/
+Please notice the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage. 
 
 ### Building by Conda
 
@@ -47,18 +64,18 @@ Then you can just skip below steps and jump to [Get Started](#get-started).
 
 If you prefer to build from the source code on your hand, please follow below steps to set up your environment.
 
-### Prerequisite
+#### Prerequisite
+
 There are some requirements before you build the project.
 Please check the document [Prerequisite](./Prerequisite.md) and make sure you have already installed the software in your system.
 If you are running a SPARK Cluster, please make sure all the software are installed in every single node.
 
-### Installation
+#### Installation
+
 Please check the document [Installation Guide](./Installation.md) 
 
-### Configuration & Testing 
-Please check the document [Configuration Guide](./Configuration.md)
-
 ## Get started
+
 To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
 SPARK related options are:
 
@@ -70,6 +87,8 @@ SPARK related options are:
 
 For Spark Standalone Mode, please set the above value as relative path to the jar file.
 For Spark Yarn Cluster Mode, please set the above value as absolute path to the jar file.
+
+More Configuration, please check the document [Configuration Guide](./Configuration.md)
 
 Example to run Spark Shell with ArrowDataSource jar file
 ```
@@ -99,7 +118,7 @@ orders.createOrReplaceTempView("orders")
 spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(20000, false)
 ```
 
-The result should show up on Spark console and you can check the DAG diagram with some Columnar Processing stage. Native SQL engine still lacks some features, please check out the [limitations](./limitations.md).
+The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Native SQL engine still lacks some features, please check out the [limitations](./limitations.md).
 
 
 ## Performance data
