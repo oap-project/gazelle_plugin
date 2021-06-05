@@ -17,25 +17,35 @@
 
 package com.intel.oap.misc
 
+import java.sql.Date
 import java.sql.Timestamp
+import java.util.Locale
+import java.util.TimeZone
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.util.DateTimeTestUtils.UTC
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
-class MiscCasesSuite extends QueryTest with SharedSparkSession {
+class DatetimeSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
   private val MAX_DIRECT_MEMORY = "6g"
 
   override protected def sparkConf: SparkConf = {
+
+//    val zoneID = "Asia/Shanghai"
+//    val locale = Locale.PRC
+    val zoneID = "America/Los_Angeles"
+    val locale = Locale.US
+
+    TimeZone.setDefault(TimeZone.getTimeZone(zoneID))
+    Locale.setDefault(locale)
+
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
         .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
-        .set("spark.sql.codegen.wholeStage", "true")
+        .set("spark.sql.codegen.wholeStage", "false")
         .set("spark.sql.sources.useV1SourceList", "")
         .set("spark.sql.columnar.tmp_dir", "/tmp/")
         .set("spark.sql.adaptive.enabled", "false")
@@ -52,10 +62,11 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
         .set("spark.network.io.preferDirectBufs", "false")
         .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
+        .set("spark.sql.session.timeZone", zoneID)
     return conf
   }
 
-  test("timestamp data type - show") {
+  test("timestamp type - show") {
     withTempView("timestamps") {
       val timestamps = (0 to 3).map(i => Tuple1(new Timestamp(i))).toDF("time")
       timestamps.createOrReplaceTempView("timestamps")
@@ -66,13 +77,17 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("timestamp data type - cast to string") {
+  test("timestamp type - cast to string") {
     withTempView("timestamps") {
       val timestamps = (0 to 3).map(i => Tuple1(new Timestamp(i))).toDF("time")
       timestamps.createOrReplaceTempView("timestamps")
       checkAnswer(
         sql("SELECT cast(time as string) FROM timestamps"),
         Seq(
+          // Different from vanilla Spark: Arrow erases timestamp's time zone in Gandiva-Java
+          // Although we set time zone to America/Los_Angeles explicitly, the display
+          // of timestamp still conforms to UTC.
+          // See method: ArrowTypeHelper#initArrowTypeTimestamp
           Row("1970-01-01 00:00:00.000"),
           Row("1970-01-01 00:00:00.001"),
           Row("1970-01-01 00:00:00.002"),
@@ -81,7 +96,7 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("timestamp data type - cast from string") {
+  test("timestamp type - cast from string") {
     withTempView("timestamps") {
       val timestamps =
         Seq(
@@ -100,7 +115,7 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("timestamp data type - cast to long") {
+  test("timestamp type - cast to long") {
     withTempView("timestamps") {
       val timestamps = Seq(0, 1000, 2000, 3000)
           .map(i => Tuple1(new Timestamp(i))).toDF("time")
@@ -116,7 +131,7 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("timestamp data type - cast from long") {
+  test("timestamp type - cast from long") {
     withTempView("timestamps") {
       val timestamps =
         Seq(
@@ -131,6 +146,53 @@ class MiscCasesSuite extends QueryTest with SharedSparkSession {
 
       checkAnswer(
         sql("SELECT cast(time as timestamp) FROM timestamps"),
+        expected)
+    }
+  }
+
+  test("date type - show") {
+    withTempView("dates") {
+      val timestamps = (0 to 3).map(i => Tuple1(new Date(i))).toDF("time")
+      timestamps.createOrReplaceTempView("dates")
+
+      val df = sql("SELECT time FROM dates")
+      df.explain()
+      df.show(100, 50)
+    }
+  }
+
+  test("date type - cast to string") {
+    withTempView("dates") {
+      val timestamps = (0L to 3L).map(i => i * 1000 * 3600 * 24)
+          .map(i => Tuple1(new Date(i))).toDF("time")
+      timestamps.createOrReplaceTempView("dates")
+
+      checkAnswer(sql("SELECT cast(time AS string) FROM dates"),
+        Seq(
+          Row("1969-12-31"),
+          Row("1970-01-01"),
+          Row("1970-01-02"),
+          Row("1970-01-03")
+        ))
+    }
+  }
+
+  test("date type - cast from string") {
+    withTempView("dates") {
+      val timestamps =
+        Seq(
+          ("1969-12-31"),
+          ("1970-01-01"),
+          ("1970-01-02"),
+          ("1970-01-03"))
+            .toDF("time")
+      timestamps.createOrReplaceTempView("dates")
+
+      val expected = (0L to 3L).map(i => i * 1000 * 3600 * 24)
+          .map(i => Tuple1(new Date(i))).toDF("time")
+
+      checkAnswer(
+        sql("SELECT cast(time as date) FROM dates"),
         expected)
     }
   }

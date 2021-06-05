@@ -466,17 +466,13 @@ class ColumnarCast(
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val toType = CodeGeneration.getResultType(dataType)
-    val child_node0 = childType match {
+    val (child_node0, childType0) = childType match {
       case ts: ArrowType.Timestamp =>
-        if (ts.getTimezone != null) {
-          throw new UnsupportedOperationException(s"zoned timestamp is not supported" +
-              s" in cast input")
-        }
-        ConverterUtils.convertTimestampToMilli(child_node, childType)._1
-      case _ => child_node
+        ConverterUtils.convertTimestampToMilli(child_node, childType)
+      case _ => (child_node, childType)
     }
     if (dataType == StringType) {
-      val limitLen: java.lang.Long = childType match {
+      val limitLen: java.lang.Long = childType0 match {
         case int: ArrowType.Int if int.getBitWidth == 8 => 4
         case int: ArrowType.Int if int.getBitWidth == 16 => 6
         case int: ArrowType.Int if int.getBitWidth == 32 => 11
@@ -494,7 +490,7 @@ class ColumnarCast(
         case _: ArrowType.Timestamp => 24
         case _ =>
           throw new UnsupportedOperationException(
-            s"ColumnarCast to String doesn't support ${childType}")
+            s"ColumnarCast to String doesn't support ${childType0}")
       }
       val limitLenNode = TreeBuilder.makeLiteral(limitLen)
       val funcNode =
@@ -514,7 +510,7 @@ class ColumnarCast(
           val round_down_node = TreeBuilder.makeFunction(
             "subtract",
             Lists.newArrayList(child_node0, half_node),
-            childType)
+            childType0)
           val long_node = TreeBuilder.makeFunction(
             "castBIGINT",
             Lists.newArrayList(round_down_node),
@@ -572,13 +568,19 @@ class ColumnarCast(
 
       // convert to milli, then convert to micro
       val intermediateType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, arrowTsType.getTimezone)
-      val funcNode =
-        TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(
-          // convert second to milli sec
-          TreeBuilder.makeFunction("multiply",
-          Lists.newArrayList(child_node0,
-            TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), childType)),
-          intermediateType)
+
+      val funcNode = child.dataType match {
+        case _: LongType =>
+          TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(
+            // convert second to milli sec
+            TreeBuilder.makeFunction("multiply",
+              Lists.newArrayList(child_node0,
+                TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), childType0)),
+            intermediateType)
+        case _ =>
+          TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(child_node0),
+            intermediateType)
+      }
       ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
     } else {
       throw new UnsupportedOperationException(s"not currently supported: ${dataType}.")

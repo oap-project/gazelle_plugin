@@ -27,6 +27,7 @@ import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.catalyst.expressions.Attribute
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 
 object ArrowUtils {
 
@@ -48,8 +49,12 @@ object ArrowUtils {
     case DecimalType.Fixed(precision, scale) => new ArrowType.Decimal(precision, scale)
     case DateType => new ArrowType.Date(DateUnit.DAY)
     case TimestampType =>
-      // Spark timestamp type is epoch micro. Use none-zoned timestamp in Arrow
-      new ArrowType.Timestamp(TimeUnit.MICROSECOND, null)
+      if (timeZoneId == null) {
+        throw new UnsupportedOperationException(
+          s"${TimestampType.catalogString} must supply timeZoneId parameter")
+      } else {
+        new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
+      }
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
   }
@@ -68,8 +73,7 @@ object ArrowUtils {
     case ArrowType.Binary.INSTANCE => BinaryType
     case d: ArrowType.Decimal => DecimalType(d.getPrecision, d.getScale)
     case date: ArrowType.Date if date.getUnit == DateUnit.DAY => DateType
-    case ts: ArrowType.Timestamp if (ts.getUnit == TimeUnit.MICROSECOND
-        && ts.getTimezone == null) => TimestampType
+    case ts: ArrowType.Timestamp if ts.getUnit == TimeUnit.MICROSECOND => TimestampType
     case _ => throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 

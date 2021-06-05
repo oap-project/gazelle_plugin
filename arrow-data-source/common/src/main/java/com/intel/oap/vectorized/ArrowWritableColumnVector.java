@@ -228,8 +228,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       accessor = new BinaryAccessor((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       accessor = new DateAccessor((DateDayVector) vector);
-    } else if (vector instanceof TimeStampMicroVector) {
-      accessor = new TimestampAccessor((TimeStampMicroVector) vector);
+    } else if (vector instanceof TimeStampMicroVector || vector instanceof TimeStampMicroTZVector) {
+      accessor = new TimestampMicroAccessor((TimeStampVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       accessor = new ArrayAccessor(listVector);
@@ -270,8 +270,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       return new BinaryWriter((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       return new DateWriter((DateDayVector) vector);
-    } else if (vector instanceof TimeStampMicroVector) {
-      return new TimestampWriter((TimeStampMicroVector) vector);
+    } else if (vector instanceof TimeStampMicroVector || vector instanceof TimeStampMicroTZVector) {
+      return new TimestampMicroWriter((TimeStampVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       ArrowVectorWriter elementVector = createVectorWriter(listVector.getDataVector());
@@ -284,7 +284,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       }
       return new StructWriter(structVector, children);
     } else {
-      throw new UnsupportedOperationException("Unsupported data type: ");
+      throw new UnsupportedOperationException("Unsupported data type: " + vector.getMinorType());
     }
   }
 
@@ -1139,10 +1139,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
   }
 
-  private static class TimestampAccessor extends ArrowVectorAccessor {
-    private final TimeStampMicroVector accessor;
+  private static class TimestampMicroAccessor extends ArrowVectorAccessor {
+    private final TimeStampVector accessor;
 
-    TimestampAccessor(TimeStampMicroVector vector) {
+    TimestampMicroAccessor(TimeStampVector vector) {
       super(vector);
       this.accessor = vector;
     }
@@ -1793,10 +1793,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
   }
 
-  private static class TimestampWriter extends ArrowVectorWriter {
-    private final TimeStampMicroVector writer;
+  private static class TimestampMicroWriter extends ArrowVectorWriter {
+    private final TimeStampVector writer;
 
-    TimestampWriter(TimeStampMicroVector vector) {
+    TimestampMicroWriter(TimeStampVector vector) {
       super(vector);
       this.writer = vector;
     }
