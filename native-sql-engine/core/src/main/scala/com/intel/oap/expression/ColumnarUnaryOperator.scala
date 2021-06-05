@@ -34,6 +34,9 @@ import scala.collection.mutable.ListBuffer
 
 import org.apache.arrow.vector.types.TimeUnit
 
+import org.apache.spark.sql.catalyst.util.DateTimeConstants
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+
 /**
  * A version of add that supports columnar processing for longs.
  */
@@ -439,7 +442,7 @@ class ColumnarCast(
           s"${child.dataType} is not supported in castFLOAT8")
       }
     } else if (dataType == DateType) {
-      val supported = List(IntegerType, LongType, DateType)
+      val supported = List(IntegerType, LongType, DateType, TimestampType)
       if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castDATE")
       }
@@ -451,7 +454,7 @@ class ColumnarCast(
           s"${child.dataType} is not supported in castDECIMAL")
       }
     } else if (dataType.isInstanceOf[TimestampType]) {
-      val supported = List(StringType, LongType)
+      val supported = List(StringType, LongType, DateType)
       if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castTIMESTAMP")
@@ -465,7 +468,7 @@ class ColumnarCast(
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val toType = CodeGeneration.getResultType(dataType)
+    val toType = CodeGeneration.getResultType(dataType, zoneId.getId)
     val (child_node0, childType0) = childType match {
       case ts: ArrowType.Timestamp =>
         ConverterUtils.convertTimestampToMilli(child_node, childType)
@@ -549,8 +552,29 @@ class ColumnarCast(
         TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
       (funcNode, toType)
     } else if (dataType == DateType) {
-      val funcNode =
-        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node0), toType)
+      val funcNode = child.dataType match {
+        case ts: TimestampType =>
+          val utcTimestampNodeMicro = child_node0
+          val utcTimestampNodeMilli = ConverterUtils.convertTimestampToMilli(utcTimestampNodeMicro,
+            childType0)._1
+          val utcTimestampNodeLong = TreeBuilder.makeFunction("castBIGINT",
+            Lists.newArrayList(utcTimestampNodeMilli), new ArrowType.Int(64,
+              true))
+          val diff = SparkSchemaUtils.getTimeZoneIDOffset(zoneId.getId) *
+              DateTimeConstants.MILLIS_PER_SECOND
+          val localizedTimestampNodeLong = TreeBuilder.makeFunction("add",
+            Lists.newArrayList(utcTimestampNodeLong,
+              TreeBuilder.makeLiteral(java.lang.Long.valueOf(diff))),
+            new ArrowType.Int(64, true))
+          val localized = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
+          val localizedTimestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
+            Lists.newArrayList(localizedTimestampNodeLong), localized)
+          val localizedDateNode = TreeBuilder.makeFunction("castDATE",
+            Lists.newArrayList(localizedTimestampNode), toType)
+          localizedDateNode
+        case other => TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node0),
+          toType)
+      }
       (funcNode, toType)
     } else if (dataType.isInstanceOf[DecimalType]) {
       dataType match {
@@ -577,6 +601,25 @@ class ColumnarCast(
               Lists.newArrayList(child_node0,
                 TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), childType0)),
             intermediateType)
+        case _: DateType =>
+          val localized = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
+          // This is a localized timestamp derived from date. Cast it to UTC.
+          val localizedTimestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
+            Lists.newArrayList(child_node0), localized)
+          val localizedTimestampNodeLong = TreeBuilder.makeFunction("castBIGINT",
+            Lists.newArrayList(localizedTimestampNode), new ArrowType.Int(64,
+              true))
+          // TODO: Daylight saving time by tz name, e.g. "America/Los_Angeles"
+          val diff = SparkSchemaUtils.getTimeZoneIDOffset(intermediateType.getTimezone) *
+              DateTimeConstants.MILLIS_PER_SECOND
+          val utcTimestampNodeLong = TreeBuilder.makeFunction("subtract",
+            Lists.newArrayList(localizedTimestampNodeLong,
+              TreeBuilder.makeLiteral(java.lang.Long.valueOf(diff))),
+            new ArrowType.Int(64, true))
+          val utcTimestampNode =
+            TreeBuilder.makeFunction("castTIMESTAMP",
+              Lists.newArrayList(utcTimestampNodeLong), intermediateType)
+          utcTimestampNode
         case _ =>
           TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(child_node0),
             intermediateType)

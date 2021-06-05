@@ -36,7 +36,7 @@ class DatetimeSuite extends QueryTest with SharedSparkSession {
 
 //    val zoneID = "Asia/Shanghai"
 //    val locale = Locale.PRC
-    val zoneID = "America/Los_Angeles"
+    val zoneID = "GMT-8"
     val locale = Locale.US
 
     TimeZone.setDefault(TimeZone.getTimeZone(zoneID))
@@ -152,8 +152,8 @@ class DatetimeSuite extends QueryTest with SharedSparkSession {
 
   test("date type - show") {
     withTempView("dates") {
-      val timestamps = (0 to 3).map(i => Tuple1(new Date(i))).toDF("time")
-      timestamps.createOrReplaceTempView("dates")
+      val dates = (0 to 3).map(i => Tuple1(new Date(i))).toDF("time")
+      dates.createOrReplaceTempView("dates")
 
       val df = sql("SELECT time FROM dates")
       df.explain()
@@ -163,9 +163,9 @@ class DatetimeSuite extends QueryTest with SharedSparkSession {
 
   test("date type - cast to string") {
     withTempView("dates") {
-      val timestamps = (0L to 3L).map(i => i * 1000 * 3600 * 24)
+      val dates = (0L to 3L).map(i => i * 1000 * 3600 * 24)
           .map(i => Tuple1(new Date(i))).toDF("time")
-      timestamps.createOrReplaceTempView("dates")
+      dates.createOrReplaceTempView("dates")
 
       checkAnswer(sql("SELECT cast(time AS string) FROM dates"),
         Seq(
@@ -179,14 +179,14 @@ class DatetimeSuite extends QueryTest with SharedSparkSession {
 
   test("date type - cast from string") {
     withTempView("dates") {
-      val timestamps =
+      val dates =
         Seq(
           ("1969-12-31"),
           ("1970-01-01"),
           ("1970-01-02"),
           ("1970-01-03"))
             .toDF("time")
-      timestamps.createOrReplaceTempView("dates")
+      dates.createOrReplaceTempView("dates")
 
       val expected = (0L to 3L).map(i => i * 1000 * 3600 * 24)
           .map(i => Tuple1(new Date(i))).toDF("time")
@@ -194,6 +194,30 @@ class DatetimeSuite extends QueryTest with SharedSparkSession {
       checkAnswer(
         sql("SELECT cast(time as date) FROM dates"),
         expected)
+    }
+  }
+
+  test("date type - cast to timestamp") {
+    withTempView("dates") {
+      // UTC day 0 -> UTC-8 (LA) day -1
+      val dates = (0L to 3L).map(i => i * 24 * 1000 * 3600)
+          .map(i => Tuple1(new Date(i))).toDF("time")
+      dates.createOrReplaceTempView("dates")
+
+      checkAnswer(sql("SELECT cast(time AS timestamp) FROM dates"),
+        (0L to 3L).map(i => Row(new Timestamp(((i - 1) * 24 + 8) * 1000 * 3600))))
+    }
+  }
+
+  test("date type - cast from timestamp") {
+    withTempView("dates") {
+      val dates = (0L to 3L).map(i => i * 24 * 1000 * 3600)
+          .map(i => Tuple1(new Timestamp(i)))
+          .toDF("time")
+      dates.createOrReplaceTempView("dates")
+
+      checkAnswer(sql("SELECT cast(time AS date) FROM dates"),
+        (0L to 3L).map(i => i * 24 * 1000 * 3600).map(i => Row(new Date(i))))
     }
   }
 }

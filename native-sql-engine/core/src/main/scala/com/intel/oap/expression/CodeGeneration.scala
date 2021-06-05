@@ -28,7 +28,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 
 object CodeGeneration {
-  val timeZoneId = SparkSchemaUtils.getLocalTimezoneID()
+  private val defaultTimeZoneId = SparkSchemaUtils.getLocalTimezoneID()
 
   def getResultType(left: ArrowType, right: ArrowType): ArrowType = {
     //TODO(): remove this API
@@ -36,6 +36,10 @@ object CodeGeneration {
   }
 
   def getResultType(dataType: DataType): ArrowType = {
+    getResultType(dataType, defaultTimeZoneId)
+  }
+
+  def getResultType(dataType: DataType, timeZoneId: String): ArrowType = {
     dataType match {
       case other =>
         ArrowUtils.toArrowType(dataType, timeZoneId)
