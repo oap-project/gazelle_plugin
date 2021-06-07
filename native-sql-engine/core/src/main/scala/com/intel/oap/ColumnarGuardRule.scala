@@ -206,6 +206,9 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
       case plan: ShuffledHashJoinExec =>
         if ((count + 1) >= optimizeLevel) return true
         plan.children.map(existsMultiCodegens(_, count + 1)).exists(_ == true)
+      case plan: SortMergeJoinExec =>
+        if ((count + 1) >= optimizeLevel) return true
+        plan.children.map(existsMultiCodegens(_, count + 1)).exists(_ == true)
       case other => false
     }
 
@@ -225,6 +228,8 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
       case p: BroadcastExchangeExec =>
         RowGuard(p.withNewChildren(p.children.map(insertRowGuardOrNot)))
       case p: ShuffledHashJoinExec =>
+        RowGuard(p.withNewChildren(p.children.map(insertRowGuardRecursive)))
+      case p: SortMergeJoinExec =>
         RowGuard(p.withNewChildren(p.children.map(insertRowGuardRecursive)))
       case p if !supportCodegen(p) =>
         // insert row guard them recursively
