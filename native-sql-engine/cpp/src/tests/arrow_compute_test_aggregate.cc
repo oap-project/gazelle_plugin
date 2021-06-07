@@ -163,53 +163,23 @@ TEST(TestArrowCompute, AggregateAllNullTest) {
   auto arg_0 = TreeExprBuilder::MakeField(f0);
 
   auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg_0}, int64());
-//   auto n_count = TreeExprBuilder::MakeFunction("action_count", {arg_0}, int64());
-//   auto n_sum_count = TreeExprBuilder::MakeFunction("action_sum_count", {arg_0}, int64());
-//   auto n_avg =
-//       TreeExprBuilder::MakeFunction("action_avgByCount", {arg_2, arg_1}, float64());
-//   auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg_0}, int64());
-//   auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg_0}, int64());
-//   auto n_stddev = TreeExprBuilder::MakeFunction("action_stddev_samp_final",
-//                                                 {arg_2, arg_3, arg_4}, float64());
-//   auto n_count_literal =
-//       TreeExprBuilder::MakeFunction("action_countLiteral_1", {}, int64());
-//   auto n_min_str = TreeExprBuilder::MakeFunction("action_min", {arg_5}, utf8());
-//   auto n_max_str = TreeExprBuilder::MakeFunction("action_max", {arg_5}, utf8());
 
   auto f_sum = field("sum", int64());
-  auto f_count = field("count", int64());
-  auto f_sum_count = field("sum_count", int64());
-  auto f_avg = field("avg", float64());
-  auto f_min = field("min", int64());
-  auto f_max = field("max", int64());
-  auto f_stddev = field("stddev", float64());
-  auto f_count_literal = field("count_all", int64());
-  auto f_min_str = field("min_str", utf8());
-  auto f_max_str = field("max_str", utf8());
   auto f_res = field("res", int32());
 
-  auto n_proj = TreeExprBuilder::MakeFunction(
-      "aggregateExpressions", {arg_0}, uint32());
-  auto n_action =
-      TreeExprBuilder::MakeFunction("aggregateActions",
-                                    {n_sum},
-                                    uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg_0}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions", {n_sum}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
-      "resultSchema",
-      {TreeExprBuilder::MakeField(f_sum)},
-      uint32());
+      "resultSchema", {TreeExprBuilder::MakeField(f_sum)}, uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
-      "resultExpressions",
-      {TreeExprBuilder::MakeField(f_sum)},
-      uint32());
+      "resultExpressions", {TreeExprBuilder::MakeField(f_sum)}, uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   auto sch = arrow::schema({f0});
-  std::vector<std::shared_ptr<Field>> ret_types = {
-      f_sum};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_sum};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
@@ -234,8 +204,7 @@ TEST(TestArrowCompute, AggregateAllNullTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-  std::vector<std::string> expected_result_string = {
-      "[null]"};
+  std::vector<std::string> expected_result_string = {"[null]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
@@ -385,20 +354,17 @@ TEST(TestArrowCompute, GroupByMaxForBoolTest) {
 
   auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg1}, uint32());
-  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
-                                              {arg0, arg1}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_groupby, n_max},
-      uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1}, uint32());
+  auto n_action =
+      TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby, n_max}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
-      {TreeExprBuilder::MakeField(f_unique),
-       TreeExprBuilder::MakeField(f_max)},
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_max)},
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
-      {TreeExprBuilder::MakeField(f_unique),
-       TreeExprBuilder::MakeField(f_max)},
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_max)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
@@ -434,9 +400,8 @@ TEST(TestArrowCompute, GroupByMaxForBoolTest) {
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5]",
-      "[true, true, false, null, true]"};
+  std::vector<std::string> expected_result_string = {"[1, 2, 3, 4, 5]",
+                                                     "[true, true, false, null, true]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

@@ -148,8 +148,9 @@ case class ColumnarHashAggregateExec(
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         var processed = false
-        /** Three special cases need to be handled in scala side:
-         * (1) count_literal (2) only result expressions (3) empty input
+        /** Special cases need to be handled in scala side:
+         * (1) aggregate literal (2) only result expressions
+         * (3) empty input (4) grouping literal
          */
         var skip_count = false
         var skip_native = false
@@ -164,11 +165,18 @@ case class ColumnarHashAggregateExec(
             if (cb.numRows != 0) {
               numRowsInput += cb.numRows
               val beforeEval = System.nanoTime()
-              if (hash_aggr_input_schema.getFields.size == 0) {
+              if (hash_aggr_input_schema.getFields.size != 0) {
+                val input_rb =
+                  ConverterUtils.createArrowRecordBatch(cb)
+                nativeIterator.processAndCacheOne(hash_aggr_input_schema, input_rb)
+                ConverterUtils.releaseArrowRecordBatch(input_rb)
+              } else {
+                // Special case for no input batch
                 if (aggregateExpressions.nonEmpty) {
                   if (aggregateExpressions.head
-                      .aggregateFunction.children.head.isInstanceOf[Literal]) {
+                    .aggregateFunction.children.head.isInstanceOf[Literal]) {
                     // This is a special case used by literal aggregation
+                    skip_native = true
                     breakable{
                       for (exp <- aggregateExpressions) {
                         if (exp.aggregateFunction.isInstanceOf[Count]) {
@@ -178,20 +186,15 @@ case class ColumnarHashAggregateExec(
                         }
                       }
                     }
-                    skip_native = true
                   }
                 } else {
+                  // This is a special case used by grouping literal
                   if (groupingExpressions.nonEmpty &&
-                      groupingExpressions.head.children.head.isInstanceOf[Literal]) {
+                    groupingExpressions.head.children.head.isInstanceOf[Literal]) {
                     skip_grouping = true
                     skip_native = true
                   }
                 }
-              } else {
-                val input_rb =
-                  ConverterUtils.createArrowRecordBatch(cb)
-                nativeIterator.processAndCacheOne(hash_aggr_input_schema, input_rb)
-                ConverterUtils.releaseArrowRecordBatch(input_rb)
               }
               eval_elapse += System.nanoTime() - beforeEval
             }
@@ -549,7 +552,7 @@ case class ColumnarHashAggregateExec(
             throw new UnsupportedOperationException(
               s"${attr.dataType} is not supported in Columnar Max")
           }
-          // DateType is not supported in Max without grouping
+          // In native side, DateType is not supported in Max without grouping
           if (groupingExpressions.isEmpty && attr.dataType == DateType) {
             throw new UnsupportedOperationException(
               s"${attr.dataType} is not supported in Columnar Max without grouping")

@@ -55,7 +55,7 @@ class ColumnarConcat(exps: Seq[Expression], original: Expression)
       exp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val resultType = new ArrowType.Utf8()
-    val funcNode = TreeBuilder.makeFunction("nullableconcat",
+    val funcNode = TreeBuilder.makeFunction("concat",
       Lists.newArrayList(exp_node, rightNode(args, exps, iter, iterFaster)), resultType)
     (funcNode, expType)
   }
@@ -73,7 +73,7 @@ class ColumnarConcat(exps: Seq[Expression], original: Expression)
       val (exp_node, expType): (TreeNode, ArrowType) =
         exp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val resultType = new ArrowType.Utf8()
-      val funcNode = TreeBuilder.makeFunction("nullableconcat",
+      val funcNode = TreeBuilder.makeFunction("concat",
         Lists.newArrayList(exp_node, rightNode(args, exps, iter, iterFaster)), resultType)
       funcNode
     }

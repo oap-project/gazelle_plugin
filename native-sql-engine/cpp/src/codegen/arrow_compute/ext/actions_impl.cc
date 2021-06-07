@@ -1071,7 +1071,6 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
-    // data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
       if (!cache_validity_[dest_group_id]) {
@@ -1634,7 +1633,6 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     RETURN_NOT_OK(builder_->AppendValues(cache_, cache_validity_));
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     out->push_back(arr_out);
-    std::cout << "val: " << cache_validity_[0] << std::endl;
 
     return arrow::Status::OK();
   }

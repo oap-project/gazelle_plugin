@@ -157,11 +157,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
-//    "cte-legacy.sql",
-//    "like-all.sql",
-//    "subquery/scalar-subquery/scalar-subquery-predicate.sql",
-//    "group-by.sql",
-//    "group-by-filter.sql"
+
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -354,16 +350,16 @@ select min(unique1) filter (where unique1 > 100) from tenk1
         }
       case _ =>
         // Create a test case to run this case.
-//        test(testCase.name) {
-//          runTest(testCase)
-//        }
-        // To run only the set test
-        if (testList.exists(t =>
-          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-          test(testCase.name) {
-            runTest(testCase)
-          }
+        test(testCase.name) {
+          runTest(testCase)
         }
+        // To run only the set test
+//        if (testList.exists(t =>
+//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+//          test(testCase.name) {
+//            runTest(testCase)
+//          }
+//        }
     }
   }
 
@@ -570,7 +566,7 @@ select min(unique1) filter (where unique1 > 100) from tenk1
         outputs.size
       }
 
-       outputs.zip(expectedOutputs).zipWithIndex.foreach { case ((output, expected), i) =>
+      outputs.zip(expectedOutputs).zipWithIndex.foreach { case ((output, expected), i) =>
         assertResult(expected.sql, s"SQL query did not match for query #$i\n${expected.sql}") {
           output.sql
         }

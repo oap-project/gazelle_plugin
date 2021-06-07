@@ -1588,9 +1588,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType3) {
 
   ///////////////////////////////////////////
   auto n_left = TreeExprBuilder::MakeFunction(
-      "codegen_left_schema",
-      {TreeExprBuilder::MakeField(table0_f0)},
-      uint32());
+      "codegen_left_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_right = TreeExprBuilder::MakeFunction(
       "codegen_right_schema",
       {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
@@ -1637,8 +1635,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType3) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {
-      "[true]"};
+  std::vector<std::string> input_data_string = {"[true]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -1651,9 +1648,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestSemiJoinType3) {
   auto res_sch = arrow::schema({table1_f0, table1_f1});
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[2]", 
-      "[true]"};
+  std::vector<std::string> expected_result_string = {"[2]", "[true]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 
