@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.travis
+package org.apache.spark.sql.nativesql
 
 import java.io.File
 import java.net.URI
@@ -43,7 +43,7 @@ import org.apache.spark.sql.types.{IntegerType, StructType}
 import org.apache.spark.sql.util.QueryExecutionListener
 import org.apache.spark.util.Utils
 
-class TravisColumnarAdaptiveQueryExecSuite
+class NativeColumnarAdaptiveQueryExecSuite
   extends QueryTest
     with SharedSparkSession
     with AdaptiveSparkPlanHelper {

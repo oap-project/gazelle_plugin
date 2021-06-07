@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.travis
+package org.apache.spark.sql.nativesql
 
 import org.apache.spark.sql.{DataFrame, QueryTest, Row}
 
@@ -35,7 +35,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 
-class TravisDataFrameJoinSuite extends QueryTest
+class NativeDataFrameJoinSuite extends QueryTest
   with SharedSparkSession
   with AdaptiveSparkPlanHelper {
   import testImplicits._

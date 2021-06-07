@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.travis
+package org.apache.spark.sql.nativesql
 
 import com.intel.oap.execution.ColumnarHashAggregateExec
 import com.intel.oap.datasource.parquet.ParquetReader
@@ -27,7 +27,7 @@ import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.{ColumnarShuffleExchangeExec, ColumnarToRowExec, RowToColumnarExec}
 import org.apache.spark.sql.test.SharedSparkSession
 
-class TravisRepartitionSuite extends QueryTest with SharedSparkSession {
+class NativeRepartitionSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
   override def sparkConf: SparkConf =
@@ -66,7 +66,7 @@ class TravisRepartitionSuite extends QueryTest with SharedSparkSession {
   def withRepartition: (DataFrame => DataFrame) => Unit = withInput(input)(None, _)
 }
 
-class TravisTPCHTableRepartitionSuite extends TravisRepartitionSuite {
+class NativeTPCHTableRepartitionSuite extends NativeRepartitionSuite {
   import testImplicits._
 
   val filePath = getTestResourcePath(
@@ -97,7 +97,7 @@ class TravisTPCHTableRepartitionSuite extends TravisRepartitionSuite {
   }
 }
 
-class TravisDisableColumnarShuffleSuite extends TravisRepartitionSuite {
+class NativeDisableColumnarShuffleSuite extends NativeRepartitionSuite {
   import testImplicits._
 
   override def sparkConf: SparkConf = {
@@ -128,7 +128,7 @@ class TravisDisableColumnarShuffleSuite extends TravisRepartitionSuite {
   }
 }
 
-class TravisAdaptiveQueryExecRepartitionSuite extends TravisTPCHTableRepartitionSuite {
+class NativeAdaptiveQueryExecRepartitionSuite extends NativeTPCHTableRepartitionSuite {
   override def sparkConf: SparkConf = {
     super.sparkConf
       .set("spark.sql.adaptive.enabled", "true")
@@ -167,7 +167,7 @@ class TravisAdaptiveQueryExecRepartitionSuite extends TravisTPCHTableRepartition
 
 }
 
-class TravisReuseExchangeSuite extends TravisRepartitionSuite {
+class NativeReuseExchangeSuite extends NativeRepartitionSuite {
   val filePath = getTestResourcePath(
     "test-data/part-00000-d648dd34-c9d2-4fe9-87f2-770ef3551442-c000.snappy.parquet")
 
