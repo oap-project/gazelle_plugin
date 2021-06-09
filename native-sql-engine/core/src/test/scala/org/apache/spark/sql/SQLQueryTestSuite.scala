@@ -157,6 +157,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
+    "postgreSQL/join.sql"
   )
 
   /** List of test cases to ignore, in lower cases. */

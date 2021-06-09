@@ -241,7 +241,7 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  ignore("two inner joins with condition") {
+  test("two inner joins with condition") {
     spark
       .read
       .format("csv")
