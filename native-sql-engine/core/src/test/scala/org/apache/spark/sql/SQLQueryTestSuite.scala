@@ -157,7 +157,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
-
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -238,7 +237,6 @@ select min(unique1) filter (where unique1 > 100) from tenk1
     "cte-nested.sql",
     "describe.sql",
     "like-any.sql",
-    "order-by-nulls-ordering.sql",
     "subquery/in-subquery/in-joins.sql",
     "subquery/scalar-subquery/scalar-subquery-select.sql",
     "subquery/exists-subquery/exists-basic.sql",
@@ -350,16 +348,16 @@ select min(unique1) filter (where unique1 > 100) from tenk1
         }
       case _ =>
         // Create a test case to run this case.
-        test(testCase.name) {
-          runTest(testCase)
-        }
-        // To run only the set test
-//        if (testList.exists(t =>
-//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-//          test(testCase.name) {
-//            runTest(testCase)
-//          }
+//        test(testCase.name) {
+//          runTest(testCase)
 //        }
+        // To run only the set test
+        if (testList.exists(t =>
+          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+          test(testCase.name) {
+            runTest(testCase)
+          }
+        }
     }
   }
 

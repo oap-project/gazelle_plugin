@@ -66,19 +66,19 @@ class ColumnarSorter(
   var shuffle_elapse: Long = 0
   var total_elapse: Long = 0
   val inputBatchHolder = new ListBuffer[ColumnarBatch]()
-  var nextVector: FieldVector = null
+  var nextVector: FieldVector = _
   var closed: Boolean = false
-  val resultSchema = StructType(
+  val resultSchema: StructType = StructType(
     outputAttributes
       .map(expr => {
         val attr = ConverterUtils.getAttrFromExpr(expr)
-        StructField(s"${attr.name}", attr.dataType, true)
+        StructField(s"${attr.name.toLowerCase()}", attr.dataType, nullable = true)
       })
       .toArray)
   val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
     val attr = ConverterUtils.getAttrFromExpr(expr)
-    Field
-      .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+    Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+        CodeGeneration.getResultType(attr.dataType))
   })
   val arrowSchema = new Schema(outputFieldList.asJava)
   var sort_iterator: BatchIterator = _
@@ -182,25 +182,33 @@ class ColumnarSorter(
 
 object ColumnarSorter extends Logging {
 
+  def checkIfKeyFound(sortOrder: Seq[SortOrder], outputAttributes: Seq[Attribute]): Unit = {
+    val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
+      val attr = ConverterUtils.getAttrFromExpr(expr)
+      Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+        CodeGeneration.getResultType(attr.dataType))
+    })
+    sortOrder.toList.foreach(sort => {
+      val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      val field = Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+        CodeGeneration.getResultType(attr.dataType))
+      if (outputFieldList.indexOf(field) == -1) {
+        throw new UnsupportedOperationException(
+          s"ColumnarSorter not found ${attr.name.toLowerCase()}#${attr.exprId.id} " +
+            s"in ${outputAttributes}")
+      }
+    })
+  }
+
   def prepareRelationFunction(
       sortOrder: Seq[SortOrder],
       outputAttributes: Seq[Attribute]): TreeNode = {
-    val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
-      val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
-
+    checkIfKeyFound(sortOrder, outputAttributes)
     val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
       val attr = ConverterUtils.getAttrFromExpr(sort.child)
-      val field = Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-      if (outputFieldList.indexOf(field) == -1) {
-        throw new UnsupportedOperationException(
-          s"ColumnarSorter not found ${attr.name}#${attr.exprId.id} in ${outputAttributes}")
-      }
-      field
-    });
+      Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+        CodeGeneration.getResultType(attr.dataType))
+    })
 
     val key_args_node = TreeBuilder.makeFunction(
       "key_field",
@@ -229,25 +237,15 @@ object ColumnarSorter extends Logging {
       sparkConf: SparkConf,
       result_type: Int = 0): TreeNode = {
     logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
+    checkIfKeyFound(sortOrder, outputAttributes)
     val NaNCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
     val codegen = ColumnarPluginConfig.getConf.enableColumnarCodegenSort
     /////////////// Prepare ColumnarSorter //////////////
-    val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
-      val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
-
     val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
       val attr = ConverterUtils.getAttrFromExpr(sort.child)
-      val field = Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-      if (outputFieldList.indexOf(field) == -1) {
-        throw new UnsupportedOperationException(
-          s"ColumnarSorter not found ${attr.name}#${attr.exprId.id} in ${outputAttributes}")
-      }
-      field
-    });
+      Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+        CodeGeneration.getResultType(attr.dataType))
+    })
 
     /*
     Get the sort directions and nulls order from SortOrder.
@@ -353,8 +351,8 @@ object ColumnarSorter extends Logging {
       _sparkConf: SparkConf): (ExpressionTree, Schema) = {
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr)
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+      Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+          CodeGeneration.getResultType(attr.dataType))
     })
     val retType = Field.nullable("res", new ArrowType.Int(32, true))
     val sort_node =
