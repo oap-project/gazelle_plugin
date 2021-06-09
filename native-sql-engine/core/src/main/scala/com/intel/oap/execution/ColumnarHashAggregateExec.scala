@@ -255,30 +255,37 @@ case class ColumnarHashAggregateExec(
         }
         def putDataIntoVector(vectors: Array[ArrowWritableColumnVector],
                               res: Any, idx: Int): Unit = {
-          vectors(idx).dataType match {
-            case t: IntegerType =>
-              vectors(idx)
-                .put(0, res.asInstanceOf[Number].intValue)
-            case t: LongType =>
-              vectors(idx)
-                .put(0, res.asInstanceOf[Number].longValue)
-            case t: DoubleType =>
-              vectors(idx)
-                .put(0, res.asInstanceOf[Number].doubleValue())
-            case t: FloatType =>
-              vectors(idx)
-                .put(0, res.asInstanceOf[Number].floatValue())
-            case t: ByteType =>
-              vectors(idx)
-                .put(0, res.asInstanceOf[Number].byteValue())
-            case t: ShortType =>
-              vectors(idx)
-                .put(0, res.asInstanceOf[Number].shortValue())
-            case t: StringType =>
-              val values = (res :: Nil).map(_.toString).map(_.toByte).toArray
-              vectors(idx).putBytes(0, 1, values, 0)
-            case other =>
-              throw new UnsupportedOperationException(s"$other is not supported.")
+          if (res == null) {
+            vectors(idx).putNull(0)
+          } else {
+            vectors(idx).dataType match {
+              case t: IntegerType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].intValue)
+              case t: LongType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].longValue)
+              case t: DoubleType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].doubleValue())
+              case t: FloatType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].floatValue())
+              case t: ByteType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].byteValue())
+              case t: ShortType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].shortValue())
+              case t: StringType =>
+                val values = (res :: Nil).map(_.toString).map(_.toByte).toArray
+                vectors(idx).putBytes(0, 1, values, 0)
+              case t: BooleanType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Boolean].booleanValue())
+              case other =>
+                throw new UnsupportedOperationException(s"$other is not supported.")
+            }
           }
         }
         def getResForAggregateLiteral: ColumnarBatch = {
@@ -314,7 +321,11 @@ case class ColumnarHashAggregateExec(
                   case Partial | PartialMerge =>
                     putDataIntoVector(resultColumnVectors, out_res, idx) // sum
                     idx += 1
-                    putDataIntoVector(resultColumnVectors, 1, idx) // count
+                    if (out_res == null) {
+                      putDataIntoVector(resultColumnVectors, 0, idx) // count
+                    } else {
+                      putDataIntoVector(resultColumnVectors, 1, idx) // count
+                    }
                     idx += 1
                   case Final =>
                     putDataIntoVector(resultColumnVectors, out_res, idx)
@@ -322,7 +333,6 @@ case class ColumnarHashAggregateExec(
                 }
               case Count(_) =>
                 putDataIntoVector(resultColumnVectors, count_num_row, idx)
-                count_num_row = 0
                 idx += 1
               case Max(_) | Min(_) =>
                 putDataIntoVector(resultColumnVectors, out_res, idx)
@@ -342,6 +352,7 @@ case class ColumnarHashAggregateExec(
                 }
             }
           }
+          count_num_row = 0
           new ColumnarBatch(
             resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
         }
