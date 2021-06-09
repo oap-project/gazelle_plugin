@@ -116,6 +116,13 @@ case class ColumnarShuffledHashJoinExec(
   }
 
   def buildCheck(): Unit = {
+    joinType match {
+      case _: InnerLike =>
+      case LeftSemi | LeftOuter | RightOuter | LeftAnti =>
+      case j: ExistenceJoin =>
+      case _ =>
+        throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
+    }
     // build check for condition
     val conditionExpr: Expression = condition.orNull
     if (conditionExpr != null) {

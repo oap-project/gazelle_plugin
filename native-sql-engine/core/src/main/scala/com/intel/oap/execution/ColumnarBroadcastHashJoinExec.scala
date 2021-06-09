@@ -89,6 +89,13 @@ case class ColumnarBroadcastHashJoinExec(
   buildCheck()
 
   def buildCheck(): Unit = {
+    joinType match {
+      case _: InnerLike =>
+      case LeftSemi | LeftOuter | RightOuter | LeftAnti =>
+      case j: ExistenceJoin =>
+      case _ =>
+        throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
+    }
     // build check for condition
     val conditionExpr: Expression = condition.orNull
     if (conditionExpr != null) {
@@ -109,8 +116,6 @@ case class ColumnarBroadcastHashJoinExec(
     for (attr <- buildPlan.output) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
-        //if (attr.dataType.isInstanceOf[DecimalType])
-        //  throw new UnsupportedOperationException(s"Unsupported data type: ${attr.dataType}")
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
