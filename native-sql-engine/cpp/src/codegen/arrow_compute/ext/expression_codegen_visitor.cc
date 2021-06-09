@@ -221,13 +221,13 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     for (int i = 0; i < 1; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
-    codes_str_ = "isnotnull_" + std::to_string(cur_func_id);
+    codes_str_ = "isnull_" + std::to_string(cur_func_id);
     check_str_ = GetValidityName(codes_str_);
     real_codes_str_ = codes_str_;
     real_validity_str_ = check_str_;
     std::stringstream prepare_ss;
-    prepare_ss << "bool " << codes_str_ << " = !" << child_visitor_list[0]->GetPreCheck()
-               << ";" << std::endl;
+    prepare_ss << "bool " << codes_str_ << " = !(" << child_visitor_list[0]->GetPreCheck()
+               << ");" << std::endl;
     prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
     prepare_str_ += prepare_ss.str();
   } else if (func_name.compare("starts_with") == 0) {
@@ -990,7 +990,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
                      << "->GetValue(x.array_id, x.id);" << std::endl;
           prepare_ss << "  }" << std::endl;
           field_type_ = left;
-
         } else {
           prepare_ss << (*input_list_)[arg_id].first.second;
           if (!is_local_) {
