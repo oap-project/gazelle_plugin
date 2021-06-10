@@ -688,8 +688,8 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeNextHashRelation(JNIEnv* env,
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
-  int src_sizes[3];
-  long src_addrs[3];
+  int src_sizes[4];
+  long src_addrs[4];
   status = out->UnsafeGetHashTableObject(src_addrs, src_sizes);
   if (!status.ok()) {
     auto memory_addrs = env->NewLongArray(0);
@@ -697,10 +697,10 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeNextHashRelation(JNIEnv* env,
     return env->NewObject(serializable_obj_builder_class,
                           serializable_obj_builder_constructor, memory_addrs, sizes);
   }
-  auto memory_addrs = env->NewLongArray(3);
-  auto sizes = env->NewIntArray(3);
-  env->SetLongArrayRegion(memory_addrs, 0, 3, src_addrs);
-  env->SetIntArrayRegion(sizes, 0, 3, src_sizes);
+  auto memory_addrs = env->NewLongArray(4);
+  auto sizes = env->NewIntArray(4);
+  env->SetLongArrayRegion(memory_addrs, 0, 4, src_addrs);
+  env->SetIntArrayRegion(sizes, 0, 4, src_sizes);
   return env->NewObject(serializable_obj_builder_class,
                         serializable_obj_builder_constructor, memory_addrs, sizes);
 }

@@ -893,6 +893,7 @@ class ConditionedProbeKernel::Impl {
       UnsafeAntiProbeFunction(std::shared_ptr<HashRelation> hash_relation,
                               std::vector<std::shared_ptr<AppenderBase>> appender_list)
           : hash_relation_(hash_relation), appender_list_(appender_list) {}
+      
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
@@ -914,14 +915,25 @@ class ConditionedProbeKernel::Impl {
                                         typed_first_key_arr->GetView(i));     \
       };                                                                      \
     } else {                                                                  \
-      fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {      \
-        if (typed_first_key_arr->IsNull(i)) {                                 \
-          return hash_relation_->GetNull();                                   \
-        } else {                                                              \
-          return hash_relation_->IfExists(typed_key_array->GetView(i),        \
-                                          typed_first_key_arr->GetView(i));   \
-        }                                                                     \
-      };                                                                      \
+      if (isNullAwareAntiJoin) {                                              \
+        fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
+          if (typed_first_key_arr->IsNull(i)) {                               \
+            return 0;                                                         \
+          } else {                                                            \
+            return hash_relation_->IfExists(typed_key_array->GetView(i),      \
+                                            typed_first_key_arr->GetView(i)); \
+          }                                                                   \
+        };                                                                    \
+      } else {                                                                \
+        fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {    \
+          if (typed_first_key_arr->IsNull(i)) {                               \
+            return -1;                                                        \
+          } else {                                                            \
+            return hash_relation_->IfExists(typed_key_array->GetView(i),      \
+                                            typed_first_key_arr->GetView(i)); \
+          }                                                                   \
+        };                                                                    \
+      }                                                                       \
     }                                                                         \
   } break;
             PROCESS_SUPPORTED_TYPES(PROCESS)
@@ -934,14 +946,25 @@ class ConditionedProbeKernel::Impl {
                                                   typed_first_key_arr->GetString(i));
                 };
               } else {
-                fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
-                  if (typed_first_key_arr->IsNull(i)) {
-                    return hash_relation_->GetNull();
-                  } else {
-                    return hash_relation_->IfExists(typed_key_array->GetView(i),
-                                                    typed_first_key_arr->GetString(i));
-                  }
-                };
+                if (isNullAwareAntiJoin) {
+                  fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
+                    if (typed_first_key_arr->IsNull(i)) {
+                      return 0;
+                    } else {
+                      return hash_relation_->IfExists(typed_key_array->GetView(i),
+                                                      typed_first_key_arr->GetString(i));
+                    }
+                  };
+                } else {
+                  fast_probe = [this, typed_key_array, typed_first_key_arr](int i) {
+                    if (typed_first_key_arr->IsNull(i)) {
+                      return -1;
+                    } else {
+                      return hash_relation_->IfExists(typed_key_array->GetView(i),
+                                                      typed_first_key_arr->GetString(i));
+                    }
+                  };
+                }
               }
             } break;
             default: {
@@ -963,7 +986,7 @@ class ConditionedProbeKernel::Impl {
         for (int i = 0; i < key_array->length(); i++) {
           int index;
           if (!do_unsafe_row) {
-            index = fast_probe(i);
+            index = getSingleKeyIndex(fast_probe, i);
           } else {
             unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
@@ -989,6 +1012,23 @@ class ConditionedProbeKernel::Impl {
       using ArrayType = arrow::Int32Array;
       std::shared_ptr<HashRelation> hash_relation_;
       std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      bool isNullAwareAntiJoin = true;
+
+      int getSingleKeyIndex(std::function<int(int i)>& fast_probe, int i) {
+        if (isNullAwareAntiJoin) {
+          if (hash_relation_->GetHashTableSize() == 0) {
+            // If hash table is empty, will return stream side.
+            return -1;
+          } else if (hash_relation_->GetRealNull() == 0) {
+            // If build side has null key, will not join any row.
+            return 0;
+          } else {
+            return fast_probe(i);
+          }
+        } else {
+          return fast_probe(i);
+        }
+      }
     };
 
     class UnsafeSemiProbeFunction : public ProbeFunctionBase {
@@ -1799,7 +1839,6 @@ class ConditionedProbeKernel::Impl {
           valid_ss << output_validity << " = !" << is_outer_null_name << " && !(" << name
                    << "_has_null && " << name << "->IsNull(" << tmp_name << ".array_id, "
                    << tmp_name << ".id));" << std::endl;
-
         } else {
           valid_ss << output_validity << " = !(" << name << "_has_null && " << name
                    << "->IsNull(" << tmp_name << ".array_id, " << tmp_name << ".id));"
