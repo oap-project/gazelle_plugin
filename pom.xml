@@ -213,7 +213,7 @@
     <profile>
       <id>arrow-netty</id>
       <activation>
-        <activeByDefault>true</activeByDefault>
+        <activeByDefault>false</activeByDefault>
       </activation>
       <properties>
         <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
@@ -222,7 +222,7 @@
     <profile>
       <id>arrow-unsafe</id>
       <activation>
-        <activeByDefault>false</activeByDefault>
+        <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
         <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
