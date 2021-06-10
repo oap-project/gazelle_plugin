@@ -65,7 +65,7 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>com.intel.oap.</groupId>
+      <groupId>com.intel.oap</groupId>
       <artifactId>${project.prefix}-shims-spark311</artifactId>
       <version>${project.version}</version>
       <scope>compile</scope>
