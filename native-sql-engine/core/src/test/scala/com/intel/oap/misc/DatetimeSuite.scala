@@ -220,4 +220,56 @@ class DatetimeSuite extends QueryTest with SharedSparkSession {
         (0L to 3L).map(i => i * 24 * 1000 * 3600).map(i => Row(new Date(i))))
     }
   }
+
+  test("date type - order by") {
+    withTempView("dates") {
+      val dates = (0L to 3L).map(i => i * 1000 * 3600 * 24)
+          .map(i => Tuple1(new Date(i))).toDF("time")
+      dates.createOrReplaceTempView("dates")
+
+      checkAnswer(sql("SELECT time FROM dates ORDER BY time DESC"),
+        (0L to 3L).reverse.map(i => i * 1000 * 3600 * 24)
+            .map(i => Tuple1(new Date(i))).toDF("time"))
+    }
+  }
+
+  test("timestamp type - order by") {
+    withTempView("timestamps") {
+      val timestamps = (0 to 3).map(i => Tuple1(new Timestamp(i))).toDF("time")
+      timestamps.createOrReplaceTempView("timestamps")
+      checkAnswer(
+        sql("SELECT time FROM timestamps ORDER BY time DESC"),
+        (0 to 3).reverse.map(i => Tuple1(new Timestamp(i))).toDF("time"))
+    }
+  }
+
+  // todo: fix field/literal implicit conversion in ColumnarExpressionConverter
+
+  test("date type - join on, bhj") {
+    withTempView("dates1", "dates2") {
+      val dates1 = (0L to 3L).map(i => i * 1000 * 3600 * 24)
+          .map(i => Tuple1(new Date(i))).toDF("time1")
+      dates1.createOrReplaceTempView("dates1")
+      val dates2 = (1L to 4L).map(i => i * 1000 * 3600 * 24)
+          .map(i => Tuple1(new Date(i))).toDF("time2")
+      dates2.createOrReplaceTempView("dates2")
+      checkAnswer(
+        sql("SELECT time1, time2 FROM dates1, dates2 WHERE time1 = time2"),
+        (1L to 3L).map(i => i * 1000 * 3600 * 24).map(i => Row(new Date(i), new Date(i))))
+    }
+  }
+
+  test("timestamp type - join on, bhj") {
+    withTempView("timestamps1", "timestamps2") {
+      val dates1 = (0L to 3L)
+          .map(i => Tuple1(new Timestamp(i))).toDF("time1")
+      dates1.createOrReplaceTempView("timestamps1")
+      val dates2 = (1L to 4L)
+          .map(i => Tuple1(new Timestamp(i))).toDF("time2")
+      dates2.createOrReplaceTempView("timestamps2")
+      checkAnswer(
+        sql("SELECT time1, time2 FROM timestamps1, timestamps2 WHERE time1 = time2"),
+        (1L to 3L).map(i => Row(new Timestamp(i), new Timestamp(i))))
+    }
+  }
 }

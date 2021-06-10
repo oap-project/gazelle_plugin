@@ -107,6 +107,7 @@ TYPED_ARRAY_DEFINE(FloatArray, float)
 TYPED_ARRAY_DEFINE(DoubleArray, double)
 TYPED_ARRAY_DEFINE(Date32Array, int32_t)
 TYPED_ARRAY_DEFINE(Date64Array, int64_t)
+TYPED_ARRAY_DEFINE(TimestampArray, int64_t)
 #undef TYPED_ARRAY_DEFINE
 
 #define TYPED_BINARY_ARRAY_DEFINE(TYPENAME, TYPE)                                      \

@@ -733,7 +733,8 @@ class DecimalComparator {
   PROCESS(arrow::UInt64Type)             \
   PROCESS(arrow::Int64Type)              \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)
 static arrow::Status MakeCmpFunction(
     const std::vector<arrow::ArrayVector>& array_vectors,
     const std::vector<std::shared_ptr<arrow::Field>>& key_field_list,

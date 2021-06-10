@@ -79,7 +79,8 @@ template <typename T>
 using is_number_bool_date =
     std::integral_constant<bool, arrow::is_number_type<T>::value ||
                                      arrow::is_boolean_type<T>::value ||
-                                     arrow::is_date_type<T>::value>;
+                                     arrow::is_date_type<T>::value ||
+                                     arrow::is_timestamp_type<T>::value>;
 
 ///////////////  SortArraysToIndices  ////////////////
 class SortArraysToIndicesKernel::Impl {
@@ -1722,7 +1723,9 @@ arrow::Status SortArraysToIndicesKernel::Make(
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)
+
 SortArraysToIndicesKernel::SortArraysToIndicesKernel(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::Schema> result_schema,
     gandiva::NodeVector sort_key_node,

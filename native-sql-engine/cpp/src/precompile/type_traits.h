@@ -286,6 +286,12 @@ struct TypeTraits<arrow::Date64Type> {
   using CType = int64_t;
 };
 template <>
+struct TypeTraits<arrow::TimestampType> {
+  static constexpr PrecompileType::type type_id = PrecompileType::TIMESTAMP;
+  using ArrayType = TimestampArray;
+  using CType = int64_t;
+};
+template <>
 struct TypeTraits<arrow::FixedSizeBinaryType> {
   static constexpr PrecompileType::type type_id = PrecompileType::FIXED_SIZE_BINARY;
   using ArrayType = FixedSizeBinaryArray;
