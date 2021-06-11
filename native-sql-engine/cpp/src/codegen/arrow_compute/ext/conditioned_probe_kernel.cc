@@ -872,6 +872,29 @@ class ConditionedProbeKernel::Impl {
       std::shared_ptr<HashRelation> hash_relation_;
       std::vector<std::shared_ptr<AppenderBase>> appender_list_;
     };
+
+
+  /******************* Rules for Anti Join *******************/
+  /** The config naming "isNullAwareAntiJoin" from Spark decides how to 
+   * handle null value. This config is true if below conditions are satisfied:
+    if (isNullAwareAntiJoin) {
+      require(leftKeys.length == 1, "leftKeys length should be 1")
+      require(rightKeys.length == 1, "rightKeys length should be 1")
+      require(joinType == LeftAnti, "joinType must be LeftAnti.")
+      require(buildSide == BuildRight, "buildSide must be BuildRight.")
+      require(condition.isEmpty, "null aware anti join optimize condition should be empty.")
+    }
+  * If this config is true, there are four cases:
+    (1) If hash table is empty, return stream side;
+    (2) Else if existing key in hash table being null, no row will be joined;
+    (3) Else if the key from stream side is null, this row will not be joined;
+    (4) Else if the key from stream side cannot be found in build side, this row will be joined.
+   * If this config is false, there are three cases:
+    (1) If key from stream side contains null, this row will be joined;
+    (2) Else if the key from stream side cannot be found in build side, this row will be joined;
+    (3) Else the key from stream side does not statisfy the condition, this row will be joined.
+  */
+
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
   PROCESS(arrow::BooleanType)            \
   PROCESS(arrow::UInt8Type)              \
@@ -993,7 +1016,7 @@ class ConditionedProbeKernel::Impl {
           if (!do_unsafe_row) {
             index = getSingleKeyIndex(fast_probe, i);
           } else {
-            for (int colIdx = 0; codIdx < payloads.size(); colIdx++) {
+            for (int colIdx = 0; colIdx < payloads.size(); colIdx++) {
               if (has_null_list[colIdx] && key_payloads[colIdx]->IsNull(i)) {
                 // If the keys in stream side contains null, will join this row.
                 index = -1;
@@ -1627,7 +1650,8 @@ class ConditionedProbeKernel::Impl {
   }
   arrow::Status GetAntiJoin(bool cond_check, std::string index_name,
                             std::string hash_relation_name,
-                            std::shared_ptr<CodeGenContext>* output) {
+                            std::shared_ptr<CodeGenContext>* output,
+                            bool isNullAwareAntiJoin = true) {
     std::stringstream codes_ss;
     std::stringstream finish_codes_ss;
     auto tmp_name = "tmp_" + std::to_string(hash_relation_id_);
@@ -1639,7 +1663,7 @@ class ConditionedProbeKernel::Impl {
       if (key_hash_field_list_.size() == 1) {
         codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
                  << hash_relation_name << "->Get(unsafe_row_" << hash_relation_id_
-                 << "):-1;" << std::endl;
+                 << ") : -1;" << std::endl;
       } else {
         codes_ss << index_name << " = " << hash_relation_name << "->Get(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
@@ -1647,10 +1671,23 @@ class ConditionedProbeKernel::Impl {
       }
     } else {
       if (key_hash_field_list_.size() == 1) {
-        codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
-                 << hash_relation_name << "->IfExists(unsafe_row_" << hash_relation_id_
-                 << "):-1;" << std::endl;
+        if (isNullAwareAntiJoin) {
+          codes_ss << "if (" << hash_relation_name << "->GetHashTableSize() == 0) {\n"
+                   << index_name << " = -1;\n" << "} else if (" << hash_relation_name
+                   << "->GetRealNull() == 0) {\n" << index_name << " = 0;\n"
+                   << "} else {\n" 
+                   << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                   << hash_relation_name << "->IfExists(unsafe_row_" << hash_relation_id_ 
+                   << ") : 0;\n" << "}" << std::endl;
+        } else {
+          codes_ss << index_name << " = unsafe_row_" << hash_relation_id_ << "_validity?"
+                   << hash_relation_name << "->IfExists(unsafe_row_" << hash_relation_id_
+                   << ") : -1;" << std::endl;
+        }
       } else {
+        // If any key from stream side is null, this row should be joined.
+        // Since null rows are skipped when building hash table (see hash_relation: AppendKeyColumn),
+        // this works for both key-has-null and key-has-no-null cases.
         codes_ss << index_name << " = " << hash_relation_name << "->IfExists(key_"
                  << hash_relation_id_ << ", unsafe_row_" << hash_relation_id_ << ");"
                  << std::endl;
