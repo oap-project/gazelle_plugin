@@ -9,7 +9,7 @@
   
   
   <link rel="shortcut icon" href="../img/favicon.ico">
-  <title>SparkInstallation - Native SQL Engine - master</title>
+  <title>Limitations for Native SQL Engine - Native SQL Engine - 1.1.1</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
   <link rel="stylesheet" href="../css/theme.css" />
@@ -18,8 +18,8 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "SparkInstallation";
-    var mkdocs_page_input_path = "SparkInstallation.md";
+    var mkdocs_page_name = "Limitations for Native SQL Engine";
+    var mkdocs_page_input_path = "limitations.md";
     var mkdocs_page_url = null;
   </script>
   
@@ -38,7 +38,7 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
     <div class="wy-side-scroll">
       <div class="wy-side-nav-search">
-        <a href=".." class="icon icon-home"> Native SQL Engine - master</a>
+        <a href=".." class="icon icon-home"> Native SQL Engine - 1.1.1</a>
         <div role="search">
   <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
@@ -67,10 +67,8 @@
                     <li class="toctree-l1"><a class="reference internal" href="../Configuration/">Configuration</a>
                     </li>
                 </ul>
-                <ul class="current">
-                    <li class="toctree-l1 current"><a class="reference internal current" href="./">SparkInstallation</a>
-    <ul class="current">
-    </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
                     </li>
                 </ul>
                 <ul>
@@ -98,7 +96,7 @@
       
       <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
         <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="..">Native SQL Engine - master</a>
+        <a href="..">Native SQL Engine - 1.1.1</a>
       </nav>
 
       
@@ -110,7 +108,7 @@
     
       
     
-    <li>SparkInstallation</li>
+    <li>Limitations for Native SQL Engine</li>
     <li class="wy-breadcrumbs-aside">
       
     </li>
@@ -121,54 +119,21 @@
           <div role="main">
             <div class="section">
               
-                <h3 id="download-spark-301">Download Spark 3.0.1</h3>
-<p>Currently Native SQL Engine works on the Spark 3.0.1 version.</p>
-<pre><code>wget http://archive.apache.org/dist/spark/spark-3.0.1/spark-3.0.1-bin-hadoop3.2.tgz
-sudo mkdir -p /opt/spark &amp;&amp; sudo mv spark-3.0.1-bin-hadoop3.2.tgz /opt/spark
-sudo cd /opt/spark &amp;&amp; sudo tar -xf spark-3.0.1-bin-hadoop3.2.tgz
-export SPARK_HOME=/opt/spark/spark-3.0.1-bin-hadoop3.2/
-</code></pre>
-
-<h3 id="or-building-spark-from-source"><a href="https://spark.apache.org/docs/latest/building-spark.html">Or building Spark from source</a></h3>
-<pre><code class="shell">git clone https://github.com/intel-bigdata/spark.git
-cd spark &amp;&amp; git checkout native-sql-engine-clean
-# check spark supported hadoop version
-grep \&lt;hadoop\.version\&gt; -r pom.xml
-    &lt;hadoop.version&gt;2.7.4&lt;/hadoop.version&gt;
-    &lt;hadoop.version&gt;3.2.0&lt;/hadoop.version&gt;
-# so we should build spark specifying hadoop version as 3.2
-./build/mvn -Pyarn -Phadoop-3.2 -Dhadoop.version=3.2.0 -DskipTests clean install
-</code></pre>
-
-<p>Specify SPARK_HOME to spark path</p>
-<pre><code class="shell">export SPARK_HOME=${HADOOP_PATH}
-</code></pre>
-
-<h3 id="hadoop-building-from-source">Hadoop building from source</h3>
-<pre><code class="shell">git clone https://github.com/apache/hadoop.git
-cd hadoop
-git checkout rel/release-3.2.0
-# only build binary for hadoop
-mvn clean install -Pdist -DskipTests -Dtar
-# build binary and native library such as libhdfs.so for hadoop
-# mvn clean install -Pdist,native -DskipTests -Dtar
-</code></pre>
-
-<pre><code class="shell">export HADOOP_HOME=${HADOOP_PATH}/hadoop-dist/target/hadoop-3.2.0/
-</code></pre>
+                <h1 id="limitations-for-native-sql-engine">Limitations for Native SQL Engine</h1>
+<h2 id="spark-compability">Spark compability</h2>
+<p>Native SQL engine currenlty works with Spark 3.0.0 only. There are still some trouble with latest Shuffle/AQE API from Spark 3.0.1, 3.0.2 or 3.1.x.</p>
+<h2 id="operator-limitations">Operator limitations</h2>
+<p>All performance critical operators in TPC-H/TPC-DS should be supported. For those unsupported operators, Native SQL engine will automatically fallback to row operators in vanilla Spark.</p>
+<h3 id="columnar-projection-with-filter">Columnar Projection with Filter</h3>
+<p>We used 16 bit selection vector for filter so the max batch size need to be &lt; 65536</p>
+<h3 id="columnar-sort">Columnar Sort</h3>
+<p>Columnar Sort does not support spill to disk yet. To reduce the peak memory usage, we used smaller data structure(uin16_t), so this limits 
+- the max batch size to be &lt; 65536
+- the number of batches in one partiton to be &lt; 65536</p>
               
             </div>
           </div>
           <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="../ApacheArrowInstallation/" class="btn btn-neutral float-right" title="ApacheArrowInstallation">Next <span class="icon icon-circle-arrow-right"></span></a>
-      
-      
-        <a href="../Configuration/" class="btn btn-neutral" title="Configuration"><span class="icon icon-circle-arrow-left"></span> Previous</a>
-      
-    </div>
   
 
   <hr/>
@@ -192,10 +157,6 @@ mvn clean install -Pdist -DskipTests -Dtar
     <span class="rst-current-version" data-toggle="rst-current-version">
       
       
-        <span><a href="../Configuration/" style="color: #fcfcfc;">&laquo; Previous</a></span>
-      
-      
-        <span style="margin-left: 15px"><a href="../ApacheArrowInstallation/" style="color: #fcfcfc">Next &raquo;</a></span>
       
     </span>
 </div>
