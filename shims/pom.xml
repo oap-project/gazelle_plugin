@@ -72,7 +72,6 @@
         <modules>
           <module>common</module>
           <module>spark311</module>
-          <module>aggregator</module>
         </modules>
     </profile>
     <profile>
@@ -82,7 +81,6 @@
         <modules>
           <module>common</module>
           <module>spark311</module>
-          <module>aggregator</module>
         </modules>
     </profile>
   </profiles>
