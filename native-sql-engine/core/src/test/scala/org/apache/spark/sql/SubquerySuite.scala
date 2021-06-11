@@ -264,7 +264,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(3, 3.0) :: Nil)
   }
 
-  ignore("NOT IN predicate subquery") {
+  test("NOT IN predicate subquery") {
     checkAnswer(
       sql("select * from l where a not in (select c from r)"),
       Nil)

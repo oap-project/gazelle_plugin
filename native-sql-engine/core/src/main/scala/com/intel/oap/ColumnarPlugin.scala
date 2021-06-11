@@ -165,7 +165,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           plan.buildSide,
           plan.condition,
           left,
-          right)
+          right,
+          nullAware = plan.isNullAwareAntiJoin)
       } else {
         val children = plan.children.map(replaceWithColumnarPlan)
         logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")

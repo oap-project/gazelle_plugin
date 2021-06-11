@@ -1458,7 +1458,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType2) {
   }
 }
 
-TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType3) {
+TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinSingleKey) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", int32());
   auto table0_f1 = field("table0_f1", int32());
@@ -1487,8 +1487,9 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType3) {
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
-      "conditionedProbeArraysAnti",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+      "conditionedProbeArraysAnti_true",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
 
@@ -1533,6 +1534,120 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinType3) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {"[]", "[]"};
+  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  expected_table.push_back(expected_result);
+
+  ////////////////////// evaluate //////////////////////
+  for (auto batch : table_0) {
+    ASSERT_NOT_OK(expr_build->evaluate(batch, &dummy_result_batches));
+  }
+  std::shared_ptr<ResultIteratorBase> build_result_iterator;
+  std::shared_ptr<ResultIteratorBase> probe_result_iterator_base;
+  ASSERT_NOT_OK(expr_build->finish(&build_result_iterator));
+  ASSERT_NOT_OK(expr_probe->finish(&probe_result_iterator_base));
+
+  auto probe_result_iterator =
+      std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+          probe_result_iterator_base);
+  probe_result_iterator->SetDependencies({build_result_iterator});
+
+  for (int i = 0; i < 1; i++) {
+    auto right_batch = table_1[i];
+
+    std::shared_ptr<arrow::RecordBatch> result_batch;
+    std::vector<std::shared_ptr<arrow::Array>> input;
+    for (int i = 0; i < right_batch->num_columns(); i++) {
+      input.push_back(right_batch->column(i));
+    }
+
+    ASSERT_NOT_OK(probe_result_iterator->Process(input, &result_batch));
+    ASSERT_NOT_OK(Equals(*(expected_table[i]).get(), *result_batch.get()));
+  }
+}
+
+TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinMulKeys) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto table0_f0 = field("table0_f0", int32());
+  auto table0_f1 = field("table0_f1", int32());
+  auto table0_f2 = field("table0_f2", int32());
+  auto table1_f0 = field("table1_f0", int32());
+  auto table1_f1 = field("table1_f1", int32());
+  auto table1_f2 = field("table1_f2", int32());
+
+  ///////////////////////////////////////////
+  auto n_left = TreeExprBuilder::MakeFunction(
+      "codegen_left_schema",
+      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
+      uint32());
+  auto n_right = TreeExprBuilder::MakeFunction(
+      "codegen_right_schema",
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      uint32());
+  auto f_res = field("res", uint32());
+
+  auto n_left_key = TreeExprBuilder::MakeFunction(
+      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0),
+      TreeExprBuilder::MakeField(table0_f1)}, uint32());
+  auto n_right_key = TreeExprBuilder::MakeFunction(
+      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0),
+      TreeExprBuilder::MakeField(table1_f1)}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "result",
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      uint32());
+  auto n_hash_config = TreeExprBuilder::MakeFunction(
+      "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedProbeArraysAnti_true",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
+      uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
+
+  auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
+
+  auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
+  auto schema_table_1 = arrow::schema({table1_f0, table1_f1, table1_f2});
+
+  auto n_hash_kernel = TreeExprBuilder::MakeFunction(
+      "HashRelation", {n_left_key, n_hash_config}, uint32());
+  auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
+  auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
+  std::shared_ptr<CodeGenerator> expr_build;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
+  std::shared_ptr<CodeGenerator> expr_probe;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+                                    {table1_f0, table1_f1, table1_f2}, &expr_probe, true));
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
+
+  std::vector<std::string> input_data_string = {"[1, null, null, 1, 1]",
+                                                "[1, null, 3, null, 2]",
+                                                "[2, 2, 2, 2, null]"};
+  MakeInputBatch(input_data_string, schema_table_0, &input_batch);
+  table_0.push_back(input_batch);
+
+  std::vector<std::string> input_data_2_string = {"[1, 2, null, 1, null, null, 1, null]",
+                                                  "[1, 1, 1, 3, null, 3, null, 2]",
+                                                  "[2, 3, 6, 1, 6, 2, 9, 2]"};
+  MakeInputBatch(input_data_2_string, schema_table_1, &input_batch);
+  table_1.push_back(input_batch);
+
+  //////////////////////// data prepared /////////////////////////
+
+  auto res_sch = arrow::schema({table1_f0, table1_f1});
+  std::vector<std::shared_ptr<RecordBatch>> expected_table;
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {
+      "[2, null, 1, null, null, 1, null]",
+      "[1, 1, 3, null, 3, null, 2]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 

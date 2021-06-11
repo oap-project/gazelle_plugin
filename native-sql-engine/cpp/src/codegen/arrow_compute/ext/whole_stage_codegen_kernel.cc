@@ -96,6 +96,7 @@ class WholeStageCodeGenKernel::Impl {
     auto func_name = function_node->descriptor()->name();
     if (func_name.compare(0, 22, "conditionedProbeArrays") == 0) {
       int join_type = 0;
+      bool is_null_aware_anti_join = false;
       gandiva::NodeVector left_schema_list;
       RETURN_NOT_OK(GetArguments(function_node, 0, &left_schema_list));
       gandiva::NodeVector right_schema_list;
@@ -112,12 +113,18 @@ class WholeStageCodeGenKernel::Impl {
       if (function_node->children().size() > 6) {
         condition = function_node->children()[6];
       }
-
       if (func_name.compare("conditionedProbeArraysInner") == 0) {
         join_type = 0;
       } else if (func_name.compare("conditionedProbeArraysOuter") == 0) {
         join_type = 1;
-      } else if (func_name.compare("conditionedProbeArraysAnti") == 0) {
+      } else if (func_name.compare(0, 26, "conditionedProbeArraysAnti") == 0) {
+        if (func_name.length() > 26 &&
+            func_name.compare(0, 27, "conditionedProbeArraysAnti_") == 0) {
+          auto lit = func_name.substr(27);
+          is_null_aware_anti_join = (lit == "true" ? true : false);
+        } else {
+          is_null_aware_anti_join = false;
+        }
         join_type = 2;
       } else if (func_name.compare("conditionedProbeArraysSemi") == 0) {
         join_type = 3;
@@ -128,8 +135,8 @@ class WholeStageCodeGenKernel::Impl {
       *hash_relation_idx += 1;
       RETURN_NOT_OK(ConditionedProbeKernel::Make(
           ctx_, left_key_list, right_key_list, left_schema_list, right_schema_list,
-          condition, join_type, result_list, configuration_list, cur_hash_relation_idx,
-          out));
+          condition, join_type, is_null_aware_anti_join, result_list, configuration_list,
+          cur_hash_relation_idx, out));
 
     } else if (func_name.compare(0, 20, "conditionedMergeJoin") == 0) {
       int join_type = 0;

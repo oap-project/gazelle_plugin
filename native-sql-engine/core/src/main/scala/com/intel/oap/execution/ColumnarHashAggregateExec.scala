@@ -559,7 +559,7 @@ case class ColumnarHashAggregateExec(
           val aggBufferAttr = max.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
           if (supportedTypes.indexOf(attr.dataType) == -1 &&
-            !attr.dataType.isInstanceOf[DecimalType]) {
+              !attr.dataType.isInstanceOf[DecimalType]) {
             throw new UnsupportedOperationException(
               s"${attr.dataType} is not supported in Columnar Max")
           }

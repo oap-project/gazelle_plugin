@@ -464,7 +464,10 @@ class NativeSQLConvertedSuite extends QueryTest
       .toDF("c", "d")
       .createOrReplaceTempView("s")
     val df = sql("SELECT * FROM m WHERE a NOT IN (SELECT c FROM s WHERE  d > 10.0)")
-    df.show()
+    checkAnswer(df, Seq(
+      Row(null, 1.0),
+      Row(2, 3.0),
+      Row(4, 5.0)))
   }
 
   test("count, sum and avg") {
