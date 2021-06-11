@@ -979,6 +979,11 @@ class ConditionedProbeKernel::Impl {
             std::shared_ptr<UnsafeArray> payload;
             MakeUnsafeArray(arr->type(), i++, arr, &payload);
             payloads.push_back(payload);
+            if (arr->null_count() > 0) {
+              has_null_list.push_back(true);
+            } else {
+              has_null_list.push_back(false);
+            }
           }
         }
         uint64_t out_length = 0;
@@ -988,11 +993,18 @@ class ConditionedProbeKernel::Impl {
           if (!do_unsafe_row) {
             index = getSingleKeyIndex(fast_probe, i);
           } else {
-            unsafe_key_row->reset();
-            for (auto payload_arr : payloads) {
-              payload_arr->Append(i, &unsafe_key_row);
+            for (int colIdx = 0; codIdx < payloads.size(); colIdx++) {
+              if (has_null_list[colIdx] && key_payloads[colIdx]->IsNull(i)) {
+                // If the keys in stream side contains null, will join this row.
+                index = -1;
+              } else {
+                unsafe_key_row->reset();
+                for (auto payload_arr : payloads) {
+                  payload_arr->Append(i, &unsafe_key_row);
+                }
+                index = hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
+              }
             }
-            index = hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
           }
           if (index == -1) {
             for (auto appender : appender_list_) {
@@ -1010,10 +1022,11 @@ class ConditionedProbeKernel::Impl {
 
      private:
       using ArrayType = arrow::Int32Array;
+      bool isNullAwareAntiJoin = true;
+      std::vector<bool> has_null_list;
       std::shared_ptr<HashRelation> hash_relation_;
       std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-      bool isNullAwareAntiJoin = true;
-
+      
       int getSingleKeyIndex(std::function<int(int i)>& fast_probe, int i) {
         if (isNullAwareAntiJoin) {
           if (hash_relation_->GetHashTableSize() == 0) {
