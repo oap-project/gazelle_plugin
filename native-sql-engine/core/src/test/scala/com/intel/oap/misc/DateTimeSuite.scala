@@ -27,7 +27,7 @@ import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.test.SharedSparkSession
 
-class DatetimeSuite extends QueryTest with SharedSparkSession {
+class DateTimeSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
   private val MAX_DIRECT_MEMORY = "6g"

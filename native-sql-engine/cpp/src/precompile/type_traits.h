@@ -34,6 +34,9 @@ template <typename T>
 using is_date_type = std::is_base_of<arrow::DateType, T>;
 
 template <typename T>
+using is_timestamp_type = std::is_base_of<arrow::TimestampType, T>;
+
+template <typename T>
 using is_number_like =
     std::integral_constant<bool, is_number_type<T>::value || is_boolean_type<T>::value>;
 
@@ -42,7 +45,7 @@ using is_decimal_type = std::is_base_of<arrow::DecimalType, T>;
 
 template <typename T>
 using is_number_like_type =
-    std::integral_constant<bool, is_number_like<T>::value || is_date_type<T>::value>;
+    std::integral_constant<bool, is_number_like<T>::value || is_date_type<T>::value || is_timestamp_type<T>::value>;
 
 template <typename T>
 using is_number_or_decimal_type =

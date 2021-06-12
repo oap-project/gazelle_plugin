@@ -34,6 +34,7 @@
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::StringType)             \
   PROCESS(arrow::Decimal128Type)
 arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
@@ -47,7 +48,7 @@ arrow::Status MakeHashRelationColumn(uint32_t data_type_id,
     PROCESS_SUPPORTED_TYPES(PROCESS)
 #undef PROCESS
     default: {
-      return arrow::Status::NotImplemented("MakeHashRelationColumn doesn't suppoty type ",
+      return arrow::Status::NotImplemented("MakeHashRelationColumn doesn't support type ",
                                            data_type_id);
     } break;
   }
