@@ -382,7 +382,7 @@ class ConditionedJoinArraysKernel : public KernalBase {
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
       const std::shared_ptr<arrow::Schema>& result_schema);
-  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status Evaluate( ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
