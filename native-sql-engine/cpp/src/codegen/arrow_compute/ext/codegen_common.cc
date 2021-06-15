@@ -47,6 +47,21 @@ using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
 )";
 }
 
+std::string valueOfTimeUnit(arrow::TimeUnit::type unit) {
+  switch (unit) {
+    case arrow::TimeUnit::SECOND:
+      return "SECOND";
+    case arrow::TimeUnit::MILLI:
+      return "MILLI";
+    case arrow::TimeUnit::MICRO:
+      return "MICRO";
+    case arrow::TimeUnit::NANO:
+      return "NANO";
+    default:
+      return "ERROR";
+  }
+}
+
 std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
   switch (type->id()) {
     case arrow::UInt8Type::type_id:
@@ -77,6 +92,17 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
       return "utf8()";
     case arrow::BooleanType::type_id:
       return "boolean()";
+    case arrow::TimestampType::type_id: {
+      std::stringstream ss;
+      auto *ts_type = arrow::internal::checked_cast<arrow::TimestampType*>(type.get());
+      ss << "timestamp(";
+      ss << "arrow::TimeUnit::";
+      ss << valueOfTimeUnit(ts_type->unit());
+      ss << ",";
+      ss << "\"" << ts_type->timezone() << "\"";
+      ss << ")";
+      return ss.str();
+    }
     case arrow::Decimal128Type::type_id:
       return type->ToString();
     default:
@@ -109,6 +135,8 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
     case arrow::Date32Type::type_id:
       return "int32_t";
     case arrow::Date64Type::type_id:
+      return "int64_t";
+    case arrow::TimestampType::type_id:
       return "int64_t";
     case arrow::StringType::type_id:
       return "std::string";
@@ -147,6 +175,8 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       return "Date32" + tail;
     case arrow::Date64Type::type_id:
       return "Date64" + tail;
+    case arrow::TimestampType::type_id:
+      return "Timestamp" + tail;
     case arrow::StringType::type_id:
       return "String" + tail;
     case arrow::BooleanType::type_id:
@@ -222,6 +252,11 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<uint64_t>";
       else
         return template_name + "<" + prefix + "Date64" + tail + ">";
+    case arrow::TimestampType::type_id:
+      if (tail.empty())
+        return template_name + "<uint64_t>";
+      else
+        return template_name + "<" + prefix + "Timestamp" + tail + ">";
     case arrow::StringType::type_id:
       if (tail.empty())
         return template_name + "<std::string>";

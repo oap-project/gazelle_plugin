@@ -184,6 +184,7 @@ class HashAggregateKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::Decimal128Type)
       switch (type->id()) {
 #define PROCESS(InType)                                                   \

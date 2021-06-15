@@ -272,4 +272,35 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
         (1L to 3L).map(i => Row(new Timestamp(i), new Timestamp(i))))
     }
   }
+
+  test("timestamp type - join on, smj") {
+    withTempView("timestamps1", "timestamps2") {
+      withSQLConf("spark.sql.autoBroadcastJoinThreshold" -> "1") {
+        val dates1 = (0L to 3L)
+            .map(i => Tuple1(new Timestamp(i))).toDF("time1")
+        dates1.createOrReplaceTempView("timestamps1")
+        val dates2 = (1L to 4L)
+            .map(i => Tuple1(new Timestamp(i))).toDF("time2")
+        dates2.createOrReplaceTempView("timestamps2")
+        checkAnswer(
+          sql("SELECT time1, time2 FROM timestamps1, timestamps2 WHERE time1 = time2"),
+          (1L to 3L).map(i => Row(new Timestamp(i), new Timestamp(i))))
+      }
+    }
+  }
+
+  test("timestamp type - group by") {
+    withTempView("timestamps") {
+      val dates = Seq(0L, 1L, 2L, 3L, 4L, 2L, 3L)
+          .map(i => Tuple2(new Timestamp(i), Integer.valueOf(1))).toDF("time", "weight")
+      dates.createOrReplaceTempView("timestamps")
+      checkAnswer(
+        sql("SELECT time, SUM(weight) as s FROM timestamps GROUP BY time"),
+        Seq(Row(new Timestamp(0), Integer.valueOf(1)),
+          Row(new Timestamp(1), Integer.valueOf(1)),
+          Row(new Timestamp(2), Integer.valueOf(2)),
+          Row(new Timestamp(3), Integer.valueOf(2)),
+          Row(new Timestamp(4), Integer.valueOf(1))))
+    }
+  }
 }

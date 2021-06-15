@@ -233,6 +233,7 @@ class HashRelationKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::StringType)             \
   PROCESS(arrow::Decimal128Type)
         if (project_outputs.size() == 1) {

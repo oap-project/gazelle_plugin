@@ -234,7 +234,7 @@ class ConditionedJoinArraysKernel::Impl {
     }
     std::string GetResultIteratorPrepare() {
       std::stringstream ss;
-      if (data_type_->id() == arrow::Type::DECIMAL) {
+      if (data_type_->id() == arrow::Type::DECIMAL || data_type_->id() == arrow::Type::TIMESTAMP) {
         ss << "builder_" << indice_ << "_ = std::make_shared<"
            << GetTypeString(data_type_, "Builder")
            << ">(arrow::" << GetArrowTypeDefString(data_type_)

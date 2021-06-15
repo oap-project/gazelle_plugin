@@ -61,6 +61,25 @@ TYPED_BUILDER_IMPL(Date32Builder, arrow::date32(), int32_t)
 TYPED_BUILDER_IMPL(Date64Builder, arrow::date64(), int64_t)
 #undef TYPED_BUILDER_IMPL
 
+class TimestampBuilder::Impl : public arrow::TimestampBuilder {
+ public:
+  Impl(std::shared_ptr<arrow::DataType> type, arrow::MemoryPool *pool)
+      : arrow::TimestampBuilder(type, pool) {}
+};
+
+TimestampBuilder::TimestampBuilder(std::shared_ptr<arrow::DataType> type, arrow::MemoryPool *pool) {
+  impl_ = std::make_shared<Impl>(type, pool);
+}
+arrow::Status TimestampBuilder::Append(const int64_t &value) { return impl_->Append(value); }
+arrow::Status TimestampBuilder::AppendNull() { return impl_->AppendNull(); }
+arrow::Status TimestampBuilder::Reserve(int64_t length) { return impl_->Reserve(length); }
+arrow::Status TimestampBuilder::AppendNulls(int64_t length) { return impl_->AppendNulls(length); }
+arrow::Status TimestampBuilder::Finish(std::shared_ptr<arrow::Array> *out) { return impl_->Finish(out); }
+arrow::Status TimestampBuilder::Reset() {
+  impl_->Reset();
+  return arrow::Status::OK();
+}
+
 class StringBuilder::Impl : public arrow::StringBuilder {
  public:
   Impl(arrow::MemoryPool* pool) : arrow::StringBuilder(arrow::utf8(), pool) {}
