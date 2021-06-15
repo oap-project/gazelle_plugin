@@ -11,7 +11,6 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 | spark.executorEnv.CC | To set up the location of gcc | /path/to/gcc/ |
 | spark.executor.memory| To set up how much memory to be used for Spark Executor. | |
 | spark.memory.offHeap.size| To set up how much memory to be used for Java OffHeap.<br /> Please notice Native SQL Engine will leverage this setting to allocate memory space for native usage even offHeap is disabled. <br /> The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Native SQL Engine | 30G |
-| spark.executor.extraJavaOptions | To set up how much Direct Memory to be used for Native SQL Engine. The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Native SQL Engine | -XX:MaxDirectMemorySize=30G |
 | spark.sql.sources.useV1SourceList | Choose to use V1 source | avro |
 | spark.sql.join.preferSortMergeJoin | To turn off preferSortMergeJoin in Spark | false |
 | spark.sql.extensions | To turn on Native SQL Engine Plugin | com.intel.oap.ColumnarPlugin |
