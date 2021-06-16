@@ -672,6 +672,8 @@ arrow::Status WindowSortKernel::Make(
   PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)    \
   PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)    \
   PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray) \
+  PROC(arrow::Date32Type, arrow::Date32Builder, arrow::Date32Array) \
+  PROC(arrow::TimestampType, arrow::TimestampBuilder , arrow::TimestampArray) \
   PROC(arrow::Decimal128Type, arrow::Decimal128Builder, arrow::Decimal128Array)
 
 WindowSortKernel::WindowSortKernel(

@@ -303,4 +303,38 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
           Row(new Timestamp(4), Integer.valueOf(1))))
     }
   }
+
+  test("timestamp type - window partition by") {
+    withTempView("timestamps") {
+      val dates = Seq(0L, 1L, 2L, 3L, 4L, 2L, 3L)
+          .map(i => Tuple2(new Timestamp(i), Integer.valueOf(1))).toDF("time", "weight")
+      dates.createOrReplaceTempView("timestamps")
+      checkAnswer(
+        sql("SELECT time, SUM(weight) OVER (PARTITION BY time) as s FROM timestamps"),
+        Seq(Row(new Timestamp(0), Integer.valueOf(1)),
+          Row(new Timestamp(1), Integer.valueOf(1)),
+          Row(new Timestamp(2), Integer.valueOf(2)),
+          Row(new Timestamp(2), Integer.valueOf(2)),
+          Row(new Timestamp(3), Integer.valueOf(2)),
+          Row(new Timestamp(3), Integer.valueOf(2)),
+          Row(new Timestamp(4), Integer.valueOf(1))))
+    }
+  }
+
+  test("timestamp type - window order by") {
+    withTempView("timestamps") {
+      val dates = Seq(0L, 1L, 2L, 3L, 4L, 2L, 3L)
+          .map(i => Tuple2(new Timestamp(i), Integer.valueOf(1))).toDF("time", "weight")
+      dates.createOrReplaceTempView("timestamps")
+      checkAnswer(
+        sql("SELECT time, RANK() OVER (ORDER BY time DESC) as s FROM timestamps"),
+        Seq(Row(new Timestamp(0), Integer.valueOf(7)),
+          Row(new Timestamp(1), Integer.valueOf(6)),
+          Row(new Timestamp(2), Integer.valueOf(4)),
+          Row(new Timestamp(2), Integer.valueOf(4)),
+          Row(new Timestamp(3), Integer.valueOf(2)),
+          Row(new Timestamp(3), Integer.valueOf(2)),
+          Row(new Timestamp(4), Integer.valueOf(1))))
+    }
+  }
 }
