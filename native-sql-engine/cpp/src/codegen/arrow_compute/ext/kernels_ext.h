@@ -153,7 +153,8 @@ class WindowAggregateFunctionKernel : public KernalBase {
   createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
   template <typename ValueType, typename BuilderType>
-  typename arrow::enable_if_timestamp<ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
+  typename arrow::enable_if_timestamp<ValueType,
+                                      arrow::Result<std::shared_ptr<BuilderType>>>
   createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
   arrow::compute::ExecContext* ctx_ = nullptr;

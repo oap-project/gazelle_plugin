@@ -142,19 +142,19 @@ arrow::Status WindowAggregateFunctionKernel::Evaluate(const ArrayList& in) {
   return arrow::Status::OK();
 }
 
-#define PROCESS_SUPPORTED_TYPES_WINDOW(PROC)                        \
-  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)    \
-  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)       \
-  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array) \
-  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)    \
-  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array) \
-  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)    \
-  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array) \
-  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)    \
-  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)    \
-  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray) \
-  PROC(arrow::Date32Type, arrow::Date32Builder, arrow::Date32Array) \
-  PROC(arrow::TimestampType, arrow::TimestampBuilder , arrow::TimestampArray) \
+#define PROCESS_SUPPORTED_TYPES_WINDOW(PROC)                                 \
+  PROC(arrow::UInt8Type, arrow::UInt8Builder, arrow::UInt8Array)             \
+  PROC(arrow::Int8Type, arrow::Int8Builder, arrow::Int8Array)                \
+  PROC(arrow::UInt16Type, arrow::UInt16Builder, arrow::UInt16Array)          \
+  PROC(arrow::Int16Type, arrow::Int16Builder, arrow::Int16Array)             \
+  PROC(arrow::UInt32Type, arrow::UInt32Builder, arrow::UInt32Array)          \
+  PROC(arrow::Int32Type, arrow::Int32Builder, arrow::Int32Array)             \
+  PROC(arrow::UInt64Type, arrow::UInt64Builder, arrow::UInt64Array)          \
+  PROC(arrow::Int64Type, arrow::Int64Builder, arrow::Int64Array)             \
+  PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)             \
+  PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)          \
+  PROC(arrow::Date32Type, arrow::Date32Builder, arrow::Date32Array)          \
+  PROC(arrow::TimestampType, arrow::TimestampBuilder, arrow::TimestampArray) \
   PROC(arrow::Decimal128Type, arrow::Decimal128Builder, arrow::Decimal128Array)
 
 arrow::Status WindowAggregateFunctionKernel::Finish(ArrayList* out) {
@@ -226,7 +226,8 @@ WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> da
 }
 
 template <typename ValueType, typename BuilderType>
-typename arrow::enable_if_timestamp<ValueType, arrow::Result<std::shared_ptr<BuilderType>>>
+typename arrow::enable_if_timestamp<ValueType,
+                                    arrow::Result<std::shared_ptr<BuilderType>>>
 WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> data_type) {
   return std::make_shared<BuilderType>(data_type, ctx_->memory_pool());
 }

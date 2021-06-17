@@ -96,11 +96,11 @@ using enable_if_timestamp = std::enable_if_t<is_timestamp<DataType>::value, R>;
 template <typename DataType>
 class ArrayAppender<DataType, enable_if_timestamp<DataType>> : public AppenderBase {
  public:
-  ArrayAppender(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type, AppenderType type = left)
+  ArrayAppender(arrow::compute::ExecContext* ctx,
+                std::shared_ptr<arrow::DataType> data_type, AppenderType type = left)
       : ctx_(ctx), data_type_(data_type), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), data_type,
-                       &array_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(), data_type, &array_builder);
     builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~ArrayAppender() {}
@@ -557,8 +557,8 @@ static arrow::Status MakeAppender(arrow::compute::ExecContext* ctx,
       *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);
     } break;
     case arrow::TimestampType::type_id: {
-      auto app_ptr = std::make_shared<ArrayAppender<arrow::TimestampType>>(
-          ctx, type, appender_type);
+      auto app_ptr =
+          std::make_shared<ArrayAppender<arrow::TimestampType>>(ctx, type, appender_type);
       *out = std::dynamic_pointer_cast<AppenderBase>(app_ptr);
     } break;
     default: {
@@ -575,14 +575,14 @@ template <typename DataType, typename Enable = void>
 class UnsafeArrayAppender {};
 
 template <typename DataType>
-class UnsafeArrayAppender<DataType, enable_if_timestamp<DataType>>
-    : public AppenderBase {
+class UnsafeArrayAppender<DataType, enable_if_timestamp<DataType>> : public AppenderBase {
  public:
-  UnsafeArrayAppender(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> data_type, AppenderType type = left)
+  UnsafeArrayAppender(arrow::compute::ExecContext* ctx,
+                      std::shared_ptr<arrow::DataType> data_type,
+                      AppenderType type = left)
       : ctx_(ctx), data_type_(data_type), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    arrow::MakeBuilder(ctx_->memory_pool(), data_type,
-                       &array_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(), data_type, &array_builder);
     builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
   }
   ~UnsafeArrayAppender() {}

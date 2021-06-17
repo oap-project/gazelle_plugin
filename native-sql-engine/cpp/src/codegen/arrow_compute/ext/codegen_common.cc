@@ -94,7 +94,7 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
       return "boolean()";
     case arrow::TimestampType::type_id: {
       std::stringstream ss;
-      auto *ts_type = arrow::internal::checked_cast<arrow::TimestampType*>(type.get());
+      auto* ts_type = arrow::internal::checked_cast<arrow::TimestampType*>(type.get());
       ss << "timestamp(";
       ss << "arrow::TimeUnit::";
       ss << valueOfTimeUnit(ts_type->unit());

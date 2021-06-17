@@ -943,7 +943,7 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeSetDepe
     std::string error_message =
         "nativeSetDependencies: Error "
         "msg " +
-            status.ToString();
+        status.ToString();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
