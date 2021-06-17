@@ -937,7 +937,16 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeSetDepe
     dependent_batch_list.push_back(handler);
   }
   auto iter = GetBatchIterator<arrow::RecordBatch>(env, id);
-  iter->SetDependencies(dependent_batch_list);
+  arrow::Status status = iter->SetDependencies(dependent_batch_list);
+
+  if (!status.ok()) {
+    std::string error_message =
+        "nativeSetDependencies: Error "
+        "msg " +
+        status.ToString();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+  }
+
   env->ReleaseLongArrayElements(ids, ids_data, JNI_ABORT);
 }
 

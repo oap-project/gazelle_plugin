@@ -22,12 +22,13 @@ import org.apache.arrow.vector.IntVector
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision, TimeUnit}
 import org.apache.arrow.vector.types.pojo.ArrowType
 
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 
 object CodeGeneration {
-  val timeZoneId = SQLConf.get.sessionLocalTimeZone
+  private val defaultTimeZoneId = SparkSchemaUtils.getLocalTimezoneID()
 
   def getResultType(left: ArrowType, right: ArrowType): ArrowType = {
     //TODO(): remove this API
@@ -35,6 +36,10 @@ object CodeGeneration {
   }
 
   def getResultType(dataType: DataType): ArrowType = {
+    getResultType(dataType, defaultTimeZoneId)
+  }
+
+  def getResultType(dataType: DataType, timeZoneId: String): ArrowType = {
     dataType match {
       case other =>
         ArrowUtils.toArrowType(dataType, timeZoneId)

@@ -26,6 +26,7 @@ import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatch
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -43,11 +44,12 @@ import org.apache.spark.sql.types.{DataType, DateType, DecimalType, DoubleType, 
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.ExecutorManager
-
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Stream.Empty
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
+
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 
 case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     partitionSpec: Seq[Expression],
@@ -221,7 +223,8 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
 
         val evaluator = new ExpressionEvaluator()
         val resultSchema = new Schema(resultField.getChildren)
-        val arrowSchema = ArrowUtils.toArrowSchema(child.schema, SQLConf.get.sessionLocalTimeZone)
+        val arrowSchema = ArrowUtils.toArrowSchema(child.schema,
+          SparkSchemaUtils.getLocalTimezoneID())
         evaluator.build(arrowSchema,
           List(TreeBuilder.makeExpression(window,
             resultField)).asJava, resultSchema, true)
@@ -440,8 +443,8 @@ object ColumnarWindowExec extends Logging {
                 Cast(we.copy(
                   windowFunction =
                       ae.copy(aggregateFunction = Min(Cast(Cast(e, TimestampType,
-                        Some(DateTimeUtils.TimeZoneUTC.getID)), LongType)))),
-                  TimestampType), DateType, Some(DateTimeUtils.TimeZoneUTC.getID))
+                        Some(SparkSchemaUtils.getLocalTimezoneID())), LongType)))),
+                  TimestampType), DateType, Some(SparkSchemaUtils.getLocalTimezoneID()))
             case _ => we
           }
           case Max(e) => e.dataType match {
@@ -454,8 +457,8 @@ object ColumnarWindowExec extends Logging {
                 Cast(we.copy(
                   windowFunction =
                       ae.copy(aggregateFunction = Max(Cast(Cast(e, TimestampType,
-                        Some(DateTimeUtils.TimeZoneUTC.getID)), LongType)))),
-                  TimestampType), DateType, Some(DateTimeUtils.TimeZoneUTC.getID))
+                        Some(SparkSchemaUtils.getLocalTimezoneID())), LongType)))),
+                  TimestampType), DateType, Some(SparkSchemaUtils.getLocalTimezoneID()))
             case _ => we
           }
           case _ => we

@@ -408,6 +408,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::StringType)
     arrow::Status SetDependencies(
         const std::vector<std::shared_ptr<ResultIteratorBase>>& dependent_iter_list) {
@@ -632,6 +633,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::Decimal128Type)
     class UnsafeInnerProbeFunction : public ProbeFunctionBase {
      public:
@@ -752,6 +754,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::Decimal128Type)
     class UnsafeOuterProbeFunction : public ProbeFunctionBase {
      public:
@@ -883,6 +886,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::Decimal128Type)
     class UnsafeAntiProbeFunction : public ProbeFunctionBase {
      public:
@@ -1006,6 +1010,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::Decimal128Type)
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
@@ -1124,6 +1129,7 @@ class ConditionedProbeKernel::Impl {
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
   PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)          \
   PROCESS(arrow::Decimal128Type)
     class UnsafeExistenceProbeFunction : public ProbeFunctionBase {
      public:

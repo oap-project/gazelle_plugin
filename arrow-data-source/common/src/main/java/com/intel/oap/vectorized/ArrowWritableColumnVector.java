@@ -19,25 +19,21 @@ package com.intel.oap.vectorized;
 
 import java.lang.*;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.*;
 import org.apache.arrow.vector.complex.*;
-import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.pojo.Field;
 
-import org.apache.spark.annotation.Evolving;
 import org.apache.spark.sql.catalyst.util.DateTimeUtils;
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
-import org.apache.spark.sql.internal.SQLConf;
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils;
 import org.apache.spark.sql.execution.vectorized.WritableColumnVector;
 import org.apache.spark.sql.util.ArrowUtils;
 import org.apache.spark.sql.vectorized.*;
@@ -84,7 +80,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
    */
   public static ArrowWritableColumnVector[] allocateColumns(
       int capacity, StructType schema) {
-    String timeZoneId = SQLConf.get().sessionLocalTimeZone();
+    String timeZoneId = SparkSchemaUtils.getLocalTimezoneID();
     Schema arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId);
     VectorSchemaRoot new_root =
         VectorSchemaRoot.create(arrowSchema, SparkMemoryUtils.contextAllocator());
@@ -169,7 +165,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     super(capacity, dataType);
     vectorCount.getAndIncrement();
     refCnt.getAndIncrement();
-    String timeZoneId = SQLConf.get().sessionLocalTimeZone();
+    String timeZoneId = SparkSchemaUtils.getLocalTimezoneID();
     List<Field> fields =
         Arrays.asList(ArrowUtils.toArrowField("col", dataType, true, timeZoneId));
     Schema arrowSchema = new Schema(fields);
@@ -232,8 +228,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       accessor = new BinaryAccessor((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       accessor = new DateAccessor((DateDayVector) vector);
-    } else if (vector instanceof TimeStampMicroTZVector) {
-      accessor = new TimestampAccessor((TimeStampMicroTZVector) vector);
+    } else if (vector instanceof TimeStampMicroVector || vector instanceof TimeStampMicroTZVector) {
+      accessor = new TimestampMicroAccessor((TimeStampVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       accessor = new ArrayAccessor(listVector);
@@ -274,8 +270,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       return new BinaryWriter((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       return new DateWriter((DateDayVector) vector);
-    } else if (vector instanceof TimeStampMicroTZVector) {
-      return new TimestampWriter((TimeStampMicroTZVector) vector);
+    } else if (vector instanceof TimeStampMicroVector || vector instanceof TimeStampMicroTZVector) {
+      return new TimestampMicroWriter((TimeStampVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       ArrowVectorWriter elementVector = createVectorWriter(listVector.getDataVector());
@@ -288,7 +284,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       }
       return new StructWriter(structVector, children);
     } else {
-      throw new UnsupportedOperationException("Unsupported data type: ");
+      throw new UnsupportedOperationException("Unsupported data type: " + vector.getMinorType());
     }
   }
 
@@ -1143,10 +1139,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
   }
 
-  private static class TimestampAccessor extends ArrowVectorAccessor {
-    private final TimeStampMicroTZVector accessor;
+  private static class TimestampMicroAccessor extends ArrowVectorAccessor {
+    private final TimeStampVector accessor;
 
-    TimestampAccessor(TimeStampMicroTZVector vector) {
+    TimestampMicroAccessor(TimeStampVector vector) {
       super(vector);
       this.accessor = vector;
     }
@@ -1797,10 +1793,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
   }
 
-  private static class TimestampWriter extends ArrowVectorWriter {
-    private final TimeStampMicroTZVector writer;
+  private static class TimestampMicroWriter extends ArrowVectorWriter {
+    private final TimeStampVector writer;
 
-    TimestampWriter(TimeStampMicroTZVector vector) {
+    TimestampMicroWriter(TimeStampVector vector) {
       super(vector);
       this.writer = vector;
     }
