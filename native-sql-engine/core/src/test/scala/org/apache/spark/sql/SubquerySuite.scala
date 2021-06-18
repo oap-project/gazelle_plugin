@@ -103,7 +103,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  ignore("define CTE in CTE subquery") {
+  test("define CTE in CTE subquery") {
     checkAnswer(
       sql(
         """
@@ -128,7 +128,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  ignore("uncorrelated scalar subquery in CTE") {
+  test("uncorrelated scalar subquery in CTE") {
     checkAnswer(
       sql("with t2 as (select 1 as b, 2 as c) " +
         "select a from (select 1 as a union all select 2 as a) t " +
@@ -237,7 +237,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null, null) :: Row(null, 5.0) :: Row(6, null) :: Nil)
   }
 
-  ignore("EXISTS predicate subquery within OR") {
+  test("EXISTS predicate subquery within OR") {
     checkAnswer(
       sql("select * from l where exists (select * from r where l.a = r.c)" +
         " or exists (select * from r where l.a = r.c)"),
@@ -250,7 +250,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(null, null) :: Row(null, 5.0) :: Row(6, null) :: Nil)
   }
 
-  ignore("IN predicate subquery") {
+  test("IN predicate subquery") {
     checkAnswer(
       sql("select * from l where l.a in (select c from r)"),
       Row(2, 1.0) :: Row(2, 1.0) :: Row(3, 3.0) :: Row(6, null) :: Nil)
@@ -320,7 +320,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null) :: Row(1) :: Row(3) :: Nil)
   }
 
-  ignore("SPARK-15832: Test embedded existential predicate sub-queries") {
+  test("SPARK-15832: Test embedded existential predicate sub-queries") {
     withTempView("t1", "t2", "t3", "t4", "t5") {
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t1")
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t2")
@@ -486,7 +486,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("correlated scalar subquery in where") {
+  test("correlated scalar subquery in where") {
     checkAnswer(
       sql("select * from l where b < (select max(d) from r where a = c)"),
       Row(2, 1.0) :: Row(2, 1.0) :: Nil)
@@ -506,7 +506,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(null, 5.0) :: Row(null, 5.0) :: Row(6, null) :: Nil)
   }
 
-  ignore("correlated scalar subquery in aggregate") {
+  test("correlated scalar subquery in aggregate") {
     checkAnswer(
       sql("select a, (select sum(d) from r where a = c) sum_d from l l1 group by 1, 2"),
       Row(1, null) :: Row(2, 6.0) :: Row(3, 2.0) :: Row(null, null) :: Row(6, null) :: Nil)
@@ -557,7 +557,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(3) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in WHERE clause (Filter)") {
+  test("SPARK-15370: COUNT bug in WHERE clause (Filter)") {
     // Case 1: Canonical example of the COUNT bug
     checkAnswer(
       sql("select l.a from l where (select count(*) from r where l.a = r.c) < l.a"),
@@ -580,7 +580,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         :: Row(null, 0) :: Row(6, 1) :: Nil)
   }
 
- ignore("SPARK-15370: COUNT bug in HAVING clause (Filter)") {
+ test("SPARK-15370: COUNT bug in HAVING clause (Filter)") {
     checkAnswer(
       sql("select l.a as grp_a from l group by l.a " +
         "having (select count(*) from r where grp_a = r.c) = 0 " +
@@ -643,7 +643,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(3.0, false) :: Row(5.0, true) :: Row(null, false) :: Row(null, true) :: Nil)
   }
 
-  ignore("SPARK-16804: Correlated subqueries containing LIMIT - 1") {
+  test("SPARK-16804: Correlated subqueries containing LIMIT - 1") {
     withTempView("onerow") {
       Seq(1).toDF("c1").createOrReplaceTempView("onerow")
 
@@ -672,7 +672,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-17337: Incorrect column resolution leads to incorrect results") {
+  test("SPARK-17337: Incorrect column resolution leads to incorrect results") {
     withTempView("t1", "t2") {
       Seq(1, 2).toDF("c1").createOrReplaceTempView("t1")
       Seq(1).toDF("c2").createOrReplaceTempView("t2")
@@ -688,7 +688,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
      }
    }
 
-   ignore("SPARK-17348: Correlated subqueries with non-equality predicate (good case)") {
+   test("SPARK-17348: Correlated subqueries with non-equality predicate (good case)") {
      withTempView("t1", "t2") {
        Seq((1, 1)).toDF("c1", "c2").createOrReplaceTempView("t1")
        Seq((1, 1), (2, 0)).toDF("c1", "c2").createOrReplaceTempView("t2")
@@ -1405,7 +1405,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
           "SubqueryExec name should start with scalar-subquery#")
   }
 
-  ignore("SPARK-28441: COUNT bug in WHERE clause (Filter) with PythonUDF") {
+  test("SPARK-28441: COUNT bug in WHERE clause (Filter) with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1428,7 +1428,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) ::Row(null) :: Row(null) :: Row(6) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug in SELECT clause (Project) with PythonUDF") {
+  test("SPARK-28441: COUNT bug in SELECT clause (Project) with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1442,7 +1442,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         :: Row(null, 0) :: Row(6, 1) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug in HAVING clause (Filter) with PythonUDF") {
+  test("SPARK-28441: COUNT bug in HAVING clause (Filter) with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1463,7 +1463,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null) :: Row(1) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug in Aggregate with PythonUDF") {
+  test("SPARK-28441: COUNT bug in Aggregate with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1484,7 +1484,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null, 0) :: Row(1, 0) :: Row(2, 4) :: Row(3, 1) :: Row(6, 1)  :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug negative examples with PythonUDF") {
+  test("SPARK-28441: COUNT bug negative examples with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1514,7 +1514,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug in nested subquery with PythonUDF") {
+  test("SPARK-28441: COUNT bug in nested subquery with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1536,7 +1536,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug with nasty predicate expr with PythonUDF") {
+  test("SPARK-28441: COUNT bug with nasty predicate expr with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1556,7 +1556,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug with attribute ref in subquery input and output with PythonUDF") {
+  test("SPARK-28441: COUNT bug with attribute ref in subquery input and output with PythonUDF") {
     import IntegratedUDFTestUtils._
 
     assume(shouldTestPythonUDFs)
@@ -1580,7 +1580,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(3.0, false) :: Row(5.0, true) :: Row(null, false) :: Row(null, true) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug with non-foldable expression") {
+  test("SPARK-28441: COUNT bug with non-foldable expression") {
     // Case 1: Canonical example of the COUNT bug
     checkAnswer(
       sql("SELECT l.a FROM l WHERE (SELECT count(*) + cast(rand() as int) FROM r " +
@@ -1599,7 +1599,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) ::Row(null) :: Row(null) :: Row(6) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug in nested subquery with non-foldable expr") {
+  test("SPARK-28441: COUNT bug in nested subquery with non-foldable expr") {
     checkAnswer(
       sql("""
             |SELECT l.a FROM l
@@ -1614,7 +1614,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(1) :: Row(1) :: Row(null) :: Row(null) :: Nil)
   }
 
-  ignore("SPARK-28441: COUNT bug with non-foldable expression in Filter condition") {
+  test("SPARK-28441: COUNT bug with non-foldable expression in Filter condition") {
     val df = sql("""
                    |SELECT
                    |  l.a
@@ -1648,7 +1648,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     checkAnswer(df, Nil)
   }
 
-  ignore("SPARK-32290: SingleColumn Null Aware Anti Join Optimize") {
+  test("SPARK-32290: SingleColumn Null Aware Anti Join Optimize") {
     Seq(true, false).foreach { enableNAAJ =>
       Seq(true, false).foreach { enableAQE =>
         Seq(true, false).foreach { enableCodegen =>

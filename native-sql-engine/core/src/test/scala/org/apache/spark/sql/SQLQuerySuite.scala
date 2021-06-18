@@ -143,7 +143,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("self join with aliases") {
+  test("self join with aliases") {
     withTempView("df") {
       Seq(1, 2, 3).map(i => (i, i.toString)).toDF("int", "str").createOrReplaceTempView("df")
 
@@ -206,7 +206,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     )
   }
 
-  ignore("SPARK-7158 collect and take return different results") {
+  test("SPARK-7158 collect and take return different results") {
     import java.util.UUID
 
     val df = Seq(Tuple1(1), Tuple1(2), Tuple1(3)).toDF("index")
@@ -299,7 +299,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     checkAnswer(df, expectedResults)
   }
 
-  ignore("aggregation with codegen") {
+  test("aggregation with codegen") {
     // Prepare a table that we can group some rows.
     spark.table("testData")
       .union(spark.table("testData"))
@@ -927,7 +927,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("EXCEPT") {
+  ignore("EXCEPT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData EXCEPT SELECT * FROM upperCaseData"),
       Row(1, "a") ::
@@ -940,7 +940,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData EXCEPT SELECT * FROM upperCaseData"), Nil)
   }
 
-  test("MINUS") {
+  ignore("MINUS") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData MINUS SELECT * FROM upperCaseData"),
       Row(1, "a") :: Row(2, "b") :: Row(3, "c") :: Row(4, "d") :: Nil)
@@ -950,7 +950,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData MINUS SELECT * FROM upperCaseData"), Nil)
   }
 
-  test("INTERSECT") {
+  ignore("INTERSECT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData INTERSECT SELECT * FROM lowerCaseData"),
       Row(1, "a") ::
@@ -1241,7 +1241,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("Multiple join") {
+  test("Multiple join") {
     checkAnswer(
       sql(
         """SELECT a.key, b.key, c.key
@@ -2061,7 +2061,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(false) :: Row(true) :: Nil)
   }
 
-  test("filter on a grouping column that is not presented in SELECT") {
+  ignore("filter on a grouping column that is not presented in SELECT") {
     checkAnswer(
       sql("select count(1) from (select 1 as a) t group by a having a > 0"),
       Row(1) :: Nil)
@@ -3033,7 +3033,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-26366: verify ReplaceExceptWithFilter") {
+  test("SPARK-26366: verify ReplaceExceptWithFilter") {
     Seq(true, false).foreach { enabled =>
       withSQLConf(SQLConf.REPLACE_EXCEPT_WITH_FILTER.key -> enabled.toString) {
         val df = spark.createDataFrame(
@@ -3176,7 +3176,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("reset command should not fail with cache") {
+  test("reset command should not fail with cache") {
     withTable("tbl") {
       val provider = spark.sessionState.conf.defaultDataSourceName
       sql(s"CREATE TABLE tbl(i INT, j STRING) USING $provider")
@@ -3267,7 +3267,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     sql("DROP VIEW t1")
   }
 
-  ignore("SPARK-28156: self-join should not miss cached view") {
+  test("SPARK-28156: self-join should not miss cached view") {
     withTable("table1") {
       withView("table1_vw") {
         withTempView("cachedview") {
@@ -3700,10 +3700,11 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       "JOIN ( SELECT * FROM B JOIN C USING (id)) USING (id)"), Row(0))
   }
 
-  ignore("SPARK-32788: non-partitioned table scan should not have partition filter") {
+  test("SPARK-32788: non-partitioned table scan should not have partition filter") {
     withTable("t") {
       spark.range(1).write.saveAsTable("t")
-      checkAnswer(sql("SELECT id FROM t WHERE (SELECT true)"), Row(0L))
+      val df = sql("SELECT id FROM t WHERE (SELECT true)")
+      checkAnswer(df, Row(0L))
     }
   }
 

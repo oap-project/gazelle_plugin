@@ -198,7 +198,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("UDF in a GROUP BY") {
+  test("UDF in a GROUP BY") {
     withTempView("groupData") {
       spark.udf.register("groupFunction", (n: Int) => { n > 10 })
 
@@ -345,7 +345,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("cached Data should be used in the write path") {
+  test("cached Data should be used in the write path") {
     withTable("t") {
       withTempPath { path =>
         var numTotalCachedHit = 0

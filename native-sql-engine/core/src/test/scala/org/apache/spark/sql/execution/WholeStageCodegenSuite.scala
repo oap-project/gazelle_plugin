@@ -335,7 +335,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     }
   }
 
-  ignore("SPARK-25767: Lazy evaluated stream of expressions handled correctly") {
+  test("SPARK-25767: Lazy evaluated stream of expressions handled correctly") {
     val a = Seq(1).toDF("key")
     val b = Seq((1, "a")).toDF("key", "value")
     val c = Seq(1).toDF("key")

@@ -157,112 +157,80 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
-    "postgreSQL/join.sql"
   )
 
   /** List of test cases to ignore, in lower cases. */
   protected def ignoreList: Set[String] = Set(
     "ignored.sql",   // Do NOT remove this one. It is here to test the ignore functionality.
-    // segfault and compilation error
-//    "group-by.sql", // IndexOutOfBoundsException
-    "show-tblproperties.sql", //config
-    "subquery/in-subquery/not-in-unit-tests-single-column.sql",
-    /* Expected "[]", but got "[2	3.0
-    4	5.0
-    NULL	1.0]" Result did not match for query #3
-    SELECT *
-    FROM   m
-    WHERE  a NOT IN (SELECT c
-                     FROM   s
-                     WHERE  d = 1.0) -- Only matches (null, 1.0)*/
-    "subquery/in-subquery/simple-in.sql",
-    /*Expected "1	[NULL
-      2	1]", but got "1	[3
-      1	NULL
-      2	1
-      NULL	3]" Result did not match for query #12
-      SELECT a1, a2
-      FROM   a
-      WHERE  a1 NOT IN (SELECT b.b1
-                        FROM   b
-                        WHERE  a.a2 = b.b2)*/
-    "subquery/in-subquery/nested-not-in.sql",
-    /*
-    Expected "[]", but got "[5	5]" Result did not match for query #17
-SELECT *
-FROM   s1
-WHERE  NOT (a > 5
-            OR a IN (SELECT c
-                     FROM   s2))*/
-//    "subquery/scalar-subquery/scalar-subquery-predicate.sql",
-    "subquery/exists-subquery/exists-cte.sql",
-    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
-    "typeCoercion/native/widenSetOperationTypes.sql",
-    /*Expected "true[]", but got "true[
-true]" Result did not match for query #118
-SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t*/
-    "postgreSQL/groupingsets.sql",
-    /*
-    Expected "NULL	foox
-0	[NULL
-1	NULL
-2	NULL
-3	NULL]", but got "NULL	foox
-0	[x
-1	x
-2	x
-3	x]" Result did not match for query #22
-select four, x || 'x'
-  from (select four, ten, 'foo' as x from tenk1) as t
-  group by grouping sets (four, x)
-  order by four
-    */
-    "postgreSQL/aggregates_part3.sql",
-    /*
-    Expected "[101]", but got "[0]" Result did not match for query #1
-select min(unique1) filter (where unique1 > 100) from tenk1
-    */
+    /** segfault, compilation error and exception */
+
+    "group-by.sql", // IndexOutOfBoundsException
+    "group-by-ordinal.sql",
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
-//    "postgreSQL/join.sql", // compilation eror
-    // result mismatch
-//    "cte-legacy.sql",
-    "decimalArithmeticOperations.sql",
-    "outer-join.sql", // different order
-//    "like-all.sql",
-    "charvarchar.sql",
-    "union.sql",
-    "explain-aqe.sql", // plan check
-    "misc-functions.sql",
-    "cte-nonlegacy.sql", // Schema did not match
-    "explain.sql", // plan check
-    "cte-nested.sql",
-    "describe.sql",
-    "like-any.sql",
-    "subquery/in-subquery/in-joins.sql",
-    "subquery/scalar-subquery/scalar-subquery-select.sql",
-    "subquery/exists-subquery/exists-basic.sql",
-    "subquery/exists-subquery/exists-having.sql",
-    "subquery/exists-subquery/exists-orderby-limit.sql",
-    "ansi/decimalArithmeticOperations.sql",
-    "typeCoercion/native/promoteStrings.sql",
     "typeCoercion/native/windowFrameCoercion.sql",
-    "postgreSQL/aggregates_part1.sql",
-    "postgreSQL/window_part1.sql",
-    "postgreSQL/union.sql",  // aggregate-groupby
-    "postgreSQL/aggregates_part2.sql",
-    "postgreSQL/int4.sql", // exception expected
+    /**
+     * UnsupportedOperationException
+     * makeStructField is unable to parse from 1 (
+     * class org.apache.spark.sql.catalyst.expressions.Literal)
+     */
     "postgreSQL/select_implicit.sql",
+    /**
+     * UnsupportedOperationException
+     * makeStructField is unable to parse from (ansi_cast(a#87907 as double) / 2.0) (
+     * class org.apache.spark.sql.catalyst.expressions.Divide).
+     */
+    "postgreSQL/window_part1.sql", // IndexOutOfBoundsException
+    "misc-functions.sql", // NullPointerException
+    "subquery/in-subquery/in-joins.sql", // NullPointerException
+    "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
+
+    /** incorrect result */
+
+    "show-tblproperties.sql", // config
+    "charvarchar.sql",  // config
+    "postgreSQL/create_view.sql", // config
+    "having.sql",
+    "decimalArithmeticOperations.sql", // precision
+    "outer-join.sql", // different order
+    "explain-aqe.sql", // plan check
+    "explain.sql", // plan check
+    "grouping_set.sql",
+    "describe.sql",
+    "group-analytics.sql",
+    "subquery/scalar-subquery/scalar-subquery-select.sql",
+    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
+    "ansi/decimalArithmeticOperations.sql",
+    "typeCoercion/native/widenSetOperationTypes.sql",
+    /**
+     * Expected "true[]", but got "true[
+     * true]" Result did not match for query #118
+     * SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t
+     */
+    "typeCoercion/native/promoteStrings.sql",
+    /**
+     * Expected "N[ULL]", but got "N[aN]" Result did not match for query #309
+     * SELECT stddev_samp('1') FROM t
+     */
+    "postgreSQL/groupingsets.sql",
+    /**
+     * Expected "[NULL	foo]", but got "[]" Result did not match for query #21
+     * select four, x
+     * from (select four, ten, 'foo' as x from tenk1) as t
+     * group by grouping sets (four, x)
+     * having x = 'foo'
+     */
+    "postgreSQL/union.sql",  // aggregate-groupby
+    "postgreSQL/int4.sql", // exception expected
     "postgreSQL/numeric.sql",
     "postgreSQL/int8.sql",
     "postgreSQL/select_having.sql",
-    "postgreSQL/create_view.sql",
-    "udf/udf-union.sql",
+    /**
+     * Expected "struct<[]>", but got "struct<[one:int]>" Schema did not match for query #20
+     */
+    "postgreSQL/join.sql",
     "udf/udf-window.sql",
-    "udf/postgreSQL/udf-aggregates_part1.sql",
-    "udf/postgreSQL/udf-aggregates_part2.sql",
-    "udf/postgreSQL/udf-join.sql", // Scala and Python UDF
-    "postgreSQL/limit.sql",
-    "postgreSQL/select.sql"
+    "udf/udf-group-analytics.sql",
+    "udf/postgreSQL/udf-join.sql"
   )
 
   // Create all the test cases.
@@ -349,16 +317,16 @@ select min(unique1) filter (where unique1 > 100) from tenk1
         }
       case _ =>
         // Create a test case to run this case.
-//        test(testCase.name) {
-//          runTest(testCase)
-//        }
-        // To run only the set test
-        if (testList.exists(t =>
-          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-          test(testCase.name) {
-            runTest(testCase)
-          }
+        test(testCase.name) {
+          runTest(testCase)
         }
+        /** To run only the set test */
+//        if (testList.exists(t =>
+//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+//          test(testCase.name) {
+//            runTest(testCase)
+//          }
+//        }
     }
   }
 

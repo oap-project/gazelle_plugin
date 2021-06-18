@@ -1901,7 +1901,7 @@ abstract class JsonSuite
     }
   }
 
-  ignore("SPARK-18352: Handle multi-line corrupt documents (PERMISSIVE)") {
+  test("SPARK-18352: Handle multi-line corrupt documents (PERMISSIVE)") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val corruptRecordCount = additionalCorruptRecords.count().toInt
@@ -2059,7 +2059,7 @@ abstract class JsonSuite
     }
   }
 
-  ignore("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
+  test("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
     "from a file") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath

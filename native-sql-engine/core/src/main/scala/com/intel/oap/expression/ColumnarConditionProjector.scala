@@ -22,12 +22,8 @@ import java.util.Objects
 import java.util.concurrent.TimeUnit
 
 import com.google.common.collect.Lists
-import com.intel.oap.expression.ColumnarConditionProjector.{
-  FieldOptimizedProjector,
-  FilterProjector,
-  ProjectorWrapper
-}
-import com.intel.oap.vectorized.ArrowWritableColumnVector
+import com.intel.oap.expression.ColumnarConditionProjector.{FieldOptimizedProjector, FilterProjector, ProjectorWrapper}
+import com.intel.oap.vectorized.{ArrowWritableColumnVector, ExpressionEvaluator}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReferences
@@ -70,13 +66,16 @@ class ColumnarConditionProjector(
   var proc_time: Long = 0
   var elapseTime_make: Long = 0
   val start_make: Long = System.nanoTime()
-  var selectionBuffer: ArrowBuf = null
-  if (projectFieldList.size == 0 && conditionFieldList.size == 0
-      && (projPrepareList == null || projPrepareList.isEmpty)) {
-    skip = true
-  } else {
-    skip = false
-  }
+  var selectionBuffer: ArrowBuf = _
+  val skip_project: Boolean =
+    if (projectFieldList.size == 0 && (projPrepareList == null || projPrepareList.isEmpty)) {
+      true
+    } else false
+
+  val skip_filter: Boolean = if (conditionFieldList.size == 0 && condPrepareList == null) {
+    true
+  } else false
+  skip = skip_project && skip_filter
 
   val conditionOrdinalList: List[Int] = conditionFieldList.asScala.toList.map(field => {
     field.getName.replace("c_", "").toInt
@@ -117,7 +116,7 @@ class ColumnarConditionProjector(
         s"\nresult schema is ${resultArrowSchema}")
   }
 
-  val conditioner = if (skip == false && condPrepareList != null) {
+  val conditioner: Filter = if (!skip_filter) {
     createFilter(conditionArrowSchema, condPrepareList)
   } else {
     null
@@ -127,7 +126,7 @@ class ColumnarConditionProjector(
   } else {
     false
   }
-  val projector = if (skip == false) {
+  val projector: ProjectorWrapper = if (!skip_project) {
     createProjector(projectionArrowSchema, resultArrowSchema, projPrepareList, withCond)
   } else {
     null
@@ -166,7 +165,7 @@ class ColumnarConditionProjector(
         new FieldOptimizedProjector(projectionSchema, resultSchema, fieldNodesList)
       }
     } catch {
-      case e =>
+      case e: Throwable =>
         logError(
           s"\noriginalInputAttributes is ${originalInputAttributes} ${originalInputAttributes.map(
             _.dataType)}, \nprojectionSchema is ${projectionSchema}, \nresultSchema is ${resultSchema}, \nProjection is ${prepareList
@@ -222,7 +221,7 @@ class ColumnarConditionProjector(
           beforeEval = System.nanoTime()
           numRows = columnarBatch.numRows()
           if (numRows > 0) {
-            if (skip == true) {
+            if (skip) {
               resColumnarBatch = if (projectOrdinalList.size < columnarBatch.numCols) {
                 (0 until columnarBatch.numCols).toList.foreach(i =>
                   columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
@@ -251,22 +250,47 @@ class ColumnarConditionProjector(
               selectionBuffer = allocator.buffer(numRows * 2)
               selectionVector = new SelectionVectorInt16(selectionBuffer)
               val cols = conditionOrdinalList.map(i => {
-                columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector()
+                columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector
               })
               afterEval = System.nanoTime()
               proc_time += ((System.nanoTime() - beforeEval) / (1000 * 1000))
               input = ConverterUtils.createArrowRecordBatch(numRows, cols)
               conditioner.evaluate(input, selectionVector)
-              ConverterUtils.releaseArrowRecordBatch(input)
-              numRows = selectionVector.getRecordCount()
-              if (projPrepareList == null && numRows == columnarBatch.numRows()) {
-                logInfo(
-                  "No projection and conditioned row number is as same as original row number. Directly use original ColumnarBatch")
-                resColumnarBatch = columnarBatch
-                (0 until resColumnarBatch.numCols).toList.foreach(i =>
-                  resColumnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
+              numRows = selectionVector.getRecordCount
+              if (skip_project) {
+                if (numRows == columnarBatch.numRows()) {
+                  // This means filter can also be skipped because row number is not changed.
+                  logInfo(
+                    "No projection and conditioned row number is as same as original row number." +
+                      "Directly use original ColumnarBatch")
+                  resColumnarBatch = columnarBatch
+                  (0 until resColumnarBatch.numCols).toList.foreach(i =>
+                    resColumnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
+                } else {
+                  if (condPrepareList == null || numRows == 0) {
+                    return false
+                  }
+                  // Filter can not be skipped.
+                  var filterInputList: java.util.List[Field] = Lists.newArrayList()
+                  val filterPrepareList = originalInputAttributes.map(attr => {
+                    val columnarExpr: Expression = ColumnarExpressionConverter
+                      .replaceWithColumnarExpression(attr, originalInputAttributes)
+                    val (node, resultType) = columnarExpr.asInstanceOf[ColumnarExpression]
+                      .doColumnarCodeGen(filterInputList)
+                    val result = Field.nullable("result", resultType)
+                    (TreeBuilder.makeExpression(node, result), resultType)
+                  })
+                  // This projector is used to do filtering only.
+                  val filteProjector = createProjector(
+                    resultArrowSchema, resultArrowSchema, filterPrepareList, withCond)
+                  val outputBatch = filteProjector.evaluate(
+                    ConverterUtils.createArrowRecordBatch(columnarBatch),
+                    numRows, selectionVector)
+                  resColumnarBatch = outputBatch
+                }
                 return true
               }
+              ConverterUtils.releaseArrowRecordBatch(input)
             }
           }
           if (numRows == 0) {
@@ -279,11 +303,11 @@ class ColumnarConditionProjector(
         beforeEval = System.nanoTime()
 
         val cols = projectOrdinalList.map(i => {
-          columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector()
+          columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector
         })
         input = ConverterUtils.createArrowRecordBatch(columnarBatch.numRows, cols)
         val outputBatch = if (conditioner != null) {
-          projector.evaluate(input, numRows, selectionVector);
+          projector.evaluate(input, numRows, selectionVector)
         } else {
           projector.evaluate(input);
         }

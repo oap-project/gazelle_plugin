@@ -173,7 +173,7 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
   checkBatchPruning("SELECT CAST(s AS INT) FROM pruningStringData WHERE '18%' like s", 5, 11)(Seq())
 
   // With disable IN_MEMORY_PARTITION_PRUNING option
-  ignore("disable IN_MEMORY_PARTITION_PRUNING") {
+  test("disable IN_MEMORY_PARTITION_PRUNING") {
     spark.conf.set(SQLConf.IN_MEMORY_PARTITION_PRUNING.key, false)
 
     val df = sql("SELECT key FROM pruningData WHERE key = 1")
@@ -193,7 +193,7 @@ class PartitionBatchPruningSuite extends SharedSparkSession {
       expectedReadBatches: Int)(
       expectedQueryResult: => Seq[Any]): Unit = {
 
-    ignore(query) {
+    test(query) {
       val df = sql(query)
       val queryExecution = df.queryExecution
 

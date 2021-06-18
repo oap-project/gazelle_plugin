@@ -129,7 +129,7 @@ class ExchangeSuite extends SparkPlanTest with SharedSparkSession {
     assertThrows[RanColumnar](reused.executeColumnar())
   }
 
-  ignore("SPARK-23207: Make repartition() generate consistent output") {
+  test("SPARK-23207: Make repartition() generate consistent output") {
     def assertConsistency(ds: Dataset[java.lang.Long]): Unit = {
       ds.persist()
 

@@ -139,13 +139,13 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-//  ignore("SortMergeJoin shouldn't work on unsortable columns") {
+//  test("SortMergeJoin shouldn't work on unsortable columns") {
 //    Seq(
 //      ("SELECT * FROM arrayData JOIN complexData ON data = a", classOf[ShuffledHashJoin])
 //    ).foreach { case (query, joinClass) => assertJoin(query, joinClass) }
 //  }
 
-  ignore("broadcasted hash join operator selection") {
+  test("broadcasted hash join operator selection") {
     spark.sharedState.cacheManager.clearCache()
     sql("CACHE TABLE testData")
     Seq(
@@ -158,7 +158,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     ).foreach(assertJoin)
   }
 
-  ignore("broadcasted hash outer join operator selection") {
+  test("broadcasted hash outer join operator selection") {
     spark.sharedState.cacheManager.clearCache()
     sql("CACHE TABLE testData")
     sql("CACHE TABLE testData2")
@@ -495,7 +495,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("broadcasted existence join operator selection") {
+  test("broadcasted existence join operator selection") {
     spark.sharedState.cacheManager.clearCache()
     sql("CACHE TABLE testData")
 
@@ -518,7 +518,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
 
   }
 
-  ignore("cross join with broadcast") {
+  test("cross join with broadcast") {
     sql("CACHE TABLE testData")
 
     val sizeInByteOfTestData = statisticSizeInByte(spark.table("testData"))

@@ -56,7 +56,7 @@ class DataFrameSelfJoinSuite extends QueryTest with SharedSparkSession {
       Row(2, "2", 2, "2") :: Nil)
   }
 
-  ignore("join - using aliases after self join") {
+  test("join - using aliases after self join") {
     val df = Seq(1, 2, 3).map(i => (i, i.toString)).toDF("int", "str")
     checkAnswer(
       df.as("x").join(df.as("y"), $"x.str" === $"y.str").groupBy("x.str").count(),

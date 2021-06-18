@@ -69,7 +69,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
       Nil)
   }
 
-  ignore("SPARK-23274: except between two projects without references used in filter") {
+  test("SPARK-23274: except between two projects without references used in filter") {
     val df = Seq((1, 2, 4), (1, 3, 5), (2, 2, 3), (2, 4, 5)).toDF("a", "b", "c")
     val df1 = df.filter($"a" === 1)
     val df2 = df.filter($"a" === 2)
@@ -431,7 +431,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     assert(errMsg.contains("""Cannot resolve column name "b" among (a, c, d)"""))
   }
 
-  ignore("union by name - type coercion") {
+  test("union by name - type coercion") {
     var df1 = Seq((1, "a")).toDF("c0", "c1")
     var df2 = Seq((3, 1L)).toDF("c1", "c0")
     checkAnswer(df1.unionByName(df2), Row(1L, "a") :: Row(1L, "3") :: Nil)

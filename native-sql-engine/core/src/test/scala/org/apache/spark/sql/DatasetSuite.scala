@@ -1656,7 +1656,7 @@ class DatasetSuite extends QueryTest
     checkDataset(data.toDS(), data: _*)
   }
 
-  ignore("SPARK-23614: Union produces incorrect results when caching is used") {
+  test("SPARK-23614: Union produces incorrect results when caching is used") {
     val cached = spark.createDataset(Seq(TestDataUnion(1, 2, 3), TestDataUnion(4, 5, 6))).cache()
     val group1 = cached.groupBy("x").agg(min(col("y")) as "value")
     val group2 = cached.groupBy("x").agg(min(col("z")) as "value")
