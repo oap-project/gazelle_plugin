@@ -468,7 +468,8 @@ class ColumnarCast(
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val toType = CodeGeneration.getResultType(dataType, zoneId.getId)
+    val toType = CodeGeneration.getResultType(dataType,
+      timeZoneId.getOrElse(SparkSchemaUtils.getLocalTimezoneID()))
     val (child_node0, childType0) = childType match {
       case ts: ArrowType.Timestamp =>
         ConverterUtils.convertTimestampToMilli(child_node, childType)
@@ -560,7 +561,8 @@ class ColumnarCast(
           val utcTimestampNodeLong = TreeBuilder.makeFunction("castBIGINT",
             Lists.newArrayList(utcTimestampNodeMilli), new ArrowType.Int(64,
               true))
-          val diff = SparkSchemaUtils.getTimeZoneIDOffset(zoneId.getId) *
+          val diff = SparkSchemaUtils.getTimeZoneIDOffset(
+            timeZoneId.getOrElse(SparkSchemaUtils.getLocalTimezoneID())) *
               DateTimeConstants.MILLIS_PER_SECOND
           val localizedTimestampNodeLong = TreeBuilder.makeFunction("add",
             Lists.newArrayList(utcTimestampNodeLong,
