@@ -157,6 +157,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
+
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -205,11 +206,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
      * Expected "true[]", but got "true[
      * true]" Result did not match for query #118
      * SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t
-     */
-    "typeCoercion/native/promoteStrings.sql",
-    /**
-     * Expected "N[ULL]", but got "N[aN]" Result did not match for query #309
-     * SELECT stddev_samp('1') FROM t
      */
     "postgreSQL/groupingsets.sql",
     /**
@@ -317,16 +313,16 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
         }
       case _ =>
         // Create a test case to run this case.
-        test(testCase.name) {
-          runTest(testCase)
-        }
-        /** To run only the set test */
-//        if (testList.exists(t =>
-//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-//          test(testCase.name) {
-//            runTest(testCase)
-//          }
+//        test(testCase.name) {
+//          runTest(testCase)
 //        }
+        /** To run only the set test */
+        if (testList.exists(t =>
+          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+          test(testCase.name) {
+            runTest(testCase)
+          }
+        }
     }
   }
 

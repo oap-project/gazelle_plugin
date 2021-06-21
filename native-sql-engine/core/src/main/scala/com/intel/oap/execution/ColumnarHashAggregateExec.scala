@@ -347,7 +347,11 @@ case class ColumnarHashAggregateExec(
                     putDataIntoVector(resultColumnVectors, 0, idx) // m2
                     idx += 1
                   case Final =>
-                    putDataIntoVector(resultColumnVectors, Double.NaN, idx)
+                    if (aggregateFunc.asInstanceOf[StddevSamp].nullOnDivideByZero) {
+                      putDataIntoVector(resultColumnVectors, null, idx)
+                    } else {
+                      putDataIntoVector(resultColumnVectors, Double.NaN, idx)
+                    }
                     idx += 1
                 }
             }

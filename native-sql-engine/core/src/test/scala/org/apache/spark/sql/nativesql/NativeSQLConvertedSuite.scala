@@ -42,7 +42,7 @@ class NativeSQLConvertedSuite extends QueryTest
   test("literal") {
     val df = sql("SELECT sum(c), max(c), avg(c), count(c), stddev_samp(c) " +
       "FROM (WITH t(c) AS (SELECT 1) SELECT * FROM t)")
-    checkAnswer(df, Seq(Row(1, 1, 1, 1, Double.NaN)))
+    checkAnswer(df, Seq(Row(1, 1, 1, 1, null)))
   }
 
   test("join with condition") {
@@ -206,16 +206,16 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  ignore("union") {
+  ignore("union - normalization for a very small value") {
     Seq(0.0, -34.84, -1004.30, -1.2345678901234e+200, -1.2345678901234e-200)
       .toDF("f1").createOrReplaceTempView("FLOAT8_TBL")
     val df = sql("SELECT f1 AS five FROM FLOAT8_TBL UNION SELECT f1 FROM FLOAT8_TBL ORDER BY 1")
     checkAnswer(df, Seq(
+      Row(-1.2345678901234E200),
       Row(-1004.3),
       Row(-34.84),
       Row(-1.2345678901234E-200),
-      Row(0.0),
-      Row(123456.0)))
+      Row(0.0)))
   }
 
   ignore("int4 and int8 exception") {
@@ -547,5 +547,14 @@ class NativeSQLConvertedSuite extends QueryTest
       ("emp 6 - no dept", 500.00D))
       .toDF("emp_name", "bonus_amt")
       .createOrReplaceTempView("BONUS")
+  }
+
+  test("union - 1") {
+    Seq[Integer](1).toDF("id")
+      .createOrReplaceTempView("t")
+    val df = sql("SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t")
+    checkAnswer(df, Seq(Row(true)))
+    val df1 = sql("SELECT stddev_samp('1') FROM t")
+    checkAnswer(df1, Seq(Row(null)))
   }
 }

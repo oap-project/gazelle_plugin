@@ -128,7 +128,7 @@ arrow::Status MakeStddevSampPartialAction(
 arrow::Status MakeStddevSampFinalAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+    bool null_on_divide_by_zero, std::shared_ptr<ActionBase>* out);
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

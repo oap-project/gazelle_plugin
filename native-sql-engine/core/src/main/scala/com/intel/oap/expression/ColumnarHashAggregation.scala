@@ -193,7 +193,7 @@ class ColumnarHashAggregation(
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
           TreeBuilder.makeFunction("action_min", childrenColumnarFuncNodeList.asJava, resultType)
-        case StddevSamp(_,_) =>
+        case StddevSamp(_, _) =>
           mode match {
             case Partial =>
               val childrenColumnarFuncNodeList =
@@ -208,8 +208,10 @@ class ColumnarHashAggregation(
               val childrenColumnarFuncNodeList =
                 List(inputAttrQueue.dequeue, inputAttrQueue.dequeue, inputAttrQueue.dequeue)
                   .map(attr => getColumnarFuncNode(attr))
+              // nullOnDivideByZero controls the result to be null or NaN when count == 1.
               TreeBuilder.makeFunction(
-                "action_stddev_samp_final",
+                "action_stddev_samp_final_" +
+                  s"${aggregateFunc.asInstanceOf[StddevSamp].nullOnDivideByZero}",
                 childrenColumnarFuncNodeList.asJava,
                 resultType)
             case other =>

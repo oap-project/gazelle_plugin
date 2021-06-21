@@ -1488,8 +1488,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinSingleKey) {
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysAnti_true",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
-      uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
 
@@ -1586,11 +1585,13 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinMulKeys) {
   auto f_res = field("res", uint32());
 
   auto n_left_key = TreeExprBuilder::MakeFunction(
-      "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0),
-      TreeExprBuilder::MakeField(table0_f1)}, uint32());
+      "codegen_left_key_schema",
+      {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1)},
+      uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
-      "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0),
-      TreeExprBuilder::MakeField(table1_f1)}, uint32());
+      "codegen_right_key_schema",
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
+      uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "result",
       {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
@@ -1599,8 +1600,7 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinMulKeys) {
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysAnti_true",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
-      uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_standalone =
       TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
 
@@ -1619,7 +1619,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinMulKeys) {
                                     {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
   ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
-                                    {table1_f0, table1_f1, table1_f2}, &expr_probe, true));
+                                    {table1_f0, table1_f1, table1_f2}, &expr_probe,
+                                    true));
   ///////////////////// Calculation //////////////////
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -1628,9 +1629,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinMulKeys) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_0;
   std::vector<std::shared_ptr<arrow::RecordBatch>> table_1;
 
-  std::vector<std::string> input_data_string = {"[1, null, null, 1, 1]",
-                                                "[1, null, 3, null, 2]",
-                                                "[2, 2, 2, 2, null]"};
+  std::vector<std::string> input_data_string = {
+      "[1, null, null, 1, 1]", "[1, null, 3, null, 2]", "[2, 2, 2, 2, null]"};
   MakeInputBatch(input_data_string, schema_table_0, &input_batch);
   table_0.push_back(input_batch);
 
@@ -1645,9 +1645,8 @@ TEST(TestArrowComputeWSCG, JoinWOCGTestAntiJoinMulKeys) {
   auto res_sch = arrow::schema({table1_f0, table1_f1});
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[2, null, 1, null, null, 1, null]",
-      "[1, 1, 3, null, 3, null, 2]"};
+  std::vector<std::string> expected_result_string = {"[2, null, 1, null, null, 1, null]",
+                                                     "[1, 1, 3, null, 3, null, 2]"};
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   expected_table.push_back(expected_result);
 

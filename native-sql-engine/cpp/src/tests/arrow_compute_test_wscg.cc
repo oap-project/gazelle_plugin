@@ -1151,8 +1151,7 @@ TEST(TestArrowComputeWSCG, WSCGTestAntiJoinSingleKeyWithoutCondition) {
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)1)}, uint32());
   auto n_probeArrays = TreeExprBuilder::MakeFunction(
       "conditionedProbeArraysAnti_true",
-      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config},
-      uint32());
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("child", {n_probeArrays}, uint32());
   //////////////////////////////////////////////////////////////////
   auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());

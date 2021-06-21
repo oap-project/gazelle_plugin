@@ -4051,8 +4051,9 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
  public:
   StddevSampFinalAction(arrow::compute::ExecContext* ctx,
                         std::shared_ptr<arrow::DataType> type,
-                        std::shared_ptr<arrow::DataType> res_type)
-      : ctx_(ctx) {
+                        std::shared_ptr<arrow::DataType> res_type,
+                        bool null_on_divide_by_zero)
+      : ctx_(ctx), null_on_divide_by_zero_(null_on_divide_by_zero) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
     builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
@@ -4175,8 +4176,12 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     cache_validity_.resize(length_);
     for (int i = 0; i < length_; i++) {
       if (cache_count_[i] - 1 < 0.00001) {
-        // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        if (null_on_divide_by_zero_) {
+          RETURN_NOT_OK(builder_->AppendNull());
+        } else {
+          // append NaN if only one non-null value exists
+          RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        }
       } else if (cache_validity_[i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[i]));
       } else {
@@ -4202,8 +4207,12 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     }
     for (uint64_t i = 0; i < res_length; i++) {
       if (cache_count_[offset + i] - 1 < 0.00001) {
-        // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        if (null_on_divide_by_zero_) {
+          RETURN_NOT_OK(builder_->AppendNull());
+        } else {
+          // append NaN if only one non-null value exists
+          RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        }
       } else if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[offset + i]));
       } else {
@@ -4224,6 +4233,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   std::unique_ptr<ResBuilderType> builder_;
   // input
   arrow::compute::ExecContext* ctx_;
+  bool null_on_divide_by_zero_;
   int row_id;
   std::shared_ptr<ArrayType> in_count_;
   std::shared_ptr<ArrayType> in_avg_;
@@ -4243,8 +4253,9 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
  public:
   StddevSampFinalAction(arrow::compute::ExecContext* ctx,
                         std::shared_ptr<arrow::DataType> type,
-                        std::shared_ptr<arrow::DataType> res_type)
-      : ctx_(ctx) {
+                        std::shared_ptr<arrow::DataType> res_type,
+                        bool null_on_divide_by_zero)
+      : ctx_(ctx), null_on_divide_by_zero_(null_on_divide_by_zero) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
     builder_.reset(arrow::internal::checked_cast<ResBuilderType*>(builder.release()));
@@ -4388,8 +4399,12 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     cache_validity_.resize(length_);
     for (int i = 0; i < length_; i++) {
       if (cache_count_[i] - 1 < 0) {
-        // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        if (null_on_divide_by_zero_) {
+          RETURN_NOT_OK(builder_->AppendNull());
+        } else {
+          // append NaN if only one non-null value exists
+          RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        }
       } else if (cache_validity_[i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[i]));
       } else {
@@ -4420,8 +4435,12 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
     }
     for (uint64_t i = 0; i < res_length; i++) {
       if (cache_count_[offset + i] - 1 < 0) {
-        // append NaN if only one non-null value exists
-        RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        if (null_on_divide_by_zero_) {
+          RETURN_NOT_OK(builder_->AppendNull());
+        } else {
+          // append NaN if only one non-null value exists
+          RETURN_NOT_OK(builder_->Append(std::numeric_limits<ResCType>::quiet_NaN()));
+        }
       } else if (cache_validity_[offset + i]) {
         RETURN_NOT_OK(builder_->Append(cache_m2_[offset + i]));
       } else {
@@ -4446,6 +4465,7 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Decimal128 one;
   // input
   arrow::compute::ExecContext* ctx_;
+  bool null_on_divide_by_zero_;
   int row_id;
   std::shared_ptr<CountArrayType> in_count_;
   std::shared_ptr<ArrayType> in_avg_;
@@ -4926,7 +4946,7 @@ arrow::Status MakeStddevSampPartialAction(
 arrow::Status MakeStddevSampFinalAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out) {
+    bool null_on_divide_by_zero, std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
 #define PROCESS(InType)                                                                \
   case InType::type_id: {                                                              \
@@ -4936,7 +4956,7 @@ arrow::Status MakeStddevSampFinalAction(
     auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();                  \
     auto action_ptr =                                                                  \
         std::make_shared<StddevSampFinalAction<InType, CType, ResDataType, ResCType>>( \
-            ctx, type, res_type);                                                      \
+            ctx, type, res_type, null_on_divide_by_zero);                              \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                          \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)

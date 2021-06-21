@@ -678,7 +678,7 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
     hash_configuration_list_ =
         std::dynamic_pointer_cast<gandiva::FunctionNode>(children[5])->children();
     if (children.size() > 6) {
-       condition_ =
+      condition_ =
           std::dynamic_pointer_cast<gandiva::FunctionNode>(children[6])->children()[0];
     }
   }

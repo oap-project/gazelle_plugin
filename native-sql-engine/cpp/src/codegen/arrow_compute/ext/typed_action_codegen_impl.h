@@ -174,7 +174,7 @@ class TypedActionCodeGenImpl {
       }
       *action_codegen = std::make_shared<StddevSampPartialActionCodeGen>(
           name, child_list_, input_list_, input_fields_list_, named_projector_);
-    } else if (action_name_.compare("action_stddev_samp_final") == 0) {
+    } else if (action_name_.compare(0, 24, "action_stddev_samp_final") == 0) {
       std::string name;
       if (input_index_list_.size() == 3) {
         name = std::to_string(input_index_list_[0]) + "_" +
