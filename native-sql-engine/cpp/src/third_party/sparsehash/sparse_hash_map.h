@@ -31,7 +31,8 @@ template <typename T, typename Enable = void>
 class SparseHashMap {};
 
 template <typename Scalar>
-class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value>> {
+class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value && 
+                                             !std::is_same<Scalar, bool>::value>> {
  public:
   SparseHashMap() { dense_map_.set_empty_key(0); }
   SparseHashMap(arrow::MemoryPool* pool) {
@@ -160,4 +161,76 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
   int32_t null_index_;
   bool nan_index_set_ = false;
   int32_t nan_index_;
+};
+
+template <typename Scalar>
+class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>> {
+ public:
+  SparseHashMap() {}
+  SparseHashMap(arrow::MemoryPool* pool) {}
+  template <typename Func1, typename Func2>
+  arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
+                            int32_t* out_memo_index) {
+    if (value == true) {
+      if (!true_index_set_) {
+        true_index_set_ = true;
+        true_index_ = size_++;
+        on_not_found(true_index_);
+      } else {
+        on_found(true_index_);
+      }
+    } else if (value == false) {
+      if (!false_index_set_) {
+        false_index_set_ = true;
+        false_index_ = size_++;
+        on_not_found(false_index_);
+      } else {
+        on_found(false_index_);
+      }
+    }
+    return arrow::Status::OK();
+  }
+  template <typename Func1, typename Func2>
+  int32_t GetOrInsertNull(Func1&& on_found, Func2&& on_not_found) {
+    if (!null_index_set_) {
+      null_index_set_ = true;
+      null_index_ = size_++;
+      on_not_found(null_index_);
+    } else {
+      on_found(null_index_);
+    }
+    return null_index_;
+  }
+  int32_t Get(const Scalar& value) {
+    if (value == true) {
+      if (!true_index_set_) {
+        return NOTFOUND;
+      } else {
+        return true_index_;
+      }
+    } else if (value == false) {
+      if (!false_index_set_) {
+        return NOTFOUND;
+      } else {
+        return false_index_;
+      }
+    }
+  }
+  int32_t GetNull() {
+    if (!null_index_set_) {
+      return NOTFOUND;
+    } else {
+      auto ret = null_index_;
+      return ret;
+    }
+  }
+
+ private:
+  int32_t size_ = 0;
+  bool null_index_set_ = false;
+  bool true_index_set_ = false;
+  bool false_index_set_ = false;
+  int32_t null_index_;
+  int32_t true_index_;
+  int32_t false_index_;
 };
