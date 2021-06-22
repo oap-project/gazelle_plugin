@@ -48,16 +48,16 @@ case class ColumnarExpandExec(
   // as UNKNOWN partitioning
   override def outputPartitioning: Partitioning = UnknownPartitioning(0)
 
-  val originalInputAttributes = child.output
+  val originalInputAttributes: Seq[Attribute] = child.output
 
-  override def supportsColumnar = true
+  override def supportsColumnar: Boolean = true
 
   buildCheck()
 
   def buildCheck(): Unit = {
     // build check for projection
     projections.foreach(proj => ColumnarProjection.buildCheck(originalInputAttributes, proj))
-    //check type
+    // check type
     for (attr <- originalInputAttributes) {
       try {
         ConverterUtils.checkIfTypeSupported(attr.dataType)
@@ -118,11 +118,9 @@ case class ColumnarExpandExec(
             resultColumnVectorList.map(v => v.asInstanceOf[ColumnVector]).toArray,
             numRows)
           idx += 1
-
           if (idx == numGroups) {
             idx = -1
           }
-
           numOutputRows += numRows
           numOutputBatches += 1
           eval_elapse += System.nanoTime() - beforeEval

@@ -350,20 +350,14 @@ TEST(TestArrowCompute, GroupByBoolTest) {
   auto arg0 = TreeExprBuilder::MakeField(f0);
 
   auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
-  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
-                                              {arg0}, uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0}, uint32());
 
-  auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_groupby},
-      uint32());
+  auto n_action =
+      TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
-      "resultSchema",
-      {TreeExprBuilder::MakeField(f_unique)},
-      uint32());
+      "resultSchema", {TreeExprBuilder::MakeField(f_unique)}, uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
-      "resultExpressions",
-      {TreeExprBuilder::MakeField(f_unique)},
-      uint32());
+      "resultExpressions", {TreeExprBuilder::MakeField(f_unique)}, uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
@@ -389,16 +383,14 @@ TEST(TestArrowCompute, GroupByBoolTest) {
       aggr_result_iterator_base);
 
   ////////////////////// calculation /////////////////////
-  std::vector<std::string> input_data = {
-      "[true, true, true, true, true]"};
+  std::vector<std::string> input_data = {"[true, true, true, true, true]"};
   MakeInputBatch(input_data, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[true]"};
+  std::vector<std::string> expected_result_string = {"[true]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

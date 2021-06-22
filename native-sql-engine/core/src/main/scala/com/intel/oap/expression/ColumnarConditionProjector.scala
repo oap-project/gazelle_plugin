@@ -256,6 +256,7 @@ class ColumnarConditionProjector(
               proc_time += ((System.nanoTime() - beforeEval) / (1000 * 1000))
               input = ConverterUtils.createArrowRecordBatch(numRows, cols)
               conditioner.evaluate(input, selectionVector)
+              ConverterUtils.releaseArrowRecordBatch(input)
               numRows = selectionVector.getRecordCount
               if (skip_project) {
                 if (numRows == columnarBatch.numRows()) {
@@ -268,29 +269,32 @@ class ColumnarConditionProjector(
                     resColumnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
                 } else {
                   if (condPrepareList == null || numRows == 0) {
-                    return false
+                    val resultColumnVectors = ArrowWritableColumnVector.allocateColumns(
+                        0, ArrowUtils.fromArrowSchema(resultArrowSchema))
+                    resColumnarBatch = new ColumnarBatch(
+                      resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+                  } else {
+                    // Filter can not be skipped.
+                    var filterInputList: java.util.List[Field] = Lists.newArrayList()
+                    val filterPrepareList = originalInputAttributes.map(attr => {
+                      val columnarExpr: Expression = ColumnarExpressionConverter
+                        .replaceWithColumnarExpression(attr, originalInputAttributes)
+                      val (node, resultType) = columnarExpr.asInstanceOf[ColumnarExpression]
+                        .doColumnarCodeGen(filterInputList)
+                      val result = Field.nullable("result", resultType)
+                      (TreeBuilder.makeExpression(node, result), resultType)
+                    })
+                    // This projector is used to do filtering only.
+                    val filteProjector = createProjector(
+                      resultArrowSchema, resultArrowSchema, filterPrepareList, withCond)
+                    val outputBatch = filteProjector.evaluate(
+                      ConverterUtils.createArrowRecordBatch(columnarBatch),
+                      numRows, selectionVector)
+                    resColumnarBatch = outputBatch
                   }
-                  // Filter can not be skipped.
-                  var filterInputList: java.util.List[Field] = Lists.newArrayList()
-                  val filterPrepareList = originalInputAttributes.map(attr => {
-                    val columnarExpr: Expression = ColumnarExpressionConverter
-                      .replaceWithColumnarExpression(attr, originalInputAttributes)
-                    val (node, resultType) = columnarExpr.asInstanceOf[ColumnarExpression]
-                      .doColumnarCodeGen(filterInputList)
-                    val result = Field.nullable("result", resultType)
-                    (TreeBuilder.makeExpression(node, result), resultType)
-                  })
-                  // This projector is used to do filtering only.
-                  val filteProjector = createProjector(
-                    resultArrowSchema, resultArrowSchema, filterPrepareList, withCond)
-                  val outputBatch = filteProjector.evaluate(
-                    ConverterUtils.createArrowRecordBatch(columnarBatch),
-                    numRows, selectionVector)
-                  resColumnarBatch = outputBatch
                 }
                 return true
               }
-              ConverterUtils.releaseArrowRecordBatch(input)
             }
           }
           if (numRows == 0) {

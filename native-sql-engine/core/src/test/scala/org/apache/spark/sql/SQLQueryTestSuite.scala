@@ -201,12 +201,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "subquery/scalar-subquery/scalar-subquery-select.sql",
     "subquery/exists-subquery/exists-joins-and-set-ops.sql",
     "ansi/decimalArithmeticOperations.sql",
-    "typeCoercion/native/widenSetOperationTypes.sql",
-    /**
-     * Expected "true[]", but got "true[
-     * true]" Result did not match for query #118
-     * SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t
-     */
     "postgreSQL/groupingsets.sql",
     /**
      * Expected "[NULL	foo]", but got "[]" Result did not match for query #21

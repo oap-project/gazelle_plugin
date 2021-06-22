@@ -31,7 +31,7 @@ template <typename T, typename Enable = void>
 class SparseHashMap {};
 
 template <typename Scalar>
-class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value && 
+class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
                                              !std::is_same<Scalar, bool>::value>> {
  public:
   SparseHashMap() { dense_map_.set_empty_key(0); }
