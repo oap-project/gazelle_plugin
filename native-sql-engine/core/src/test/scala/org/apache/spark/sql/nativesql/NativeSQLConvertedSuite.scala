@@ -558,9 +558,12 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df1, Seq(Row(null)))
   }
 
-  test("groupby - 1") {
+  test("groupingsets") {
     val df = sql("select four, x from (select four, ten, 'foo' as x from tenk1) as t" +
       " group by grouping sets (four, x) having x = 'foo'")
     checkAnswer(df, Seq(Row(null, "foo")))
+    val df1 = sql("select four, x || 'x' from (select four, ten, 'foo' as x from tenk1) as t " +
+      "group by grouping sets (four, x) order by four")
+    df1.show()
   }
 }

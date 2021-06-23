@@ -25,7 +25,7 @@ import org.apache.spark.sql.test.SharedSparkSession
 class StringFunctionsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
-  ignore("string concat") {
+  test("string concat") {
     val df = Seq[(String, String, String)](("a", "b", null)).toDF("a", "b", "c")
 
     checkAnswer(

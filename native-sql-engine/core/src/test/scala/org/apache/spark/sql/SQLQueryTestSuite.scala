@@ -157,14 +157,16 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
-
   )
 
   /** List of test cases to ignore, in lower cases. */
   protected def ignoreList: Set[String] = Set(
     "ignored.sql",   // Do NOT remove this one. It is here to test the ignore functionality.
+
     /** segfault, compilation error and exception */
 
+    "subquery/in-subquery/not-in-joins.sql",
+    "subquery/in-subquery/in-order-by.sql",
     "group-by.sql", // IndexOutOfBoundsException
     "group-by-ordinal.sql",
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
@@ -201,7 +203,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "subquery/scalar-subquery/scalar-subquery-select.sql",
     "subquery/exists-subquery/exists-joins-and-set-ops.sql",
     "ansi/decimalArithmeticOperations.sql",
-    "postgreSQL/groupingsets.sql",
     /**
      * Expected "[NULL	foo]", but got "[]" Result did not match for query #21
      * select four, x
