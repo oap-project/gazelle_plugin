@@ -26,11 +26,13 @@ import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.IntervalUnit
 import org.apache.arrow.vector.types.DateUnit
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
+
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types._
-
 import scala.collection.mutable.ListBuffer
+
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateDiff
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -76,6 +78,8 @@ object ColumnarBinaryExpression {
     original match {
       case s: DateAddInterval =>
         new ColumnarDateAddInterval(left, right, s)
+      case s: DateDiff =>
+        new ColumnarDateDiff(left, right)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

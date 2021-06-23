@@ -32,6 +32,19 @@ import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.types._
 import scala.collection.mutable.ListBuffer
 
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfMonth
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfYear
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarHour
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarHour
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarMicrosToTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarMillisToTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarMinute
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarSecond
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarSecondsToTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixDate
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMicros
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMillis
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixSeconds
 import org.apache.arrow.vector.types.TimeUnit
 
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
@@ -741,11 +754,23 @@ object ColumnarUnaryOperator {
     case i: IsNotNull =>
       new ColumnarIsNotNull(child, i)
     case y: Year =>
-      new ColumnarYear(child, y)
+      if (child.dataType.isInstanceOf[TimestampType]) {
+        new ColumnarDateTimeExpressions.ColumnarYear(child)
+      } else {
+        new ColumnarYear(child, y)
+      }
     case m: Month =>
-      new ColumnarMonth(child, m)
+      if (child.dataType.isInstanceOf[TimestampType]) {
+        new ColumnarDateTimeExpressions.ColumnarMonth(child)
+      } else {
+        new ColumnarMonth(child, m)
+      }
     case d: DayOfMonth =>
-      new ColumnarDayOfMonth(child, d)
+      if (child.dataType.isInstanceOf[TimestampType]) {
+        new ColumnarDateTimeExpressions.ColumnarDayOfMonth(child)
+      } else {
+        new ColumnarDayOfMonth(child, d)
+      }
     case n: Not =>
       new ColumnarNot(child, n)
     case a: Abs =>
@@ -768,7 +793,34 @@ object ColumnarUnaryOperator {
       child
     case a: CheckOverflow =>
       new ColumnarCheckOverflow(child, a)
+    case a: UnixDate =>
+      new ColumnarUnixDate(child)
+    case a: UnixSeconds =>
+      new ColumnarUnixSeconds(child)
+    case a: UnixMillis =>
+      new ColumnarUnixMillis(child)
+    case a: UnixMicros =>
+      new ColumnarUnixMicros(child)
+    case a: SecondsToTimestamp =>
+      new ColumnarSecondsToTimestamp(child)
+    case a: MillisToTimestamp =>
+      new ColumnarMillisToTimestamp(child)
+    case a: MicrosToTimestamp =>
+      new ColumnarMicrosToTimestamp(child)
     case other =>
-      throw new UnsupportedOperationException(s"not currently supported: $other.")
+      if (child.dataType.isInstanceOf[TimestampType]) other match {
+        case a: Hour =>
+          new ColumnarHour(child)
+        case a: Minute =>
+          new ColumnarMinute(child)
+        case a: Second =>
+          new ColumnarSecond(child)
+        case a: DayOfYear =>
+          new ColumnarDayOfYear(child)
+        case other =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      } else {
+        throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
   }
 }

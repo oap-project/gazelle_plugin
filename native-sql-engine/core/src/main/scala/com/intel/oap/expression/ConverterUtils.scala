@@ -64,6 +64,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
 
+import org.apache.spark.sql.catalyst.util.DateTimeConstants
 import org.apache.spark.sql.catalyst.util.DateTimeConstants.MICROS_PER_SECOND
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
@@ -543,6 +544,54 @@ object ConverterUtils extends Logging {
           "convertTimestampUnit",
           Lists.newArrayList(inNode), outType), outType)
     }
+  }
+
+  def toInt32(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
+    val toType = ArrowUtils.toArrowType(IntegerType, null)
+    val toNode = TreeBuilder.makeFunction("castINT", Lists.newArrayList(inNode),
+      toType)
+    (toNode, toType)
+  }
+
+  // use this carefully
+  def toGandivaMicroUTCTimestamp(inNode: TreeNode, inType: ArrowType,
+      timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
+    val zoneId = timeZoneId.orElse(Some(SparkSchemaUtils.getLocalTimezoneID())).get
+    val utcTimestampNodeOriginal = inNode
+    val inTimestampType = asTimestampType(inType)
+    val inTimestampTypeUTC = new ArrowType.Timestamp(inTimestampType.getUnit,
+      "UTC")
+    ConverterUtils.convertTimestampToMicro(utcTimestampNodeOriginal,
+      inTimestampTypeUTC)
+  }
+
+  // use this carefully
+  def toGandivaTimestamp(inNode: TreeNode, inType: ArrowType,
+      timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
+    val zoneId = timeZoneId.orElse(Some(SparkSchemaUtils.getLocalTimezoneID())).get
+
+    val utcTimestampNodeOriginal = inNode
+    val utcTimestampNodeMilli = ConverterUtils.convertTimestampToMilli(utcTimestampNodeOriginal,
+      inType)._1
+    val utcTimestampNodeLong = TreeBuilder.makeFunction("castBIGINT",
+      Lists.newArrayList(utcTimestampNodeMilli), new ArrowType.Int(64,
+        true))
+    val diff = SparkSchemaUtils.getTimeZoneIDOffset(zoneId) *
+        DateTimeConstants.MILLIS_PER_SECOND
+
+    val localizedTimestampNodeLong = TreeBuilder.makeFunction("add",
+      Lists.newArrayList(utcTimestampNodeLong,
+        TreeBuilder.makeLiteral(java.lang.Long.valueOf(diff))),
+      new ArrowType.Int(64, true))
+    val localized = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
+    val localizedTimestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
+      Lists.newArrayList(localizedTimestampNodeLong), localized)
+    (localizedTimestampNode, localized)
+  }
+
+  def toSparkTimestamp(inNode: TreeNode, inType: ArrowType,
+      timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
+    throw new UnsupportedOperationException()
   }
 
   def powerOfTen(pow: Int): (String, Int, Int) = {
