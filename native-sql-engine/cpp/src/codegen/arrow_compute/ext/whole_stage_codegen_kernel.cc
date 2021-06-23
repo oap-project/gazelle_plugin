@@ -613,7 +613,8 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
     std::stringstream codes_ss;
     for (int i = 0; i < output_field_list.size(); i++) {
       auto data_type = output_field_list[i]->type();
-      if (data_type->id() == arrow::Type::DECIMAL) {
+      if (data_type->id() == arrow::Type::DECIMAL ||
+          data_type->id() == arrow::Type::TIMESTAMP) {
         codes_ss << "builder_" << i << "_ = std::make_shared<"
                  << GetTypeString(data_type, "Builder")
                  << ">(arrow::" << GetArrowTypeDefString(data_type)
