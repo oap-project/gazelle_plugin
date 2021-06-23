@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.travis
+package org.apache.spark.sql.nativesql
 
 import org.apache.spark.sql.{AnalysisException, Column, DataFrame, QueryTest, Row}
 
@@ -34,7 +34,7 @@ import org.apache.spark.sql.types._
 
 case class Fact(date: Int, hour: Int, minute: Int, room_name: String, temp: Double)
 
-class TravisDataFrameAggregateSuite extends QueryTest
+class NativeDataFrameAggregateSuite extends QueryTest
   with SharedSparkSession
   with AdaptiveSparkPlanHelper {
   import testImplicits._

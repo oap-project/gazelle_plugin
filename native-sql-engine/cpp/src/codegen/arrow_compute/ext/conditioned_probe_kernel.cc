@@ -1782,6 +1782,7 @@ class ConditionedProbeKernel::Impl {
     (*output)->definition_codes += prepare_ss.str();
 
     int right_index_shift = 0;
+    std::stringstream value_define_ss;
     for (auto pair : result_schema_index_list_) {
       // set result to output list
       auto output_name = "hash_relation_" + std::to_string(hash_relation_id_) +
@@ -1795,16 +1796,18 @@ class ConditionedProbeKernel::Impl {
                     std::to_string(pair.second);
         type = left_field_list_[pair.second]->type();
         if (join_type == 1) {
-          valid_ss << "auto " << output_validity << " = !" << is_outer_null_name
-                   << " && !(" << name << "_has_null && " << name << "->IsNull("
-                   << tmp_name << ".array_id, " << tmp_name << ".id));" << std::endl;
+          valid_ss << output_validity << " = !" << is_outer_null_name << " && !(" << name
+                   << "_has_null && " << name << "->IsNull(" << tmp_name << ".array_id, "
+                   << tmp_name << ".id));" << std::endl;
 
         } else {
-          valid_ss << "auto " << output_validity << " = !(" << name << "_has_null && "
-                   << name << "->IsNull(" << tmp_name << ".array_id, " << tmp_name
-                   << ".id));" << std::endl;
+          valid_ss << output_validity << " = !(" << name << "_has_null && " << name
+                   << "->IsNull(" << tmp_name << ".array_id, " << tmp_name << ".id));"
+                   << std::endl;
         }
-        valid_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
+        value_define_ss << "bool " << output_validity << ";" << std::endl;
+        value_define_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
+        (*output)->definition_codes += value_define_ss.str();
         valid_ss << "if (" << output_validity << ")" << std::endl;
         valid_ss << output_name << " = " << name << "->GetValue(" << tmp_name
                  << ".array_id, " << tmp_name << ".id);" << std::endl;

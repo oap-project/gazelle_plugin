@@ -459,7 +459,7 @@ class CountLiteralAction : public ActionBase {
 
     // prepare evaluate lambda
     *on_valid = [this](int dest_group_id) {
-      cache_[dest_group_id] += arg_;
+      cache_[dest_group_id] += 1;
       return arrow::Status::OK();
     };
 
@@ -496,7 +496,7 @@ class CountLiteralAction : public ActionBase {
     auto target_group_size = dest_group_id + 1;
     if (cache_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    cache_[dest_group_id] += arg_;
+    cache_[dest_group_id] += 1;
     return arrow::Status::OK();
   }
 
@@ -1068,20 +1068,19 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
       length_ = cache_validity_.size();
     }
 
-    in_ = in_list[0];
+    in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
-    data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
       if (!cache_validity_[dest_group_id]) {
-        cache_[dest_group_id] = data_[row_id];
+        cache_[dest_group_id] = in_->GetView(row_id);
       }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         cache_validity_[dest_group_id] = true;
-        if (data_[row_id] > cache_[dest_group_id]) {
-          cache_[dest_group_id] = data_[row_id];
+        if (in_->GetView(row_id) > cache_[dest_group_id]) {
+          cache_[dest_group_id] = in_->GetView(row_id);
         }
       }
       row_id++;
@@ -1183,11 +1182,12 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
   }
 
  private:
+  using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
   using ScalarType = typename arrow::TypeTraits<DataType>::ScalarType;
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
-  std::shared_ptr<arrow::Array> in_;
+  std::shared_ptr<ArrayType> in_;
   CType* data_;
   int row_id;
   int in_null_count_ = 0;
@@ -1602,7 +1602,10 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_[0] += typed_scalar->value;
-    if (!cache_validity_[0]) cache_validity_[0] = true;
+    // If all values are null, result for sum will be null.
+    if (!cache_validity_[0] && (in[0]->length() != in[0]->null_count())) {
+      cache_validity_[0] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -3319,6 +3322,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (cache_count_[i] == 0) {
         cache_sum_[i] = 0;
+        cache_validity_[i] = false;
       } else {
         cache_validity_[i] = true;
         cache_sum_[i] /= cache_count_[i];
@@ -3341,6 +3345,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < res_length; i++) {
       if (cache_count_[i + offset] == 0) {
         cache_sum_[i + offset] = 0;
+        cache_validity_[i] = false;
       } else {
         cache_validity_[i + offset] = true;
         cache_sum_[i + offset] /= cache_count_[i + offset];

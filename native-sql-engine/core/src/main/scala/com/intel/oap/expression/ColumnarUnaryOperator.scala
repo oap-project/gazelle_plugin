@@ -56,7 +56,6 @@ class ColumnarIsNotNull(child: Expression, original: Expression)
       FloatType,
       DoubleType,
       DateType,
-      TimestampType,
       BooleanType,
       StringType,
       BinaryType)

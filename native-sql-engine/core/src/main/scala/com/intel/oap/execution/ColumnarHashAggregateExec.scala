@@ -55,6 +55,7 @@ import org.apache.spark.unsafe.KVIterator
 import scala.collection.JavaConverters._
 
 import scala.collection.Iterator
+import scala.util.control.Breaks._
 
 /**
  * Columnar Based HashAggregateExec.
@@ -147,10 +148,13 @@ case class ColumnarHashAggregateExec(
       // now we can return this wholestagecodegen iter
       val res = new Iterator[ColumnarBatch] {
         var processed = false
-        /** Three special cases need to be handled in scala side:
-         * (1) count_literal (2) only result expressions (3) empty input
+        /** Special cases need to be handled in scala side:
+         * (1) aggregate literal (2) only result expressions
+         * (3) empty input (4) grouping literal
          */
+        var skip_count = false
         var skip_native = false
+        var skip_grouping = false
         var onlyResExpr = false
         var emptyInput = false
         var count_num_row = 0
@@ -161,17 +165,36 @@ case class ColumnarHashAggregateExec(
             if (cb.numRows != 0) {
               numRowsInput += cb.numRows
               val beforeEval = System.nanoTime()
-              if (hash_aggr_input_schema.getFields.size == 0 &&
-                  aggregateExpressions.nonEmpty &&
-                  aggregateExpressions.head.aggregateFunction.isInstanceOf[Count]) {
-                // This is a special case used by only do count literal
-                count_num_row += cb.numRows
-                skip_native = true
-              } else {
+              if (hash_aggr_input_schema.getFields.size != 0) {
                 val input_rb =
                   ConverterUtils.createArrowRecordBatch(cb)
                 nativeIterator.processAndCacheOne(hash_aggr_input_schema, input_rb)
                 ConverterUtils.releaseArrowRecordBatch(input_rb)
+              } else {
+                // Special case for no input batch
+                if (aggregateExpressions.nonEmpty) {
+                  if (aggregateExpressions.head
+                    .aggregateFunction.children.head.isInstanceOf[Literal]) {
+                    // This is a special case used by literal aggregation
+                    skip_native = true
+                    breakable{
+                      for (exp <- aggregateExpressions) {
+                        if (exp.aggregateFunction.isInstanceOf[Count]) {
+                          skip_count = true
+                          count_num_row += cb.numRows
+                          break
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  // This is a special case used by grouping literal
+                  if (groupingExpressions.nonEmpty &&
+                    groupingExpressions.head.children.head.isInstanceOf[Literal]) {
+                    skip_grouping = true
+                    skip_native = true
+                  }
+                }
               }
               eval_elapse += System.nanoTime() - beforeEval
             }
@@ -181,8 +204,10 @@ case class ColumnarHashAggregateExec(
         override def hasNext: Boolean = {
           hasNextCount += 1
           if (!processed) process
-          if (skip_native) {
+          if (skip_count) {
             count_num_row > 0
+          } else if (skip_native) {
+            hasNextCount == 1
           } else if (onlyResultExpressions && hasNextCount == 1) {
             onlyResExpr = true
             true
@@ -198,9 +223,12 @@ case class ColumnarHashAggregateExec(
         override def next(): ColumnarBatch = {
           if (!processed) process
           val beforeEval = System.nanoTime()
-          if (skip_native) {
-            // special handling for only count literal in this operator
-            getResForCountLiteral
+          if (skip_grouping) {
+            // special handling for literal grouping
+            getResForGroupingLiteral
+          } else if (skip_native) {
+            // special handling for literal aggregation
+            getResForAggregateLiteral
           } else if (onlyResExpr) {
             // special handling for only result expressions
             getResForOnlyResExpr
@@ -225,44 +253,119 @@ case class ColumnarHashAggregateExec(
             new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]), outputNumRows)
           }
         }
-        def getResForCountLiteral: ColumnarBatch = {
+        def putDataIntoVector(vectors: Array[ArrowWritableColumnVector],
+                              res: Any, idx: Int): Unit = {
+          if (res == null) {
+            vectors(idx).putNull(0)
+          } else {
+            vectors(idx).dataType match {
+              case t: IntegerType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].intValue)
+              case t: LongType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].longValue)
+              case t: DoubleType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].doubleValue())
+              case t: FloatType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].floatValue())
+              case t: ByteType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].byteValue())
+              case t: ShortType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].shortValue())
+              case t: StringType =>
+                val values = (res :: Nil).map(_.toString).map(_.toByte).toArray
+                vectors(idx).putBytes(0, 1, values, 0)
+              case t: BooleanType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Boolean].booleanValue())
+              case other =>
+                throw new UnsupportedOperationException(s"$other is not supported.")
+            }
+          }
+        }
+        def getResForAggregateLiteral: ColumnarBatch = {
           val resultColumnVectors =
             ArrowWritableColumnVector.allocateColumns(0, resultStructType)
-          if (count_num_row == 0) {
-            new ColumnarBatch(
-              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
-          } else {
-            val out_res = count_num_row
-            count_num_row = 0
-            for (idx <- resultColumnVectors.indices) {
-              resultColumnVectors(idx).dataType match {
-                case t: IntegerType =>
-                  resultColumnVectors(idx)
-                    .put(0, out_res.asInstanceOf[Number].intValue)
-                case t: LongType =>
-                  resultColumnVectors(idx)
-                    .put(0, out_res.asInstanceOf[Number].longValue)
-                case t: DoubleType =>
-                  resultColumnVectors(idx)
-                    .put(0, out_res.asInstanceOf[Number].doubleValue())
-                case t: FloatType =>
-                  resultColumnVectors(idx)
-                    .put(0, out_res.asInstanceOf[Number].floatValue())
-                case t: ByteType =>
-                  resultColumnVectors(idx)
-                    .put(0, out_res.asInstanceOf[Number].byteValue())
-                case t: ShortType =>
-                  resultColumnVectors(idx)
-                    .put(0, out_res.asInstanceOf[Number].shortValue())
-                case t: StringType =>
-                  val values = (out_res :: Nil).map(_.toByte).toArray
-                  resultColumnVectors(idx)
-                    .putBytes(0, 1, values, 0)
-              }
+          var idx = 0
+          for (exp <- aggregateExpressions) {
+            val mode = exp.mode
+            val aggregateFunc = exp.aggregateFunction
+            val out_res = aggregateFunc.children.head.asInstanceOf[Literal].value
+            aggregateFunc match {
+              case Sum(_) =>
+                mode match {
+                  case Partial | PartialMerge =>
+                    val sum = aggregateFunc.asInstanceOf[Sum]
+                    val aggBufferAttr = sum.inputAggBufferAttributes
+                    // decimal sum check sum.resultType
+                    if (aggBufferAttr.size == 2) {
+                      putDataIntoVector(resultColumnVectors, out_res, idx) // sum
+                      idx += 1
+                      putDataIntoVector(resultColumnVectors, false, idx) // isEmpty
+                      idx += 1
+                    } else {
+                      putDataIntoVector(resultColumnVectors, out_res, idx)
+                      idx += 1
+                    }
+                  case Final =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                }
+              case Average(_) =>
+                mode match {
+                  case Partial | PartialMerge =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx) // sum
+                    idx += 1
+                    if (out_res == null) {
+                      putDataIntoVector(resultColumnVectors, 0, idx) // count
+                    } else {
+                      putDataIntoVector(resultColumnVectors, 1, idx) // count
+                    }
+                    idx += 1
+                  case Final =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                }
+              case Count(_) =>
+                putDataIntoVector(resultColumnVectors, count_num_row, idx)
+                idx += 1
+              case Max(_) | Min(_) =>
+                putDataIntoVector(resultColumnVectors, out_res, idx)
+                idx += 1
+              case StddevSamp(_, _) =>
+                mode match {
+                  case Partial =>
+                    putDataIntoVector(resultColumnVectors, 1, idx) // n
+                    idx += 1
+                    putDataIntoVector(resultColumnVectors, out_res, idx) // avg
+                    idx += 1
+                    putDataIntoVector(resultColumnVectors, 0, idx) // m2
+                    idx += 1
+                  case Final =>
+                    putDataIntoVector(resultColumnVectors, Double.NaN, idx)
+                    idx += 1
+                }
             }
-            new ColumnarBatch(
-              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
           }
+          count_num_row = 0
+          new ColumnarBatch(
+            resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
+        }
+        def getResForGroupingLiteral: ColumnarBatch = {
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          for (idx <- groupingExpressions.indices) {
+            val out_res =
+              groupingExpressions(idx).children.head.asInstanceOf[Literal].value
+            putDataIntoVector(resultColumnVectors, out_res, idx)
+          }
+          new ColumnarBatch(
+            resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
         }
         def getResForOnlyResExpr: ColumnarBatch = {
           // This function has limited support for only-result-expression case.
@@ -388,26 +491,29 @@ case class ColumnarHashAggregateExec(
     var res_index = 0
     for (expIdx <- aggregateExpressions.indices) {
       val exp: AggregateExpression = aggregateExpressions(expIdx)
+      if (exp.filter.isDefined) {
+        throw new UnsupportedOperationException(
+          "filter is not supported in AggregateExpression")
+      }
       val mode = exp.mode
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {
         case Average(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType)
-          mode match {
-            case Partial => {
-              val avg = aggregateFunc.asInstanceOf[Average]
-              val aggBufferAttr = avg.inputAggBufferAttributes
-              for (index <- aggBufferAttr.indices) {
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
-                if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                    !attr.dataType.isInstanceOf[DecimalType]) {
-                  throw new UnsupportedOperationException(
-                    s"${attr.dataType} is not supported in Columnar Average")
-                }
-              }
-              res_index += 2
+          val avg = aggregateFunc.asInstanceOf[Average]
+          val aggBufferAttr = avg.inputAggBufferAttributes
+          for (index <- aggBufferAttr.indices) {
+            val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+            if (supportedTypes.indexOf(attr.dataType) == -1 &&
+              !attr.dataType.isInstanceOf[DecimalType]) {
+              throw new UnsupportedOperationException(
+                s"${attr.dataType} is not supported in Columnar Average")
             }
+          }
+          mode match {
+            case Partial =>
+              res_index += 2
             case PartialMerge => res_index += 1
             case Final => res_index += 1
             case other =>
@@ -417,29 +523,22 @@ case class ColumnarHashAggregateExec(
         case Sum(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType)
+          val sum = aggregateFunc.asInstanceOf[Sum]
+          val aggBufferAttr = sum.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Sum")
+          }
           mode match {
-            case Partial | PartialMerge => {
-              val sum = aggregateFunc.asInstanceOf[Sum]
-              val aggBufferAttr = sum.inputAggBufferAttributes
+            case Partial | PartialMerge =>
               if (aggBufferAttr.size == 2) {
                 // decimal sum check sum.resultType
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-                if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                    !attr.dataType.isInstanceOf[DecimalType]) {
-                  throw new UnsupportedOperationException(
-                    s"${attr.dataType} is not supported in Columnar Sum")
-                }
                 res_index += 2
               } else {
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-                if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                  !attr.dataType.isInstanceOf[DecimalType]) {
-                  throw new UnsupportedOperationException(
-                    s"${attr.dataType} is not supported in Columnar Sum")
-                }
                 res_index += 1
               }
-            }
             case Final => res_index += 1
             case other =>
               throw new UnsupportedOperationException(
@@ -447,55 +546,60 @@ case class ColumnarHashAggregateExec(
           }
         case Count(_) =>
           mode match {
-            case Partial | PartialMerge | Final => {
+            case Partial | PartialMerge | Final =>
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar Count")
           }
         case Max(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
-            FloatType, DoubleType, DateType, BooleanType, StringType)
+            FloatType, DoubleType, BooleanType, StringType)
+          val max = aggregateFunc.asInstanceOf[Max]
+          val aggBufferAttr = max.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Max")
+          }
+          // In native side, DateType is not supported in Max without grouping
+          if (groupingExpressions.isEmpty && attr.dataType == DateType) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Max without grouping")
+          }
           mode match {
-            case Partial => {
-              val max = aggregateFunc.asInstanceOf[Max]
-              val aggBufferAttr = max.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-              if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                !attr.dataType.isInstanceOf[DecimalType]) {
-                throw new UnsupportedOperationException(
-                  s"${attr.dataType} is not supported in Columnar Max")
-              }
+            case Partial | PartialMerge | Final =>
               res_index += 1
-            }
-            case PartialMerge | Final => res_index += 1
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Min(_) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType, StringType)
+          val min = aggregateFunc.asInstanceOf[Min]
+          val aggBufferAttr = min.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Min")
+          }
+          // DateType is not supported in Min without grouping
+          if (groupingExpressions.isEmpty && attr.dataType == DateType) {
+            throw new UnsupportedOperationException(
+              s"${attr.dataType} is not supported in Columnar Min without grouping")
+          }
           mode match {
-            case Partial => {
-              val min = aggregateFunc.asInstanceOf[Min]
-              val aggBufferAttr = min.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-              if (supportedTypes.indexOf(attr.dataType) == -1 &&
-                !attr.dataType.isInstanceOf[DecimalType]) {
-                throw new UnsupportedOperationException(
-                  s"${attr.dataType} is not supported in Columnar Min")
-              }
+            case Partial | PartialMerge | Final =>
               res_index += 1
-            }
-            case PartialMerge | Final => res_index += 1
             case other =>
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar Min")
           }
-        case StddevSamp(_,_) =>
+        case StddevSamp(_, _) =>
           mode match {
-            case Partial => {
+            case Partial =>
               val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
                 FloatType, DoubleType, BooleanType)
               val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
@@ -509,8 +613,7 @@ case class ColumnarHashAggregateExec(
                 }
               }
               res_index += 3
-            }
-            case Final => {
+            case Final =>
               val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
                 FloatType, DoubleType)
               val attr = aggregateAttributeList(res_index)
@@ -519,7 +622,6 @@ case class ColumnarHashAggregateExec(
                   s"${attr.dataType} is not supported in Columnar StddevSampFinal")
               }
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar StddevSamp")

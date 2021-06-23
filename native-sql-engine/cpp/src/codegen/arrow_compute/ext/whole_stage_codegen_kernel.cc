@@ -533,9 +533,11 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
              << std::endl;
 
     codes_ss << define_ss.str();
-    for (auto codegen_ctx : codegen_ctx_list) {
-      codes_ss << codegen_ctx->definition_codes << std::endl;
+    std::vector<std::string> unique_defines = GetUniqueDefineCodes(codegen_ctx_list);
+    for (auto definition : unique_defines) {
+      codes_ss << definition << std::endl;
     }
+
     if (!is_aggr_) codes_ss << GetBuilderDefinitionCodes(output_field_list) << std::endl;
     for (auto codegen_ctx : codegen_ctx_list) {
       for (auto func_codes : codegen_ctx->function_list) {
@@ -635,6 +637,28 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
                << "> builder_" << i << "_;" << std::endl;
     }
     return codes_ss.str();
+  }
+
+  // This function is used to find the unique definitions,
+  // by dividing the definition_codes with line breaks.
+  std::vector<std::string> GetUniqueDefineCodes(
+      const std::vector<std::shared_ptr<CodeGenContext>>& codegen_ctx_list) {
+    std::vector<std::string> unique_defines;
+    std::string delimiter = "\n";
+    for (auto codegen_ctx : codegen_ctx_list) {
+      std::string define_codes = codegen_ctx->definition_codes;
+      int pos = 0;
+      std::string definition;
+      while ((pos = define_codes.find(delimiter)) != std::string::npos) {
+        definition = define_codes.substr(0, pos) + delimiter;
+        if (std::find(unique_defines.begin(), unique_defines.end(), definition) ==
+            unique_defines.end()) {
+          unique_defines.push_back(definition);
+        }
+        define_codes.erase(0, pos + delimiter.length());
+      }
+    }
+    return unique_defines;
   }
 };
 

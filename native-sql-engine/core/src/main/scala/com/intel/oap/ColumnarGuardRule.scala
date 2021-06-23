@@ -75,7 +75,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
         case plan: InMemoryTableScanExec =>
           new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
         case plan: ProjectExec =>
-          if(!enableColumnarProjFilter) return false
+          if (!enableColumnarProjFilter) return false
           new ColumnarConditionProjectExec(null, plan.projectList, plan.child)
         case plan: FilterExec =>
           if (!enableColumnarProjFilter) return false

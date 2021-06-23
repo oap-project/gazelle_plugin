@@ -156,6 +156,63 @@ TEST(TestArrowCompute, AggregateTest) {
   }
 }
 
+TEST(TestArrowCompute, AggregateAllNullTest) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", int32());
+
+  auto arg_0 = TreeExprBuilder::MakeField(f0);
+
+  auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg_0}, int64());
+
+  auto f_sum = field("sum", int64());
+  auto f_res = field("res", int32());
+
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg_0}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions", {n_sum}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema", {TreeExprBuilder::MakeField(f_sum)}, uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions", {TreeExprBuilder::MakeField(f_sum)}, uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+  auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
+
+  auto sch = arrow::schema({f0});
+  std::vector<std::shared_ptr<Field>> ret_types = {f_sum};
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<CodeGenerator> expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {aggr_expr}, ret_types, &expr, true));
+
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+  std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
+  ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
+  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      aggr_result_iterator_base);
+
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::string> input_data_string = {
+      "[null, null, null, null, null, null, null, null, null, null, null, null]"};
+  MakeInputBatch(input_data_string, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  std::vector<std::string> input_data_2_string = {
+      "[null, null, null, null, null, null, null, null, null, null, null, null]"};
+  MakeInputBatch(input_data_2_string, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  std::vector<std::string> expected_result_string = {"[null]"};
+  auto res_sch = arrow::schema(ret_types);
+  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  if (aggr_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 TEST(TestArrowCompute, GroupByAggregateTest) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", int64());
@@ -275,6 +332,76 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
       "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 1.41421, 8.52779, 6.23633, "
       "5.58903, "
       "12.535, 24.3544]"};
+  auto res_sch = arrow::schema(ret_types);
+  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  if (aggr_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
+TEST(TestArrowCompute, GroupByMaxForBoolTest) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", int64());
+  auto f1 = field("f1", boolean());
+
+  auto f_unique = field("unique", int64());
+  auto f_max = field("max", boolean());
+  auto f_res = field("res", uint32());
+
+  auto arg0 = TreeExprBuilder::MakeField(f0);
+  auto arg1 = TreeExprBuilder::MakeField(f1);
+
+  auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
+  auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg1}, uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1}, uint32());
+  auto n_action =
+      TreeExprBuilder::MakeFunction("aggregateActions", {n_groupby, n_max}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_max)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_max)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+  auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
+
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
+
+  auto sch = arrow::schema({f0, f1});
+  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_max};
+
+  /////////////////////// Create Expression Evaluator ////////////////////
+  std::shared_ptr<CodeGenerator> expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
+
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+  std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
+  ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
+  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      aggr_result_iterator_base);
+
+  ////////////////////// calculation /////////////////////
+  std::vector<std::string> input_data = {
+      "[1, 1, 2, 3, 3, 4, 4, 5, 5, 5]",
+      "[true, false, true, false, null, null, null, null, true, false]"};
+  MakeInputBatch(input_data, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  ////////////////////// Finish //////////////////////////
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {"[1, 2, 3, 4, 5]",
+                                                     "[true, true, false, null, true]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
