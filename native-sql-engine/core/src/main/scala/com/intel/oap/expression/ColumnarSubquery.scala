@@ -40,6 +40,7 @@ class ColumnarScalarSubquery(
   extends Expression with ColumnarExpression {
 
   override def dataType: DataType = query.dataType
+  buildCheck()
   override def children: Seq[Expression] = Nil
   override def nullable: Boolean = true
   override def toString: String = query.toString
@@ -94,7 +95,8 @@ class ColumnarScalarSubquery(
             (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
             val origIntNode = TreeBuilder.makeLiteral(value.asInstanceOf[Integer])
-            val dateNode = TreeBuilder.makeFunction("castDATE", Lists.newArrayList(origIntNode), new ArrowType.Date(DateUnit.DAY))
+            val dateNode = TreeBuilder.makeFunction("castDATE",
+              Lists.newArrayList(origIntNode), new ArrowType.Date(DateUnit.DAY))
             (dateNode, new ArrowType.Date(DateUnit.DAY))
         }
       case b: BooleanType =>
@@ -104,6 +106,15 @@ class ColumnarScalarSubquery(
           case _ =>
             (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Boolean]), resultType)
         }
+    }
+  }
+  def buildCheck(): Unit = {
+    val supportedTypes =
+      List(StringType, IntegerType, LongType, DoubleType, DateType, BooleanType)
+    if (supportedTypes.indexOf(dataType) == -1 &&
+        !dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"$dataType is not supported in ColumnarScalarSubquery")
     }
   }
 }

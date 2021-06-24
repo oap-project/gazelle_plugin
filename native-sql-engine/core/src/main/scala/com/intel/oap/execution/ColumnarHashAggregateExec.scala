@@ -509,7 +509,7 @@ case class ColumnarHashAggregateExec(
           for (index <- aggBufferAttr.indices) {
             val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
             if (supportedTypes.indexOf(attr.dataType) == -1 &&
-              !attr.dataType.isInstanceOf[DecimalType]) {
+                !attr.dataType.isInstanceOf[DecimalType]) {
               throw new UnsupportedOperationException(
                 s"${attr.dataType} is not supported in Columnar Average")
             }
@@ -530,7 +530,7 @@ case class ColumnarHashAggregateExec(
           val aggBufferAttr = sum.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
           if (supportedTypes.indexOf(attr.dataType) == -1 &&
-            !attr.dataType.isInstanceOf[DecimalType]) {
+              !attr.dataType.isInstanceOf[DecimalType]) {
             throw new UnsupportedOperationException(
               s"${attr.dataType} is not supported in Columnar Sum")
           }
@@ -584,7 +584,7 @@ case class ColumnarHashAggregateExec(
           val aggBufferAttr = min.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
           if (supportedTypes.indexOf(attr.dataType) == -1 &&
-            !attr.dataType.isInstanceOf[DecimalType]) {
+              !attr.dataType.isInstanceOf[DecimalType]) {
             throw new UnsupportedOperationException(
               s"${attr.dataType} is not supported in Columnar Min")
           }
