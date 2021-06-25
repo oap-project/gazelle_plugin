@@ -67,15 +67,12 @@ class ColumnarConditionProjector(
   var elapseTime_make: Long = 0
   val start_make: Long = System.nanoTime()
   var selectionBuffer: ArrowBuf = _
-  val skip_project: Boolean =
-    if (projectFieldList.size == 0 && (projPrepareList == null || projPrepareList.isEmpty)) {
-      true
-    } else false
-
-  val skip_filter: Boolean = if (conditionFieldList.size == 0 && condPrepareList == null) {
-    true
-  } else false
-  skip = skip_project && skip_filter
+  if (projectFieldList.size == 0 && (projPrepareList == null || projPrepareList.isEmpty) &&
+      conditionFieldList.size == 0) {
+    skip = true
+  } else {
+    skip = false
+  }
 
   val conditionOrdinalList: List[Int] = conditionFieldList.asScala.toList.map(field => {
     field.getName.replace("c_", "").toInt
@@ -116,7 +113,7 @@ class ColumnarConditionProjector(
         s"\nresult schema is ${resultArrowSchema}")
   }
 
-  val conditioner: Filter = if (!skip_filter) {
+  val conditioner: Filter = if (!skip && condPrepareList != null) {
     createFilter(conditionArrowSchema, condPrepareList)
   } else {
     null
@@ -126,7 +123,7 @@ class ColumnarConditionProjector(
   } else {
     false
   }
-  val projector: ProjectorWrapper = if (!skip_project) {
+  val projector: ProjectorWrapper = if (!skip) {
     createProjector(projectionArrowSchema, resultArrowSchema, projPrepareList, withCond)
   } else {
     null
@@ -209,7 +206,6 @@ class ColumnarConditionProjector(
         var input: ArrowRecordBatch = null
         var selectionVector: SelectionVectorInt16 = null
         while (numRows == 0) {
-
           if (cbIterator.hasNext) {
             columnarBatch = cbIterator.next()
             numInputBatches += 1
@@ -258,7 +254,9 @@ class ColumnarConditionProjector(
               conditioner.evaluate(input, selectionVector)
               ConverterUtils.releaseArrowRecordBatch(input)
               numRows = selectionVector.getRecordCount
-              if (skip_project) {
+              // If project should be skipped
+              if (projectFieldList.size == 0 &&
+                  (projPrepareList == null || projPrepareList.isEmpty)) {
                 if (numRows == columnarBatch.numRows()) {
                   // This means filter can also be skipped because row number is not changed.
                   logInfo(
@@ -313,7 +311,7 @@ class ColumnarConditionProjector(
         val outputBatch = if (conditioner != null) {
           projector.evaluate(input, numRows, selectionVector)
         } else {
-          projector.evaluate(input);
+          projector.evaluate(input)
         }
 
         ConverterUtils.releaseArrowRecordBatch(input)
