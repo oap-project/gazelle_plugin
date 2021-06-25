@@ -88,12 +88,15 @@ class ProjectKernel::Impl {
           "project_" + std::to_string(level) + "_output_col_" + std::to_string(idx++);
       auto output_validity = output_name + "_validity";
       std::stringstream output_get_ss;
-      output_get_ss << "auto " << output_name << " = " << name << ";" << std::endl;
-      output_get_ss << "auto " << output_validity << " = " << validity << ";"
-                    << std::endl;
-
+      output_get_ss << output_name << " = " << name << ";" << std::endl;
+      output_get_ss << output_validity << " = " << validity << ";" << std::endl;
       codegen_ctx->output_list.push_back(std::make_pair(
           std::make_pair(output_name, output_get_ss.str()), project->return_type()));
+      std::stringstream value_define_ss;
+      value_define_ss << "bool " << output_validity << ";" << std::endl;
+      value_define_ss << project_node_visitor->GetResType() << " " << output_name << ";"
+                      << std::endl;
+      codegen_ctx->definition_codes += value_define_ss.str();
       for (auto header : project_node_visitor->GetHeaders()) {
         if (std::find(codegen_ctx->header_codes.begin(), codegen_ctx->header_codes.end(),
                       header) == codegen_ctx->header_codes.end()) {

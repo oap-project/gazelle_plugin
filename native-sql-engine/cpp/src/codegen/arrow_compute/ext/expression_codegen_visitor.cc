@@ -36,12 +36,14 @@ std::string ExpressionCodegenVisitor::GetPreCheck() { return check_str_; }
 // avoid the affect of previous validity check.
 std::string ExpressionCodegenVisitor::GetRealResult() { return real_codes_str_; }
 std::string ExpressionCodegenVisitor::GetRealValidity() { return real_validity_str_; }
+std::string ExpressionCodegenVisitor::GetResType() { return res_type_str_; }
 std::vector<std::string> ExpressionCodegenVisitor::GetHeaders() { return header_list_; }
 ExpressionCodegenVisitor::FieldType ExpressionCodegenVisitor::GetFieldType() {
   return field_type_;
 }
 
 arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   auto func_name = node.descriptor()->name();
   auto input_list = input_list_;
 
@@ -890,6 +892,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
 }
 
 arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   auto cur_func_id = *func_count_;
   auto this_field = node.field();
   std::stringstream prepare_ss;
@@ -1017,6 +1020,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FieldNode& node) {
 }
 
 arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   std::stringstream prepare_ss;
   auto cur_func_id = *func_count_;
 
@@ -1071,6 +1075,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::IfNode& node) {
 }
 
 arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   auto cur_func_id = *func_count_;
   std::stringstream codes_ss;
   if (node.return_type()->id() == arrow::Type::STRING) {
@@ -1094,6 +1099,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::LiteralNode& node) 
 }
 
 arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   std::vector<std::shared_ptr<ExpressionCodegenVisitor>> child_visitor_list;
   auto cur_func_id = *func_count_;
   for (auto child : node.children()) {
@@ -1140,6 +1146,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::BooleanNode& node) 
 
 arrow::Status ExpressionCodegenVisitor::Visit(
     const gandiva::InExpressionNode<int>& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   auto cur_func_id = *func_count_;
   std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
   *func_count_ = *func_count_ + 1;
@@ -1188,6 +1195,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
 
 arrow::Status ExpressionCodegenVisitor::Visit(
     const gandiva::InExpressionNode<long int>& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   auto cur_func_id = *func_count_;
   std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
   *func_count_ = *func_count_ + 1;
@@ -1236,6 +1244,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(
 
 arrow::Status ExpressionCodegenVisitor::Visit(
     const gandiva::InExpressionNode<std::string>& node) {
+  res_type_str_ = GetCTypeString(node.return_type());
   auto cur_func_id = *func_count_;
   std::shared_ptr<ExpressionCodegenVisitor> child_visitor;
   *func_count_ = *func_count_ + 1;

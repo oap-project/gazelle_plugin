@@ -165,8 +165,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
 
     /** segfault, compilation error and exception */
 
-    "subquery/in-subquery/not-in-joins.sql",
-    "subquery/in-subquery/in-order-by.sql",
     "group-by.sql", // IndexOutOfBoundsException
     "group-by-ordinal.sql",
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
