@@ -287,9 +287,9 @@ class ColumnarConditionProjector(
                     // This projector is used to do filtering only.
                     val filteProjector = createProjector(
                       resultArrowSchema, resultArrowSchema, filterPrepareList, withCond)
-                    val outputBatch = filteProjector.evaluate(
-                      ConverterUtils.createArrowRecordBatch(columnarBatch),
-                      numRows, selectionVector)
+                    val cb = ConverterUtils.createArrowRecordBatch(columnarBatch)
+                    val outputBatch = filteProjector.evaluate(cb, numRows, selectionVector)
+                    ConverterUtils.releaseArrowRecordBatch(cb)
                     resColumnarBatch = outputBatch
                   }
                 }

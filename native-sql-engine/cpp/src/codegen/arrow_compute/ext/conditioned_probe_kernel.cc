@@ -897,7 +897,8 @@ class ConditionedProbeKernel::Impl {
      * If this config is false, there are three cases:
       (1) If key from stream side contains null, this row will be joined;
       (2) Else if the key from stream side cannot be found in build side, this row will be
-    joined; (3) Else the key from stream side does not statisfy the condition, this row
+    joined;
+      (3) Else the key from stream side does not statisfy the condition, this row
     will be joined.
     */
 
