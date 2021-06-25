@@ -734,4 +734,53 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
           Row(Integer.valueOf(2))))
     }
   }
+
+  test("datetime function - to_date") {
+    withTempView("dates") {
+
+      val dates = Seq("2009-07-30 04:17:52", "2009-07-31 04:20:52", "2009-08-01 03:15:12")
+          .map(s => Tuple1(s)).toDF("time")
+      dates.createOrReplaceTempView("dates")
+
+      val frame = sql("SELECT to_date(time) FROM dates")
+      frame.explain()
+      frame.show()
+      assert(frame.queryExecution.executedPlan.find(p => p
+          .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+    }
+  }
+
+  ignore("datetime function - to_date with format") { // todo GetTimestamp IS PRIVATE ?
+    withTempView("dates") {
+
+      val dates = Seq("2009-07-30", "2009-07-31", "2009-08-01")
+          .map(s => Tuple1(s)).toDF("time")
+      dates.createOrReplaceTempView("dates")
+
+      val frame = sql("SELECT to_date(time, 'yyyy-MM-dd') FROM dates")
+      frame.explain()
+      frame.show()
+      assert(frame.queryExecution.executedPlan.find(p => p
+          .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+    }
+  }
+
+  test("datetime function - unix_timestamp") {
+    withTempView("dates") {
+      val dates = Seq("2009-07-30", "2009-07-31", "2009-08-01")
+          .map(s => Tuple1(s)).toDF("time")
+      dates.createOrReplaceTempView("dates")
+
+      val frame = sql("SELECT unix_timestamp(time, 'yyyy-MM-dd') FROM dates")
+      frame.explain()
+      frame.show()
+      assert(frame.queryExecution.executedPlan.find(p => p
+          .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+      checkAnswer(
+        frame,
+        Seq(Row(java.lang.Long.valueOf(1248912000000L)),
+          Row(java.lang.Long.valueOf(1248998400000L)),
+          Row(java.lang.Long.valueOf(1249084800000L))))
+    }
+  }
 }

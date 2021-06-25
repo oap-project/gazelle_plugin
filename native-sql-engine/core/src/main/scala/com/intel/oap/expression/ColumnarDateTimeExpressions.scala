@@ -24,6 +24,7 @@ import com.intel.oap.expression.ColumnarDateTimeExpressions.castDateFromTimestam
 import com.intel.oap.expression.ColumnarDateTimeExpressions.unimplemented
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.gandiva.expression.TreeNode
+import org.apache.arrow.vector.types.DateUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
 
 import org.apache.spark.sql.catalyst.expressions.CheckOverflow
@@ -48,6 +49,7 @@ import org.apache.spark.sql.catalyst.expressions.UnixDate
 import org.apache.spark.sql.catalyst.expressions.UnixMicros
 import org.apache.spark.sql.catalyst.expressions.UnixMillis
 import org.apache.spark.sql.catalyst.expressions.UnixSeconds
+import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
 import org.apache.spark.sql.catalyst.expressions.Year
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.DateType
@@ -273,6 +275,21 @@ object ColumnarDateTimeExpressions {
       val outType = CodeGeneration.getResultType(dataType)
       val funcNode = TreeBuilder.makeFunction(
         "micros_to_timestamp", Lists.newArrayList(childNode), outType)
+      (funcNode, outType)
+    }
+  }
+
+  class ColumnarUnixTimestamp(left: Expression, right: Expression)
+      extends UnixTimestamp(left, right) with
+      ColumnarExpression {
+    override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+      val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val intermediate = new ArrowType.Date(DateUnit.MILLISECOND)
+      val outType = CodeGeneration.getResultType(dataType)
+      val funcNode = TreeBuilder.makeFunction("castBIGINT",
+        Lists.newArrayList(TreeBuilder.makeFunction(
+        "to_date", Lists.newArrayList(leftNode, rightNode), intermediate)), outType)
       (funcNode, outType)
     }
   }

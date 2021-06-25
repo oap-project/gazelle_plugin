@@ -46,6 +46,7 @@ import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixDate
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMicros
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMillis
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixSeconds
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import org.apache.arrow.vector.types.TimeUnit
 
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
@@ -455,7 +456,7 @@ class ColumnarCast(
           s"${child.dataType} is not supported in castFLOAT8")
       }
     } else if (dataType == DateType) {
-      val supported = List(IntegerType, LongType, DateType, TimestampType)
+      val supported = List(IntegerType, LongType, DateType, TimestampType, StringType)
       if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castDATE")
       }
@@ -587,6 +588,11 @@ class ColumnarCast(
           val localizedDateNode = TreeBuilder.makeFunction("castDATE",
             Lists.newArrayList(localizedTimestampNode), toType)
           localizedDateNode
+        case s: StringType =>
+          val intermediate = new ArrowType.Date(DateUnit.MILLISECOND)
+          TreeBuilder.makeFunction("castDATE", Lists
+              .newArrayList(TreeBuilder.makeFunction("castDATE", Lists
+                  .newArrayList(child_node0), intermediate)), toType)
         case other => TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node0),
           toType)
       }
