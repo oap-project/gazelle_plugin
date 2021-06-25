@@ -31,6 +31,7 @@ import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
 import org.apache.spark.sql.catalyst.expressions.DateDiff
 import org.apache.spark.sql.catalyst.expressions.DayOfMonth
+import org.apache.spark.sql.catalyst.expressions.DayOfWeek
 import org.apache.spark.sql.catalyst.expressions.DayOfYear
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.expressions.Hour
@@ -147,6 +148,19 @@ object ColumnarDateTimeExpressions {
       val outType = ArrowUtils.toArrowType(LongType, null)
       val funcNode = TreeBuilder.makeFunction(
         "extractDoy", Lists.newArrayList(childNode), outType)
+      ConverterUtils.toInt32(funcNode, outType)
+    }
+  }
+
+  class ColumnarDayOfWeek(child: Expression) extends DayOfWeek(child) with
+      ColumnarExpression {
+    override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+      val (childNodeUtc, childTypeUtc) =
+        child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val (childNode, childType) = ConverterUtils.toGandivaTimestamp(childNodeUtc, childTypeUtc)
+      val outType = ArrowUtils.toArrowType(LongType, null)
+      val funcNode = TreeBuilder.makeFunction(
+        "extractDow", Lists.newArrayList(childNode), outType)
       ConverterUtils.toInt32(funcNode, outType)
     }
   }

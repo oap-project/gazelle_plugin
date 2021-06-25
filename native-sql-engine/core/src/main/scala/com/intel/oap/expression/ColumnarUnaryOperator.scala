@@ -33,6 +33,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfMonth
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfWeek
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfYear
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarHour
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarHour
@@ -808,19 +809,25 @@ object ColumnarUnaryOperator {
     case a: MicrosToTimestamp =>
       new ColumnarMicrosToTimestamp(child)
     case other =>
-      if (child.dataType.isInstanceOf[TimestampType]) other match {
-        case a: Hour =>
-          new ColumnarHour(child)
-        case a: Minute =>
-          new ColumnarMinute(child)
-        case a: Second =>
-          new ColumnarSecond(child)
-        case a: DayOfYear =>
-          new ColumnarDayOfYear(child)
-        case other =>
+      child.dataType match {
+        case _: DateType => other match {
+          case a: DayOfYear =>
+            new ColumnarDayOfYear(new ColumnarCast(child, TimestampType, None, null))
+          case a: DayOfWeek =>
+            new ColumnarDayOfWeek(new ColumnarCast(child, TimestampType, None, null))
+        }
+        case _: TimestampType => other match {
+          case a: Hour =>
+            new ColumnarHour(child)
+          case a: Minute =>
+            new ColumnarMinute(child)
+          case a: Second =>
+            new ColumnarSecond(child)
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
+        }
+        case _ =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
-      } else {
-        throw new UnsupportedOperationException(s"not currently supported: $other.")
       }
   }
 }

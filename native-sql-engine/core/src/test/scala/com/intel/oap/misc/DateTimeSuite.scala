@@ -468,8 +468,29 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  // FIXME this is falling back. Requiring date input support
-  ignore("datetime function - dayofyear") {
+  test("datetime function - dayofweek") {
+    withTempView("timestamps") {
+      val dates = Seq(0L, 1L, 2L, 3L, 4L, 2L, 3L)
+          .map(i => Tuple1(new Timestamp(i))).toDF("time")
+      dates.createOrReplaceTempView("timestamps")
+      val frame = sql("SELECT DAYOFWEEK(time) FROM timestamps")
+      frame.explain()
+      frame.show()
+      assert(frame.queryExecution.executedPlan.find(p => p
+          .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+      checkAnswer(
+        frame,
+        Seq(Row(Integer.valueOf(4)),
+          Row(Integer.valueOf(4)),
+          Row(Integer.valueOf(4)),
+          Row(Integer.valueOf(4)),
+          Row(Integer.valueOf(4)),
+          Row(Integer.valueOf(4)),
+          Row(Integer.valueOf(4))))
+    }
+  }
+
+  test("datetime function - dayofyear") {
     withTempView("timestamps") {
       val dates = Seq(0L, 1L, 2L, 3L, 4L, 2L, 3L)
           .map(i => Tuple1(new Timestamp(i))).toDF("time")
