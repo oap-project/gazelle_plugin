@@ -53,7 +53,7 @@ object ArrowUtils {
         throw new UnsupportedOperationException(
           s"${TimestampType.catalogString} must supply timeZoneId parameter")
       } else {
-        new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZoneId)
+        new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC")
       }
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")

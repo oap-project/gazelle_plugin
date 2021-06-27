@@ -32,6 +32,21 @@ import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.types._
 import scala.collection.mutable.ListBuffer
 
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfMonth
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfWeek
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfYear
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarHour
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarHour
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarMicrosToTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarMillisToTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarMinute
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarSecond
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarSecondsToTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixDate
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMicros
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMillis
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixSeconds
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import org.apache.arrow.vector.types.TimeUnit
 
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
@@ -441,7 +456,7 @@ class ColumnarCast(
           s"${child.dataType} is not supported in castFLOAT8")
       }
     } else if (dataType == DateType) {
-      val supported = List(IntegerType, LongType, DateType, TimestampType)
+      val supported = List(IntegerType, LongType, DateType, TimestampType, StringType)
       if (supported.indexOf(child.dataType) == -1) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castDATE")
       }
@@ -573,6 +588,11 @@ class ColumnarCast(
           val localizedDateNode = TreeBuilder.makeFunction("castDATE",
             Lists.newArrayList(localizedTimestampNode), toType)
           localizedDateNode
+        case s: StringType =>
+          val intermediate = new ArrowType.Date(DateUnit.MILLISECOND)
+          TreeBuilder.makeFunction("castDATE", Lists
+              .newArrayList(TreeBuilder.makeFunction("castDATE", Lists
+                  .newArrayList(child_node0), intermediate)), toType)
         case other => TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node0),
           toType)
       }
@@ -741,11 +761,23 @@ object ColumnarUnaryOperator {
     case i: IsNotNull =>
       new ColumnarIsNotNull(child, i)
     case y: Year =>
-      new ColumnarYear(child, y)
+      if (child.dataType.isInstanceOf[TimestampType]) {
+        new ColumnarDateTimeExpressions.ColumnarYear(child)
+      } else {
+        new ColumnarYear(child, y)
+      }
     case m: Month =>
-      new ColumnarMonth(child, m)
+      if (child.dataType.isInstanceOf[TimestampType]) {
+        new ColumnarDateTimeExpressions.ColumnarMonth(child)
+      } else {
+        new ColumnarMonth(child, m)
+      }
     case d: DayOfMonth =>
-      new ColumnarDayOfMonth(child, d)
+      if (child.dataType.isInstanceOf[TimestampType]) {
+        new ColumnarDateTimeExpressions.ColumnarDayOfMonth(child)
+      } else {
+        new ColumnarDayOfMonth(child, d)
+      }
     case n: Not =>
       new ColumnarNot(child, n)
     case a: Abs =>
@@ -768,7 +800,40 @@ object ColumnarUnaryOperator {
       child
     case a: CheckOverflow =>
       new ColumnarCheckOverflow(child, a)
+    case a: UnixDate =>
+      new ColumnarUnixDate(child)
+    case a: UnixSeconds =>
+      new ColumnarUnixSeconds(child)
+    case a: UnixMillis =>
+      new ColumnarUnixMillis(child)
+    case a: UnixMicros =>
+      new ColumnarUnixMicros(child)
+    case a: SecondsToTimestamp =>
+      new ColumnarSecondsToTimestamp(child)
+    case a: MillisToTimestamp =>
+      new ColumnarMillisToTimestamp(child)
+    case a: MicrosToTimestamp =>
+      new ColumnarMicrosToTimestamp(child)
     case other =>
-      throw new UnsupportedOperationException(s"not currently supported: $other.")
+      child.dataType match {
+        case _: DateType => other match {
+          case a: DayOfYear =>
+            new ColumnarDayOfYear(new ColumnarCast(child, TimestampType, None, null))
+          case a: DayOfWeek =>
+            new ColumnarDayOfWeek(new ColumnarCast(child, TimestampType, None, null))
+        }
+        case _: TimestampType => other match {
+          case a: Hour =>
+            new ColumnarHour(child)
+          case a: Minute =>
+            new ColumnarMinute(child)
+          case a: Second =>
+            new ColumnarSecond(child)
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
+        }
+        case _ =>
+          throw new UnsupportedOperationException(s"not currently supported: $other.")
+      }
   }
 }
