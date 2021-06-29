@@ -25,7 +25,8 @@ import org.apache.spark.sql.test.SharedSparkSession
 
 class ColumnarRulesSuite extends PlanTest with SharedSparkSession {
 
-  ignore("Idempotency of columnar rules - RowToColumnar/ColumnarToRow") {
+  /*
+  test("Idempotency of columnar rules - RowToColumnar/ColumnarToRow") {
     val rules = ApplyColumnarRulesAndInsertTransitions(
       spark.sessionState.columnarRules)
 
@@ -38,7 +39,7 @@ class ColumnarRulesSuite extends PlanTest with SharedSparkSession {
     assert(appliedTwice == expected)
   }
 
-  ignore("Idempotency of columnar rules - ColumnarToRow/RowToColumnar") {
+  test("Idempotency of columnar rules - ColumnarToRow/RowToColumnar") {
     val rules = ApplyColumnarRulesAndInsertTransitions(
       spark.sessionState.columnarRules)
 
@@ -50,6 +51,7 @@ class ColumnarRulesSuite extends PlanTest with SharedSparkSession {
     val appliedTwice = rules.apply(appliedOnce)
     assert(appliedTwice == expected)
   }
+  */
 }
 
 case class LeafOp(override val supportsColumnar: Boolean) extends LeafExecNode {

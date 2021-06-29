@@ -26,7 +26,6 @@ import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.gandiva.expression.TreeNode
 import org.apache.arrow.vector.types.DateUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
-
 import org.apache.spark.sql.catalyst.expressions.CheckOverflow
 import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
@@ -52,9 +51,7 @@ import org.apache.spark.sql.catalyst.expressions.UnixSeconds
 import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
 import org.apache.spark.sql.catalyst.expressions.Year
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.types.{DateType, IntegerType, LongType, TimestampType}
 import org.apache.spark.sql.util.ArrowUtils
 
 object ColumnarDateTimeExpressions {
@@ -248,6 +245,16 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarSecondsToTimestamp(child: Expression) extends SecondsToTimestamp(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      if (child.dataType == IntegerType || child.dataType == LongType) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarSecondsToTimestamp")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNode, childType) = child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)

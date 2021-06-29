@@ -77,6 +77,7 @@ class TPCHTableRepartitionSuite extends RepartitionSuite {
 
   override lazy val input = spark.read.format("arrow").load(filePath)
 
+ /*
   ignore("tpch table round robin partitioning") {
     withRepartition(df => df.repartition(2))
   }
@@ -98,6 +99,7 @@ class TPCHTableRepartitionSuite extends RepartitionSuite {
       df => df.groupBy("n_regionkey").agg(Map("n_nationkey" -> "sum")),
       df => df.repartition(2))
   }
+  */
 }
 
 class DisableColumnarShuffleSuite extends RepartitionSuite {

@@ -29,7 +29,7 @@ class VariableSubstitutionSuite extends SparkFunSuite with SQLHelper {
     assert(sub.substitute("${system:varSubSuite.var}") == "abcd")
   }
 
-  ignore("environmental variables") {
+  test("environmental variables") {
     assert(sub.substitute("${env:SPARK_TESTING}") == "1")
   }
 

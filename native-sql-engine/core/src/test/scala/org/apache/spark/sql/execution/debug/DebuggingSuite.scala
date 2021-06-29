@@ -42,7 +42,8 @@ class DebuggingSuite extends SharedSparkSession with DisableAdaptiveExecutionSui
     testData.as[TestData].debug()
   }
 
-  test("debugCodegen") {
+  /*
+  ignore("debugCodegen") {
     val res = codegenString(spark.range(10).groupBy(col("id") * 2).count()
       .queryExecution.executedPlan)
     assert(res.contains("Subtree 1 / 2"))
@@ -50,7 +51,7 @@ class DebuggingSuite extends SharedSparkSession with DisableAdaptiveExecutionSui
     assert(res.contains("Object[]"))
   }
 
-  test("debugCodegenStringSeq") {
+  ignore("debugCodegenStringSeq") {
     val res = codegenStringSeq(spark.range(10).groupBy(col("id") * 2).count()
       .queryExecution.executedPlan)
     assert(res.length == 2)
@@ -58,7 +59,7 @@ class DebuggingSuite extends SharedSparkSession with DisableAdaptiveExecutionSui
       subtree.contains("Range") && code.contains("Object[]")})
   }
 
-  test("SPARK-28537: DebugExec cannot debug broadcast related queries") {
+  ignore("SPARK-28537: DebugExec cannot debug broadcast related queries") {
     val rightDF = spark.range(10)
     val leftDF = spark.range(10)
     val joinedDF = leftDF.join(rightDF, leftDF("id") === rightDF("id"))
@@ -82,7 +83,7 @@ class DebuggingSuite extends SharedSparkSession with DisableAdaptiveExecutionSui
         | id LongType: {}""".stripMargin))
   }
 
-  test("SPARK-28537: DebugExec cannot debug columnar related queries") {
+  ignore("SPARK-28537: DebugExec cannot debug columnar related queries") {
     val df = spark.range(5)
     df.persist()
 
@@ -99,6 +100,7 @@ class DebuggingSuite extends SharedSparkSession with DisableAdaptiveExecutionSui
         | id LongType: {}
         |""".stripMargin))
   }
+  */
 
   case class DummyCodeGeneratorPlan(useInnerClass: Boolean)
       extends CodegenSupport with LeafExecNode {

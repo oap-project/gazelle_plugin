@@ -70,6 +70,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     assert(metrics2("numOutputRows").value === 2)
   }
 
+  /*
   ignore("Filter metrics") {
     // Assume the execution plan is
     // PhysicalRDD(nodeId = 1) -> Filter(nodeId = 0)
@@ -141,6 +142,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       0L -> (("HashAggregate", expected2(1))))
     )
   }
+  */
 
   test("Aggregate metrics: track avg probe") {
     // The executed plan looks like:
@@ -219,6 +221,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     )
   }
 
+  /*
   ignore("Sort metrics") {
     // Assume the execution plan with node id is
     // Sort(nodeId = 0)
@@ -412,6 +415,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       )
     }
   }
+  */
 
   test("BroadcastNestedLoopJoin metrics") {
     val testDataForJoin = testData2.filter('a < 2) // TestData2(1, 1) :: TestData2(1, 2)
@@ -437,6 +441,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
+  /*
   ignore("BroadcastLeftSemiJoinHash metrics") {
     val df1 = Seq((1, "1"), (2, "2")).toDF("key", "value")
     val df2 = Seq((1, "1"), (2, "2"), (3, "3"), (4, "4")).toDF("key2", "value")
@@ -464,6 +469,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       )
     }
   }
+  */
 
   test("CartesianProduct metrics") {
     withSQLConf(SQLConf.CROSS_JOINS_ENABLED.key -> "true") {
@@ -484,6 +490,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
+  /*
   ignore("SortMergeJoin(left-anti) metrics") {
     val anti = testData2.filter("a > 2")
     withTempView("antiData") {
@@ -498,6 +505,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       }
     }
   }
+  */
 
   test("save metrics") {
     withTempPath { file =>
@@ -586,6 +594,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
+  /*
   ignore("SPARK-25278: output metrics are wrong for plans repeated in the query") {
     val name = "demo_view"
     withView(name) {
@@ -598,6 +607,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
         2L -> ("LocalTableScan" -> Map("number of output rows" -> 2L))))
     }
   }
+  */
 
   test("writing data out metrics: parquet") {
     testMetricsNonDynamicPartition("parquet", "t1")
@@ -655,6 +665,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
+  /*
   ignore("SPARK-25497: LIMIT within whole stage codegen should not consume all the inputs") {
     withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "true") {
       // A special query that only has one partition, so there is no shuffle and the entire query
@@ -683,8 +694,9 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       assert(filters.head.metrics("numOutputRows").value == 1)
     }
   }
+  */
 
-  ignore("SPARK-26327: FileSourceScanExec metrics") {
+  test("SPARK-26327: FileSourceScanExec metrics") {
     withTable("testDataForScan") {
       spark.range(10).selectExpr("id", "id % 3 as p")
         .write.partitionBy("p").saveAsTable("testDataForScan")
@@ -699,6 +711,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     }
   }
 
+  /*
   ignore("InMemoryTableScan shows the table name on UI if possible") {
     // Show table name on UI
     withView("inMemoryTable", "```a``b```") {
@@ -720,6 +733,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       Map(1L -> (("InMemoryTableScan", Map.empty)))
     )
   }
+  */
 
   test("SPARK-28332: SQLMetric merge should handle -1 properly") {
     val df = testData.join(testData2.filter('b === 0), $"key" === $"a", "left_outer")
@@ -737,6 +751,7 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
     testMetricsInSparkPlanOperator(exchanges(1), Map("dataSize" -> 0, "shuffleRecordsWritten" -> 0))
   }
 
+  /*
   ignore("Add numRows to metric of BroadcastExchangeExec") {
     withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> "true") {
       withTable("t1", "t2") {
@@ -755,4 +770,5 @@ class SQLMetricsSuite extends SharedSparkSession with SQLMetricsTestUtils
       }
     }
   }
+  */
 }

@@ -2468,12 +2468,15 @@ class DataSourceV2SQLSuite
     sql("CREATE NAMESPACE testcat.ns1.ns2")
     sql("USE testcat.ns1.ns2")
     sql("CREATE TABLE t USING foo AS SELECT 1 col")
-    checkAnswer(spark.table("t"), Row(1))
+
+    withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+      checkAnswer(spark.table("t"), Row(1))
+    }
 
     withTempView("t") {
-      spark.range(10).createTempView("t")
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+        spark.range(10).createTempView("t")
         withView(s"$sessionCatalogName.default.v") {
-          withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
           val e = intercept[AnalysisException] {
             sql(s"CREATE VIEW $sessionCatalogName.default.v AS SELECT * FROM t")
           }

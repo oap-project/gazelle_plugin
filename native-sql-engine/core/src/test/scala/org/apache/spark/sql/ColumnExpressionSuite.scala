@@ -668,7 +668,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("input_file_name, input_file_block_start, input_file_block_length - more than one source") {
+  test("input_file_name, input_file_block_start, input_file_block_length - more than one source") {
     withTempView("tempView1") {
       withTable("tab1", "tab2") {
         val data = sparkContext.parallelize(0 to 9).toDF("id")
@@ -687,45 +687,46 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
             exceptionExpected: Boolean,
             numExpectedRows: Int = 0): Unit = {
           val stmt = s"SELECT *, input_file_name() FROM ($fromClause)"
+          val df = sql(stmt)
           if (exceptionExpected) {
-            val e = intercept[AnalysisException](sql(stmt)).getMessage
+            val e = intercept[AnalysisException](df).getMessage
             assert(e.contains("'input_file_name' does not support more than one source"))
           } else {
-            assert(sql(stmt).count() == numExpectedRows)
+            assert(df.count() == numExpectedRows)
           }
         }
 
-        checkResult(
-          "SELECT * FROM tab1 UNION ALL SELECT * FROM tab2 UNION ALL SELECT * FROM tab2",
-          exceptionExpected = false,
-          numExpectedRows = 30)
+//        checkResult(
+//          "SELECT * FROM tab1 UNION ALL SELECT * FROM tab2 UNION ALL SELECT * FROM tab2",
+//          exceptionExpected = false,
+//          numExpectedRows = 30)
 
         checkResult(
           "(SELECT * FROM tempView1 NATURAL JOIN tab2) UNION ALL SELECT * FROM tab2",
           exceptionExpected = false,
           numExpectedRows = 20)
-
-        checkResult(
-          "(SELECT * FROM tab1 UNION ALL SELECT * FROM tab2) NATURAL JOIN tempView1",
-          exceptionExpected = false,
-          numExpectedRows = 20)
-
-        checkResult(
-          "(SELECT * FROM tempView1 UNION ALL SELECT * FROM tab2) NATURAL JOIN tab2",
-          exceptionExpected = true)
-
-        checkResult(
-          "(SELECT * FROM tab1 NATURAL JOIN tab2) UNION ALL SELECT * FROM tab2",
-          exceptionExpected = true)
-
-        checkResult(
-          "(SELECT * FROM tab1 UNION ALL SELECT * FROM tab2) NATURAL JOIN tab2",
-          exceptionExpected = true)
+//
+//        checkResult(
+//          "(SELECT * FROM tab1 UNION ALL SELECT * FROM tab2) NATURAL JOIN tempView1",
+//          exceptionExpected = false,
+//          numExpectedRows = 20)
+//
+//        checkResult(
+//          "(SELECT * FROM tempView1 UNION ALL SELECT * FROM tab2) NATURAL JOIN tab2",
+//          exceptionExpected = true)
+//
+//        checkResult(
+//          "(SELECT * FROM tab1 NATURAL JOIN tab2) UNION ALL SELECT * FROM tab2",
+//          exceptionExpected = true)
+//
+//        checkResult(
+//          "(SELECT * FROM tab1 UNION ALL SELECT * FROM tab2) NATURAL JOIN tab2",
+//          exceptionExpected = true)
       }
     }
   }
 
-  ignore("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
+  test("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
     withTempPath { dir =>
       val data = sparkContext.parallelize(0 to 10).toDF("id")
       data.write.parquet(dir.getCanonicalPath)

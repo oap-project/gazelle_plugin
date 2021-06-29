@@ -1078,7 +1078,7 @@ class NativeDataFrameAggregateSuite extends QueryTest
       aggs.last.output.map(_.dataType.simpleString).head)
   }
 
-  ignore("SPARK-33726: Aggregation on a table where a column name is reused") {
+  test("SPARK-33726: Aggregation on a table where a column name is reused") {
     val query =
       """|with T as (
          |select id as a, -id as x from range(3)),

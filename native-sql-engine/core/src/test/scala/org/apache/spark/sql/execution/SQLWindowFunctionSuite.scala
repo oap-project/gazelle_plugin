@@ -136,7 +136,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("window function: partition and order expressions") {
+  test("window function: partition and order expressions") {
     val data = Seq(
       WindowData(1, "a", 5),
       WindowData(2, "a", 6),
@@ -412,7 +412,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("SPARK-7595: Window will cause resolve failed with self join") {
+  test("SPARK-7595: Window will cause resolve failed with self join") {
     checkAnswer(sql(
       """
         |with
@@ -424,7 +424,7 @@ class SQLWindowFunctionSuite extends QueryTest with SharedSparkSession {
       """.stripMargin), Row(0, 1))
   }
 
-  ignore("SPARK-16633: lead/lag should return the default value if the offset row does not exist") {
+  test("SPARK-16633: lead/lag should return the default value if the offset row does not exist") {
     checkAnswer(sql(
       """
         |SELECT

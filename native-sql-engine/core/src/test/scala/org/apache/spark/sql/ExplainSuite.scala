@@ -228,6 +228,7 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
     }
   }
 
+  /*
   ignore("SPARK-33853: explain codegen - check presence of subquery") {
     withSQLConf(SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> "true") {
       withTempView("df") {
@@ -243,6 +244,7 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
       }
     }
   }
+  */
 
   test("explain formatted - check presence of subquery in case of DPP") {
     withTable("df1", "df2") {
@@ -308,6 +310,7 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
     }
   }
 
+  /*
   ignore("Support ExplainMode in Dataset.explain") {
     val df1 = Seq((1, 2), (2, 3)).toDF("k", "v1")
     val df2 = Seq((2, 3), (1, 1)).toDF("k", "v2")
@@ -346,6 +349,7 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
         "(1) LocalTableScan [codegen id :" ::
         Nil: _*)
   }
+  */
 
   test("Dataset.toExplainString has mode as string") {
     val df = spark.range(10).toDF

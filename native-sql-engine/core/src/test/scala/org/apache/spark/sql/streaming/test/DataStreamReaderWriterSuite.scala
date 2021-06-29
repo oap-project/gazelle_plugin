@@ -671,11 +671,11 @@ class DataStreamReaderWriterSuite extends StreamTest with BeforeAndAfter {
     assert(!fs.exists(checkpointDir))
   }
 
-  testQuietly("temp checkpoint dir should not be deleted if a query is stopped with an error") {
+  test("temp checkpoint dir should not be deleted if a query is stopped with an error") {
     testTempCheckpointWithFailedQuery(false)
   }
 
-  testQuietly("temp checkpoint should be deleted if a query is stopped with an error and force" +
+  test("temp checkpoint should be deleted if a query is stopped with an error and force" +
     " temp checkpoint deletion enabled") {
     withSQLConf(SQLConf.FORCE_DELETE_TEMP_CHECKPOINT_LOCATION.key -> "true") {
       testTempCheckpointWithFailedQuery(true)

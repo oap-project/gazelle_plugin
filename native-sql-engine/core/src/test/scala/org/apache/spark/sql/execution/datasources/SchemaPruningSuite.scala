@@ -586,7 +586,7 @@ abstract class SchemaPruningSuite
         withContacts(testThunk)
       }
     }
-    ignore(s"Spark vectorized reader - with partition data column - $testName") {
+    test(s"Spark vectorized reader - with partition data column - $testName") {
       withSQLConf(vectorizedReaderEnabledKey -> "true") {
         withContactsWithDataPartitionColumn(testThunk)
       }
@@ -597,7 +597,7 @@ abstract class SchemaPruningSuite
         withContacts(testThunk)
       }
     }
-    ignore(s"Non-vectorized reader - with partition data column - $testName") {
+    test(s"Non-vectorized reader - with partition data column - $testName") {
       withSQLConf(vectorizedReaderEnabledKey-> "false") {
         withContactsWithDataPartitionColumn(testThunk)
       }

@@ -49,6 +49,7 @@ abstract class RemoveRedundantSortsSuiteBase
     }
   }
 
+  /*
   ignore("remove redundant sorts with limit") {
     withTempView("t") {
       spark.range(100).select('id as "key").createOrReplaceTempView("t")
@@ -163,6 +164,7 @@ abstract class RemoveRedundantSortsSuiteBase
       }
     }
   }
+  */
 }
 
 class RemoveRedundantSortsSuite extends RemoveRedundantSortsSuiteBase

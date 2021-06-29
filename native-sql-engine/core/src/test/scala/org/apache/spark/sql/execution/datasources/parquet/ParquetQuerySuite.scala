@@ -284,7 +284,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
    * this is part of test 'Enabling/disabling ignoreCorruptFiles' but run in a loop
    * to increase the chance of failure
     */
-  ignore("SPARK-20407 ParquetQuerySuite 'Enabling/disabling ignoreCorruptFiles' flaky test") {
+  test("SPARK-20407 ParquetQuerySuite 'Enabling/disabling ignoreCorruptFiles' flaky test") {
     def testIgnoreCorruptFiles(): Unit = {
       withTempDir { dir =>
         val basePath = dir.getCanonicalPath
@@ -372,7 +372,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - same schema") {
+  test("SPARK-10301 requested schema clipping - same schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -407,7 +407,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
   }
 
   // This test case is ignored because of parquet-mr bug PARQUET-370
-  ignore("SPARK-10301 requested schema clipping - schemas with disjoint sets of fields") {
+  test("SPARK-10301 requested schema clipping - schemas with disjoint sets of fields") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -428,7 +428,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - requested schema contains physical schema") {
+  test("SPARK-10301 requested schema clipping - requested schema contains physical schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -472,7 +472,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - physical schema contains requested schema") {
+  test("SPARK-10301 requested schema clipping - physical schema contains requested schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark
@@ -520,7 +520,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - schemas overlap but don't contain each other") {
+  test("SPARK-10301 requested schema clipping - schemas overlap but don't contain each other") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark
@@ -546,7 +546,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - deeply nested struct") {
+  test("SPARK-10301 requested schema clipping - deeply nested struct") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -576,7 +576,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - out of order") {
+  test("SPARK-10301 requested schema clipping - out of order") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -609,7 +609,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-10301 requested schema clipping - schema merging") {
+  test("SPARK-10301 requested schema clipping - schema merging") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -794,7 +794,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  ignore("SPARK-26677: negated null-safe equality comparison should not filter matched row groups") {
+  test("SPARK-26677: negated null-safe equality comparison should not filter matched row groups") {
     withAllParquetReaders {
       withTempPath { path =>
         // Repeated values for dictionary encoding.
@@ -856,7 +856,7 @@ class ParquetV1QuerySuite extends ParquetQuerySuite {
       .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "parquet")
 
-  ignore("returning batch for wide table") {
+  test("returning batch for wide table") {
     withSQLConf(SQLConf.WHOLESTAGE_MAX_NUM_FIELDS.key -> "10") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath
@@ -889,7 +889,7 @@ class ParquetV2QuerySuite extends ParquetQuerySuite {
       .sparkConf
       .set(SQLConf.USE_V1_SOURCE_LIST, "")
 
-  ignore("returning batch for wide table") {
+  test("returning batch for wide table") {
     withSQLConf(SQLConf.WHOLESTAGE_MAX_NUM_FIELDS.key -> "10") {
       withTempPath { dir =>
         val path = dir.getCanonicalPath

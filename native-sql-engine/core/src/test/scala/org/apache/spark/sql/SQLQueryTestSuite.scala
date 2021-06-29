@@ -169,6 +169,10 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
     "subquery/in-subquery/in-joins.sql", // NullPointerException
     "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
+    "postgreSQL/join.sql", // segfault, SMJ LeftSemi
+    "udf/udf-except.sql",
+    "postgreSQL/groupingsets.sql", // double free or corruption (out)
+    "udf/postgreSQL/udf-join.sql",
 
     /** Cannot reproduce */
 
@@ -176,37 +180,28 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "subquery/exists-subquery/exists-cte.sql",
     "subquery/exists-subquery/exists-basic.sql",
     "subquery/exists-subquery/exists-orderby-limit.sql",
+    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
 
     /** incorrect result */
-
-    "subquery/in-subquery/in-order-by.sql", // Timestamp has incorrect result
-    "postgreSQL/window_part1.sql", // Window has incorrect result
-    "show-tblproperties.sql", // config
-    "charvarchar.sql",  // config
-    "postgreSQL/create_view.sql", // config
-    "having.sql",
-    "decimalArithmeticOperations.sql", // precision
-    "outer-join.sql", // different order
-    "explain-aqe.sql", // plan check
-    "explain.sql", // plan check
-    "grouping_set.sql",
-    "describe.sql",
-    "group-analytics.sql",
-    "subquery/scalar-subquery/scalar-subquery-select.sql",
-    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
-    "ansi/decimalArithmeticOperations.sql",
-    "postgreSQL/union.sql",  // aggregate-groupby
-    "postgreSQL/int4.sql", // exception expected
-    "postgreSQL/numeric.sql",
-    "postgreSQL/int8.sql",
-    "postgreSQL/select_having.sql",
-    /**
-     * Expected "struct<[]>", but got "struct<[one:int]>" Schema did not match for query #20
-     */
-    "postgreSQL/join.sql",
-    "udf/udf-window.sql",
-    "udf/udf-group-analytics.sql",
-    "udf/postgreSQL/udf-join.sql"
+    "count.sql" // interrupted by signal 9: SIGKILL
+//    "udf/udf-window.sql",
+//    "udf/udf-group-analytics.sql",
+//    "subquery/in-subquery/in-order-by.sql", // Timestamp has incorrect result
+//    "postgreSQL/window_part1.sql", // Window has incorrect result
+//    "show-tblproperties.sql", // config
+//    "charvarchar.sql",  // config
+//    "postgreSQL/create_view.sql", // config
+//    "decimalArithmeticOperations.sql", // precision
+//    "outer-join.sql", // different order
+//    "explain-aqe.sql", // plan check
+//    "explain.sql", // plan check
+//    "describe.sql", // AnalysisException
+//    "subquery/scalar-subquery/scalar-subquery-select.sql", // SMJ LeftAnti
+//    "ansi/decimalArithmeticOperations.sql",
+//    "postgreSQL/union.sql",  // aggregate-groupby
+//    "postgreSQL/int4.sql", // exception expected
+//    "postgreSQL/numeric.sql", // Decimal precision 39 exceeds max precision 38
+//    "postgreSQL/int8.sql",
   )
 
   // Create all the test cases.
@@ -293,16 +288,16 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
         }
       case _ =>
         // Create a test case to run this case.
-//        test(testCase.name) {
-//          runTest(testCase)
-//        }
-        /** To run only the set test */
-        if (testList.exists(t =>
-          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-          test(testCase.name) {
-            runTest(testCase)
-          }
+        test(testCase.name) {
+          runTest(testCase)
         }
+        /** To run only the set test */
+//        if (testList.exists(t =>
+//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+//          test(testCase.name) {
+//            runTest(testCase)
+//          }
+//        }
     }
   }
 

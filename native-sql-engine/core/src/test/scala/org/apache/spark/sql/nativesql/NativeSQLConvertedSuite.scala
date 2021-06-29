@@ -145,7 +145,7 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  test("test3") {
+  test("exists-subquery") {
     Seq[(Integer, String, Date, Double, Integer)](
       (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
       (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
@@ -179,9 +179,9 @@ class NativeSQLConvertedSuite extends QueryTest
       .toDF("emp_name", "bonus_amt")
       .createOrReplaceTempView("BONUS")
 
-    val df = sql("SELECT * FROM emp WHERE  EXISTS " +
+    val df1 = sql("SELECT * FROM emp WHERE  EXISTS " +
       "(SELECT 1 FROM dept WHERE dept.dept_id > 10 AND dept.dept_id < 30)")
-    checkAnswer(df, Seq(
+    checkAnswer(df1, Seq(
       Row(100, "emp 1", Date.valueOf("2005-01-01"), 100.0, 10),
       Row(100, "emp 1", Date.valueOf("2005-01-01"), 100.0, 10),
       Row(200, "emp 2", Date.valueOf("2003-01-01"), 200.0, 10),
@@ -300,6 +300,12 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(41, 2, 2),
       Row(45, 4, 0),
       Row(7, 7, 3)))
+
+    /** join -- SMJ left semi has segfault */
+
+    val df2 = sql("select count(*) from tenk1 a where unique1 in" +
+      " (select unique1 from tenk1 b join tenk1 c using (unique1) where b.unique2 = 42)")
+    checkAnswer(df2, Seq(Row(1)))
   }
 
   test("min_max") {
@@ -663,4 +669,130 @@ class NativeSQLConvertedSuite extends QueryTest
     val df = sql("WITH t(c) AS (SELECT 1)\nSELECT * FROM t\nWHERE c IN (\n  WITH t(c) AS (SELECT 2)\n  SELECT * FROM t\n)")
     df.show()
   }
+
+  test("scalar-subquery-select -- SMJ LeftAnti has incorrect result") {
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1a", 16, 12, 21L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-06-04 01:02:00.001"), Date.valueOf("2014-06-04")),
+      ("val1a", 16, 12, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.001"), Date.valueOf("2014-05-05")),
+      ("val1d", null, 16, 22L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), null),
+      ("val1d", null, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.001"), null),
+      ("val1e", 10, null, 25L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.001"), Date.valueOf("2014-09-04")),
+      ("val1d", 10, null, 12L, 17.0, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.001"), Date.valueOf("2014-04-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")))
+      .toDF("t1a", "t1b", "t1c", "t1d", "t1e", "t1f", "t1g", "t1h", "t1i")
+      .createOrReplaceTempView("t1")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val2a", 6, 12, 14L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:01:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 119L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1c", 12, 16, 219L, 17, 25D, 26E2, Timestamp.valueOf("2016-05-04 01:01:00.000"), Date.valueOf("2016-05-04")),
+      ("val1b", null, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2017-05-04 01:01:00.000"), null),
+      ("val2e", 8, null, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1f", 19, null, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 12, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-05")),
+      ("val1e", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:01:00.000"), Date.valueOf("2014-09-04")),
+      ("val1f", 19, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:01:00.000"), Date.valueOf("2014-10-04")),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), null))
+      .toDF("t2a", "t2b", "t2c", "t2d", "t2e", "t2f", "t2g", "t2h", "t2i")
+      .createOrReplaceTempView("t2")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val3a", 6, 12, 110L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.000"), Date.valueOf("2014-04-04")),
+      ("val3a", 6, 12, 10L, 15, 20D, 20E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 219L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:02:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.000"), Date.valueOf("2014-07-04")),
+      ("val3c", 17, 16, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:02:00.000"), Date.valueOf("2014-08-04")),
+      ("val3c", 17, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.000"), Date.valueOf("2014-09-05")),
+      ("val1b", null, 16, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:02:00.000"), null),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-11-04 01:02:00.000"), null),
+      ("val3b", 8, null, 719L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val3b", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:02:00.000"), Date.valueOf("2015-05-04")))
+      .toDF("t3a", "t3b", "t3c", "t3d", "t3e", "t3f", "t3g", "t3h", "t3i")
+      .createOrReplaceTempView("t3")
+    val df = sql("SELECT t1a, t1b FROM t1 WHERE NOT EXISTS (SELECT (SELECT max(t2b) FROM t2 " +
+      "LEFT JOIN t1 ON t2a = t1a WHERE t2c = t3c) dummy FROM t3 WHERE t3b < (SELECT max(t2b) " +
+      "FROM t2 LEFT JOIN t1 ON t2a = t1a WHERE  t2c = t3c) AND t3a = t1a)")
+    checkAnswer(df, Seq(
+      Row("val1a", 16),
+      Row("val1a", 16),
+      Row("val1a", 6),
+      Row("val1a", 6),
+      Row("val1c", 8),
+      Row("val1d", 10),
+      Row("val1d", null),
+      Row("val1d", null),
+      Row("val1e", 10),
+      Row("val1e", 10),
+      Row("val1e", 10)))
+  }
+
+  test("join") {
+//    Seq[(Integer, Integer, String)](
+//      (1, 4, "one"),
+//      (2, 3, "two"),
+//      (3, 2, "three"),
+//      (4, 1, "four"),
+//      (5, 0, "five"),
+//      (6, 6, "six"),
+//      (7, 7, "seven"),
+//      (8, 8, "eight"),
+//      (0, null, "zero"),
+//      (null, null, "null"),
+//      (null, 0, "zero"))
+//      .toDF("i", "j", "t")
+//      .createOrReplaceTempView("J1_TBL")
+//    Seq[(Integer, Integer)](
+//      (1, -1),
+//      (2, 2),
+//      (3, -3),
+//      (2, 4),
+//      (5, -5),
+//      (5, -5),
+//      (0, null),
+//      (null, null),
+//      (null, 0))
+//      .toDF("i", "k")
+//      .createOrReplaceTempView("J2_TBL")
+//    Seq[(String, Integer)](
+//      ("bb", 11))
+//      .toDF("name", "n")
+//      .createOrReplaceTempView("t1")
+//    Seq[(String, Integer)](
+//      ("bb", 12),
+//      ("cc", 22),
+//      ("ee", 42))
+//      .toDF("name", "n")
+//      .createOrReplaceTempView("t2")
+//    Seq[(String, Integer)](
+//      ("bb", 13),
+//      ("cc", 23),
+//      ("dd", 33))
+//      .toDF("name", "n")
+//      .createOrReplaceTempView("t3")
+//    Seq[(Integer, Integer)](
+//      (1, 11),
+//      (2, 22),
+//      (3, null),
+//      (4, 44),
+//      (5, null))
+//      .toDF("x1", "x2")
+//      .createOrReplaceTempView("x")
+//    Seq[(Integer, Integer)](
+//      (1, 111),
+//      (2, 222),
+//      (3, 333),
+//      (4, null))
+//      .toDF("y1", "y2")
+//      .createOrReplaceTempView("y")
+
+  }
+
 }

@@ -753,7 +753,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("right outer join") {
+  test("right outer join") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
       checkAnswer(
         sql("SELECT * FROM lowercasedata RIGHT OUTER JOIN uppercasedata ON n = N"),
@@ -783,7 +783,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null, null, 6, "F") :: Nil)
   }
 
-  test("SPARK-11111 null-safe join should not use cartesian product") {
+  ignore("SPARK-11111 null-safe join should not use cartesian product") {
     val df = sql("select count(*) from testData a join testData b on (a.key <=> b.key)")
     val cp = df.queryExecution.sparkPlan.collect {
       case cp: CartesianProductExec => cp
@@ -927,7 +927,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("EXCEPT") {
+  test("EXCEPT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData EXCEPT SELECT * FROM upperCaseData"),
       Row(1, "a") ::
@@ -940,7 +940,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData EXCEPT SELECT * FROM upperCaseData"), Nil)
   }
 
-  ignore("MINUS") {
+  test("MINUS") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData MINUS SELECT * FROM upperCaseData"),
       Row(1, "a") :: Row(2, "b") :: Row(3, "c") :: Row(4, "d") :: Nil)
@@ -950,7 +950,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData MINUS SELECT * FROM upperCaseData"), Nil)
   }
 
-  ignore("INTERSECT") {
+  test("INTERSECT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData INTERSECT SELECT * FROM lowerCaseData"),
       Row(1, "a") ::
@@ -1746,7 +1746,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       "org.apache.spark.sql.execution.datasources.jdbc"))
   }
 
-  test("SortMergeJoin returns wrong results when using UnsafeRows") {
+  ignore("SortMergeJoin returns wrong results when using UnsafeRows") {
     // This test is for the fix of https://issues.apache.org/jira/browse/SPARK-10737.
     // This bug will be triggered when Tungsten is enabled and there are multiple
     // SortMergeJoin operators executed in the same task.
@@ -2061,7 +2061,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(false) :: Row(true) :: Nil)
   }
 
-  ignore("filter on a grouping column that is not presented in SELECT") {
+  test("filter on a grouping column that is not presented in SELECT") {
     checkAnswer(
       sql("select count(1) from (select 1 as a) t group by a having a > 0"),
       Row(1) :: Nil)
@@ -3352,7 +3352,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SPARK-29682: Conflicting attributes in Expand are resolved") {
+  ignore("SPARK-29682: Conflicting attributes in Expand are resolved") {
     val numsDF = Seq(1, 2, 3).toDF("nums")
     val cubeDF = numsDF.cube("nums").agg(max(lit(0)).as("agcol"))
 
@@ -3678,7 +3678,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  test("SPARK-32372: ResolveReferences.dedupRight should only rewrite attributes for ancestor " +
+  ignore("SPARK-32372: ResolveReferences.dedupRight should only rewrite attributes for ancestor " +
     "plans of the conflict plan") {
     sql("SELECT name, avg(age) as avg_age FROM person GROUP BY name")
       .createOrReplaceTempView("person_a")
