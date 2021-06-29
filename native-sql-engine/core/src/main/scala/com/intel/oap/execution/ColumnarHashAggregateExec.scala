@@ -154,7 +154,6 @@ case class ColumnarHashAggregateExec(
          */
         var skip_count = false
         var skip_native = false
-        var skip_grouping = false
         var onlyResExpr = false
         var emptyInput = false
         var count_num_row = 0
@@ -172,27 +171,20 @@ case class ColumnarHashAggregateExec(
                 ConverterUtils.releaseArrowRecordBatch(input_rb)
               } else {
                 // Special case for no input batch
-                if (aggregateExpressions.nonEmpty) {
-                  if (aggregateExpressions.head
-                    .aggregateFunction.children.head.isInstanceOf[Literal]) {
-                    // This is a special case used by literal aggregation
-                    skip_native = true
-                    breakable{
-                      for (exp <- aggregateExpressions) {
-                        if (exp.aggregateFunction.isInstanceOf[Count]) {
-                          skip_count = true
-                          count_num_row += cb.numRows
-                          break
-                        }
+                if ((aggregateExpressions.nonEmpty && aggregateExpressions.head
+                     .aggregateFunction.children.head.isInstanceOf[Literal]) ||
+                    (groupingExpressions.nonEmpty && groupingExpressions.head.children.nonEmpty &&
+                     groupingExpressions.head.children.head.isInstanceOf[Literal])) {
+                  // This is a special case used by literal aggregation
+                  skip_native = true
+                  breakable{
+                    for (exp <- aggregateExpressions) {
+                      if (exp.aggregateFunction.isInstanceOf[Count]) {
+                        skip_count = true
+                        count_num_row += cb.numRows
+                        break
                       }
                     }
-                  }
-                } else {
-                  // This is a special case used by grouping literal
-                  if (groupingExpressions.nonEmpty && groupingExpressions.head.children.nonEmpty &&
-                      groupingExpressions.head.children.head.isInstanceOf[Literal]) {
-                    skip_grouping = true
-                    skip_native = true
                   }
                 }
               }
@@ -223,12 +215,9 @@ case class ColumnarHashAggregateExec(
         override def next(): ColumnarBatch = {
           if (!processed) process
           val beforeEval = System.nanoTime()
-          if (skip_grouping) {
-            // special handling for literal grouping
-            getResForGroupingLiteral
-          } else if (skip_native) {
-            // special handling for literal aggregation
-            getResForAggregateLiteral
+          if (skip_native) {
+            // special handling for literal aggregation and grouping
+            getResForAggregateAndGroupingLiteral
           } else if (onlyResExpr) {
             // special handling for only result expressions
             getResForOnlyResExpr
@@ -287,10 +276,15 @@ case class ColumnarHashAggregateExec(
             }
           }
         }
-        def getResForAggregateLiteral: ColumnarBatch = {
+        def getResForAggregateAndGroupingLiteral: ColumnarBatch = {
           val resultColumnVectors =
-            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+            ArrowWritableColumnVector.allocateColumns(1, resultStructType)
           var idx = 0
+          for (exp <- groupingExpressions) {
+            val out_res = exp.children.head.asInstanceOf[Literal].value
+            putDataIntoVector(resultColumnVectors, out_res, idx)
+            idx += 1
+          }
           for (exp <- aggregateExpressions) {
             val mode = exp.mode
             val aggregateFunc = exp.aggregateFunction
@@ -359,17 +353,6 @@ case class ColumnarHashAggregateExec(
           new ColumnarBatch(
             resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
         }
-        def getResForGroupingLiteral: ColumnarBatch = {
-          val resultColumnVectors =
-            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
-          for (idx <- groupingExpressions.indices) {
-            val out_res =
-              groupingExpressions(idx).children.head.asInstanceOf[Literal].value
-            putDataIntoVector(resultColumnVectors, out_res, idx)
-          }
-          new ColumnarBatch(
-            resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
-        }
         def getResForOnlyResExpr: ColumnarBatch = {
           // This function has limited support for only-result-expression case.
           // Fake input for projection:
@@ -384,13 +367,15 @@ case class ColumnarHashAggregateExec(
             1)
         }
         def getResForEmptyInput: ColumnarBatch = {
-          val resultColumnVectors =
-            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
           if (aggregateExpressions.isEmpty) {
             // To align with spark, in this case, one empty row is returned.
+            val resultColumnVectors =
+              ArrowWritableColumnVector.allocateColumns(0, resultStructType)
             return new ColumnarBatch(
               resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 1)
           }
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(1, resultStructType)
           // If groupby is not required, for Final mode, a default value will be
           // returned if input is empty.
           var idx = 0

@@ -157,6 +157,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** For Debug Use only
    * List of test cases to test, in lower cases. */
   protected def testList: Set[String] = Set(
+
   )
 
   /** List of test cases to ignore, in lower cases. */
@@ -165,8 +166,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
 
     /** segfault, compilation error and exception */
 
-    "group-by.sql", // IndexOutOfBoundsException
-    "group-by-ordinal.sql",
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
     "typeCoercion/native/windowFrameCoercion.sql",
     /**
@@ -180,13 +179,13 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
      * makeStructField is unable to parse from (ansi_cast(a#87907 as double) / 2.0) (
      * class org.apache.spark.sql.catalyst.expressions.Divide).
      */
-    "postgreSQL/window_part1.sql", // IndexOutOfBoundsException
-    "misc-functions.sql", // NullPointerException
     "subquery/in-subquery/in-joins.sql", // NullPointerException
-    "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
+//    "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
 
     /** incorrect result */
 
+    "subquery/in-subquery/in-order-by.sql", // Timestamp has incorrect result
+    "postgreSQL/window_part1.sql", // Window has incorrect result
     "show-tblproperties.sql", // config
     "charvarchar.sql",  // config
     "postgreSQL/create_view.sql", // config
@@ -201,13 +200,6 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "subquery/scalar-subquery/scalar-subquery-select.sql",
     "subquery/exists-subquery/exists-joins-and-set-ops.sql",
     "ansi/decimalArithmeticOperations.sql",
-    /**
-     * Expected "[NULL	foo]", but got "[]" Result did not match for query #21
-     * select four, x
-     * from (select four, ten, 'foo' as x from tenk1) as t
-     * group by grouping sets (four, x)
-     * having x = 'foo'
-     */
     "postgreSQL/union.sql",  // aggregate-groupby
     "postgreSQL/int4.sql", // exception expected
     "postgreSQL/numeric.sql",

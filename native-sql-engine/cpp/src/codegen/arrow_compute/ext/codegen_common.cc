@@ -81,7 +81,7 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
     case arrow::Int64Type::type_id:
       return "int64()";
     case arrow::FloatType::type_id:
-      return "float632()";
+      return "float32()";
     case arrow::DoubleType::type_id:
       return "float64()";
     case arrow::Date32Type::type_id:
