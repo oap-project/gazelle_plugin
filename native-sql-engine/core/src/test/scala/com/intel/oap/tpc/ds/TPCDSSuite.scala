@@ -145,6 +145,13 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     df.explain()
     df.show()
   }
+
+  test("count() without group by") {
+    val df = spark.sql("SELECT count(*) as cnt FROM " +
+        "item LIMIT 100")
+    df.explain()
+    df.show()
+  }
 }
 
 object TPCDSSuite {
