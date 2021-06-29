@@ -132,8 +132,9 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
 
   override def doCodeGen: ColumnarCodegenContext = {
     val childCtx = child.asInstanceOf[ColumnarCodegenSupport].doCodeGen
-    if (childCtx == null)
+    if (childCtx == null) {
       throw new NullPointerException(s"ColumnarWSCG can't doCodeGen on ${child}")
+    }
     val wholeStageCodeGenNode = TreeBuilder.makeFunction(
       s"wholestagecodegen",
       Lists.newArrayList(childCtx.root),

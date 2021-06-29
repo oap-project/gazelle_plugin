@@ -74,13 +74,22 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row("google"), Row("facebook")))
   }
 
-  ignore("test2") {
+  test("in-joins") {
     Seq(1, 3, 5, 7, 9).toDF("id").createOrReplaceTempView("s1")
     Seq(1, 3, 4, 6, 9).toDF("id").createOrReplaceTempView("s2")
     Seq(3, 4, 6, 9).toDF("id").createOrReplaceTempView("s3")
     val df = sql("SELECT s1.id, s2.id FROM s1 " +
       "FULL OUTER JOIN s2 ON s1.id = s2.id AND s1.id NOT IN (SELECT id FROM s3)")
-    df.show()
+    checkAnswer(df, Seq(
+      Row(1, 1),
+      Row(3, null),
+      Row(5, null),
+      Row(7, null),
+      Row(9, null),
+      Row(null, 3),
+      Row(null, 4),
+      Row(null, 6),
+      Row(null, 9)))
   }
 
   ignore("SMJ") {
@@ -193,17 +202,17 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(70, "dept 7", "FL")))
   }
 
-  ignore("window1") {
+  test("window1") {
     Seq(1).toDF("id").createOrReplaceTempView("t")
     val df = sql("SELECT COUNT(*) OVER (PARTITION BY 1 ORDER BY cast(1 as int)) FROM t")
-    df.show()
+    checkAnswer(df, Seq(Row(1)))
   }
 
-  ignore("window2") {
+  test("window2") {
     Seq(0, 123456, -123456, 2147483647, -2147483647)
       .toDF("f1").createOrReplaceTempView("int4_tbl")
     val df = sql("SELECT SUM(COUNT(f1)) OVER () FROM int4_tbl WHERE f1=42")
-    df.show()
+    checkAnswer(df, Seq(Row(0)))
   }
 
   ignore("union - normalization for a very small value") {
@@ -274,7 +283,23 @@ class NativeSQLConvertedSuite extends QueryTest
     val df = sql("select a.f1, b.f1, t.thousand, t.tenthous from tenk1 t, " +
       "(select sum(f1)+1 as f1 from int4_tbl i4a) a, (select sum(f1) as f1 from int4_tbl i4b) b " +
       "where b.f1 = t.thousand and a.f1 = b.f1 and (a.f1+b.f1+999) = t.tenthous")
-    df.show()
+    checkAnswer(df, Seq())
+
+    /** window_part1 -- window has incorrect result */
+
+    val df1 = sql("SELECT sum(unique1) over (rows between current row and unbounded following)," +
+                  "unique1, four FROM tenk1 WHERE unique1 < 10")
+    checkAnswer(df1, Seq(
+      Row(0, 0, 0),
+      Row(10, 3, 3),
+      Row(15, 5, 1),
+      Row(23, 8, 0),
+      Row(32, 9, 1),
+      Row(38, 6, 2),
+      Row(39, 1, 1),
+      Row(41, 2, 2),
+      Row(45, 4, 0),
+      Row(7, 7, 3)))
   }
 
   test("min_max") {
@@ -634,52 +659,8 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row(1, 1)))
   }
 
-  test("udf_aggregates_part1") {
-    val df = sql("select sum(udf(CAST(null AS Decimal(38,0)))) from range(1,4)")
+  test("cte-nonlegacy") {
+    val df = sql("WITH t(c) AS (SELECT 1)\nSELECT * FROM t\nWHERE c IN (\n  WITH t(c) AS (SELECT 2)\n  SELECT * FROM t\n)")
     df.show()
   }
-
-  test("window_part1 -- window has incorrect result") {
-    spark
-      .read
-      .format("csv")
-      .options(Map("delimiter" -> "\t", "header" -> "false"))
-      .schema(
-        """
-          |unique1 int,
-          |unique2 int,
-          |two int,
-          |four int,
-          |ten int,
-          |twenty int,
-          |hundred int,
-          |thousand int,
-          |twothousand int,
-          |fivethous int,
-          |tenthous int,
-          |odd int,
-          |even int,
-          |stringu1 string,
-          |stringu2 string,
-          |string4 string
-        """.stripMargin)
-      .load(testFile("test-data/postgresql/tenk.data"))
-      .write
-      .format("parquet")
-      .saveAsTable("tenk1")
-    val df = sql("SELECT sum(unique1) over (rows between current row and unbounded following)," +
-      "unique1, four FROM tenk1 WHERE unique1 < 10")
-    checkAnswer(df, Seq(
-      Row(0, 0, 0),
-      Row(10, 3, 3),
-      Row(15, 5, 1),
-      Row(23, 8, 0),
-      Row(32, 9, 1),
-      Row(38, 6, 2),
-      Row(39, 1, 1),
-      Row(41, 2, 2),
-      Row(45, 4, 0),
-      Row(7, 7, 3)))
-  }
-
 }

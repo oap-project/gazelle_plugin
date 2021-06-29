@@ -167,20 +167,15 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     /** segfault, compilation error and exception */
 
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
-    "typeCoercion/native/windowFrameCoercion.sql",
-    /**
-     * UnsupportedOperationException
-     * makeStructField is unable to parse from 1 (
-     * class org.apache.spark.sql.catalyst.expressions.Literal)
-     */
-    "postgreSQL/select_implicit.sql",
-    /**
-     * UnsupportedOperationException
-     * makeStructField is unable to parse from (ansi_cast(a#87907 as double) / 2.0) (
-     * class org.apache.spark.sql.catalyst.expressions.Divide).
-     */
     "subquery/in-subquery/in-joins.sql", // NullPointerException
-//    "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
+    "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
+
+    /** Cannot reproduce */
+
+    "cte-nonlegacy.sql",
+    "subquery/exists-subquery/exists-cte.sql",
+    "subquery/exists-subquery/exists-basic.sql",
+    "subquery/exists-subquery/exists-orderby-limit.sql",
 
     /** incorrect result */
 
