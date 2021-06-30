@@ -20,7 +20,7 @@ package org.apache.spark.sql.travis
 import java.io.{File, FilenameFilter}
 import java.nio.file.{Files, Paths}
 
-import com.intel.oap.execution.ArrowColumnarCachedBatchSerializer
+import org.apache.spark.sql.execution.ArrowColumnarCachedBatchSerializer
 
 import scala.collection.mutable.HashSet
 import scala.concurrent.duration._
