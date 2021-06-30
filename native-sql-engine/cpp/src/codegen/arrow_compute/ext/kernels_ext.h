@@ -469,6 +469,7 @@ class ConditionedProbeKernel : public KernalBase {
                             const gandiva::NodeVector& left_schema_list,
                             const gandiva::NodeVector& right_schema_list,
                             const gandiva::NodePtr& condition, int join_type,
+                            bool is_null_aware_anti_join,
                             const gandiva::NodeVector& result_schema,
                             const gandiva::NodeVector& hash_configuration_list,
                             int hash_relation_idx, std::shared_ptr<KernalBase>* out);
@@ -478,6 +479,7 @@ class ConditionedProbeKernel : public KernalBase {
                          const gandiva::NodeVector& left_schema_list,
                          const gandiva::NodeVector& right_schema_list,
                          const gandiva::NodePtr& condition, int join_type,
+                         bool is_null_aware_anti_join,
                          const gandiva::NodeVector& result_schema,
                          const gandiva::NodeVector& hash_configuration_list,
                          int hash_relation_idx);

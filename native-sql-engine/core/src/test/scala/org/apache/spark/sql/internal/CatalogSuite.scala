@@ -311,7 +311,7 @@ class CatalogSuite extends SharedSparkSession {
     columnFields.foreach { f => assert(columnString.contains(f.toString)) }
   }
 
-  ignore("dropTempView should not un-cache and drop metastore table if a same-name table exists") {
+  test("dropTempView should not un-cache and drop metastore table if a same-name table exists") {
     withTable("same_name") {
       spark.range(10).write.saveAsTable("same_name")
       sql("CACHE TABLE same_name")

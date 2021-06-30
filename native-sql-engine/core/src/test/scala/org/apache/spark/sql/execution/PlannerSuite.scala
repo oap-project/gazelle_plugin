@@ -152,7 +152,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     }
   }
 
-  ignore("InMemoryRelation statistics propagation") {
+  test("InMemoryRelation statistics propagation") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "81920") {
       withTempView("tiny") {
         testData.limit(3).createOrReplaceTempView("tiny")

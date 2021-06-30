@@ -55,7 +55,8 @@ case class ColumnarBroadcastHashJoinExec(
     condition: Option[Expression],
     left: SparkPlan,
     right: SparkPlan,
-    projectList: Seq[NamedExpression] = null)
+    projectList: Seq[NamedExpression] = null,
+    nullAware: Boolean = false)
     extends BaseJoinExec
     with ColumnarCodegenSupport
     with ShuffledJoin {
@@ -144,6 +145,8 @@ case class ColumnarBroadcastHashJoinExec(
     throw new UnsupportedOperationException(
       s"ColumnarBroadcastHashJoinExec doesn't support doExecute")
   }
+
+  val isNullAwareAntiJoin : Boolean = nullAware
 
   val broadcastHashJoinOutputPartitioningExpandLimit: Int = sqlContext.getConf(
     "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
@@ -271,7 +274,8 @@ case class ColumnarBroadcastHashJoinExec(
       joinType,
       buildSide,
       condition,
-      1)
+      1,
+      isNullAwareAntiJoin = isNullAwareAntiJoin)
   }
 
   override def doCodeGen: ColumnarCodegenContext = {

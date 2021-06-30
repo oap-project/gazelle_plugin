@@ -41,7 +41,7 @@ class DataFrameAggregateSuite extends QueryTest
 
   val absTol = 1e-8
 
-  ignore("groupBy") {
+  test("groupBy") {
     checkAnswer(
       testData2.groupBy("a").agg(sum($"b")),
       Seq(Row(1, 3), Row(2, 3), Row(3, 3))
@@ -152,7 +152,8 @@ class DataFrameAggregateSuite extends QueryTest
       Fact(20151123, 18, 36, "room2", 25.6))).toDF()
 
     val cube0 = df0.cube("date", "hour", "minute", "room_name").agg(Map("temp" -> "avg"))
-    assert(cube0.where("date IS NULL").count > 0)
+    val df = cube0.where("date IS NULL").count
+    assert(df > 0)
   }
 
   test("grouping and grouping_id") {
@@ -1078,7 +1079,7 @@ class DataFrameAggregateSuite extends QueryTest
       aggs.last.output.map(_.dataType.simpleString).head)
   }
 
-  ignore("SPARK-33726: Aggregation on a table where a column name is reused") {
+  test("SPARK-33726: Aggregation on a table where a column name is reused") {
     val query =
       """|with T as (
          |select id as a, -id as x from range(3)),

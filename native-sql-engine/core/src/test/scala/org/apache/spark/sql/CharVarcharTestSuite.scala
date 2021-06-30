@@ -599,7 +599,7 @@ trait CharVarcharTestSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("SPARK-34003: fix char/varchar fails w/ both group by and order by ") {
+  test("SPARK-34003: fix char/varchar fails w/ both group by and order by ") {
     withTable("t") {
       sql(s"CREATE TABLE t(v VARCHAR(3), i INT) USING $format")
       sql("INSERT INTO t VALUES ('c', 1)")

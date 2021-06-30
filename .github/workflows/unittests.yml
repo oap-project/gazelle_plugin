@@ -59,7 +59,7 @@ jobs:
           cd src
           ctest -R
 
-  scala-unit-test:
+  scala-unit-test-hadoop-2-7:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -82,8 +82,8 @@ jobs:
       - name: Install Spark
         run: |
           cd /tmp
-          wget http://archive.apache.org/dist/spark/spark-3.0.2/spark-3.0.2-bin-hadoop2.7.tgz
-          tar -xf spark-3.0.2-bin-hadoop2.7.tgz
+          wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop2.7.tgz
+          tar -xf spark-3.1.1-bin-hadoop2.7.tgz
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
@@ -101,7 +101,54 @@ jobs:
           mvn clean install -DskipTests -Dbuild_arrow=OFF
           cd ..
           mvn clean package -P full-scala-compiler -am -pl native-sql-engine/core -DskipTests -Dbuild_arrow=OFF
-          mvn test -P full-scala-compiler -DmembersOnlySuites=org.apache.spark.sql.nativesql -am -DfailIfNoTests=false -Dexec.skip=true -DargLine="-Dspark.test.home=/tmp/spark-3.0.0-bin-hadoop2.7" &> log-file.log
+          mvn test -P full-scala-compiler -DmembersOnlySuites=org.apache.spark.sql.nativesql -am -DfailIfNoTests=false -Dexec.skip=true -DargLine="-Dspark.test.home=/tmp/spark-3.1.1-bin-hadoop2.7" &> log-file.log
+          echo '#!/bin/bash' > grep.sh
+          echo "module_tested=0; module_should_test=8; tests_total=0; while read -r line; do num=\$(echo \"\$line\" | grep -o -E '[0-9]+'); tests_total=\$((tests_total+num)); done <<<\"\$(grep \"Total number of tests run:\" log-file.log)\"; succeed_total=0; while read -r line; do [[ \$line =~ [^0-9]*([0-9]+)\, ]]; num=\${BASH_REMATCH[1]}; succeed_total=\$((succeed_total+num)); let module_tested++; done <<<\"\$(grep \"succeeded\" log-file.log)\"; if test \$tests_total -eq \$succeed_total -a \$module_tested -eq \$module_should_test; then echo \"All unit tests succeed\"; else echo \"Unit tests failed\"; exit 1; fi" >> grep.sh
+          bash grep.sh
+
+  scala-unit-test-hadoop-3-2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 1.8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.8
+      - run: sudo swapoff -a
+      - run: free
+      - run: sudo apt-get update
+      - run: sudo apt-get install cmake
+      - run: sudo apt-get install libboost-all-dev
+      - name: Install Googletest
+        run: |
+          sudo apt-get install libgtest-dev
+          cd /usr/src/gtest
+          sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local
+          sudo make
+          sudo apt-get install google-mock
+      - name: Install Spark
+        run: |
+          cd /tmp
+          wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop3.2.tgz
+          tar -xf spark-3.1.1-bin-hadoop3.2.tgz
+      - name: Install OAP optimized Arrow (C++ libs)
+        run: |
+          cd /tmp
+          git clone https://github.com/oap-project/arrow.git
+          cd arrow && git checkout arrow-4.0.0-oap && cd cpp
+          mkdir build && cd build
+          cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
+          sudo make install
+          cd ../../java
+          mvn clean install -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn -P arrow-jni -am -Darrow.cpp.build.dir=/tmp/arrow/cpp/build/release/ -DskipTests -Dcheckstyle.skip
+      - name: Run unit tests
+        run: |
+          mvn clean install -N
+          cd arrow-data-source
+          mvn clean install -DskipTests -Dbuild_arrow=OFF
+          cd ..
+          mvn clean package -P full-scala-compiler -Phadoop3.2 -am -pl native-sql-engine/core -DskipTests -Dbuild_arrow=OFF
+          mvn test -P full-scala-compiler -DmembersOnlySuites=org.apache.spark.sql.nativesql -am -DfailIfNoTests=false -Dexec.skip=true -DargLine="-Dspark.test.home=/tmp/spark-3.1.1-bin-hadoop3.2" &> log-file.log
           echo '#!/bin/bash' > grep.sh
           echo "module_tested=0; module_should_test=8; tests_total=0; while read -r line; do num=\$(echo \"\$line\" | grep -o -E '[0-9]+'); tests_total=\$((tests_total+num)); done <<<\"\$(grep \"Total number of tests run:\" log-file.log)\"; succeed_total=0; while read -r line; do [[ \$line =~ [^0-9]*([0-9]+)\, ]]; num=\${BASH_REMATCH[1]}; succeed_total=\$((succeed_total+num)); let module_tested++; done <<<\"\$(grep \"succeeded\" log-file.log)\"; if test \$tests_total -eq \$succeed_total -a \$module_tested -eq \$module_should_test; then echo \"All unit tests succeed\"; else echo \"Unit tests failed\"; exit 1; fi" >> grep.sh
           bash grep.sh

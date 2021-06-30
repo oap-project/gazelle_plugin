@@ -82,7 +82,7 @@ trait SharedSparkSessionBase
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       // .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.memory.offHeap.enabled", "true")
-      .set("spark.memory.offHeap.size", "120m")
+      .set("spark.memory.offHeap.size", "500m")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
       // .set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")

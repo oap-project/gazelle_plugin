@@ -651,7 +651,14 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
       join_type_ = 0;
     } else if (func_name.compare("conditionedProbeArraysOuter") == 0) {
       join_type_ = 1;
-    } else if (func_name.compare("conditionedProbeArraysAnti") == 0) {
+    } else if (func_name.compare(0, 26, "conditionedProbeArraysAnti") == 0) {
+      if (func_name.length() > 26 &&
+          func_name.compare(0, 27, "conditionedProbeArraysAnti_") == 0) {
+        auto lit = func_name.substr(27);
+        is_null_aware_anti_join_ = (lit == "true" ? true : false);
+      } else {
+        is_null_aware_anti_join_ = false;
+      }
       join_type_ = 2;
     } else if (func_name.compare("conditionedProbeArraysSemi") == 0) {
       join_type_ = 3;
@@ -691,8 +698,8 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
     }
     RETURN_NOT_OK(extra::ConditionedProbeKernel::Make(
         &p_->ctx_, left_key_list_, right_key_list_, left_field_list_, right_field_list_,
-        condition_, join_type_, result_field_list_, hash_configuration_list_, 0,
-        &kernel_));
+        condition_, join_type_, is_null_aware_anti_join_, result_field_list_,
+        hash_configuration_list_, 0, &kernel_));
     p_->signature_ = kernel_->GetSignature();
     initialized_ = true;
     finish_return_type_ = ArrowComputeResultType::BatchIterator;
@@ -737,6 +744,7 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
 
  private:
   int join_type_;
+  bool is_null_aware_anti_join_ = false;
   std::shared_ptr<gandiva::FunctionNode> root_node_;
   gandiva::NodePtr condition_;
   gandiva::FieldVector field_list_;

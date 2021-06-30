@@ -629,7 +629,7 @@ class JDBCSuite extends QueryTest
     assert(rows(0).getAs[java.sql.Timestamp](2).getNanos === 543543000)
   }
 
-  ignore("test DATE types") {
+  test("test DATE types") {
     val rows = spark.read.jdbc(
       urlWithUserAndPass, "TEST.TIMETYPES", new Properties()).collect()
     val cachedRows = spark.read.jdbc(urlWithUserAndPass, "TEST.TIMETYPES", new Properties())
@@ -639,7 +639,7 @@ class JDBCSuite extends QueryTest
     assert(cachedRows(0).getAs[java.sql.Date](1) === java.sql.Date.valueOf("1996-01-01"))
   }
 
-  ignore("test DATE types in cache") {
+  test("test DATE types in cache") {
     withTempView("mycached_date") {
       val rows = spark.read.jdbc(urlWithUserAndPass, "TEST.TIMETYPES", new Properties()).collect()
       spark.read.jdbc(urlWithUserAndPass, "TEST.TIMETYPES", new Properties())

@@ -372,7 +372,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - same schema") {
+  ignore("SPARK-10301 requested schema clipping - same schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -428,7 +428,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - requested schema contains physical schema") {
+  ignore("SPARK-10301 requested schema clipping - requested schema contains physical schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark.range(1).selectExpr("NAMED_STRUCT('a', id, 'b', id + 1) AS s").coalesce(1)
@@ -472,7 +472,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - physical schema contains requested schema") {
+  ignore("SPARK-10301 requested schema clipping - physical schema contains requested schema") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark
@@ -520,7 +520,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - schemas overlap but don't contain each other") {
+  ignore("SPARK-10301 requested schema clipping - schemas overlap but don't contain each other") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
       val df = spark
@@ -546,7 +546,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - deeply nested struct") {
+  ignore("SPARK-10301 requested schema clipping - deeply nested struct") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -576,7 +576,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - out of order") {
+  ignore("SPARK-10301 requested schema clipping - out of order") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -609,7 +609,7 @@ abstract class ParquetQuerySuite extends QueryTest with ParquetTest with SharedS
     }
   }
 
-  test("SPARK-10301 requested schema clipping - schema merging") {
+  ignore("SPARK-10301 requested schema clipping - schema merging") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 

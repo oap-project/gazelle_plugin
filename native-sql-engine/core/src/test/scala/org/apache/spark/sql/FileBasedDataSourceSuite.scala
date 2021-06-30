@@ -532,7 +532,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("Do not use cache on overwrite") {
+  test("Do not use cache on overwrite") {
     Seq("", "orc").foreach { useV1SourceReaderList =>
       withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> useV1SourceReaderList) {
         withTempDir { dir =>
@@ -548,7 +548,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("Do not use cache on append") {
+  test("Do not use cache on append") {
     Seq("", "orc").foreach { useV1SourceReaderList =>
       withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> useV1SourceReaderList) {
         withTempDir { dir =>

@@ -124,7 +124,7 @@ abstract class DisableUnnecessaryBucketedScanSuite
     }
   }
 
-  ignore("SPARK-32859: disable unnecessary bucketed table scan - multiple joins test") {
+  test("SPARK-32859: disable unnecessary bucketed table scan - multiple joins test") {
     withTable("t1", "t2", "t3") {
       df1.write.format("parquet").bucketBy(8, "i").saveAsTable("t1")
       df2.write.format("parquet").bucketBy(8, "i").saveAsTable("t2")
@@ -198,7 +198,7 @@ abstract class DisableUnnecessaryBucketedScanSuite
     }
   }
 
-  ignore("SPARK-32859: disable unnecessary bucketed table scan - other operators test") {
+  test("SPARK-32859: disable unnecessary bucketed table scan - other operators test") {
     withTable("t1", "t2", "t3") {
       df1.write.format("parquet").bucketBy(8, "i").saveAsTable("t1")
       df2.write.format("parquet").bucketBy(8, "i").saveAsTable("t2")

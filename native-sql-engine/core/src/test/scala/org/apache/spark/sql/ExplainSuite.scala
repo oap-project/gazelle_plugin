@@ -459,7 +459,7 @@ class ExplainSuite extends ExplainSuiteHelper with DisableAdaptiveExecutionSuite
 class ExplainSuiteAE extends ExplainSuiteHelper with EnableAdaptiveExecutionSuite {
   import testImplicits._
 
-  ignore("Explain formatted") {
+  test("Explain formatted") {
     val df1 = Seq((1, 2), (2, 3)).toDF("k", "v1")
     val df2 = Seq((2, 3), (1, 1)).toDF("k", "v2")
     val testDf = df1.join(df2, "k").groupBy("k").agg(count("v1"), sum("v1"), avg("v2"))

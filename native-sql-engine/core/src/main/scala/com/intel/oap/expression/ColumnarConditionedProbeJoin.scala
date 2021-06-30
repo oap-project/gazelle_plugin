@@ -102,7 +102,8 @@ object ColumnarConditionedProbeJoin extends Logging {
       joinType: JoinType,
       buildSide: BuildSide,
       conditionOption: Option[Expression],
-      builder_type: Int = 0): TreeNode = {
+      builder_type: Int = 0,
+      isNullAwareAntiJoin: Boolean = false): TreeNode = {
     val buildInputFieldList: List[Field] = buildInputAttributes.toList.map(attr => {
       Field
         .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
@@ -137,8 +138,6 @@ object ColumnarConditionedProbeJoin extends Logging {
       TreeBuilder.makeField(field_node)
     })
 
-    var existsField: Field = null
-    var existsIndex: Int = -1
     val probeFuncName = joinType match {
       case _: InnerLike =>
         "conditionedProbeArraysInner"
@@ -149,15 +148,13 @@ object ColumnarConditionedProbeJoin extends Logging {
       case RightOuter =>
         "conditionedProbeArraysOuter"
       case LeftAnti =>
-        "conditionedProbeArraysAnti"
+        s"conditionedProbeArraysAnti_$isNullAwareAntiJoin"
       case j: ExistenceJoin =>
         "conditionedProbeArraysExistence"
       case _ =>
         throw new UnsupportedOperationException(s"Join Type ${joinType} is not supported yet.")
     }
 
-    val condition = conditionOption.getOrElse(null)
-    var conditionInputList: java.util.List[Field] = Lists.newArrayList()
     val build_args_node = TreeBuilder.makeFunction(
       "codegen_left_schema",
       buildInputFieldList.map(field => { TreeBuilder.makeField(field) }).asJava,
@@ -182,6 +179,8 @@ object ColumnarConditionedProbeJoin extends Logging {
       "build_keys_config_node",
       Lists.newArrayList(TreeBuilder.makeLiteral(builder_type.asInstanceOf[Integer])),
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+    val condition = conditionOption.orNull
+    var conditionInputList: java.util.List[Field] = Lists.newArrayList()
     val condition_expression_node_list: java.util.List[TreeNode] =
       if (condition != null) {
         val columnarExpression: Expression =

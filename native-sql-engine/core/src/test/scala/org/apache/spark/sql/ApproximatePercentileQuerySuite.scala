@@ -297,7 +297,7 @@ class ApproximatePercentileQuerySuite extends QueryTest with SharedSparkSession 
     assert(buffer.isCompressed)
   }
 
-  ignore("SPARK-32908: maximum target error in percentile_approx") {
+  test("SPARK-32908: maximum target error in percentile_approx") {
     withTempView(table) {
       spark.read
         .schema("col int")

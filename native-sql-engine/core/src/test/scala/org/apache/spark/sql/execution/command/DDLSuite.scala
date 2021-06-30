@@ -1027,7 +1027,7 @@ abstract class DDLSuite extends QueryTest with SQLTestUtils {
     }
   }
 
-  ignore("alter table: rename cached table") {
+  test("alter table: rename cached table") {
     import testImplicits._
     sql("CREATE TABLE students (age INT, name STRING) USING parquet")
     val df = (1 to 2).map { i => (i, i.toString) }.toDF("age", "name")

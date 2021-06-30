@@ -42,7 +42,7 @@ class NativeSQLConvertedSuite extends QueryTest
   test("literal") {
     val df = sql("SELECT sum(c), max(c), avg(c), count(c), stddev_samp(c) " +
       "FROM (WITH t(c) AS (SELECT 1) SELECT * FROM t)")
-    checkAnswer(df, Seq(Row(1, 1, 1, 1, Double.NaN)))
+    checkAnswer(df, Seq(Row(1, 1, 1, 1, null)))
   }
 
   test("join with condition") {
@@ -206,16 +206,16 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  ignore("union") {
+  ignore("union - normalization for a very small value") {
     Seq(0.0, -34.84, -1004.30, -1.2345678901234e+200, -1.2345678901234e-200)
       .toDF("f1").createOrReplaceTempView("FLOAT8_TBL")
     val df = sql("SELECT f1 AS five FROM FLOAT8_TBL UNION SELECT f1 FROM FLOAT8_TBL ORDER BY 1")
     checkAnswer(df, Seq(
+      Row(-1.2345678901234E200),
       Row(-1004.3),
       Row(-34.84),
       Row(-1.2345678901234E-200),
-      Row(0.0),
-      Row(123456.0)))
+      Row(0.0)))
   }
 
   ignore("int4 and int8 exception") {
@@ -377,5 +377,190 @@ class NativeSQLConvertedSuite extends QueryTest
     val df = sql(
       "SELECT COUNT(a) FILTER (WHERE a = 1), COUNT(b) FILTER (WHERE a > 1) FROM testData")
     checkAnswer(df, Seq(Row(2, 4)))
+  }
+
+  test("left anti - 1") {
+    Seq[(java.lang.Long, Double)](
+      (null, 1.0),
+      (2L, 3.0),
+      (4L, 5.0))
+      .toDF("a", "b")
+      .createOrReplaceTempView("m")
+    Seq[(java.lang.Long, Double)](
+      (null, 1.0),
+      (2L, 3.0),
+      (6L, 7.0))
+      .toDF("c", "d")
+      .createOrReplaceTempView("s")
+    val df = sql("SELECT * FROM m WHERE  a NOT IN (SELECT c FROM s WHERE  d = 1.0)")
+    checkAnswer(df, Nil)
+  }
+
+  test("left anti - 2") {
+    Seq[(Integer, Integer)](
+      (1, 1),
+      (2, 1),
+      (null, 1),
+      (1, 3),
+      (null, 3),
+      (1, null),
+      (null, 2))
+      .toDF("a1", "a2")
+      .createOrReplaceTempView("a")
+    Seq[(Integer, Integer, Integer)](
+      (1, 1, 2),
+      (null, 3, 2),
+      (1, null, 2),
+      (1, 2, null))
+      .toDF("b1", "b2", "b3")
+      .createOrReplaceTempView("b")
+    val df = sql("SELECT a1, a2 FROM a WHERE a1 NOT IN (SELECT b.b1 FROM b WHERE a.a2 = b.b2)")
+    checkAnswer(df, Seq(Row(1, null), Row(2, 1)))
+  }
+
+  test("left anti - null handling in two keys") {
+    Seq[(Integer, Integer, Integer)](
+      (1, 1, 2),
+      (2, 1, 3),
+      (null, 1, 6),
+      (1, 3, 1),
+      (null, null, 6),
+      (null, 3, 2),
+      (1, null, 9),
+      (null, 2, 2))
+      .toDF("a1", "a2", "a3")
+      .createOrReplaceTempView("a")
+    Seq[(Integer, Integer, Integer)](
+      (1, 1, 2),
+      (null, null, 2),
+      (null, 3, 2),
+      (1, null, 2),
+      (1, 2, null))
+      .toDF("b1", "b2", "b3")
+      .createOrReplaceTempView("b")
+
+    val df = sql("SELECT a1, a2 FROM a ANTI JOIN b ON a.a1 = b.b1 AND a.a2 = b.b2")
+    checkAnswer(df, Seq(
+      Row(2, 1),
+      Row(null, 1),
+      Row(1, 3),
+      Row(null, null),
+      Row(null, 3),
+      Row(1, null),
+      Row(null, 2)))
+  }
+
+  test("left anti - 4") {
+    Seq[(Integer, Double)](
+      (null, 1.0),
+      (2, 3.0),
+      (4, 5.0))
+      .toDF("a", "b")
+      .createOrReplaceTempView("m")
+    Seq[(Integer, Double)](
+      (null, 1.0),
+      (2, 3.0),
+      (6, 7.0))
+      .toDF("c", "d")
+      .createOrReplaceTempView("s")
+    val df = sql("SELECT * FROM m WHERE a NOT IN (SELECT c FROM s WHERE  d > 10.0)")
+    checkAnswer(df, Seq(
+      Row(null, 1.0),
+      Row(2, 3.0),
+      Row(4, 5.0)))
+  }
+
+  test("count, sum and avg") {
+    val df = sql("SELECT count(DISTINCT 2), count(DISTINCT 2,3)")
+    checkAnswer(df, Seq(
+      Row(1, 1)))
+    val df1 = sql("select sum(CAST(null AS int)) from range(1,4)")
+    checkAnswer(df1, Seq(Row(null)))
+    val df2 = sql("select avg(CAST(null AS int)) from range(1,4)")
+    checkAnswer(df2, Seq(Row(null)))
+  }
+
+  test("exists-aggregate (left anti)") {
+    Seq[(Integer, String, Date, Double, Integer)](
+      (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
+      (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
+      (200, "emp 2", Date.valueOf("2003-01-01"), 200.00D, 10),
+      (300, "emp 3", Date.valueOf("2002-01-01"), 300.00D, 20),
+      (400, "emp 4", Date.valueOf("2005-01-01"), 400.00D, 30),
+      (500, "emp 5", Date.valueOf("2001-01-01"), 400.00D, null),
+      (600, "emp 6 - no dept", Date.valueOf("2001-01-01"), 400.00D, 100),
+      (700, "emp 7", Date.valueOf("2010-01-01"), 400.00D, 100),
+      (800, "emp 8", Date.valueOf("2016-01-01"), 150.00D, 70))
+      .toDF("id", "emp_name", "hiredate", "salary", "dept_id")
+      .createOrReplaceTempView("EMP")
+    Seq[(Integer, String, String)](
+      (10, "dept 1", "CA"),
+      (20, "dept 2", "NY"),
+      (30, "dept 3", "TX"),
+      (40, "dept 4 - unassigned", "OR"),
+      (50, "dept 5 - unassigned", "NJ"),
+      (70, "dept 7", "FL"))
+      .toDF("dept_id", "dept_name", "state")
+      .createOrReplaceTempView("DEPT")
+    val df = sql("SELECT emp_name FROM emp WHERE NOT EXISTS (SELECT max(dept.dept_id) a " +
+      "FROM dept WHERE dept.dept_id = emp.dept_id GROUP BY dept.dept_id)")
+    val df2 = sql("SELECT max(dept.dept_id) a FROM dept, emp WHERE dept.dept_id = " +
+      "emp.dept_id GROUP BY dept.dept_id")
+    df2.show()
+
+    checkAnswer(df, Seq(
+      Row("emp 5"),
+      Row("emp 6 - no dept"),
+      Row("emp 7")))
+  }
+
+  test("exists") {
+    Seq[(Integer, String, Date, Double, Integer)](
+      (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
+      (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
+      (200, "emp 2", Date.valueOf("2003-01-01"), 200.00D, 10),
+      (300, "emp 3", Date.valueOf("2002-01-01"), 300.00D, 20),
+      (400, "emp 4", Date.valueOf("2005-01-01"), 400.00D, 30),
+      (500, "emp 5", Date.valueOf("2001-01-01"), 400.00D, null),
+      (600, "emp 6 - no dept", Date.valueOf("2001-01-01"), 400.00D, 100),
+      (700, "emp 7", Date.valueOf("2010-01-01"), 400.00D, 100),
+      (800, "emp 8", Date.valueOf("2016-01-01"), 150.00D, 70))
+      .toDF("id", "emp_name", "hiredate", "salary", "dept_id")
+      .createOrReplaceTempView("EMP")
+    Seq[(Integer, String, String)](
+      (10, "dept 1", "CA"),
+      (20, "dept 2", "NY"),
+      (30, "dept 3", "TX"),
+      (40, "dept 4 - unassigned", "OR"),
+      (50, "dept 5 - unassigned", "NJ"),
+      (70, "dept 7", "FL"))
+      .toDF("dept_id", "dept_name", "state")
+      .createOrReplaceTempView("DEPT")
+    Seq[(String, Double)](
+      ("emp 1", 10.00D),
+      ("emp 1", 20.00D),
+      ("emp 2", 300.00D),
+      ("emp 2", 100.00D),
+      ("emp 3", 300.00D),
+      ("emp 4", 100.00D),
+      ("emp 5", 1000.00D),
+      ("emp 6 - no dept", 500.00D))
+      .toDF("emp_name", "bonus_amt")
+      .createOrReplaceTempView("BONUS")
+  }
+
+  test("union - 1") {
+    Seq[Integer](1).toDF("id")
+      .createOrReplaceTempView("t")
+    val df = sql("SELECT cast(1 as boolean) FROM t UNION SELECT cast(2 as boolean) FROM t")
+    checkAnswer(df, Seq(Row(true)))
+    val df1 = sql("SELECT stddev_samp('1') FROM t")
+    checkAnswer(df1, Seq(Row(null)))
+  }
+
+  test("groupby - 1") {
+    val df = sql("select four, x from (select four, ten, 'foo' as x from tenk1) as t" +
+      " group by grouping sets (four, x) having x = 'foo'")
+    checkAnswer(df, Seq(Row(null, "foo")))
   }
 }

@@ -381,6 +381,10 @@ class HashRelation {
     return HASH_NEW_KEY;
   }
 
+  // This method is specificlly used by Anti Join,
+  // because whether to join null should be considered.
+  int GetRealNull() { return null_index_set_ ? 0 : HASH_NEW_KEY; }
+
   arrow::Status AppendPayloadColumn(int idx, std::shared_ptr<arrow::Array> in) {
     return hash_relation_column_list_[idx]->AppendColumn(in);
   }
@@ -408,15 +412,19 @@ class HashRelation {
 
     addrs[2] = (int64_t)(hash_table_->bytesMap);
     sizes[2] = (int)(hash_table_->cursor);
+
+    addrs[3] = (int64_t)(&null_index_set_);
+    sizes[3] = (int)sizeof(bool);
     return arrow::Status::OK();
   }
 
   arrow::Status UnsafeSetHashTableObject(int len, int64_t* addrs, int* sizes) {
-    assert(len == 3);
+    assert(len == 4);
     hash_table_ = (unsafeHashMap*)addrs[0];
     hash_table_->cursor = sizes[2];
     hash_table_->keyArray = (char*)addrs[1];
     hash_table_->bytesMap = (char*)addrs[2];
+    null_index_set_ = *(bool*)addrs[3];
     unsafe_set = true;
     // dump(hash_table_);
     return arrow::Status::OK();
@@ -515,14 +523,12 @@ class HashRelation {
   }
 
   arrow::Status InsertNull(uint32_t array_id, uint32_t id) {
-    // since vanilla spark doesn't support match null in join
-    // we can directly retun to optimize
-    // if (!null_index_set_) {
-    //  null_index_set_ = true;
-    //  null_index_list_ = {ArrayItemIndex(array_id, id)};
-    //} else {
-    //  null_index_list_.emplace_back(array_id, id);
-    //}
+    if (!null_index_set_) {
+      null_index_set_ = true;
+      null_index_list_ = {ArrayItemIndex(array_id, id)};
+    } else {
+      null_index_list_.emplace_back(array_id, id);
+    }
     return arrow::Status::OK();
   }
 };

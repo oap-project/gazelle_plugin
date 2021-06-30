@@ -54,7 +54,7 @@ class TakeOrderedAndProjectSuite extends SparkPlanTest with SharedSparkSession {
   val limit = 250
   val sortOrder = 'a.desc :: 'b.desc :: Nil
 
-  ignore("TakeOrderedAndProject.doExecute without project") {
+  test("TakeOrderedAndProject.doExecute without project") {
     withClue(s"seed = $seed") {
       checkThatPlansAgree(
         generateRandomInputData(),
@@ -68,7 +68,7 @@ class TakeOrderedAndProjectSuite extends SparkPlanTest with SharedSparkSession {
     }
   }
 
-  ignore("TakeOrderedAndProject.doExecute with project") {
+  test("TakeOrderedAndProject.doExecute with project") {
     withClue(s"seed = $seed") {
       checkThatPlansAgree(
         generateRandomInputData(),

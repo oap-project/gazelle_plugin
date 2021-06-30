@@ -306,7 +306,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  ignore("change stats after insert command for datasource table") {
+  test("change stats after insert command for datasource table") {
     val table = "change_stats_insert_datasource_table"
     Seq(false, true).foreach { autoUpdate =>
       withSQLConf(SQLConf.AUTO_SIZE_UPDATE_ENABLED.key -> autoUpdate.toString) {
@@ -519,7 +519,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  ignore("analyzes column statistics in cached local temporary view") {
+  test("analyzes column statistics in cached local temporary view") {
     withTempView("tempView") {
       // Analyzes in a temporary view
       sql("CREATE TEMPORARY VIEW tempView AS SELECT * FROM range(1, 30)")
@@ -536,7 +536,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
     }
   }
 
-  ignore("analyzes column statistics in cached global temporary view") {
+  test("analyzes column statistics in cached global temporary view") {
     withGlobalTempView("gTempView") {
       val globalTempDB = spark.sharedState.globalTempViewManager.database
       val errMsg1 = intercept[AnalysisException] {

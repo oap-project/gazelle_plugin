@@ -189,7 +189,8 @@ case class ColumnarCollapseCodegenStages(
         p.condition,
         p.left,
         p.right,
-        plan.projectList)
+        plan.projectList,
+        nullAware = p.isNullAwareAntiJoin)
     case p: ColumnarShuffledHashJoinExec
         if plan.condition == null && !containsExpression(plan.projectList) =>
       ColumnarShuffledHashJoinExec(

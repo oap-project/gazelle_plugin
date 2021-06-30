@@ -202,9 +202,9 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
     "SELECT i * 2 FROM oneToTen",
     (1 to 10).map(i => Row(i * 2)).toSeq)
 
-//  sqlTest(
-//    "SELECT a.i, b.i FROM oneToTen a JOIN oneToTen b ON a.i = b.i + 1",
-//    (2 to 10).map(i => Row(i, i - 1)).toSeq)
+  sqlTest(
+    "SELECT a.i, b.i FROM oneToTen a JOIN oneToTen b ON a.i = b.i + 1",
+    (2 to 10).map(i => Row(i, i - 1)).toSeq)
 
   test("Schema and all fields") {
     val expectedSchema = StructType(
@@ -302,7 +302,7 @@ class TableScanSuite extends DataSourceTest with SharedSparkSession {
     "SELECT structFieldComplex.Value.`value_(2)` FROM tableWithSchema",
     (1 to 10).map(i => Row(Seq(Date.valueOf(s"1970-01-${i + 1}")))).toSeq)
 
-  ignore("Caching")  {
+  test("Caching")  {
     // Cached Query Execution
     spark.catalog.cacheTable("oneToTen")
     assertCached(sql("SELECT * FROM oneToTen"))

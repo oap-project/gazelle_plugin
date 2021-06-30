@@ -320,7 +320,7 @@ class InsertSuite extends DataSourceTest with SharedSparkSession {
     }
   }
 
-  ignore("Caching")  {
+  test("Caching")  {
     // write something to the jsonTable
     sql(
       s"""

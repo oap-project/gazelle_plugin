@@ -149,7 +149,7 @@ class V1WriteFallbackSuite extends QueryTest with SharedSparkSession with Before
     }
   }
 
-  ignore("SPARK-33492: append fallback should refresh cache") {
+  test("SPARK-33492: append fallback should refresh cache") {
     SparkSession.clearActiveSession()
     SparkSession.clearDefaultSession()
     try {
@@ -172,7 +172,7 @@ class V1WriteFallbackSuite extends QueryTest with SharedSparkSession with Before
     }
   }
 
-  ignore("SPARK-33492: overwrite fallback should refresh cache") {
+  test("SPARK-33492: overwrite fallback should refresh cache") {
     SparkSession.clearActiveSession()
     SparkSession.clearDefaultSession()
     try {

@@ -68,7 +68,7 @@ class HashAggregateKernel::Impl {
       auto func_name = func_node->descriptor()->name();
       std::shared_ptr<arrow::DataType> type;
       if (func_node->children().size() > 0) {
-        if (func_name == "action_stddev_samp_final") {
+        if (func_name.compare(0, 24, "action_stddev_samp_final") == 0) {
           type = func_node->children()[1]->return_type();
         } else {
           type = func_node->children()[0]->return_type();
@@ -499,10 +499,14 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1], result_field_list[result_id + 2]};
         result_id += 3;
         RETURN_NOT_OK(MakeStddevSampPartialAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_stddev_samp_final") == 0) {
+      } else if (action_name_list[action_id].compare(0, 24, "action_stddev_samp_final") == 0) {
+        bool null_on_divide_by_zero = false;
+        if (action_name_list[action_id].length() > 25) {
+          null_on_divide_by_zero = (action_name_list[action_id].substr(25) == "true" ? true : false);
+        }
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, type_list[type_id], res_type_list, &action));
+        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, type_list[type_id], res_type_list, null_on_divide_by_zero, &action));
       } else {
         return arrow::Status::NotImplemented(action_name_list[action_id],
                                              " is not implementetd.");
@@ -655,11 +659,15 @@ class HashAggregateKernel::Impl {
         result_id += 3;
         RETURN_NOT_OK(
             MakeStddevSampPartialAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare("action_stddev_samp_final") == 0) {
+      } else if (action_name.compare(0, 24, "action_stddev_samp_final") == 0) {
+        bool null_on_divide_by_zero = false;
+        if (action_name.length() > 25) {
+          null_on_divide_by_zero = (action_name.substr(25) == "true" ? true : false);
+        }
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list,
+                                                null_on_divide_by_zero, &action));
       } else {
         return arrow::Status::NotImplemented(action_name, " is not implementetd.");
       }

@@ -74,7 +74,7 @@ class DataFrameTungstenSuite extends QueryTest with SharedSparkSession {
     assert(df.select("b").first() === Row(outerStruct))
   }
 
-  ignore("primitive data type accesses in persist data") {
+  test("primitive data type accesses in persist data") {
     val data = Seq(true, 1.toByte, 3.toShort, 7, 15.toLong,
       31.25.toFloat, 63.75, null)
     val dataTypes = Seq(BooleanType, ByteType, ShortType, IntegerType, LongType,

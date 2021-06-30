@@ -374,7 +374,7 @@ abstract class OrcQueryTest extends OrcTest {
     }
   }
 
-  ignore("SPARK-9170: Don't implicitly lowercase of user-provided columns") {
+  test("SPARK-9170: Don't implicitly lowercase of user-provided columns") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 

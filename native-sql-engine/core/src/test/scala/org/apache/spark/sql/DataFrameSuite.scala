@@ -1965,7 +1965,7 @@ class DataFrameSuite extends QueryTest
     checkAnswer(joined.filter($"new".isNull), Row("x", null, null))
   }
 
-  ignore("SPARK-16664: persist with more than 200 columns") {
+  test("SPARK-16664: persist with more than 200 columns") {
     val size = 201L
     val rdd = sparkContext.makeRDD(Seq(Row.fromSeq(Seq.range(0, size))))
     val schemas = List.range(0, size).map(a => StructField("name" + a, LongType, true))
@@ -2163,7 +2163,7 @@ class DataFrameSuite extends QueryTest
     assert(df.queryExecution.executedPlan.isInstanceOf[WholeStageCodegenExec])
   }
 
-  ignore("SPARK-24165: CaseWhen/If - nullability of nested types") {
+  test("SPARK-24165: CaseWhen/If - nullability of nested types") {
     val rows = new java.util.ArrayList[Row]()
     rows.add(Row(true, ("x", 1), Seq("x", "y"), Map(0 -> "x")))
     rows.add(Row(false, (null, 2), Seq(null, "z"), Map(0 -> null)))

@@ -189,8 +189,8 @@ case class ColumnarHashAggregateExec(
                   }
                 } else {
                   // This is a special case used by grouping literal
-                  if (groupingExpressions.nonEmpty &&
-                    groupingExpressions.head.children.head.isInstanceOf[Literal]) {
+                  if (groupingExpressions.nonEmpty && groupingExpressions.head.children.nonEmpty &&
+                      groupingExpressions.head.children.head.isInstanceOf[Literal]) {
                     skip_grouping = true
                     skip_native = true
                   }
@@ -244,7 +244,6 @@ case class ColumnarHashAggregateExec(
               return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
             }
             val outputNumRows = output_rb.getLength
-
             val output = ConverterUtils.fromArrowRecordBatch(hash_aggr_out_schema, output_rb)
             ConverterUtils.releaseArrowRecordBatch(output_rb)
             eval_elapse += System.nanoTime() - beforeEval
@@ -347,7 +346,11 @@ case class ColumnarHashAggregateExec(
                     putDataIntoVector(resultColumnVectors, 0, idx) // m2
                     idx += 1
                   case Final =>
-                    putDataIntoVector(resultColumnVectors, Double.NaN, idx)
+                    if (aggregateFunc.asInstanceOf[StddevSamp].nullOnDivideByZero) {
+                      putDataIntoVector(resultColumnVectors, null, idx)
+                    } else {
+                      putDataIntoVector(resultColumnVectors, Double.NaN, idx)
+                    }
                     idx += 1
                 }
             }
@@ -559,7 +562,7 @@ case class ColumnarHashAggregateExec(
           val aggBufferAttr = max.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
           if (supportedTypes.indexOf(attr.dataType) == -1 &&
-            !attr.dataType.isInstanceOf[DecimalType]) {
+              !attr.dataType.isInstanceOf[DecimalType]) {
             throw new UnsupportedOperationException(
               s"${attr.dataType} is not supported in Columnar Max")
           }

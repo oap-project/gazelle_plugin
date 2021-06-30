@@ -1118,7 +1118,7 @@ abstract class DynamicPartitionPruningSuiteBase
    * a disjoint filter. The outcome of this query is a sequence of nested joins that have
    * duplicated partitioning keys, also used to uniquely identify the dynamic pruning filters.
    */
-  ignore("dynamic partition pruning ambiguity issue across nested joins") {
+  test("dynamic partition pruning ambiguity issue across nested joins") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       withTable("store", "date", "item") {
         spark.range(500)

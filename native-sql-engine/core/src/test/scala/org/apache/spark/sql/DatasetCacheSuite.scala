@@ -80,7 +80,7 @@ class DatasetCacheSuite extends QueryTest
     assert(cached.storageLevel == StorageLevel.NONE, "The Dataset should not be cached.")
   }
 
-  ignore("persist and then rebind right encoder when join 2 datasets") {
+  test("persist and then rebind right encoder when join 2 datasets") {
     val ds1 = Seq("1", "2").toDS().as("a")
     val ds2 = Seq(2, 3).toDS().as("b")
 
@@ -99,7 +99,7 @@ class DatasetCacheSuite extends QueryTest
     assert(ds2.storageLevel == StorageLevel.NONE, "The Dataset ds2 should not be cached.")
   }
 
-  ignore("persist and then groupBy columns asKey, map") {
+  test("persist and then groupBy columns asKey, map") {
     val ds = Seq(("a", 10), ("a", 20), ("b", 1), ("b", 2), ("c", 1)).toDS()
     val grouped = ds.groupByKey(_._1)
     val aggregated = grouped.mapGroups { (g, iter) => (g, iter.map(_._2).sum) }
@@ -132,7 +132,7 @@ class DatasetCacheSuite extends QueryTest
     assert(df.storageLevel == StorageLevel.NONE)
   }
 
-  ignore("cache UDF result correctly") {
+  test("cache UDF result correctly") {
     val expensiveUDF = udf({x: Int => Thread.sleep(2000); x})
     val df = spark.range(0, 2).toDF("a").repartition(1).withColumn("b", expensiveUDF($"a"))
     val df2 = df.agg(sum(df("b")))
@@ -150,7 +150,7 @@ class DatasetCacheSuite extends QueryTest
     assert(df.storageLevel == StorageLevel.NONE)
   }
 
-  ignore("SPARK-24613 Cache with UDF could not be matched with subsequent dependent caches") {
+  test("SPARK-24613 Cache with UDF could not be matched with subsequent dependent caches") {
     val udf1 = udf({x: Int => x + 1})
     val df = spark.range(0, 10).toDF("a").withColumn("b", udf1($"a"))
     val df2 = df.agg(sum(df("b")))
@@ -180,7 +180,7 @@ class DatasetCacheSuite extends QueryTest
     assertCacheDependency(df3, 0)
   }
 
-  ignore("SPARK-24596 Non-cascading Cache Invalidation - verify cached data reuse") {
+  test("SPARK-24596 Non-cascading Cache Invalidation - verify cached data reuse") {
     val expensiveUDF = udf({ x: Int => Thread.sleep(5000); x })
     val df = spark.range(0, 5).toDF("a")
     val df1 = df.withColumn("b", expensiveUDF($"a"))
@@ -213,7 +213,7 @@ class DatasetCacheSuite extends QueryTest
     checkDataset(df5, Row(10))
   }
 
-  ignore("SPARK-26708 Cache data and cached plan should stay consistent") {
+  test("SPARK-26708 Cache data and cached plan should stay consistent") {
     val df = spark.range(0, 5).toDF("a")
     val df1 = df.withColumn("b", $"a" + 1)
     val df2 = df.filter($"a" > 1)
@@ -253,7 +253,7 @@ class DatasetCacheSuite extends QueryTest
       df2LimitInnerPlan.get.find(_.isInstanceOf[InMemoryTableScanExec]).isEmpty)
   }
 
-  ignore("SPARK-27739 Save stats from optimized plan") {
+  test("SPARK-27739 Save stats from optimized plan") {
     withTable("a") {
       spark.range(4)
         .selectExpr("id", "id % 2 AS p")

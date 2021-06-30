@@ -50,7 +50,7 @@ class StreamingStateStoreFormatCompatibilitySuite extends StreamTest {
     checkpointDir
   }
 
-  ignore("common functions") {
+  test("common functions") {
     val inputData = MemoryStream[Int]
     val aggregated =
       inputData.toDF().toDF("value")
@@ -122,7 +122,7 @@ class StreamingStateStoreFormatCompatibilitySuite extends StreamTest {
     )
   }
 
-  ignore("statistical functions") {
+  test("statistical functions") {
     val inputData = MemoryStream[Long]
     val aggregated =
       inputData.toDF().toDF("value")
@@ -185,7 +185,7 @@ class StreamingStateStoreFormatCompatibilitySuite extends StreamTest {
     )
   }
 
-  ignore("deduplicate with all columns") {
+  test("deduplicate with all columns") {
     val inputData = MemoryStream[Long]
     val result = inputData.toDF().toDF("value")
       .selectExpr(
@@ -219,7 +219,7 @@ class StreamingStateStoreFormatCompatibilitySuite extends StreamTest {
     )
   }
 
-  ignore("SPARK-28067 changed the sum decimal unsafe row format") {
+  test("SPARK-28067 changed the sum decimal unsafe row format") {
     val inputData = MemoryStream[Int]
     val aggregated =
       inputData.toDF().toDF("value")

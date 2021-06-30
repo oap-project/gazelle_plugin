@@ -598,7 +598,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("map_entries") {
+  test("map_entries") {
     // Primitive-type elements
     val idf = Seq(
       Map[Int, Int](1 -> 100, 2 -> 200, 3 -> 300),
@@ -732,7 +732,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     }.getMessage().contains(expectedMessage2))
   }
 
-  ignore("map_from_entries function") {
+  test("map_from_entries function") {
     // Test cases with primitive-type keys and values
     val idf = Seq(
       Seq((1, 10), (2, 20), (3, 10)),
@@ -1093,7 +1093,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testString()
   }
 
-  ignore("reverse function - array for primitive type not containing null") {
+  test("reverse function - array for primitive type not containing null") {
     val idfNotContainsNull = Seq(
       Seq(1, 9, 8, 7),
       Seq(5, 8, 9, 7, 2),
@@ -1119,7 +1119,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("reverse function - array for primitive type containing null") {
+  test("reverse function - array for primitive type containing null") {
     val idfContainsNull = Seq[Seq[Integer]](
       Seq(1, 9, 8, null, 7),
       Seq(null, 5, 8, 9, 7, 2),
@@ -1145,7 +1145,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("reverse function - array for non-primitive type") {
+  test("reverse function - array for non-primitive type") {
     val sdf = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -1461,7 +1461,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     }.getMessage.contains("data type mismatch"))
   }
 
-  ignore("concat function - arrays") {
+  test("concat function - arrays") {
     val nseqi : Seq[Int] = null
     val nseqs : Seq[String] = null
     val df = Seq(
@@ -1548,7 +1548,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(actual.schema === expected.schema)
   }
 
-  ignore("flatten function") {
+  test("flatten function") {
     // Test cases with a primitive type
     val intDF = Seq(
       (Seq(Seq(1, 2, 3), Seq(4, 5), Seq(6))),
@@ -1650,7 +1650,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("array_repeat function") {
+  test("array_repeat function") {
     val strDF = Seq(
       ("hi", 2),
       (null, 2)
@@ -1858,7 +1858,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     checkAnswer(df, df.collect())
   }
 
-  ignore("shuffle function - array for primitive type not containing null") {
+  test("shuffle function - array for primitive type not containing null") {
     val idfNotContainsNull = Seq(
       Seq(1, 9, 8, 7),
       Seq(5, 8, 9, 7, 2),
@@ -1878,7 +1878,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("shuffle function - array for primitive type containing null") {
+  test("shuffle function - array for primitive type containing null") {
     val idfContainsNull = Seq[Seq[Integer]](
       Seq(1, 9, 8, null, 7),
       Seq(null, 5, 8, 9, 7, 2),
@@ -1898,7 +1898,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("shuffle function - array for non-primitive type") {
+  test("shuffle function - array for non-primitive type") {
     val sdf = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -2041,7 +2041,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     }.getMessage.contains("data type mismatch"))
   }
 
-  ignore("transform function - array for primitive type not containing null") {
+  test("transform function - array for primitive type not containing null") {
     val df = Seq(
       Seq(1, 9, 8, 7),
       Seq(5, 8, 9, 7, 2),
@@ -2083,7 +2083,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("transform function - array for primitive type containing null") {
+  test("transform function - array for primitive type containing null") {
     val df = Seq[Seq[Integer]](
       Seq(1, 9, 8, null, 7),
       Seq(5, null, 8, 9, 7, 2),
@@ -2125,7 +2125,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("transform function - array for non-primitive type") {
+  test("transform function - array for non-primitive type") {
     val df = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -2167,7 +2167,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testNonPrimitiveType()
   }
 
-  ignore("transform function - special cases") {
+  test("transform function - special cases") {
     val df = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -2332,7 +2332,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(ex4.getMessage.contains("cannot resolve '`a`'"))
   }
 
-  ignore("filter function - array for primitive type not containing null") {
+  test("filter function - array for primitive type not containing null") {
     val df = Seq(
       Seq(1, 9, 8, 7),
       Seq(5, 8, 9, 7, 2),
@@ -2362,7 +2362,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("filter function - array for primitive type containing null") {
+  test("filter function - array for primitive type containing null") {
     val df = Seq[Seq[Integer]](
       Seq(1, 9, 8, null, 7),
       Seq(5, null, 8, 9, 7, 2),
@@ -2392,7 +2392,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("filter function - array for non-primitive type") {
+  test("filter function - array for non-primitive type") {
     val df = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -2422,7 +2422,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testNonPrimitiveType()
   }
 
-  ignore("filter function - index argument") {
+  test("filter function - index argument") {
     val df = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -2491,7 +2491,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(ex4.getMessage.contains("cannot resolve '`a`'"))
   }
 
-  ignore("exists function - array for primitive type not containing null") {
+  test("exists function - array for primitive type not containing null") {
     val df = Seq(
       Seq(1, 9, 8, 7),
       Seq(5, 9, 7),
@@ -2521,7 +2521,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("exists function - array for primitive type containing null") {
+  test("exists function - array for primitive type containing null") {
     val df = Seq[Seq[Integer]](
       Seq(1, 9, 8, null, 7),
       Seq(1, 3, 5),
@@ -2554,7 +2554,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("exists function - array for non-primitive type") {
+  test("exists function - array for non-primitive type") {
     val df = Seq(
       Seq("c", "a", "b"),
       Seq("b", null, "c", null),
@@ -2623,7 +2623,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(ex4.getMessage.contains("cannot resolve '`a`'"))
   }
 
-  ignore("forall function - array for primitive type not containing null") {
+  test("forall function - array for primitive type not containing null") {
     val df = Seq(
       Seq(1, 9, 8, 7),
       Seq(2, 4, 6),
@@ -2653,7 +2653,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("forall function - array for primitive type containing null") {
+  test("forall function - array for primitive type containing null") {
     val df = Seq[Seq[Integer]](
       Seq(1, 9, 8, null, 7),
       Seq(2, null, null, 4, 6, null),
@@ -2700,7 +2700,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("forall function - array for non-primitive type") {
+  test("forall function - array for non-primitive type") {
     val df = Seq(
       Seq("c", "a", "b"),
       Seq[String](null, null, null, null),
@@ -2774,7 +2774,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(ex4a.getMessage.contains("cannot resolve '`a`'"))
   }
 
-  ignore("aggregate function - array for primitive type not containing null") {
+  test("aggregate function - array for primitive type not containing null") {
     val df = Seq(
       Seq(1, 9, 8, 7),
       Seq(5, 8, 9, 7, 2),
@@ -2816,7 +2816,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeNotContainsNull()
   }
 
-  ignore("aggregate function - array for primitive type containing null") {
+  test("aggregate function - array for primitive type containing null") {
     val df = Seq[Seq[Integer]](
       Seq(1, 9, 8, 7),
       Seq(5, null, 8, 9, 7, 2),
@@ -2861,7 +2861,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testArrayOfPrimitiveTypeContainsNull()
   }
 
-  ignore("aggregate function - array for non-primitive type") {
+  test("aggregate function - array for non-primitive type") {
     val df = Seq(
       (Seq("c", "a", "b"), "a"),
       (Seq("b", null, "c", null), "b"),
@@ -3045,7 +3045,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     assert(ex5.getMessage.contains("function map_zip_with does not support ordering on type map"))
   }
 
-  ignore("transform keys function - primitive data types") {
+  test("transform keys function - primitive data types") {
     val dfExample1 = Seq(
       Map[Int, Int](1 -> 1, 9 -> 9, 8 -> 8, 7 -> 7)
     ).toDF("i")
@@ -3177,7 +3177,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
       "data type mismatch: argument 1 requires map type"))
   }
 
-  ignore("transform values function - test primitive data types") {
+  test("transform values function - test primitive data types") {
     val dfExample1 = Seq(
       Map[Int, Int](1 -> 1, 9 -> 9, 8 -> 8, 7 -> 7)
     ).toDF("i")
@@ -3287,7 +3287,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testMapOfPrimitiveTypesCombination()
   }
 
-  ignore("transform values function - test empty") {
+  test("transform values function - test empty") {
     val dfExample1 = Seq(
       Map.empty[Integer, Integer]
     ).toDF("i")
@@ -3347,7 +3347,7 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
     testEmpty()
   }
 
-  ignore("transform values function - test null values") {
+  test("transform values function - test null values") {
     val dfExample1 = Seq(
       Map[Int, Integer](1 -> 1, 2 -> 2, 3 -> 3, 4 -> 4)
     ).toDF("a")

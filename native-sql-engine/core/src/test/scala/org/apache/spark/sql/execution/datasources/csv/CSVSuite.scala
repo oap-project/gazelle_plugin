@@ -1413,7 +1413,7 @@ abstract class CSVSuite
     checkAnswer(df, Row("a", null, "a"))
   }
 
-  ignore("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
+  test("SPARK-21610: Corrupt records are not handled properly when creating a dataframe " +
     "from a file") {
     val columnNameOfCorruptRecord = "_corrupt_record"
     val schema = new StructType()
