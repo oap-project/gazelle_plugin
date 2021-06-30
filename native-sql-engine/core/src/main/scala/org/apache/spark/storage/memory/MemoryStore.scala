@@ -51,7 +51,7 @@ private case class DeserializedMemoryEntry[T](
     value: Array[T],
     size: Long,
     classTag: ClassTag[T]) extends MemoryEntry[T] {
-  val memoryMode: MemoryMode = MemoryMode.ON_HEAP
+  val memoryMode: MemoryMode = MemoryMode.OFF_HEAP
 }
 private case class SerializedMemoryEntry[T](
     buffer: ChunkedByteBuffer,
@@ -299,7 +299,7 @@ private[spark] class MemoryStore(
 
     val valuesHolder = new DeserializedValuesHolder[T](classTag)
 
-    putIterator(blockId, values, classTag, MemoryMode.ON_HEAP, valuesHolder) match {
+    putIterator(blockId, values, classTag, MemoryMode.OFF_HEAP, valuesHolder) match {
       case Right(storedSize) => Right(storedSize)
       case Left(unrollMemoryUsedByThisBlock) =>
         val unrolledIterator = if (valuesHolder.vector != null) {
@@ -310,7 +310,7 @@ private[spark] class MemoryStore(
 
         Left(new PartiallyUnrolledIterator(
           this,
-          MemoryMode.ON_HEAP,
+          MemoryMode.OFF_HEAP,
           unrollMemoryUsedByThisBlock,
           unrolled = unrolledIterator,
           rest = values))

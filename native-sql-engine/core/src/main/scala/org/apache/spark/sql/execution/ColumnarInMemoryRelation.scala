@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.execution
+package org.apache.spark.sql.execution
 
 import java.io._
 import org.apache.commons.lang3.StringUtils
@@ -46,7 +46,7 @@ import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.{LongAccumulator, Utils}
+import org.apache.spark.util.{LongAccumulator, Utils, KnownSizeEstimation}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 import com.esotericsoftware.kryo.io.{Input, Output}
@@ -66,6 +66,7 @@ case class ArrowCachedBatch(
     extends SimpleMetricsCachedBatch
     with KryoSerializable
     with Externalizable 
+    with KnownSizeEstimation
     with AutoCloseable {
   def this() = {
     this(0, null, null)
@@ -73,7 +74,7 @@ case class ArrowCachedBatch(
   override def close() = {
     buffer.foreach(_.close)
   }
-  lazy val estimatedSize: Long = {
+  override def estimatedSize: Long = {
     var size: Long = 0
     buffer.foreach(batch => {
       size += ConverterUtils.calcuateEstimatedSize(batch)
@@ -91,6 +92,7 @@ case class ArrowCachedBatch(
     kryo.writeObject(out, numRows)
     val rawArrowData = ConverterUtils.convertToNetty(buffer)
     kryo.writeObject(out, rawArrowData)
+    System.out.println("ArrowCachedBatch close when write to disk")
     buffer.foreach(_.close)
   }
   override def readExternal(in: ObjectInput): Unit = {
