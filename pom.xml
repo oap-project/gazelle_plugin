@@ -54,7 +54,9 @@
     <profile>
       <id>hadoop-2.7.4</id>
       <activation>
-        <activeByDefault>true</activeByDefault>
+        <property>
+          <name>!hadoop.version</name>
+        </property>
       </activation>
       <properties>
         <hadoop.version>2.7.4</hadoop.version>
