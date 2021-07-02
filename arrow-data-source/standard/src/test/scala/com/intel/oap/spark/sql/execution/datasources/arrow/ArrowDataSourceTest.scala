@@ -190,7 +190,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     frame2.createOrReplaceTempView("ptab2")
     val sqlFrame2 = spark.sql("select * from ptab2")
 
-    verifyFrame(sqlFrame2, 3, 1)
+    verifyFrame(sqlFrame2, 3, 2)
   }
 
   test("simple SQL query on parquet file with pushed filters") {
@@ -241,6 +241,17 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       assert(df.queryExecution.executedPlan.toString().contains("dynamicpruningexpression"))
       checkAnswer(df, Row(0, 0) :: Row(1, 1) :: Nil)
     }
+  }
+
+  test("count(*) without group by v2") {
+    val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
+    val frame = spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+        .arrow(path)
+    frame.createOrReplaceTempView("ptab")
+    val df = sql("SELECT COUNT(*) FROM ptab")
+    checkAnswer(df, Row(5) :: Nil)
+
   }
 
   test("file descriptor leak") {
