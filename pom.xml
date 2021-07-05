@@ -92,16 +92,8 @@
         <activeByDefault>false</activeByDefault>
       </activation>
       <properties>
+        <id>arrow-netty</id>
         <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
-      </properties>
-    </profile>
-    <profile>
-      <id>arrow-unsafe</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <properties>
-        <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
       </properties>
     </profile>
   </profiles>
@@ -111,7 +103,7 @@
     <scala.binary.version>2.12</scala.binary.version>
     <spark.version>3.1.1</spark.version>
     <arrow.version>4.0.0</arrow.version>
-    <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
+    <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
     <hadoop.version>${hadoop.version}</hadoop.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -259,5 +251,30 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>1.0.1</version>
+        <executions>
+          <execution>
+            <id>enforce-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>3.6.3</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>
