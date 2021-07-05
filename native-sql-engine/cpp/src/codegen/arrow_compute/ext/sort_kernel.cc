@@ -220,6 +220,11 @@ class SortArraysToIndicesKernel::Impl {
 
     return arrow::Status::OK();
   }
+    
+  virtual arrow::Status Spill(int64_t* spilled_size)  {
+    // do spill
+    return arrow::Status::OK();
+  }
 
   std::string random_string(size_t length) {
     auto randchar = []() -> char {
@@ -1347,6 +1352,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
+  arrow::Status Spill(int64_t* spilled_size)  {
+    // do spill
+    return arrow::Status::OK();
+  }
+
   std::string random_string(size_t length) {
     auto randchar = []() -> char {
       const char charset[] =
@@ -2040,6 +2050,10 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
 
 arrow::Status SortArraysToIndicesKernel::Evaluate(ArrayList& in) {
   return impl_->Evaluate(in);
+}
+
+arrow::Status SortArraysToIndicesKernel::Spill(int64_t* spilled_size) {
+  return impl_->Spill(spilled_size);
 }
 
 arrow::Status SortArraysToIndicesKernel::MakeResultIterator(

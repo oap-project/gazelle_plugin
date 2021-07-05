@@ -508,6 +508,13 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
+  arrow::Status Spill(int64_t size, int64_t* spilled_size) override {
+
+    RETURN_NOT_OK(kernel_->Spill(spilled_size));
+
+    return arrow::Status::OK();
+  }
+
   arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
                                    std::shared_ptr<ResultIteratorBase>* out) override {
     switch (finish_return_type_) {
