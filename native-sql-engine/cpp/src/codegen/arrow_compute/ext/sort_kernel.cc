@@ -17,8 +17,8 @@
 
 #include <arrow/array/concatenate.h>
 #include <arrow/compute/api.h>
-#include <arrow/ipc/api.h>
 #include <arrow/io/file.h>
+#include <arrow/ipc/api.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -206,82 +206,81 @@ class SortArraysToIndicesKernel::Impl {
 
     if (1) {
       Spill(in);
-      for(int i = 0; i < in.size(); i++) {
-        if (std::find(key_index_list_.begin(), key_index_list_.end(), i) == key_index_list_.end()) {
-          std::cout << "count: " << in[i].use_count() << std::endl;
+      for (int i = 0; i < in.size(); i++) {
+        if (std::find(key_index_list_.begin(), key_index_list_.end(), i) ==
+            key_index_list_.end()) {
           in[i].reset();
         }
       }
     } else {
+      for (int i = 0; i < col_num_; i++) {
+        cached_[i].push_back(in[i]);
+      }
+    }
 
-    for (int i = 0; i < col_num_; i++) {
-      cached_[i].push_back(in[i]);
-    }
-    }
-    
     return arrow::Status::OK();
   }
 
- std::string random_string( size_t length )
-  {
-      auto randchar = []() -> char
-      {
-          const char charset[] =
+  std::string random_string(size_t length) {
+    auto randchar = []() -> char {
+      const char charset[] =
           "0123456789"
           "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
           "abcdefghijklmnopqrstuvwxyz";
-          const size_t max_index = (sizeof(charset) - 1);
-          return charset[ rand() % max_index ];
-      };
-      std::string str(length,0);
-      std::generate_n( str.begin(), length, randchar );
-      return str;
+      const size_t max_index = (sizeof(charset) - 1);
+      return charset[rand() % max_index];
+    };
+    std::string str(length, 0);
+    std::generate_n(str.begin(), length, randchar);
+    return str;
   }
 
   arrow::Status Spill(const ArrayList& in) {
-      arrow::ipc::IpcPayload payload;
-      arrow::ipc::IpcWriteOptions options_;
-      auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
+    arrow::ipc::IpcPayload payload;
+    arrow::ipc::IpcWriteOptions options_;
+    auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
 
-      arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
-      std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
-      std::string spilled_file_ = GetTempPath() + "/sort_spill.arrow" + random_string(128); //TODO(): get tmp dir
-      ARROW_ASSIGN_OR_RAISE(spilled_file_os_, arrow::io::FileOutputStream::Open(spilled_file_, true));
+    arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
+    std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
+    std::string spilled_file_ =
+        GetTempPath() + "/sort_spill.arrow" + random_string(128);  // TODO(): get tmp dir
+    ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
+                          arrow::io::FileOutputStream::Open(spilled_file_, true));
 
-      int32_t metadata_length = -1;
-      auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
-      RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*result_schema_.get(), options_, dict_file_mapper, schema_payload_.get()));
-      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(*schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
+    int32_t metadata_length = -1;
+    auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
+    RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*result_schema_.get(), options_,
+                                               dict_file_mapper, schema_payload_.get()));
+    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+        *schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
 
-      arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
-      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(payload, options_, spilled_file_os_.get(), &metadata_length));
+    arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
+    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+        payload, options_, spilled_file_os_.get(), &metadata_length));
 
-      spill_file_list.push_back(spilled_file_);
-      std::cout << "writeing: " << spilled_file_ << std::endl;
+    spill_file_list.push_back(spilled_file_);
 
-      return arrow::Status::OK();
+    return arrow::Status::OK();
   }
 
   arrow::Result<std::shared_ptr<arrow::ipc::RecordBatchReader>>
   GetRecordBatchStreamReader(const std::string& file_name) {
     ARROW_ASSIGN_OR_RAISE(auto file_, arrow::io::ReadableFile::Open(file_name))
     ARROW_ASSIGN_OR_RAISE(auto file_reader,
-                         arrow::ipc::RecordBatchStreamReader::Open(file_));
+                          arrow::ipc::RecordBatchStreamReader::Open(file_));
     return file_reader;
   }
 
   arrow::Status Fetch() {
-
-    for(const auto& file_path : spill_file_list) {
-      std::cout << "reading: " << file_path << std::endl;
+    for (const auto& file_path : spill_file_list) {
       std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
       ARROW_ASSIGN_OR_RAISE(file_reader, GetRecordBatchStreamReader(file_path));
 
       std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
       RETURN_NOT_OK(file_reader->ReadAll(&batches));
-      
+
       auto batch = batches[0];
-      //arrow::PrettyPrint(*batch.get(), 2, &std::cout);
+      // arrow::PrettyPrint(*batch.get(), 2, &std::cout);
       for (int i = 0; i < batch->num_columns(); i++) {
         cached_[i].push_back(batch->column(i));
       }
@@ -296,10 +295,9 @@ class SortArraysToIndicesKernel::Impl {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(sorter_->FinishInternal(&indices_out));
-    if (1) { //TODO: make this configurable
+    if (1) {  // TODO: make this configurable
 
       Fetch();
-      std::cout << cached_.size() << std::endl;
     }
     *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, cached_);
     return arrow::Status::OK();
@@ -1324,7 +1322,6 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     } else {
       nulls_total_ += in[key_id_]->null_count();
       cached_key_.push_back(std::make_shared<ArrayType_key>(in[key_id_]));
-
     }
 
     items_total_ += in[key_id_]->length();
@@ -1333,14 +1330,12 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       cached_.resize(col_num_ + 1);
     }
 
-
     // TODO(): a flag to enable/disable spill
     if (1) {
       Spill(in);
-    
-      for(int i = 0; i < in.size(); i++) {
+
+      for (int i = 0; i < in.size(); i++) {
         if (i != key_id_) {
-          std::cout << "count: " << in[i].use_count() << std::endl;
           in[i].reset();
         }
       }
@@ -1348,69 +1343,70 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       for (int i = 0; i < col_num_; i++) {
         cached_[i].push_back(in[i]);
       }
-    }   
+    }
     return arrow::Status::OK();
   }
 
-  std::string random_string( size_t length )
-  {
-      auto randchar = []() -> char
-      {
-          const char charset[] =
+  std::string random_string(size_t length) {
+    auto randchar = []() -> char {
+      const char charset[] =
           "0123456789"
           "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
           "abcdefghijklmnopqrstuvwxyz";
-          const size_t max_index = (sizeof(charset) - 1);
-          return charset[ rand() % max_index ];
-      };
-      std::string str(length,0);
-      std::generate_n( str.begin(), length, randchar );
-      return str;
+      const size_t max_index = (sizeof(charset) - 1);
+      return charset[rand() % max_index];
+    };
+    std::string str(length, 0);
+    std::generate_n(str.begin(), length, randchar);
+    return str;
   }
 
   arrow::Status Spill(const ArrayList& in) {
-      arrow::ipc::IpcPayload payload;
-      arrow::ipc::IpcWriteOptions options_;
-      auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
+    arrow::ipc::IpcPayload payload;
+    arrow::ipc::IpcWriteOptions options_;
+    auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
 
-      arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
-      std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
-      std::string spilled_file_ = GetTempPath() + "/sort_spill.arrow" + random_string(128); //TODO(): get tmp dir
-      ARROW_ASSIGN_OR_RAISE(spilled_file_os_, arrow::io::FileOutputStream::Open(spilled_file_, true));
+    arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
+    std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
+    std::string spilled_file_ =
+        GetTempPath() + "/sort_spill.arrow" + random_string(128);  // TODO(): get tmp dir
+    ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
+                          arrow::io::FileOutputStream::Open(spilled_file_, true));
 
-      int32_t metadata_length = -1;
-      auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
-      RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*result_schema_.get(), options_, dict_file_mapper, schema_payload_.get()));
-      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(*schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
+    int32_t metadata_length = -1;
+    auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
+    RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*result_schema_.get(), options_,
+                                               dict_file_mapper, schema_payload_.get()));
+    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+        *schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
 
-      arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
-      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(payload, options_, spilled_file_os_.get(), &metadata_length));
+    arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
+    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+        payload, options_, spilled_file_os_.get(), &metadata_length));
 
-      spill_file_list.push_back(spilled_file_);
+    spill_file_list.push_back(spilled_file_);
 
-      return arrow::Status::OK();
+    return arrow::Status::OK();
   }
 
   arrow::Result<std::shared_ptr<arrow::ipc::RecordBatchReader>>
   GetRecordBatchStreamReader(const std::string& file_name) {
     ARROW_ASSIGN_OR_RAISE(auto file_, arrow::io::ReadableFile::Open(file_name))
     ARROW_ASSIGN_OR_RAISE(auto file_reader,
-                         arrow::ipc::RecordBatchStreamReader::Open(file_));
+                          arrow::ipc::RecordBatchStreamReader::Open(file_));
     return file_reader;
   }
 
   arrow::Status Fetch() {
-
-    for(const auto& file_path : spill_file_list) {
-      std::cout << "reading: " << file_path << std::endl;
+    for (const auto& file_path : spill_file_list) {
       std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
       ARROW_ASSIGN_OR_RAISE(file_reader, GetRecordBatchStreamReader(file_path));
 
       std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
       RETURN_NOT_OK(file_reader->ReadAll(&batches));
-      
+
       auto batch = batches[0];
-      //arrow::PrettyPrint(*batch.get(), 2, &std::cout);
+      // arrow::PrettyPrint(*batch.get(), 2, &std::cout);
       for (int i = 0; i < batch->num_columns(); i++) {
         cached_[i].push_back(batch->column(i));
       }
@@ -1670,7 +1666,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
         MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
     RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
 
-    if (1) { //TODO: make this configurable
+    if (1) {  // TODO: make this configurable
 
       Fetch();
     }
