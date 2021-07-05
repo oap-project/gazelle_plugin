@@ -1926,7 +1926,8 @@ class ConditionedProbeKernel::Impl {
           type = arrow::boolean();
           std::stringstream value_define_ss;
           value_define_ss << "bool " << output_validity << ";" << std::endl;
-          value_define_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
+          value_define_ss << GetCTypeString(type) << " " << output_name << ";"
+                          << std::endl;
           (*output)->definition_codes += value_define_ss.str();
           right_index_shift = -1;
         } else {

@@ -17,14 +17,14 @@
 
 package org.apache.spark.sql.test
 
-import scala.concurrent.duration._
+import java.util.{Locale, TimeZone}
 
+import scala.concurrent.duration._
 import org.scalatest.{BeforeAndAfterEach, Suite}
 import org.scalatest.concurrent.Eventually
-
 import org.apache.spark.{DebugFilesystem, SparkConf}
 import org.apache.spark.internal.config.UNSAFE_EXCEPTION_ON_MEMORY_LEAK
-import org.apache.spark.sql.{SparkSession, SQLContext}
+import org.apache.spark.sql.{SQLContext, SparkSession}
 import org.apache.spark.sql.catalyst.expressions.CodegenObjectFactoryMode
 import org.apache.spark.sql.catalyst.optimizer.ConvertToLocalRelation
 import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
@@ -64,6 +64,11 @@ trait SharedSparkSessionBase
   with Eventually { self: Suite =>
 
   protected def sparkConf = {
+    val zoneID = "GMT-8"
+    val locale = Locale.US
+    TimeZone.setDefault(TimeZone.getTimeZone(zoneID))
+    Locale.setDefault(locale)
+
     val conf = new SparkConf()
       .set("spark.hadoop.fs.file.impl", classOf[DebugFilesystem].getName)
       .set(UNSAFE_EXCEPTION_ON_MEMORY_LEAK, true)
@@ -91,6 +96,7 @@ trait SharedSparkSessionBase
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
       .set("spark.oap.sql.columnar.batchscan", "false")
+      .set("spark.sql.session.timeZone", zoneID)
     conf.set(
       StaticSQLConf.WAREHOUSE_PATH,
       conf.get(StaticSQLConf.WAREHOUSE_PATH) + "/" + getClass.getCanonicalName)

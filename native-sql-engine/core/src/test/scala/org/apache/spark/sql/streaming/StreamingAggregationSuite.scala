@@ -757,7 +757,6 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
 
   testQuietlyWithAllStateVersions("changing schema of state when restarting query",
     (SQLConf.STATE_STORE_FORMAT_VALIDATION_ENABLED.key, "false")) {
-//  ignore("changing schema of state when restarting query") {
     withSQLConf(SQLConf.STATE_STORE_FORMAT_VALIDATION_ENABLED.key -> "false") {
       withTempDir { tempDir =>
         val (inputData, aggregated) = prepareTestForChangingSchemaOfState(tempDir)
@@ -784,7 +783,6 @@ class StreamingAggregationSuite extends StateStoreMetricsTest with Assertions {
     " schema check off",
     (SQLConf.STATE_SCHEMA_CHECK_ENABLED.key, "false"),
     (SQLConf.STATE_STORE_FORMAT_VALIDATION_ENABLED.key, "false")) {
-//  ignore("changing schema of state when restarting query - schema check off") {
     withSQLConf(SQLConf.STATE_SCHEMA_CHECK_ENABLED.key -> "false") {
       withSQLConf(SQLConf.STATE_STORE_FORMAT_VALIDATION_ENABLED.key -> "false") {
         withTempDir { tempDir =>

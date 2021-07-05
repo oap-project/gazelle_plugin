@@ -297,7 +297,7 @@ abstract class DynamicPartitionPruningSuiteBase
       }
     }
   }
-  
+
   /**
    * Check the static scan metrics with and without DPP
    */

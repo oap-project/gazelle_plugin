@@ -17,6 +17,7 @@
 
 package com.intel.oap.execution
 
+import com.intel.oap.expression.ConverterUtils
 import org.apache.spark.Partition
 import org.apache.spark.SparkContext
 import org.apache.spark.TaskContext
@@ -35,6 +36,20 @@ case class ColumnarCoalesceExec(numPartitions: Int, child: SparkPlan) extends Un
 
   override def supportsColumnar: Boolean = true
   override def output: Seq[Attribute] = child.output
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    for (attr <- output) {
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarCoalesceExec.")
+      }
+    }
+  }
 
   override def outputPartitioning: Partitioning = {
     if (numPartitions == 1) SinglePartition
