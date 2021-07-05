@@ -56,7 +56,6 @@ class ColumnarArrowPythonRunner(
     timeZoneId: String,
     conf: Map[String, String])
   extends BasePythonRunner[ColumnarBatch, ColumnarBatch](funcs, evalType, argOffsets) {
-  // with PythonArrowOutput {
 
   override val simplifiedTraceback: Boolean = SQLConf.get.pysparkSimplifiedTraceback
 
@@ -167,8 +166,10 @@ class ColumnarArrowPythonRunner(
           while (inputIterator.hasNext) {
             val nextBatch = inputIterator.next()
             numRows += nextBatch.numRows
-            loader.load(ConverterUtils.createArrowRecordBatch(nextBatch))
+            val next_rb = ConverterUtils.createArrowRecordBatch(nextBatch)
+            loader.load(next_rb)
             writer.writeBatch()
+            ConverterUtils.releaseArrowRecordBatch(next_rb)
           }            
           // end writes footer to the output stream and doesn't clean any resources.
           // It could throw exception if the output stream is closed, so it should be
@@ -234,7 +235,8 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
     val outputTypes = output.drop(child.output.length).map(_.dataType)
 
     // Use Coalecse to improve performance in future
-    val batchIter = new CoalecseBatchIterator(iter, batchSize)
+    // val batchIter = new CoalecseBatchIterator(iter, batchSize)
+    val batchIter = new CloseableColumnBatchIterator(iter)
 
     val columnarBatchIter = new ColumnarArrowPythonRunner(
       funcs,
@@ -248,9 +250,6 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
       val actualDataTypes = (0 until batch.numCols()).map(i => batch.column(i).dataType())
       assert(outputTypes == actualDataTypes, "Invalid schema from arrow_udf: " +
         s"expected ${outputTypes.mkString(", ")}, got ${actualDataTypes.mkString(", ")}")
-      /*(0 until batch.numRows).foreach(rowId => {
-        System.out.println(s"python output ${rowId} is: ${(0 until batch.numCols()).toList.map(i => batch.column(i).asInstanceOf[ArrowWritableColumnVector].getUTF8String(rowId))}")
-      })*/
       batch
     }
   }
@@ -306,7 +305,6 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
       // original spark will cache input into files using HybridRowQueue
       // we will retain columnar batch in memory firstly
       val projectedColumnarBatchIter = contextAwareIterator.map { input_cb =>
-        System.out.println(s"ColumnarArrowEvalPythonExec doExecuteColumnar is now processing ${input_cb.numRows} rows")
         // 0. cache input for later merge
         (0 until input_cb.numCols).foreach(i => {
           input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
@@ -315,18 +313,24 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
         // 1. doing projection to input
         val valueVectors = (0 until input_cb.numCols).toList.map(i =>
               input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
-        val projectedInput = projector.evaluate(input_cb.numRows, valueVectors)
-        new ColumnarBatch(projectedInput.toArray, input_cb.numRows)
+        if (projector.needEvaluate) {
+          val projectedInput = projector.evaluate(input_cb.numRows, valueVectors)
+          new ColumnarBatch(projectedInput.toArray, input_cb.numRows)
+        } else {
+          // for no-need project evaluate, do another retain
+          (0 until input_cb.numCols).foreach(i => {
+            input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
+          })
+          input_cb
+        }
       }.map(batch => {
         val actualDataTypes = (0 until batch.numCols()).map(i => batch.column(i).dataType())
         assert(dataTypes == actualDataTypes, "Invalid schema for arrow_udf: " +
           s"expected ${dataTypes.mkString(", ")}, got ${actualDataTypes.mkString(", ")}")
-        /*(0 until batch.numRows).foreach(rowId => {
-          System.out.println(s"python input ${rowId} is: ${(0 until batch.numCols()).toList.map(i => batch.column(i).asInstanceOf[ArrowWritableColumnVector].getUTF8String(rowId))}")
-        })*/
         batch
       })
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((tc: TaskContext) => {
+        projector.close
         input_cb_cache.foreach(_.close)
       })
 
@@ -338,6 +342,10 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
       new CloseableColumnBatchIterator(
         outputColumnarBatchIterator.zipWithIndex.map { case (output_cb, batchId) =>
           val input_cb = input_cb_cache(batchId)
+          // retain for input_cb since we are passing it to next operator
+          (0 until input_cb.numCols).foreach(i => {
+            input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
+          })
           val joinedVectors = (0 until input_cb.numCols).toArray.map(i => input_cb.column(i)) ++ (0 until output_cb.numCols).toArray.map(i => output_cb.column(i))
           val numRows = input_cb.numRows
           new ColumnarBatch(joinedVectors, numRows)
@@ -345,12 +353,7 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
           val valueVectors = joinedVectors.toList.map(_.asInstanceOf[ArrowWritableColumnVector].getValueVector())
           val projectedOutput = resultProj.evaluate(numRows, valueVectors)
           new ColumnarBatch(projectedOutput.toArray.map(_.asInstanceOf[ColumnVector]), numRows)*/
-        }.map(batch => {
-          (0 until batch.numRows).foreach(rowId => {
-            System.out.println(s"ColumnarArrowEvalPythonExec output ${rowId} is: ${(0 until batch.numCols()).toList.map(i => batch.column(i).asInstanceOf[ArrowWritableColumnVector].getUTF8String(rowId))}")
-          })
-          batch
-        })
+        }
       )
     }
   }

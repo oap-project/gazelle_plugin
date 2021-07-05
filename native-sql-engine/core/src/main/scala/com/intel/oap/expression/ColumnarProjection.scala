@@ -125,7 +125,8 @@ class ColumnarProjection (
       ConverterUtils.releaseArrowRecordBatch(inputRecordBatch)
       outputVectors.toList
     } else {
-      List[ArrowWritableColumnVector]()
+      val inputRecordBatch: ArrowRecordBatch = ConverterUtils.createArrowRecordBatch(numRows, inputColumnVector)
+      ArrowWritableColumnVector.loadColumns(numRows, outputArrowSchema, inputRecordBatch).toList
     }
   }
 
