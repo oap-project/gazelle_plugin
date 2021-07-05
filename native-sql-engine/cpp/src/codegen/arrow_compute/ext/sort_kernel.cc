@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+
 #include <arrow/array/concatenate.h>
 #include <arrow/compute/api.h>
 #include <arrow/io/file.h>
@@ -137,6 +140,8 @@ class SortArraysToIndicesKernel::Impl {
         throw;
       }
     }
+
+    //TODO(): create spill dir
   }
 
   virtual ~Impl() {}
@@ -226,6 +231,11 @@ class SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
+  std::string GenerateUUID() {
+    boost::uuids::random_generator generator;
+    return boost::uuids::to_string(generator());
+  }
+
   std::string random_string(size_t length) {
     auto randchar = []() -> char {
       const char charset[] =
@@ -248,7 +258,7 @@ class SortArraysToIndicesKernel::Impl {
     arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
     std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
     std::string spilled_file_ =
-        GetTempPath() + "/sort_spill.arrow" + random_string(128);  // TODO(): get tmp dir
+        GetTempPath() + GenerateUUID() + random_string(128);  // TODO(): get tmp dir
     ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
                           arrow::io::FileOutputStream::Open(spilled_file_, true));
 
@@ -341,6 +351,7 @@ class SortArraysToIndicesKernel::Impl {
   std::vector<bool> nulls_order_;
   bool NaN_check_;
   int col_num_ = 0;
+  std::string local_spill_dir;
 
   class TypedSorterCodeGenImpl {
    public:
@@ -1357,6 +1368,11 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
+  std::string GenerateUUID() {
+    boost::uuids::random_generator generator;
+    return boost::uuids::to_string(generator());
+  }
+
   std::string random_string(size_t length) {
     auto randchar = []() -> char {
       const char charset[] =
@@ -1379,7 +1395,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
     std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
     std::string spilled_file_ =
-        GetTempPath() + "/sort_spill.arrow" + random_string(128);  // TODO(): get tmp dir
+        GetTempPath() + GenerateUUID() + random_string(128);  // TODO(): get tmp dir
     ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
                           arrow::io::FileOutputStream::Open(spilled_file_, true));
 
