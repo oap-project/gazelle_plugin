@@ -29,13 +29,82 @@
     </license>
   </licenses>
 
+  <modules>
+    <module>arrow-data-source</module>
+    <module>native-sql-engine/core</module>
+    <module>shims</module>
+  </modules>
+
+  <profiles>
+    <profile>
+      <id>spark</id>
+      <activation>
+          <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+          <spark.version>${spark311.version}</spark.version>
+      </properties>
+    </profile>
+    <profile>
+        <id>spark-3.1.1</id>
+        <properties>
+            <spark.version>${spark311.version}</spark.version>
+        </properties>
+    </profile>
+    <profile>
+      <id>hadoop-2.7.4</id>
+      <activation>
+        <property>
+          <name>!hadoop.version</name>
+        </property>
+      </activation>
+      <properties>
+        <hadoop.version>2.7.4</hadoop.version>
+      </properties>
+    </profile>
+    <profile>
+      <id>hadoop-3.2</id>
+      <properties>
+        <hadoop.version>3.2.0</hadoop.version>
+      </properties>
+    </profile>
+    <profile>
+      <id>incremental-scala-compiler</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <scala.recompile.mode>incremental</scala.recompile.mode>
+      </properties>
+    </profile>
+    <profile>
+      <id>full-scala-compiler</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <scala.recompile.mode>all</scala.recompile.mode>
+      </properties>
+    </profile>
+    <profile>
+      <id>arrow-netty</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <id>arrow-netty</id>
+        <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
+      </properties>
+    </profile>
+  </profiles>
+
   <properties>
     <scala.version>2.12.10</scala.version>
     <scala.binary.version>2.12</scala.binary.version>
     <spark.version>3.1.1</spark.version>
     <arrow.version>4.0.0</arrow.version>
-    <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
-    <hadoop.version>2.7.4</hadoop.version>
+    <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
+    <hadoop.version>${hadoop.version}</hadoop.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <arrow.script.dir>${project.basedir}/script</arrow.script.dir>
@@ -49,12 +118,6 @@
     <project.name.prefix>OAP Project Spark Columnar Plugin</project.name.prefix>
     <spark311.version>3.1.1</spark311.version>
   </properties>
-
-  <modules>
-    <module>arrow-data-source</module>
-    <module>native-sql-engine/core</module>
-    <module>shims</module>
-  </modules>
 
   <dependencyManagement>
     <dependencies>
@@ -189,63 +252,29 @@
     </dependencies>
   </dependencyManagement>
 
-  <profiles>
-    <profile>
-      <id>spark</id>
-      <activation>
-          <activeByDefault>true</activeByDefault>
-      </activation>  
-      <properties>
-          <spark.version>${spark311.version}</spark.version>
-      </properties>
-    </profile>
-    <profile>
-        <id>spark-3.1.1</id>
-        <properties>
-            <spark.version>${spark311.version}</spark.version>
-        </properties>
-    </profile>
-    <profile>
-      <id>hadoop-3.2</id>
-      <properties>
-        <hadoop.version>3.2.0</hadoop.version>
-      </properties>
-    </profile>
-    <profile>
-      <id>incremental-scala-compiler</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <properties>
-        <scala.recompile.mode>incremental</scala.recompile.mode>
-      </properties>
-    </profile>
-    <profile>
-      <id>full-scala-compiler</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <properties>
-        <scala.recompile.mode>all</scala.recompile.mode>
-      </properties>
-    </profile>
-    <profile>
-      <id>arrow-netty</id>
-      <activation>
-        <activeByDefault>false</activeByDefault>
-      </activation>
-      <properties>
-        <arrow-memory.artifact>arrow-memory-netty</arrow-memory.artifact>
-      </properties>
-    </profile>
-    <profile>
-      <id>arrow-unsafe</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <properties>
-        <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
-      </properties>
-    </profile>
-  </profiles>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>1.0.1</version>
+        <executions>
+          <execution>
+            <id>enforce-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>3.6.3</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>
