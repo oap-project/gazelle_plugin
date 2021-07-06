@@ -100,6 +100,10 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   val enableColumnarBroadcastJoin: Boolean =
     conf.getConfString("spark.oap.sql.columnar.broadcastJoin", "true").toBoolean && enableCpu
 
+  // enable or disable columnar columnar arrow udf 
+  val enableColumnarArrowUDF: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.arrowudf", "true").toBoolean && enableCpu
+
   // enable or disable columnar wholestagecodegen  
   val enableColumnarWholeStageCodegen: Boolean =
     conf.getConfString("spark.oap.sql.columnar.wholestagecodegen", "true").toBoolean && enableCpu
