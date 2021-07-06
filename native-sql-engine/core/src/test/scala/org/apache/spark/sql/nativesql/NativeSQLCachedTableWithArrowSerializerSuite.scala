@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.travis
+package org.apache.spark.sql.nativesql
 
 import java.io.{File, FilenameFilter}
 import java.nio.file.{Files, Paths}
@@ -49,7 +49,7 @@ import org.apache.spark.storage.StorageLevel.{MEMORY_AND_DISK_2, MEMORY_ONLY}
 import org.apache.spark.unsafe.types.CalendarInterval
 import org.apache.spark.util.{AccumulatorContext, Utils}
 
-class TravisCachedTableWithArrowSerializerSuite extends QueryTest with SQLTestUtils
+class NativeSQLCachedTableWithArrowSerializerSuite extends QueryTest with SQLTestUtils
   with SharedSparkSession
   with AdaptiveSparkPlanHelper {
   import testImplicits._

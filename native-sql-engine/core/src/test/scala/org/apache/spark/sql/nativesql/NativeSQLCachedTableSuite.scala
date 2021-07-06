@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.travis
+package org.apache.spark.sql.nativesql
 
 import java.io.{File, FilenameFilter}
 import java.nio.file.{Files, Paths}
@@ -48,7 +48,7 @@ import org.apache.spark.util.{AccumulatorContext, Utils}
 
 private case class BigData(s: String)
 
-class TravisCachedTableSuite extends QueryTest with SQLTestUtils
+class NativeSQLCachedTableSuite extends QueryTest with SQLTestUtils
   with SharedSparkSession
   with AdaptiveSparkPlanHelper {
   import testImplicits._
