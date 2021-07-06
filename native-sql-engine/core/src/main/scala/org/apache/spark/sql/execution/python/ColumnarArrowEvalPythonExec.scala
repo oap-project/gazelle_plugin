@@ -304,7 +304,10 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
 
       // original spark will cache input into files using HybridRowQueue
       // we will retain columnar batch in memory firstly
+      var start_time: Long = 0
       val projectedColumnarBatchIter = contextAwareIterator.map { input_cb =>
+        numInputBatches += input_cb.numRows
+        start_time = System.nanoTime()
         // 0. cache input for later merge
         (0 until input_cb.numCols).foreach(i => {
           input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
@@ -313,7 +316,7 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
         // 1. doing projection to input
         val valueVectors = (0 until input_cb.numCols).toList.map(i =>
               input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector())
-        if (projector.needEvaluate) {
+        val ret = if (projector.needEvaluate) {
           val projectedInput = projector.evaluate(input_cb.numRows, valueVectors)
           new ColumnarBatch(projectedInput.toArray, input_cb.numRows)
         } else {
@@ -321,8 +324,9 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
           (0 until input_cb.numCols).foreach(i => {
             input_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain()
           })
-          input_cb
+          new ColumnarBatch(projected_ordinal_list.toArray.map(i => input_cb.column(i)), input_cb.numRows)
         }
+        ret
       }.map(batch => {
         val actualDataTypes = (0 until batch.numCols()).map(i => batch.column(i).dataType())
         assert(dataTypes == actualDataTypes, "Invalid schema for arrow_udf: " +
@@ -348,6 +352,9 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
           })
           val joinedVectors = (0 until input_cb.numCols).toArray.map(i => input_cb.column(i)) ++ (0 until output_cb.numCols).toArray.map(i => output_cb.column(i))
           val numRows = input_cb.numRows
+          numOutputBatches += 1
+          numOutputRows += numRows
+          procTime += (System.nanoTime() - start_time) / 1000000
           new ColumnarBatch(joinedVectors, numRows)
           /* below is for in case there will be some scala projection in demand
           val valueVectors = joinedVectors.toList.map(_.asInstanceOf[ArrowWritableColumnVector].getValueVector())
