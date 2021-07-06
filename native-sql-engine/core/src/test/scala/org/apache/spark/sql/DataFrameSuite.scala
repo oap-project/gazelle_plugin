@@ -1833,7 +1833,7 @@ class DataFrameSuite extends QueryTest
 
   }
 
-  ignore("reuse exchange") {
+  test("reuse exchange") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "2") {
       val df = spark.range(100).toDF()
       val join = df.join(df, "id")
@@ -1852,7 +1852,7 @@ class DataFrameSuite extends QueryTest
           case e: ShuffleExchangeExec => true }.size == 1)
       assert(
         collect(join2.queryExecution.executedPlan) {
-          case e: BroadcastExchangeExec => true }.size === 1)
+          case e: BroadcastExchangeExec => true }.size === 0)
       assert(
         collect(join2.queryExecution.executedPlan) { case e: ReusedExchangeExec => true }.size == 4)
     }

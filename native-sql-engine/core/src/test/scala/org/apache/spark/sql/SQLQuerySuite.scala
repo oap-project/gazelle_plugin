@@ -783,7 +783,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null, null, 6, "F") :: Nil)
   }
 
-  ignore("SPARK-11111 null-safe join should not use cartesian product") {
+  test("SPARK-11111 null-safe join should not use cartesian product") {
     val df = sql("select count(*) from testData a join testData b on (a.key <=> b.key)")
     val cp = df.queryExecution.sparkPlan.collect {
       case cp: CartesianProductExec => cp
@@ -1746,7 +1746,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       "org.apache.spark.sql.execution.datasources.jdbc"))
   }
 
-  ignore("SortMergeJoin returns wrong results when using UnsafeRows") {
+  test("SortMergeJoin returns wrong results when using UnsafeRows") {
     // This test is for the fix of https://issues.apache.org/jira/browse/SPARK-10737.
     // This bug will be triggered when Tungsten is enabled and there are multiple
     // SortMergeJoin operators executed in the same task.
@@ -3352,7 +3352,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-29682: Conflicting attributes in Expand are resolved") {
+  test("SPARK-29682: Conflicting attributes in Expand are resolved") {
     val numsDF = Seq(1, 2, 3).toDF("nums")
     val cubeDF = numsDF.cube("nums").agg(max(lit(0)).as("agcol"))
 

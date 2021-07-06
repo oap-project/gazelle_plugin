@@ -159,8 +159,7 @@ class NativeDataFrameJoinSuite extends QueryTest
     }
   }
 
-  /*
-  ignore("broadcast join hint using Dataset.hint") {
+  test("broadcast join hint using Dataset.hint") {
     // make sure a giant join is not broadcastable
     val plan1 =
       spark.range(10e10.toLong)
@@ -173,9 +172,8 @@ class NativeDataFrameJoinSuite extends QueryTest
       spark.range(10e10.toLong)
         .join(spark.range(10e10.toLong).hint("broadcast"), "id")
         .queryExecution.executedPlan
-    assert(collect(plan2) { case p: BroadcastHashJoinExec => p }.size == 1)
+    assert(collect(plan2) { case p: BroadcastHashJoinExec => p }.size == 0)
   }
-  */
 
   test("join - outer join conversion") {
     val df = Seq((1, 2, "1"), (3, 4, "3")).toDF("int", "int2", "str").as("a")
@@ -252,7 +250,7 @@ class NativeDataFrameJoinSuite extends QueryTest
     checkAnswer(ab.join(c, "a"), Row(3, null, 4, 1) :: Nil)
   }
 
-  ignore("SPARK-17685: WholeStageCodegenExec throws IndexOutOfBoundsException") {
+  test("SPARK-17685: WholeStageCodegenExec throws IndexOutOfBoundsException") {
     val df = Seq((1, 1, "1"), (2, 2, "3")).toDF("int", "int2", "str")
     val df2 = Seq((1, 1, "1"), (2, 3, "5")).toDF("int", "int2", "str")
     val limit = 1310721

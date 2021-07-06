@@ -169,21 +169,25 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
     "subquery/in-subquery/in-joins.sql", // NullPointerException
     "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
-    "postgreSQL/join.sql", // segfault, SMJ LeftSemi
-    "udf/udf-except.sql",
-    "postgreSQL/groupingsets.sql", // double free or corruption (out)
-    "udf/postgreSQL/udf-join.sql",
+    "subquery/exists-subquery/exists-within-and-or.sql",
+    "postgreSQL/boolean.sql",
+    "postgreSQL/select_distinct.sql",
+    "postgreSQL/window_part1.sql",
+    "postgreSQL/union.sql",
+    "udf/udf-group-analytics.sql",
 
     /** Cannot reproduce */
 
-    "cte-nonlegacy.sql",
-    "subquery/exists-subquery/exists-cte.sql",
-    "subquery/exists-subquery/exists-basic.sql",
-    "subquery/exists-subquery/exists-orderby-limit.sql",
+//    "cte-nonlegacy.sql",
+    "subquery/exists-subquery/exists-cte.sql", // segfault: arrow::RecordBatch::num_columns()
+//    "subquery/exists-subquery/exists-basic.sql",
+//    "subquery/exists-subquery/exists-orderby-limit.sql",
     "subquery/exists-subquery/exists-joins-and-set-ops.sql",
 
     /** incorrect result */
-    "count.sql" // interrupted by signal 9: SIGKILL
+    "count.sql", // interrupted by signal 9: SIGKILL
+//    "postgreSQL/join.sql",
+//    "udf/postgreSQL/udf-join.sql",
 //    "udf/udf-window.sql",
 //    "udf/udf-group-analytics.sql",
 //    "subquery/in-subquery/in-order-by.sql", // Timestamp has incorrect result

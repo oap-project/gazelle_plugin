@@ -773,7 +773,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
   }
   */
 
-  ignore("SPARK-22042 ReorderJoinPredicates can break when child's partitioning is not decided") {
+  test("SPARK-22042 ReorderJoinPredicates can break when child's partitioning is not decided") {
     withTable("bucketed_table", "table1", "table2") {
       df.write.format("parquet").saveAsTable("table1")
       df.write.format("parquet").saveAsTable("table2")

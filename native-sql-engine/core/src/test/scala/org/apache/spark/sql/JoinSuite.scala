@@ -908,7 +908,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     joinQueries.foreach(assertJoinOrdering)
   }
 
-  ignore("SPARK-22445 Respect stream-side child's needCopyResult in BroadcastHashJoin") {
+  test("SPARK-22445 Respect stream-side child's needCopyResult in BroadcastHashJoin") {
     val df1 = Seq((2, 3), (2, 5), (2, 2), (3, 8), (2, 1)).toDF("k", "v1")
     val df2 = Seq((2, 8), (3, 7), (3, 4), (1, 2)).toDF("k", "v2")
     val df3 = Seq((1, 1), (3, 2), (4, 3), (5, 1)).toDF("k", "v3")
@@ -1096,7 +1096,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-29850: sort-merge-join an empty table should not memory leak") {
+  test("SPARK-29850: sort-merge-join an empty table should not memory leak") {
     val df1 = spark.range(10).select($"id", $"id" % 3 as 'p)
       .repartition($"id").groupBy($"id").agg(Map("p" -> "max"))
     val df2 = spark.range(0)

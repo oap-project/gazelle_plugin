@@ -74,7 +74,7 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row("google"), Row("facebook")))
   }
 
-  test("in-joins") {
+  ignore("in-joins") {
     Seq(1, 3, 5, 7, 9).toDF("id").createOrReplaceTempView("s1")
     Seq(1, 3, 4, 6, 9).toDF("id").createOrReplaceTempView("s2")
     Seq(3, 4, 6, 9).toDF("id").createOrReplaceTempView("s3")
@@ -250,7 +250,7 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  test("two inner joins with condition") {
+  ignore("two inner joins with condition") {
     spark
       .read
       .format("csv")
@@ -592,6 +592,33 @@ class NativeSQLConvertedSuite extends QueryTest
   }
 
   test("groupingsets") {
+    spark
+      .read
+      .format("csv")
+      .options(Map("delimiter" -> "\t", "header" -> "false"))
+      .schema(
+        """
+          |unique1 int,
+          |unique2 int,
+          |two int,
+          |four int,
+          |ten int,
+          |twenty int,
+          |hundred int,
+          |thousand int,
+          |twothousand int,
+          |fivethous int,
+          |tenthous int,
+          |odd int,
+          |even int,
+          |stringu1 string,
+          |stringu2 string,
+          |string4 string
+        """.stripMargin)
+      .load(testFile("test-data/postgresql/tenk.data"))
+      .write
+      .format("parquet")
+      .saveAsTable("tenk1")
     val df = sql("select four, x from (select four, ten, 'foo' as x from tenk1) as t" +
       " group by grouping sets (four, x) having x = 'foo'")
     checkAnswer(df, Seq(Row(null, "foo")))
@@ -665,12 +692,7 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row(1, 1)))
   }
 
-  test("cte-nonlegacy") {
-    val df = sql("WITH t(c) AS (SELECT 1)\nSELECT * FROM t\nWHERE c IN (\n  WITH t(c) AS (SELECT 2)\n  SELECT * FROM t\n)")
-    df.show()
-  }
-
-  test("scalar-subquery-select -- SMJ LeftAnti has incorrect result") {
+  ignore("scalar-subquery-select -- SMJ LeftAnti has incorrect result") {
     Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
       ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
       ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),

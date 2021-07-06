@@ -245,17 +245,24 @@ case class ColumnarCollapseCodegenStages(
         j.withNewChildren(
           j.children.map(child => new ColumnarInputAdapter(insertWholeStageCodegen(child))))
       case p =>
-        if (p.isInstanceOf[ColumnarConditionProjectExec]) {
-          val after_opt = joinOptimization(p.asInstanceOf[ColumnarConditionProjectExec])
-          after_opt.withNewChildren(after_opt.children.map(c => {
-            if (c.isInstanceOf[ColumnarSortExec]) {
-              new ColumnarInputAdapter(insertWholeStageCodegen(c))
+        p match {
+          case exec: ColumnarConditionProjectExec =>
+            val after_opt = joinOptimization(exec)
+            if (after_opt.isInstanceOf[ColumnarConditionProjectExec]) {
+              after_opt.withNewChildren(after_opt.children.map(c => {
+                if (c.isInstanceOf[ColumnarSortExec]) {
+                  new ColumnarInputAdapter(insertWholeStageCodegen(c))
+                } else {
+                  insertInputAdapter(c)
+                }
+              }))
             } else {
-              insertInputAdapter(c)
+              after_opt.withNewChildren(after_opt.children.map(c => {
+                insertInputAdapter(c)
+              }))
             }
-          }))
-        } else {
-          p.withNewChildren(p.children.map(insertInputAdapter))
+          case _ =>
+            p.withNewChildren(p.children.map(insertInputAdapter))
         }
     }
   }

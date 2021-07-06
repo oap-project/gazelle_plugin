@@ -251,7 +251,7 @@ class DataFrameJoinSuite extends QueryTest
     checkAnswer(ab.join(c, "a"), Row(3, null, 4, 1) :: Nil)
   }
 
-  ignore("SPARK-17685: WholeStageCodegenExec throws IndexOutOfBoundsException") {
+  test("SPARK-17685: WholeStageCodegenExec throws IndexOutOfBoundsException") {
     val df = Seq((1, 1, "1"), (2, 2, "3")).toDF("int", "int2", "str")
     val df2 = Seq((1, 1, "1"), (2, 3, "5")).toDF("int", "int2", "str")
     val limit = 1310721
