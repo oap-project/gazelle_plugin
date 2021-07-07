@@ -11,12 +11,12 @@
 # limitations under the License.
 #
 
-FROM spark-centos:1.1.1
+FROM spark-centos:1.2
 
 MAINTAINER The Optimized Analyitics Package for Spark Platform (OAP) Authors https://github.com/Intel-bigdata/OAP/
 
 #oap
-ARG OAP_VERSION=1.1.1
+ARG OAP_VERSION=1.2-SNAPSHOT
 ENV OAP_VERSION                       ${OAP_VERSION}
 ENV OAP_HOME              /opt/home/conda/envs/oap-${OAP_VERSION}
 
@@ -25,14 +25,20 @@ USER root
 #install runtime prerequisites
 RUN git clone https://github.com/oap-project/oap-tools oap_source && \
   cd /opt/home/oap_source && \
-  git checkout branch-1.1-spark-3.x && \
+  git checkout master && \
   sh /opt/home/oap_source/dev/install-runtime-dependencies.sh --with-rdma && \
   rm -rf /opt/home/oap_source
 
 # Install OAP conda packages
 COPY oap.yml /opt/home/oap.yml
-RUN /opt/home/conda/bin/conda config --system --set channel_priority flexible && \
-    /opt/home/conda/bin/conda env create --file /opt/home/oap.yml
+ENV http_proxy http://child-prc.intel.com:913
+ENV https_proxy http://child-prc.intel.com:913
+ENV HTTP_PROXY http://child-prc.intel.com:913
+ENV HTTPS_PROXY http://child-prc.intel.com:913
+RUN /opt/home/conda/bin/conda update -n base -c defaults conda
+RUN /opt/home/conda/bin/conda config --system --set channel_priority flexible --set ssl_verify false --set proxy_servers.http http://child-prc.intel.com:913 --set proxy_servers.https http://child-prc.intel.com:913 && \
+    /opt/home/conda/bin/conda update -k -v -n base -c defaults conda --insecure && \
+    /opt/home/conda/bin/conda env create -k -v --file /opt/home/oap.yml --insecure
 
 # Specify the User that the actual main process will run as
 ARG spark_uid=185

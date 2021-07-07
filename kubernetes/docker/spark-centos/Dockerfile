@@ -54,12 +54,11 @@ RUN /opt/home/conda/bin/conda config --system --set channel_priority strict \
 #java
 ENV JAVA_HOME            /opt/home/jdk
 ENV PATH                          ${JAVA_HOME}/bin:${PATH}
-
-RUN wget https://enos.itcollege.ee/~jpoial/allalaadimised/jdk8/jdk-8u281-linux-x64.tar.gz  && \
-    gunzip jdk-8u281-linux-x64.tar.gz && \
-    tar -xf jdk-8u281-linux-x64.tar -C /opt/home && \
-    rm jdk-8u281-linux-x64.tar && \
-    ln -s /opt/home/jdk1.8.0_261 /opt/home/jdk
+RUN wget https://enos.itcollege.ee/~jpoial/allalaadimised/jdk8/jdk-8u291-linux-x64.tar.gz && \
+    gunzip jdk-8u291-linux-x64.tar.gz && \
+    tar -xf jdk-8u291-linux-x64.tar -C /opt/home && \
+    rm jdk-8u291-linux-x64.tar && \
+    ln -s /opt/home/jdk1.8.0_291 /opt/home/jdk
 
 ARG SPARK_VERSION=3.1.1
 
