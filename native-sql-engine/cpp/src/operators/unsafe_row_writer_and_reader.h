@@ -17,28 +17,28 @@
 
 #pragma once
 
+#include <arrow/array/array_base.h>
+#include <arrow/array/array_binary.h>
+#include <arrow/array/array_primitive.h>
+#include <arrow/buffer.h>
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
-#include <arrow/buffer.h>
 #include <arrow/util/bit_util.h>
-#include <arrow/array/array_base.h>
-#include <arrow/array/array_primitive.h>
-#include <arrow/array/array_binary.h>
 #include "gandiva/decimal_type_util.h"
 
 namespace sparkcolumnarplugin {
 namespace unsaferow {
 
 class UnsafeRowWriterAndReader {
-
  public:
-   UnsafeRowWriterAndReader(std::shared_ptr<arrow::RecordBatch> rb, arrow::MemoryPool* memory_pool)
-   : rb_(rb), memory_pool_(memory_pool){}
-   arrow::Status Init();
-   arrow::Status Write();
-   bool HasNext();
-   arrow::Status  Next(int64_t* length, std::shared_ptr<arrow::ResizableBuffer>* buffer);
-   int64_t GetNumCols() { return num_cols_; }
+  UnsafeRowWriterAndReader(std::shared_ptr<arrow::RecordBatch> rb,
+                           arrow::MemoryPool* memory_pool)
+      : rb_(rb), memory_pool_(memory_pool) {}
+  arrow::Status Init();
+  arrow::Status Write();
+  bool HasNext();
+  arrow::Status Next(int64_t* length, std::shared_ptr<arrow::ResizableBuffer>* buffer);
+  int64_t GetNumCols() { return num_cols_; }
 
  protected:
   std::vector<std::shared_ptr<arrow::ResizableBuffer>> buffers_;
@@ -48,7 +48,7 @@ class UnsafeRowWriterAndReader {
   int64_t row_cursor_;
   int64_t num_cols_;
   int64_t num_rows_;
-  arrow::MemoryPool* memory_pool_ = arrow::default_memory_pool(); 
+  arrow::MemoryPool* memory_pool_ = arrow::default_memory_pool();
 };
 
 }  // namespace unsaferow

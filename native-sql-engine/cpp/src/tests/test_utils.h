@@ -120,11 +120,11 @@ void ConstructNullInputBatch(std::shared_ptr<arrow::RecordBatch>* null_batch) {
   columns.push_back(array2);
 
   std::vector<std::shared_ptr<arrow::Field>> schema_vec{
-        arrow::field("col1", arrow::int64()),
-        arrow::field("col2", arrow::int64()),};
-		
-  std::shared_ptr<arrow::Schema> schema{
-        std::make_shared<arrow::Schema>(schema_vec)};
-  *null_batch  = arrow::RecordBatch::Make(schema, 2, columns);
+      arrow::field("col1", arrow::int64()),
+      arrow::field("col2", arrow::int64()),
+  };
+
+  std::shared_ptr<arrow::Schema> schema{std::make_shared<arrow::Schema>(schema_vec)};
+  *null_batch = arrow::RecordBatch::Make(schema, 2, columns);
   return;
 }

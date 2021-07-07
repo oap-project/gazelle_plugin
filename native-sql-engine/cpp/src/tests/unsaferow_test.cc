@@ -79,19 +79,19 @@ class UnsaferowTest : public ::testing::Test {
     auto f_int32 = field("f_int32", arrow::int32());
     auto f_int64 = field("f_int64", arrow::int64());
     auto f_double = field("f_double", arrow::float64());
-     auto f_float = field("f_float", arrow::float32());
+    auto f_float = field("f_float", arrow::float32());
     auto f_bool = field("f_bool", arrow::boolean());
     auto f_string = field("f_string", arrow::utf8());
     auto f_binary = field("f_binary", arrow::binary());
     auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
 
-    schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, 
-        f_int64, f_float,  f_double, f_binary, f_decimal});
+    schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
+                             f_binary, f_decimal});
 
     MakeInputBatch(input_data_, schema_, &input_batch_);
     ConstructNullInputBatch(&nullable_input_batch_);
   }
-  
+
   static const std::vector<std::string> input_data_1;
   static const std::vector<std::string> input_data_;
 
@@ -100,69 +100,60 @@ class UnsaferowTest : public ::testing::Test {
   std::shared_ptr<arrow::RecordBatch> input_batch_1_;
   std::shared_ptr<arrow::RecordBatch> input_batch_;
   std::shared_ptr<arrow::RecordBatch> nullable_input_batch_;
-
 };
 
 const std::vector<std::string> UnsaferowTest::input_data_ = {
-   "[true, true]",
-   "[1, 1]",
-   "[1, 1]",
-   "[1, 1]",
-   "[1, 1]",
-   "[3.5, 3.5]",
-   "[1, 1]",
-   R"(["abc", "abc"])",
-   R"(["100.00"])"
-   };
+    "[true, true]",      "[1, 1]", "[1, 1]", "[1, 1]", "[1, 1]", "[3.5, 3.5]", "[1, 1]",
+    R"(["abc", "abc"])",
+    R"(["100.00"])"};
 
-
-TEST_F(UnsaferowTest, TestNullTypeCheck) { 
+TEST_F(UnsaferowTest, TestNullTypeCheck) {
   std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
-  std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader = 
+  std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader =
       std::make_shared<UnsafeRowWriterAndReader>(nullable_input_batch_, pool.get());
-  
+
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
-  
+
   long expected[2][3] = {{1, 0, 1}, {2, 1, 0}};
   int32_t count = 0;
-  while(unsafe_row_writer_reader->HasNext()) {
-      int64_t length;
-      std::shared_ptr<arrow::ResizableBuffer> buffer;
-      unsafe_row_writer_reader->Next(&length, &buffer);
+  while (unsafe_row_writer_reader->HasNext()) {
+    int64_t length;
+    std::shared_ptr<arrow::ResizableBuffer> buffer;
+    unsafe_row_writer_reader->Next(&length, &buffer);
 
-      auto data = buffer->mutable_data();
-      long value  = 0;
-      long result[3] = {0, 0, 0};
-      int32_t k = 0;
-      for(int32_t i =0; i < length; i+=sizeof(long)) {
-        memcpy(&value, data + i, sizeof(long));
-        result[k ++] = value;
-      }
+    auto data = buffer->mutable_data();
+    long value = 0;
+    long result[3] = {0, 0, 0};
+    int32_t k = 0;
+    for (int32_t i = 0; i < length; i += sizeof(long)) {
+      memcpy(&value, data + i, sizeof(long));
+      result[k++] = value;
+    }
 
-      int32_t result_size = sizeof(result) / sizeof(result[0]);
-      ASSERT_EQ(result_size, 3);
+    int32_t result_size = sizeof(result) / sizeof(result[0]);
+    ASSERT_EQ(result_size, 3);
 
-      for (int32_t i = 0; i < result_size; i ++) {
-        ASSERT_EQ(result[i], expected[count][i]);
-      }
-      count ++;
+    for (int32_t i = 0; i < result_size; i++) {
+      ASSERT_EQ(result[i], expected[count][i]);
+    }
+    count++;
   }
 }
 
-TEST_F(UnsaferowTest, TestUnsaferowWriterandReader) { 
-     std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
-     std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader = 
+TEST_F(UnsaferowTest, TestUnsaferowWriterandReader) {
+  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
+  std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader =
       std::make_shared<UnsafeRowWriterAndReader>(input_batch_, pool.get());
 
-      unsafe_row_writer_reader->Init();
-      unsafe_row_writer_reader->Write();
+  unsafe_row_writer_reader->Init();
+  unsafe_row_writer_reader->Write();
 
-      while(unsafe_row_writer_reader->HasNext()) {
-         int64_t length;
-        std::shared_ptr<arrow::ResizableBuffer> buffer;
-        unsafe_row_writer_reader->Next(&length, &buffer);
-      }
+  while (unsafe_row_writer_reader->HasNext()) {
+    int64_t length;
+    std::shared_ptr<arrow::ResizableBuffer> buffer;
+    unsafe_row_writer_reader->Next(&length, &buffer);
+  }
 }
-}  // namespace shuffle
+}  // namespace unsaferow
 }  // namespace sparkcolumnarplugin
