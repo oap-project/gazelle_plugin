@@ -211,12 +211,14 @@ class SortArraysToIndicesKernel::Impl {
 
     if (1) {
       Spill(in);
+      //std::cout << "before: " << arrow::default_memory_pool()->bytes_allocated() <<std::endl;
       for (int i = 0; i < in.size(); i++) {
         if (std::find(key_index_list_.begin(), key_index_list_.end(), i) ==
             key_index_list_.end()) {
           in[i].reset();
         }
       }
+      //std::cout << "after: " << arrow::default_memory_pool()->bytes_allocated() <<std::endl;
     } else {
       for (int i = 0; i < col_num_; i++) {
         cached_[i].push_back(in[i]);
@@ -1349,12 +1351,13 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     // TODO(): a flag to enable/disable spill
     if (1) {
       Spill(in);
-
+      //std::cout << "onekey before: " << arrow::default_memory_pool()->bytes_allocated() <<std::endl;
       for (int i = 0; i < in.size(); i++) {
         if (i != key_id_) {
           in[i].reset();
         }
       }
+      //std::cout << "onekeyafter: " << arrow::default_memory_pool()->bytes_allocated() <<std::endl;
     } else {
       for (int i = 0; i < col_num_; i++) {
         cached_[i].push_back(in[i]);
