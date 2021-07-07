@@ -73,7 +73,11 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           }
           plan
         case plan: InMemoryTableScanExec =>
-          new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
+          if(plan.relation.cacheBuilder.serializer.isInstanceOf[ArrowColumnarCachedBatchSerializer]) {
+            new ColumnarInMemoryTableScanExec(plan.attributes, plan.predicates, plan.relation)
+          } else {
+            return false
+          }
         case plan: ProjectExec =>
           if (!enableColumnarProjFilter) return false
           new ColumnarConditionProjectExec(null, plan.projectList, plan.child)

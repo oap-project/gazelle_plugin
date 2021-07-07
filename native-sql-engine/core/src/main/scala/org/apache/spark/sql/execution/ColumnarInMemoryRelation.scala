@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.execution
+package org.apache.spark.sql.execution
 
 import java.io._
 import org.apache.commons.lang3.StringUtils
@@ -39,35 +39,18 @@ import org.apache.spark.sql.columnar.{
   SimpleMetricsCachedBatch,
   SimpleMetricsCachedBatchSerializer
 }
+import org.apache.spark.sql.execution.columnar.DefaultCachedBatchSerializer
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.vectorized.{WritableColumnVector}
 import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.{LongAccumulator, Utils}
+import org.apache.spark.util.{LongAccumulator, Utils, KnownSizeEstimation}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
-import sun.misc.Cleaner
-
-private class Deallocator(var arrowColumnarBatch: Array[ColumnarBatch]) extends Runnable {
-
-  override def run(): Unit = {
-    try {
-      Option(arrowColumnarBatch) match {
-        case Some(buffer) =>
-          //System.out.println(s"ArrowCachedBatch released in DeAllocator, First buffer name is ${buffer(0)}")
-          buffer.foreach(_.close)
-        case other =>
-      }
-    } catch {
-      case e: Exception =>
-        // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
-        //System.err.println("ArrowCachedBatch-Deallocator: Error running deallocator")
-        e.printStackTrace()
-    }
-  }
-}
+import com.esotericsoftware.kryo.io.{Input, Output}
+import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
 
 /**
  * The default implementation of CachedBatch.
@@ -81,67 +64,82 @@ case class ArrowCachedBatch(
     var buffer: Array[ColumnarBatch],
     stats: InternalRow)
     extends SimpleMetricsCachedBatch
-    with Externalizable {
-  if (buffer != null) {
-    //System.out.println(s"ArrowCachedBatch constructed First buffer name is ${buffer(0)}")
-    Cleaner.create(this, new Deallocator(buffer))
-  }
+    with KryoSerializable
+    with Externalizable 
+    with KnownSizeEstimation
+    with AutoCloseable {
   def this() = {
     this(0, null, null)
   }
-  def release() = {
-    //System.out.println(s"ArrowCachedBatch released by clear cache, First buffer name is ${buffer(0)}")
+  override def close() = {
     buffer.foreach(_.close)
   }
-  lazy val estimatedSize: Long = {
+  override def estimatedSize: Long = {
     var size: Long = 0
     buffer.foreach(batch => {
       size += ConverterUtils.calcuateEstimatedSize(batch)
     })
-    //System.out.println(s"ArrowCachedBatch${buffer(0)} estimated size is ${size}")
     size
   }
   override def sizeInBytes: Long = estimatedSize
   override def writeExternal(out: ObjectOutput): Unit = {
-    // System.out.println(s"writeExternal for $this")
+    out.writeObject(numRows)
     val rawArrowData = ConverterUtils.convertToNetty(buffer)
     out.writeObject(rawArrowData)
     buffer.foreach(_.close)
   }
-
+  override def write(kryo: Kryo, out: Output): Unit = {
+    kryo.writeObject(out, numRows)
+    val rawArrowData = ConverterUtils.convertToNetty(buffer)
+    kryo.writeObject(out, rawArrowData)
+    System.out.println("ArrowCachedBatch close when write to disk")
+    buffer.foreach(_.close)
+  }
   override def readExternal(in: ObjectInput): Unit = {
-    numRows = 0
+    numRows = in.readObject().asInstanceOf[Integer]
     val rawArrowData = in.readObject().asInstanceOf[Array[Byte]]
     buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
-    //System.out.println(s"ArrowCachedBatch constructed by deserilizer, First buffer name is ${buffer(0)}")
-    Cleaner.create(this, new Deallocator(buffer))
+  }
+  override def read(kryo: Kryo, in: Input): Unit = {
+    numRows = kryo.readObject(in, classOf[Integer]).asInstanceOf[Integer]
+    val rawArrowData = kryo.readObject(in, classOf[Array[Byte]]).asInstanceOf[Array[Byte]]
+    buffer = ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
   }
 }
 
 /**
  * The default implementation of CachedBatchSerializer.
  */
-class ArrowColumnarCachedBatchSerializer extends SimpleMetricsCachedBatchSerializer {
+class ArrowColumnarCachedBatchSerializer extends DefaultCachedBatchSerializer {
   override def supportsColumnarInput(schema: Seq[Attribute]): Boolean = true
+  override def supportsColumnarOutput(schema: StructType): Boolean =
+    isInputSupportColumnar || (!isInputSupportColumnar && super.supportsColumnarOutput(schema))
+  var isInputSupportColumnar: Boolean = true
+
+  override def vectorTypes(attributes: Seq[Attribute], conf: SQLConf): Option[Seq[String]] =
+    Option(Seq.fill(attributes.length)(classOf[ArrowWritableColumnVector].getName))
 
   override def convertColumnarBatchToCachedBatch(
       input: RDD[ColumnarBatch],
       schema: Seq[Attribute],
       storageLevel: StorageLevel,
       conf: SQLConf): RDD[CachedBatch] = {
+    isInputSupportColumnar = true
     val batchSize = conf.columnBatchSize
     val useCompression = conf.useCompression
-    convertForCacheInternal(input, schema, batchSize, useCompression)
+    convertForColumnarCacheInternal(input, schema, batchSize, useCompression)
   }
 
   override def convertInternalRowToCachedBatch(
       input: RDD[InternalRow],
       schema: Seq[Attribute],
       storageLevel: StorageLevel,
-      conf: SQLConf): RDD[CachedBatch] =
-    throw new IllegalStateException("InternalRow input is not supported")
+      conf: SQLConf): RDD[CachedBatch] = {
+    isInputSupportColumnar = false
+    super.convertInternalRowToCachedBatch(input, schema, storageLevel, conf)
+  }
 
-  def convertForCacheInternal(
+  def convertForColumnarCacheInternal(
       input: RDD[ColumnarBatch],
       output: Seq[Attribute],
       batchSize: Int,
@@ -164,7 +162,6 @@ class ArrowColumnarCachedBatchSerializer extends SimpleMetricsCachedBatchSeriali
           }
           // To avoid mem copy, we only save columnVector reference here
           val res = ArrowCachedBatch(_numRows, _input.toArray, null)
-          // System.out.println(s"convertForCacheInternal cachedBatch is ${res}")
           res
         }
 
@@ -178,46 +175,48 @@ class ArrowColumnarCachedBatchSerializer extends SimpleMetricsCachedBatchSeriali
       cacheAttributes: Seq[Attribute],
       selectedAttributes: Seq[Attribute],
       conf: SQLConf): RDD[ColumnarBatch] = {
-    val columnIndices =
-      selectedAttributes.map(a => cacheAttributes.map(o => o.exprId).indexOf(a.exprId)).toArray
-    def createAndDecompressColumn(cachedIter: Iterator[CachedBatch]): Iterator[ColumnarBatch] = {
-      val res = new Iterator[ColumnarBatch] {
-        var iter: Iterator[ColumnarBatch] = null
-        if (cachedIter.hasNext) {
-          val cachedColumnarBatch: ArrowCachedBatch =
-            cachedIter.next.asInstanceOf[ArrowCachedBatch]
-          // System.out.println(
-          //   s"convertCachedBatchToColumnarBatch cachedBatch is ${cachedColumnarBatch}")
-          val rawData = cachedColumnarBatch.buffer
+    if (isInputSupportColumnar) {
+      val columnIndices =
+        selectedAttributes.map(a => cacheAttributes.map(o => o.exprId).indexOf(a.exprId)).toArray
+      def createAndDecompressColumn(cachedIter: Iterator[CachedBatch]): Iterator[ColumnarBatch] = {
+        val res = new Iterator[ColumnarBatch] {
+          var iter: Iterator[ColumnarBatch] = null
+          if (cachedIter.hasNext) {
+            val cachedColumnarBatch: ArrowCachedBatch =
+              cachedIter.next.asInstanceOf[ArrowCachedBatch]
+            val rawData = cachedColumnarBatch.buffer
 
-          iter = new Iterator[ColumnarBatch] {
-            val numBatches = rawData.size
-            var batchIdx = 0
-            override def hasNext: Boolean = batchIdx < numBatches
-            override def next(): ColumnarBatch = {
-              val vectors = columnIndices.map(i => rawData(batchIdx).column(i))
-              vectors.foreach(v => v.asInstanceOf[ArrowWritableColumnVector].retain())
-              val numRows = rawData(batchIdx).numRows
-              batchIdx += 1
-              new ColumnarBatch(vectors, numRows)
+            iter = new Iterator[ColumnarBatch] {
+              val numBatches = rawData.size
+              var batchIdx = 0
+              override def hasNext: Boolean = batchIdx < numBatches
+              override def next(): ColumnarBatch = {
+                val vectors = columnIndices.map(i => rawData(batchIdx).column(i))
+                vectors.foreach(v => v.asInstanceOf[ArrowWritableColumnVector].retain())
+                val numRows = rawData(batchIdx).numRows
+                batchIdx += 1
+                new ColumnarBatch(vectors, numRows)
+              }
             }
           }
+          def next(): ColumnarBatch =
+            if (iter != null) {
+              iter.next
+            } else {
+              val resultStructType = StructType(selectedAttributes.map(a =>
+                StructField(a.name, a.dataType, a.nullable, a.metadata)))
+              val resultColumnVectors =
+                ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
+              new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+            }
+          def hasNext: Boolean = iter.hasNext
         }
-        def next(): ColumnarBatch =
-          if (iter != null) {
-            iter.next
-          } else {
-            val resultStructType = StructType(selectedAttributes.map(a =>
-              StructField(a.name, a.dataType, a.nullable, a.metadata)))
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
-          }
-        def hasNext: Boolean = iter.hasNext
+        new CloseableColumnBatchIterator(res)
       }
-      new CloseableColumnBatchIterator(res)
+      input.mapPartitions(createAndDecompressColumn)
+    } else {
+      super.convertCachedBatchToColumnarBatch(input, cacheAttributes, selectedAttributes, conf)
     }
-    input.mapPartitions(createAndDecompressColumn)
   }
 
   override def convertCachedBatchToInternalRow(
@@ -225,18 +224,17 @@ class ArrowColumnarCachedBatchSerializer extends SimpleMetricsCachedBatchSeriali
       cacheAttributes: Seq[Attribute],
       selectedAttributes: Seq[Attribute],
       conf: SQLConf): RDD[InternalRow] = {
-    // Find the ordinals and data types of the requested columns.
-    val columnarBatchRdd =
-      convertCachedBatchToColumnarBatch(input, cacheAttributes, selectedAttributes, conf)
-    columnarBatchRdd.mapPartitions { batches =>
-      val toUnsafe = UnsafeProjection.create(selectedAttributes, selectedAttributes)
-      batches.flatMap { batch => batch.rowIterator().asScala.map(toUnsafe) }
+    if (isInputSupportColumnar) {
+      // Find the ordinals and data types of the requested columns.
+      val columnarBatchRdd =
+        convertCachedBatchToColumnarBatch(input, cacheAttributes, selectedAttributes, conf)
+      columnarBatchRdd.mapPartitions { batches =>
+        val toUnsafe = UnsafeProjection.create(selectedAttributes, selectedAttributes)
+        batches.flatMap { batch => batch.rowIterator().asScala.map(toUnsafe) }
+      }
+    } else {
+      super.convertCachedBatchToInternalRow(input, cacheAttributes, selectedAttributes, conf)
     }
   }
-
-  override def supportsColumnarOutput(schema: StructType): Boolean = true
-
-  override def vectorTypes(attributes: Seq[Attribute], conf: SQLConf): Option[Seq[String]] =
-    Option(Seq.fill(attributes.length)(classOf[ArrowWritableColumnVector].getName))
 
 }
