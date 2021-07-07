@@ -97,15 +97,19 @@ class UnsaferowTest : public ::testing::Test {
 
   std::shared_ptr<arrow::Schema> schema_;
 
-  std::shared_ptr<arrow::RecordBatch> input_batch_1_;
   std::shared_ptr<arrow::RecordBatch> input_batch_;
   std::shared_ptr<arrow::RecordBatch> nullable_input_batch_;
 };
 
-const std::vector<std::string> UnsaferowTest::input_data_ = {
-    "[true, true]",      "[1, 1]", "[1, 1]", "[1, 1]", "[1, 1]", "[3.5, 3.5]", "[1, 1]",
-    R"(["abc", "abc"])",
-    R"(["100.00"])"};
+const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
+                                                             "[1, 1]",
+                                                             "[1, 1]",
+                                                             "[1, 1]",
+                                                             "[1, 1]",
+                                                             "[3.5, 3.5]",
+                                                             "[1, 1]",
+                                                             R"(["abc", "abc"])",
+                                                             R"(["100.00", "100.00"])"};
 
 TEST_F(UnsaferowTest, TestNullTypeCheck) {
   std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
