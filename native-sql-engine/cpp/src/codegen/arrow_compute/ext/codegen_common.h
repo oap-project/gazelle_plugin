@@ -48,6 +48,7 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type,
 std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
                               std::string template_name, std::string tail = "",
                               std::string prefix = "");
+bool StrCmpCaseInsensitive(const std::string& str1, const std::string& str2);
 gandiva::ExpressionPtr GetConcatedKernel(std::vector<gandiva::NodePtr> key_list);
 gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list);
 gandiva::ExpressionPtr GetHash32Kernel(std::vector<gandiva::NodePtr> key_list,
@@ -72,6 +73,8 @@ arrow::Status GetIndexList(
     const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
     const bool isExistJoin, int* exist_index,
     std::vector<std::pair<int, int>>* result_schema_index_list);
+std::vector<int> GetIndicesFromSchemaCaseInsensitive(
+    const std::shared_ptr<arrow::Schema>& result_schema, const std::string& field_name);
 arrow::Status GetIndexListFromSchema(
     const std::shared_ptr<arrow::Schema>& result_schema,
     const std::vector<std::shared_ptr<arrow::Field>>& field_list,

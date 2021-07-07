@@ -191,18 +191,20 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       outputAttributes: Seq[Attribute]): TreeNode = {
     val outputFieldList: List[Field] = outputAttributes.toList.map(attr => {
       Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+        .nullable(s"${attr.name.toUpperCase()}#${attr.exprId.id}",
+        CodeGeneration.getResultType(attr.dataType))
     })
 
     val keyFieldList: List[Field] = keyAttributes.toList.map(attr => {
       val field = Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
+        .nullable(s"${attr.name.toUpperCase()}#${attr.exprId.id}",
+          CodeGeneration.getResultType(attr.dataType))
       if (outputFieldList.indexOf(field) == -1) {
-        throw new UnsupportedOperationException(
-          s"CashedRelation not found ${attr.name}#${attr.exprId.id} in ${outputAttributes}")
+        throw new UnsupportedOperationException(s"CachedRelation not found" +
+          s"${attr.name.toUpperCase()}#${attr.exprId.id} in ${outputAttributes}")
       }
       field
-    });
+    })
 
     val key_args_node = TreeBuilder.makeFunction(
       "key_field",
@@ -424,7 +426,6 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
             iter
           }
       }
-
       idx += 1
     }
 

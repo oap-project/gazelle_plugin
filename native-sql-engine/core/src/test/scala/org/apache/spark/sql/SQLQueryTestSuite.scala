@@ -169,23 +169,15 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
     "subquery/in-subquery/in-joins.sql", // NullPointerException
     "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
-    "subquery/exists-subquery/exists-within-and-or.sql",
-    "postgreSQL/boolean.sql",
-    "postgreSQL/select_distinct.sql",
-    "postgreSQL/window_part1.sql",
-    "postgreSQL/union.sql",
-    "udf/udf-group-analytics.sql",
 
     /** Cannot reproduce */
 
-//    "cte-nonlegacy.sql",
-    "subquery/exists-subquery/exists-cte.sql", // segfault: arrow::RecordBatch::num_columns()
-//    "subquery/exists-subquery/exists-basic.sql",
-//    "subquery/exists-subquery/exists-orderby-limit.sql",
-    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
+//    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
 
     /** incorrect result */
     "count.sql", // interrupted by signal 9: SIGKILL
+//    "subquery/in-subquery/in-set-operations.sql",
+//    "subquery/in-subquery/in-order-by.sql",
 //    "postgreSQL/join.sql",
 //    "udf/postgreSQL/udf-join.sql",
 //    "udf/udf-window.sql",
@@ -297,7 +289,7 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
         }
         /** To run only the set test */
 //        if (testList.exists(t =>
-//          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+//            testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
 //          test(testCase.name) {
 //            runTest(testCase)
 //          }

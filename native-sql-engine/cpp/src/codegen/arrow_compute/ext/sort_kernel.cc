@@ -106,7 +106,7 @@ class SortArraysToIndicesKernel::Impl {
     std::cout << "use SortArraysToIndicesKernel::Impl" << std::endl;
 #endif
     for (auto field : key_field_list) {
-      auto indices = result_schema->GetAllFieldIndices(field->name());
+      auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
       if (indices.size() != 1) {
         std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
                   << field->ToString() << " from " << result_schema->ToString()
@@ -1208,7 +1208,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
 #ifdef DEBUG
     std::cout << "UseSortOnekeyKernel" << std::endl;
 #endif
-    auto indices = result_schema->GetAllFieldIndices(key_field_list[0]->name());
+    auto indices =
+        GetIndicesFromSchemaCaseInsensitive(result_schema, key_field_list[0]->name());
     if (indices.size() < 1) {
       std::cout << "[ERROR] SortOnekeyKernel for arithmetic can't find key "
                 << key_field_list[0]->ToString() << " from " << result_schema->ToString()
@@ -1547,7 +1548,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     std::cout << "UseSortMultiplekeyKernel" << std::endl;
 #endif
     for (auto field : key_field_list) {
-      auto indices = result_schema->GetAllFieldIndices(field->name());
+      auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
       if (indices.size() != 1) {
         std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
                   << field->ToString() << " from " << result_schema->ToString()

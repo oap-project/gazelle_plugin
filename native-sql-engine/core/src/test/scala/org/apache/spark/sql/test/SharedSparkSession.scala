@@ -64,8 +64,8 @@ trait SharedSparkSessionBase
   with Eventually { self: Suite =>
 
   protected def sparkConf = {
-    val zoneID = "GMT-8"
-    val locale = Locale.US
+    val zoneID = "UTC"
+    val locale = Locale.ROOT
     TimeZone.setDefault(TimeZone.getTimeZone(zoneID))
     Locale.setDefault(locale)
 
@@ -90,7 +90,7 @@ trait SharedSparkSessionBase
       .set("spark.memory.offHeap.size", "10g")
       .set("spark.sql.join.preferSortMergeJoin", "false")
       .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-      .set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
+      // .set("spark.oap.sql.columnar.tmp_dir", "/codegen/nativesql/")
       .set("spark.oap.sql.columnar.preferColumnar", "true")
       .set("spark.sql.parquet.enableVectorizedReader", "false")
       .set("spark.sql.orc.enableVectorizedReader", "false")
