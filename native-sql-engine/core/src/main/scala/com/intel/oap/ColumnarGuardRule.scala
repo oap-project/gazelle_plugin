@@ -33,6 +33,7 @@ import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.joins._
+import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrowEvalPythonExec}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 
@@ -60,10 +61,14 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
   val enableColumnarShuffledHashJoin = columnarConf.enableColumnarShuffledHashJoin
   val enableColumnarBroadcastExchange = columnarConf.enableColumnarBroadcastExchange
   val enableColumnarBroadcastJoin = columnarConf.enableColumnarBroadcastJoin
+  val enableColumnarArrowUDF = columnarConf.enableColumnarArrowUDF
 
   private def tryConvertToColumnar(plan: SparkPlan): Boolean = {
     try {
       val columnarPlan = plan match {
+        case plan: ArrowEvalPythonExec =>
+          if (!enableColumnarArrowUDF) return false
+          ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, plan.child, plan.evalType)
         case plan: BatchScanExec =>
           if (!enableColumnarBatchScan) return false
           new ColumnarBatchScanExec(plan.output, plan.scan)

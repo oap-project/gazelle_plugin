@@ -91,16 +91,23 @@ object ConverterUtils extends Logging {
       val vectors = (0 until columnarBatch.numCols)
         .map(i => columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector])
         .toList
-      if (schema == null) {
-        schema = new Schema(vectors.map(_.getValueVector().getField).asJava)
-        MessageSerializer.serialize(channel, schema, option)
-      }
-      val batch = ConverterUtils
-        .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector))
       try {
-        MessageSerializer.serialize(channel, batch, option)
-      } finally {
-        batch.close()
+        if (schema == null) {
+          schema = new Schema(vectors.map(_.getValueVector().getField).asJava)
+          MessageSerializer.serialize(channel, schema, option)
+        }
+        val batch = ConverterUtils
+          .createArrowRecordBatch(columnarBatch.numRows, vectors.map(_.getValueVector))
+        try {
+          MessageSerializer.serialize(channel, batch, option)
+        } finally {
+          batch.close()
+        }
+      } catch {
+        case e =>
+          System.err.println(s"conversion failed")
+          e.printStackTrace()
+          throw e
       }
     }
   }
