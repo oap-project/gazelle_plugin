@@ -24,6 +24,7 @@
 #include <arrow/record_batch.h>
 #include <arrow/type.h>
 #include <arrow/util/bit_util.h>
+
 #include "gandiva/decimal_type_util.h"
 
 namespace sparkcolumnarplugin {
