@@ -1,10 +1,10 @@
-# Limitations for Native SQL Engine
+# Limitations for Gazelle Plugin
 
 ## Spark compability
-Native SQL engine currenlty works with Spark 3.0.0 only. There are still some trouble with latest Shuffle/AQE API from Spark 3.0.1, 3.0.2 or 3.1.x.
+Gazelle Plugin currenlty works with Spark 3.0.0 only. There are still some trouble with latest Shuffle/AQE API from Spark 3.0.1, 3.0.2 or 3.1.x.
 
 ## Operator limitations
-All performance critical operators in TPC-H/TPC-DS should be supported. For those unsupported operators, Native SQL engine will automatically fallback to row operators in vanilla Spark.
+All performance critical operators in TPC-H/TPC-DS should be supported. For those unsupported operators, Gazelle Plugin will automatically fallback to row operators in vanilla Spark.
 
 ### Columnar Projection with Filter
 We used 16 bit selection vector for filter so the max batch size need to be < 65536

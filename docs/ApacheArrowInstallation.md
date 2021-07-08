@@ -51,4 +51,4 @@ mvn test -pl adapter/parquet -P arrow-jni
 mvn test -pl gandiva -P arrow-jni
 ```
 
-After arrow installed in the specific directory, please make sure to set up -Dbuild_arrow=OFF -Darrow_root=/path/to/arrow when building Native SQL Engine.
+After arrow installed in the specific directory, please make sure to set up -Dbuild_arrow=OFF -Darrow_root=/path/to/arrow when building Gazelle Plugin.
