@@ -373,7 +373,7 @@ object ColumnarSorter extends Logging {
     val (sort_expr, arrowSchema) = init(sortOrder, outputAttributes, sparkConf)
     val sorter = new ExpressionEvaluator()
     val signature = sorter
-      .build(arrowSchema, Lists.newArrayList(sort_expr), arrowSchema, true /*return at finish*/ )
+      .build(arrowSchema, Lists.newArrayList(sort_expr), arrowSchema, true /*return at finish*/)
     sorter.close
     signature
   }
@@ -391,7 +391,7 @@ object ColumnarSorter extends Logging {
     val (sort_expr, arrowSchema) = init(sortOrder, outputAttributes, sparkConf)
     val sorter = new ExpressionEvaluator(listJars.toList.asJava)
     sorter
-      .build(arrowSchema, Lists.newArrayList(sort_expr), arrowSchema, true /*return at finish*/ )
+      .build(arrowSchema, Lists.newArrayList(sort_expr), arrowSchema, true /*return at finish*/, true/*enable spill*/)
     new ColumnarSorter(
       sorter,
       outputAttributes,
