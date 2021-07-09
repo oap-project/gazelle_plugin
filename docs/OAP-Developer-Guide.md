@@ -9,7 +9,7 @@ You can get more detailed information from OAP each module below.
 * [PMem Shuffle](https://github.com/oap-project/pmem-shuffle/tree/v1.1.1-spark-3.1.1#5-install-dependencies-for-pmem-shuffle)
 * [Remote Shuffle](https://github.com/oap-project/remote-shuffle/tree/v1.1.1-spark-3.1.1)
 * [OAP MLlib](https://github.com/oap-project/oap-mllib/tree/v1.1.1-spark-3.1.1)
-* [Native SQL Engine](https://github.com/oap-project/native-sql-engine/tree/v1.1.1-spark-3.1.1)
+* [Gazelle Plugin](https://github.com/oap-project/gazelle_plugin/tree/v1.1.1-spark-3.1.1)
 
 ## Building OAP
 

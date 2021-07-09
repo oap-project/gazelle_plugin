@@ -1,20 +1,20 @@
-# Spark Configurations for Native SQL Engine
+# Spark Configurations for Gazelle Plugin
 
-There are many configuration could impact the Native SQL Engine performance and can be fine tune in Spark.
+There are many configuration could impact the Gazelle Plugin performance and can be fine tune in Spark.
 You can add these configuration into spark-defaults.conf to enable or disable the setting.
 
 | Parameters | Description | Recommend Setting |
 | ---------- | ----------- | --------------- |
-| spark.driver.extraClassPath | To add Arrow Data Source and Native SQL Engine jar file in Spark Driver | /path/to/jar_file1:/path/to/jar_file2 |
-| spark.executor.extraClassPath | To add Arrow Data Source and Native SQL Engine jar file in Spark Executor | /path/to/jar_file1:/path/to/jar_file2 |
+| spark.driver.extraClassPath | To add Arrow Data Source and Gazelle Plugin jar file in Spark Driver | /path/to/jar_file1:/path/to/jar_file2 |
+| spark.executor.extraClassPath | To add Arrow Data Source and Gazelle Plugin jar file in Spark Executor | /path/to/jar_file1:/path/to/jar_file2 |
 | spark.executorEnv.LIBARROW_DIR | To set up the location of Arrow library, by default it will search the loation of jar to be uncompressed | /path/to/arrow_library/ |
 | spark.executorEnv.CC | To set up the location of gcc | /path/to/gcc/ |
 | spark.executor.memory| To set up how much memory to be used for Spark Executor. | |
-| spark.memory.offHeap.size| To set up how much memory to be used for Java OffHeap.<br /> Please notice Native SQL Engine will leverage this setting to allocate memory space for native usage even offHeap is disabled. <br /> The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Native SQL Engine | 30G |
+| spark.memory.offHeap.size| To set up how much memory to be used for Java OffHeap.<br /> Please notice Gazelle Plugin will leverage this setting to allocate memory space for native usage even offHeap is disabled. <br /> The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Gazelle Plugin | 30G |
 | spark.sql.sources.useV1SourceList | Choose to use V1 source | avro |
 | spark.sql.join.preferSortMergeJoin | To turn off preferSortMergeJoin in Spark | false |
-| spark.sql.extensions | To turn on Native SQL Engine Plugin | com.intel.oap.ColumnarPlugin |
-| spark.shuffle.manager | To turn on Native SQL Engine Columnar Shuffle Plugin | org.apache.spark.shuffle.sort.ColumnarShuffleManager |
+| spark.sql.extensions | To turn on Gazelle Plugin | com.intel.oap.ColumnarPlugin |
+| spark.shuffle.manager | To turn on Gazelle Columnar Shuffle Plugin | org.apache.spark.shuffle.sort.ColumnarShuffleManager |
 | spark.oap.sql.columnar.batchscan | Enable or Disable Columnar Batchscan, default is true | true |
 | spark.oap.sql.columnar.hashagg | Enable or Disable Columnar Hash Aggregate, default is true | true |
 | spark.oap.sql.columnar.projfilter | Enable or Disable Columnar Project and Filter, default is true | true |
@@ -48,7 +48,7 @@ spark.sql.join.preferSortMergeJoin false
 spark.sql.extensions com.intel.oap.ColumnarPlugin
 spark.shuffle.manager org.apache.spark.shuffle.sort.ColumnarShuffleManager
 
-# note native sql engine depends on arrow data source
+# note Gazelle Plugin depends on arrow data source
 spark.driver.extraClassPath $HOME/miniconda2/envs/oapenv/oap_jars/spark-columnar-core-<version>-jar-with-dependencies.jar:$HOME/miniconda2/envs/oapenv/oap_jars/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar
 spark.executor.extraClassPath $HOME/miniconda2/envs/oapenv/oap_jars/spark-columnar-core-<version>-jar-with-dependencies.jar:$HOME/miniconda2/envs/oapenv/oap_jars/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar
 

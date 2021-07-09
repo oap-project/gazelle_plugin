@@ -1,6 +1,6 @@
 ### Download Spark 3.1.1
 
-Currently Native SQL Engine works on the Spark 3.1.1 version.
+Currently Gazelle Plugin works on the Spark 3.1.1 version.
 
 ```
 wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop3.2.tgz

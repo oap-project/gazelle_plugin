@@ -1,4 +1,4 @@
-# Spark Native SQL Engine Installation
+# Gazelle Plugin Installation
 
 For detailed testing scripts, please refer to [solution guide](https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql)
 
@@ -9,7 +9,7 @@ yum install gtest-devel
 yum install gmock
 ```
 
-## Build Native SQL Engine
+## Build Gazelle Plugin
 
 ``` shell
 git clone -b ${version} https://github.com/oap-project/native-sql-engine.git
