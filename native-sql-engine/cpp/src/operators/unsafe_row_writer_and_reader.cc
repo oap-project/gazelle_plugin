@@ -114,76 +114,72 @@ int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
 }
 
 int32_t FirstNonzeroLongNum(std::array<uint64_t, 2> mag) {
-      int32_t fn = 0;
-      int32_t i; 
-      int32_t mlen = mag.size();
-      for ( i = mlen - 1; i >= 0 && mag[i] == 0; i--);
-      fn = mlen - i - 1;
-      return fn;
-  }
-
-
-int64_t GetLong(int32_t n, int32_t sig, std::array<uint64_t, 2> mag) {
-      if (n < 0)
-          return 0;
-      if (n >= mag.size())
-          return sig;
-
-      int magInt = mag[mag.size()-n-1];
-
-      return (sig >= 0 ? magInt :
-              (n <= FirstNonzeroLongNum(mag) ? -magInt : ~magInt));
-  }
-
-  int32_t GetBitLen(int64_t high, uint64_t low) {
-    if (high != 0) {
-      return log(high) + 64;
-    } else {
-      return log(low);
-    }
-  }
-/*
-*  This method refer to the BigInterger#toByteArray() method in Java side.
-*/
-std::array<uint8_t, 16> ToByteArray( arrow::Decimal128 value, int32_t* length) {
-     int64_t high = value.high_bits();
-     uint64_t low = value.low_bits();
-     arrow::Decimal128  new_value;
-     int32_t sig;
-    if (value > 0) {
-       new_value = value;
-         sig = 1;
-     } else if (value <0){
-       new_value = value.Abs();
-        sig = -1;
-    } else {
-      new_value = value;
-      sig = 0;
-    }
-
-     int64_t new_high = new_value.high_bits();
-     uint64_t new_low = new_value.low_bits();
-
-    std::array<uint64_t, 2> mag{{0}};
-    mag[0] = new_value.high_bits();
-    mag[1] = new_value.low_bits();
-    int32_t byte_length = GetBitLen(new_high, new_low) / 8 + 1;
-    std::array<uint8_t, 16> out{{0}};
-   int64_t nextLong=0;
-    for (int32_t i=byte_length-1, bytesCopied=8 , intIndex=0; i >= 0; i--) {
-          if (bytesCopied == 8) {
-              nextLong = GetLong(intIndex++, sig, mag);
-              bytesCopied = 1;
-          } else {
-              nextLong>>= 8; 
-              bytesCopied++;
-          }
-          out[i] = (uint8_t)nextLong;
-    }
-    *length = byte_length;
-    return out;
+  int32_t fn = 0;
+  int32_t i;
+  int32_t mlen = mag.size();
+  for (i = mlen - 1; i >= 0 && mag[i] == 0; i--)
+    ;
+  fn = mlen - i - 1;
+  return fn;
 }
 
+int64_t GetLong(int32_t n, int32_t sig, std::array<uint64_t, 2> mag) {
+  if (n < 0) return 0;
+  if (n >= mag.size()) return sig;
+
+  int magInt = mag[mag.size() - n - 1];
+
+  return (sig >= 0 ? magInt : (n <= FirstNonzeroLongNum(mag) ? -magInt : ~magInt));
+}
+
+int32_t GetBitLen(int64_t high, uint64_t low) {
+  if (high != 0) {
+    return log(high) + 64;
+  } else {
+    return log(low);
+  }
+}
+/*
+ *  This method refer to the BigInterger#toByteArray() method in Java side.
+ */
+std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
+  int64_t high = value.high_bits();
+  uint64_t low = value.low_bits();
+  arrow::Decimal128 new_value;
+  int32_t sig;
+  if (value > 0) {
+    new_value = value;
+    sig = 1;
+  } else if (value < 0) {
+    new_value = value.Abs();
+    sig = -1;
+  } else {
+    new_value = value;
+    sig = 0;
+  }
+
+  int64_t new_high = new_value.high_bits();
+  uint64_t new_low = new_value.low_bits();
+
+  std::array<uint64_t, 2> mag{{0}};
+  mag[0] = new_value.high_bits();
+  mag[1] = new_value.low_bits();
+  int32_t byte_length = GetBitLen(new_high, new_low) / 8 + 1;
+  std::array<uint8_t, 16> out{{0}};
+  int64_t nextLong = 0;
+  for (int32_t i = byte_length - 1, bytesCopied = 8, intIndex = 0; i >= 0; i--) {
+    if (bytesCopied == 8) {
+      nextLong = GetLong(intIndex++, sig, mag);
+      bytesCopied = 1;
+    } else {
+      nextLong >>= 8;
+      bytesCopied++;
+    }
+    out[i] = (uint8_t)nextLong;
+  }
+  *length = byte_length;
+  return out;
+}
 
 arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t offset,
                          int32_t row_index, std::shared_ptr<arrow::Array> array,
