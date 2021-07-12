@@ -19,7 +19,6 @@ package com.intel.oap
 
 import com.intel.oap.execution._
 import com.intel.oap.sql.execution.RowToArrowColumnarExec
-
 import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
@@ -35,6 +34,7 @@ import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrowEvalPythonExec}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.types.CalendarIntervalType
 
 case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
@@ -292,9 +292,6 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"ColumnarPostOverrides RowToArrowColumnarExec(${child.getClass})")
       RowToArrowColumnarExec(child)
-    case plan: ColumnarToRowExec =>
-      val child = replaceWithColumnarPlan(plan.child)
-      new ArrowColumnarToRowExec(child)
     case ColumnarToRowExec(child: ColumnarShuffleExchangeAdaptor) =>
       replaceWithColumnarPlan(child)
     case ColumnarToRowExec(child: ColumnarBroadcastExchangeAdaptor) =>
@@ -308,8 +305,15 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       val children = r.children.map(c =>
         c match {
           case c: ColumnarToRowExec =>
-            val child = replaceWithColumnarPlan(c.child)
-            new ArrowColumnarToRowExec(child)
+            val containCalendarType = c.schema.exists(
+              _.dataType.isInstanceOf[CalendarIntervalType])
+            if (containCalendarType) {
+              // ArrowColumnarToRowExec does not support CalendarIntervalType type.
+              c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+            } else {
+              val child = replaceWithColumnarPlan(c.child)
+              new ArrowColumnarToRowExec(child)
+            }
           case other =>
             replaceWithColumnarPlan(other)
         })
