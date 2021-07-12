@@ -128,6 +128,21 @@ spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(200
 
 The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the [limitations](./docs/limitations.md).
 
+## Could/K8s Integration
+
+###  Google Cloud Dataproc
+
+Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS, TPC-H with scripts provided.
+
+Please refer to [Gazelle_on_Dataproc](https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md) to find details about:
+
+1. Create a cluster on Dataproc 2.0 with initialization actions. 
+Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by Conda in all cluster nodes.
+   
+2. Config for enabling Gazelle Plugin.
+
+3. Run TPC-DS and TPC-H with scripts.
+
 
 ## Performance data
 
