@@ -17,8 +17,6 @@
 
 #include "operators/unsafe_row_writer_and_reader.h"
 
-#include <cmath>
-
 namespace sparkcolumnarplugin {
 namespace unsaferow {
 
@@ -113,32 +111,120 @@ int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
   }
 }
 
-int32_t FirstNonzeroLongNum(std::array<uint64_t, 2> mag) {
+int32_t FirstNonzeroLongNum(int32_t* mag, int32_t length) {
   int32_t fn = 0;
   int32_t i;
-  int32_t mlen = mag.size();
-  for (i = mlen - 1; i >= 0 && mag[i] == 0; i--)
+  for (i = length - 1; i >= 0 && mag[i] == 0; i--)
     ;
-  fn = mlen - i - 1;
+  fn = length - i - 1;
   return fn;
 }
 
-int64_t GetLong(int32_t n, int32_t sig, std::array<uint64_t, 2> mag) {
+int32_t GetInt(int32_t n, int32_t sig, int32_t* mag, int32_t length) {
   if (n < 0) return 0;
-  if (n >= mag.size()) return sig;
+  if (n >= length) return sig < 0 ? -1 : 0;
 
-  int magInt = mag[mag.size() - n - 1];
-
-  return (sig >= 0 ? magInt : (n <= FirstNonzeroLongNum(mag) ? -magInt : ~magInt));
+  int32_t magInt = mag[length - n - 1];
+  return (sig >= 0 ? magInt
+                   : (n <= FirstNonzeroLongNum(mag, length) ? -magInt : ~magInt));
 }
 
-int32_t GetBitLen(int64_t high, uint64_t low) {
-  if (high != 0) {
-    return log(high) + 64;
-  } else {
-    return log(low);
+int32_t GetNumberOfLeadingZeros(uint32_t i) {
+  // HD, Figure 5-6
+  if (i == 0) return 32;
+  int32_t n = 1;
+  if (i >> 16 == 0) {
+    n += 16;
+    i <<= 16;
   }
+  if (i >> 24 == 0) {
+    n += 8;
+    i <<= 8;
+  }
+  if (i >> 28 == 0) {
+    n += 4;
+    i <<= 4;
+  }
+  if (i >> 30 == 0) {
+    n += 2;
+    i <<= 2;
+  }
+  n -= i >> 31;
+  return n;
 }
+
+int32_t GetBitLengthForInt(uint32_t n) { return 32 - GetNumberOfLeadingZeros(n); }
+
+int32_t GetBitCount(uint32_t i) {
+  // HD, Figure 5-2
+  i = i - ((i >> 1) & 0x55555555);
+  i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+  i = (i + (i >> 4)) & 0x0f0f0f0f;
+  i = i + (i >> 8);
+  i = i + (i >> 16);
+  return i & 0x3f;
+}
+
+int32_t GetBitLength(int32_t sig, int32_t* mag, int32_t len) {
+  int32_t n = -1;
+  if (len == 0) {
+    n = 0;
+  } else {
+    // Calculate the bit length of the magnitude
+    int32_t mag_bit_length = ((len - 1) << 5) + GetBitLengthForInt((uint32_t)mag[0]);
+    if (sig < 0) {
+      // Check if magnitude is a power of two
+      bool pow2 = (GetBitCount((uint32_t)mag[0]) == 1);
+      for (int i = 1; i < len && pow2; i++) pow2 = (mag[i] == 0);
+
+      n = (pow2 ? mag_bit_length - 1 : mag_bit_length);
+    } else {
+      n = mag_bit_length;
+    }
+  }
+  return n;
+}
+
+uint32_t* RevertArray(int64_t new_high, uint64_t new_low, int32_t* size) {
+  std::array<uint32_t, 4> mag{{0}};
+  memcpy(&mag[0], &new_high, 8);
+  memcpy(&mag[2], &new_low, 8);
+
+  int32_t start = 0;
+  // remove the front 0
+  for (int32_t i = 0; i < 4; i++) {
+    if (mag[i] == 0) start++;
+    if (mag[i] != 0) break;
+  }
+
+  int32_t length = 4 - start;
+  uint32_t* new_mag = new uint32_t[length];
+  int32_t k = 0;
+  // revert the mag after remove the high 0
+  for (int32_t i = 3; i >= start; i--) {
+    new_mag[k++] = mag[i];
+  }
+
+  start = 0;
+  // remove the front 0
+  for (int32_t i = 0; i < length; i++) {
+    if (new_mag[i] == 0) start++;
+    if (new_mag[i] != 0) break;
+  }
+  int32_t final_length = length - start;
+
+  uint32_t* final_mag = new uint32_t[final_length];
+  k = 0;
+  // copy the non-0 value to final mag.
+  for (int32_t i = start; i < length; i++) {
+    final_mag[k++] = new_mag[i];
+  }
+
+  delete new_mag;
+  *size = final_length;
+  return final_mag;
+}
+
 /*
  *  This method refer to the BigInterger#toByteArray() method in Java side.
  */
@@ -161,23 +247,31 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
   int64_t new_high = new_value.high_bits();
   uint64_t new_low = new_value.low_bits();
 
-  std::array<uint64_t, 2> mag{{0}};
-  mag[0] = new_value.high_bits();
-  mag[1] = new_value.low_bits();
-  int32_t byte_length = GetBitLen(new_high, new_low) / 8 + 1;
+  uint32_t* mag;
+  int32_t size;
+  mag = RevertArray(new_high, new_low, &size);
+
+  int32_t* final_mag = new int32_t[size];
+  memcpy(final_mag, mag, size * 4);
+
+  int32_t byte_length = GetBitLength(sig, final_mag, size) / 8 + 1;
+
   std::array<uint8_t, 16> out{{0}};
-  int64_t nextLong = 0;
-  for (int32_t i = byte_length - 1, bytesCopied = 8, intIndex = 0; i >= 0; i--) {
-    if (bytesCopied == 8) {
-      nextLong = GetLong(intIndex++, sig, mag);
-      bytesCopied = 1;
+  uint32_t next_int = 0;
+  for (int32_t i = byte_length - 1, bytes_copied = 4, int_index = 0; i >= 0; i--) {
+    if (bytes_copied == 4) {
+      next_int = GetInt(int_index++, sig, final_mag, size);
+      bytes_copied = 1;
     } else {
-      nextLong >>= 8;
-      bytesCopied++;
+      next_int >>= 8;
+      bytes_copied++;
     }
-    out[i] = (uint8_t)nextLong;
+
+    out[i] = (uint8_t)next_int;
   }
   *length = byte_length;
+
+  delete mag, final_mag;
   return out;
 }
 
@@ -291,9 +385,10 @@ arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t
       int32_t scale = dtype->scale();
 
       const arrow::Decimal128 out_value(out_array->GetValue(row_index));
+      bool flag = out_array->IsNull(row_index);
 
       if (precision <= 18) {
-        if (out_value != NULL) {
+        if (!flag) {
           // Get the long value and write the long value
           // Refer to the int64_t() method of Decimal128
           int64_t long_value = static_cast<int64_t>(out_value.low_bits());
@@ -302,7 +397,7 @@ arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t
           SetNullAt(data, offset, col_index);
         }
       } else {
-        if (out_value == NULL) {
+        if (flag) {
           SetNullAt(data, offset, col_index);
         } else {
           int32_t size;
