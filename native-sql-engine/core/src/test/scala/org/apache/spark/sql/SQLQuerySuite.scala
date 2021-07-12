@@ -2980,7 +2980,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-25988: self join with aliases on partitioned tables #1") {
+  test("SPARK-25988: self join with aliases on partitioned tables #1") {
     withTempView("tmpView1", "tmpView2") {
       withTable("tab1", "tab2") {
         sql(
@@ -3678,7 +3678,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-32372: ResolveReferences.dedupRight should only rewrite attributes for ancestor " +
+  test("SPARK-32372: ResolveReferences.dedupRight should only rewrite attributes for ancestor " +
     "plans of the conflict plan") {
     sql("SELECT name, avg(age) as avg_age FROM person GROUP BY name")
       .createOrReplaceTempView("person_a")

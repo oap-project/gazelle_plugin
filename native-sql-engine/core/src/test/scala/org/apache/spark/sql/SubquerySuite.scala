@@ -320,7 +320,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null) :: Row(1) :: Row(3) :: Nil)
   }
 
-  ignore("SPARK-15832: Test embedded existential predicate sub-queries") {
+  test("SPARK-15832: Test embedded existential predicate sub-queries") {
     withTempView("t1", "t2", "t3", "t4", "t5") {
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t1")
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t2")
@@ -643,16 +643,17 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
         Row(3.0, false) :: Row(5.0, true) :: Row(null, false) :: Row(null, true) :: Nil)
   }
 
-  ignore("SPARK-16804: Correlated subqueries containing LIMIT - 1") {
+  test("SPARK-16804: Correlated subqueries containing LIMIT - 1") {
     withTempView("onerow") {
       Seq(1).toDF("c1").createOrReplaceTempView("onerow")
 
+      val df = sql(
+        """
+          | select c1 from onerow t1
+          | where exists (select 1 from onerow t2 where t1.c1=t2.c1)
+          | and   exists (select 1 from onerow LIMIT 1)""".stripMargin)
       checkAnswer(
-        sql(
-          """
-            | select c1 from onerow t1
-            | where exists (select 1 from onerow t2 where t1.c1=t2.c1)
-            | and   exists (select 1 from onerow LIMIT 1)""".stripMargin),
+        df,
         Row(1) :: Nil)
     }
   }
