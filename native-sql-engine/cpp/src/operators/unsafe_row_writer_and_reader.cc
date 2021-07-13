@@ -185,10 +185,13 @@ int32_t GetBitLength(int32_t sig, int32_t* mag, int32_t len) {
   return n;
 }
 
-uint32_t* RevertArray(int64_t new_high, uint64_t new_low, int32_t* size) {
-  std::array<uint32_t, 4> mag{{0}};
-  memcpy(&mag[0], &new_high, 8);
-  memcpy(&mag[2], &new_low, 8);
+uint32_t* ConvertMagArray(int64_t new_high, uint64_t new_low, int32_t* size) {
+  // convert the new_high and new_low to 4 int value.
+  uint32_t* mag = new uint32_t[4];
+  mag[3] = (uint32_t)new_low;
+  mag[2] = new_low >>= 32;
+  mag[1] = (uint32_t)new_high;
+  mag[0] = new_high >>= 32;
 
   int32_t start = 0;
   // remove the front 0
@@ -200,29 +203,14 @@ uint32_t* RevertArray(int64_t new_high, uint64_t new_low, int32_t* size) {
   int32_t length = 4 - start;
   uint32_t* new_mag = new uint32_t[length];
   int32_t k = 0;
-  // revert the mag after remove the high 0
-  for (int32_t i = 3; i >= start; i--) {
+  // get the mag after remove the high 0
+  for (int32_t i = start; i < 4; i++) {
     new_mag[k++] = mag[i];
   }
 
-  start = 0;
-  // remove the front 0
-  for (int32_t i = 0; i < length; i++) {
-    if (new_mag[i] == 0) start++;
-    if (new_mag[i] != 0) break;
-  }
-  int32_t final_length = length - start;
-
-  uint32_t* final_mag = new uint32_t[final_length];
-  k = 0;
-  // copy the non-0 value to final mag.
-  for (int32_t i = start; i < length; i++) {
-    final_mag[k++] = new_mag[i];
-  }
-
-  delete new_mag;
-  *size = final_length;
-  return final_mag;
+  delete mag;
+  *size = length;
+  return new_mag;
 }
 
 /*
@@ -249,7 +237,7 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
 
   uint32_t* mag;
   int32_t size;
-  mag = RevertArray(new_high, new_low, &size);
+  mag = ConvertMagArray(new_high, new_low, &size);
 
   int32_t* final_mag = new int32_t[size];
   memcpy(final_mag, mag, size * 4);
