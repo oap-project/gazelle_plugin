@@ -494,9 +494,10 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
   arrow::Status Eval() override {
     switch (p_->dependency_result_type_) {
       case ArrowComputeResultType::None: {
+        std::cout << "in sort EVAL cnt:" << ((p_->in_record_batch_)).use_count() << "\n";
         std::vector<std::shared_ptr<arrow::Array>> col_list;
         for (auto col : p_->in_record_batch_->columns()) {
-          col_list.push_back(col);
+          col_list.push_back(std::move(col));
         }
         RETURN_NOT_OK(kernel_->Evaluate(col_list));
       } break;
@@ -509,9 +510,13 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
   }
 
   arrow::Status Spill(int64_t size, int64_t* spilled_size) override {
-
+    std::cout << "target spill: " << size << std::endl;
+    std::cout << "mempool size: " << arrow::default_memory_pool()->bytes_allocated() << "\n";
     RETURN_NOT_OK(kernel_->Spill(spilled_size));
-
+    std::cout << "actual use cnt: " << ((p_->in_record_batch_)->columns()[0]).use_count() << std::endl;
+    p_->in_record_batch_.reset();
+    std::cout << "actual spill: " << *spilled_size << std::endl;
+    std::cout << "mempool size: " << arrow::default_memory_pool()->bytes_allocated() << "\n";
     return arrow::Status::OK();
   }
 
