@@ -327,8 +327,8 @@ arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t
       auto value = binaryArray->GetValue(row_index, &length);
       int64_t roundedSize = RoundNumberOfBytesToNearestWord(length);
       if (roundedSize > 32) {
-        // after call the resize method , the buffer is wrong.
-        RETURN_NOT_OK(buffer->Resize(roundedSize));
+        int64_t new_size = buffer->size() + roundedSize;
+        RETURN_NOT_OK(buffer->Resize(new_size));
       }
       // After resize buffer, the data address is changed and the value is reset to 0.
       auto new_data = buffer->mutable_data();
@@ -350,8 +350,8 @@ arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t
       int64_t roundedSize = RoundNumberOfBytesToNearestWord(length);
 
       if (roundedSize > 32) {
-        // after call the resize method , the buffer is wrong.
-        RETURN_NOT_OK(buffer->Resize(roundedSize));
+        int64_t new_size = buffer->size() + roundedSize;
+        RETURN_NOT_OK(buffer->Resize(new_size));
       }
 
       // After resize buffer, the data address is changed and the value is reset to 0.
