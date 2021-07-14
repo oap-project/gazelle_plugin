@@ -404,6 +404,12 @@ arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t
       }
       break;
     }
+    case arrow::Date32Type::type_id: {
+      auto date32Array = std::static_pointer_cast<arrow::Date32Array>(array);
+      auto value = date32Array->Value(row_index);
+      memcpy(data + offset, &value, sizeof(int32_t));
+      break;
+    }
     default:
       return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
   }
@@ -412,9 +418,8 @@ arrow::Status WriteValue(std::shared_ptr<arrow::ResizableBuffer> buffer, int64_t
 }
 
 arrow::Status UnsafeRowWriterAndReader::Write() {
-  int64_t num_rows = rb_->num_rows();
   // Get each row value and write to the buffer
-  for (auto i = 0; i < num_rows; i++) {
+  for (auto i = 0; i < num_rows_; i++) {
     auto buffer = buffers_[i];
     for (auto j = 0; j < num_cols_; j++) {
       uint8_t* data = buffer->mutable_data();
