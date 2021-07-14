@@ -25,6 +25,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, UnsafeRow}
 import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 
 import scala.collection.JavaConverters._
@@ -41,7 +42,29 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
 
   override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val schema = child.schema
+    for (field <- schema.fields) {
+      try {
+        ConverterUtils.checkIfTypeSupported(field.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${field.dataType} is not supported in ArrowColumnarToRowExec.")
+      }
+    }
+  }
+
+  override lazy val metrics: Map[String, SQLMetric] = Map(
+    "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
+    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches")
+  )
+
   override def doExecute(): RDD[InternalRow] = {
+    val numOutputRows = longMetric("numOutputRows")
+    val numInputBatches = longMetric("numInputBatches")
 
     child.executeColumnar().mapPartitions { batches =>
       // TODO:: pass the jni jniWrapper and arrowSchema  and serializeSchema method by broadcast
@@ -54,6 +77,9 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
       }
 
       batches.flatMap { batch =>
+        numInputBatches += 1
+        numOutputRows += batch.numRows()
+
         if (batch.numRows == 0 || batch.numCols == 0) {
           logInfo(s"Skip ColumnarBatch of ${batch.numRows} rows, ${batch.numCols} cols")
           Iterator.empty

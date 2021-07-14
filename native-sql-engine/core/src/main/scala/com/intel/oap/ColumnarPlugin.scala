@@ -305,14 +305,17 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       val children = r.children.map(c =>
         c match {
           case c: ColumnarToRowExec =>
-            val containCalendarType = c.schema.exists(
-              _.dataType.isInstanceOf[CalendarIntervalType])
-            if (containCalendarType) {
-              // ArrowColumnarToRowExec does not support CalendarIntervalType type.
-              c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+            if (columnarConf.enableArrowColumnarToRow) {
+              try {
+                val child = replaceWithColumnarPlan(c.child)
+                ArrowColumnarToRowExec(child)
+              } catch {
+                case _: Throwable =>
+                  logInfo("ArrowColumnarToRow : Falling back to ColumnarToRow...")
+                  c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+              }
             } else {
-              val child = replaceWithColumnarPlan(c.child)
-              new ArrowColumnarToRowExec(child)
+              c.withNewChildren(c.children.map(replaceWithColumnarPlan))
             }
           case other =>
             replaceWithColumnarPlan(other)
