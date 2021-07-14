@@ -519,8 +519,6 @@ arrow::Status ExprVisitor::Eval(const std::shared_ptr<arrow::Array>& selection_i
 
 arrow::Status ExprVisitor::Eval( std::shared_ptr<arrow::RecordBatch>& in) {
   in_record_batch_ = std::move(in);
-  //std::cout << "in eval cnt: " << (in_record_batch_->columns()[0]).use_count() << "\n";
-  std::cout << "in eval cnt: " << (in_record_batch_).use_count() << "\n";
   RETURN_NOT_OK(Eval());
   return arrow::Status::OK();
 }
@@ -768,19 +766,15 @@ arrow::Status ExprVisitor::Spill(int64_t size, int64_t* spilled_size) {
 
     if (current_spilled >= size) {
       *spilled_size = current_spilled;
-      std::cout << "yyy0: " << *spilled_size << std::endl;
       return arrow::Status::OK();
     }
   }
-  std::cout << "yyy: " << current_spilled << std::endl;
   if (!finish_visitor_) {
     int64_t single_call_spilled = 0;
     RETURN_NOT_OK(impl_->Spill(size - current_spilled, &single_call_spilled));
     current_spilled += single_call_spilled;
-        std::cout << "yyy1: " << current_spilled << std::endl;
   }
   *spilled_size = current_spilled;
-  std::cout << "yyy3: " << *spilled_size << std::endl;
   return arrow::Status::OK();
 }
 

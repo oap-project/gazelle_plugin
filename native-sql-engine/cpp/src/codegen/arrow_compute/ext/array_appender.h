@@ -731,7 +731,7 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>>
     return arrow::Status::OK();
   }
   arrow::Status ClearArrays() override {
-    std::cout << "clear array\n";
+
     cached_arr_.clear();
     has_null_ = false;
     return arrow::Status::OK();
@@ -781,14 +781,7 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>>
   }
 
   arrow::Status Finish(std::shared_ptr<arrow::Array>* out_) override {
-
     auto status = builder_->Finish(out_);
-    // std::cout << "before |" << arrow::default_memory_pool()->bytes_allocated() << "\n";
-    // for(auto i = 0; i< cached_arr_.size(); i++) {
-    //   std::cout << "append use cnt: " << cached_arr_[i].use_count() << std::endl;
-    //   cached_arr_[i].reset();
-    // }
-    // std::cout << "after |" << arrow::default_memory_pool()->bytes_allocated() << "\n";
     return status;
   }
 

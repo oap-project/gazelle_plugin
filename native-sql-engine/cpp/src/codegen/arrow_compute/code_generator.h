@@ -116,7 +116,6 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
 
   arrow::Status evaluate( std::shared_ptr<arrow::RecordBatch>& in,
                          std::vector<std::shared_ptr<arrow::RecordBatch>>* out) {
-    std::cout << "codegen cnt:" << in.use_count() << std::endl;
     arrow::Status status = arrow::Status::OK();
     std::vector<ArrayList> batch_array;
     std::vector<int> batch_size_array;
@@ -255,7 +254,6 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
       *spilled_size = 0L;
       return arrow::Status::OK();
     }
-    std::cout << "xxx1: " << size << std::endl;
     int64_t current_spilled = 0L;
     for (auto visitor : visitor_list_) {
       int64_t single_call_spilled = 0;
@@ -263,13 +261,11 @@ class ArrowComputeCodeGenerator : public CodeGenerator {
       current_spilled += single_call_spilled;
       if (current_spilled >= size) {
         *spilled_size = current_spilled;
-        std::cout << "xxx2: " << *spilled_size << std::endl;
         return arrow::Status::OK();
       }
     }
 
     *spilled_size = current_spilled;
-    std::cout << "xxx3: " << *spilled_size << std::endl;
     return arrow::Status::OK();
   }
 

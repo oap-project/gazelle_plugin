@@ -190,6 +190,7 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   std::shared_ptr<ExprVisitor> dependency_;
   std::shared_ptr<arrow::Array> in_selection_array_;
   std::shared_ptr<arrow::RecordBatch> in_record_batch_;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> in_record_batch_holder_;
   std::vector<std::shared_ptr<arrow::Field>> ret_fields_;
 
   // For dual input kernels like probe
