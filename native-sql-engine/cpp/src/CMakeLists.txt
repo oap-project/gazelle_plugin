@@ -34,6 +34,12 @@ INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 find_package(JNI REQUIRED)
 set(source_root_directory ${CMAKE_CURRENT_SOURCE_DIR})
 
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(CCACHE_FOUND)
+
 # Building Protobuf
 macro(build_protobuf)
   message(STATUS "Building Protocol Buffers from Source")
