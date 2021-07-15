@@ -680,7 +680,8 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
     assert(sparkPlanInfo.nodeName === "WholeStageCodegen (2)")
   }
 
-  ignore("SPARK-32615,SPARK-33016: SQLMetrics validation after sparkPlanInfo updated in AQE") {
+  /*
+  test("SPARK-32615,SPARK-33016: SQLMetrics validation after sparkPlanInfo updated in AQE") {
     val statusStore = createStatusStore()
     val listener = statusStore.listener.get
 
@@ -811,8 +812,8 @@ class SQLAppStatusListenerSuite extends SharedSparkSession with JsonTestUtils
     listener.onOtherEvent(SparkListenerSQLExecutionEnd(
       executionId, System.currentTimeMillis()))
   }
+  */
 }
-
 
 /**
  * A dummy [[org.apache.spark.sql.execution.SparkPlan]] that updates a [[SQLMetrics]]

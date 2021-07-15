@@ -327,9 +327,9 @@ class CachedRelationKernel::Impl {
         result_type_(result_type) {
     pool_ = ctx_->memory_pool();
     for (auto field : key_field_list) {
-      auto indices = result_schema->GetAllFieldIndices(field->name());
+      auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
       if (indices.size() != 1) {
-        std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
+        std::cout << "[ERROR] CachedRelationKernel::Impl can't find key "
                   << field->ToString() << " from " << result_schema->ToString()
                   << std::endl;
         throw;

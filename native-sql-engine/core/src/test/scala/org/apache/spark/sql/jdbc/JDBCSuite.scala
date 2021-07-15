@@ -317,6 +317,7 @@ class JDBCSuite extends QueryTest
     assert(sql("SELECT * FROM foobar").collect().size === 3)
   }
 
+  /*
   ignore("SELECT * WHERE (simple predicates)") {
     assert(checkPushdown(sql("SELECT * FROM foobar WHERE THEID < 1")).collect().size == 0)
     assert(checkPushdown(sql("SELECT * FROM foobar WHERE THEID != 2")).collect().size == 2)
@@ -353,6 +354,7 @@ class JDBCSuite extends QueryTest
     assert(checkNotPushdown(sql("SELECT * FROM foobar WHERE (THEID + 1) < 2")).collect().size == 0)
     assert(checkNotPushdown(sql("SELECT * FROM foobar WHERE (THEID + 2) != 4")).collect().size == 2)
   }
+  */
 
   test("SELECT COUNT(1) WHERE (predicates)") {
     // Check if an answer is correct when Filter is removed from operations such as count() which
@@ -1232,7 +1234,7 @@ class JDBCSuite extends QueryTest
     assert(sql("SELECT * FROM mixedCaseCols WHERE Name = 'mary' AND Id = 2").collect().size == 1)
   }
 
-  ignore("SPARK-18419: Fix `asConnectionProperties` to filter case-insensitively") {
+  test("SPARK-18419: Fix `asConnectionProperties` to filter case-insensitively") {
     val parameters = Map(
       "url" -> "jdbc:mysql://localhost:3306/temp",
       "dbtable" -> "t1",
@@ -1630,6 +1632,7 @@ class JDBCSuite extends QueryTest
       "Partition column type should be numeric, date, or timestamp, but string found."))
   }
 
+  /*
   ignore("SPARK-24288: Enable preventing predicate pushdown") {
     val table = "test.people"
 
@@ -1655,8 +1658,9 @@ class JDBCSuite extends QueryTest
       checkNotPushdown(sql("SELECT name, theid FROM predicateOption WHERE theid = 1")),
       Row("fred", 1) :: Nil)
   }
+  */
 
-  ignore("SPARK-26383 throw IllegalArgumentException if wrong kind of driver to the given url") {
+  test("SPARK-26383 throw IllegalArgumentException if wrong kind of driver to the given url") {
     val e = intercept[IllegalArgumentException] {
       val opts = Map(
         "url" -> "jdbc:mysql://localhost/db",

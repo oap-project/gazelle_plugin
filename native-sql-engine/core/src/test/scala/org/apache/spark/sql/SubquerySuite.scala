@@ -588,7 +588,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(null) :: Row(1) :: Nil)
   }
 
-  ignore("SPARK-15370: COUNT bug in Aggregate") {
+  test("SPARK-15370: COUNT bug in Aggregate") {
     checkAnswer(
       sql("select l.a as av6804al, sum((select count(*) from r where l.a = r.c)) as cnt " +
         "from l group by l.a order by aval"),
@@ -647,12 +647,13 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     withTempView("onerow") {
       Seq(1).toDF("c1").createOrReplaceTempView("onerow")
 
+      val df = sql(
+        """
+          | select c1 from onerow t1
+          | where exists (select 1 from onerow t2 where t1.c1=t2.c1)
+          | and   exists (select 1 from onerow LIMIT 1)""".stripMargin)
       checkAnswer(
-        sql(
-          """
-            | select c1 from onerow t1
-            | where exists (select 1 from onerow t2 where t1.c1=t2.c1)
-            | and   exists (select 1 from onerow LIMIT 1)""".stripMargin),
+        df,
         Row(1) :: Nil)
     }
   }
@@ -869,7 +870,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("ListQuery and Exists should work even no correlated references") {
+  test("ListQuery and Exists should work even no correlated references") {
     checkAnswer(
       sql("select * from l, r where l.a = r.c AND (r.d in (select d from r) OR l.a >= 1)"),
       Row(2, 1.0, 2, 3.0) :: Row(2, 1.0, 2, 3.0) :: Row(2, 1.0, 2, 3.0) ::
@@ -1192,7 +1193,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-23957 Remove redundant sort from subquery plan(scalar subquery)") {
+  test("SPARK-23957 Remove redundant sort from subquery plan(scalar subquery)") {
     withTempView("t1", "t2", "t3") {
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t1")
       Seq((1, 1), (2, 2)).toDF("c1", "c2").createOrReplaceTempView("t2")
@@ -1304,7 +1305,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-26893: Allow pushdown of partition pruning subquery filters to file source") {
+  test("SPARK-26893: Allow pushdown of partition pruning subquery filters to file source") {
     withTable("a", "b") {
       spark.range(4).selectExpr("id", "id % 2 AS p").write.partitionBy("p").saveAsTable("a")
       spark.range(2).write.saveAsTable("b")
@@ -1312,6 +1313,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       val df = sql("SELECT * FROM a WHERE p <= (SELECT MIN(id) FROM b)")
       checkAnswer(df, Seq(Row(0, 0), Row(2, 0)))
       // need to execute the query before we can examine fs.inputRDDs()
+      /*
       assert(stripAQEPlan(df.queryExecution.executedPlan) match {
         case WholeStageCodegenExec(ColumnarToRowExec(InputAdapter(
             fs @ FileSourceScanExec(_, _, _, partitionFilters, _, _, _, _, _)))) =>
@@ -1321,6 +1323,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
                 _.files.forall(_.filePath.contains("p=0"))))
         case _ => false
       })
+      */
     }
   }
 
@@ -1360,7 +1363,8 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-27279: Reuse Subquery", DisableAdaptiveExecution("reuse is dynamic in AQE")) {
+  /*
+  test("SPARK-27279: Reuse Subquery", DisableAdaptiveExecution("reuse is dynamic in AQE")) {
     Seq(true, false).foreach { reuse =>
       withSQLConf(SQLConf.SUBQUERY_REUSE_ENABLED.key -> reuse.toString) {
         val df = sql(
@@ -1392,6 +1396,7 @@ class SubquerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       }
     }
   }
+  */
 
   test("Scalar subquery name should start with scalar-subquery#") {
     val df = sql("SELECT a FROM l WHERE a = (SELECT max(c) FROM r WHERE c = 1)".stripMargin)

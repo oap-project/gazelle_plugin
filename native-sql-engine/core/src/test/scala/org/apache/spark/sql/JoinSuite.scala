@@ -272,7 +272,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("left outer join") {
+  test("left outer join") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
       checkAnswer(
         upperCaseData.join(lowerCaseData, $"n" === $"N", "left"),
@@ -338,7 +338,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("right outer join") {
+  test("right outer join") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
       checkAnswer(
         lowerCaseData.join(upperCaseData, $"n" === $"N", "right"),
@@ -680,7 +680,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("test SortMergeJoin (without spill)") {
+  test("test SortMergeJoin (without spill)") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "1",
       SQLConf.SORT_MERGE_JOIN_EXEC_BUFFER_SPILL_THRESHOLD.key -> Int.MaxValue.toString) {
 
@@ -737,7 +737,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("test SortMergeJoin (with spill)") {
+  test("test SortMergeJoin (with spill)") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "1",
       SQLConf.SORT_MERGE_JOIN_EXEC_BUFFER_IN_MEMORY_THRESHOLD.key -> "0",
       SQLConf.SORT_MERGE_JOIN_EXEC_BUFFER_SPILL_THRESHOLD.key -> "1") {
@@ -848,7 +848,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("test SortMergeJoin output ordering") {
+  test("test SortMergeJoin output ordering") {
     val joinQueries = Seq(
       "SELECT * FROM testData JOIN testData2 ON key = a",
       "SELECT * FROM testData t1 JOIN " +
@@ -1105,7 +1105,8 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-32330: Preserve shuffled hash join build side partitioning") {
+  /*
+  test("SPARK-32330: Preserve shuffled hash join build side partitioning") {
     withSQLConf(
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "50",
         SQLConf.SHUFFLE_PARTITIONS.key -> "2",
@@ -1122,7 +1123,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-32383: Preserve hash join (BHJ and SHJ) stream side ordering") {
+  test("SPARK-32383: Preserve hash join (BHJ and SHJ) stream side ordering") {
     val df1 = spark.range(100).select($"id".as("k1"))
     val df2 = spark.range(100).select($"id".as("k2"))
     val df3 = spark.range(3).select($"id".as("k3"))
@@ -1164,6 +1165,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
       })
     }
   }
+  */
 
   test("SPARK-32290: SingleColumn Null Aware Anti Join Optimize") {
     withSQLConf(SQLConf.OPTIMIZE_NULL_AWARE_ANTI_JOIN.key -> "true",
@@ -1205,7 +1207,8 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-32399: Full outer shuffled hash join") {
+  /*
+  test("SPARK-32399: Full outer shuffled hash join") {
     val inputDFs = Seq(
       // Test unique join key
       (spark.range(10).selectExpr("id as k1"),
@@ -1271,7 +1274,7 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     }
   }
 
-  ignore("SPARK-32649: Optimize BHJ/SHJ inner/semi join with empty hashed relation") {
+  test("SPARK-32649: Optimize BHJ/SHJ inner/semi join with empty hashed relation") {
     val inputDFs = Seq(
       // Test empty build side for inner join
       (spark.range(30).selectExpr("id as k1"),
@@ -1325,4 +1328,5 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
       }
     }
   }
+  */
 }

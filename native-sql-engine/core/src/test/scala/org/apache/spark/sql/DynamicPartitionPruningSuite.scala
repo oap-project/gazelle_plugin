@@ -301,7 +301,7 @@ abstract class DynamicPartitionPruningSuiteBase
   /**
    * Check the static scan metrics with and without DPP
    */
-  ignore("static scan metrics") {
+  test("static scan metrics") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.EXCHANGE_REUSE_ENABLED.key -> "false") {
@@ -671,7 +671,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("partition pruning in broadcast hash joins with aliases") {
+  test("partition pruning in broadcast hash joins with aliases") {
     Given("alias with simple join condition, using attribute names only")
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       val df = sql(
@@ -761,7 +761,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("partition pruning in broadcast hash joins") {
+  test("partition pruning in broadcast hash joins") {
     Given("disable broadcast pruning and disable subquery duplication")
     withSQLConf(
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true",
@@ -1068,7 +1068,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("avoid reordering broadcast join keys to match input hash partitioning") {
+  test("avoid reordering broadcast join keys to match input hash partitioning") {
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "false",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       withTable("large", "dimTwo", "dimThree") {
@@ -1272,7 +1272,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("Plan broadcast pruning only when the broadcast can be reused") {
+  test("Plan broadcast pruning only when the broadcast can be reused") {
     Given("dynamic pruning filter on the build side")
     withSQLConf(SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {
       val df = sql(
@@ -1345,7 +1345,7 @@ abstract class DynamicPartitionPruningSuiteBase
     }
   }
 
-  ignore("SPARK-32817: DPP throws error when the broadcast side is empty") {
+  test("SPARK-32817: DPP throws error when the broadcast side is empty") {
     withSQLConf(
       SQLConf.DYNAMIC_PARTITION_PRUNING_ENABLED.key -> "true",
       SQLConf.DYNAMIC_PARTITION_PRUNING_REUSE_BROADCAST_ONLY.key -> "true") {

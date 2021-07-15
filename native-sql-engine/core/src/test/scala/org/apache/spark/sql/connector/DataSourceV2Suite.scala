@@ -131,7 +131,7 @@ class DataSourceV2Suite extends QueryTest with SharedSparkSession with AdaptiveS
     }
   }
 
-  ignore("columnar batch scan implementation") {
+  test("columnar batch scan implementation") {
       Seq(classOf[ColumnarDataSourceV2], classOf[JavaColumnarDataSourceV2]).foreach { cls =>
         withClue(cls.getName) {
           withSQLConf(

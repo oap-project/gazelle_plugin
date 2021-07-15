@@ -18,7 +18,7 @@
 package org.apache.spark.sql.execution.datasources.jdbc.connection
 
 class PostgresConnectionProviderSuite extends ConnectionProviderSuiteBase {
-  ignore("setAuthenticationConfigIfNeeded must set authentication if not set") {
+  test("setAuthenticationConfigIfNeeded must set authentication if not set") {
     val provider = new PostgresConnectionProvider()
     val defaultOptions = options("jdbc:postgresql://localhost/postgres")
     val customOptions =

@@ -753,7 +753,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("right outer join") {
+  test("right outer join") {
     withSQLConf(SQLConf.CASE_SENSITIVE.key -> "true") {
       checkAnswer(
         sql("SELECT * FROM lowercasedata RIGHT OUTER JOIN uppercasedata ON n = N"),
@@ -927,7 +927,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("EXCEPT") {
+  test("EXCEPT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData EXCEPT SELECT * FROM upperCaseData"),
       Row(1, "a") ::
@@ -940,7 +940,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData EXCEPT SELECT * FROM upperCaseData"), Nil)
   }
 
-  ignore("MINUS") {
+  test("MINUS") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData MINUS SELECT * FROM upperCaseData"),
       Row(1, "a") :: Row(2, "b") :: Row(3, "c") :: Row(4, "d") :: Nil)
@@ -950,7 +950,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       sql("SELECT * FROM upperCaseData MINUS SELECT * FROM upperCaseData"), Nil)
   }
 
-  ignore("INTERSECT") {
+  test("INTERSECT") {
     checkAnswer(
       sql("SELECT * FROM lowerCaseData INTERSECT SELECT * FROM lowerCaseData"),
       Row(1, "a") ::
@@ -2061,7 +2061,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
       Row(false) :: Row(true) :: Nil)
   }
 
-  ignore("filter on a grouping column that is not presented in SELECT") {
+  test("filter on a grouping column that is not presented in SELECT") {
     checkAnswer(
       sql("select count(1) from (select 1 as a) t group by a having a > 0"),
       Row(1) :: Nil)
@@ -2980,7 +2980,7 @@ class SQLQuerySuite extends QueryTest with SharedSparkSession with AdaptiveSpark
     }
   }
 
-  ignore("SPARK-25988: self join with aliases on partitioned tables #1") {
+  test("SPARK-25988: self join with aliases on partitioned tables #1") {
     withTempView("tmpView1", "tmpView2") {
       withTable("tab1", "tab2") {
         sql(

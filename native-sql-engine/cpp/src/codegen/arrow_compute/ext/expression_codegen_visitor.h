@@ -57,6 +57,7 @@ class ExpressionCodegenVisitor : public VisitorBase {
   std::string GetPrepare();
   std::string GetRealResult();
   std::string GetRealValidity();
+  std::string GetResType();
   std::vector<std::string> GetHeaders();
   FieldType GetFieldType();
   arrow::Status Visit(const gandiva::FunctionNode& node) override;
@@ -89,6 +90,7 @@ class ExpressionCodegenVisitor : public VisitorBase {
   std::string prepare_str_;
   std::string input_codes_str_;
   std::string check_str_;
+  std::string res_type_str_;
 
   std::string CombineValidity(std::vector<std::string> validity_list);
   std::string GetValidityName(std::string name);

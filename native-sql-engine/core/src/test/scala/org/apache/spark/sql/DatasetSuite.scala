@@ -1769,7 +1769,7 @@ class DatasetSuite extends QueryTest
       Seq((Some((1, 2)), 1), (Some((2, 3)), 1), (Some((1, 3)), 1)))
   }
 
-  ignore("SPARK-25942: typed aggregation on primitive type") {
+  test("SPARK-25942: typed aggregation on primitive type") {
     val ds = Seq(1, 2, 3).toDS()
 
     val agg = ds.groupByKey(_ >= 2)

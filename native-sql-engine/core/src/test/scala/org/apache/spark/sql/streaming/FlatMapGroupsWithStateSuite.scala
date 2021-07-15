@@ -1069,7 +1069,7 @@ class FlatMapGroupsWithStateSuite extends StateStoreMetricsTest {
     }
   }
 
-  testQuietly("StateStore.abort on task failure handling") {
+  test("StateStore.abort on task failure handling") {
     val stateFunc = (key: String, values: Iterator[String], state: GroupState[RunningCount]) => {
       if (FlatMapGroupsWithStateSuite.failInTask) throw new Exception("expected failure")
       val count = state.getOption.map(_.count).getOrElse(0L) + values.size

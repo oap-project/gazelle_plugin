@@ -738,6 +738,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     assert(!execRanges.head.eq(execRanges.last))
   }
 
+  /*
   ignore("SPARK-24556: always rewrite output partitioning in ReusedExchangeExec " +
     "and InMemoryTableScanExec",
     DisableAdaptiveExecution("Reuse is dynamic in AQE")) {
@@ -800,6 +801,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
         classOf[PartitioningCollection])
     }
   }
+  */
 
   test("SPARK-26812: wrong nullability for complex datatypes in union") {
     def testUnionOutputType(input1: DataType, input2: DataType, output: DataType): Unit = {
@@ -895,6 +897,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     }
   }
 
+  /*
   ignore("SPARK-33399: aliases should be handled properly in PartitioningCollection output" +
     " partitioning") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
@@ -1117,6 +1120,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
       }
     }
   }
+  */
 
   test("aliases to expressions should not be replaced") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
@@ -1144,6 +1148,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     }
   }
 
+  /*
   ignore("aliases in the aggregate expressions should not introduce extra shuffle") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
       val t1 = spark.range(10).selectExpr("floor(id/4) as k1")
@@ -1160,6 +1165,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
       assert(exchanges.size == 2)
     }
   }
+  */
 
   test("aliases in the object hash/sort aggregate expressions should not introduce extra shuffle") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1") {
@@ -1186,6 +1192,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
     }
   }
 
+  /*
   ignore("aliases in the sort aggregate expressions should not introduce extra sort") {
     withSQLConf(
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1",
@@ -1204,6 +1211,7 @@ class PlannerSuite extends SharedSparkSession with AdaptiveSparkPlanHelper {
       assert(sorts.size == 4)
     }
   }
+  */
 
   testWithWholeStageCodegenOnAndOff("Change the number of partitions to zero " +
     "when a range is empty") { _ =>

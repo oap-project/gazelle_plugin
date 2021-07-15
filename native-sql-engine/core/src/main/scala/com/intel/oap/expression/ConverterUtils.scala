@@ -327,10 +327,11 @@ object ConverterUtils extends Logging {
       case a: AttributeReference =>
         a
       case a: Alias =>
-        if (skipAlias && a.child.isInstanceOf[AttributeReference])
+        if (skipAlias && a.child.isInstanceOf[AttributeReference]) {
           getAttrFromExpr(a.child)
-        else
+        } else {
           a.toAttribute.asInstanceOf[AttributeReference]
+        }
       case a: KnownFloatingPointNormalized =>
         logInfo(s"$a")
         getAttrFromExpr(a.child)
@@ -344,6 +345,10 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(a.left)
       case s: Subtract =>
         getAttrFromExpr(s.left)
+      case m: Multiply =>
+        getAttrFromExpr(m.left)
+      case d: Divide =>
+        getAttrFromExpr(d.left)
       case u: Upper =>
         getAttrFromExpr(u.child)
       case ss: Substring =>

@@ -74,13 +74,22 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row("google"), Row("facebook")))
   }
 
-  ignore("test2") {
+  ignore("in-joins") {
     Seq(1, 3, 5, 7, 9).toDF("id").createOrReplaceTempView("s1")
     Seq(1, 3, 4, 6, 9).toDF("id").createOrReplaceTempView("s2")
     Seq(3, 4, 6, 9).toDF("id").createOrReplaceTempView("s3")
     val df = sql("SELECT s1.id, s2.id FROM s1 " +
       "FULL OUTER JOIN s2 ON s1.id = s2.id AND s1.id NOT IN (SELECT id FROM s3)")
-    df.show()
+    checkAnswer(df, Seq(
+      Row(1, 1),
+      Row(3, null),
+      Row(5, null),
+      Row(7, null),
+      Row(9, null),
+      Row(null, 3),
+      Row(null, 4),
+      Row(null, 6),
+      Row(null, 9)))
   }
 
   ignore("SMJ") {
@@ -136,7 +145,7 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  test("test3") {
+  test("exists-subquery") {
     Seq[(Integer, String, Date, Double, Integer)](
       (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
       (100, "emp 1", Date.valueOf("2005-01-01"), 100.00D, 10),
@@ -170,9 +179,9 @@ class NativeSQLConvertedSuite extends QueryTest
       .toDF("emp_name", "bonus_amt")
       .createOrReplaceTempView("BONUS")
 
-    val df = sql("SELECT * FROM emp WHERE  EXISTS " +
+    val df1 = sql("SELECT * FROM emp WHERE  EXISTS " +
       "(SELECT 1 FROM dept WHERE dept.dept_id > 10 AND dept.dept_id < 30)")
-    checkAnswer(df, Seq(
+    checkAnswer(df1, Seq(
       Row(100, "emp 1", Date.valueOf("2005-01-01"), 100.0, 10),
       Row(100, "emp 1", Date.valueOf("2005-01-01"), 100.0, 10),
       Row(200, "emp 2", Date.valueOf("2003-01-01"), 200.0, 10),
@@ -193,17 +202,17 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(70, "dept 7", "FL")))
   }
 
-  ignore("window1") {
+  test("window1") {
     Seq(1).toDF("id").createOrReplaceTempView("t")
     val df = sql("SELECT COUNT(*) OVER (PARTITION BY 1 ORDER BY cast(1 as int)) FROM t")
-    df.show()
+    checkAnswer(df, Seq(Row(1)))
   }
 
-  ignore("window2") {
+  test("window2") {
     Seq(0, 123456, -123456, 2147483647, -2147483647)
       .toDF("f1").createOrReplaceTempView("int4_tbl")
     val df = sql("SELECT SUM(COUNT(f1)) OVER () FROM int4_tbl WHERE f1=42")
-    df.show()
+    checkAnswer(df, Seq(Row(0)))
   }
 
   ignore("union - normalization for a very small value") {
@@ -241,7 +250,7 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  test("two inner joins with condition") {
+  ignore("two inner joins with condition") {
     spark
       .read
       .format("csv")
@@ -274,7 +283,29 @@ class NativeSQLConvertedSuite extends QueryTest
     val df = sql("select a.f1, b.f1, t.thousand, t.tenthous from tenk1 t, " +
       "(select sum(f1)+1 as f1 from int4_tbl i4a) a, (select sum(f1) as f1 from int4_tbl i4b) b " +
       "where b.f1 = t.thousand and a.f1 = b.f1 and (a.f1+b.f1+999) = t.tenthous")
-    df.show()
+    checkAnswer(df, Seq())
+
+    /** window_part1 -- window has incorrect result */
+
+    val df1 = sql("SELECT sum(unique1) over (rows between current row and unbounded following)," +
+                  "unique1, four FROM tenk1 WHERE unique1 < 10")
+    checkAnswer(df1, Seq(
+      Row(0, 0, 0),
+      Row(10, 3, 3),
+      Row(15, 5, 1),
+      Row(23, 8, 0),
+      Row(32, 9, 1),
+      Row(38, 6, 2),
+      Row(39, 1, 1),
+      Row(41, 2, 2),
+      Row(45, 4, 0),
+      Row(7, 7, 3)))
+
+    /** join -- SMJ left semi has segfault */
+
+    val df2 = sql("select count(*) from tenk1 a where unique1 in" +
+      " (select unique1 from tenk1 b join tenk1 c using (unique1) where b.unique2 = 42)")
+    checkAnswer(df2, Seq(Row(1)))
   }
 
   test("min_max") {
@@ -332,11 +363,6 @@ class NativeSQLConvertedSuite extends QueryTest
   }
 
   test("groupby") {
-    val df1 = sql("SELECT COUNT(DISTINCT b), COUNT(DISTINCT b, c) FROM " +
-      "(SELECT 1 AS a, 2 AS b, 3 AS c) GROUP BY a")
-    checkAnswer(df1, Seq(Row(1, 1)))
-    val df2 = sql("SELECT 1 FROM range(10) HAVING true")
-    checkAnswer(df2, Seq(Row(1)))
     Seq[(Integer, java.lang.Boolean)](
       (1, true),
       (1, false),
@@ -350,6 +376,11 @@ class NativeSQLConvertedSuite extends QueryTest
       (5, false))
       .toDF("k", "v")
       .createOrReplaceTempView("test_agg")
+    val df1 = sql("SELECT COUNT(DISTINCT b), COUNT(DISTINCT b, c) FROM " +
+      "(SELECT 1 AS a, 2 AS b, 3 AS c) GROUP BY a")
+    checkAnswer(df1, Seq(Row(1, 1)))
+    val df2 = sql("SELECT 1 FROM range(10) HAVING true")
+    checkAnswer(df2, Seq(Row(1)))
     val df3 = sql("SELECT k, Every(v) AS every FROM test_agg WHERE k = 2 AND v IN (SELECT Any(v)" +
       " FROM test_agg WHERE k = 1) GROUP BY k")
     checkAnswer(df3, Seq(Row(2, true)))
@@ -357,8 +388,10 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df4, Seq(Row(5, true), Row(1, true), Row(2, true)))
     val df5 = sql("SELECT every(v), some(v), any(v), bool_and(v), bool_or(v) " +
       "FROM test_agg WHERE 1 = 0")
-//    checkAnswer(df5, Seq(Row(null, null, null, null, null)))
-    df5.show()
+    checkAnswer(df5, Seq(Row(null, null, null, null, null)))
+    val df6 =
+      sql("SELECT every(v), some(v), any(v), bool_and(v), bool_or(v) FROM test_agg WHERE k = 4")
+    checkAnswer(df6, Seq(Row(null, null, null, null, null)))
   }
 
   test("count with filter") {
@@ -558,9 +591,230 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df1, Seq(Row(null)))
   }
 
-  test("groupby - 1") {
+  test("groupingsets") {
+    spark
+      .read
+      .format("csv")
+      .options(Map("delimiter" -> "\t", "header" -> "false"))
+      .schema(
+        """
+          |unique1 int,
+          |unique2 int,
+          |two int,
+          |four int,
+          |ten int,
+          |twenty int,
+          |hundred int,
+          |thousand int,
+          |twothousand int,
+          |fivethous int,
+          |tenthous int,
+          |odd int,
+          |even int,
+          |stringu1 string,
+          |stringu2 string,
+          |string4 string
+        """.stripMargin)
+      .load(testFile("test-data/postgresql/tenk.data"))
+      .write
+      .format("parquet")
+      .saveAsTable("tenk1")
     val df = sql("select four, x from (select four, ten, 'foo' as x from tenk1) as t" +
       " group by grouping sets (four, x) having x = 'foo'")
     checkAnswer(df, Seq(Row(null, "foo")))
+    val df1 = sql("select four, x || 'x' from (select four, ten, 'foo' as x from tenk1) as t " +
+      "group by grouping sets (four, x) order by four")
+    checkAnswer(df1, Seq(
+      Row(null, "foox"),
+      Row(0, null),
+      Row(1, null),
+      Row(2, null),
+      Row(3, null)))
   }
+
+  ignore("in-order-by: different result for timestamp") {
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1a", 16, 12, 21L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-06-04 01:02:00.001"), Date.valueOf("2014-06-04")),
+      ("val1a", 16, 12, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.001"), Date.valueOf("2014-05-05")),
+      ("val1d", null, 16, 22L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), null),
+      ("val1d", null, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.001"), null),
+      ("val1e", 10, null, 25L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.001"), Date.valueOf("2014-09-04")),
+      ("val1d", 10, null, 12L, 17.0, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.001"), Date.valueOf("2014-04-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")))
+      .toDF("t1a", "t1b", "t1c", "t1d", "t1e", "t1f", "t1g", "t1h", "t1i")
+      .createOrReplaceTempView("t1")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val2a", 6, 12, 14L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:01:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 119L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1c", 12, 16, 219L, 17, 25D, 26E2, Timestamp.valueOf("2016-05-04 01:01:00.000"), Date.valueOf("2016-05-04")),
+      ("val1b", null, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2017-05-04 01:01:00.000"), null),
+      ("val2e", 8, null, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1f", 19, null, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 12, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-05")),
+      ("val1e", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:01:00.000"), Date.valueOf("2014-09-04")),
+      ("val1f", 19, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:01:00.000"), Date.valueOf("2014-10-04")),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), null))
+      .toDF("t2a", "t2b", "t2c", "t2d", "t2e", "t2f", "t2g", "t2h", "t2i")
+      .createOrReplaceTempView("t2")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val3a", 6, 12, 110L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.000"), Date.valueOf("2014-04-04")),
+      ("val3a", 6, 12, 10L, 15, 20D, 20E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 219L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:02:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.000"), Date.valueOf("2014-07-04")),
+      ("val3c", 17, 16, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:02:00.000"), Date.valueOf("2014-08-04")),
+      ("val3c", 17, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.000"), Date.valueOf("2014-09-05")),
+      ("val1b", null, 16, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:02:00.000"), null),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-11-04 01:02:00.000"), null),
+      ("val3b", 8, null, 719L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val3b", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:02:00.000"), Date.valueOf("2015-05-04")))
+      .toDF("t3a", "t3b", "t3c", "t3d", "t3e", "t3f", "t3g", "t3h", "t3i")
+      .createOrReplaceTempView("t3")
+    val df = sql("SELECT t1a, t1b, t1h FROM t1 WHERE t1c IN (SELECT t2c FROM t2 WHERE t1a = t2a" +
+      " ORDER BY t2b DESC nulls first) OR t1h IN (SELECT t2h FROM t2 WHERE  t1h > t2h) " +
+      "ORDER  BY t1h DESC nulls last")
+    checkAnswer(df, Seq(
+      Row("val1c", 8, Timestamp.valueOf("2014-05-04 01:02:00.001")),
+      Row("val1b", 8, Timestamp.valueOf("2014-05-04 01:01:00"))))
+  }
+
+  test("group_by_ordinal") {
+    val df = sql("select a, count(a) from (select 1 as a) tmp group by 1 order by 1")
+    checkAnswer(df, Seq(Row(1, 1)))
+  }
+
+  ignore("scalar-subquery-select -- SMJ LeftAnti has incorrect result") {
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1a", 16, 12, 21L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-06-04 01:02:00.001"), Date.valueOf("2014-06-04")),
+      ("val1a", 16, 12, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.001"), Date.valueOf("2014-05-05")),
+      ("val1d", null, 16, 22L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), null),
+      ("val1d", null, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.001"), null),
+      ("val1e", 10, null, 25L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.001"), Date.valueOf("2014-09-04")),
+      ("val1d", 10, null, 12L, 17.0, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.001"), Date.valueOf("2014-04-04")),
+      ("val1e", 10, null, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")))
+      .toDF("t1a", "t1b", "t1c", "t1d", "t1e", "t1f", "t1g", "t1h", "t1i")
+      .createOrReplaceTempView("t1")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val2a", 6, 12, 14L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:01:00.000"), Date.valueOf("2014-04-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 119L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:01:00.000"), Date.valueOf("2015-05-04")),
+      ("val1c", 12, 16, 219L, 17, 25D, 26E2, Timestamp.valueOf("2016-05-04 01:01:00.000"), Date.valueOf("2016-05-04")),
+      ("val1b", null, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2017-05-04 01:01:00.000"), null),
+      ("val2e", 8, null, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1f", 19, null, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:01:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:01:00.000"), Date.valueOf("2014-07-04")),
+      ("val1c", 12, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:01:00.000"), Date.valueOf("2014-08-05")),
+      ("val1e", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:01:00.000"), Date.valueOf("2014-09-04")),
+      ("val1f", 19, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:01:00.000"), Date.valueOf("2014-10-04")),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), null))
+      .toDF("t2a", "t2b", "t2c", "t2d", "t2e", "t2f", "t2g", "t2h", "t2i")
+      .createOrReplaceTempView("t2")
+    Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
+      ("val3a", 6, 12, 110L, 15, 20D, 20E2, Timestamp.valueOf("2014-04-04 01:02:00.000"), Date.valueOf("2014-04-04")),
+      ("val3a", 6, 12, 10L, 15, 20D, 20E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 219L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 10, 12, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val1b", 8, 16, 319L, 17, 25D, 26E2, Timestamp.valueOf("2014-06-04 01:02:00.000"), Date.valueOf("2014-06-04")),
+      ("val1b", 8, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-07-04 01:02:00.000"), Date.valueOf("2014-07-04")),
+      ("val3c", 17, 16, 519L, 17, 25D, 26E2, Timestamp.valueOf("2014-08-04 01:02:00.000"), Date.valueOf("2014-08-04")),
+      ("val3c", 17, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-09-04 01:02:00.000"), Date.valueOf("2014-09-05")),
+      ("val1b", null, 16, 419L, 17, 25D, 26E2, Timestamp.valueOf("2014-10-04 01:02:00.000"), null),
+      ("val1b", null, 16, 19L, 17, 25D, 26E2, Timestamp.valueOf("2014-11-04 01:02:00.000"), null),
+      ("val3b", 8, null, 719L, 17, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:02:00.000"), Date.valueOf("2014-05-04")),
+      ("val3b", 8, null, 19L, 17, 25D, 26E2, Timestamp.valueOf("2015-05-04 01:02:00.000"), Date.valueOf("2015-05-04")))
+      .toDF("t3a", "t3b", "t3c", "t3d", "t3e", "t3f", "t3g", "t3h", "t3i")
+      .createOrReplaceTempView("t3")
+    val df = sql("SELECT t1a, t1b FROM t1 WHERE NOT EXISTS (SELECT (SELECT max(t2b) FROM t2 " +
+      "LEFT JOIN t1 ON t2a = t1a WHERE t2c = t3c) dummy FROM t3 WHERE t3b < (SELECT max(t2b) " +
+      "FROM t2 LEFT JOIN t1 ON t2a = t1a WHERE  t2c = t3c) AND t3a = t1a)")
+    checkAnswer(df, Seq(
+      Row("val1a", 16),
+      Row("val1a", 16),
+      Row("val1a", 6),
+      Row("val1a", 6),
+      Row("val1c", 8),
+      Row("val1d", 10),
+      Row("val1d", null),
+      Row("val1d", null),
+      Row("val1e", 10),
+      Row("val1e", 10),
+      Row("val1e", 10)))
+  }
+
+  test("join") {
+//    Seq[(Integer, Integer, String)](
+//      (1, 4, "one"),
+//      (2, 3, "two"),
+//      (3, 2, "three"),
+//      (4, 1, "four"),
+//      (5, 0, "five"),
+//      (6, 6, "six"),
+//      (7, 7, "seven"),
+//      (8, 8, "eight"),
+//      (0, null, "zero"),
+//      (null, null, "null"),
+//      (null, 0, "zero"))
+//      .toDF("i", "j", "t")
+//      .createOrReplaceTempView("J1_TBL")
+//    Seq[(Integer, Integer)](
+//      (1, -1),
+//      (2, 2),
+//      (3, -3),
+//      (2, 4),
+//      (5, -5),
+//      (5, -5),
+//      (0, null),
+//      (null, null),
+//      (null, 0))
+//      .toDF("i", "k")
+//      .createOrReplaceTempView("J2_TBL")
+//    Seq[(String, Integer)](
+//      ("bb", 11))
+//      .toDF("name", "n")
+//      .createOrReplaceTempView("t1")
+//    Seq[(String, Integer)](
+//      ("bb", 12),
+//      ("cc", 22),
+//      ("ee", 42))
+//      .toDF("name", "n")
+//      .createOrReplaceTempView("t2")
+//    Seq[(String, Integer)](
+//      ("bb", 13),
+//      ("cc", 23),
+//      ("dd", 33))
+//      .toDF("name", "n")
+//      .createOrReplaceTempView("t3")
+//    Seq[(Integer, Integer)](
+//      (1, 11),
+//      (2, 22),
+//      (3, null),
+//      (4, 44),
+//      (5, null))
+//      .toDF("x1", "x2")
+//      .createOrReplaceTempView("x")
+//    Seq[(Integer, Integer)](
+//      (1, 111),
+//      (2, 222),
+//      (3, 333),
+//      (4, null))
+//      .toDF("y1", "y2")
+//      .createOrReplaceTempView("y")
+
+  }
+
 }

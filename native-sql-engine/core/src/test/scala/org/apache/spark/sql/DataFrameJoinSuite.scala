@@ -158,7 +158,8 @@ class DataFrameJoinSuite extends QueryTest
     }
   }
 
-  ignore("broadcast join hint using Dataset.hint") {
+  /*
+  test("broadcast join hint using Dataset.hint") {
     // make sure a giant join is not broadcastable
     val plan1 =
       spark.range(10e10.toLong)
@@ -173,6 +174,7 @@ class DataFrameJoinSuite extends QueryTest
         .queryExecution.executedPlan
     assert(collect(plan2) { case p: BroadcastHashJoinExec => p }.size == 1)
   }
+  */
 
   test("join - outer join conversion") {
     val df = Seq((1, 2, "1"), (3, 4, "3")).toDF("int", "int2", "str").as("a")
@@ -350,7 +352,8 @@ class DataFrameJoinSuite extends QueryTest
     }
   }
 
-  ignore("Supports multi-part names for broadcast hint resolution") {
+  /*
+  test("Supports multi-part names for broadcast hint resolution") {
     val (table1Name, table2Name) = ("t1", "t2")
 
     withTempDatabase { dbName =>
@@ -417,6 +420,7 @@ class DataFrameJoinSuite extends QueryTest
       }
     }
   }
+  */
 
   test("The same table name exists in two databases for broadcast hint resolution") {
     val (db1Name, db2Name) = ("db1", "db2")

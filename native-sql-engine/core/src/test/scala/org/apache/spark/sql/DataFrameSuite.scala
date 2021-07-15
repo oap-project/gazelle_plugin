@@ -207,7 +207,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-28224: Aggregate sum big decimal overflow") {
+  test("SPARK-28224: Aggregate sum big decimal overflow") {
     val largeDecimals = spark.sparkContext.parallelize(
       DecimalData(BigDecimal("1"* 20 + ".123"), BigDecimal("1"* 20 + ".123")) ::
         DecimalData(BigDecimal("9"* 20 + ".123"), BigDecimal("9"* 20 + ".123")) :: Nil).toDF()
@@ -233,7 +233,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-28067: Aggregate sum should not return wrong results for decimal overflow") {
+  test("SPARK-28067: Aggregate sum should not return wrong results for decimal overflow") {
     Seq("true", "false").foreach { wholeStageEnabled =>
       withSQLConf((SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key, wholeStageEnabled)) {
         Seq(true, false).foreach { ansiEnabled =>
@@ -830,7 +830,7 @@ class DataFrameSuite extends QueryTest
     ("David", 60, 192),
     ("Amy", 24, 180)).toDF("name", "age", "height")
 
-  ignore("describe") {
+  test("describe") {
     val describeResult = Seq(
       Row("count", "4", "4", "4"),
       Row("mean", null, "33.0", "178.0"),
@@ -969,7 +969,7 @@ class DataFrameSuite extends QueryTest
     }
   }
 
-  ignore("show") {
+  test("show") {
     // This test case is intended ignored, but to make sure it compiles correctly
     testData.select($"*").show()
     testData.select($"*").show(1000)
@@ -1442,7 +1442,7 @@ class DataFrameSuite extends QueryTest
     df.orderBy("a").collect()
   }
 
-  ignore("NaN is greater than all other non-NaN numeric values") {
+  test("NaN is greater than all other non-NaN numeric values") {
     val maxDouble = Seq(Double.NaN, Double.PositiveInfinity, Double.MaxValue)
       .map(Tuple1.apply).toDF("a").selectExpr("max(a)").first()
     assert(java.lang.Double.isNaN(maxDouble.getDouble(0)))
@@ -1833,7 +1833,7 @@ class DataFrameSuite extends QueryTest
 
   }
 
-  ignore("reuse exchange") {
+  test("reuse exchange") {
     withSQLConf(SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "2") {
       val df = spark.range(100).toDF()
       val join = df.join(df, "id")
@@ -1852,13 +1852,13 @@ class DataFrameSuite extends QueryTest
           case e: ShuffleExchangeExec => true }.size == 1)
       assert(
         collect(join2.queryExecution.executedPlan) {
-          case e: BroadcastExchangeExec => true }.size === 1)
+          case e: BroadcastExchangeExec => true }.size === 0)
       assert(
         collect(join2.queryExecution.executedPlan) { case e: ReusedExchangeExec => true }.size == 4)
     }
   }
 
-  ignore("sameResult() on aggregate") {
+  test("sameResult() on aggregate") {
     val df = spark.range(100)
     val agg1 = df.groupBy().count()
     val agg2 = df.groupBy().count()
@@ -1973,7 +1973,7 @@ class DataFrameSuite extends QueryTest
     assert(df.persist.take(1).apply(0).toSeq(100).asInstanceOf[Long] == 100)
   }
 
-  ignore("SPARK-17409: Do Not Optimize Query in CTAS (Data source tables) More Than Once") {
+  test("SPARK-17409: Do Not Optimize Query in CTAS (Data source tables) More Than Once") {
     withTable("bar") {
       withTempView("foo") {
         withSQLConf(SQLConf.DEFAULT_DATA_SOURCE_NAME.key -> "json") {
@@ -2104,7 +2104,7 @@ class DataFrameSuite extends QueryTest
   // TODO: When we make a threshold of splitting statements (1024) configurable,
   // we will re-enable this with max threshold to cause an exception
   // See https://github.com/apache/spark/pull/18972/files#r150223463
-  ignore("SPARK-19372: Filter can be executed w/o generated code due to JVM code size limit") {
+  test("SPARK-19372: Filter can be executed w/o generated code due to JVM code size limit") {
     val N = 400
     val rows = Seq(Row.fromSeq(Seq.fill(N)("string")))
     val schema = StructType(Seq.tabulate(N)(i => StructField(s"_c$i", StringType)))
@@ -2141,7 +2141,7 @@ class DataFrameSuite extends QueryTest
       Seq(Row(7, 1, 1), Row(7, 1, 2), Row(7, 2, 1), Row(7, 2, 2), Row(7, 3, 1), Row(7, 3, 2)))
   }
 
-  ignore("SPARK-22271: mean overflows and returns null for some decimal variables") {
+  test("SPARK-22271: mean overflows and returns null for some decimal variables") {
     val d = 0.034567890
     val df = Seq(d, d, d, d, d, d, d, d, d, d).toDF("DecimalCol")
     val result = df.select($"DecimalCol" cast DecimalType(38, 33))

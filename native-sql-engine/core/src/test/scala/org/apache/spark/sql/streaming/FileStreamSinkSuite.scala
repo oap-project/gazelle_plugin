@@ -451,7 +451,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  testQuietly("cleanup incomplete output for aborted task") {
+  test("cleanup incomplete output for aborted task") {
     withTempDir { tempDir =>
       val checkpointDir = new File(tempDir, "chk")
       val outputDir = new File(tempDir, "output")
@@ -477,7 +477,7 @@ abstract class FileStreamSinkSuite extends StreamTest {
     }
   }
 
-  testQuietly("cleanup complete but invalid output for aborted job") {
+  test("cleanup complete but invalid output for aborted job") {
     withSQLConf(("spark.sql.streaming.commitProtocolClass",
       classOf[PendingCommitFilesTrackingManifestFileCommitProtocol].getCanonicalName)) {
       withTempDir { tempDir =>

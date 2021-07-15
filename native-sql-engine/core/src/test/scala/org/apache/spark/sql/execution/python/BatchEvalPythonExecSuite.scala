@@ -47,6 +47,7 @@ class BatchEvalPythonExecSuite extends SparkPlanTest
     }
   }
 
+  /*
   ignore("Python UDF: push down deterministic FilterExec predicates") {
     val df = Seq(("Hello", 4)).toDF("a", "b")
       .where("dummyPythonUDF(b) and dummyPythonUDF(a) and a in (3, 4)")
@@ -93,6 +94,7 @@ class BatchEvalPythonExecSuite extends SparkPlanTest
     }
     assert(qualifiedPlanNodes.size == 2)
   }
+  */
 
   test("Python UDF refers to the attributes from more than one child") {
     val df = Seq(("Hello", 4)).toDF("a", "b")

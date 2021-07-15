@@ -81,7 +81,7 @@ class UDFSuite extends QueryTest with SharedSparkSession {
     spark.catalog.dropTempView("tmp_table")
   }
 
-  ignore("SPARK-8005 input_file_name") {
+  test("SPARK-8005 input_file_name") {
     withTempPath { dir =>
       val data = sparkContext.parallelize(0 to 10, 2).toDF("id")
       data.write.parquet(dir.getCanonicalPath)

@@ -821,6 +821,8 @@ object ColumnarUnaryOperator {
             new ColumnarDayOfYear(new ColumnarCast(child, TimestampType, None, null))
           case a: DayOfWeek =>
             new ColumnarDayOfWeek(new ColumnarCast(child, TimestampType, None, null))
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
         }
         case _: TimestampType => other match {
           case a: Hour =>

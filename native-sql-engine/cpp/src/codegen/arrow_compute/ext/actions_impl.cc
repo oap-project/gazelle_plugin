@@ -633,7 +633,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
 
     auto& typed_scalar = static_cast<const ScalarType&>(*value.value[0]);
-    if (!cache_validity_[0]) {
+    if ((in[0]->null_count() != in[0]->length()) && !cache_validity_[0]) {
       cache_validity_[0] = true;
       cache_[0] = typed_scalar.value;
     } else {
@@ -1120,7 +1120,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
 
     auto& typed_scalar = static_cast<const ScalarType&>(*value.value[1]);
-    if (!cache_validity_[0]) {
+    if ((in[0]->null_count() != in[0]->length()) && !cache_validity_[0]) {
       cache_validity_[0] = true;
       cache_[0] = typed_scalar.value;
     } else {

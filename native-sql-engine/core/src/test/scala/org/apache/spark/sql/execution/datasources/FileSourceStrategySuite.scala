@@ -229,7 +229,8 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     }
   }
 
-  ignore("partitioned table - after scan filters") {
+  /*
+  test("partitioned table - after scan filters") {
     val table =
       createTable(
         files = Seq(
@@ -248,6 +249,7 @@ class FileSourceStrategySuite extends QueryTest with SharedSparkSession with Pre
     // Need to evaluate filters that are not pushed down.
     assert(getPhysicalFilters(df2) contains resolve(df2, "(p1 + c2) = 2"))
   }
+  */
 
   test("bucketed table") {
     val table =

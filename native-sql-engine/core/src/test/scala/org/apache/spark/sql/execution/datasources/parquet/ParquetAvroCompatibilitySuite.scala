@@ -47,7 +47,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     try f(writer) finally writer.close()
   }
 
-  ignore("required primitives") {
+  test("required primitives") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -81,7 +81,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  ignore("optional primitives") {
+  test("optional primitives") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -132,7 +132,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  ignore("non-nullable arrays") {
+  test("non-nullable arrays") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -164,11 +164,11 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  ignore("nullable arrays (parquet-avro 1.7.0 does not properly support this)") {
+  test("nullable arrays (parquet-avro 1.7.0 does not properly support this)") {
     // TODO Complete this test case after upgrading to parquet-mr 1.8+
   }
 
-  ignore("SPARK-10136 array of primitive array") {
+  test("SPARK-10136 array of primitive array") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -189,7 +189,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  ignore("map of primitive array") {
+  test("map of primitive array") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -212,7 +212,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
     }
   }
 
-  ignore("various complex types") {
+  test("various complex types") {
     withTempPath { dir =>
       val path = dir.getCanonicalPath
 
@@ -256,7 +256,7 @@ class ParquetAvroCompatibilitySuite extends ParquetCompatibilityTest with Shared
       .build()
   }
 
-  ignore("SPARK-9407 Push down predicates involving Parquet ENUM columns") {
+  test("SPARK-9407 Push down predicates involving Parquet ENUM columns") {
     import testImplicits._
 
     withTempPath { dir =>

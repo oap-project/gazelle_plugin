@@ -564,7 +564,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("UDF input_file_name()") {
+  test("UDF input_file_name()") {
     Seq("", "orc").foreach { useV1SourceReaderList =>
       withSQLConf(SQLConf.USE_V1_SOURCE_LIST.key -> useV1SourceReaderList) {
         withTempPath { dir =>
@@ -692,7 +692,7 @@ class FileBasedDataSourceSuite extends QueryTest
     }
   }
 
-  ignore("SPARK-22790,SPARK-27668: spark.sql.sources.compressionFactor takes effect") {
+  test("SPARK-22790,SPARK-27668: spark.sql.sources.compressionFactor takes effect") {
     Seq(1.0, 0.5).foreach { compressionFactor =>
       withSQLConf(SQLConf.FILE_COMPRESSION_FACTOR.key -> compressionFactor.toString,
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "250") {

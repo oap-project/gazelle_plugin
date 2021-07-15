@@ -42,8 +42,10 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils, Utils}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 import org.apache.spark.sql.types.DecimalType
+
+import scala.util.control.Breaks.{break, breakable}
 
 
 /**
@@ -106,6 +108,16 @@ case class ColumnarSortExec(
     })
   }
 
+  var allLiteral = true
+  breakable {
+    for (expr <- sortOrder) {
+      if (!expr.child.isInstanceOf[Literal]) {
+        allLiteral = false
+        break
+      }
+    }
+  }
+
   /*****************  WSCG related function ******************/
   override def inputRDDs(): Seq[RDD[ColumnarBatch]] = child match {
     case c: ColumnarCodegenSupport if c.supportColumnarCodegen == true =>
@@ -156,8 +168,9 @@ case class ColumnarSortExec(
   /***********************************************************/
   def getCodeGenSignature =
     if (sortOrder.exists(expr =>
-          bindReference(ConverterUtils.getAttrFromExpr(expr.child), child.output, true)
-            .isInstanceOf[BoundReference])) {
+        !expr.child.isInstanceOf[Literal] &&
+        bindReference(ConverterUtils.getAttrFromExpr(expr.child), child.output, true)
+        .isInstanceOf[BoundReference])) {
       ColumnarSorter.prebuild(
         sortOrder,
         child.output,
@@ -193,6 +206,9 @@ case class ColumnarSortExec(
       val hasInput = iter.hasNext
       val res = if (!hasInput) {
         Iterator.empty
+      } else if (allLiteral) {
+        // If sortOrder are all Literal, no need to do sorting.
+        new CloseableColumnBatchIterator(iter)
       } else {
         ColumnarPluginConfig.getConf
         val execTempDir = ColumnarPluginConfig.getTempFile

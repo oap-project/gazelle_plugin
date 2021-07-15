@@ -163,64 +163,41 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
   /** List of test cases to ignore, in lower cases. */
   protected def ignoreList: Set[String] = Set(
     "ignored.sql",   // Do NOT remove this one. It is here to test the ignore functionality.
+
     /** segfault, compilation error and exception */
 
-    "group-by.sql", // IndexOutOfBoundsException
-    "group-by-ordinal.sql",
     "postgreSQL/window_part3.sql", // WindowSortKernel::Impl::GetCompFunction_
-    "typeCoercion/native/windowFrameCoercion.sql",
-    /**
-     * UnsupportedOperationException
-     * makeStructField is unable to parse from 1 (
-     * class org.apache.spark.sql.catalyst.expressions.Literal)
-     */
-    "postgreSQL/select_implicit.sql",
-    /**
-     * UnsupportedOperationException
-     * makeStructField is unable to parse from (ansi_cast(a#87907 as double) / 2.0) (
-     * class org.apache.spark.sql.catalyst.expressions.Divide).
-     */
-    "postgreSQL/window_part1.sql", // IndexOutOfBoundsException
-    "misc-functions.sql", // NullPointerException
     "subquery/in-subquery/in-joins.sql", // NullPointerException
     "udf/postgreSQL/udf-aggregates_part1.sql", // IllegalStateException: Value at index is null
 
-    /** incorrect result */
+    /** Cannot reproduce */
 
-    "show-tblproperties.sql", // config
-    "charvarchar.sql",  // config
-    "postgreSQL/create_view.sql", // config
-    "having.sql",
-    "decimalArithmeticOperations.sql", // precision
-    "outer-join.sql", // different order
-    "explain-aqe.sql", // plan check
-    "explain.sql", // plan check
-    "grouping_set.sql",
-    "describe.sql",
-    "group-analytics.sql",
-    "subquery/scalar-subquery/scalar-subquery-select.sql",
-    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
-    "ansi/decimalArithmeticOperations.sql",
-    "postgreSQL/groupingsets.sql",
-    /**
-     * Expected "[NULL	foo]", but got "[]" Result did not match for query #21
-     * select four, x
-     * from (select four, ten, 'foo' as x from tenk1) as t
-     * group by grouping sets (four, x)
-     * having x = 'foo'
-     */
-    "postgreSQL/union.sql",  // aggregate-groupby
-    "postgreSQL/int4.sql", // exception expected
-    "postgreSQL/numeric.sql",
-    "postgreSQL/int8.sql",
-    "postgreSQL/select_having.sql",
-    /**
-     * Expected "struct<[]>", but got "struct<[one:int]>" Schema did not match for query #20
-     */
-    "postgreSQL/join.sql",
-    "udf/udf-window.sql",
-    "udf/udf-group-analytics.sql",
-    "udf/postgreSQL/udf-join.sql"
+//    "subquery/exists-subquery/exists-joins-and-set-ops.sql",
+
+    /** incorrect result */
+    "count.sql", // interrupted by signal 9: SIGKILL
+//    "subquery/in-subquery/in-set-operations.sql",
+//    "subquery/in-subquery/in-order-by.sql",
+//    "postgreSQL/join.sql",
+//    "udf/postgreSQL/udf-join.sql",
+//    "udf/udf-window.sql",
+//    "udf/udf-group-analytics.sql",
+//    "subquery/in-subquery/in-order-by.sql", // Timestamp has incorrect result
+//    "postgreSQL/window_part1.sql", // Window has incorrect result
+//    "show-tblproperties.sql", // config
+//    "charvarchar.sql",  // config
+//    "postgreSQL/create_view.sql", // config
+//    "decimalArithmeticOperations.sql", // precision
+//    "outer-join.sql", // different order
+//    "explain-aqe.sql", // plan check
+//    "explain.sql", // plan check
+//    "describe.sql", // AnalysisException
+//    "subquery/scalar-subquery/scalar-subquery-select.sql", // SMJ LeftAnti
+//    "ansi/decimalArithmeticOperations.sql",
+//    "postgreSQL/union.sql",  // aggregate-groupby
+//    "postgreSQL/int4.sql", // exception expected
+//    "postgreSQL/numeric.sql", // Decimal precision 39 exceeds max precision 38
+//    "postgreSQL/int8.sql",
   )
 
   // Create all the test cases.
@@ -307,16 +284,16 @@ class SQLQueryTestSuite extends QueryTest with SharedSparkSession with SQLHelper
         }
       case _ =>
         // Create a test case to run this case.
-//        test(testCase.name) {
-//          runTest(testCase)
-//        }
-        /** To run only the set test */
-        if (testList.exists(t =>
-          testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
-          test(testCase.name) {
-            runTest(testCase)
-          }
+        test(testCase.name) {
+          runTest(testCase)
         }
+        /** To run only the set test */
+//        if (testList.exists(t =>
+//            testCase.name.toLowerCase(Locale.ROOT).contains(t.toLowerCase(Locale.ROOT)))) {
+//          test(testCase.name) {
+//            runTest(testCase)
+//          }
+//        }
     }
   }
 

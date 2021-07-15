@@ -85,67 +85,77 @@ class DataSourceV2DataFrameSuite
   }
 
 //  testQuietly("saveAsTable: table exists => append by name") {
-  ignore("saveAsTable: table exists => append by name") {
+  test("saveAsTable: table exists => append by name") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
-      sql(s"CREATE TABLE $t1 (id bigint, data string) USING foo")
-      val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
-      // Default saveMode is ErrorIfExists
-      intercept[TableAlreadyExistsException] {
-        df.write.saveAsTable(t1)
-      }
-      assert(spark.table(t1).count() === 0)
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+        sql(s"CREATE TABLE $t1 (id bigint, data string) USING foo")
+        val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
+        // Default saveMode is ErrorIfExists
+        intercept[TableAlreadyExistsException] {
+          df.write.saveAsTable(t1)
+        }
+        assert(spark.table(t1).count() === 0)
 
-      // appends are by name not by position
-      df.select('data, 'id).write.mode("append").saveAsTable(t1)
-      checkAnswer(spark.table(t1), df)
+        // appends are by name not by position
+        df.select('data, 'id).write.mode("append").saveAsTable(t1)
+        checkAnswer(spark.table(t1), df)
+      }
     }
   }
 
 //  testQuietly("saveAsTable: table overwrite and table doesn't exist => create table") {
-  ignore("saveAsTable: table overwrite and table doesn't exist => create table") {
+  test("saveAsTable: table overwrite and table doesn't exist => create table") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
-      val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
-      df.write.mode("overwrite").saveAsTable(t1)
-      checkAnswer(spark.table(t1), df)
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+        val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
+        df.write.mode("overwrite").saveAsTable(t1)
+        checkAnswer(spark.table(t1), df)
+      }
     }
   }
 
 //  testQuietly("saveAsTable: table overwrite and table exists => replace table") {
-  ignore("saveAsTable: table overwrite and table exists => replace table") {
+  test("saveAsTable: table overwrite and table exists => replace table") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT 'c', 'd'")
-      val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
-      df.write.mode("overwrite").saveAsTable(t1)
-      checkAnswer(spark.table(t1), df)
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT 'c', 'd'")
+        val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
+        df.write.mode("overwrite").saveAsTable(t1)
+        checkAnswer(spark.table(t1), df)
+      }
     }
   }
 
 //  testQuietly("saveAsTable: ignore mode and table doesn't exist => create table") {
-  ignore("saveAsTable: ignore mode and table doesn't exist => create table") {
+  test("saveAsTable: ignore mode and table doesn't exist => create table") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
-      val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
-      df.write.mode("ignore").saveAsTable(t1)
-      checkAnswer(spark.table(t1), df)
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+        val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
+        df.write.mode("ignore").saveAsTable(t1)
+        checkAnswer(spark.table(t1), df)
+      }
     }
   }
 
 //  testQuietly("saveAsTable: ignore mode and table exists => do nothing") {
-  ignore("saveAsTable: ignore mode and table exists => do nothing") {
+  test("saveAsTable: ignore mode and table exists => do nothing") {
     val t1 = "testcat.ns1.ns2.tbl"
     withTable(t1) {
-      val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
-      sql(s"CREATE TABLE $t1 USING foo AS SELECT 'c', 'd'")
-      df.write.mode("ignore").saveAsTable(t1)
-      checkAnswer(spark.table(t1), Seq(Row("c", "d")))
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
+        val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
+        sql(s"CREATE TABLE $t1 USING foo AS SELECT 'c', 'd'")
+        df.write.mode("ignore").saveAsTable(t1)
+        checkAnswer(spark.table(t1), Seq(Row("c", "d")))
+      }
     }
   }
 
 //  testQuietly("SPARK-29778: saveAsTable: append mode takes write options") {
-  ignore("SPARK-29778: saveAsTable: append mode takes write options") {
+  test("SPARK-29778: saveAsTable: append mode takes write options") {
 
     var plan: LogicalPlan = null
     val listener = new QueryExecutionListener {
@@ -157,24 +167,26 @@ class DataSourceV2DataFrameSuite
 
     try {
       spark.listenerManager.register(listener)
+      withSQLConf("spark.oap.sql.columnar.batchscan" -> "false") {
 
-      val t1 = "testcat.ns1.ns2.tbl"
+        val t1 = "testcat.ns1.ns2.tbl"
 
-      sql(s"CREATE TABLE $t1 (id bigint, data string) USING foo")
+        sql(s"CREATE TABLE $t1 (id bigint, data string) USING foo")
 
-      val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
-      df.write.option("other", "20").mode("append").saveAsTable(t1)
+        val df = Seq((1L, "a"), (2L, "b"), (3L, "c")).toDF("id", "data")
+        df.write.option("other", "20").mode("append").saveAsTable(t1)
 
-      sparkContext.listenerBus.waitUntilEmpty()
-      plan match {
-        case p: AppendData =>
-          assert(p.writeOptions == Map("other" -> "20"))
-        case other =>
-          fail(s"Expected to parse ${classOf[AppendData].getName} from query," +
-            s"got ${other.getClass.getName}: $plan")
+        sparkContext.listenerBus.waitUntilEmpty()
+        plan match {
+          case p: AppendData =>
+            assert(p.writeOptions == Map("other" -> "20"))
+          case other =>
+            fail(s"Expected to parse ${classOf[AppendData].getName} from query," +
+              s"got ${other.getClass.getName}: $plan")
+        }
+
+        checkAnswer(spark.table(t1), df)
       }
-
-      checkAnswer(spark.table(t1), df)
     } finally {
       spark.listenerManager.unregister(listener)
     }

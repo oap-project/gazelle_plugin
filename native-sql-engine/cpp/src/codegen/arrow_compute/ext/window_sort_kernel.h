@@ -55,7 +55,7 @@ class WindowSortKernel::Impl {
        std::shared_ptr<arrow::Schema> result_schema, bool nulls_first, bool asc)
       : ctx_(ctx), nulls_first_(nulls_first), asc_(asc) {
     for (auto field : key_field_list) {
-      auto indices = result_schema->GetAllFieldIndices(field->name());
+      auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
       if (indices.size() != 1) {
         std::cout << "[ERROR] WindowSortKernel::Impl can't find key " << field->ToString()
                   << " from " << result_schema->ToString() << std::endl;
@@ -519,7 +519,8 @@ class WindowSortOnekeyKernel : public WindowSortKernel::Impl {
                          std::shared_ptr<arrow::Schema> result_schema, bool nulls_first,
                          bool asc)
       : ctx_(ctx), nulls_first_(nulls_first), asc_(asc), result_schema_(result_schema) {
-    auto indices = result_schema->GetAllFieldIndices(key_field_list[0]->name());
+    auto indices =
+        GetIndicesFromSchemaCaseInsensitive(result_schema, key_field_list[0]->name());
     key_id_ = indices[0];
     col_num_ = result_schema->num_fields();
   }

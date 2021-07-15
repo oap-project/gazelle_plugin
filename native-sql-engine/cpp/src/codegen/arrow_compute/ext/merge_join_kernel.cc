@@ -120,7 +120,7 @@ class ConditionedJoinArraysKernel::Impl {
       i = 0;
       found = false;
       for (auto field : left_field_list) {
-        if (target_field->name() == field->name()) {
+        if (StrCmpCaseInsensitive(target_field->name(), field->name())) {
           (*result_schema_index_list).push_back(std::make_pair(0, i));
           found = true;
           break;
@@ -130,7 +130,7 @@ class ConditionedJoinArraysKernel::Impl {
       if (found == true) continue;
       i = 0;
       for (auto field : right_field_list) {
-        if (target_field->name() == field->name()) {
+        if (StrCmpCaseInsensitive(target_field->name(), field->name())) {
           (*result_schema_index_list).push_back(std::make_pair(1, i));
           found = true;
           right_found++;

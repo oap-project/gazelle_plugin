@@ -668,7 +668,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  ignore("input_file_name, input_file_block_start, input_file_block_length - more than one source") {
+  test("input_file_name, input_file_block_start, input_file_block_length - more than one source") {
     withTempView("tempView1") {
       withTable("tab1", "tab2") {
         val data = sparkContext.parallelize(0 to 9).toDF("id")
@@ -725,7 +725,7 @@ class ColumnExpressionSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
+  test("input_file_name, input_file_block_start, input_file_block_length - FileScanRDD") {
     withTempPath { dir =>
       val data = sparkContext.parallelize(0 to 10).toDF("id")
       data.write.parquet(dir.getCanonicalPath)

@@ -152,6 +152,7 @@ class AdaptiveQueryExecSuite
     assert(shuffle(0).outputPartitioning.numPartitions == numPartition)
   }
 
+  /*
   ignore("Change merge join to broadcast join") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
@@ -272,6 +273,7 @@ class AdaptiveQueryExecSuite
       checkNumLocalShuffleReaders(adaptivePlan)
     }
   }
+  */
 
   test("Scalar subquery in later stages") {
     withSQLConf(
@@ -289,6 +291,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
+  /*
   ignore("multiple joins") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
@@ -529,6 +532,7 @@ class AdaptiveQueryExecSuite
       assert(sub.isEmpty)
     }
   }
+  */
 
   test("Union/Except/Intersect queries") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
@@ -563,6 +567,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
+  /*
   ignore("Avoid plan change if cost is greater") {
     val origPlan = sql("SELECT * FROM testData " +
       "join testData2 t2 ON key = t2.a " +
@@ -629,6 +634,7 @@ class AdaptiveQueryExecSuite
       }
     }
   }
+  */
 
   test("SPARK-29906: AQE should not introduce extra shuffle for outermost limit") {
     var numStages = 0
@@ -650,6 +656,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
+  /*
   ignore("SPARK-30524: Do not optimize skew join if introduce additional shuffle") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
@@ -743,6 +750,7 @@ class AdaptiveQueryExecSuite
       }
     }
   }
+  */
 
   test("SPARK-30291: AQE should catch the exceptions when doing materialize") {
     withSQLConf(
@@ -869,7 +877,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("metrics of the shuffle reader") {
+  test("metrics of the shuffle reader") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
       val (_, adaptivePlan) = runAdaptiveAndVerifyResult(
         "SELECT key FROM testData GROUP BY key")
@@ -1175,6 +1183,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
+  /*
   ignore("SPARK-32573: Eliminate NAAJ when BuildSide is HashedRelationWithAllNullKeys") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
@@ -1188,6 +1197,7 @@ class AdaptiveQueryExecSuite
       checkNumLocalShuffleReaders(adaptivePlan)
     }
   }
+  */
 
   test("SPARK-32717: AQEOptimizer should respect excludedRules configuration") {
     withSQLConf(
@@ -1208,6 +1218,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
+  /*
   ignore("SPARK-32649: Eliminate inner and semi join to empty relation") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
@@ -1229,6 +1240,7 @@ class AdaptiveQueryExecSuite
       })
     }
   }
+  */
 
   test("SPARK-32753: Only copy tags to node with no tags") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {

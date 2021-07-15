@@ -41,6 +41,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     assert(df.collect() === Array(Row(2)))
   }
 
+  /*
   ignore("Aggregate should be included in WholeStageCodegen") {
     val df = spark.range(10).groupBy().agg(max(col("id")), avg(col("id")))
     val plan = df.queryExecution.executedPlan
@@ -103,6 +104,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
         p.asInstanceOf[WholeStageCodegenExec].child.isInstanceOf[SortExec]).isDefined)
     assert(df.collect() === Array(Row(1), Row(2), Row(3)))
   }
+  */
 
   test("MapElements should be included in WholeStageCodegen") {
     import testImplicits._
@@ -133,6 +135,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     assert(ds.collect() === Array(0, 6))
   }
 
+  /*
   ignore("cache for primitive type should be in WholeStageCodegen with InMemoryTableScanExec") {
     import testImplicits._
 
@@ -156,6 +159,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     }.isEmpty)
     assert(dsStringFilter.collect() === Array("1"))
   }
+  */
 
   test("SPARK-19512 codegen for comparing structs is incorrect") {
     // this would raise CompileException before the fix
@@ -224,6 +228,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     wholeStageCodeGenExecs.map(_.doCodeGen()._2)
   }
 
+  /*
   ignore("SPARK-21871 check if we can get large code size when compiling too long functions") {
     val codeWithShortFunctions = genGroupByCode(3)
     val (_, ByteCodeStats(maxCodeSize1, _, _)) = CodeGenerator.compile(codeWithShortFunctions)
@@ -296,6 +301,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
       }
     }
   }
+  */
 
   test("codegen stage IDs should be preserved in transformations after CollapseCodegenStages") {
     // test case adapted from DataFrameSuite to trigger ReuseExchange
@@ -325,6 +331,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     }
   }
 
+  /*
   ignore("SPARK-23598: Codegen working for lots of aggregation operations without runtime errors") {
     withSQLConf(SQLConf.SHUFFLE_PARTITIONS.key -> "1") {
       var df = Seq((8, "bat"), (15, "mouse"), (5, "horse")).toDF("age", "name")
@@ -334,6 +341,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
       assert(df.limit(1).collect() === Array(Row("bat", 8.0)))
     }
   }
+  */
 
   test("SPARK-25767: Lazy evaluated stream of expressions handled correctly") {
     val a = Seq(1).toDF("key")
@@ -355,6 +363,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     checkAnswer(df, Seq(Row(1, 3), Row(2, 3)))
   }
 
+  /*
   ignore("SPARK-26572: evaluate non-deterministic expressions for aggregate results") {
     withSQLConf(
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> Long.MaxValue.toString,
@@ -411,8 +420,9 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
       }.isDefined,
       "LocalTableScanExec should be within a WholeStageCodegen domain.")
   }
+  */
 
-  ignore("Give up splitting aggregate code if a parameter length goes over the limit") {
+  test("Give up splitting aggregate code if a parameter length goes over the limit") {
     withSQLConf(
         SQLConf.CODEGEN_SPLIT_AGGREGATE_FUNC.key -> "true",
         SQLConf.CODEGEN_METHOD_SPLIT_THRESHOLD.key -> "1",
@@ -433,7 +443,7 @@ class WholeStageCodegenSuite extends QueryTest with SharedSparkSession
     }
   }
 
-  ignore("Give up splitting subexpression code if a parameter length goes over the limit") {
+  test("Give up splitting subexpression code if a parameter length goes over the limit") {
     withSQLConf(
         SQLConf.CODEGEN_SPLIT_AGGREGATE_FUNC.key -> "false",
         SQLConf.CODEGEN_METHOD_SPLIT_THRESHOLD.key -> "1",

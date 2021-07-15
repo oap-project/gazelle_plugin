@@ -1152,7 +1152,7 @@ class DataFrameReaderWriterSuite extends QueryTest with SharedSparkSession with 
     verifyLoadFails(spark.read.option("paths", path).format("parquet").load(""))
   }
 
-  ignore("SPARK-32516: legacy path option behavior in load()") {
+  test("SPARK-32516: legacy path option behavior in load()") {
     withSQLConf(SQLConf.LEGACY_PATH_OPTION_BEHAVIOR.key -> "true") {
       withTempDir { dir =>
         val path = dir.getCanonicalPath

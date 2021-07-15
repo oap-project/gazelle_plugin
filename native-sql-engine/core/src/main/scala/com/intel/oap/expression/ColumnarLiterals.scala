@@ -125,7 +125,8 @@ class ColumnarLiteral(lit: Literal)
             (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
             val origIntNode = TreeBuilder.makeLiteral(value.asInstanceOf[Integer])
-            val dateNode = TreeBuilder.makeFunction("castDATE", Lists.newArrayList(origIntNode), new ArrowType.Date(DateUnit.DAY))
+            val dateNode = TreeBuilder.makeFunction(
+              "castDATE", Lists.newArrayList(origIntNode), new ArrowType.Date(DateUnit.DAY))
             (dateNode, new ArrowType.Date(DateUnit.DAY))
         }
       case b: BooleanType =>
@@ -140,7 +141,10 @@ class ColumnarLiteral(lit: Literal)
           case null =>
             (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
-            (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Long]), resultType)
+            val origLongNode = TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Long])
+            val timestampNode = TreeBuilder.makeFunction(
+              "seconds_to_timestamp", Lists.newArrayList(origLongNode), resultType)
+            (timestampNode, resultType)
         }
       case c: CalendarIntervalType =>
         value match {

@@ -462,6 +462,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
     joinCols.map(col => left(col) === right(col)).reduce(_ && _)
   }
 
+  /*
   ignore("avoid shuffle when join 2 bucketed tables") {
     val bucketSpec = Some(BucketSpec(8, Seq("i", "j"), Nil))
     val bucketedTableTestSpecLeft = BucketedTableTestSpec(bucketSpec, expectedShuffle = false)
@@ -634,6 +635,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
       joinCondition = joinCondition(Seq("i", "j"))
     )
   }
+  */
 
   test("avoid shuffle when grouping keys are equal to bucket keys") {
     withTable("bucketed_table") {
@@ -710,6 +712,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
     )
   }
 
+  /*
   ignore("SPARK-19122 Re-order join predicates if they match with the child's output partitioning") {
     val bucketedTableTestSpec = BucketedTableTestSpec(
       Some(BucketSpec(8, Seq("i", "j", "k"), Seq("i", "j", "k"))),
@@ -768,6 +771,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
       joinCondition = joinCondition(Seq("j", "k"))
     )
   }
+  */
 
   test("SPARK-22042 ReorderJoinPredicates can break when child's partitioning is not decided") {
     withTable("bucketed_table", "table1", "table2") {
@@ -880,6 +884,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
     }
   }
 
+  /*
   ignore("SPARK-29655 Read bucketed tables obeys spark.sql.shuffle.partitions") {
     withSQLConf(
       SQLConf.SHUFFLE_PARTITIONS.key -> "5",
@@ -998,6 +1003,7 @@ abstract class BucketedReadSuite extends QueryTest with SQLTestUtils with Adapti
           Some(BucketSpec(7, Seq("i", "j"), Seq("i", "j"))), expectedShuffle = true))
     }
   }
+  */
 
   test("bucket coalescing is applied when join expressions match with partitioning expressions",
     DisableAdaptiveExecution("Expected shuffle num mismatched")) {

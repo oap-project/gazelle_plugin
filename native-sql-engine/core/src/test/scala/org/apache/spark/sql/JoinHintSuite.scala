@@ -383,6 +383,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     assert(shuffleReplicateNLJoins.size == 1)
   }
 
+  /*
   ignore("join strategy hint - broadcast") {
     withTempView("t1", "t2") {
       Seq((1, "4"), (2, "2")).toDF("key", "value").createTempView("t1")
@@ -549,6 +550,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
       }
     }
   }
+  */
 
   test("Verify that the EliminatedResolvedHint rule is idempotent") {
     withTempView("t1", "t2") {

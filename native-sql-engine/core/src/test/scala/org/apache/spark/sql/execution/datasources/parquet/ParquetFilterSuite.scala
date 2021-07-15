@@ -1249,6 +1249,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
+  /*
   ignore("SPARK-31026: Parquet predicate pushdown for fields having dots in the names") {
     import testImplicits._
 
@@ -1312,6 +1313,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
       }
     }
   }
+  */
 
   test("SPARK-23852: Broken Parquet push-down for partially-written stats") {
     withSQLConf(SQLConf.PARQUET_FILTER_PUSHDOWN_ENABLED.key -> "true") {
@@ -1325,6 +1327,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
     }
   }
 
+  /*
   ignore("filter pushdown - StringStartsWith") {
     withParquetDataFrame((1 to 4).map(i => Tuple1(i + "str" + i))) { implicit df =>
       checkFilterPredicate(
@@ -1446,6 +1449,7 @@ abstract class ParquetFilterSuite extends QueryTest with ParquetTest with Shared
       }
     }
   }
+  */
 
   test("SPARK-25207: Case-insensitive field resolution for pushdown when reading parquet") {
     def testCaseInsensitiveResolution(

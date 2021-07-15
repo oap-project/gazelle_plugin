@@ -26,7 +26,6 @@ import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.gandiva.expression.TreeNode
 import org.apache.arrow.vector.types.DateUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
-
 import org.apache.spark.sql.catalyst.expressions.CheckOverflow
 import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
@@ -52,15 +51,13 @@ import org.apache.spark.sql.catalyst.expressions.UnixSeconds
 import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
 import org.apache.spark.sql.catalyst.expressions.Year
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.DateType
-import org.apache.spark.sql.types.LongType
-import org.apache.spark.sql.types.TimestampType
+import org.apache.spark.sql.types.{DateType, IntegerType, LongType, StringType, TimestampType}
 import org.apache.spark.sql.util.ArrowUtils
 
 object ColumnarDateTimeExpressions {
   class ColumnarCurrentTimestamp() extends CurrentTimestamp with ColumnarExpression {
+    unimplemented()
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-      unimplemented()
       val outType = CodeGeneration.getResultType(dataType)
       val funcNode = TreeBuilder.makeFunction(
         "current_timestamp", Collections.emptyList(), outType)
@@ -70,8 +67,8 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarCurrentDate(timeZoneId: Option[String] = None) extends CurrentDate(timeZoneId)
       with ColumnarExpression {
+    unimplemented()
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-      unimplemented()
       castDateFromTimestamp(new ColumnarCurrentTimestamp(),
         timeZoneId)
           .doColumnarCodeGen(args)
@@ -80,14 +77,24 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarNow() extends Now()
       with ColumnarExpression {
+    unimplemented()
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-      unimplemented()
       new ColumnarCurrentTimestamp().doColumnarCodeGen(args)
     }
   }
 
   class ColumnarHour(child: Expression,
       timeZoneId: Option[String] = None) extends Hour(child, timeZoneId) with ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      if (child.dataType != TimestampType) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarHour")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -102,6 +109,16 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarMinute(child: Expression,
       timeZoneId: Option[String] = None) extends Minute(child, timeZoneId) with ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      if (child.dataType != TimestampType) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarMinute")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -116,6 +133,16 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarSecond(child: Expression,
       timeZoneId: Option[String] = None) extends Second(child, timeZoneId) with ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      if (child.dataType != TimestampType) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarSecond")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -130,6 +157,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarDayOfMonth(child: Expression) extends DayOfMonth(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType, TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarDayOfMonth")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -143,6 +181,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarDayOfYear(child: Expression) extends DayOfYear(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType, TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarDayOfYear")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -156,6 +205,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarDayOfWeek(child: Expression) extends DayOfWeek(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType, TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarDayOfWeek")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -169,6 +229,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarMonth(child: Expression) extends Month(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType, TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarMonth")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -182,6 +253,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarYear(child: Expression) extends Year(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType, TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarYear")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -195,6 +277,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarUnixDate(child: Expression) extends UnixDate(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarUnixDate")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNode, childType) = child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
@@ -206,6 +299,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarUnixSeconds(child: Expression) extends UnixSeconds(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarUnixSeconds")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -220,6 +324,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarUnixMillis(child: Expression) extends UnixMillis(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarUnixMillis")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -234,6 +349,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarUnixMicros(child: Expression) extends UnixMicros(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(TimestampType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarUnixMicros")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNodeUtc, childTypeUtc) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -248,6 +374,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarSecondsToTimestamp(child: Expression) extends SecondsToTimestamp(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(IntegerType, LongType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarSecondsToTimestamp")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNode, childType) = child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
@@ -259,6 +396,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarMillisToTimestamp(child: Expression) extends MillisToTimestamp(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(IntegerType, LongType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarMillisToTimestamp")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNode, childType) = child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
@@ -270,6 +418,17 @@ object ColumnarDateTimeExpressions {
 
   class ColumnarMicrosToTimestamp(child: Expression) extends MicrosToTimestamp(child) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(IntegerType, LongType)
+      if (supportedTypes.indexOf(child.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${child.dataType} is not supported in ColumnarMicrosToTimestamp")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (childNode, childType) = child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
@@ -282,20 +441,44 @@ object ColumnarDateTimeExpressions {
   class ColumnarUnixTimestamp(left: Expression, right: Expression)
       extends UnixTimestamp(left, right) with
       ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(TimestampType, StringType)
+      if (supportedTypes.indexOf(left.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} is not supported in ColumnarUnixTimestamp.")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val intermediate = new ArrowType.Date(DateUnit.MILLISECOND)
       val outType = CodeGeneration.getResultType(dataType)
+      val dateNode = TreeBuilder.makeFunction(
+        "to_date", Lists.newArrayList(leftNode, rightNode), intermediate)
       val funcNode = TreeBuilder.makeFunction("castBIGINT",
-        Lists.newArrayList(TreeBuilder.makeFunction(
-        "to_date", Lists.newArrayList(leftNode, rightNode), intermediate)), outType)
+        Lists.newArrayList(dateNode), outType)
       (funcNode, outType)
     }
   }
 
   class ColumnarDateDiff(left: Expression, right: Expression)
       extends DateDiff(left, right) with ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(DateType)
+      if (supportedTypes.indexOf(left.dataType) == -1 ||
+          supportedTypes.indexOf(right.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} is not supported in ColumnarDateDiff.")
+      }
+    }
+
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -312,8 +495,8 @@ object ColumnarDateTimeExpressions {
       day: Expression,
       failOnError: Boolean = SQLConf.get.ansiEnabled)
       extends MakeDate(year, month, day, failOnError) with ColumnarExpression {
+    unimplemented()
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-      unimplemented()
       val (yearNode, yearType) = year.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (monthNode, monthType) = month.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (dayNode, dayType) = day.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -335,8 +518,8 @@ object ColumnarDateTimeExpressions {
       failOnError: Boolean = SQLConf.get.ansiEnabled)
       extends MakeTimestamp(year, month, day, hour, min, sec, timezone, timeZoneId, failOnError)
           with ColumnarExpression {
+    unimplemented()
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
-      unimplemented()
       val (yearNode, yearType) = year.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (monthNode, monthType) = month.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (dayNode, dayType) = day.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

@@ -1889,13 +1889,11 @@ class ConditionedProbeKernel::Impl {
     (*output)->definition_codes += prepare_ss.str();
 
     int right_index_shift = 0;
-    std::stringstream value_define_ss;
     for (auto pair : result_schema_index_list_) {
       // set result to output list
       auto output_name = "hash_relation_" + std::to_string(hash_relation_id_) +
                          "_output_col_" + std::to_string(output_idx++);
       auto output_validity = output_name + "_validity";
-
       gandiva::DataTypePtr type;
       std::stringstream valid_ss;
       if (pair.first == 0) { /* left_table */
@@ -1911,21 +1909,26 @@ class ConditionedProbeKernel::Impl {
                    << "->IsNull(" << tmp_name << ".array_id, " << tmp_name << ".id));"
                    << std::endl;
         }
+        std::stringstream value_define_ss;
         value_define_ss << "bool " << output_validity << ";" << std::endl;
         value_define_ss << GetCTypeString(type) << " " << output_name << ";" << std::endl;
         (*output)->definition_codes += value_define_ss.str();
         valid_ss << "if (" << output_validity << ")" << std::endl;
         valid_ss << output_name << " = " << name << "->GetValue(" << tmp_name
                  << ".array_id, " << tmp_name << ".id);" << std::endl;
-
       } else { /* right table */
         std::string name;
         if (exist_index_ != -1 && exist_index_ == pair.second) {
           name =
               "hash_relation_" + std::to_string(hash_relation_id_) + "_existence_value";
-          valid_ss << "auto " << output_validity << " = true;" << std::endl;
-          valid_ss << "auto " << output_name << " = " << name << ";" << std::endl;
+          valid_ss << output_validity << " = true;" << std::endl;
+          valid_ss << output_name << " = " << name << ";" << std::endl;
           type = arrow::boolean();
+          std::stringstream value_define_ss;
+          value_define_ss << "bool " << output_validity << ";" << std::endl;
+          value_define_ss << GetCTypeString(type) << " " << output_name << ";"
+                          << std::endl;
+          (*output)->definition_codes += value_define_ss.str();
           right_index_shift = -1;
         } else {
           auto i = pair.second + right_index_shift;

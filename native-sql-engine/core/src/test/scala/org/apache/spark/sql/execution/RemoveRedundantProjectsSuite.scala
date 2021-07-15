@@ -65,16 +65,19 @@ abstract class RemoveRedundantProjectsSuiteBase
     super.afterAll()
   }
 
+  /*
   ignore("project") {
     val query = "select * from testView"
     assertProjectExec(query, 0, 0)
   }
+  */
 
   test("project with filter") {
     val query = "select * from testView where a > 5"
     assertProjectExec(query, 0, 1)
   }
 
+  /*
   ignore("project with specific column ordering") {
     val query = "select key, a, b, c from testView"
     assertProjectExec(query, 1, 1)
@@ -118,6 +121,7 @@ abstract class RemoveRedundantProjectsSuiteBase
       "rows between 1 preceding and 1 following) as avg from testView"
     assertProjectExec(query, 1, 2)
   }
+  */
 
   test("generate should require column ordering") {
     withTempView("testData") {
@@ -156,6 +160,7 @@ abstract class RemoveRedundantProjectsSuiteBase
     }
   }
 
+  /*
   ignore("subquery") {
     withTempView("testData") {
       val data = spark.sparkContext.parallelize((1 to 100).map(i => Row(i, i.toString)))
@@ -213,6 +218,7 @@ abstract class RemoveRedundantProjectsSuiteBase
         |""".stripMargin
     assertProjectExec(query, 0, 3)
   }
+  */
 }
 
 class RemoveRedundantProjectsSuite extends RemoveRedundantProjectsSuiteBase

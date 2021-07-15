@@ -45,7 +45,7 @@ class ConnectionProviderSuite extends ConnectionProviderSuiteBase with SharedSpa
     }
   }
 
-  ignore("Multiple security configs must be reachable") {
+  test("Multiple security configs must be reachable") {
     Configuration.setConfiguration(null)
     val postgresProvider = new PostgresConnectionProvider()
     val postgresDriver = registerDriver(postgresProvider.driverClass)

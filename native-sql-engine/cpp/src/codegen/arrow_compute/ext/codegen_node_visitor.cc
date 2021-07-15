@@ -21,6 +21,8 @@
 
 #include <iostream>
 
+#include "codegen_common.h"
+
 namespace sparkcolumnarplugin {
 namespace codegen {
 namespace arrowcompute {
@@ -457,7 +459,7 @@ arrow::Status CodeGenNodeVisitor::Visit(const gandiva::FieldNode& node) {
   for (auto field_list : field_list_v_) {
     arg_id = 0;
     for (auto field : field_list) {
-      if (field->name() == this_field->name()) {
+      if (StrCmpCaseInsensitive(field->name(), this_field->name())) {
         found = true;
         InsertToIndices(index, arg_id, field);
         break;

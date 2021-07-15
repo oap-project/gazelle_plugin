@@ -13,8 +13,7 @@ then
 else
   echo "SPARK_HOME is $spark_home"
 fi
-mvn test -am -pl native-sql-engine/core -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -Dmaven.test.failure.ignore=true -DargLine="-Dspark.test.home=$spark_home" &>  native-sql-engine/tools/log-file.log
-
+mvn clean test -P full-scala-compiler -am -pl native-sql-engine/core -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -DargLine="-Dspark.test.home=$spark_home" -Dexec.skip=true -Dmaven.test.failure.ignore=true &>  native-sql-engine/tools/log-file.log
 cd native-sql-engine/tools/
 tests_total=0
 module_tested=0
