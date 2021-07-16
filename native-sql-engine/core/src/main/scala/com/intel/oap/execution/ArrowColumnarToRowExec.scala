@@ -30,6 +30,7 @@ import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration._
 
 case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
   override def nodeName: String = "ArrowColumnarToRow"
@@ -59,12 +60,18 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
 
   override lazy val metrics: Map[String, SQLMetric] = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
-    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches")
+    "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches"),
+    "convertTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert"),
+    "hasNextTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to has next"),
+    "nextTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to next")
   )
 
   override def doExecute(): RDD[InternalRow] = {
     val numOutputRows = longMetric("numOutputRows")
     val numInputBatches = longMetric("numInputBatches")
+    val convertTime = longMetric("convertTime")
+    val hasNextTime = longMetric("hasNextTime")
+    val nextTime = longMetric("nextTime")
 
     child.executeColumnar().mapPartitions { batches =>
       // TODO:: pass the jni jniWrapper and arrowSchema  and serializeSchema method by broadcast
@@ -102,16 +109,28 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
             arrowSchema = serializeSchema(fields)
           }
 
+          val beforeConvert = System.nanoTime()
+
           val instanceID = jniWrapper.nativeConvertColumnarToRow(
             arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray,
             SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
 
+          convertTime += NANOSECONDS.toMillis(System.nanoTime() - beforeConvert)
+
           new Iterator[InternalRow] {
             override def hasNext: Boolean = {
-              jniWrapper.nativeHasNext(instanceID)
+              val beforeHasNext = System.nanoTime()
+              val result = jniWrapper.nativeHasNext(instanceID)
+
+              hasNextTime += NANOSECONDS.toMillis(System.nanoTime() - beforeHasNext)
+              result
+
             }
             override def next: UnsafeRow = {
-              jniWrapper.nativeNext(instanceID)
+              val beforeNext = System.nanoTime()
+              val row = jniWrapper.nativeNext(instanceID)
+              nextTime += NANOSECONDS.toMillis(System.nanoTime() - beforeNext)
+              row
             }
           }
         }
