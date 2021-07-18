@@ -602,11 +602,15 @@ class CachedRelationVisitorImpl : public ExprVisitorImpl {
   arrow::Status Eval() override {
     switch (p_->dependency_result_type_) {
       case ArrowComputeResultType::None: {
-        std::vector<std::shared_ptr<arrow::Array>> col_list;
-        for (auto col : p_->in_record_batch_->columns()) {
-          col_list.push_back(col);
+        if (p_->input_type_ == ArrowComputeInputType::Iterator) {
+          RETURN_NOT_OK(kernel_->Evaluate(std::move(p_->in_iterator_)));
+        } else {
+          std::vector<std::shared_ptr<arrow::Array>> col_list;
+          for (auto col : p_->in_record_batch_->columns()) {
+            col_list.push_back(col);
+          }
+          RETURN_NOT_OK(kernel_->Evaluate(col_list));
         }
-        RETURN_NOT_OK(kernel_->Evaluate(col_list));
       } break;
       default:
         return arrow::Status::NotImplemented(

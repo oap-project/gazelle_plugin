@@ -52,6 +52,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
         .set("spark.unsafe.exceptionOnMemoryLeak", "false")
         .set("spark.network.io.preferDirectBufs", "false")
         .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
+        .set("spark.sql.autoBroadcastJoinThreshold", "-1")
     return conf
   }
 
@@ -59,7 +60,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   override def beforeAll(): Unit = {
     super.beforeAll()
     LogManager.getRootLogger.setLevel(Level.WARN)
-    val tGen = new TPCDSTableGen(spark, 0.01D, TPCDS_WRITE_PATH)
+    val tGen = new TPCDSTableGen(spark, 0.1D, TPCDS_WRITE_PATH)
     tGen.gen()
     tGen.createTables()
     runner = new TPCRunner(spark, TPCDS_QUERIES_RESOURCE)
@@ -89,6 +90,10 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   test("window query") {
     runner.runTPCQuery("q67", 1, true)
+  }
+
+  test("smj query") {
+    runner.runTPCQuery("q1", 1, true)
   }
 
   test("window function with non-decimal input") {

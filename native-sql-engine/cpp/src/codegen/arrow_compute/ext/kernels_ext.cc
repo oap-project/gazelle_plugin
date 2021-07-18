@@ -351,29 +351,57 @@ class CachedRelationKernel::Impl {
     return arrow::Status::OK();
   }
 
+  arrow::Status Evaluate(arrow::RecordBatchIterator in) {
+    in_ = std::move(in);
+    is_lazy_input_ = true;
+    return arrow::Status::OK();
+  }
+
   arrow::Status MakeResultIterator(std::shared_ptr<arrow::Schema> schema,
                                    std::shared_ptr<ResultIterator<SortRelation>>* out) {
-    std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
-    int idx = 0;
-    for (auto field : result_schema_->fields()) {
-      std::shared_ptr<RelationColumn> col_out;
-      RETURN_NOT_OK(MakeRelationColumn(field->type()->id(), &col_out));
-      if (cached_.size() == col_num_) {
-        for (auto arr : cached_[idx]) {
-          RETURN_NOT_OK(col_out->AppendColumn(arr));
-        }
+    if (is_lazy_input_) {
+      std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
+      std::shared_ptr<LazyBatchIterator> lazy_in =
+          std::make_shared<LazyBatchIterator>(std::move(in_));
+      int idx = 0;
+      for (auto field : result_schema_->fields()) {
+        std::shared_ptr<RelationColumn> col_out;
+        RETURN_NOT_OK(MakeLazyLoadRelationColumn(field->type()->id(), &col_out));
+        RETURN_NOT_OK(col_out->FromLazyBatchIterator(lazy_in, idx));
+        sort_relation_list.push_back(col_out);
+        idx++;
       }
-      sort_relation_list.push_back(col_out);
-      idx++;
+      std::vector<std::shared_ptr<RelationColumn>> key_relation_list;
+      for (auto key_id : key_index_list_) {
+        key_relation_list.push_back(sort_relation_list[key_id]);
+      }
+      auto sort_relation =
+          SortRelation::CreateLazy(ctx_, lazy_in, key_relation_list, sort_relation_list);
+      *out = std::make_shared<SortRelationResultIterator>(sort_relation);
+      return arrow::Status::OK();
+    } else {
+      std::vector<std::shared_ptr<RelationColumn>> sort_relation_list;
+      int idx = 0;
+      for (auto field : result_schema_->fields()) {
+        std::shared_ptr<RelationColumn> col_out;
+        RETURN_NOT_OK(MakeRelationColumn(field->type()->id(), &col_out));
+        if (cached_.size() == col_num_) {
+          for (auto arr : cached_[idx]) {
+            RETURN_NOT_OK(col_out->AppendColumn(arr));
+          }
+        }
+        sort_relation_list.push_back(col_out);
+        idx++;
+      }
+      std::vector<std::shared_ptr<RelationColumn>> key_relation_list;
+      for (auto key_id : key_index_list_) {
+        key_relation_list.push_back(sort_relation_list[key_id]);
+      }
+      auto sort_relation = SortRelation::CreateLegacy(
+          ctx_, key_relation_list, sort_relation_list, items_total_, length_list_);
+      *out = std::make_shared<SortRelationResultIterator>(sort_relation);
+      return arrow::Status::OK();
     }
-    std::vector<std::shared_ptr<RelationColumn>> key_relation_list;
-    for (auto key_id : key_index_list_) {
-      key_relation_list.push_back(sort_relation_list[key_id]);
-    }
-    auto sort_relation = std::make_shared<SortRelation>(
-        ctx_, items_total_, length_list_, key_relation_list, sort_relation_list);
-    *out = std::make_shared<SortRelationResultIterator>(sort_relation);
-    return arrow::Status::OK();
   }
 
  private:
@@ -385,7 +413,12 @@ class CachedRelationKernel::Impl {
   std::vector<std::shared_ptr<arrow::Field>> key_field_list_;
   std::shared_ptr<arrow::Schema> result_schema_;
 
+  arrow::RecordBatchIterator in_;
   std::vector<int> key_index_list_;
+
+  // required by legacy method
+  bool is_lazy_input_ = false;
+
   std::vector<int> length_list_;
   std::vector<arrow::ArrayVector> cached_;
   uint64_t items_total_ = 0;
@@ -422,6 +455,10 @@ CachedRelationKernel::CachedRelationKernel(
 
 arrow::Status CachedRelationKernel::Evaluate(ArrayList& in) {
   return impl_->Evaluate(in);
+}
+
+arrow::Status CachedRelationKernel::Evaluate(arrow::RecordBatchIterator in) {
+  return impl_->Evaluate(std::move(in));
 }
 
 arrow::Status CachedRelationKernel::MakeResultIterator(

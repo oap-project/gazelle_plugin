@@ -30,6 +30,7 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   def getCpu(): Boolean = {
     val source = scala.io.Source.fromFile("/proc/cpuinfo")
     val lines = try source.mkString finally source.close()
+    return true
     //TODO(): check CPU flags to enable/disable AVX512
     if (lines.contains("GenuineIntel")) {
       return true
@@ -78,6 +79,9 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   // this should be set with preferSortMergeJoin=false
   val enableColumnarSortMergeJoin: Boolean =
     conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "true").toBoolean && enableCpu
+
+  val enableColumnarSortMergeJoinLazyRead: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.sortmergejoin.lazyread", "false").toBoolean
 
   // enable or disable columnar union  
   val enableColumnarUnion: Boolean =

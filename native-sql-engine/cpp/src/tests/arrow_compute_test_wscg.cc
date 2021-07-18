@@ -4151,10 +4151,24 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
     ASSERT_NOT_OK(expr->finish(&build_result_iterator));
     auto rb_iter = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
         build_result_iterator);
-    while (rb_iter->HasNext()) {
-      std::shared_ptr<arrow::RecordBatch> result_batch;
-      ASSERT_NOT_OK(rb_iter->Next(&result_batch));
-      ASSERT_NOT_OK(cache->evaluate(result_batch, &dummy_result_batches));
+    if (false) {
+      // lazy read
+      arrow::RecordBatchIterator itr = arrow::MakeFunctionIterator(
+          [rb_iter]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
+            if (!rb_iter->HasNext()) {
+              return nullptr;
+            }
+            std::shared_ptr<RecordBatch> batch;
+            ASSERT_NOT_OK(rb_iter->Next(&batch));
+            return batch;
+          });
+      ASSERT_NOT_OK(cache->evaluate(std::move(itr)));
+    } else {
+      while (rb_iter->HasNext()) {
+        std::shared_ptr<arrow::RecordBatch> result_batch;
+        ASSERT_NOT_OK(rb_iter->Next(&result_batch));
+        ASSERT_NOT_OK(cache->evaluate(result_batch, &dummy_result_batches));
+      }
     }
     ASSERT_NOT_OK(cache->finish(&build_result_iterator));
     dependency_iterator_list.push_back(build_result_iterator);
@@ -4998,10 +5012,24 @@ TEST(TestArrowComputeWSCG, WSCGTestStringMergeInnerJoinWithGroupbyAggregate) {
     ASSERT_NOT_OK(expr->finish(&build_result_iterator));
     auto rb_iter = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
         build_result_iterator);
-    while (rb_iter->HasNext()) {
-      std::shared_ptr<arrow::RecordBatch> result_batch;
-      ASSERT_NOT_OK(rb_iter->Next(&result_batch));
-      ASSERT_NOT_OK(cache->evaluate(result_batch, &dummy_result_batches));
+    if (false) {
+      // lazy read
+      arrow::RecordBatchIterator itr = arrow::MakeFunctionIterator(
+          [rb_iter]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
+            if (!rb_iter->HasNext()) {
+              return nullptr;
+            }
+            std::shared_ptr<RecordBatch> batch;
+            ASSERT_NOT_OK(rb_iter->Next(&batch));
+            return batch;
+          });
+      ASSERT_NOT_OK(cache->evaluate(std::move(itr)));
+    } else {
+      while (rb_iter->HasNext()) {
+        std::shared_ptr<arrow::RecordBatch> result_batch;
+        ASSERT_NOT_OK(rb_iter->Next(&result_batch));
+        ASSERT_NOT_OK(cache->evaluate(result_batch, &dummy_result_batches));
+      }
     }
     ASSERT_NOT_OK(cache->finish(&build_result_iterator));
     dependency_iterator_list.push_back(build_result_iterator);

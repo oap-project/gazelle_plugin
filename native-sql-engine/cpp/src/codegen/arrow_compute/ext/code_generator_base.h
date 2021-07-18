@@ -16,6 +16,8 @@
  */
 
 #pragma once
+#include <arrow/util/iterator.h>
+
 #include "codegen/common/result_iterator.h"
 #include "precompile/array.h"
 
@@ -34,6 +36,10 @@ class CodeGenBase {
         "CodeGenBase Evaluate is an abstract interface.");
   }
   virtual arrow::Status Evaluate(const ArrayList& in) {
+    return arrow::Status::NotImplemented(
+        "CodeGenBase Evaluate is an abstract interface.");
+  }
+  virtual arrow::Status Evaluate(arrow::RecordBatchIterator in) {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }
