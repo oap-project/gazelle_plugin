@@ -517,7 +517,7 @@ arrow::Status ExprVisitor::Eval(const std::shared_ptr<arrow::Array>& selection_i
   return arrow::Status::OK();
 }
 
-arrow::Status ExprVisitor::Eval( std::shared_ptr<arrow::RecordBatch>& in) {
+arrow::Status ExprVisitor::Eval(std::shared_ptr<arrow::RecordBatch>& in) {
   in_record_batch_ = std::move(in);
   RETURN_NOT_OK(Eval());
   return arrow::Status::OK();

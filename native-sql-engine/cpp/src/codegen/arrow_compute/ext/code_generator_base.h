@@ -29,7 +29,7 @@ namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 class CodeGenBase {
  public:
-   virtual arrow::Status Evaluate(ArrayList& in) {
+  virtual arrow::Status Evaluate(ArrayList& in) {
     return arrow::Status::NotImplemented(
         "CodeGenBase Evaluate is an abstract interface.");
   }

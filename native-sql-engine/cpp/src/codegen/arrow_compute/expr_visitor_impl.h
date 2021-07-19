@@ -519,7 +519,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
       (p_->in_record_batch_holder_).clear();
       *spilled_size = size;
     }
-    
+
     return arrow::Status::OK();
   }
 

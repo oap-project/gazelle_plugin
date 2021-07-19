@@ -39,12 +39,12 @@ class KernalBase {
  public:
   KernalBase() {}
   virtual ~KernalBase() {}
-    virtual arrow::Status Spill(int64_t* spilled_size) {
-      return arrow::Status::NotImplemented("Spill is abstract interface for ",
-                                         kernel_name_, ", output is spill size");
+  virtual arrow::Status Spill(int64_t* spilled_size) {
+    return arrow::Status::NotImplemented("Spill is abstract interface for ", kernel_name_,
+                                         ", output is spill size");
   }
   virtual arrow::Status Evaluate(ArrayList& in) {
-      return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
+    return arrow::Status::NotImplemented("Evaluate is abstract interface for ",
                                          kernel_name_, ", input is arrayList.");
   }
   virtual arrow::Status Evaluate(const ArrayList& in) {
@@ -140,7 +140,7 @@ class WindowAggregateFunctionKernel : public KernalBase {
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<arrow::DataType> result_type,
                             std::shared_ptr<KernalBase>* out);
-  arrow::Status Evaluate( ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
 
  private:
@@ -232,7 +232,7 @@ class CachedRelationKernel : public KernalBase {
                        std::shared_ptr<arrow::Schema> result_schema,
                        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                        int result_type);
-  arrow::Status Evaluate( ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<SortRelation>>* out) override;
@@ -303,7 +303,7 @@ class WindowRankKernel : public KernalBase {
   static arrow::Status Make(arrow::compute::ExecContext* ctx, std::string function_name,
                             std::vector<std::shared_ptr<arrow::DataType>> type_list,
                             std::shared_ptr<KernalBase>* out, bool desc);
-  arrow::Status Evaluate( ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status Finish(ArrayList* out) override;
 
   arrow::Status SortToIndicesPrepare(std::vector<ArrayList> values);
@@ -387,7 +387,7 @@ class ConditionedJoinArraysKernel : public KernalBase {
       const std::vector<std::shared_ptr<arrow::Field>>& left_field_list,
       const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
       const std::shared_ptr<arrow::Schema>& result_schema);
-  arrow::Status Evaluate( ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
@@ -434,7 +434,7 @@ class HashRelationKernel : public KernalBase {
                      const std::vector<std::shared_ptr<arrow::Field>>& input_field_list,
                      std::shared_ptr<gandiva::Node> root_node,
                      const std::vector<std::shared_ptr<arrow::Field>>& output_field_list);
-  arrow::Status Evaluate( ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<HashRelation>>* out) override;

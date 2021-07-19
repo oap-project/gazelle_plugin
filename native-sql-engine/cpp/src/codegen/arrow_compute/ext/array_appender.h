@@ -718,7 +718,6 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>>
   AppenderType GetType() override { return type_; }
 
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
-
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     if (typed_arr_->null_count() > 0) has_null_ = true;
     cached_arr_.push_back(typed_arr_);
@@ -731,7 +730,6 @@ class UnsafeArrayAppender<DataType, enable_if_number_or_date<DataType>>
     return arrow::Status::OK();
   }
   arrow::Status ClearArrays() override {
-
     cached_arr_.clear();
     has_null_ = false;
     return arrow::Status::OK();

@@ -607,8 +607,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
   //////////////////////////////////////
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string1 = {
-      "[null, null, 1, 2, 3, 4, 6, 7, 8, 9]",
-      "[34, 67, 2, 3, 4, 5, 7, 8, 9, 10]"};
+      "[null, null, 1, 2, 3, 4, 6, 7, 8, 9]", "[34, 67, 2, 3, 4, 5, 7, 8, 9, 10]"};
   std::vector<std::string> expected_result_string2 = {
       "[10, 11, 13, 15, 17, 18, 19, 21, "
       "22, 23]",
@@ -619,9 +618,8 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
       "32, 33, 35, 37, 41, 42, 43, 50, 52]",
       "["
       "31, 33, 34, 36, 38, 42, 43, 44, 51, null]"};
-        std::vector<std::string> expected_result_string4 = {
-      "[59, 64, NaN, NaN, NaN]",
-      "[60, 65, 21, null, 13]"};
+  std::vector<std::string> expected_result_string4 = {"[59, 64, NaN, NaN, NaN]",
+                                                      "[60, 65, 21, null, 13]"};
   std::vector<std::shared_ptr<arrow::RecordBatch>> result_batch_list;
   MakeInputBatch(expected_result_string1, sch, &expected_result);
   result_batch_list.push_back(std::move(expected_result));
@@ -655,9 +653,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
     sort_expr->Spill(100, false, &size);
     if (firstspill) {
-        EXPECT_TRUE(gap == size);
+      EXPECT_TRUE(gap == size);
     } else {
-        EXPECT_TRUE(0 == size);
+      EXPECT_TRUE(0 == size);
     }
     firstspill = false;
     expected_result = *result_iter;

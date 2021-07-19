@@ -998,9 +998,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
 
 arrow::Result<std::shared_ptr<arrow::RecordBatch>> FromBytes(
     JNIEnv* env, std::shared_ptr<arrow::Schema> schema, jbyteArray bytes) {
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<arrow::RecordBatch> batch,
-      arrow::jniutil::DeserializeUnsafeFromJava(env, schema, bytes))
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,
+                        arrow::jniutil::DeserializeUnsafeFromJava(env, schema, bytes))
   return batch;
 }
 
@@ -1035,7 +1034,6 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate2(
   }
 
   return record_batch_builder_array;
-
 }
 
 JNIEXPORT jlong JNICALL

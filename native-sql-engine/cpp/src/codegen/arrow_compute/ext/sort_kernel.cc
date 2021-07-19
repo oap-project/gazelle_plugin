@@ -15,16 +15,13 @@
  * limitations under the License.
  */
 
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
-
 #include <arrow/array/concatenate.h>
 #include <arrow/compute/api.h>
-#include <arrow/io/file.h>
-#include <arrow/ipc/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
 #include <arrow/filesystem/path_util.h>
+#include <arrow/io/file.h>
+#include <arrow/ipc/api.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -32,6 +29,8 @@
 #include <gandiva/projector.h>
 
 #include <algorithm>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -210,15 +209,14 @@ class SortArraysToIndicesKernel::Impl {
     items_total_ += in[0]->length();
     length_list_.push_back(in[0]->length());
 
-
-      for (int i = 0; i < col_num_; i++) {
-        cached_[i].push_back(in[i]);
-      }
+    for (int i = 0; i < col_num_; i++) {
+      cached_[i].push_back(in[i]);
+    }
 
     return arrow::Status::OK();
   }
-    
-  virtual arrow::Status Spill(int64_t* spilled_size)  {
+
+  virtual arrow::Status Spill(int64_t* spilled_size) {
     // do spill
     local_result_iter_->SortResultSpill();
 
@@ -230,7 +228,8 @@ class SortArraysToIndicesKernel::Impl {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(sorter_->FinishInternal(&indices_out));
-     local_result_iter_ = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, std::move(cached_));
+    local_result_iter_ = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out,
+                                                                std::move(cached_));
     *out = local_result_iter_;
     return arrow::Status::OK();
   }
@@ -248,152 +247,141 @@ class SortArraysToIndicesKernel::Impl {
 
   std::string GetSignature() { return signature_; }
 
-  //TODO: move this class into common utility
+  // TODO: move this class into common utility
   class SpillableCacheStore {
-    public:
-     SpillableCacheStore(std::vector<arrow::ArrayVector>& cached, std::shared_ptr<arrow::Schema> result_schema) 
-      : cached_(cached), result_schema_(result_schema) {
-        num_columns_ = cached_.size();
-        local_spill_dir_ = "sort_spill_" + GenerateUUID();
+   public:
+    SpillableCacheStore(std::vector<arrow::ArrayVector>& cached,
+                        std::shared_ptr<arrow::Schema> result_schema)
+        : cached_(cached), result_schema_(result_schema) {
+      num_columns_ = cached_.size();
+      local_spill_dir_ = "sort_spill_" + GenerateUUID();
+    }
+
+    ~SpillableCacheStore() {}
+
+    arrow::Status DoSpill() {
+      if (is_spilled_) {
+        return arrow::Status::OK();
       }
-
-    ~SpillableCacheStore(){}
-
-     arrow::Status DoSpill()  {
-       if (is_spilled_) {
-         return arrow::Status::OK();
-       }
-        auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
-        ARROW_ASSIGN_OR_RAISE(auto path_info, fs->GetFileInfo(local_spill_dir_));
-        if (path_info.type() == arrow::fs::FileType::NotFound) {
-          RETURN_NOT_OK(fs->CreateDir(local_spill_dir_, true));
-        }
+      auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
+      ARROW_ASSIGN_OR_RAISE(auto path_info, fs->GetFileInfo(local_spill_dir_));
+      if (path_info.type() == arrow::fs::FileType::NotFound) {
+        RETURN_NOT_OK(fs->CreateDir(local_spill_dir_, true));
+      }
 
       int num_batches = cached_[0].size();
       int64_t size = 0;
-      for (auto i=0; i< num_batches; i++) {
+      for (auto i = 0; i < num_batches; i++) {
         ArrayList cols;
-        for (auto j =0; j< cached_.size()-1 ; j++) {
+        for (auto j = 0; j < cached_.size() - 1; j++) {
           cols.push_back(cached_[j][i]);
         }
 
         RETURN_NOT_OK(SpillData(cols));
-
       }
       SetSpilled(true);
       cached_.clear();
 
       return arrow::Status::OK();
     }
-    
-    bool IsSpilled() {
-      return is_spilled_;
+
+    bool IsSpilled() { return is_spilled_; }
+
+    void SetSpilled(bool state) { is_spilled_ = state; }
+
+    std::string GenerateUUID() {
+      boost::uuids::random_generator generator;
+      return boost::uuids::to_string(generator());
     }
 
-    void SetSpilled(bool state) {
-      is_spilled_ = state;
+    std::string random_string(size_t length) {
+      auto randchar = []() -> char {
+        const char charset[] =
+            "0123456789"
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            "abcdefghijklmnopqrstuvwxyz";
+        const size_t max_index = (sizeof(charset) - 1);
+        return charset[rand() % max_index];
+      };
+      std::string str(length, 0);
+      std::generate_n(str.begin(), length, randchar);
+      return str + ".arrow";
     }
 
-  std::string GenerateUUID() {
-    boost::uuids::random_generator generator;
-    return boost::uuids::to_string(generator());
-  }
+    arrow::Status SpillData(ArrayList in) {
+      arrow::ipc::IpcPayload payload;
+      arrow::ipc::IpcWriteOptions options_;
 
-  std::string random_string(size_t length) {
-    auto randchar = []() -> char {
-      const char charset[] =
-          "0123456789"
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-          "abcdefghijklmnopqrstuvwxyz";
-      const size_t max_index = (sizeof(charset) - 1);
-      return charset[rand() % max_index];
-    };
-    std::string str(length, 0);
-    std::generate_n(str.begin(), length, randchar);
-    return str + ".arrow";
-  }
+      auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
 
-  arrow::Status SpillData( ArrayList in) {
+      arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
+      std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
+      std::string spilled_file_ =
+          local_spill_dir_ + "/" + random_string(128);  // TODO(): get tmp dir
 
-    arrow::ipc::IpcPayload payload;
-    arrow::ipc::IpcWriteOptions options_;
+      ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
+                            arrow::io::FileOutputStream::Open(spilled_file_, true));
+      int32_t metadata_length = -1;
+      auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
+      RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(
+          *result_schema_.get(), options_, dict_file_mapper, schema_payload_.get()));
+      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+          *schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
+      arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
+      ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+          payload, options_, spilled_file_os_.get(), &metadata_length));
+      spill_file_list.push_back(spilled_file_);
 
-    auto batch = arrow::RecordBatch::Make(result_schema_, in[0]->length(), in);
+      return arrow::Status::OK();
+    }
 
-    arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
-    std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
-    std::string spilled_file_ =
-         local_spill_dir_ +"/" + random_string(128);  // TODO(): get tmp dir
+    arrow::Result<std::shared_ptr<arrow::ipc::RecordBatchReader>>
+    GetRecordBatchStreamReader(const std::string& file_name) {
+      ARROW_ASSIGN_OR_RAISE(auto file_, arrow::io::ReadableFile::Open(file_name))
+      ARROW_ASSIGN_OR_RAISE(auto file_reader,
+                            arrow::ipc::RecordBatchStreamReader::Open(file_));
+      return file_reader;
+    }
 
-    ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
-                          arrow::io::FileOutputStream::Open(spilled_file_, true));
-    int32_t metadata_length = -1;
-    auto schema_payload_ = std::make_shared<arrow::ipc::IpcPayload>();
-    RETURN_NOT_OK(arrow::ipc::GetSchemaPayload(*result_schema_.get(), options_,
-                                               dict_file_mapper, schema_payload_.get()));
-    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-        *schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
-    arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
-    ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-        payload, options_, spilled_file_os_.get(), &metadata_length));
-    spill_file_list.push_back(spilled_file_);
+    arrow::Status Fetch() {
+      cached_.resize(num_columns_);
+      for (const auto& file_path : spill_file_list) {
+        ARROW_ASSIGN_OR_RAISE(auto file_reader, GetRecordBatchStreamReader(file_path));
 
-    return arrow::Status::OK();
-  }
+        std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+        RETURN_NOT_OK(file_reader->ReadAll(&batches));
 
-  arrow::Result<std::shared_ptr<arrow::ipc::RecordBatchReader>>
-  GetRecordBatchStreamReader(const std::string& file_name) {
-    ARROW_ASSIGN_OR_RAISE(auto file_, arrow::io::ReadableFile::Open(file_name))
-    ARROW_ASSIGN_OR_RAISE(auto file_reader,
-                          arrow::ipc::RecordBatchStreamReader::Open(file_));
-    return file_reader;
-  }
+        auto batch = batches[0];
 
-  arrow::Status Fetch() {
-    cached_.resize(num_columns_);
-    for (const auto& file_path : spill_file_list) {
-
-      ARROW_ASSIGN_OR_RAISE(auto file_reader, GetRecordBatchStreamReader(file_path));
-
-      std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-      RETURN_NOT_OK(file_reader->ReadAll(&batches));
-
-      auto batch = batches[0];
-
-      for (int i = 0; i < batch->num_columns(); i++) {
-        cached_[i].push_back(batch->column(i));
+        for (int i = 0; i < batch->num_columns(); i++) {
+          cached_[i].push_back(batch->column(i));
+        }
+        std::remove(file_path.c_str());
       }
-      std::remove(file_path.c_str());
-    }
-    std::remove(local_spill_dir_.c_str());
-    is_spilled_ = false;
-    spill_file_list.clear();
-    return arrow::Status::OK();
-  }
-
-  std::vector<arrow::ArrayVector> GetCache() {
-    if (is_spilled_) {
-      Fetch();
+      std::remove(local_spill_dir_.c_str());
+      is_spilled_ = false;
+      spill_file_list.clear();
+      return arrow::Status::OK();
     }
 
-    return cached_;
-  }
+    std::vector<arrow::ArrayVector> GetCache() {
+      if (is_spilled_) {
+        Fetch();
+      }
 
-  std::string& GetSpillDir() {
-    return local_spill_dir_;
-  }
+      return cached_;
+    }
 
-    private:
-     std::vector<arrow::ArrayVector> cached_;
-     int num_columns_;
-     std::shared_ptr<arrow::Schema> result_schema_;
-     std::vector<std::string> spill_file_list;
-     bool is_spilled_ = false;
-     std::string local_spill_dir_;
+    std::string& GetSpillDir() { return local_spill_dir_; }
 
-  };  
-
-
+   private:
+    std::vector<arrow::ArrayVector> cached_;
+    int num_columns_;
+    std::shared_ptr<arrow::Schema> result_schema_;
+    std::vector<std::string> spill_file_list;
+    bool is_spilled_ = false;
+    std::string local_spill_dir_;
+  };
 
   class TypedSorterCodeGenImpl {
    public:
@@ -806,7 +794,6 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
-
     SorterResultIterator(arrow::compute::ExecContext* ctx,
                          std::shared_ptr<arrow::Schema> schema,
                          std::shared_ptr<FixedSizeBinaryArray> indices_in,
@@ -841,21 +828,22 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 
     arrow::Status SortResultSpill() {
-      //TODO(): write to local disk
+      // TODO(): write to local disk
 
       if (!spillablecachestore_) {
         spillablecachestore_ = std::make_shared<SpillableCacheStore>(cached_in_, schema_);
       }
-      std::cout << "call on: " << spillablecachestore_->GetSpillDir() << "|" << is_spilled_ <<"\n";
+      std::cout << "call on: " << spillablecachestore_->GetSpillDir() << "|"
+                << is_spilled_ << "\n";
       if (is_spilled_) {
         return arrow::Status::OK();
       }
 
       spillablecachestore_->DoSpill();
 
-      //clean up references on cached array
+      // clean up references on cached array
       for (auto appender : appender_list_) {
-        appender->ClearArrays();  
+        appender->ClearArrays();
       }
       cached_in_.clear();
       is_spilled_ = true;
@@ -863,8 +851,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     }
 
     arrow::Status LoadCache() {
-
-      //TODO(): more checks on the availbity/CRC?
+      // TODO(): more checks on the availbity/CRC?
       spillablecachestore_->Fetch();
       cached_in_ = spillablecachestore_->GetCache();
 
@@ -931,7 +918,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     std::shared_ptr<SpillableCacheStore> spillablecachestore_;
   };
 
-protected:
+ protected:
   std::shared_ptr<CodeGenBase> sorter_;
   std::vector<arrow::ArrayVector> cached_;
   arrow::compute::ExecContext* ctx_;
@@ -1455,14 +1442,14 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       cached_.resize(col_num_ + 1);
     }
 
-      for (int i = 0; i < col_num_; i++) {
-        cached_[i].push_back(std::move(in[i]));
-      }
+    for (int i = 0; i < col_num_; i++) {
+      cached_[i].push_back(std::move(in[i]));
+    }
 
     return arrow::Status::OK();
   }
 
-  arrow::Status Spill(int64_t* spilled_size)  {
+  arrow::Status Spill(int64_t* spilled_size) {
     // do spill
 
     local_result_iter_->SortResultSpill();
@@ -1731,8 +1718,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(FinishInternal(&indices_out));
 
-
-    local_result_iter_ = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, std::move(cached_));
+    local_result_iter_ = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out,
+                                                                std::move(cached_));
     *out = local_result_iter_;
     return arrow::Status::OK();
   }
@@ -1904,7 +1891,8 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(FinishInternal(&indices_out));
-    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, std::move(cached_));
+    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out,
+                                                  std::move(cached_));
     return arrow::Status::OK();
   }
 
