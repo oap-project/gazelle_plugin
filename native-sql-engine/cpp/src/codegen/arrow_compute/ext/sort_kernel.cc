@@ -842,7 +842,15 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
 
     arrow::Status SortResultSpill() {
       //TODO(): write to local disk
-      spillablecachestore_ = std::make_shared<SpillableCacheStore>(cached_in_, schema_);
+
+      if (!spillablecachestore_) {
+        spillablecachestore_ = std::make_shared<SpillableCacheStore>(cached_in_, schema_);
+      }
+      std::cout << "call on: " << spillablecachestore_->GetSpillDir() << "|" << is_spilled_ <<"\n";
+      if (is_spilled_) {
+        return arrow::Status::OK();
+      }
+
       spillablecachestore_->DoSpill();
 
       //clean up references on cached array
