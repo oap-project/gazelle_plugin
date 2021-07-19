@@ -653,7 +653,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
     sort_expr->Spill(100, false, &size);
     if (firstspill) {
-      EXPECT_TRUE(gap == size);
+      EXPECT_TRUE(gap >= size);
     } else {
       EXPECT_TRUE(0 == size);
     }
@@ -662,6 +662,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
     result_iter++;
   }
+  unsetenv("NATIVESQL_BATCH_SIZE");
 }
 
 TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
