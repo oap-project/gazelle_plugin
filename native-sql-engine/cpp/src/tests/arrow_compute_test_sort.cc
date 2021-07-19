@@ -576,7 +576,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-
+  auto before = arrow::default_memory_pool()->bytes_allocated();
   std::vector<std::string> input_data_string = {"[10, NaN, 4, 50, 52, 32, 11]",
                                                 "[11, 13, 5, 51, null, 33, 12]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
@@ -601,37 +601,68 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
                                                   "[38, 67, 23, 14, 9, 60, 22]"};
   MakeInputBatch(input_data_string_5, sch, &input_batch);
   input_batch_list.push_back(std::move(input_batch));
-
+  auto after = arrow::default_memory_pool()->bytes_allocated();
+  auto gap = after - before;
   ////////////////////////////////// calculation
   //////////////////////////////////////
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[null, null, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 13, 15, 17, 18, 19, 21, "
-      "22, 23, 30, "
-      "32, 33, 35, 37, 41, 42, 43, 50, 52, 59, 64, NaN, NaN, NaN]",
-      "[34, 67, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 14, 16, 18, 19, 20, 22, "
-      "23, 24, "
-      "31, 33, 34, 36, 38, 42, 43, 44, 51, null, 60, 65, 21, null, 13]"};
-  MakeInputBatch(expected_result_string, sch, &expected_result);
+  std::vector<std::string> expected_result_string1 = {
+      "[null, null, 1, 2, 3, 4, 6, 7, 8, 9]",
+      "[34, 67, 2, 3, 4, 5, 7, 8, 9, 10]"};
+  std::vector<std::string> expected_result_string2 = {
+      "[10, 11, 13, 15, 17, 18, 19, 21, "
+      "22, 23]",
+      "[11, 12, 14, 16, 18, 19, 20, 22, "
+      "23, 24]"};
+  std::vector<std::string> expected_result_string3 = {
+      "[30, "
+      "32, 33, 35, 37, 41, 42, 43, 50, 52]",
+      "["
+      "31, 33, 34, 36, 38, 42, 43, 44, 51, null]"};
+        std::vector<std::string> expected_result_string4 = {
+      "[59, 64, NaN, NaN, NaN]",
+      "[60, 65, 21, null, 13]"};
+  std::vector<std::shared_ptr<arrow::RecordBatch>> result_batch_list;
+  MakeInputBatch(expected_result_string1, sch, &expected_result);
+  result_batch_list.push_back(std::move(expected_result));
+
+  MakeInputBatch(expected_result_string2, sch, &expected_result);
+  result_batch_list.push_back(std::move(expected_result));
+
+  MakeInputBatch(expected_result_string3, sch, &expected_result);
+  result_batch_list.push_back(std::move(expected_result));
+
+  MakeInputBatch(expected_result_string4, sch, &expected_result);
+  result_batch_list.push_back(std::move(expected_result));
 
   for (auto& batch : input_batch_list) {
     ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
   }
-
+  setenv("NATIVESQL_BATCH_SIZE", "10", 0);
   std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
   std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
   ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
-  int64_t size;
-  sort_expr->Spill(100, false, &size);
+
   sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
       sort_result_iterator_base);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-
-  if (sort_result_iterator->HasNext()) {
+  int64_t size;
+  bool firstspill = true;
+  auto result_iter = result_batch_list.begin();
+  while (sort_result_iterator->HasNext()) {
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
+    sort_expr->Spill(100, false, &size);
+    if (firstspill) {
+        EXPECT_TRUE(gap == size);
+    } else {
+        EXPECT_TRUE(0 == size);
+    }
+    firstspill = false;
+    expected_result = *result_iter;
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+    result_iter++;
   }
 }
 
