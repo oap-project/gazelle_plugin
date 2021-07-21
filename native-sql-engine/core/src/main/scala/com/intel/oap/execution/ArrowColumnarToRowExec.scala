@@ -142,7 +142,8 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
 
   override def equals(other: Any): Boolean = other match {
     case that: ArrowColumnarToRowExec =>
-      (that canEqual this) && super.equals(that)
+      (that canEqual this)
     case _ => false
   }
 }
+
