@@ -2384,7 +2384,7 @@ ConditionedJoinArraysKernel::ConditionedJoinArraysKernel(
     const std::vector<std::shared_ptr<arrow::Field>>& right_field_list,
     const std::shared_ptr<arrow::Schema>& result_schema) {
   // using ArrayType = decltype(left_field_list[0]->type());
-  if (left_key_list.size() == 1 && right_key_list.size() == 1) {
+  if (0) {
     impl_.reset(new OperatorConditionedJoinArraysKernel<arrow::StringType>(
         ctx, left_key_list, right_key_list, func_node, join_type, left_field_list,
         right_field_list, result_schema));
