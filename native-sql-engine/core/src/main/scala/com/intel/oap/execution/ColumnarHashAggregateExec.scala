@@ -66,7 +66,7 @@ case class ColumnarHashAggregateExec(
     aggregateExpressions: Seq[AggregateExpression],
     aggregateAttributes: Seq[Attribute],
     initialInputBufferOffset: Int,
-    resultExpressions: Seq[NamedExpression],
+    var resultExpressions: Seq[NamedExpression],
     child: SparkPlan)
     extends BaseAggregateExec
     with ColumnarCodegenSupport
@@ -76,6 +76,20 @@ case class ColumnarHashAggregateExec(
   val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
 
+  var resAttributes: Seq[Attribute] = resultExpressions.map(_.toAttribute)
+  if (aggregateExpressions != null && aggregateExpressions.nonEmpty) {
+    aggregateExpressions.head.mode match {
+      case Partial =>
+        // To fix the expression ids in result expressions being different with those from
+        // inputAggBufferAttributes, in Partial Aggregate,
+        // result attributes are recalculated to set the result expressions.
+        resAttributes = groupingExpressions.map(_.toAttribute) ++
+          aggregateExpressions.flatMap(_.aggregateFunction.inputAggBufferAttributes)
+        resultExpressions = resAttributes
+      case _ =>
+    }
+  }
+
   // Members declared in org.apache.spark.sql.execution.AliasAwareOutputPartitioning
   override protected def outputExpressions: Seq[NamedExpression] = resultExpressions
 
@@ -83,7 +97,7 @@ case class ColumnarHashAggregateExec(
   protected def doProduce(ctx: CodegenContext): String = throw new UnsupportedOperationException()
 
   // Members declared in org.apache.spark.sql.catalyst.plans.QueryPlan
-  override def output: Seq[Attribute] = resultExpressions.map(_.toAttribute)
+  override def output: Seq[Attribute] = resAttributes
 
   // Members declared in org.apache.spark.sql.execution.SparkPlan
   protected override def doExecute()
@@ -398,30 +412,7 @@ case class ColumnarHashAggregateExec(
                 expr.mode match {
                   case Final =>
                     val out_res = 0
-                    resultColumnVectors(idx).dataType match {
-                      case t: IntegerType =>
-                        resultColumnVectors(idx)
-                          .put(0, out_res.asInstanceOf[Number].intValue)
-                      case t: LongType =>
-                        resultColumnVectors(idx)
-                          .put(0, out_res.asInstanceOf[Number].longValue)
-                      case t: DoubleType =>
-                        resultColumnVectors(idx)
-                          .put(0, out_res.asInstanceOf[Number].doubleValue())
-                      case t: FloatType =>
-                        resultColumnVectors(idx)
-                          .put(0, out_res.asInstanceOf[Number].floatValue())
-                      case t: ByteType =>
-                        resultColumnVectors(idx)
-                          .put(0, out_res.asInstanceOf[Number].byteValue())
-                      case t: ShortType =>
-                        resultColumnVectors(idx)
-                          .put(0, out_res.asInstanceOf[Number].shortValue())
-                      case t: StringType =>
-                        val values = (out_res :: Nil).map(_.toByte).toArray
-                        resultColumnVectors(idx)
-                          .putBytes(0, 1, values, 0)
-                    }
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
                     idx += 1
                   case _ =>
                 }
