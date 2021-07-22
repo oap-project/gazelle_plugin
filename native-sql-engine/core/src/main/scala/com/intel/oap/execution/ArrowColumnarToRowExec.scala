@@ -22,26 +22,17 @@ import com.intel.oap.vectorized.{ArrowColumnarToRowJniWrapper, ArrowWritableColu
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, UnsafeRow}
-import org.apache.spark.sql.catalyst.plans.physical.Partitioning
+import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
+import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
-case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
+class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child = child) {
   override def nodeName: String = "ArrowColumnarToRow"
-
-  assert(child.supportsColumnar)
-
-  override def output: Seq[Attribute] = child.output
-
-  override def outputPartitioning: Partitioning = child.outputPartitioning
-
-  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 
   buildCheck()
 
@@ -87,7 +78,7 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
         numInputBatches += 1
         numOutputRows += batch.numRows()
 
-        if (batch.numRows == 0 || batch.numCols == 0) {
+        if (batch.numRows == 0) {
           logInfo(s"Skip ColumnarBatch of ${batch.numRows} rows, ${batch.numCols} cols")
           Iterator.empty
         } else {
@@ -142,7 +133,7 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends UnaryExecNode {
 
   override def equals(other: Any): Boolean = other match {
     case that: ArrowColumnarToRowExec =>
-      (that canEqual this)
+      (that canEqual this) && super.equals(that)
     case _ => false
   }
 }

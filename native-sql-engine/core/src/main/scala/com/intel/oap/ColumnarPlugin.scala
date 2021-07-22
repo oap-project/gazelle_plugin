@@ -308,7 +308,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
             if (columnarConf.enableArrowColumnarToRow) {
               try {
                 val child = replaceWithColumnarPlan(c.child)
-                ArrowColumnarToRowExec(child)
+                new ArrowColumnarToRowExec(child)
               } catch {
                 case _: Throwable =>
                   logInfo("ArrowColumnarToRow : Falling back to ColumnarToRow...")
