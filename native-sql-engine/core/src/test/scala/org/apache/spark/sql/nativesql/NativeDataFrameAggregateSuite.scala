@@ -1000,7 +1000,7 @@ class NativeDataFrameAggregateSuite extends QueryTest
   }
 
   Seq(true, false).foreach { value =>
-    ignore(s"SPARK-31620: agg with subquery (whole-stage-codegen = $value)") {
+    test(s"SPARK-31620: agg with subquery (whole-stage-codegen = $value)") {
       withSQLConf(
         SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key -> value.toString) {
         withTempView("t1", "t2") {

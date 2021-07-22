@@ -69,7 +69,8 @@ import org.apache.spark.sql.internal.SQLConf
  * }}}
  */
 // scalastyle:on line.size.limit
-@deprecated("This test suite is not suitable for native sql engine.", "Mo Rui")
+// This test suite is not suitable for native sql engine. (Mo Rui)
+/*
 trait PlanStabilitySuite extends TPCDSBase with DisableAdaptiveExecutionSuite {
 
   private val originalMaxToStringFields = conf.maxToStringFields
@@ -338,3 +339,4 @@ class TPCDSModifiedPlanStabilityWithStatsSuite extends PlanStabilitySuite {
     }
   }
 }
+*/

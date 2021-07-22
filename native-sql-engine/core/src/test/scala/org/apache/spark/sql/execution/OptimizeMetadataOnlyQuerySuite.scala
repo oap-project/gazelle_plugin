@@ -143,7 +143,7 @@ class OptimizeMetadataOnlyQuerySuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("Incorrect result caused by the rule OptimizeMetadataOnlyQuery") {
+  test("Incorrect result caused by the rule OptimizeMetadataOnlyQuery") {
     // This test case is only for file source V1. As the rule OptimizeMetadataOnlyQuery is disabled
     // by default, we can skip testing file source v2 in current stage.
     withSQLConf(OPTIMIZER_METADATA_ONLY.key -> "true",

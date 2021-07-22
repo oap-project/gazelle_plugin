@@ -74,6 +74,7 @@ class NativeTPCHTableRepartitionSuite extends NativeRepartitionSuite {
 
   override lazy val input = spark.read.format("arrow").load(filePath)
 
+  /*
   ignore("tpch table round robin partitioning") {
     withRepartition(df => df.repartition(2))
   }
@@ -95,6 +96,7 @@ class NativeTPCHTableRepartitionSuite extends NativeRepartitionSuite {
       df => df.groupBy("n_regionkey").agg(Map("n_nationkey" -> "sum")),
       df => df.repartition(2))
   }
+  */
 }
 
 class NativeDisableColumnarShuffleSuite extends NativeRepartitionSuite {

@@ -213,7 +213,7 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
   }
 
   // FIXME ZONE issue
-  ignore("date type - cast from timestamp") {
+  test("date type - cast from timestamp") {
     withTempView("dates") {
       val dates = (0L to 3L).map(i => i * 24 * 1000 * 3600)
           .map(i => Tuple1(new Timestamp(i)))
@@ -248,7 +248,7 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
   }
 
   // todo: fix field/literal implicit conversion in ColumnarExpressionConverter
-  ignore("date type - join on, bhj") {
+  test("date type - join on, bhj") {
     withTempView("dates1", "dates2") {
       val dates1 = (0L to 3L).map(i => i * 1000 * 3600 * 24)
           .map(i => Tuple1(new Date(i))).toDF("time1")
@@ -750,7 +750,7 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("datetime function - to_date with format") { // todo GetTimestamp IS PRIVATE ?
+  test("datetime function - to_date with format") { // todo GetTimestamp IS PRIVATE ?
     withTempView("dates") {
 
       val dates = Seq("2009-07-30", "2009-07-31", "2009-08-01")
