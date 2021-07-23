@@ -652,11 +652,9 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
   while (sort_result_iterator->HasNext()) {
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
     sort_expr->Spill(100, false, &size);
-    if (firstspill) {
-      EXPECT_TRUE(gap >= size);
-    } else {
-      EXPECT_TRUE(0 == size);
-    }
+
+      EXPECT_TRUE(size >= gap);
+
     firstspill = false;
     expected_result = *result_iter;
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));

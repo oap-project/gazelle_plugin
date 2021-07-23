@@ -216,9 +216,9 @@ class SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  virtual arrow::Status Spill(int64_t* spilled_size) {
+  virtual arrow::Status Spill(int64_t size, int64_t* spilled_size) {
     // do spill
-    local_result_iter_->SortResultSpill();
+    local_result_iter_->SortResultSpill(spilled_size);
 
     return arrow::Status::OK();
   }
@@ -257,9 +257,14 @@ class SortArraysToIndicesKernel::Impl {
       local_spill_dir_ = "sort_spill_" + GenerateUUID();
     }
 
-    ~SpillableCacheStore() {}
+    ~SpillableCacheStore() {
+      for (auto& file_path: spill_file_list) {
+        std::remove(file_path.c_str());
+      }
+      std::remove(local_spill_dir_.c_str());
+    }
 
-    arrow::Status DoSpill() {
+    arrow::Status DoSpill(int64_t* spilled_size) {
       if (is_spilled_) {
         return arrow::Status::OK();
       }
@@ -273,11 +278,13 @@ class SortArraysToIndicesKernel::Impl {
       int64_t size = 0;
       for (auto i = 0; i < num_batches; i++) {
         ArrayList cols;
+        int64_t single_call_spilled;
         for (auto j = 0; j < cached_.size() - 1; j++) {
           cols.push_back(cached_[j][i]);
         }
 
-        RETURN_NOT_OK(SpillData(cols));
+        RETURN_NOT_OK(SpillData(i, cols, &single_call_spilled));
+        *spilled_size += single_call_spilled;
       }
       SetSpilled(true);
       cached_.clear();
@@ -308,7 +315,7 @@ class SortArraysToIndicesKernel::Impl {
       return str + ".arrow";
     }
 
-    arrow::Status SpillData(ArrayList in) {
+    arrow::Status SpillData(int64_t idx, ArrayList in, int64_t* spilled_size) {
       arrow::ipc::IpcPayload payload;
       arrow::ipc::IpcWriteOptions options_;
 
@@ -317,7 +324,7 @@ class SortArraysToIndicesKernel::Impl {
       arrow::ipc::DictionaryFieldMapper dict_file_mapper;  // unused
       std::shared_ptr<arrow::io::FileOutputStream> spilled_file_os_;
       std::string spilled_file_ =
-          local_spill_dir_ + "/" + random_string(128);  // TODO(): get tmp dir
+          local_spill_dir_ + "/" + std::to_string(idx) + ".arrow";  // TODO(): get tmp dir
 
       ARROW_ASSIGN_OR_RAISE(spilled_file_os_,
                             arrow::io::FileOutputStream::Open(spilled_file_, true));
@@ -327,11 +334,12 @@ class SortArraysToIndicesKernel::Impl {
           *result_schema_.get(), options_, dict_file_mapper, schema_payload_.get()));
       ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
           *schema_payload_.get(), options_, spilled_file_os_.get(), &metadata_length));
+      int32_t data_length = -1;
       arrow::ipc::GetRecordBatchPayload(*batch, options_, &payload);
       ARROW_RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-          payload, options_, spilled_file_os_.get(), &metadata_length));
+          payload, options_, spilled_file_os_.get(), &data_length));
+      *spilled_size = data_length;
       spill_file_list.push_back(spilled_file_);
-
       return arrow::Status::OK();
     }
 
@@ -827,19 +835,19 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
 
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 
-    arrow::Status SortResultSpill() {
-      // TODO(): write to local disk
-
+    arrow::Status SortResultSpill(int64_t* spilled_size) {
       if (!spillablecachestore_) {
         spillablecachestore_ = std::make_shared<SpillableCacheStore>(cached_in_, schema_);
       }
       std::cout << "call on: " << spillablecachestore_->GetSpillDir() << "|"
                 << is_spilled_ << "\n";
       if (is_spilled_) {
+        //TODO: this should be fixed when spill in sorting
+        *spilled_size = 0;
         return arrow::Status::OK();
       }
 
-      spillablecachestore_->DoSpill();
+      spillablecachestore_->DoSpill(spilled_size);
 
       // clean up references on cached array
       for (auto appender : appender_list_) {
@@ -863,6 +871,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
           appender_list_[i]->AddArray(arr);
         }
       }
+      is_spilled_ = false;
       return arrow::Status::OK();
     }
 
@@ -876,7 +885,6 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
       if (is_spilled_) {
         LoadCache();
-        is_spilled_ = false;
       }
       auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
                                                             : (total_length_ - offset_);
@@ -1449,10 +1457,10 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status Spill(int64_t* spilled_size) {
+  arrow::Status Spill(int64_t size, int64_t* spilled_size) {
     // do spill
 
-    local_result_iter_->SortResultSpill();
+    local_result_iter_->SortResultSpill(spilled_size);
 
     return arrow::Status::OK();
   }
@@ -2084,8 +2092,8 @@ arrow::Status SortArraysToIndicesKernel::Evaluate(ArrayList& in) {
   return impl_->Evaluate(in);
 }
 
-arrow::Status SortArraysToIndicesKernel::Spill(int64_t* spilled_size) {
-  return impl_->Spill(spilled_size);
+arrow::Status SortArraysToIndicesKernel::Spill(int64_t size, int64_t* spilled_size) {
+  return impl_->Spill(size, spilled_size);
 }
 
 arrow::Status SortArraysToIndicesKernel::MakeResultIterator(

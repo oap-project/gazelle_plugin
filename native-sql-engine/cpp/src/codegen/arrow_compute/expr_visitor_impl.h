@@ -511,15 +511,11 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
 
   arrow::Status Spill(int64_t size, int64_t* spilled_size) override {
     std::cout << "target size: " << size << std::endl;
-    RETURN_NOT_OK(kernel_->Spill(spilled_size));
+    RETURN_NOT_OK(kernel_->Spill(size, spilled_size));
 
-    if ((p_->in_record_batch_holder_).size() == 0) {
-      *spilled_size = 0;
-    } else {
+    if (*spilled_size != 0) {
       (p_->in_record_batch_holder_).clear();
-      *spilled_size = size;
     }
-
     return arrow::Status::OK();
   }
 
