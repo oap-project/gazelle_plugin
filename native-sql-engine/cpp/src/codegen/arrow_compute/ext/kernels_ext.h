@@ -237,7 +237,7 @@ class CachedRelationKernel : public KernalBase {
                        std::shared_ptr<arrow::Schema> result_schema,
                        std::vector<std::shared_ptr<arrow::Field>> key_field_list,
                        int result_type);
-  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status Evaluate(ArrayList& in) override;
   arrow::Status Evaluate(arrow::RecordBatchIterator in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,

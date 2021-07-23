@@ -155,7 +155,6 @@ class ExprVisitor : public std::enable_shared_from_this<ExprVisitor> {
   arrow::Status Eval(const std::shared_ptr<arrow::Array>& selection_in,
                      const std::shared_ptr<arrow::RecordBatch>& in);
   arrow::Status Eval(std::shared_ptr<arrow::RecordBatch>& in);
-  arrow::Status Eval(const std::shared_ptr<arrow::RecordBatch>& in);
   arrow::Status Eval(arrow::RecordBatchIterator in);
   arrow::Status Eval();
   std::string GetSignature() { return signature_; }
