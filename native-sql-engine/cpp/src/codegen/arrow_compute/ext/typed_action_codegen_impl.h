@@ -122,7 +122,7 @@ class TypedActionCodeGenImpl {
           name, child_list_, input_list_, input_fields_list_, named_projector_);
 
     } else if (action_name_.compare(0, 20, "action_countLiteral_") == 0) {
-      auto lit = std::stoi(action_name_.substr(20));
+      auto lit = std::stol(action_name_.substr(20));
       *action_codegen = std::make_shared<CountLiteralActionCodeGen>(
           "count_literal_" + std::to_string(lit), lit, child_list_, input_list_,
           input_fields_list_, named_projector_);
