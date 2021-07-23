@@ -653,7 +653,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
     sort_expr->Spill(100, false, &size);
 
-      EXPECT_TRUE(size >= gap);
+    EXPECT_TRUE(size >= gap);
 
     firstspill = false;
     expected_result = *result_iter;

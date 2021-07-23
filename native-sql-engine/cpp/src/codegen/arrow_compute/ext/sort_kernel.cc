@@ -258,7 +258,7 @@ class SortArraysToIndicesKernel::Impl {
     }
 
     ~SpillableCacheStore() {
-      for (auto& file_path: spill_file_list) {
+      for (auto& file_path : spill_file_list) {
         std::remove(file_path.c_str());
       }
       std::remove(local_spill_dir_.c_str());
@@ -842,7 +842,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       std::cout << "call on: " << spillablecachestore_->GetSpillDir() << "|"
                 << is_spilled_ << "\n";
       if (is_spilled_) {
-        //TODO: this should be fixed when spill in sorting
+        // TODO: this should be fixed when spill in sorting
         *spilled_size = 0;
         return arrow::Status::OK();
       }
