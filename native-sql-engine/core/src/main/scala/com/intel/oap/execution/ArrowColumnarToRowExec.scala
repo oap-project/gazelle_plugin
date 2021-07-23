@@ -34,6 +34,8 @@ import scala.concurrent.duration._
 class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child = child) {
   override def nodeName: String = "ArrowColumnarToRow"
 
+  override def supportCodegen: Boolean = false
+
   buildCheck()
 
   def buildCheck(): Unit = {
