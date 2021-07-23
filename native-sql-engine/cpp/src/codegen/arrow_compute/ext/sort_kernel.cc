@@ -839,8 +839,6 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
       if (!spillablecachestore_) {
         spillablecachestore_ = std::make_shared<SpillableCacheStore>(cached_in_, schema_);
       }
-      std::cout << "call on: " << spillablecachestore_->GetSpillDir() << "|"
-                << is_spilled_ << "\n";
       if (is_spilled_) {
         // TODO: this should be fixed when spill in sorting
         *spilled_size = 0;
@@ -981,6 +979,13 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
 
     items_total_ += in[0]->length();
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Spill(int64_t size, int64_t* spilled_size) {
+    // inplace sort does not support spill
+    *spilled_size = 0;
+
     return arrow::Status::OK();
   }
 
