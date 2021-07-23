@@ -59,7 +59,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
         .set("spark.executor.heartbeatInterval", "3600000")
         .set("spark.network.timeout", "3601s")
         .set("spark.oap.sql.columnar.preferColumnar", "true")
-      .set("spark.oap.sql.columnar.sortmergejoin", "true")
+        .set("spark.oap.sql.columnar.sortmergejoin", "true")
         .set("spark.sql.columnar.codegen.hashAggregate", "false")
         .set("spark.sql.columnar.sort", "true")
         .set("spark.sql.columnar.window", "true")
@@ -96,9 +96,17 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  ignore("q12 SMJ failure") {
+  test("q12 SMJ") {
     withSQLConf(("spark.sql.autoBroadcastJoinThreshold", "-1"),
       ("spark.oap.sql.columnar.sortmergejoin", "true")) {
+      runner.runTPCQuery("q12", 1, true)
+    }
+  }
+
+  test("q12 SMJ lazy") {
+    withSQLConf(("spark.sql.autoBroadcastJoinThreshold", "-1"),
+      ("spark.oap.sql.columnar.sortmergejoin", "true"),
+      ("spark.oap.sql.columnar.sortmergejoin.lazyread", "true")) {
       runner.runTPCQuery("q12", 1, true)
     }
   }
