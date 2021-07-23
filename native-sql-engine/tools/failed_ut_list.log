@@ -1,0 +1,183 @@
+- SPARK-8828 sum should return null if all input values are null *** FAILED ***
+- SPARK-3173 Timestamp support in the parser *** FAILED ***
+- EXCEPT *** FAILED ***
+- MINUS *** FAILED ***
+- INTERSECT *** FAILED ***
+- string timestamp comparison *** FAILED ***
+- SPARK-29239: Subquery should not cause NPE when eliminating subexpression *** FAILED ***
+- prune results by current_time, complete mode - state format version 1 *** FAILED ***
+- prune results by current_time, complete mode - state format version 2 *** FAILED ***
+- changing schema of state when restarting query - schema check off - state format version 1 *** FAILED ***
+- function current_timestamp and now *** FAILED ***
+- dayofyear *** FAILED ***
+- hour *** FAILED ***
+- function to_date *** FAILED ***
+- unix_timestamp *** FAILED ***
+- to_unix_timestamp *** FAILED ***
+- to_timestamp *** FAILED ***
+- SPARK-30668: use legacy timestamp parser in to_timestamp *** FAILED ***
+- timestamp type conversion *** FAILED ***
+- SHOW PARTITIONS V1: SPARK-33591: null as a partition value *** FAILED ***
+- SPARK-33867: Test DataFrame.where for LocalDate and Instant *** FAILED ***
+- static scan metrics *** FAILED ***
+- partition pruning in broadcast hash joins with aliases *** FAILED ***
+- partition pruning in broadcast hash joins *** FAILED ***
+- avoid reordering broadcast join keys to match input hash partitioning *** FAILED ***
+- Plan broadcast pruning only when the broadcast can be reused *** FAILED ***
+- SPARK-32817: DPP throws error when the broadcast side is empty *** FAILED ***
+- groupBy *** FAILED ***
+- Spark vectorized reader - with partition data column - select only top-level fields *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after join *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after outer join *** FAILED ***
+- setAuthenticationConfigIfNeeded must set authentication if not set *** FAILED ***
+- Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
+- exception mode for parsing date/timestamp string *** FAILED ***
+- Chained Scalar Pandas UDFs should be combined to a single physical node *** FAILED ***
+- Mixed Batched Python UDFs and Pandas UDF should be separate physical node *** FAILED ***
+- Independent Batched Python UDFs and Scalar Pandas UDFs should be combined separately *** FAILED ***
+- Dependent Batched Python UDFs and Scalar Pandas UDFs should not be combined *** FAILED ***
+- metrics of the shuffle reader *** FAILED ***
+- test SortMergeJoin (with spill) *** FAILED ***
+- test SortMergeJoin output ordering *** FAILED ***
+- unsafe broadcast hash join updates peak execution memory *** FAILED ***
+- unsafe broadcast hash outer join updates peak execution memory *** FAILED ***
+- unsafe broadcast left semi join updates peak execution memory *** FAILED ***
+- SPARK-23192: broadcast hint should be retained after using the cached data *** FAILED ***
+- SPARK-23214: cached data should not carry extra hint info *** FAILED ***
+- broadcast hint in SQL *** FAILED ***
+- Broadcast timeout *** FAILED ***
+- broadcast join where streamed side's output partitioning is HashPartitioning *** FAILED ***
+- broadcast join where streamed side's output partitioning is PartitioningCollection *** FAILED ***
+- BroadcastHashJoinExec output partitioning size should be limited with a config *** FAILED ***
+- SPARK-8005 input_file_name *** FAILED ***
+- SPARK-32516: legacy path option behavior in load() *** FAILED ***
+- SPARK-32160: Disallow to create SparkSession in executors *** FAILED ***
+- SPARK-32160: Allow to create SparkSession in executors if the config is set *** FAILED ***
+- SPARK-32991: Use conf in shared state as the original configuration for RESET *** FAILED ***
+- SPARK-32991: RESET should work properly with multi threads *** FAILED ***
+- SPARK-33944: warning setting hive.metastore.warehouse.dir using session options *** FAILED ***
+- SPARK-33944: no warning setting spark.sql.warehouse.dir using session options *** FAILED ***
+- SPARK-10634 timestamp written and read as INT64 - truncation *** FAILED ***
+- SPARK-10301 requested schema clipping - schemas with disjoint sets of fields *** FAILED ***
+- SPARK-26677: negated null-safe equality comparison should not filter matched row groups *** FAILED ***
+- returning batch for wide table *** FAILED ***
+- SPARK-15370: COUNT bug in Aggregate *** FAILED ***
+- ListQuery and Exists should work even no correlated references *** FAILED ***
+- SPARK-23957 Remove redundant sort from subquery plan(scalar subquery) *** FAILED ***
+- date type - cast to string *** FAILED ***
+- date type - cast from string *** FAILED ***
+- date type - cast to timestamp *** FAILED ***
+- date type - cast from timestamp *** FAILED ***
+- datetime function - unix_date *** FAILED ***
+- datetime function - to_date with format *** FAILED ***
+- SELECT structFieldComplex.Value.`value_(2)` FROM tableWithSchema *** FAILED ***
+- basic usage *** FAILED ***
+- input row metrics *** FAILED ***
+- verify ServerThread only accepts the first connection *** FAILED ***
+- filter pushdown - timestamp *** FAILED ***
+- deserialize all null *** FAILED ***
+- deserialize nullable string *** FAILED ***
+- Give up splitting aggregate code if a parameter length goes over the limit *** FAILED ***
+- Give up splitting subexpression code if a parameter length goes over the limit *** FAILED ***
+- groupBy *** FAILED ***
+- pivot with timestamp and count should not print internal representation *** FAILED ***
+- Columnar Cache Plugin *** FAILED ***
+- SPARK-28224: Aggregate sum big decimal overflow *** FAILED ***
+- SPARK-28067: Aggregate sum should not return wrong results for decimal overflow *** FAILED ***
+- describe *** FAILED ***
+- SPARK-18350 show with session local timezone *** FAILED ***
+- SPARK-18350 show with session local timezone, vertical = true *** FAILED ***
+- NaN is greater than all other non-NaN numeric values *** FAILED ***
+- sameResult() on aggregate *** FAILED ***
+- SPARK-19372: Filter can be executed w/o generated code due to JVM code size limit *** FAILED ***
+- SPARK-22271: mean overflows and returns null for some decimal variables *** FAILED ***
+- groupBy *** FAILED ***
+- Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
+- exception mode for parsing date/timestamp string *** FAILED ***
+- UDF input_file_name() *** FAILED ***
+- SPARK-22790,SPARK-27668: spark.sql.sources.compressionFactor takes effect *** FAILED ***
+- Spark vectorized reader - with partition data column - select only top-level fields *** FAILED ***
+- Spark vectorized reader - with partition data column - select only expressions without references *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after join *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after outer join *** FAILED ***
+- column type inference *** FAILED ***
+- parse partitions *** FAILED ***
+- SPARK-26327: FileSourceScanExec metrics *** FAILED ***
+- static scan metrics *** FAILED ***
+- partition pruning in broadcast hash joins with aliases *** FAILED ***
+- partition pruning in broadcast hash joins *** FAILED ***
+- avoid reordering broadcast join keys to match input hash partitioning *** FAILED ***
+- Plan broadcast pruning only when the broadcast can be reused *** FAILED ***
+- SPARK-32817: DPP throws error when the broadcast side is empty *** FAILED ***
+- SPARK-31159: compatibility with Spark 2.4 in reading dates/timestamps *** FAILED ***
+- SPARK-31159: rebasing timestamps in write *** FAILED ***
+- filter pushdown - timestamp *** FAILED ***
+- SPARK-31284, SPARK-31423: rebasing timestamps in write *** FAILED ***
+- column type inference *** FAILED ***
+- parse partitions *** FAILED ***
+- Spark vectorized reader - with partition data column - select only top-level fields *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after join *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after outer join *** FAILED ***
+- timeZone setting in dynamic partition writes *** FAILED ***
+- ReadOnlySQLConf is correctly created at the executor side *** FAILED ***
+- case-sensitive config should work for json schema inference *** FAILED ***
+- SPARK-24727 CODEGEN_CACHE_MAX_ENTRIES is correctly referenced at the executor side *** FAILED ***
+- SPARK-22219: refactor to control to generate comment *** FAILED ***
+- SPARK-28939: propagate SQLConf also in conversions to RDD *** FAILED ***
+- SPARK-30556 propagate local properties to subquery execution thread *** FAILED ***
+- SPARK-22590 propagate local properties to broadcast execution thread *** FAILED ***
+- SPARK-10634 timestamp written and read as INT64 - truncation *** FAILED ***
+- SPARK-10301 requested schema clipping - schemas with disjoint sets of fields *** FAILED ***
+- SPARK-26677: negated null-safe equality comparison should not filter matched row groups *** FAILED ***
+- returning batch for wide table *** FAILED ***
+- parquet timestamp conversion *** FAILED ***
+- Check schemas for expression examples *** FAILED ***
+- SPARK-20725: partial aggregate should behave correctly for sameResult *** FAILED ***
+- Generated code on driver should not embed platform-specific constant *** FAILED ***
+- distributed test *** FAILED ***
+- groupBy *** FAILED ***
+- environmental variables *** FAILED ***
+- columnar exchange same result *** FAILED ***
+- BroadcastExchange should cancel the job group if timeout *** FAILED ***
+- Spark vectorized reader - with partition data column - select only top-level fields *** FAILED ***
+- Spark vectorized reader - with partition data column - select only expressions without references *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after join *** FAILED ***
+- Spark vectorized reader - with partition data column - select one deep nested complex field after outer join *** FAILED ***
+- alternative output committer, merge schema *** FAILED ***
+- alternative output committer, no merge schema *** FAILED ***
+- Parquet output committer, merge schema *** FAILED ***
+- Parquet output committer, no merge schema *** FAILED ***
+- input_file_name, input_file_block_start, input_file_block_length - more than one source *** FAILED ***
+- input_file_name, input_file_block_start, input_file_block_length - FileScanRDD *** FAILED ***
+- arrow_udf test *** FAILED ***
+- unsafe broadcast hash join updates peak execution memory *** FAILED ***
+- unsafe broadcast hash outer join updates peak execution memory *** FAILED ***
+- unsafe broadcast left semi join updates peak execution memory *** FAILED ***
+- SPARK-23192: broadcast hint should be retained after using the cached data *** FAILED ***
+- SPARK-23214: cached data should not carry extra hint info *** FAILED ***
+- broadcast hint in SQL *** FAILED ***
+- Broadcast timeout *** FAILED ***
+- broadcast join where streamed side's output partitioning is HashPartitioning *** FAILED ***
+- broadcast join where streamed side's output partitioning is PartitioningCollection *** FAILED ***
+- BroadcastHashJoinExec output partitioning size should be limited with a config *** FAILED ***
+- Casting long as timestamp *** FAILED ***
+- Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
+- exception mode for parsing date/timestamp string *** FAILED ***
+- columnar batch scan implementation *** FAILED ***
+- Casting long as timestamp *** FAILED ***
+- Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
+- exception mode for parsing date/timestamp string *** FAILED ***
+- Casting long as timestamp *** FAILED ***
+- Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
+- exception mode for parsing date/timestamp string *** FAILED ***
+- Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
+- exception mode for parsing date/timestamp string *** FAILED ***
+- SPARK-33521: universal type conversions of partition values *** FAILED ***
+- SPARK-15824 - Execute an INSERT wrapped in a WITH statement immediately *** FAILED ***
+- except *** FAILED ***
+- intersect *** FAILED ***
+- SPARK-17123: Performing set operations that combine non-scala native types *** FAILED ***
+- union by name - type coercion *** FAILED ***
+- SPARK-34144: write Date and Timestampt, read LocalDate and Instant *** FAILED ***
+- SPARK-34144: write LocalDate and Instant, read Date and Timestampt *** FAILED ***
+- Explain formatted *** FAILED ***

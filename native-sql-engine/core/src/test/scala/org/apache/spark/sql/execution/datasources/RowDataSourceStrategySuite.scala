@@ -57,7 +57,7 @@ class RowDataSourceStrategySuite extends SharedSparkSession with BeforeAndAfter 
     conn.close()
   }
 
-  test("SPARK-17673: Exchange reuse respects differences in output schema") {
+  ignore("SPARK-17673: Exchange reuse respects differences in output schema") {
     val df = sql("SELECT * FROM inttypes")
     val df1 = df.groupBy("a").agg("b" -> "min")
     val df2 = df.groupBy("a").agg("c" -> "min")
