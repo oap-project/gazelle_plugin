@@ -983,7 +983,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   }
 
   arrow::Status Spill(int64_t size, int64_t* spilled_size) {
-    //inplace sort does not support spill
+    // inplace sort does not support spill
     *spilled_size = 0;
 
     return arrow::Status::OK();
