@@ -496,14 +496,25 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
       case ArrowComputeResultType::None: {
         std::vector<std::shared_ptr<arrow::Array>> col_list;
         for (auto col : p_->in_record_batch_->columns()) {
-          col_list.push_back(col);
+          col_list.push_back(std::move(col));
         }
+        p_->in_record_batch_holder_.push_back(std::move(p_->in_record_batch_));
         RETURN_NOT_OK(kernel_->Evaluate(col_list));
       } break;
       default:
         return arrow::Status::NotImplemented(
             "SortArraysToIndicesVisitorImpl: Does not support this type of "
             "input.");
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Spill(int64_t size, int64_t* spilled_size) override {
+    std::cout << "target size: " << size << std::endl;
+    RETURN_NOT_OK(kernel_->Spill(size, spilled_size));
+
+    if (*spilled_size != 0) {
+      (p_->in_record_batch_holder_).clear();
     }
     return arrow::Status::OK();
   }
