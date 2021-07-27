@@ -30,7 +30,6 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   def getCpu(): Boolean = {
     val source = scala.io.Source.fromFile("/proc/cpuinfo")
     val lines = try source.mkString finally source.close()
-    return true
     //TODO(): check CPU flags to enable/disable AVX512
     if (lines.contains("GenuineIntel")) {
       return true
