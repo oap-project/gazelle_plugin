@@ -18,8 +18,11 @@ RUN yum install -y \
     libdigest-sha-perl \
     bzip2
 
+ENV HTTP_PROXY http://child-prc.intel.com:913
+ENV HTTPS_PROXY http://child-prc.intel.com:913
+
 # Download miniconda 4.5.12, then upgrade it to 4.8.4
-RUN wget --quiet --output-document miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-4.5.12-Linux-x86_64.sh \
+RUN wget --secure-protocol=TLSv1_2 --output-document miniconda.sh https://repo.continuum.io/miniconda/Miniconda3-4.5.12-Linux-x86_64.sh \
     && (echo '866ae9dff53ad0874e1d1a60b1ad1ef8  miniconda.sh' | md5sum -c) \
     # Conda must be installed at /opt/home/conda
     && /bin/bash miniconda.sh -b -p /opt/home/conda \

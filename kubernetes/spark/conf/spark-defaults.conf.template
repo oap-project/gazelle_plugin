@@ -1,4 +1,3 @@
-#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
@@ -16,11 +15,13 @@
 # limitations under the License.
 #
 
-$SPARK_HOME/bin/spark-submit \
-    --master k8s://$kubernetes_svc_address \
-    --deploy-mode client \
-    --conf spark.kubernetes.container.image=$spark_kubernetes_container_image \
-    --conf spark.kubernetes.driver.pod.name=$spark_kubernetes_driver_pod_name \
-    --conf spark.driver.host=$spark_driver_host  \
-    --conf spark.driver.port=$spark_driver_port \
-    "$@"
+# Default system properties included when running spark-submit.
+# This is useful for setting default environmental settings.
+
+# Example:
+# spark.master                     spark://master:7077
+# spark.eventLog.enabled           true
+# spark.eventLog.dir               hdfs://namenode:8021/directory
+# spark.serializer                 org.apache.spark.serializer.KryoSerializer
+# spark.driver.memory              5g
+# spark.executor.extraJavaOptions  -XX:+PrintGCDetails -Dkey=value -Dnumbers="one two three"

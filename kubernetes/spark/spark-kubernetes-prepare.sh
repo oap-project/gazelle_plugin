@@ -16,11 +16,5 @@
 # limitations under the License.
 #
 
-$SPARK_HOME/bin/spark-submit \
-    --master k8s://$kubernetes_svc_address \
-    --deploy-mode client \
-    --conf spark.kubernetes.container.image=$spark_kubernetes_container_image \
-    --conf spark.kubernetes.driver.pod.name=$spark_kubernetes_driver_pod_name \
-    --conf spark.driver.host=$spark_driver_host  \
-    --conf spark.driver.port=$spark_driver_port \
-    "$@"
+kubectl create serviceaccount spark
+kubectl create clusterrolebinding spark-role --clusterrole=edit --serviceaccount=default:spark --namespace=default
