@@ -100,9 +100,7 @@ class RelationColumn {
                                               int field_id) {
     return arrow::Status::NotImplemented("RelationColumn AppendColumn is abstract.");
   };
-  virtual arrow::Status AdvanceTo(int array_id) {
-    return arrow::Status::NotImplemented("RelationColumn Advance is abstract.");
-  };
+  virtual void AdvanceTo(int array_id) {};
   virtual int32_t Advance(int32_t array_offset) { return -1; };
   virtual arrow::Status ReleaseArray(int array_id) = 0;
   virtual arrow::Status GetArrayVector(std::vector<std::shared_ptr<arrow::Array>>* out) {
@@ -231,9 +229,9 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
     return arrow::Status::OK();
   };
 
-  arrow::Status AdvanceTo(int array_id) override {
+  void AdvanceTo(int array_id) override {
     if (array_id < current_array_id_) {
-      return arrow::Status::OK();
+      return;
     }
     for (int i = current_array_id_; i <= array_id; i++) {
       std::shared_ptr<arrow::RecordBatch> batch = in_->GetBatch(i);
@@ -243,7 +241,7 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
       array_released.push_back(false);
     }
     current_array_id_ = array_id + 1;
-    return arrow::Status::OK();
+    return;
   }
 
   // return actual advanced array count
@@ -317,9 +315,9 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
     return arrow::Status::OK();
   };
 
-  arrow::Status AdvanceTo(int array_id) override {
+  void AdvanceTo(int array_id) override {
     if (array_id < current_array_id_) {
-      return arrow::Status::OK();
+      return;
     }
     for (int i = current_array_id_; i <= array_id; i++) {
       std::shared_ptr<arrow::RecordBatch> batch = in_->GetBatch(i);
@@ -329,7 +327,7 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
       array_released.push_back(false);
     }
     current_array_id_ = array_id + 1;
-    return arrow::Status::OK();
+    return;
   }
 
   // return actual advanced array count
