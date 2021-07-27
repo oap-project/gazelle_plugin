@@ -43,6 +43,7 @@
     <nativesql.arrow.bfs.install.dir>${project.basedir}/../../arrow-data-source/script/build/arrow_install</nativesql.arrow.bfs.install.dir>
     <nativesql.arrow_root>${arrow_root}</nativesql.arrow_root>
     <nativesql.build_protobuf>${build_protobuf}</nativesql.build_protobuf>
+    <nativesql.build_jemalloc>${build_jemalloc}</nativesql.build_jemalloc>
   </properties>
   <dependencies>
     <!-- Prevent our dummy JAR from being included in Spark distributions or uploaded to YARN -->
@@ -332,6 +333,7 @@
                           <argument>${nativesql.build_protobuf}</argument>
                           <argument>${nativesql.arrow_root}</argument>
                           <argument>${nativesql.arrow.bfs.install.dir}</argument>
+                          <argument>${nativesql.build_jemalloc}</argument>
                       </arguments>
                   </configuration>
               </execution>
