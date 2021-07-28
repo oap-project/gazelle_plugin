@@ -270,7 +270,6 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           last_pos(0),
           idx_to_arrarid_(idx_to_arrarid),
           cached_in_(cached_in), exist_index_(exist_index) {
-            std::cout << "schema: " << schema->ToString() << std::endl;
 
       int result_col_num = schema->num_fields();
 
@@ -292,7 +291,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           appender_type = AppenderBase::exist;
           type = arrow::boolean();
         }
-        std::cout << "adding : " << type->ToString() << std::endl;
+
         std::shared_ptr<AppenderBase> appender;
         MakeAppender(ctx_, type, appender_type, &appender);
         appender_list_.push_back(appender);

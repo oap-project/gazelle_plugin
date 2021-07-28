@@ -60,7 +60,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingInnerJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysInner",
+  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinInner",
         {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
 
   auto n_standalone = TreeExprBuilder::MakeFunction(
@@ -175,7 +175,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingOuterJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysOuter",
+  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinOuter",
         {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_standalone = TreeExprBuilder::MakeFunction(
       "standalone", {n_probeArrays}, uint32());
@@ -292,7 +292,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingAntiJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysAnti",
+  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinAnti",
         {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_standalone = TreeExprBuilder::MakeFunction(
       "standalone", {n_probeArrays}, uint32());
@@ -402,7 +402,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingSemiJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysSemi",
+  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinSemi",
         {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_standalone = TreeExprBuilder::MakeFunction(
       "standalone", {n_probeArrays}, uint32());
@@ -514,7 +514,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingExistenceJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedJoinArraysExistence",
+  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinExistence",
         {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
   auto n_standalone = TreeExprBuilder::MakeFunction(
       "standalone", {n_probeArrays}, uint32());
