@@ -52,7 +52,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingInnerJoin) {
       "codegen_left_key_schema", {TreeExprBuilder::MakeField(table0_f0)}, uint32());
   auto n_right_key = TreeExprBuilder::MakeFunction(
       "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
-   auto n_result = TreeExprBuilder::MakeFunction(
+  auto n_result = TreeExprBuilder::MakeFunction(
       "result",
       {TreeExprBuilder::MakeField(table0_f0), TreeExprBuilder::MakeField(table0_f1),
        TreeExprBuilder::MakeField(table0_f2), TreeExprBuilder::MakeField(table1_f0),
@@ -60,11 +60,12 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingInnerJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinInner",
-        {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedMergeJoinInner",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
 
-  auto n_standalone = TreeExprBuilder::MakeFunction(
-      "standalone", {n_probeArrays}, uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
@@ -74,8 +75,8 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingInnerJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -175,10 +176,11 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingOuterJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinOuter",
-        {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone = TreeExprBuilder::MakeFunction(
-      "standalone", {n_probeArrays}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedMergeJoinOuter",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
@@ -188,8 +190,8 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingOuterJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
       {table0_f0, table0_f1, table0_f2, table1_f0, table1_f1}, &expr_probe, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;
@@ -224,7 +226,8 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingOuterJoin) {
   std::vector<std::shared_ptr<RecordBatch>> expected_table;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[0, 0, null, 2, 2, 3, null, 5, null]", "[null, null, null, 2, 2, 3, null, 5, null]",
+      "[0, 0, null, 2, 2, 3, null, 5, null]",
+      "[null, null, null, 2, 2, 3, null, 5, null]",
       "[null, null, null, 2, 2, 3, null, 5, null]", "[0, 0, 1, 2, 2, 3, 4, 5, 6]",
       "[null, null, 1, 2, 2, 3, 4, 5, 6]"};
   auto res_sch = arrow::schema({f_res, f_res, f_res, f_res, f_res});
@@ -287,17 +290,16 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingAntiJoin) {
       "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "result",
-      {TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinAnti",
-        {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone = TreeExprBuilder::MakeFunction(
-      "standalone", {n_probeArrays}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedMergeJoinAnti",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
-
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
   auto schema_table_1 = arrow::schema({table1_f0, table1_f1});
@@ -306,7 +308,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingAntiJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -397,15 +399,15 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingSemiJoin) {
       "codegen_right_key_schema", {TreeExprBuilder::MakeField(table1_f0)}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "result",
-      {TreeExprBuilder::MakeField(table1_f0),
-       TreeExprBuilder::MakeField(table1_f1)},
+      {TreeExprBuilder::MakeField(table1_f0), TreeExprBuilder::MakeField(table1_f1)},
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinSemi",
-        {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone = TreeExprBuilder::MakeFunction(
-      "standalone", {n_probeArrays}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedMergeJoinSemi",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
@@ -415,7 +417,7 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingSemiJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),schema_table_0, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0, {probeArrays_expr},
                                     {table1_f0, table1_f1}, &expr_probe, true));
   std::shared_ptr<arrow::RecordBatch> input_batch;
 
@@ -481,7 +483,6 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingSemiJoin) {
   }
 }
 
-
 // Test case for "exists" col locating in the middle of result_schema
 TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingExistenceJoin) {
   ////////////////////// prepare expr_vector ///////////////////////
@@ -514,10 +515,11 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingExistenceJoin) {
       uint32());
   auto n_hash_config = TreeExprBuilder::MakeFunction(
       "build_keys_config_node", {TreeExprBuilder::MakeLiteral((int)0)}, uint32());
-  auto n_probeArrays = TreeExprBuilder::MakeFunction("conditionedMergeJoinExistence",
-        {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
-  auto n_standalone = TreeExprBuilder::MakeFunction(
-      "standalone", {n_probeArrays}, uint32());
+  auto n_probeArrays = TreeExprBuilder::MakeFunction(
+      "conditionedMergeJoinExistence",
+      {n_left, n_right, n_left_key, n_right_key, n_result, n_hash_config}, uint32());
+  auto n_standalone =
+      TreeExprBuilder::MakeFunction("standalone", {n_probeArrays}, uint32());
   auto probeArrays_expr = TreeExprBuilder::MakeExpression(n_standalone, f_res);
 
   auto schema_table_0 = arrow::schema({table0_f0, table0_f1, table0_f2});
@@ -527,8 +529,8 @@ TEST(TestArrowComputeMergeJoinWOCG, JoinTestUsingExistenceJoin) {
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr_probe;
   arrow::compute::ExecContext ctx;
-  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(),
-      schema_table_0, {probeArrays_expr},
+  ASSERT_NOT_OK(CreateCodeGenerator(
+      ctx.memory_pool(), schema_table_0, {probeArrays_expr},
       {table1_f0, field("table1_exists", boolean()), table1_f1}, &expr_probe, true));
 
   std::shared_ptr<arrow::RecordBatch> input_batch;

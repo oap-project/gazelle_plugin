@@ -775,9 +775,9 @@ class ConditionedProbeArraysVisitorImpl : public ExprVisitorImpl {
 class MergeJoinArraysVisitorImpl : public ExprVisitorImpl {
  public:
   MergeJoinArraysVisitorImpl(std::vector<std::shared_ptr<arrow::Field>> field_list,
-                                    std::shared_ptr<gandiva::FunctionNode> root_node,
-                                    std::vector<std::shared_ptr<arrow::Field>> ret_fields,
-                                    ExprVisitor* p)
+                             std::shared_ptr<gandiva::FunctionNode> root_node,
+                             std::vector<std::shared_ptr<arrow::Field>> ret_fields,
+                             ExprVisitor* p)
       : root_node_(root_node),
         field_list_(field_list),
         ret_fields_(ret_fields),
@@ -806,9 +806,9 @@ class MergeJoinArraysVisitorImpl : public ExprVisitorImpl {
     result_field_list_ =
         std::dynamic_pointer_cast<gandiva::FunctionNode>(children[4])->children();
     if (children.size() > 6) {
-    hash_configuration_list_ =
-        std::dynamic_pointer_cast<gandiva::FunctionNode>(children[5])->children();
-    
+      hash_configuration_list_ =
+          std::dynamic_pointer_cast<gandiva::FunctionNode>(children[5])->children();
+
       condition_ =
           std::dynamic_pointer_cast<gandiva::FunctionNode>(children[6])->children()[0];
     }
@@ -818,7 +818,7 @@ class MergeJoinArraysVisitorImpl : public ExprVisitorImpl {
                             std::vector<std::shared_ptr<arrow::Field>> ret_fields,
                             ExprVisitor* p, std::shared_ptr<ExprVisitorImpl>* out) {
     auto impl = std::make_shared<MergeJoinArraysVisitorImpl>(field_list, root_node,
-                                                                    ret_fields, p);
+                                                             ret_fields, p);
     *out = impl;
     return arrow::Status::OK();
   }
@@ -885,7 +885,6 @@ class MergeJoinArraysVisitorImpl : public ExprVisitorImpl {
   gandiva::NodeVector result_field_list_;
   gandiva::NodeVector hash_configuration_list_;
 };
-
 
 ////////////////////////// WholeStageCodeGenVisitorImpl ///////////////////////
 class WholeStageCodeGenVisitorImpl : public ExprVisitorImpl {

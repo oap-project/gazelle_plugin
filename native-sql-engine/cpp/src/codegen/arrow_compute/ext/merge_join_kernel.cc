@@ -24,8 +24,8 @@
 #include <fcntl.h>
 #include <gandiva/configuration.h>
 #include <gandiva/node.h>
-#include <gandiva/tree_expr_builder.h>
 #include <gandiva/projector.h>
+#include <gandiva/tree_expr_builder.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -58,20 +58,16 @@ using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 class ConditionedJoinKernel::Impl {
  public:
   Impl() {}
-  Impl(arrow::compute::ExecContext* ctx,
-       const gandiva::NodeVector& left_key_node_list,
+  Impl(arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_node_list,
        const gandiva::NodeVector& right_key_node_list,
        const gandiva::NodeVector& left_schema_node_list,
        const gandiva::NodeVector& right_schema_node_list,
        const gandiva::NodePtr& condition, int join_type,
        const gandiva::NodeVector& result_node_list,
-       const gandiva::NodeVector& hash_configuration_list, int hash_relation_idx): ctx_(ctx),
-        join_type_(join_type), condition_(condition) {
-       }
+       const gandiva::NodeVector& hash_configuration_list, int hash_relation_idx)
+      : ctx_(ctx), join_type_(join_type), condition_(condition) {}
   virtual ~Impl() {}
-  virtual arrow::Status Evaluate( ArrayList& in) {
-    return arrow::Status::OK();
-  }
+  virtual arrow::Status Evaluate(ArrayList& in) { return arrow::Status::OK(); }
 
   std::string GetSignature() { return ""; }
 
@@ -81,7 +77,7 @@ class ConditionedJoinKernel::Impl {
     return arrow::Status::OK();
   }
 
-   arrow::Status DoCodeGen(
+  arrow::Status DoCodeGen(
       int level,
       std::vector<std::pair<std::pair<std::string, std::string>, gandiva::DataTypePtr>>
           input,
@@ -95,7 +91,6 @@ class ConditionedJoinKernel::Impl {
   std::string signature_;
   int join_type_;
   gandiva::NodePtr condition_;
-
 };
 
 arrow::Status ConditionedJoinKernel::Make(
@@ -112,8 +107,8 @@ arrow::Status ConditionedJoinKernel::Make(
   return arrow::Status::OK();
 }
 
-//TODO: implement multiple keys
-template<typename... ArrowType>
+// TODO: implement multiple keys
+template <typename... ArrowType>
 class TypedJoinKernel : public ConditionedJoinKernel::Impl {
  public:
   TypedJoinKernel(arrow::compute::ExecContext* ctx,
@@ -139,13 +134,13 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           std::dynamic_pointer_cast<gandiva::FieldNode>(node)->field());
     }
     result_schema = std::make_shared<arrow::Schema>(result_schema_);
-    //TODO(): fix with multiple keys
+    // TODO(): fix with multiple keys
     if (join_type == 4) {
       exist_index_ = 1;
     }
   }
 
-  arrow::Status Evaluate( ArrayList& in) override {
+  arrow::Status Evaluate(ArrayList& in) override {
     col_num_ = left_field_list_.size();
 
     if (cached_.size() <= col_num_) {
@@ -154,7 +149,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
     for (int i = 0; i < col_num_; i++) {
       cached_[i].push_back(in[i]);
     }
-    //TODO: fix key col
+    // TODO: fix key col
     auto typed_array_0 = std::dynamic_pointer_cast<ArrayType>(in[0]);
     left_list_.emplace_back(typed_array_0);
     idx_to_arrarid_.push_back(typed_array_0->length());
@@ -181,8 +176,10 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
   }
 
  private:
-  using ArrayType = typename arrow::TypeTraits<typename std::tuple_element<0, std::tuple<ArrowType...> >::type>::ArrayType;
-  using ArrayType1 = typename arrow::TypeTraits<typename std::tuple_element<1, std::tuple<ArrowType...> >::type>::ArrayType;
+  using ArrayType = typename arrow::TypeTraits<
+      typename std::tuple_element<0, std::tuple<ArrowType...>>::type>::ArrayType;
+  using ArrayType1 = typename arrow::TypeTraits<
+      typename std::tuple_element<1, std::tuple<ArrowType...>>::type>::ArrayType;
   arrow::compute::ExecContext* ctx_;
   arrow::MemoryPool* pool_;
   std::string signature_;
@@ -240,9 +237,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
       }
       passed_len++;
     }
-    ArrayItemIndex GetArrayItemIdex() {
-      return ArrayItemIndex(idx, segment_len);
-    }
+    ArrayItemIndex GetArrayItemIdex() { return ArrayItemIndex(idx, segment_len); }
 
    public:
     std::vector<std::shared_ptr<ArrayType>>* left_list_;
@@ -257,20 +252,18 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
   class ProberResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
     ProberResultIterator(arrow::compute::ExecContext* ctx,
-                         std::shared_ptr<arrow::Schema> schema,
-                         int join_type,
+                         std::shared_ptr<arrow::Schema> schema, int join_type,
                          std::vector<std::shared_ptr<ArrayType>>* left_list,
                          std::vector<int64_t>* idx_to_arrarid,
-                         std::vector<arrow::ArrayVector> cached_in,
-                         int exist_index)
+                         std::vector<arrow::ArrayVector> cached_in, int exist_index)
         : ctx_(ctx),
           result_schema_(schema),
           join_type_(join_type),
           left_list_(left_list),
           last_pos(0),
           idx_to_arrarid_(idx_to_arrarid),
-          cached_in_(cached_in), exist_index_(exist_index) {
-
+          cached_in_(cached_in),
+          exist_index_(exist_index) {
       int result_col_num = schema->num_fields();
 
       left_result_col_num = cached_in.size();
@@ -308,40 +301,37 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
       left_it = std::make_shared<FVector>(left_list_, *idx_to_arrarid_);
 
       switch (join_type_) {
-          case 0: { /*Inner Join*/
-            auto func = std::make_shared<InnerProbeFunction>(left_it, appender_list_);
-            probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
-          } break;
-          case 1: { /*Outer Join*/
-            auto func = std::make_shared<OuterProbeFunction>(left_it, appender_list_);
-            probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
-          } break;
-          case 2: { /*Anti Join*/
-            auto func =
-                std::make_shared<AntiProbeFunction>(left_it, appender_list_);
-            probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
-          } break;
-          case 3: { /*Semi Join*/
-            auto func =
-                std::make_shared<SemiProbeFunction>(left_it, appender_list_);
-            probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
-          } break;
-          case 4: { /*Existence Join*/
-            auto func = std::make_shared<ExistenceProbeFunction>(left_it, appender_list_);
-            probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
-          } break;
-          default:
-            throw;
-        }
+        case 0: { /*Inner Join*/
+          auto func = std::make_shared<InnerProbeFunction>(left_it, appender_list_);
+          probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
+        } break;
+        case 1: { /*Outer Join*/
+          auto func = std::make_shared<OuterProbeFunction>(left_it, appender_list_);
+          probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
+        } break;
+        case 2: { /*Anti Join*/
+          auto func = std::make_shared<AntiProbeFunction>(left_it, appender_list_);
+          probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
+        } break;
+        case 3: { /*Semi Join*/
+          auto func = std::make_shared<SemiProbeFunction>(left_it, appender_list_);
+          probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
+        } break;
+        case 4: { /*Existence Join*/
+          auto func = std::make_shared<ExistenceProbeFunction>(left_it, appender_list_);
+          probe_func_ = std::dynamic_pointer_cast<ProbeFunctionBase>(func);
+        } break;
+        default:
+          throw;
+      }
     }
 
     arrow::Status Process(const ArrayList& in, std::shared_ptr<arrow::RecordBatch>* out,
                           const std::shared_ptr<arrow::Array>& selection) override {
-
       std::shared_ptr<arrow::Array> key_array = in[0];
       arrow::ArrayVector projected_keys_outputs;
 
-      //update right appender
+      // update right appender
       if (join_type_ == 4) {
         // do not touch the middle existence column
         for (int i = 0; i < appender_list_.size(); i++) {
@@ -349,7 +339,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
             continue;
           }
           if (i > exist_index_) {
-            appender_list_[i]->AddArray(in[i-1]);
+            appender_list_[i]->AddArray(in[i - 1]);
           } else {
             appender_list_[i]->AddArray(in[i]);
           }
@@ -389,12 +379,12 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
       }
     };
     class InnerProbeFunction : public ProbeFunctionBase {
-      public:
-        InnerProbeFunction(std::shared_ptr<FVector> left_it,
-                           std::vector<std::shared_ptr<AppenderBase>> appender_list):
-        left_it(left_it), appender_list_(appender_list) {}
+     public:
+      InnerProbeFunction(std::shared_ptr<FVector> left_it,
+                         std::vector<std::shared_ptr<AppenderBase>> appender_list)
+          : left_it(left_it), appender_list_(appender_list) {}
 
-        uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
+      uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
 
         uint64_t out_length = 0;
@@ -403,7 +393,8 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           while (left_it->hasnext() && left_it->value() < right_content) {
             left_it->next();
           }
-          int64_t cur_idx, seg_len, pl; left_it->getpos(&cur_idx, &seg_len, &pl);
+          int64_t cur_idx, seg_len, pl;
+          left_it->getpos(&cur_idx, &seg_len, &pl);
           while (left_it->hasnext() && left_it->value() == right_content) {
             auto item = left_it->GetArrayItemIdex();
             for (auto& appender : appender_list_) {
@@ -421,16 +412,17 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
         return out_length;
       }
 
-      private:
-        std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-        std::shared_ptr<FVector> left_it;
+     private:
+      std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      std::shared_ptr<FVector> left_it;
     };
 
     class OuterProbeFunction : public ProbeFunctionBase {
-      public:
-        OuterProbeFunction(std::shared_ptr<FVector> left_it, std::vector<std::shared_ptr<AppenderBase>> appender_list): left_it(left_it), appender_list_(appender_list){
-        }
-        uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
+     public:
+      OuterProbeFunction(std::shared_ptr<FVector> left_it,
+                         std::vector<std::shared_ptr<AppenderBase>> appender_list)
+          : left_it(left_it), appender_list_(appender_list) {}
+      uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
 
         uint64_t out_length = 0;
@@ -440,7 +432,8 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           while (left_it->hasnext() && left_it->value() < right_content) {
             left_it->next();
           }
-          int64_t cur_idx, seg_len, pl; left_it->getpos(&cur_idx, &seg_len, &pl);
+          int64_t cur_idx, seg_len, pl;
+          left_it->getpos(&cur_idx, &seg_len, &pl);
           while (left_it->hasnext() && left_it->value() == right_content) {
             auto item = left_it->GetArrayItemIdex();
             for (auto& appender : appender_list_) {
@@ -455,7 +448,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
             left_it->next();
           }
           left_it->setpos(cur_idx, seg_len, pl);
-          if(left_it->value() > right_content && left_it->hasnext() ) {
+          if (left_it->value() > right_content && left_it->hasnext()) {
             if (last_match_idx == i) {
               continue;
             }
@@ -481,35 +474,38 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
         }
         return out_length;
       }
-      private:
-        std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-        std::shared_ptr<FVector> left_it;
+
+     private:
+      std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      std::shared_ptr<FVector> left_it;
     };
 
-    //TODO(): implement full outer
+    // TODO(): implement full outer
     class FullOuterProbeFunction : public ProbeFunctionBase {
-      public:
-        FullOuterProbeFunction(std::shared_ptr<FVector> left_it, std::vector<std::shared_ptr<AppenderBase>> appender_list): left_it(left_it), appender_list_(appender_list){
-        }
-        uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
+     public:
+      FullOuterProbeFunction(std::shared_ptr<FVector> left_it,
+                             std::vector<std::shared_ptr<AppenderBase>> appender_list)
+          : left_it(left_it), appender_list_(appender_list) {}
+      uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
 
         uint64_t out_length = 0;
         for (int i = 0; i < key_array->length(); i++) {
-
         }
         return out_length;
       }
-      private:
-        std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-        std::shared_ptr<FVector> left_it;
+
+     private:
+      std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      std::shared_ptr<FVector> left_it;
     };
 
     class SemiProbeFunction : public ProbeFunctionBase {
-      public:
-        SemiProbeFunction(std::shared_ptr<FVector> left_it, std::vector<std::shared_ptr<AppenderBase>> appender_list):left_it(left_it), appender_list_(appender_list){
-        }
-        uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
+     public:
+      SemiProbeFunction(std::shared_ptr<FVector> left_it,
+                        std::vector<std::shared_ptr<AppenderBase>> appender_list)
+          : left_it(left_it), appender_list_(appender_list) {}
+      uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
 
         uint64_t out_length = 0;
@@ -518,7 +514,8 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           while (left_it->hasnext() && left_it->value() < right_content) {
             left_it->next();
           }
-          int64_t cur_idx, seg_len, pl; left_it->getpos(&cur_idx, &seg_len, &pl);
+          int64_t cur_idx, seg_len, pl;
+          left_it->getpos(&cur_idx, &seg_len, &pl);
           if (left_it->value() == right_content && left_it->hasnext()) {
             for (auto& appender : appender_list_) {
               if (appender->GetType() == AppenderBase::right) {
@@ -532,16 +529,18 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
         }
         return out_length;
       }
-      private:
-        std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-        std::shared_ptr<FVector> left_it;
+
+     private:
+      std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      std::shared_ptr<FVector> left_it;
     };
 
     class AntiProbeFunction : public ProbeFunctionBase {
-      public:
-        AntiProbeFunction(std::shared_ptr<FVector> left_it, std::vector<std::shared_ptr<AppenderBase>> appender_list):left_it(left_it), appender_list_(appender_list){
-        }
-        uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
+     public:
+      AntiProbeFunction(std::shared_ptr<FVector> left_it,
+                        std::vector<std::shared_ptr<AppenderBase>> appender_list)
+          : left_it(left_it), appender_list_(appender_list) {}
+      uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
 
         uint64_t out_length = 0;
@@ -551,7 +550,8 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           while (left_it->hasnext() && left_it->value() < right_content) {
             left_it->next();
           }
-          int64_t cur_idx, seg_len, pl; left_it->getpos(&cur_idx, &seg_len, &pl);
+          int64_t cur_idx, seg_len, pl;
+          left_it->getpos(&cur_idx, &seg_len, &pl);
           while (left_it->hasnext() && left_it->value() == right_content) {
             last_match_idx = i;
             left_it->next();
@@ -579,16 +579,18 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
         }
         return out_length;
       }
-      private:
-        std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-        std::shared_ptr<FVector> left_it;
+
+     private:
+      std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      std::shared_ptr<FVector> left_it;
     };
 
     class ExistenceProbeFunction : public ProbeFunctionBase {
-      public:
-        ExistenceProbeFunction(std::shared_ptr<FVector> left_it, std::vector<std::shared_ptr<AppenderBase>> appender_list): left_it(left_it), appender_list_(appender_list){
-        }
-        uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
+     public:
+      ExistenceProbeFunction(std::shared_ptr<FVector> left_it,
+                             std::vector<std::shared_ptr<AppenderBase>> appender_list)
+          : left_it(left_it), appender_list_(appender_list) {}
+      uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array) override {
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
 
         uint64_t out_length = 0;
@@ -598,19 +600,20 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
           while (left_it->hasnext() && left_it->value() < right_content) {
             left_it->next();
           }
-          int64_t cur_idx, seg_len, pl; left_it->getpos(&cur_idx, &seg_len, &pl);
+          int64_t cur_idx, seg_len, pl;
+          left_it->getpos(&cur_idx, &seg_len, &pl);
           if (left_it->hasnext() && left_it->value() == right_content) {
-                        for (auto& appender : appender_list_) {
+            for (auto& appender : appender_list_) {
               if (appender->GetType() == AppenderBase::right) {
                 appender->Append(0, i);
-              } else { // should be existence column
+              } else {  // should be existence column
                 appender->AppendExistence(true);
               }
             }
             out_length += 1;
             last_match_idx = i;
             while (left_it->hasnext() && left_it->value() == right_content) {
-               left_it->next();
+              left_it->next();
             }
           }
           left_it->setpos(cur_idx, seg_len, pl);
@@ -621,7 +624,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
             for (auto& appender : appender_list_) {
               if (appender->GetType() == AppenderBase::right) {
                 appender->Append(0, i);
-              } else { // should be existence column
+              } else {  // should be existence column
                 appender->AppendExistence(false);
               }
             }
@@ -631,7 +634,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
             for (auto& appender : appender_list_) {
               if (appender->GetType() == AppenderBase::right) {
                 appender->Append(0, i);
-              } else { // should be existence column
+              } else {  // should be existence column
                 appender->AppendExistence(false);
               }
             }
@@ -640,9 +643,10 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
         }
         return out_length;
       }
-      private:
-        std::vector<std::shared_ptr<AppenderBase>> appender_list_;
-        std::shared_ptr<FVector> left_it;
+
+     private:
+      std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+      std::shared_ptr<FVector> left_it;
     };
 
    private:
@@ -691,7 +695,7 @@ ConditionedJoinKernel::ConditionedJoinKernel(
     std::shared_ptr<gandiva::FieldNode> field_node;
     THROW_NOT_OK(MakeTypedNodeVisitor(key_node, &node_visitor));
     if (node_visitor->GetResultType() == TypedNodeVisitor::FieldNode) {
-        node_visitor->GetTypedNode(&field_node);
+      node_visitor->GetTypedNode(&field_node);
     }
     switch (field_node->field()->type()->id()) {
 #define PROCESS(InType)                                                          \
@@ -708,20 +712,20 @@ ConditionedJoinKernel::ConditionedJoinKernel(
                   << field_node->field()->type() << std::endl;
       } break;
     }
-    //using type = decltype(field_node->field()->type()->id());
-    //constexpr auto type = field_node->field()->type()->id();
-    //using keytype = precompile::TypeIdTraits<type>::Type;
-    //using keytype = precompile::TypeIdTraits<arrow::Type::UINT32>::Type;
-    //using keytype = typename precompile::TypeTraits<InType>::ArrayType; 
-    //impl_.reset(new TypedJoinKernel<arrow::UInt32Type>(
-      // impl_.reset(new TypedJoinKernel<keytype>(
-      //   ctx, left_key_list, right_key_list, left_schema_list,
-      //                  right_schema_list, condition, join_type, result_schema,
-      //                  hash_configuration_list, hash_relation_idx));
+    // using type = decltype(field_node->field()->type()->id());
+    // constexpr auto type = field_node->field()->type()->id();
+    // using keytype = precompile::TypeIdTraits<type>::Type;
+    // using keytype = precompile::TypeIdTraits<arrow::Type::UINT32>::Type;
+    // using keytype = typename precompile::TypeTraits<InType>::ArrayType;
+    // impl_.reset(new TypedJoinKernel<arrow::UInt32Type>(
+    // impl_.reset(new TypedJoinKernel<keytype>(
+    //   ctx, left_key_list, right_key_list, left_schema_list,
+    //                  right_schema_list, condition, join_type, result_schema,
+    //                  hash_configuration_list, hash_relation_idx));
   } else {
-  impl_.reset(new Impl(ctx, left_key_list, right_key_list, left_schema_list,
-                       right_schema_list, condition, join_type, result_schema,
-                       hash_configuration_list, hash_relation_idx));
+    impl_.reset(new Impl(ctx, left_key_list, right_key_list, left_schema_list,
+                         right_schema_list, condition, join_type, result_schema,
+                         hash_configuration_list, hash_relation_idx));
   }
   kernel_name_ = "ConditionedJoinKernel";
 }
@@ -742,7 +746,7 @@ arrow::Status ConditionedJoinKernel::DoCodeGen(
   return impl_->DoCodeGen(level, input, codegen_ctx_out, var_id);
 }
 
-arrow::Status ConditionedJoinKernel::Evaluate( ArrayList& in) {
+arrow::Status ConditionedJoinKernel::Evaluate(ArrayList& in) {
   return impl_->Evaluate(in);
 }
 
