@@ -287,7 +287,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
     val initialFdCount = getFdCount
     for (_ <- 0 until 100) {
-      verifyFrame(spark.sql("select * from ptab2"), 5, 1)
+      verifyFrame(spark.sql("select * from ptab2"), 5, 2)
     }
     val fdGrowth = getFdCount - initialFdCount
     assert(fdGrowth < 100)
