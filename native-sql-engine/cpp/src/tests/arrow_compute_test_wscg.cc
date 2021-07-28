@@ -4151,7 +4151,7 @@ TEST(TestArrowComputeWSCG, WSCGTestContinuousMergeJoinSemiExistenceWithCondition
     ASSERT_NOT_OK(expr->finish(&build_result_iterator));
     auto rb_iter = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
         build_result_iterator);
-    if (false) {
+    if (true) {
       // lazy read
       arrow::RecordBatchIterator itr = arrow::MakeFunctionIterator(
           [rb_iter]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
