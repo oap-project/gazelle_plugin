@@ -69,7 +69,7 @@ class ConditionedJoinKernel::Impl {
         join_type_(join_type), condition_(condition) {
        }
   virtual ~Impl() {}
-  virtual arrow::Status Evaluate(const ArrayList& in) {
+  virtual arrow::Status Evaluate( ArrayList& in) {
     return arrow::Status::OK();
   }
 
@@ -145,7 +145,7 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
     }
   }
 
-  arrow::Status Evaluate(const ArrayList& in) override {
+  arrow::Status Evaluate( ArrayList& in) override {
     col_num_ = left_field_list_.size();
 
     if (cached_.size() <= col_num_) {
@@ -742,7 +742,7 @@ arrow::Status ConditionedJoinKernel::DoCodeGen(
   return impl_->DoCodeGen(level, input, codegen_ctx_out, var_id);
 }
 
-arrow::Status ConditionedJoinKernel::Evaluate(const ArrayList& in) {
+arrow::Status ConditionedJoinKernel::Evaluate( ArrayList& in) {
   return impl_->Evaluate(in);
 }
 

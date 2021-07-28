@@ -506,7 +506,7 @@ class ConditionedJoinKernel : public KernalBase {
                          const gandiva::NodeVector& hash_configuration_list,
                          int hash_relation_idx);
 
-  arrow::Status Evaluate(const ArrayList& in) override;
+  arrow::Status Evaluate( ArrayList& in) override;
   arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override;
