@@ -31,6 +31,8 @@ set(BOOST_MIN_VERSION "1.42.0")
 find_package(Boost REQUIRED)
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 
+set(JEMALLOC_BUILD_VERSION "5.2.1")
+
 find_package(JNI REQUIRED)
 set(source_root_directory ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -39,6 +41,9 @@ if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
 endif(CCACHE_FOUND)
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
 # Building Protobuf
 macro(build_protobuf)
@@ -363,6 +368,70 @@ macro(find_arrow)
 
 endmacro()
 
+# Building Jemalloc
+macro(build_jemalloc)
+  message(STATUS "Building Jemalloc from Source")
+  set (JEMALLOC_SOURCE_URL
+       "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_BUILD_VERSION}/jemalloc-${JEMALLOC_BUILD_VERSION}.tar.bz2"
+       "https://github.com/ursa-labs/thirdparty/releases/download/latest/jemalloc-${JEMALLOC_BUILD_VERSION}.tar.bz2"
+  )
+  set(JEMALLOC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-install")
+  set(JEMALLOC_LIB_DIR "${JEMALLOC_PREFIX}/lib")
+  set(JEMALLOC_INCLUDE_DIR "${JEMALLOC_PREFIX}/include")
+  set(
+    JEMALLOC_STATIC_LIB
+    "${JEMALLOC_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}jemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  set(
+    JEMALLOC_INCLUDE
+    "${JEMALLOC_PREFIX}/include"
+    )
+  set(JEMALLOC_CONFIGURE_ARGS
+      "AR=${CMAKE_AR}"
+      "CC=${CMAKE_C_COMPILER}"
+      "--prefix=${JEMALLOC_PREFIX}"
+      "--libdir=${JEMALLOC_LIB_DIR}"
+      "--with-jemalloc-prefix=je_gazelle_"
+      "--with-private-namespace=je_gazelle_private_"
+      "--without-export"
+      "--disable-shared"
+      "--disable-cxx"
+      "--disable-libdl"
+      "--disable-initial-exec-tls"
+      "CFLAGS=-fPIC"
+      "CXXFLAGS=-fPIC")
+  set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  ExternalProject_Add(jemalloc_ep
+                      URL ${JEMALLOC_SOURCE_URL}
+                      PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
+                      CONFIGURE_COMMAND "./configure" ${JEMALLOC_CONFIGURE_ARGS}
+                      BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
+                      BUILD_IN_SOURCE 1
+                      BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
+                      INSTALL_COMMAND make install)
+
+  file(MAKE_DIRECTORY "${JEMALLOC_INCLUDE_DIR}")
+  add_library(jemalloc::libjemalloc STATIC IMPORTED)
+  set_target_properties(
+    jemalloc::libjemalloc
+    PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
+               IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
+               INTERFACE_INCLUDE_DIRECTORIES
+               "${JEMALLOC_INCLUDE_DIR}")
+  add_dependencies(jemalloc::libjemalloc protobuf_ep)
+endmacro()
+
+# Find Jemalloc
+macro(find_jemalloc)
+  # Find the existing Protobuf
+  set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+  find_package(jemalloc_pic)
+  if ("${Jemalloc_LIBRARY}" STREQUAL "Jemalloc_LIBRARY-NOTFOUND")
+    message(FATAL_ERROR "Jemalloc Library Not Found")
+  endif()
+  set(PROTOC_BIN ${Jemalloc_PROTOC_EXECUTABLE})
+endmacro()
+
 # Set up Proto
 file(MAKE_DIRECTORY ${root_directory}/src/proto)
 set(PROTO_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/proto")
@@ -524,6 +593,15 @@ if(BUILD_ARROW)
 else() #
   find_arrow()
   message(STATUS "Use existing ARROW libraries")
+endif()
+
+# Build Jemalloc
+if(BUILD_JEMALLOC)
+  build_jemalloc(${STATIC_JEMALLOC})
+  message(STATUS "Building Jemalloc: ${STATIC_JEMALLOC}")
+else() #
+  find_jemalloc()
+  message(STATUS "Use existing Jemalloc libraries")
 endif()
 
 if(DEFINED ENV{HADOOP_HOME})
