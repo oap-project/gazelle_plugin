@@ -212,13 +212,10 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
   TypedLazyLoadRelationColumn() = default;
 
   bool IsNull(int array_id, int id) override {
-    AdvanceTo(array_id);
     return delegated.IsNull(array_id, id);
   }
 
   bool IsEqualTo(int x_array_id, int x_id, int y_array_id, int y_id) override {
-    AdvanceTo(x_array_id);
-    AdvanceTo(y_array_id);
     return delegated.IsEqualTo(x_array_id, x_id, y_array_id, y_id);
   }
 
@@ -279,7 +276,6 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
   }
 
   T GetValue(int array_id, int id) override {
-    AdvanceTo(array_id);
     return delegated.GetValue(array_id, id);
   }
   bool HasNull() override { return has_null_; }
@@ -299,12 +295,9 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
  public:
   TypedLazyLoadRelationColumn() = default;
   bool IsNull(int array_id, int id) override {
-    AdvanceTo(array_id);
     return delegated.IsNull(array_id, id);
   }
   bool IsEqualTo(int x_array_id, int x_id, int y_array_id, int y_id) override {
-    AdvanceTo(x_array_id);
-    AdvanceTo(y_array_id);
     return delegated.IsEqualTo(x_array_id, x_id, y_array_id, y_id);
   }
 
@@ -365,7 +358,6 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
   }
 
   std::string GetValue(int array_id, int id) override {
-    AdvanceTo(array_id);
     return delegated.GetValue(array_id, id);
   }
 

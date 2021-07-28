@@ -64,6 +64,8 @@ class SortRelation {
         }
         array_id++;
       }
+    } else {
+      ArrayAdvanceTo(0);
     }
   }
 
@@ -114,10 +116,10 @@ class SortRelation {
 
   void ArrayAdvanceTo(int array_id) {
     for (auto col : sort_relation_key_list_) {
-      col->Advance(array_id);
+      col->AdvanceTo(array_id);
     }
     for (auto col : sort_relation_payload_list_) {
-      col->Advance(array_id);
+      col->AdvanceTo(array_id);
     }
   }
 
@@ -135,14 +137,17 @@ class SortRelation {
       if (remaining <= current_batch_length) {
         requested_batches = batch_i;
         ArrayAdvanceTo(requested_batches);
-        for (int32_t i = 0; i < requested_batches; i++) {
-          ArrayRelease(i);
-        }
         offset_in_current_batch_ = remaining - 1;
         return;
       }
       remaining -= current_batch_length;
       batch_i++;
+    }
+  }
+
+  void ReleaseAllRead() {
+    for (int32_t i = 0; i < requested_batches; i++) {
+      ArrayRelease(i);
     }
   }
 
@@ -161,6 +166,7 @@ class SortRelation {
     while (true) {
       int64_t current_batch_length = lazy_in_->GetNumRowsOfBatch(batch_i);
       if (remaining <= current_batch_length) {
+        ArrayAdvanceTo(batch_i);
         ArrayItemIndexS s(batch_i, remaining - 1);
         return s;
       }
@@ -188,6 +194,7 @@ class SortRelation {
       if (current_batch_length == -1L) {
         return false;
       }
+      ArrayAdvanceTo(batch_i);
       remaining -= current_batch_length;
       batch_i++;
     }
@@ -204,6 +211,7 @@ class SortRelation {
     }
     if (!CheckRangeBound(1)) return false;
     Advance(1);
+    ReleaseAllRead();
     offset_++;
     range_cache_ = -1;
     return true;
@@ -220,6 +228,7 @@ class SortRelation {
     auto range = GetSameKeyRange();
     if (!CheckRangeBound(range)) return false;
     Advance(range);
+    ReleaseAllRead();
     offset_ += range;
     range_cache_ = -1;
     return true;
