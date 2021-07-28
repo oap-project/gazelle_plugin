@@ -148,7 +148,7 @@ case class ColumnarCollapseCodegenStages(
       if (count >= 1) true
       else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
     case p: ColumnarSortMergeJoinExec =>
-      if (p.condition.isDefined) return true
+      if ((p.condition.isDefined) || p.rightKeys.size > 1 )return true
       if (count >= 1) true
       else plan.children.map(existsJoins(_, count + 1)).exists(_ == true)
     case p: ColumnarHashAggregateExec =>

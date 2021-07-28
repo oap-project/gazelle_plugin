@@ -681,7 +681,10 @@ class TypedJoinKernel : public ConditionedJoinKernel::Impl {
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)         \
+  PROCESS(arrow::TimestampType)          \
+  PROCESS(arrow::StringType)
 ConditionedJoinKernel::ConditionedJoinKernel(
     arrow::compute::ExecContext* ctx, const gandiva::NodeVector& left_key_list,
     const gandiva::NodeVector& right_key_list,
