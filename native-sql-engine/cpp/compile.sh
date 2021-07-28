@@ -21,10 +21,10 @@ CURRENT_DIR=$(cd "$(dirname "$BASH_SOURCE")"; pwd)
 echo $CURRENT_DIR
 
 cd ${CURRENT_DIR}
-if [ -d build ]; then
-    rm -r build
-fi
-mkdir build
+#if [ -d build ]; then
+#    rm -r build
+#fi
+#mkdir build
 cd build
 cmake .. -DTESTS=${TESTS} -DBUILD_ARROW=${BUILD_ARROW} -DSTATIC_ARROW=${STATIC_ARROW} -DBUILD_PROTOBUF=${BUILD_PROTOBUF} -DARROW_ROOT=${ARROW_ROOT} -DARROW_BFS_INSTALL_DIR=${ARROW_BFS_INSTALL_DIR}
 make -j2

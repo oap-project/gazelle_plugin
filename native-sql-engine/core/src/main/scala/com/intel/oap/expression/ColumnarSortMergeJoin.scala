@@ -69,6 +69,7 @@ class ColumnarSortMergeJoin(
     left: SparkPlan,
     right: SparkPlan,
     isSkewJoin: Boolean,
+    output: Seq[Attribute],
     joinTime: SQLMetric,
     prepareTime: SQLMetric,
     totaltime_sortmergejoin: SQLMetric,
@@ -269,6 +270,7 @@ object ColumnarSortMergeJoin extends Logging {
       conditionOption: Option[Expression],
       left: SparkPlan,
       right: SparkPlan,
+      output: Seq[Attribute],
       _joinTime: SQLMetric,
       _prepareTime: SQLMetric,
       _totaltime_sortmergejoin: SQLMetric,
@@ -506,9 +508,31 @@ object ColumnarSortMergeJoin extends Logging {
       probe_func_name,
       condition_expression_node_list,
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
+
+    val (buildKeys, streamedKeys, buildPlan, streamedPlan) = joinType match {
+    case LeftSemi =>
+      (rightKeys, leftKeys, right, left)
+    case LeftOuter =>
+      (rightKeys, leftKeys, right, left)
+    case LeftAnti =>
+      (rightKeys, leftKeys, right, left)
+    case j: ExistenceJoin =>
+      (rightKeys, leftKeys, right, left)
+    case LeftExistence(_) =>
+      (rightKeys, leftKeys, right, left)
+    case _ =>
+      (rightKeys, leftKeys, right, left)
+    }
+
     val codegen_probe_node = TreeBuilder.makeFunction(
-      "codegen_withTwoInputs",
-      Lists.newArrayList(condition_probe_node, build_args_node, stream_args_node),
+      "standalone",
+      Lists.newArrayList(prepareKernelFunction(buildKeys,
+      streamedKeys,
+      buildPlan.output,
+      streamedPlan.output,
+      output,
+      joinType,
+      conditionOption)),
       new ArrowType.Int(32, true) /*dummy ret type, won't be used*/ )
     condition_probe_expr = TreeBuilder.makeExpression(codegen_probe_node, retType)
   }
@@ -521,6 +545,7 @@ object ColumnarSortMergeJoin extends Logging {
       condition: Option[Expression],
       left: SparkPlan,
       right: SparkPlan,
+      output: Seq[Attribute],
       joinTime: SQLMetric,
       prepareTime: SQLMetric,
       totaltime_sortmergejoin: SQLMetric,
@@ -535,6 +560,7 @@ object ColumnarSortMergeJoin extends Logging {
       condition,
       left,
       right,
+      output,
       joinTime,
       prepareTime,
       totaltime_sortmergejoin,
@@ -551,6 +577,7 @@ object ColumnarSortMergeJoin extends Logging {
       condition: Option[Expression],
       left: SparkPlan,
       right: SparkPlan,
+      output: Seq[Attribute],
       joinTime: SQLMetric,
       prepareTime: SQLMetric,
       totaltime_sortmergejoin: SQLMetric,
@@ -565,6 +592,7 @@ object ColumnarSortMergeJoin extends Logging {
       condition,
       left,
       right,
+      output,
       joinTime,
       prepareTime,
       totaltime_sortmergejoin,
@@ -590,6 +618,7 @@ object ColumnarSortMergeJoin extends Logging {
       left: SparkPlan,
       right: SparkPlan,
       isSkewJoin: Boolean,
+      output: Seq[Attribute],
       listJars: Seq[String],
       joinTime: SQLMetric,
       prepareTime: SQLMetric,
@@ -605,6 +634,7 @@ object ColumnarSortMergeJoin extends Logging {
       condition,
       left,
       right,
+      output,
       joinTime,
       prepareTime,
       totaltime_sortmergejoin,
@@ -672,6 +702,7 @@ object ColumnarSortMergeJoin extends Logging {
       left,
       right,
       isSkewJoin,
+      output,
       joinTime,
       prepareTime,
       totaltime_sortmergejoin,
