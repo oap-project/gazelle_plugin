@@ -100,7 +100,7 @@ class RelationColumn {
                                               int field_id) {
     return arrow::Status::NotImplemented("RelationColumn AppendColumn is abstract.");
   };
-  virtual void AdvanceTo(int array_id) {};
+  virtual void AdvanceTo(int array_id) { return; };
   virtual int32_t Advance(int32_t array_offset) { return -1; };
   virtual arrow::Status ReleaseArray(int array_id) = 0;
   virtual arrow::Status GetArrayVector(std::vector<std::shared_ptr<arrow::Array>>* out) {
