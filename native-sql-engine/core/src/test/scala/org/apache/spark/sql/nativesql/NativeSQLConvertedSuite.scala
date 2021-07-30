@@ -92,7 +92,7 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(null, 9)))
   }
 
-  ignore("SMJ") {
+  test("SMJ") {
     Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
       ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
       ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
@@ -227,7 +227,7 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(0.0)))
   }
 
-  ignore("int4 and int8 exception") {
+  test("int4 and int8 exception") {
     Seq(0, 123456, -123456, 2147483647, -2147483647)
       .toDF("f1").createOrReplaceTempView("INT4_TBL")
     val df = sql("SELECT '' AS five, i.f1, i.f1 * smallint('2') AS x FROM INT4_TBL i")
@@ -250,7 +250,7 @@ class NativeSQLConvertedSuite extends QueryTest
     df.show()
   }
 
-  ignore("two inner joins with condition") {
+  test("two inner joins with condition") {
     spark
       .read
       .format("csv")
@@ -285,10 +285,16 @@ class NativeSQLConvertedSuite extends QueryTest
       "where b.f1 = t.thousand and a.f1 = b.f1 and (a.f1+b.f1+999) = t.tenthous")
     checkAnswer(df, Seq())
 
-    /** window_part1 -- window has incorrect result */
+    /** join -- SMJ left semi */
+    val df2 = sql("select count(*) from tenk1 a where unique1 in" +
+      " (select unique1 from tenk1 b join tenk1 c using (unique1) where b.unique2 = 42)")
+    checkAnswer(df2, Seq(Row(1)))
+  }
 
+  ignore("window incorrect result") {
+    /** window_part1 */
     val df1 = sql("SELECT sum(unique1) over (rows between current row and unbounded following)," +
-                  "unique1, four FROM tenk1 WHERE unique1 < 10")
+      "unique1, four FROM tenk1 WHERE unique1 < 10")
     checkAnswer(df1, Seq(
       Row(0, 0, 0),
       Row(10, 3, 3),
@@ -300,12 +306,6 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(41, 2, 2),
       Row(45, 4, 0),
       Row(7, 7, 3)))
-
-    /** join -- SMJ left semi has segfault */
-
-    val df2 = sql("select count(*) from tenk1 a where unique1 in" +
-      " (select unique1 from tenk1 b join tenk1 c using (unique1) where b.unique2 = 42)")
-    checkAnswer(df2, Seq(Row(1)))
   }
 
   test("min_max") {
@@ -592,33 +592,6 @@ class NativeSQLConvertedSuite extends QueryTest
   }
 
   test("groupingsets") {
-    spark
-      .read
-      .format("csv")
-      .options(Map("delimiter" -> "\t", "header" -> "false"))
-      .schema(
-        """
-          |unique1 int,
-          |unique2 int,
-          |two int,
-          |four int,
-          |ten int,
-          |twenty int,
-          |hundred int,
-          |thousand int,
-          |twothousand int,
-          |fivethous int,
-          |tenthous int,
-          |odd int,
-          |even int,
-          |stringu1 string,
-          |stringu2 string,
-          |string4 string
-        """.stripMargin)
-      .load(testFile("test-data/postgresql/tenk.data"))
-      .write
-      .format("parquet")
-      .saveAsTable("tenk1")
     val df = sql("select four, x from (select four, ten, 'foo' as x from tenk1) as t" +
       " group by grouping sets (four, x) having x = 'foo'")
     checkAnswer(df, Seq(Row(null, "foo")))
@@ -692,7 +665,7 @@ class NativeSQLConvertedSuite extends QueryTest
     checkAnswer(df, Seq(Row(1, 1)))
   }
 
-  ignore("scalar-subquery-select -- SMJ LeftAnti has incorrect result") {
+  test("scalar-subquery-select -- SMJ LeftAnti has incorrect result") {
     Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
       ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
       ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
@@ -756,7 +729,7 @@ class NativeSQLConvertedSuite extends QueryTest
       Row("val1e", 10)))
   }
 
-  test("join") {
+//  test("join") {
 //    Seq[(Integer, Integer, String)](
 //      (1, 4, "one"),
 //      (2, 3, "two"),
@@ -814,7 +787,5 @@ class NativeSQLConvertedSuite extends QueryTest
 //      (4, null))
 //      .toDF("y1", "y2")
 //      .createOrReplaceTempView("y")
-
-  }
-
+//  }
 }

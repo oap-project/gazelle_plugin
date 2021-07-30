@@ -13,16 +13,18 @@ then
 else
   echo "SPARK_HOME is $spark_home"
 fi
-mvn clean test -P full-scala-compiler -am -pl native-sql-engine/core -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -DargLine="-Dspark.test.home=$spark_home" -Dexec.skip=true -Dmaven.test.failure.ignore=true &>  native-sql-engine/tools/log-file.log
+mvn clean test -P full-scala-compiler -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -DargLine="-Dspark.test.home=$spark_home" -Dexec.skip=true -Dmaven.test.failure.ignore=true &>  native-sql-engine/tools/log-file.log
 cd native-sql-engine/tools/
+
+known_fails=183
 tests_total=0
 module_tested=0
-module_should_test=1
+module_should_test=7
 while read -r line ; do
   num=$(echo "$line" | grep -o -E '[0-9]+')
   tests_total=$((tests_total+num))
 done <<<"$(grep "Total number of tests run:" log-file.log)"
- 
+
 succeed_total=0
 while read -r line ; do
   [[ $line =~ [^0-9]*([0-9]+)\, ]]
@@ -30,12 +32,26 @@ while read -r line ; do
   succeed_total=$((succeed_total+num))
   let module_tested++
 done <<<"$(grep "succeeded" log-file.log)"
-echo "Tests total: $tests_total, Succeed Total: $succeed_total"
- 
-if test $tests_total -eq $succeed_total -a $module_tested -eq $module_should_test
+failed_count=$((tests_total-succeed_total))
+echo "Tests total: $tests_total, Succeed Total: $succeed_total, Known Fails: $known_fails, Actual Fails: $failed_count."
+
+cat log-file.log | grep "\*** FAILED \***" | grep -v "TESTS FAILED ***" | grep -v "TEST FAILED ***" &> new_failed_list.log
+comm -1 -3 <(sort failed_ut_list.log) <(sort new_failed_list.log) &> diff.log
+if [ -s diff.log ]
 then
-  echo "All unit tests succeed"
+    echo "Below are newly failed tests:"
+    while read p; do
+        echo "$p"
+    done <diff.log
+    exit 1
 else
-  echo "Unit tests failed, please check log-file.log for detailed info"
+     echo "No newly failed tests found!"
+fi
+
+if test $failed_count -le $known_fails -a $module_tested -eq $module_should_test
+then
+  echo "Unit tests succeeded!"
+else
+  echo "Unit tests failed, please check log-file.log for detailed info!"
   exit 1
 fi

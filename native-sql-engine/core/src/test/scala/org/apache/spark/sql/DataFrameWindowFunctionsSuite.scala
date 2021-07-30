@@ -553,7 +553,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
         Row("b", 2, 4, 8)))
   }
 
-  ignore("null inputs") {
+  test("null inputs") {
     val df = Seq(("a", 1), ("a", 1), ("a", 2), ("a", 2), ("b", 4), ("b", 3), ("b", 2))
       .toDF("key", "value")
     val window = Window.orderBy()
@@ -908,7 +908,7 @@ class DataFrameWindowFunctionsSuite extends QueryTest
     }
   }
 
-  ignore("NaN and -0.0 in window partition keys") {
+  test("NaN and -0.0 in window partition keys") {
     val df = Seq(
       (Float.NaN, Double.NaN),
       (0.0f/0.0f, 0.0/0.0),
