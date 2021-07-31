@@ -135,8 +135,10 @@ class SortRelation {
     while (true) {
       int64_t current_batch_length = lazy_in_->GetNumRowsOfBatch(batch_i);
       if (remaining <= current_batch_length) {
+	int32_t release_from = requested_batches;
         requested_batches = batch_i;
         ArrayAdvanceTo(requested_batches);
+	ReleaseAllRead(release_from);
         offset_in_current_batch_ = remaining - 1;
         return;
       }
@@ -145,8 +147,8 @@ class SortRelation {
     }
   }
 
-  void ReleaseAllRead() {
-    for (int32_t i = 0; i < requested_batches; i++) {
+  void ReleaseAllRead(int32_t from) {
+    for (int32_t i = from; i < requested_batches; i++) {
       ArrayRelease(i);
     }
   }
@@ -211,7 +213,6 @@ class SortRelation {
     }
     if (!CheckRangeBound(1)) return false;
     Advance(1);
-    ReleaseAllRead();
     offset_++;
     range_cache_ = -1;
     return true;
@@ -228,7 +229,6 @@ class SortRelation {
     auto range = GetSameKeyRange();
     if (!CheckRangeBound(range)) return false;
     Advance(range);
-    ReleaseAllRead();
     offset_ += range;
     range_cache_ = -1;
     return true;
