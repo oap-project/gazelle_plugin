@@ -225,6 +225,7 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
     for (int i = current_array_id_; i <= array_id; i++) {
       std::shared_ptr<arrow::RecordBatch> batch = in_->GetBatch(i);
       if (batch == nullptr) {
+	current_array_id_ = i;
         return;
       }
       std::shared_ptr<arrow::Array> array = batch->column(field_id_);
@@ -296,6 +297,7 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
     for (int i = current_array_id_; i <= array_id; i++) {
       std::shared_ptr<arrow::RecordBatch> batch = in_->GetBatch(i);
       if (batch == nullptr) {
+	current_array_id_ = i;
         return;
       }
       std::shared_ptr<arrow::Array> array = batch->column(field_id_);
