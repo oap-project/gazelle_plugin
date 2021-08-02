@@ -91,9 +91,6 @@ class SortRelation {
   }
 
   void ArrayRelease(int array_id) {
-    for (auto col : sort_relation_key_list_) {
-      col->ReleaseArray(array_id);
-    }
     for (auto col : sort_relation_payload_list_) {
       col->ReleaseArray(array_id);
     }
@@ -115,12 +112,14 @@ class SortRelation {
   }
 
   void ArrayAdvanceTo(int array_id) {
-    for (auto col : sort_relation_key_list_) {
-      col->AdvanceTo(array_id);
+    if (array_id <= fetched_batches_) {
+      return;
     }
+    int32_t fetching = (array_id / 500 + 1) * 500;
     for (auto col : sort_relation_payload_list_) {
-      col->AdvanceTo(array_id);
+      col->AdvanceTo(fetching);
     }
+    fetched_batches_ = fetching;
   }
 
   void Advance(int shift) {
@@ -135,10 +134,9 @@ class SortRelation {
     while (true) {
       int64_t current_batch_length = lazy_in_->GetNumRowsOfBatch(batch_i);
       if (remaining <= current_batch_length) {
-	int32_t release_from = requested_batches;
         requested_batches = batch_i;
         ArrayAdvanceTo(requested_batches);
-	ReleaseAllRead(release_from);
+	ReleaseAllRead();
         offset_in_current_batch_ = remaining - 1;
         return;
       }
@@ -147,9 +145,13 @@ class SortRelation {
     }
   }
 
-  void ReleaseAllRead(int32_t from) {
-    for (int32_t i = from; i < requested_batches; i++) {
+  void ReleaseAllRead() {
+    if (requested_batches > released_batches_ + 500) {
+      return;
+    }
+    for (int32_t i = released_batches_ + 1; i < requested_batches; i++) {
       ArrayRelease(i);
+      released_batches_ = i;
     }
   }
 
@@ -302,6 +304,8 @@ class SortRelation {
 
   // required by legacy method
   bool is_lazy_input_ = false;
+  int32_t fetched_batches_ = -1;
+  int32_t released_batches_ = -1;
 
   std::shared_ptr<arrow::Buffer> indices_buf_;
   ArrayItemIndexS* indices_begin_;
