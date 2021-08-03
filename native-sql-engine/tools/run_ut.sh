@@ -36,16 +36,23 @@ failed_count=$((tests_total-succeed_total))
 echo "Tests total: $tests_total, Succeed Total: $succeed_total, Known Fails: $known_fails, Actual Fails: $failed_count."
 
 cat log-file.log | grep "\*** FAILED \***" | grep -v "TESTS FAILED ***" | grep -v "TEST FAILED ***" &> new_failed_list.log
-comm -1 -3 <(sort failed_ut_list.log) <(sort new_failed_list.log) &> diff.log
-if [ -s diff.log ]
+comm -1 -3 <(sort failed_ut_list.log) <(sort new_failed_list.log) &> newly_failed_tests.log
+comm -2 -3 <(sort failed_ut_list.log) <(sort new_failed_list.log) &> fixed_tests.log
+if [ -s newly_failed_tests.log ]
 then
     echo "Below are newly failed tests:"
     while read p; do
         echo "$p"
-    done <diff.log
+    done <newly_failed_tests.log
+    mv log-file.log ../../perf_script/log/
+    mv newly_failed_tests.log ../../perf_script/log/
+    mv fixed_tests.log ../../perf_script/log/
     exit 1
 else
-     echo "No newly failed tests found!"
+    mv log-file.log ../../perf_script/log
+    mv newly_failed_tests.log ../../perf_script/log/
+    mv fixed_tests.log ../../perf_script/log/
+    echo "No newly failed tests found!"
 fi
 
 if test $failed_count -le $known_fails -a $module_tested -eq $module_should_test
