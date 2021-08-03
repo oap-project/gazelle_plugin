@@ -43,9 +43,13 @@ then
     while read p; do
         echo "$p"
     done <diff.log
+    mv log-file.log ../../perf_script/log
+    mv diff.log ../../perf_script/log
     exit 1
 else
-     echo "No newly failed tests found!"
+    mv log-file.log ../../perf_script/log
+    mv diff.log ../../perf_script/log
+    echo "No newly failed tests found!"
 fi
 
 if test $failed_count -le $known_fails -a $module_tested -eq $module_should_test
