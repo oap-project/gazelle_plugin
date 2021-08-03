@@ -591,7 +591,7 @@ class ColumnarCast(
         case s: StringType =>
           val intermediate = new ArrowType.Date(DateUnit.MILLISECOND)
           TreeBuilder.makeFunction("castDATE", Lists
-              .newArrayList(TreeBuilder.makeFunction("castDATE", Lists
+              .newArrayList(TreeBuilder.makeFunction("castDATE_nullsafe", Lists
                   .newArrayList(child_node0), intermediate)), toType)
         case other => TreeBuilder.makeFunction("castDATE", Lists.newArrayList(child_node0),
           toType)
