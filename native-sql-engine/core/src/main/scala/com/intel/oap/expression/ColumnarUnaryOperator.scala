@@ -641,6 +641,9 @@ class ColumnarCast(
             TreeBuilder.makeFunction("castTIMESTAMP",
               Lists.newArrayList(utcTimestampNodeLong), intermediateType)
           utcTimestampNode
+        case _: StringType =>
+          TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
+            Lists.newArrayList(child_node0), intermediateType)
         case _ =>
           TreeBuilder.makeFunction("castTIMESTAMP", Lists.newArrayList(child_node0),
             intermediateType)
