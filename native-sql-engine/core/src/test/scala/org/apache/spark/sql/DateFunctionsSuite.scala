@@ -34,6 +34,7 @@ import org.apache.spark.unsafe.types.CalendarInterval
 
 class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
+  java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
 
   test("function current_date") {
     val df1 = Seq((1, 2), (3, 1)).toDF("a", "b")

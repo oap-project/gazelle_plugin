@@ -438,6 +438,9 @@ object ColumnarDateTimeExpressions {
     }
   }
 
+  /**
+   * Converts time string with given pattern to Unix time stamp (in seconds), returns null if fail.
+   */
   class ColumnarUnixTimestamp(left: Expression, right: Expression)
       extends UnixTimestamp(left, right) with
       ColumnarExpression {
@@ -445,23 +448,48 @@ object ColumnarDateTimeExpressions {
     buildCheck()
 
     def buildCheck(): Unit = {
-      val supportedTypes = List(TimestampType, StringType)
+      val supportedTypes = List(TimestampType, StringType, DateType)
       if (supportedTypes.indexOf(left.dataType) == -1) {
         throw new UnsupportedOperationException(
           s"${left.dataType} is not supported in ColumnarUnixTimestamp.")
+      }
+      if (left.dataType == StringType) {
+        right match {
+          case literal: ColumnarLiteral =>
+            val format = literal.value.toString
+            if (format.length > 10) {
+              throw new UnsupportedOperationException(
+                s"$format is not supported in ColumnarUnixTimestamp.")
+            }
+          case _ =>
+        }
       }
     }
 
     override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      val intermediate = new ArrowType.Date(DateUnit.MILLISECOND)
       val outType = CodeGeneration.getResultType(dataType)
-      val dateNode = TreeBuilder.makeFunction(
-        "to_date", Lists.newArrayList(leftNode, rightNode), intermediate)
-      val funcNode = TreeBuilder.makeFunction("castBIGINT",
-        Lists.newArrayList(dateNode), outType)
-      (funcNode, outType)
+      val milliType = new ArrowType.Date(DateUnit.MILLISECOND)
+      val dateNode = if (left.dataType == TimestampType) {
+        val milliNode = ConverterUtils.convertTimestampToMicro(leftNode, leftType)._1
+        TreeBuilder.makeFunction(
+          "unix_seconds", Lists.newArrayList(milliNode), CodeGeneration.getResultType(dataType))
+      } else if (left.dataType == StringType) {
+        // Convert from UTF8 to Date[Millis].
+        val dateNode = TreeBuilder.makeFunction(
+          "castDATE_nullsafe", Lists.newArrayList(leftNode), milliType)
+        val intNode = TreeBuilder.makeFunction("castBIGINT",
+          Lists.newArrayList(dateNode), outType)
+        // Convert from milliseconds to seconds.
+        TreeBuilder.makeFunction("divide", Lists.newArrayList(intNode,
+          TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), outType)
+      } else {
+        // Convert from Date[Day] to seconds.
+        TreeBuilder.makeFunction(
+          "unix_date_seconds", Lists.newArrayList(leftNode), outType)
+      }
+      (dateNode, outType)
     }
   }
 
