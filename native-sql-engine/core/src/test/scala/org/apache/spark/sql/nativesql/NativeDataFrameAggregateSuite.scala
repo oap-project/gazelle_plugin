@@ -41,7 +41,7 @@ class NativeDataFrameAggregateSuite extends QueryTest
 
   val absTol = 1e-8
 
-  ignore("groupBy") {
+  test("groupBy") {
     checkAnswer(
       testData2.groupBy("a").agg(sum($"b")),
       Seq(Row(1, 3), Row(2, 3), Row(3, 3))
