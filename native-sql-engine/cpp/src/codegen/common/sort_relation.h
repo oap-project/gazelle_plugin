@@ -22,8 +22,6 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
-#include <iostream>
-
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/common/relation_column.h"
 #include "precompile/type_traits.h"
