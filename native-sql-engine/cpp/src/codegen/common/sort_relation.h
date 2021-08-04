@@ -22,11 +22,11 @@
 #include <arrow/status.h>
 #include <arrow/type_fwd.h>
 
+#include <iostream>
+
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/common/relation_column.h"
 #include "precompile/type_traits.h"
-
-#include <iostream>
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndexS;
 using sparkcolumnarplugin::precompile::enable_if_number;
@@ -138,7 +138,7 @@ class SortRelation {
       if (remaining <= current_batch_length) {
         requested_batches_ = batch_i;
         ArrayAdvanceTo(requested_batches_);
-	ReleaseAllRead();
+        ReleaseAllRead();
         offset_in_current_batch_ = remaining - 1;
         return;
       }
@@ -169,7 +169,7 @@ class SortRelation {
     int32_t requested_batches_0;
 
     if (shift == last_shifted_) {
-      ArrayItemIndexS s(shift_cache_aid_,shift_cache_rid_);
+      ArrayItemIndexS s(shift_cache_aid_, shift_cache_rid_);
       return s;
     } else if (last_shifted_ >= 0 && shift > last_shifted_) {
       requested_batches_0 = shift_cache_aid_;
@@ -195,8 +195,8 @@ class SortRelation {
     while (true) {
       int64_t current_batch_length = lazy_in_->GetNumRowsOfBatch(batch_i);
       if (remaining <= current_batch_length) {
-	int64_t rid = remaining - 1;
-	ArrayItemIndexS s(batch_i, rid);
+        int64_t rid = remaining - 1;
+        ArrayItemIndexS s(batch_i, rid);
         last_shifted_ = shift;
         shift_cache_aid_ = batch_i;
         shift_cache_rid_ = rid;
@@ -231,7 +231,6 @@ class SortRelation {
     }
     batch_length_0 = lazy_in_->GetNumRowsOfBatch(requested_batches_0);
     batch_remaining_0 = (batch_length_0 - 1) - offset_in_current_batch_0;
-    
 
     if (batch_length_0 == -1L) {
       return false;
@@ -251,10 +250,10 @@ class SortRelation {
       }
       ArrayAdvanceTo(batch_i);
       if (remaining <= current_batch_length) {
-	rb_last_shifted_ = shift;
-	rb_shift_cache_aid_ = batch_i;
-	rb_shift_cache_rid_ = remaining - 1;
-	return true;
+        rb_last_shifted_ = shift;
+        rb_shift_cache_aid_ = batch_i;
+        rb_shift_cache_rid_ = remaining - 1;
+        return true;
       }
       remaining -= current_batch_length;
       batch_i++;
@@ -308,7 +307,9 @@ class SortRelation {
       bool is_same = true;
       while (is_same) {
         if (CheckRangeBound(range + 1)) {
-          // std::cout << "DEBUG -> rb_last_shifted_: " << rb_last_shifted_ << ", rb_shift_cache_aid_: " << rb_shift_cache_aid_ << ", rb_shift_cache_rid_: " << rb_shift_cache_rid_ << std::endl;
+          // std::cout << "DEBUG -> rb_last_shifted_: " << rb_last_shifted_ << ",
+          // rb_shift_cache_aid_: " << rb_shift_cache_aid_ << ", rb_shift_cache_rid_: " <<
+          // rb_shift_cache_rid_ << std::endl;
           auto cur_idx = GetItemIndexWithShift(range);
           auto cur_idx_plus_one = GetItemIndexWithShift(range + 1);
           for (auto col : sort_relation_key_list_) {

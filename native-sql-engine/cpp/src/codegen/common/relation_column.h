@@ -145,9 +145,7 @@ class TypedRelationColumn<DataType, enable_if_number_or_decimal<DataType>>
     }
     return arrow::Status::OK();
   }
-  T GetValue(int array_id, int id) {
-    return array_vector_[array_id]->GetView(id);
-  }
+  T GetValue(int array_id, int id) { return array_vector_[array_id]->GetView(id); }
   virtual bool HasNull() { return has_null_; }
 
  private:
@@ -225,7 +223,7 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
     for (int i = current_array_id_; i <= array_id; i++) {
       std::shared_ptr<arrow::RecordBatch> batch = in_->GetBatch(i);
       if (batch == nullptr) {
-	current_array_id_ = i;
+        current_array_id_ = i;
         return;
       }
       std::shared_ptr<arrow::Array> array = batch->column(field_id_);
@@ -297,7 +295,7 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
     for (int i = current_array_id_; i <= array_id; i++) {
       std::shared_ptr<arrow::RecordBatch> batch = in_->GetBatch(i);
       if (batch == nullptr) {
-	current_array_id_ = i;
+        current_array_id_ = i;
         return;
       }
       std::shared_ptr<arrow::Array> array = batch->column(field_id_);
