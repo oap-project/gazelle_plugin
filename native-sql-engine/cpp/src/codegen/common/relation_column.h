@@ -213,6 +213,8 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_number_or_decimal<DataType
                                       int field_id) override {
     in_ = in;
     field_id_ = field_id;
+    AdvanceTo(0);
+    has_null_ = TypedRelationColumn<DataType>::HasNull();
     return arrow::Status::OK();
   };
 
@@ -285,6 +287,8 @@ class TypedLazyLoadRelationColumn<DataType, enable_if_string_like<DataType>>
                                       int field_id) override {
     in_ = in;
     field_id_ = field_id;
+    AdvanceTo(0);
+    has_null_ = TypedRelationColumn<DataType>::HasNull();
     return arrow::Status::OK();
   };
 
