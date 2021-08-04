@@ -80,7 +80,7 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
     conf.getConfString("spark.oap.sql.columnar.sortmergejoin", "true").toBoolean && enableCpu
 
   val enableColumnarSortMergeJoinLazyRead: Boolean =
-    conf.getConfString("spark.oap.sql.columnar.sortmergejoin.lazyread", "true").toBoolean
+    conf.getConfString("spark.oap.sql.columnar.sortmergejoin.lazyread", "false").toBoolean
 
   // enable or disable columnar union  
   val enableColumnarUnion: Boolean =
