@@ -25,6 +25,7 @@ option(BUILD_PROTOBUF "Build Protobuf from Source" ON)
 option(USE_AVX512 "Build with AVX-512 optimizations" OFF)
 option(TESTS "Build the tests" OFF)
 option(BENCHMARKS "Build the benchmarks" OFF)
+option(BUILD_JEMALLOC "Build Jemalloc from Source" OFF)
 option(DEBUG "Enable Debug Info" OFF)
 
 set(BOOST_MIN_VERSION "1.42.0")
