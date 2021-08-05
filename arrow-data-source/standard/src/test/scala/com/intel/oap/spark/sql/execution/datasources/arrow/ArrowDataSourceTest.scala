@@ -277,7 +277,10 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
   test("file descriptor leak - v1") {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile1)
-    spark.catalog.createTable("ptab2", path, "arrow")
+    val frame = spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+        .arrow(path)
+    frame.createOrReplaceTempView("ptab2")
 
     def getFdCount: Long = {
       ManagementFactory.getOperatingSystemMXBean

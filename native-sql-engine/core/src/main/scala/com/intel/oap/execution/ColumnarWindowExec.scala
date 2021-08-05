@@ -50,6 +50,7 @@ import scala.collection.mutable.ListBuffer
 import scala.util.Random
 
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+import util.control.Breaks._
 
 case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     partitionSpec: Seq[Expression],
@@ -59,6 +60,8 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   override def supportsColumnar: Boolean = true
 
   override def output: Seq[Attribute] = child.output ++ windowExpression.map(_.toAttribute)
+
+  buildCheck()
 
   override def requiredChildDistribution: Seq[Distribution] = {
     if (partitionSpec.isEmpty) {
@@ -90,6 +93,29 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+
+  def buildCheck(): Unit = {
+    var allLiteral = true
+    try {
+      breakable {
+        for (func <- validateWindowFunctions()) {
+          for (child <- func._2.children) {
+            if (!child.isInstanceOf[Literal]) {
+              allLiteral = false
+              break
+            }
+          }
+        }
+      }
+    } catch {
+      case e: Throwable =>
+        throw new UnsupportedOperationException(s"${e.getMessage}")
+    }
+    if (allLiteral) {
+      throw new UnsupportedOperationException(
+        s"Window functions' children all being Literal is not supported.")
+    }
+  }
 
   def checkAggFunctionSpec(windowSpec: WindowSpecDefinition): Unit = {
     if (windowSpec.orderSpec.nonEmpty) {

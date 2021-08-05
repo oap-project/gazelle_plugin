@@ -492,7 +492,7 @@ class HashAggregateKernel::Impl {
                  0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        int arg = std::stoi(action_name_list[action_id].substr(20));
+        int arg = std::stol(action_name_list[action_id].substr(20));
         RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_stddev_samp_partial") ==
                  0) {
@@ -650,7 +650,7 @@ class HashAggregateKernel::Impl {
       } else if (action_name.compare(0, 20, "action_countLiteral_") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
-        int arg = std::stoi(action_name.substr(20));
+        int arg = std::stol(action_name.substr(20));
         RETURN_NOT_OK(MakeCountLiteralAction(ctx_, arg, res_type_list, &action));
       } else if (action_name.compare("action_stddev_samp_partial") == 0) {
         auto res_type_list = {result_field_list[result_id],

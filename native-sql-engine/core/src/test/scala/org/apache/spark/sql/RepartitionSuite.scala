@@ -178,7 +178,7 @@ class ReuseExchangeSuite extends RepartitionSuite {
 
   override lazy val input = spark.read.parquet(filePath)
 
-  ignore("columnar exchange same result") {
+  test("columnar exchange same result") {
     val df1 = input.groupBy("n_regionkey").agg(Map("n_nationkey" -> "sum"))
     val hashAgg1 = df1.queryExecution.executedPlan.collectFirst {
       case agg: ColumnarHashAggregateExec => agg
