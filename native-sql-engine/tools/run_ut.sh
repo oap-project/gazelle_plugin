@@ -16,7 +16,7 @@ fi
 mvn clean test -P full-scala-compiler -Dbuild_arrow=OFF -Dbuild_protobuf=OFF -DfailIfNoTests=false -DargLine="-Dspark.test.home=$spark_home" -Dexec.skip=true -Dmaven.test.failure.ignore=true &>  native-sql-engine/tools/log-file.log
 cd native-sql-engine/tools/
 
-known_fails=183
+known_fails=170
 tests_total=0
 module_tested=0
 module_should_test=7
