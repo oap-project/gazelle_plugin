@@ -64,11 +64,6 @@ trait SharedSparkSessionBase
   with Eventually { self: Suite =>
 
   protected def sparkConf = {
-    val zoneID = "UTC"
-    val locale = Locale.ROOT
-    TimeZone.setDefault(TimeZone.getTimeZone(zoneID))
-    Locale.setDefault(locale)
-
     val conf = new SparkConf()
       .set("spark.hadoop.fs.file.impl", classOf[DebugFilesystem].getName)
       .set(UNSAFE_EXCEPTION_ON_MEMORY_LEAK, true)
@@ -96,7 +91,6 @@ trait SharedSparkSessionBase
       .set("spark.sql.orc.enableVectorizedReader", "false")
       .set("spark.sql.inMemoryColumnarStorage.enableVectorizedReader", "false")
       .set("spark.oap.sql.columnar.batchscan", "false")
-      .set("spark.sql.session.timeZone", zoneID)
     conf.set(
       StaticSQLConf.WAREHOUSE_PATH,
       conf.get(StaticSQLConf.WAREHOUSE_PATH) + "/" + getClass.getCanonicalName)

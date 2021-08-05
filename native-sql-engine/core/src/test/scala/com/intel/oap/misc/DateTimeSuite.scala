@@ -249,6 +249,7 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
 
   // todo: fix field/literal implicit conversion in ColumnarExpressionConverter
   test("date type - join on, bhj") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     withTempView("dates1", "dates2") {
       val dates1 = (0L to 3L).map(i => i * 1000 * 3600 * 24)
           .map(i => Tuple1(new Date(i))).toDF("time1")

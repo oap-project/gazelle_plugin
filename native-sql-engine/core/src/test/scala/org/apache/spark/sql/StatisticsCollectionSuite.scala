@@ -175,6 +175,7 @@ class StatisticsCollectionSuite extends StatisticsCollectionTestBase with Shared
   }
 
   test("analyze column command - result verification") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     // (data.head.productArity - 1) because the last column does not support stats collection.
     assert(stats.size == data.head.productArity - 1)
     val df = data.toDF(stats.keys.toSeq :+ "carray" : _*)
