@@ -39,8 +39,10 @@ import java.util.jar.JarFile;
 /** Helper class for JNI related operations. */
 public class JniUtils {
   private static final String LIBRARY_NAME = "spark_columnar_jni";
-  private static final String ARROW_LIBRARY_NAME = "libarrow.so.400";
-  private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.400";
+  private static final String ARROW_LIBRARY_NAME = "libarrow.so.400.0.0";
+  private static final String ARROW_PARENT_LIBRARY_NAME = "libarrow.so.400";
+  private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.400.0.0";
+  private static final String GANDIVA_PARENT_LIBRARY_NAME = "libgandiva.so.400"; 
   private static boolean isLoaded = false;
   private static boolean isCodegenDependencyLoaded = false;
   private static List<String> codegenJarsLoadedCache = new ArrayList<>();
@@ -113,9 +115,23 @@ public class JniUtils {
         tmp_dir = System.getProperty("java.io.tmpdir");
       }
       final File arrowlibraryFile = moveFileFromJarToTemp(tmp_dir, ARROW_LIBRARY_NAME);
+      Path arrow_target = Paths.get(arrowlibraryFile.getPath());
+      Path arrow_link = Paths.get(tmp_dir, ARROW_PARENT_LIBRARY_NAME);
+      if (Files.exists(arrow_link)) {
+        Files.delete(arrow_link);
+      }
+      Path symLink = Files.createSymbolicLink(arrow_link, arrow_target);
       System.load(arrowlibraryFile.getAbsolutePath());
+
       final File gandivalibraryFile = moveFileFromJarToTemp(tmp_dir, GANDIVA_LIBRARY_NAME);
+      Path gandiva_target = Paths.get(gandivalibraryFile.getPath());
+      Path gandiva_link = Paths.get(tmp_dir, GANDIVA_PARENT_LIBRARY_NAME);
+      if (Files.exists(gandiva_link)) {
+        Files.delete(gandiva_link);
+      }
+      Files.createSymbolicLink(gandiva_link, gandiva_target);
       System.load(gandivalibraryFile.getAbsolutePath());
+
       final String libraryToLoad = System.mapLibraryName(LIBRARY_NAME);
       final File libraryFile = moveFileFromJarToTemp(tmp_dir, libraryToLoad);
       System.load(libraryFile.getAbsolutePath());
