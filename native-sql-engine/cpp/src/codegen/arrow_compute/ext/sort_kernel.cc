@@ -106,25 +106,37 @@ class SortArraysToIndicesKernel::Impl {
 
   virtual ~Impl() {}
 
-  virtual arrow::Status Evaluate(ArrayList& in) { return arrow::Status::OK(); }
+  virtual arrow::Status Evaluate(ArrayList& in) {
+    throw std::runtime_error(
+        "This function is not supported in SortArraysToIndicesKernel::Impl.");
+    return arrow::Status::OK();
+  }
 
   virtual arrow::Status Spill(int64_t size, int64_t* spilled_size) {
+    throw std::runtime_error(
+        "This function is not supported in SortArraysToIndicesKernel::Impl.");
     return arrow::Status::OK();
   }
 
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
+    throw std::runtime_error(
+        "This function is not supported in SortArraysToIndicesKernel::Impl.");
     return arrow::Status::OK();
   }
 
   virtual arrow::Status MakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<SortRelation>>* out) {
+    throw std::runtime_error(
+        "This function is not supported in SortArraysToIndicesKernel::Impl.");
     return arrow::Status::OK();
   }
 
   virtual arrow::Status Finish(std::shared_ptr<arrow::Array>* out) {
+    throw std::runtime_error(
+        "This function is not supported in SortArraysToIndicesKernel::Impl.");
     return arrow::Status::OK();
   }
 
