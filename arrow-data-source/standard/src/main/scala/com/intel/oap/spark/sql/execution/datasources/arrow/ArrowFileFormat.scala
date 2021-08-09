@@ -73,7 +73,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
     new OutputWriterFactory {
       override def getFileExtension(context: TaskAttemptContext): String = {
         ArrowUtils.getFormat(arrowOptions) match {
-          case org.apache.arrow.dataset.file.FileFormat.PARQUET =>
+          case _: org.apache.arrow.dataset.file.format.ParquetFileFormat =>
             CodecConfig.from(context).getCodec.getExtension + ".parquet"
           case f => throw new IllegalArgumentException("Unimplemented file type to write: " + f)
         }

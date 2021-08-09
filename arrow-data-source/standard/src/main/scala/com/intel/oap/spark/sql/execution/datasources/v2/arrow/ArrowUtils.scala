@@ -62,7 +62,7 @@ object ArrowUtils {
   def isOriginalFormatSplitable(options: ArrowOptions): Boolean = {
     val format = getFormat(options)
     format match {
-      case org.apache.arrow.dataset.file.FileFormat.PARQUET =>
+      case _: org.apache.arrow.dataset.file.format.ParquetFileFormat =>
         true
       case _ =>
         false
@@ -112,10 +112,11 @@ object ArrowUtils {
   }
 
   def getFormat(
-    options: ArrowOptions): org.apache.arrow.dataset.file.FileFormat = {
+    options: ArrowOptions): org.apache.arrow.dataset.file.format.FileFormat = {
+    val paramMap = options.parameters.toMap.asJava
     options.originalFormat match {
-      case "parquet" => org.apache.arrow.dataset.file.FileFormat.PARQUET
-      case "csv" => org.apache.arrow.dataset.file.FileFormat.CSV
+      case "parquet" => org.apache.arrow.dataset.file.format.ParquetFileFormat.create(paramMap)
+      case "csv" => org.apache.arrow.dataset.file.format.CsvFileFormat.create(paramMap)
       case _ => throw new IllegalArgumentException("Unrecognizable format")
     }
   }
