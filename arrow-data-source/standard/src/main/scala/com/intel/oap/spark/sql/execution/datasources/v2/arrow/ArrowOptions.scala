@@ -19,7 +19,7 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import org.apache.spark.sql.catalyst.util.CaseInsensitiveMap
 
-class ArrowOptions(@transient private val parameters: CaseInsensitiveMap[String])
+class ArrowOptions(val parameters: CaseInsensitiveMap[String])
   extends Serializable {
 
   def this(parameters: Map[String, String]) = this(CaseInsensitiveMap(parameters))

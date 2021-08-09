@@ -28,7 +28,7 @@ import java.util.regex.Pattern
 import com.intel.oap.spark.sql.ArrowWriteQueue.EOS_BATCH
 import com.intel.oap.spark.sql.ArrowWriteQueue.ScannerImpl
 import org.apache.arrow.dataset.file.DatasetFileWriter
-import org.apache.arrow.dataset.file.FileFormat
+import org.apache.arrow.dataset.file.format.FileFormat
 import org.apache.arrow.dataset.scanner.Scanner
 import org.apache.arrow.dataset.scanner.ScanTask
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch

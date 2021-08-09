@@ -298,6 +298,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
 
   private val csvFile1 = "people.csv"
   private val csvFile2 = "example.csv"
+  private val csvFile3 = "example-tab.csv"
 
   ignore("read csv file without specifying original format") {
     // not implemented
@@ -320,6 +321,16 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       spark.read
           .format("arrow")
           .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
+          .load(path), 34, 9)
+  }
+
+  test("read csv file 3 - tab separated") {
+    val path = ArrowDataSourceTest.locateResourcePath(csvFile3)
+    verifyFrame(
+      spark.read
+          .format("arrow")
+          .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "csv")
+          .option("delimiter", "\t")
           .load(path), 34, 9)
   }
 
