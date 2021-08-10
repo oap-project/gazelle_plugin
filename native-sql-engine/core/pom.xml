@@ -17,13 +17,13 @@
   <parent>
     <groupId>com.intel.oap</groupId>
     <artifactId>native-sql-engine-parent</artifactId>
-    <version>1.2.0-snapshot</version>
+    <version>1.2.0</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
   <groupId>com.intel.oap</groupId>
   <artifactId>spark-columnar-core</artifactId>
-  <version>1.2.0-snapshot</version>
+  <version>1.2.0</version>
   <packaging>jar</packaging>
   <name>OAP Project Spark Columnar Plugin</name>
 

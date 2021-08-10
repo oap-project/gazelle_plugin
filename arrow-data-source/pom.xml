@@ -2,7 +2,7 @@
   <parent>
     <groupId>com.intel.oap</groupId>
     <artifactId>native-sql-engine-parent</artifactId>
-    <version>1.2.0-snapshot</version>
+    <version>1.2.0</version>
   </parent>
 
   <modelVersion>4.0.0</modelVersion>
@@ -10,7 +10,7 @@
   <artifactId>spark-arrow-datasource</artifactId>
   <name>OAP Project Spark Arrow Datasource</name>
   <packaging>pom</packaging>
-  <version>1.2.0-snapshot</version>
+  <version>1.2.0</version>
   <inceptionYear>2008</inceptionYear>
   <modules>
     <module>common</module>
