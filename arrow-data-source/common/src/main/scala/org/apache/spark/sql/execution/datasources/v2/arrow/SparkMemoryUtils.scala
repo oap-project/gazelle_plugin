@@ -17,23 +17,64 @@
 
 package org.apache.spark.sql.execution.datasources.v2.arrow
 
+import java.io.PrintWriter
 import java.util
 import java.util.UUID
 
 import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow._
+import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 import org.apache.arrow.dataset.jni.NativeMemoryPool
+import org.apache.arrow.memory.AllocationListener
+import org.apache.arrow.memory.AllocationOutcome
+import org.apache.arrow.memory.AutoBufferLedger
 import org.apache.arrow.memory.BufferAllocator
+import org.apache.arrow.memory.BufferLedger
+import org.apache.arrow.memory.DirectAllocationListener
+import org.apache.arrow.memory.ImmutableConfig
+import org.apache.arrow.memory.LegacyBufferLedger
 import org.apache.arrow.memory.RootAllocator
 
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.memory.TaskMemoryManager
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.util.TaskCompletionListener
 
 object SparkMemoryUtils extends Logging {
+
   private val DEBUG: Boolean = false
+
+  class AllocationListenerList(listeners: AllocationListener *)
+      extends AllocationListener {
+    override def onPreAllocation(size: Long): Unit = {
+      listeners.foreach(_.onPreAllocation(size))
+    }
+
+    override def onAllocation(size: Long): Unit = {
+      listeners.foreach(_.onAllocation(size))
+    }
+
+    override def onRelease(size: Long): Unit = {
+      listeners.foreach(_.onRelease(size))
+    }
+
+    override def onFailedAllocation(size: Long, outcome: AllocationOutcome): Boolean = {
+      listeners.forall(_.onFailedAllocation(size, outcome))
+    }
+
+    override def onChildAdded(parentAllocator: BufferAllocator,
+        childAllocator: BufferAllocator): Unit = {
+      listeners.foreach(_.onChildAdded(parentAllocator, childAllocator))
+
+    }
+
+    override def onChildRemoved(parentAllocator: BufferAllocator,
+        childAllocator: BufferAllocator): Unit = {
+      listeners.foreach(_.onChildRemoved(parentAllocator, childAllocator))
+    }
+  }
 
   class TaskMemoryResources {
     if (!inSparkTask()) {
@@ -42,32 +83,63 @@ object SparkMemoryUtils extends Logging {
 
     val sharedMetrics = new NativeSQLMemoryMetrics()
 
+    val isArrowAutoReleaseEnabled: Boolean = {
+      SQLConf.get
+          .getConfString("spark.oap.sql.columnar.autorelease", "false").toBoolean
+    }
+
+    val ledgerFactory: BufferLedger.Factory = if (isArrowAutoReleaseEnabled) {
+      AutoBufferLedger.newFactory()
+    } else {
+      LegacyBufferLedger.FACTORY
+    }
+
+
+    private def collectStackForDebug = {
+      if (DEBUG) {
+        val out = new ByteOutputStream()
+        val writer = new PrintWriter(out)
+        new Exception().printStackTrace(writer)
+        writer.close()
+        out.toString
+      } else {
+        null
+      }
+    }
+
+    private val allocators = new util.ArrayList[BufferAllocator]()
+
+    private val memoryPools = new util.ArrayList[NativeMemoryPoolWrapper]()
+
     val defaultAllocator: BufferAllocator = {
       val al = new SparkManagedAllocationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
         sharedMetrics)
-      new RootAllocator(al, Long.MaxValue)
+      val alloc = new RootAllocator(ImmutableConfig.builder()
+          .maxAllocation(Long.MaxValue)
+          .bufferLedgerFactory(ledgerFactory)
+          .listener(new AllocationListenerList(al, DirectAllocationListener.INSTANCE))
+          .build)
+      allocators.add(alloc)
+      alloc
     }
 
     val defaultMemoryPool: NativeMemoryPoolWrapper = {
       val rl = new SparkManagedReservationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
         sharedMetrics)
-      NativeMemoryPoolWrapper(NativeMemoryPool.createListenable(rl), rl)
+      val pool = NativeMemoryPoolWrapper(NativeMemoryPool.createListenable(rl), rl,
+        collectStackForDebug)
+      memoryPools.add(pool)
+      pool
     }
-
-    private val allocators = new util.ArrayList[BufferAllocator]()
-    allocators.add(defaultAllocator)
-
-    private val memoryPools = new util.ArrayList[NativeMemoryPoolWrapper]()
-    memoryPools.add(defaultMemoryPool)
 
     def createSpillableMemoryPool(spiller: Spiller): NativeMemoryPool = {
       val rl = new SparkManagedReservationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
         sharedMetrics)
       val pool = NativeMemoryPool.createListenable(rl)
-      memoryPools.add(NativeMemoryPoolWrapper(pool, rl))
+      memoryPools.add(NativeMemoryPoolWrapper(pool, rl, collectStackForDebug))
       pool
     }
 
@@ -119,8 +191,12 @@ object SparkMemoryUtils extends Logging {
     }
 
     def release(): Unit = {
+      ledgerFactory match {
+        case closeable: AutoCloseable =>
+          closeable.close()
+        case _ =>
+      }
       for (allocator <- allocators.asScala.reverse) {
-        // reversed iterating: close children first
         val allocated = allocator.getAllocatedMemory
         if (allocated == 0L) {
           close(allocator)
@@ -188,8 +264,15 @@ object SparkMemoryUtils extends Logging {
     }
   }
 
+  private val allocator = new RootAllocator(
+    ImmutableConfig.builder()
+        .maxAllocation(Long.MaxValue)
+        .bufferLedgerFactory(AutoBufferLedger.newFactory())
+        .listener(DirectAllocationListener.INSTANCE)
+        .build)
+
   def globalAllocator(): BufferAllocator = {
-    org.apache.spark.sql.util.ArrowUtils.rootAllocator
+    allocator
   }
 
   def globalMemoryPool(): NativeMemoryPool = {
@@ -272,5 +355,5 @@ object SparkMemoryUtils extends Logging {
   }
 
   case class NativeMemoryPoolWrapper(pool: NativeMemoryPool,
-      listener: SparkManagedReservationListener)
+      listener: SparkManagedReservationListener, log: String = null)
 }
