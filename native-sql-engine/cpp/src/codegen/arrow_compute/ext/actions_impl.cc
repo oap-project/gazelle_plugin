@@ -2093,7 +2093,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
         builder_isempty_->Append(true);
       } else {
         builder_->AppendNull();
-        builder_isempty_->AppendNull();
+        builder_isempty_->Append(false);
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -2116,7 +2116,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
         builder_isempty_->Append(true);
       } else {
         builder_->AppendNull();
-        builder_isempty_->AppendNull();
+        builder_isempty_->Append(false);
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
