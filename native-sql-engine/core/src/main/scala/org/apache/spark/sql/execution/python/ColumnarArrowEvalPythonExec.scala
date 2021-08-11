@@ -28,178 +28,20 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.arrow.vector.{ValueVector, VectorLoader, VectorSchemaRoot}
-import org.apache.arrow.vector.ipc.{ArrowStreamReader, ArrowStreamWriter}
 import org.apache.spark.{ContextAwareIterator, SparkEnv}
 import org.apache.spark.TaskContext
-import org.apache.spark.api.python.{BasePythonRunner, ChainedPythonFunctions, PythonRDD, SpecialLengths}
+import org.apache.spark.api.python.ChainedPythonFunctions
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.execution.python.{EvalPythonExec, PythonArrowOutput, PythonUDFRunner}
+import org.apache.spark.sql.execution.python.EvalPythonExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector, ArrowColumnVector}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.Utils
-
-/**
- * Similar to `PythonUDFRunner`, but exchange data with Python worker via Arrow stream.
- */
-class ColumnarArrowPythonRunner(
-    funcs: Seq[ChainedPythonFunctions],
-    evalType: Int,
-    argOffsets: Array[Array[Int]],
-    schema: StructType,
-    timeZoneId: String,
-    conf: Map[String, String])
-  extends BasePythonRunner[ColumnarBatch, ColumnarBatch](funcs, evalType, argOffsets) {
-
-  override val simplifiedTraceback: Boolean = SQLConf.get.pysparkSimplifiedTraceback
-
-  override val bufferSize: Int = SQLConf.get.pandasUDFBufferSize
-  require(
-    bufferSize >= 4,
-    "Pandas execution requires more than 4 bytes. Please set higher buffer. " +
-      s"Please change '${SQLConf.PANDAS_UDF_BUFFER_SIZE.key}'.")
-
-  protected def newReaderIterator(
-      stream: DataInputStream,
-      writerThread: WriterThread,
-      startTime: Long,
-      env: SparkEnv,
-      worker: Socket,
-      releasedOrClosed: AtomicBoolean,
-      context: TaskContext): Iterator[ColumnarBatch] = {
-
-    new ReaderIterator(stream, writerThread, startTime, env, worker, releasedOrClosed, context) {
-      private val allocator = ArrowUtils.rootAllocator.newChildAllocator(
-        s"stdin reader for $pythonExec", 0, Long.MaxValue)
-
-      private var reader: ArrowStreamReader = _
-      private var root: VectorSchemaRoot = _
-      private var schema: StructType = _
-      private var vectors: Array[ColumnVector] = _
-
-      context.addTaskCompletionListener[Unit] { _ =>
-        if (reader != null) {
-          reader.close(false)
-        }
-        allocator.close()
-      }
-
-      private var batchLoaded = true
-
-      protected override def read(): ColumnarBatch = {
-        if (writerThread.exception.isDefined) {
-          throw writerThread.exception.get
-        }
-        try {
-          if (reader != null && batchLoaded) {
-            batchLoaded = reader.loadNextBatch()
-            if (batchLoaded) {
-              val batch = new ColumnarBatch(vectors)
-              batch.setNumRows(root.getRowCount)
-              batch
-            } else {
-              reader.close(false)
-              allocator.close()
-              // Reach end of stream. Call `read()` again to read control data.
-              read()
-            }
-          } else {
-            stream.readInt() match {
-              case SpecialLengths.START_ARROW_STREAM =>
-                reader = new ArrowStreamReader(stream, allocator)
-                root = reader.getVectorSchemaRoot()
-                schema = ArrowUtils.fromArrowSchema(root.getSchema())
-                vectors = ArrowWritableColumnVector.loadColumns(root.getRowCount, root.getFieldVectors).toArray[ColumnVector]
-                read()
-              case SpecialLengths.TIMING_DATA =>
-                handleTimingData()
-                read()
-              case SpecialLengths.PYTHON_EXCEPTION_THROWN =>
-                throw handlePythonException()
-              case SpecialLengths.END_OF_DATA_SECTION =>
-                handleEndOfDataSection()
-                null
-            }
-          }
-        } catch handleException
-      }
-    }
-  }
-
-  protected override def newWriterThread(
-      env: SparkEnv,
-      worker: Socket,
-      inputIterator: Iterator[ColumnarBatch],
-      partitionIndex: Int,
-      context: TaskContext): WriterThread = {
-    new WriterThread(env, worker, inputIterator, partitionIndex, context) {
-
-      protected override def writeCommand(dataOut: DataOutputStream): Unit = {
-
-        // Write config for the worker as a number of key -> value pairs of strings
-        dataOut.writeInt(conf.size)
-        for ((k, v) <- conf) {
-          PythonRDD.writeUTF(k, dataOut)
-          PythonRDD.writeUTF(v, dataOut)
-        }
-
-        PythonUDFRunner.writeUDFs(dataOut, funcs, argOffsets)
-      }
-
-      protected override def writeIteratorToStream(dataOut: DataOutputStream): Unit = {
-        var numRows: Long = 0
-        val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
-        val allocator = ArrowUtils.rootAllocator.newChildAllocator(
-          s"stdout writer for $pythonExec", 0, Long.MaxValue)
-        val root = VectorSchemaRoot.create(arrowSchema, allocator)
-
-        Utils.tryWithSafeFinally {
-          val loader = new VectorLoader(root)
-          val writer = new ArrowStreamWriter(root, null, dataOut)
-          writer.start()
-          while (inputIterator.hasNext) {
-            val nextBatch = inputIterator.next()
-            numRows += nextBatch.numRows
-            val next_rb = ConverterUtils.createArrowRecordBatch(nextBatch)
-            loader.load(next_rb)
-            writer.writeBatch()
-            ConverterUtils.releaseArrowRecordBatch(next_rb)
-          }            
-          // end writes footer to the output stream and doesn't clean any resources.
-          // It could throw exception if the output stream is closed, so it should be
-          // in the try block.
-          writer.end()
-        }{
-          root.close()
-          allocator.close()
-        }
-      }
-    }
-  }
-
-}
-
-/**
- * Grouped a iterator into batches.
- * This is similar to iter.grouped but returns Iterator[T] instead of Seq[T].
- * This is necessary because sometimes we cannot hold reference of input rows
- * because the some input rows are mutable and can be reused.
- */
-private[spark] class CoalecseBatchIterator[T](iter: Iterator[T], batchSize: Int)
-  extends Iterator[T] {
-
-  override def hasNext: Boolean = iter.hasNext
-
-  override def next(): T = {
-    iter.next
-  }
-}
 
 case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[Attribute], child: SparkPlan,
     evalType: Int)
@@ -210,11 +52,31 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "input_batches"),
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_arrow_udf"))
   
+  buildCheck()
+
   private val batchSize = conf.arrowMaxRecordsPerBatch
   private val sessionLocalTimeZone = conf.sessionLocalTimeZone
   private val pythonRunnerConf = ArrowUtils.getPythonRunnerConfMap(conf)
 
   override def supportsColumnar = true
+
+  def buildCheck(): Unit = {
+    val (pyFuncs, inputs) = udfs.map(collectFunctions).unzip
+    val allInputs = new ArrayBuffer[Expression]
+    val dataTypes = new ArrayBuffer[DataType]
+    val argOffsets = inputs.map { input =>
+      input.map { e =>
+        if (allInputs.exists(_.semanticEquals(e))) {
+          allInputs.indexWhere(_.semanticEquals(e))
+        } else {
+          allInputs += e
+          dataTypes += e.dataType
+          allInputs.length - 1
+        }
+      }.toArray
+    }.toArray
+    ColumnarProjection.buildCheck(child.output, allInputs.toSeq)
+  }
   
   protected def evaluate(
       funcs: Seq[ChainedPythonFunctions],
@@ -235,7 +97,6 @@ case class ColumnarArrowEvalPythonExec(udfs: Seq[PythonUDF], resultAttrs: Seq[At
     val outputTypes = output.drop(child.output.length).map(_.dataType)
 
     // Use Coalecse to improve performance in future
-    // val batchIter = new CoalecseBatchIterator(iter, batchSize)
     val batchIter = new CloseableColumnBatchIterator(iter)
 
     val columnarBatchIter = new ColumnarArrowPythonRunner(
