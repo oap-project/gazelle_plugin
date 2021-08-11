@@ -1911,7 +1911,9 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_[0] += typed_scalar->value;
-    if (!cache_validity_[0]) cache_validity_[0] = true;
+    if (!cache_validity_[0] && (in[0]->length() != in[0]->null_count())) {
+      cache_validity_[0] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -2093,7 +2095,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
         builder_isempty_->Append(true);
       } else {
         builder_->AppendNull();
-        builder_isempty_->AppendNull();
+        builder_isempty_->Append(false);
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -2116,7 +2118,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
         builder_isempty_->Append(true);
       } else {
         builder_->AppendNull();
-        builder_isempty_->AppendNull();
+        builder_isempty_->Append(false);
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));

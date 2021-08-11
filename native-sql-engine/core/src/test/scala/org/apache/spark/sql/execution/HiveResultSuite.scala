@@ -42,6 +42,7 @@ class HiveResultSuite extends SharedSparkSession {
   }
 
   test("timestamp formatting in hive result") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val timestamps = Seq(
       "2018-12-28 01:02:03",
       "1582-10-03 01:02:03",

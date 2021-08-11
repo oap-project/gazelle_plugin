@@ -23,7 +23,7 @@ import java.time.{Instant, LocalDateTime, ZoneId}
 import java.util.{Locale, TimeZone}
 import java.util.concurrent.TimeUnit
 
-import org.apache.spark.{SparkException, SparkUpgradeException}
+import org.apache.spark.{SparkConf, SparkException, SparkUpgradeException}
 import org.apache.spark.sql.catalyst.util.DateTimeTestUtils.{CEST, LA}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.functions._
@@ -34,8 +34,16 @@ import org.apache.spark.unsafe.types.CalendarInterval
 
 class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
+  java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
+
+  override protected def sparkConf: SparkConf = {
+    val conf = super.sparkConf
+    conf.set("spark.sql.session.timeZone", "UTC")
+    conf
+  }
 
   test("function current_date") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val df1 = Seq((1, 2), (3, 1)).toDF("a", "b")
     val d0 = DateTimeUtils.currentDate(ZoneId.systemDefault())
     val d1 = DateTimeUtils.fromJavaDate(df1.select(current_date()).collect().head.getDate(0))
@@ -339,6 +347,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("function months_between") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val d1 = Date.valueOf("2015-07-31")
     val d2 = Date.valueOf("2015-02-16")
     val t1 = Timestamp.valueOf("2014-09-30 23:30:00")
@@ -387,6 +396,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("function to_date") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val d1 = Date.valueOf("2015-07-22")
     val d2 = Date.valueOf("2015-07-01")
     val d3 = Date.valueOf("2014-12-31")
@@ -477,6 +487,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("function date_trunc") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val df = Seq(
       (1, Timestamp.valueOf("2015-07-22 10:01:40.123456")),
       (2, Timestamp.valueOf("2014-12-31 05:29:06.123456"))).toDF("i", "t")
@@ -538,6 +549,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("from_unixtime") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     Seq("corrected", "legacy").foreach { legacyParserPolicy =>
       withSQLConf(SQLConf.LEGACY_TIME_PARSER_POLICY.key -> legacyParserPolicy) {
         val sdf1 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
@@ -571,6 +583,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   private def secs(millis: Long): Long = TimeUnit.MILLISECONDS.toSeconds(millis)
 
   test("unix_timestamp") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     Seq("corrected", "legacy").foreach { legacyParserPolicy =>
       withSQLConf(SQLConf.LEGACY_TIME_PARSER_POLICY.key -> legacyParserPolicy) {
         val date1 = Date.valueOf("2015-07-24")
@@ -646,6 +659,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("to_unix_timestamp") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     Seq("corrected", "legacy").foreach { legacyParserPolicy =>
       withSQLConf(SQLConf.LEGACY_TIME_PARSER_POLICY.key -> legacyParserPolicy) {
         val date1 = Date.valueOf("2015-07-24")
@@ -698,6 +712,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
 
 
   test("to_timestamp") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     Seq("legacy", "corrected").foreach { legacyParserPolicy =>
       withSQLConf(SQLConf.LEGACY_TIME_PARSER_POLICY.key -> legacyParserPolicy) {
         val date1 = Date.valueOf("2015-07-24")
@@ -760,6 +775,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("from_utc_timestamp with literal zone") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val df = Seq(
       (Timestamp.valueOf("2015-07-24 00:00:00"), "2015-07-24 00:00:00"),
       (Timestamp.valueOf("2015-07-25 00:00:00"), "2015-07-25 00:00:00")
@@ -777,6 +793,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("from_utc_timestamp with column zone") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val df = Seq(
       (Timestamp.valueOf("2015-07-24 00:00:00"), "2015-07-24 00:00:00", CEST.getId),
       (Timestamp.valueOf("2015-07-25 00:00:00"), "2015-07-25 00:00:00", LA.getId)
@@ -803,6 +820,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("to_utc_timestamp with literal zone") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val df = Seq(
       (Timestamp.valueOf("2015-07-24 00:00:00"), "2015-07-24 00:00:00"),
       (Timestamp.valueOf("2015-07-25 00:00:00"), "2015-07-25 00:00:00")
@@ -820,6 +838,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("to_utc_timestamp with column zone") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"))
     val df = Seq(
       (Timestamp.valueOf("2015-07-24 00:00:00"), "2015-07-24 00:00:00", LA.getId),
       (Timestamp.valueOf("2015-07-25 00:00:00"), "2015-07-25 00:00:00", CEST.getId)
@@ -837,6 +856,7 @@ class DateFunctionsSuite extends QueryTest with SharedSparkSession {
   }
 
   test("SPARK-30668: use legacy timestamp parser in to_timestamp") {
+    java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("GMT-8"))
     val confKey = SQLConf.LEGACY_TIME_PARSER_POLICY.key
     val df = Seq("2020-01-27T20:06:11.847-0800").toDF("ts")
     withSQLConf(confKey -> "legacy") {

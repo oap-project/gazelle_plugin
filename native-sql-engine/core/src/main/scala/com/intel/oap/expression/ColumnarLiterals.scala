@@ -143,7 +143,7 @@ class ColumnarLiteral(lit: Literal)
           case _ =>
             val origLongNode = TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Long])
             val timestampNode = TreeBuilder.makeFunction(
-              "seconds_to_timestamp", Lists.newArrayList(origLongNode), resultType)
+              "micros_to_timestamp", Lists.newArrayList(origLongNode), resultType)
             (timestampNode, resultType)
         }
       case c: CalendarIntervalType =>
