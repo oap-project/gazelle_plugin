@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "codegen/common/allocator.hpp"
 #include "third_party/gandiva/decimal_ops.h"
 #include "third_party/gandiva/types.h"
 
