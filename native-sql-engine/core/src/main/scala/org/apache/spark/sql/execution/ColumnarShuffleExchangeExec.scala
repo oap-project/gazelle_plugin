@@ -30,7 +30,7 @@ import com.intel.oap.vectorized.{
   NativePartitioning
 }
 import org.apache.arrow.gandiva.expression.TreeBuilder
-import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
@@ -53,7 +53,7 @@ import org.apache.spark.sql.execution.metric.{
   SQLShuffleWriteMetricsReporter
 }
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{IntegerType, StructType}
+import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.{MutablePair, Utils}
 
@@ -85,12 +85,26 @@ case class ColumnarShuffleExchangeExec(
 
   override def nodeName: String = "ColumnarExchange"
   override def output: Seq[Attribute] = child.output
+  buildCheck()
 
   override def supportsColumnar: Boolean = true
 
   override def stringArgs =
     super.stringArgs ++ Iterator(s"[id=#$id]")
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
+
+  def buildCheck(): Unit = {
+    // check input datatype
+    for (attr <- child.output) {
+      try {
+        ColumnarShuffleExchangeExec.createArrowField(attr)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarShuffleExchange")
+      }
+    }
+  }
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
     longMetric("avgReadBatchNumRows"),
@@ -275,6 +289,22 @@ object ColumnarShuffleExchangeExec extends Logging {
     }
   }
 
+  def createArrowField(name: String, dt: DataType): Field = dt match {
+    case at: ArrayType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported in ColumnarShuffleExchange")
+    case mt: MapType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported in ColumnarShuffleExchange")
+    case st: StructType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported in ColumnarShuffleExchange")
+      /*new Field(name, FieldType.nullable(ArrowType.List.INSTANCE),
+        Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))*/
+    case _ =>
+      Field.nullable(name, CodeGeneration.getResultType(dt))
+  }
+
+  def createArrowField(attr: Attribute): Field = 
+      createArrowField(s"${attr.name}#${attr.exprId.id}", attr.dataType)
+
   def prepareShuffleDependency(
       rdd: RDD[ColumnarBatch],
       outputAttributes: Seq[Attribute],
@@ -288,12 +318,7 @@ object ColumnarShuffleExchangeExec extends Logging {
       splitTime: SQLMetric,
       spillTime: SQLMetric,
       compressTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
-
-    val arrowFields = outputAttributes.map(attr => {
-      Field
-        .nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-    })
-
+    val arrowFields = outputAttributes.map(attr => createArrowField(attr))
     def serializeSchema(fields: Seq[Field]): Array[Byte] = {
       val schema = new Schema(fields.asJava)
       ConverterUtils.getSchemaBytesBuf(schema)

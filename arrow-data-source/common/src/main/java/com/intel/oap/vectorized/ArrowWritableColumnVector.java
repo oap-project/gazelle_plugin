@@ -1774,6 +1774,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
         writer.setNull(rowId + i);
       }
     }
+
+    @Override
+    final void setBytes(int rowId, int count, byte[] src, int srcIndex) {
+      writer.setSafe(rowId, src, srcIndex, count);
+    }
   }
 
   private static class DateWriter extends ArrowVectorWriter {

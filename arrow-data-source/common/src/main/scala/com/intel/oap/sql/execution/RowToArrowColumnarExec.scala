@@ -86,6 +86,7 @@ object RowToColumnConverter {
       case LongType | TimestampType => LongConverter
       case DoubleType => DoubleConverter
       case StringType => StringConverter
+      case BinaryType => BinaryConverter
       case CalendarIntervalType => CalendarConverter
       case at: ArrayType => new ArrayConverter(getConverterForType(at.elementType, nullable))
       case st: StructType => new StructConverter(st.fields.map(
@@ -146,6 +147,13 @@ object RowToColumnConverter {
   private object StringConverter extends TypeConverter {
     override def append(row: SpecializedGetters, column: Int, cv: WritableColumnVector): Unit = {
       val data = row.getUTF8String(column).getBytes
+      cv.asInstanceOf[ArrowWritableColumnVector].appendString(data, 0, data.length)
+    }
+  }
+
+  private object BinaryConverter extends TypeConverter {
+    override def append(row: SpecializedGetters, column: Int, cv: WritableColumnVector): Unit = {
+      val data = row.getBinary(column)
       cv.asInstanceOf[ArrowWritableColumnVector].appendString(data, 0, data.length)
     }
   }
