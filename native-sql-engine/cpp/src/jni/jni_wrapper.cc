@@ -40,7 +40,7 @@
 #include "codegen/common/result_iterator.h"
 #include "jni/concurrent_map.h"
 #include "jni/jni_common.h"
-#include "operators/unsafe_row_writer_and_reader.h"
+#include "operators/columnar_to_row_converter.h"
 #include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
 
@@ -73,25 +73,27 @@ static jmethodID unsafe_row_class_point_to;
 static jmethodID serialized_record_batch_iterator_hasNext;
 static jmethodID serialized_record_batch_iterator_next;
 
+static jclass arrow_columnar_to_row_info_class;
+static jmethodID arrow_columnar_to_row_info_constructor;
+
 using arrow::jni::ConcurrentMap;
 static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 
 static jint JNI_VERSION = JNI_VERSION_1_8;
 
 using CodeGenerator = sparkcolumnarplugin::codegen::CodeGenerator;
-using UnsafeRowWriterAndReader = sparkcolumnarplugin::unsaferow::UnsafeRowWriterAndReader;
+using ColumnarToRowConverter = sparkcolumnarplugin::columnartorow::ColumnarToRowConverter;
 static arrow::jni::ConcurrentMap<std::shared_ptr<CodeGenerator>> handler_holder_;
 static arrow::jni::ConcurrentMap<std::shared_ptr<ResultIteratorBase>>
     batch_iterator_holder_;
-
-static arrow::jni::ConcurrentMap<std::shared_ptr<UnsafeRowWriterAndReader>>
-    unsafe_writer_and_reader_holder_;
 
 using sparkcolumnarplugin::shuffle::SplitOptions;
 using sparkcolumnarplugin::shuffle::Splitter;
 static arrow::jni::ConcurrentMap<std::shared_ptr<Splitter>> shuffle_splitter_holder_;
 static arrow::jni::ConcurrentMap<std::shared_ptr<arrow::Schema>>
     decompression_schema_holder_;
+static arrow::jni::ConcurrentMap<std::shared_ptr<ColumnarToRowConverter>>
+    columnar_to_row_converter_holder_;
 
 std::shared_ptr<CodeGenerator> GetCodeGenerator(JNIEnv* env, jlong id) {
   auto handler = handler_holder_.Lookup(id);
@@ -298,16 +300,18 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   metrics_builder_constructor =
       GetMethodID(env, metrics_builder_class, "<init>", "([J[J)V");
 
-  unsafe_row_class = CreateGlobalClassReference(
-      env, "Lorg/apache/spark/sql/catalyst/expressions/UnsafeRow;");
-  unsafe_row_class_constructor = GetMethodID(env, unsafe_row_class, "<init>", "(I)V");
-  unsafe_row_class_point_to = GetMethodID(env, unsafe_row_class, "pointTo", "([BI)V");
   serialized_record_batch_iterator_class =
       CreateGlobalClassReference(env, "Lcom/intel/oap/execution/ColumnarNativeIterator;");
   serialized_record_batch_iterator_hasNext =
       GetMethodID(env, serialized_record_batch_iterator_class, "hasNext", "()Z");
   serialized_record_batch_iterator_next =
       GetMethodID(env, serialized_record_batch_iterator_class, "next", "()[B");
+
+  arrow_columnar_to_row_info_class = CreateGlobalClassReference(
+      env, "Lcom/intel/oap/vectorized/ArrowColumnarToRowInfo;");
+  arrow_columnar_to_row_info_constructor =
+      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>",
+                  "(JLjava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)V");
 
   return JNI_VERSION;
 }
@@ -327,14 +331,14 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(arrow_record_batch_builder_class);
   env->DeleteGlobalRef(serializable_obj_builder_class);
   env->DeleteGlobalRef(split_result_class);
-  env->DeleteGlobalRef(unsafe_row_class);
   env->DeleteGlobalRef(serialized_record_batch_iterator_class);
+  env->DeleteGlobalRef(arrow_columnar_to_row_info_class);
 
   buffer_holder_.Clear();
   handler_holder_.Clear();
   batch_iterator_holder_.Clear();
-  unsafe_writer_and_reader_holder_.Clear();
   shuffle_splitter_holder_.Clear();
+  columnar_to_row_converter_holder_.Clear();
   decompression_schema_holder_.Clear();
 }
 
@@ -1530,27 +1534,27 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
   decompression_schema_holder_.Erase(schema_holder_id);
 }
 
-JNIEXPORT jlong JNICALL
+JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnarToRow(
     JNIEnv* env, jobject, jbyteArray schema_arr, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jlong memory_pool_id) {
+    jlongArray buf_sizes, jobject direct_buffer) {
   if (schema_arr == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,
         std::string("Native convert columnar to row schema can't be null").c_str());
-    return -1;
+    return NULL;
   }
   if (buf_addrs == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,
         std::string("Native convert columnar to row: buf_addrs can't be null").c_str());
-    return -1;
+    return NULL;
   }
   if (buf_sizes == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,
         std::string("Native convert columnar to row: buf_sizes can't be null").c_str());
-    return -1;
+    return NULL;
   }
 
   int in_bufs_len = env->GetArrayLength(buf_addrs);
@@ -1560,7 +1564,7 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
         std::string(
             "Native convert columnar to row: length of buf_addrs and buf_sizes mismatch")
             .c_str());
-    return -1;
+    return NULL;
   }
 
   std::shared_ptr<arrow::Schema> schema;
@@ -1583,93 +1587,61 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
                               "error message is " +
                               status.message())
                       .c_str());
-    return -1;
+    return NULL;
   }
 
-  // convert the record batch to spark unsafe row.
-  jlong result;
-  try {
-    auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
-    if (pool == nullptr) {
-      env->ThrowNew(illegal_argument_exception_class,
-                    "Memory pool does not exist or has been closed");
-      return -1;
-    }
+  void* address = env->GetDirectBufferAddress(direct_buffer);
 
-    std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader =
-        std::make_shared<UnsafeRowWriterAndReader>(rb, pool);
-    auto status = unsafe_row_writer_reader->Init();
+  // convert the record batch to spark unsafe row.
+  int64_t* offsets;
+  int64_t* lengths;
+  int64_t instanceID;
+  try {
+    std::shared_ptr<ColumnarToRowConverter> columnar_to_row_converter =
+        std::make_shared<ColumnarToRowConverter>(rb, address);
+    auto status = columnar_to_row_converter->Init();
     if (!status.ok()) {
       env->ThrowNew(illegal_argument_exception_class,
                     std::string("Native convert columnar to row: Init "
-                                "UnsafeRowWriterAndReader failed, error message is " +
+                                "ColumnarToRowConverter failed, error message is " +
                                 status.message())
                         .c_str());
-      return -1;
+      return NULL;
     }
 
-    status = unsafe_row_writer_reader->Write();
+    status = columnar_to_row_converter->Write();
 
     if (!status.ok()) {
       env->ThrowNew(
           illegal_argument_exception_class,
-          std::string("Native convert columnar to row: UnsafeRowWriterAndReader write "
+          std::string("Native convert columnar to row: ColumnarToRowConverter write "
                       "failed, error message is " +
                       status.message())
               .c_str());
-      return -1;
+      return NULL;
     }
 
-    result = unsafe_writer_and_reader_holder_.Insert(std::move(unsafe_row_writer_reader));
+    offsets = columnar_to_row_converter->GetOffsets();
+    lengths = columnar_to_row_converter->GetLengths();
+    instanceID = columnar_to_row_converter_holder_.Insert(columnar_to_row_converter);
 
   } catch (const std::runtime_error& error) {
     env->ThrowNew(unsupportedoperation_exception_class, error.what());
   } catch (const std::exception& error) {
     env->ThrowNew(io_exception_class, error.what());
   }
-
-  return result;
+  int64_t size = (num_rows) * sizeof(int64_t);
+  jobject arrow_columnar_to_row_info = env->NewObject(
+      arrow_columnar_to_row_info_class, arrow_columnar_to_row_info_constructor,
+      instanceID, env->NewDirectByteBuffer(offsets, size),
+      env->NewDirectByteBuffer(lengths, size));
+  return arrow_columnar_to_row_info;
 }
 
-std::shared_ptr<UnsafeRowWriterAndReader> GetUnsafeRowWriterAndReader(JNIEnv* env,
-                                                                      jlong id) {
-  auto unsafe_writer_and_reader = unsafe_writer_and_reader_holder_.Lookup(id);
-  if (!unsafe_writer_and_reader) {
-    std::string error_message =
-        "invalid unsafe_writer_and_reader id" + std::to_string(id);
-    env->ThrowNew(illegal_argument_exception_class, error_message.c_str());
-  }
-  return unsafe_writer_and_reader;
-}
-
-JNIEXPORT jboolean JNICALL
-Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeHasNext(
-    JNIEnv* env, jobject, jlong instanceID) {
-  auto unsafe_writer_and_reader = GetUnsafeRowWriterAndReader(env, instanceID);
-  return unsafe_writer_and_reader->HasNext();
-}
-
-JNIEXPORT jobject JNICALL
-Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeNext(JNIEnv* env,
-                                                                      jobject,
-                                                                      jlong instanceID) {
-  auto unsafe_writer_and_reader = GetUnsafeRowWriterAndReader(env, instanceID);
-  int64_t num_cols = unsafe_writer_and_reader->GetNumCols();
-  int64_t length;
-  std::shared_ptr<arrow::ResizableBuffer> buffer;
-  unsafe_writer_and_reader->Next(&length, &buffer);
-  uint8_t* data = buffer->mutable_data();
-  // create the UnsafeRow Object
-  jobject unsafe_row =
-      env->NewObject(unsafe_row_class, unsafe_row_class_constructor, num_cols);
-
-  // convert the data to jbyteArray
-  jbyteArray byteArray = env->NewByteArray(length);
-  env->SetByteArrayRegion(byteArray, 0, length, reinterpret_cast<const jbyte*>(data));
-  // call the pointer to method to pointer the byte array
-  env->CallVoidMethod(unsafe_row, unsafe_row_class_point_to, byteArray, length);
-
-  return unsafe_row;
+JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeClose(
+    JNIEnv* env, jobject, jlong instance_id) {
+  columnar_to_row_converter_holder_.Erase(instance_id);
 }
 
 JNIEXPORT void JNICALL Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env,

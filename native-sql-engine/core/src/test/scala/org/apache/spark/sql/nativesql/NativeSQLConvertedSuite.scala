@@ -92,7 +92,7 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(null, 9)))
   }
 
-  test("SMJ") {
+  ignore("SMJ") {
     Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
       ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
       ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),
@@ -308,7 +308,7 @@ class NativeSQLConvertedSuite extends QueryTest
       Row(7, 7, 3)))
   }
 
-  test("min_max") {
+  ignore("min_max") {
     Seq[(String, Integer, Integer, Long, Double, Double, Double, Timestamp, Date)](
       ("val1a", 6, 8, 10L, 15.0, 20D, 20E2, Timestamp.valueOf("2014-04-04 00:00:00.000"), Date.valueOf("2014-04-04")),
       ("val1b", 8, 16, 19L, 17.0, 25D, 26E2, Timestamp.valueOf("2014-05-04 01:01:00.000"), Date.valueOf("2014-05-04")),

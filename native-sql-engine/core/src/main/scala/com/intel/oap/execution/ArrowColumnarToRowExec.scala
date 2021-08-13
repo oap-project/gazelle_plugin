@@ -17,15 +17,19 @@
 
 package com.intel.oap.execution
 
+import java.nio.{ByteBuffer, ByteOrder}
+
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowColumnarToRowJniWrapper, ArrowWritableColumnVector}
+import org.apache.arrow.vector.BaseVariableWidthVector
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
+import org.apache.spark.sql.types.{DecimalType, StructField}
+import sun.nio.ch.DirectBuffer
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -75,6 +79,19 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
         val schema = new Schema(fields.asJava)
         ConverterUtils.getSchemaBytesBuf(schema)
       }
+      // For decimal type if the precision > 18 will need 16 bytes variable size.
+      def containDecimalCol(field: StructField): Boolean = field.dataType match {
+        case d: DecimalType if d.precision > 18 => true
+        case _ => false
+      }
+
+      def estimateBufferSize(numCols: Int, numRows: Int): Int = {
+        val fields = child.schema.fields
+        val decimalCols = fields.filter(field => containDecimalCol(field)).length
+        val fixedLength = UnsafeRow.calculateBitSetWidthInBytes(numCols) + numCols * 8
+        val initialBufferSize = 16 * decimalCols
+        (fixedLength + initialBufferSize) * numRows
+      }
 
       batches.flatMap { batch =>
         numInputBatches += 1
@@ -87,11 +104,15 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
           val bufAddrs = new ListBuffer[Long]()
           val bufSizes = new ListBuffer[Long]()
           val fields = new ListBuffer[Field]()
+          var totalVariableSize = 0L
           (0 until batch.numCols).foreach { idx =>
             val column = batch.column(idx).asInstanceOf[ArrowWritableColumnVector]
             fields += column.getValueVector.getField
-            column.getValueVector
-              .getBuffers(false)
+            val valueVector = column.getValueVector
+            if (valueVector.isInstanceOf[BaseVariableWidthVector]) {
+              totalVariableSize += valueVector.getDataBuffer.getPossibleMemoryConsumed()
+            }
+            valueVector.getBuffers(false)
               .foreach { buffer =>
                 bufAddrs += buffer.memoryAddress()
                 bufSizes += buffer.readableBytes()
@@ -104,25 +125,39 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
 
           val beforeConvert = System.nanoTime()
 
-          val instanceID = jniWrapper.nativeConvertColumnarToRow(
-            arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray,
-            SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
+          val size = estimateBufferSize(batch.numCols(), batch.numRows()) + totalVariableSize.toInt
+          val directBuffer = ByteBuffer.allocateDirect(size).asInstanceOf[DirectBuffer]
+          val info = jniWrapper.nativeConvertColumnarToRow(
+            arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray, directBuffer)
+          info.offsets.order(ByteOrder.LITTLE_ENDIAN)
+          info.lengths.order(ByteOrder.LITTLE_ENDIAN)
 
           convertTime += NANOSECONDS.toMillis(System.nanoTime() - beforeConvert)
 
           new Iterator[InternalRow] {
+            var rowId = 0
+            val row = new UnsafeRow(batch.numCols())
             override def hasNext: Boolean = {
-              val beforeHasNext = System.nanoTime()
-              val result = jniWrapper.nativeHasNext(instanceID)
-
-              hasNextTime += NANOSECONDS.toMillis(System.nanoTime() - beforeHasNext)
-              result
-
+              val result = rowId < batch.numRows()
+              if (!result) {
+                // Release the original batch, the allocated buffer and
+                // the offset and lengths buffer in native.
+                batch.close()
+                directBuffer.cleaner().clean()
+                jniWrapper.nativeClose(info.instanceID)
+              }
+              return result
             }
+
             override def next: UnsafeRow = {
-              val beforeNext = System.nanoTime()
-              val row = jniWrapper.nativeNext(instanceID)
-              nextTime += NANOSECONDS.toMillis(System.nanoTime() - beforeNext)
+              if (rowId >= batch.numRows()) throw new NoSuchElementException
+
+              val (offset, length) = (info.offsets.getLong(rowId * 8),
+                info.lengths.getLong(rowId * 8))
+
+              row.pointTo(directBuffer.attachment(),
+                directBuffer.address() + offset, length.toInt)
+              rowId += 1
               row
             }
           }
