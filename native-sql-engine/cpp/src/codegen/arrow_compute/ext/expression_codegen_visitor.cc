@@ -623,7 +623,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              << leftType->precision() << ", " << leftType->scale() << ", "
              << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
              << ", " << rightType->scale() << ", " << resType->precision() << ", "
-             << resType->scale() << ")";
+             << resType->scale() << ", &overflow)";
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
@@ -634,7 +634,13 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
+    if (node.return_type()->id() == arrow::Type::DECIMAL) {
+      prepare_ss << "bool overflow = false;" << std::endl;
+    }
     prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
+    if (node.return_type()->id() == arrow::Type::DECIMAL) {
+      prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
+    }
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {
@@ -663,7 +669,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              << leftType->precision() << ", " << leftType->scale() << ", "
              << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
              << ", " << rightType->scale() << ", " << resType->precision() << ", "
-             << resType->scale() << ")";
+             << resType->scale() << ", &overflow)";
       header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
@@ -674,7 +680,13 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                                    child_visitor_list[1]->GetPreCheck()})
                << ");" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
+    if (node.return_type()->id() == arrow::Type::DECIMAL) {
+      prepare_ss << "bool overflow = false;" << std::endl;
+    }
     prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
+    if (node.return_type()->id() == arrow::Type::DECIMAL) {
+      prepare_ss << "if (overflow) {\n" << validity << " = false;}" << std::endl;
+    }
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 2; i++) {

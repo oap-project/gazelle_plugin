@@ -34,17 +34,17 @@ namespace codegen {
 TEST(TestArrowCompute, AggregateTest) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f_res = field("res", int32());
-  auto f1 = field("f1", decimal128(6, 6));
+  auto f1 = field("f1", decimal128(12, 6));
   auto f2 = field("f2", int64());
 
-  auto f_min = field("min", decimal128(6, 6));
-  auto f_max = field("max", decimal128(6, 6));
-  auto f_sum = field("sum", decimal128(6, 6));
-  auto f_sum1 = field("sum1", decimal128(6, 6));
+  auto f_min = field("min", decimal128(12, 6));
+  auto f_max = field("max", decimal128(12, 6));
+  auto f_sum = field("sum", decimal128(12, 6));
+  auto f_sum1 = field("sum1", decimal128(12, 6));
   auto f_count1 = field("count1", int64());
-  auto f_sum2 = field("sum2", decimal128(6, 6));
+  auto f_sum2 = field("sum2", decimal128(12, 6));
   auto f_count2 = field("count2", int64());
-  auto f_avg = field("avg", decimal128(6, 6));
+  auto f_avg = field("avg", decimal128(12, 6));
   auto f_stddev_count = field("stddev_count", float64());
   auto f_stddev_avg = field("stddev_avg", float64());
   auto f_stddev_m2 = field("stddev_m2", float64());
@@ -154,26 +154,108 @@ TEST(TestArrowCompute, AggregateTest) {
   }
 }
 
+TEST(TestArrowCompute, AggregateSumOverflowTest) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f_res = field("res", int32());
+  auto f1 = field("f1", decimal128(38, 18));
+
+  auto f_sum = field("sum", decimal128(38, 18));
+
+  auto arg1 = TreeExprBuilder::MakeField(f1);
+
+  auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg1}, uint32());
+
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg1}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions", {n_sum}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema", {TreeExprBuilder::MakeField(f_sum)}, uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions", {TreeExprBuilder::MakeField(f_sum)}, uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+  auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
+
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
+
+  auto sch = arrow::schema({f1});
+  std::vector<std::shared_ptr<Field>> ret_types = {f_sum};
+
+  /////////////////////// Create Expression Evaluator ////////////////////
+  std::shared_ptr<CodeGenerator> expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
+
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+  std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
+  ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
+  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      aggr_result_iterator_base);
+
+  ////////////////////// calculation /////////////////////
+  std::vector<std::string> input_data = {R"([
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000"])"};
+  MakeInputBatch(input_data, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  std::vector<std::string> input_data_2 = {R"([
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000",
+      "10000000000000000000.000000000000000000", "10000000000000000000.000000000000000000"])"};
+  MakeInputBatch(input_data_2, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  ////////////////////// Finish //////////////////////////
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {R"([null])"};
+  auto res_sch = arrow::schema(ret_types);
+  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  if (aggr_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 TEST(TestArrowCompute, GroupByAggregateTest) {
   ////////////////////// prepare expr_vector ///////////////////////
-  auto f0 = field("f0", decimal128(6, 6));
+  auto f0 = field("f0", decimal128(12, 6));
   auto arg0 = TreeExprBuilder::MakeField(f0);
 
-  auto f_unique = field("unique", decimal128(6, 6));
-  auto f_multiply = field("multiply", decimal128(6, 6));
+  auto f_unique = field("unique", decimal128(12, 6));
+  auto f_multiply = field("multiply", decimal128(12, 6));
   auto f_res = field("res", int32());
 
-  auto f1 = field("f1", decimal128(6, 6));
+  auto f1 = field("f1", decimal128(12, 6));
   auto arg1 = TreeExprBuilder::MakeField(f1);
   auto f2 = field("f2", int64());
   auto arg2 = TreeExprBuilder::MakeField(f2);
 
-  auto f_min = field("min", decimal128(6, 6));
-  auto f_max = field("max", decimal128(6, 6));
-  auto f_sum = field("sum", decimal128(6, 6));
-  auto f_sum1 = field("sum1", decimal128(6, 6));
+  auto f_min = field("min", decimal128(12, 6));
+  auto f_max = field("max", decimal128(12, 6));
+  auto f_sum = field("sum", decimal128(12, 6));
+  auto f_sum1 = field("sum1", decimal128(12, 6));
   auto f_count1 = field("count1", int64());
-  auto f_sum2 = field("sum2", decimal128(6, 6));
+  auto f_sum2 = field("sum2", decimal128(12, 6));
   auto f_count2 = field("count2", int64());
   auto f_avg = field("avg", decimal128(16, 10));
 
@@ -296,24 +378,24 @@ TEST(TestArrowCompute, GroupByAggregateTest) {
 
 TEST(TestArrowCompute, GroupByAggregateWSCGTest) {
   ////////////////////// prepare expr_vector ///////////////////////
-  auto f0 = field("f0", decimal128(6, 6));
+  auto f0 = field("f0", decimal128(12, 6));
   auto arg0 = TreeExprBuilder::MakeField(f0);
 
-  auto f_unique = field("unique", decimal128(6, 6));
-  auto f_multiply = field("multiply", decimal128(6, 6));
+  auto f_unique = field("unique", decimal128(12, 6));
+  auto f_multiply = field("multiply", decimal128(12, 6));
   auto f_res = field("res", int32());
 
-  auto f1 = field("f1", decimal128(6, 6));
+  auto f1 = field("f1", decimal128(12, 6));
   auto arg1 = TreeExprBuilder::MakeField(f1);
   auto f2 = field("f2", int64());
   auto arg2 = TreeExprBuilder::MakeField(f2);
 
-  auto f_min = field("min", decimal128(6, 6));
-  auto f_max = field("max", decimal128(6, 6));
-  auto f_sum = field("sum", decimal128(6, 6));
-  auto f_sum1 = field("sum1", decimal128(6, 6));
+  auto f_min = field("min", decimal128(12, 6));
+  auto f_max = field("max", decimal128(12, 6));
+  auto f_sum = field("sum", decimal128(12, 6));
+  auto f_sum1 = field("sum1", decimal128(12, 6));
   auto f_count1 = field("count1", int64());
-  auto f_sum2 = field("sum2", decimal128(6, 6));
+  auto f_sum2 = field("sum2", decimal128(12, 6));
   auto f_count2 = field("count2", int64());
   auto f_avg = field("avg", decimal128(16, 10));
 

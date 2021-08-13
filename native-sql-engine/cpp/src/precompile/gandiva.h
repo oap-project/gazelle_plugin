@@ -82,21 +82,23 @@ arrow::Decimal128 castDECIMALNullOnOverflow(arrow::Decimal128 in,
 
 arrow::Decimal128 add(arrow::Decimal128 left, int32_t left_precision, int32_t left_scale,
                       arrow::Decimal128 right, int32_t right_precision,
-                      int32_t right_scale, int32_t out_precision, int32_t out_scale) {
+                      int32_t right_scale, int32_t out_precision, int32_t out_scale,
+                      bool* overflow) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
-  arrow::BasicDecimal128 out = gandiva::decimalops::Add(x, y, out_precision, out_scale);
+  arrow::BasicDecimal128 out =
+      gandiva::decimalops::Add(x, y, out_precision, out_scale, overflow);
   return arrow::Decimal128(out);
 }
 
 arrow::Decimal128 subtract(arrow::Decimal128 left, int32_t left_precision,
                            int32_t left_scale, arrow::Decimal128 right,
                            int32_t right_precision, int32_t right_scale,
-                           int32_t out_precision, int32_t out_scale) {
+                           int32_t out_precision, int32_t out_scale, bool* overflow) {
   gandiva::BasicDecimalScalar128 x(left, left_precision, left_scale);
   gandiva::BasicDecimalScalar128 y(right, right_precision, right_scale);
   arrow::BasicDecimal128 out =
-      gandiva::decimalops::Subtract(x, y, out_precision, out_scale);
+      gandiva::decimalops::Subtract(x, y, out_precision, out_scale, overflow);
   return arrow::Decimal128(out);
 }
 

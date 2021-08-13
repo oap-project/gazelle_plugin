@@ -30,12 +30,12 @@ namespace decimalops {
 /// out_precision and out_scale are passed along for efficiency, they must match
 /// the rules in DecimalTypeSql::GetResultType.
 arrow::BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
-                           int32_t out_precision, int32_t out_scale);
+                           int32_t out_precision, int32_t out_scale, bool* overflow);
 
 /// Subtract 'y' from 'x', and return the result.
 arrow::BasicDecimal128 Subtract(const BasicDecimalScalar128& x,
                                 const BasicDecimalScalar128& y, int32_t out_precision,
-                                int32_t out_scale);
+                                int32_t out_scale, bool* overflow);
 
 /// Multiply 'x' from 'y', and return the result.
 arrow::BasicDecimal128 Multiply(const BasicDecimalScalar128& x,

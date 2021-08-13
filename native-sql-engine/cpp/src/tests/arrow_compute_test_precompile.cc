@@ -58,10 +58,11 @@ TEST(TestArrowCompute, ArithmeticDecimalTest) {
   res = castDECIMALNullOnOverflow(left, left_precision, left_scale, out_precision,
                                   out_scale, &overflow);
   ASSERT_EQ(res, arrow::Decimal128("32342423.0128750000"));
-  res = add(left, left_precision, left_scale, right, right_precision, right_scale, 17, 9);
+  res = add(left, left_precision, left_scale, right, right_precision, right_scale, 17, 9,
+            &overflow);
   ASSERT_EQ(res, arrow::Decimal128("32344770.025749535"));
   res = subtract(left, left_precision, left_scale, right, right_precision, right_scale,
-                 17, 9);
+                 17, 9, &overflow);
   ASSERT_EQ(res, arrow::Decimal128("32340076.000000465"));
   res = multiply(left, left_precision, left_scale, right, right_precision, right_scale,
                  28, 15, &overflow);

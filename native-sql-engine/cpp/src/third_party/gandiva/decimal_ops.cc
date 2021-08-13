@@ -68,8 +68,8 @@ static BasicDecimal128 AddNoOverflow(const BasicDecimalScalar128& x,
 
 /// Both x_value and y_value must be >= 0
 static BasicDecimal128 AddLargePositive(const BasicDecimalScalar128& x,
-                                        const BasicDecimalScalar128& y,
-                                        int32_t out_scale) {
+                                        const BasicDecimalScalar128& y, int32_t out_scale,
+                                        bool* overflow) {
   DCHECK_GE(x.value(), 0);
   DCHECK_GE(y.value(), 0);
 
@@ -96,7 +96,12 @@ static BasicDecimal128 AddLargePositive(const BasicDecimalScalar128& x,
   right = CheckAndReduceScale(right, higher_scale - out_scale);
 
   auto left = x_left + y_left + carry_to_left;
-  return (left * BasicDecimal128::GetScaleMultiplier(out_scale)) + right;
+  BasicDecimalScalar128 num_left(left, x.precision(), x.scale());
+  BasicDecimalScalar128 num_scale(BasicDecimal128::GetScaleMultiplier(out_scale),
+                                  (out_scale + 1), 0);
+  arrow::BasicDecimal128 out = gandiva::decimalops::Multiply(
+      num_left, num_scale, x.precision(), out_scale, overflow);
+  return out + right;
 }
 
 /// x_value and y_value cannot be 0, and one must be positive and the other
@@ -137,15 +142,16 @@ static BasicDecimal128 AddLargeNegative(const BasicDecimalScalar128& x,
 }
 
 static BasicDecimal128 AddLarge(const BasicDecimalScalar128& x,
-                                const BasicDecimalScalar128& y, int32_t out_scale) {
+                                const BasicDecimalScalar128& y, int32_t out_scale,
+                                bool* overflow) {
   if (x.value() >= 0 && y.value() >= 0) {
     // both positive or 0
-    return AddLargePositive(x, y, out_scale);
+    return AddLargePositive(x, y, out_scale, overflow);
   } else if (x.value() <= 0 && y.value() <= 0) {
     // both negative or 0
     BasicDecimalScalar128 x_neg(-x.value(), x.precision(), x.scale());
     BasicDecimalScalar128 y_neg(-y.value(), y.precision(), y.scale());
-    return -AddLargePositive(x_neg, y_neg, out_scale);
+    return -AddLargePositive(x_neg, y_neg, out_scale, overflow);
   } else {
     // one positive and the other negative
     return AddLargeNegative(x, y, out_scale);
@@ -214,7 +220,7 @@ inline int32_t MinLeadingZeros(const BasicDecimalScalar128& x,
 }
 
 BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
-                    int32_t out_precision, int32_t out_scale) {
+                    int32_t out_precision, int32_t out_scale, bool* overflow) {
   if (out_precision < DecimalTypeUtil::kMaxPrecision) {
     // fast-path add
     return AddFastPath(x, y, out_scale);
@@ -231,14 +237,15 @@ BasicDecimal128 Add(const BasicDecimalScalar128& x, const BasicDecimalScalar128&
     } else {
       // slower-version : add whole/fraction parts separately, and then,
       // combine.
-      return AddLarge(x, y, out_scale);
+      return AddLarge(x, y, out_scale, overflow);
     }
   }
 }
 
 BasicDecimal128 Subtract(const BasicDecimalScalar128& x, const BasicDecimalScalar128& y,
-                         int32_t out_precision, int32_t out_scale) {
-  return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision, out_scale);
+                         int32_t out_precision, int32_t out_scale, bool* overflow) {
+  return Add(x, {-y.value(), y.precision(), y.scale()}, out_precision, out_scale,
+             overflow);
 }
 
 // Multiply when the out_precision is 38, and there is no trimming of the scale
