@@ -472,6 +472,7 @@ file(COPY codegen/arrow_compute/ext/array_item_index.h DESTINATION ${root_direct
 file(COPY codegen/arrow_compute/ext/actions_impl.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/arrow_compute/ext/code_generator_base.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
 file(COPY codegen/arrow_compute/ext/kernels_ext.h DESTINATION ${root_directory}/releases/include/codegen/arrow_compute/ext/)
+file(COPY codegen/common/allocator.hpp DESTINATION ${root_directory}/releases/include/codegen/common/)
 file(COPY codegen/common/result_iterator.h DESTINATION ${root_directory}/releases/include/codegen/common/)
 file(COPY codegen/common/relation_column.h DESTINATION ${root_directory}/releases/include/codegen/common/)
 file(COPY codegen/common/hash_relation.h DESTINATION ${root_directory}/releases/include/codegen/common/)
