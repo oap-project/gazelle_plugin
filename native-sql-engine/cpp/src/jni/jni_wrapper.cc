@@ -126,12 +126,11 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> FromBytes(
 
 class JavaRecordBatchIterator {
  public:
-  JavaRecordBatchIterator(JavaVM *vm, jobject java_serialized_record_batch_iterator,
+  JavaRecordBatchIterator(JavaVM* vm, jobject java_serialized_record_batch_iterator,
                           std::shared_ptr<arrow::Schema> schema)
       : vm_(vm),
-      java_serialized_record_batch_iterator_(java_serialized_record_batch_iterator),
-      schema_(std::move(schema)) {
-  }
+        java_serialized_record_batch_iterator_(java_serialized_record_batch_iterator),
+        schema_(std::move(schema)) {}
 
   virtual ~JavaRecordBatchIterator() {
     JNIEnv* env;
@@ -149,8 +148,8 @@ class JavaRecordBatchIterator {
                                 serialized_record_batch_iterator_hasNext)) {
       return nullptr;  // stream ended
     }
-    auto bytes = (jbyteArray)env->CallObjectMethod(
-        java_serialized_record_batch_iterator_, serialized_record_batch_iterator_next);
+    auto bytes = (jbyteArray)env->CallObjectMethod(java_serialized_record_batch_iterator_,
+                                                   serialized_record_batch_iterator_next);
     RETURN_NOT_OK(arrow::jniutil::CheckException(env));
     ARROW_ASSIGN_OR_RAISE(auto batch, FromBytes(env, schema_, bytes));
     return batch;
@@ -168,9 +167,8 @@ arrow::Result<arrow::RecordBatchIterator> MakeJavaRecordBatchIterator(
     JavaVM* vm, jobject java_serialized_record_batch_iterator,
     std::shared_ptr<arrow::Schema> schema) {
   std::shared_ptr<arrow::Schema> schema_moved = std::move(schema);
-  arrow::RecordBatchIterator itr =
-      arrow::Iterator<std::shared_ptr<arrow::RecordBatch>>(JavaRecordBatchIterator(
-          vm, java_serialized_record_batch_iterator, schema_moved));
+  arrow::RecordBatchIterator itr = arrow::Iterator<std::shared_ptr<arrow::RecordBatch>>(
+      JavaRecordBatchIterator(vm, java_serialized_record_batch_iterator, schema_moved));
   return itr;
 }
 
