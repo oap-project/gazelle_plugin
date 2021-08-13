@@ -133,10 +133,10 @@ class JavaRecordBatchIterator {
         schema_(std::move(schema)) {}
 
   virtual ~JavaRecordBatchIterator() {
-    JNIEnv* env;
-    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) == JNI_OK) {
-      env->DeleteGlobalRef(java_serialized_record_batch_iterator_);
-    }
+//    JNIEnv* env;
+//    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) == JNI_OK) {
+//      env->DeleteGlobalRef(java_serialized_record_batch_iterator_);
+//    }
   }
 
   arrow::Result<std::shared_ptr<arrow::RecordBatch>> Next() {
