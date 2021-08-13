@@ -124,6 +124,43 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> FromBytes(
   return batch;
 }
 
+class JavaRecordBatchIterator {
+ public:
+  JavaRecordBatchIterator(JavaVM *vm, jobject java_serialized_record_batch_iterator,
+                          std::shared_ptr<arrow::Schema> schema)
+      : vm_(vm),
+      java_serialized_record_batch_iterator_(java_serialized_record_batch_iterator),
+      schema_(std::move(schema)) {
+  }
+
+  virtual ~JavaRecordBatchIterator() {
+    JNIEnv* env;
+    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) == JNI_OK) {
+      env->DeleteGlobalRef(java_serialized_record_batch_iterator_);
+    }
+  }
+
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> Next() {
+    JNIEnv* env;
+    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
+      return arrow::Status::Invalid("JNIEnv was not attached to current thread");
+    }
+    if (!env->CallBooleanMethod(java_serialized_record_batch_iterator_,
+                                serialized_record_batch_iterator_hasNext)) {
+      return nullptr;  // stream ended
+    }
+    auto bytes = (jbyteArray)env->CallObjectMethod(
+        java_serialized_record_batch_iterator_, serialized_record_batch_iterator_next);
+    RETURN_NOT_OK(arrow::jniutil::CheckException(env));
+    ARROW_ASSIGN_OR_RAISE(auto batch, FromBytes(env, schema_, bytes));
+    return batch;
+  }
+
+ private:
+  JavaVM* vm_;
+  jobject java_serialized_record_batch_iterator_;
+  std::shared_ptr<arrow::Schema> schema_;
+};
 // See Java class
 // org/apache/arrow/dataset/jni/NativeSerializedRecordBatchIterator
 //
@@ -131,23 +168,9 @@ arrow::Result<arrow::RecordBatchIterator> MakeJavaRecordBatchIterator(
     JavaVM* vm, jobject java_serialized_record_batch_iterator,
     std::shared_ptr<arrow::Schema> schema) {
   std::shared_ptr<arrow::Schema> schema_moved = std::move(schema);
-  arrow::RecordBatchIterator itr = arrow::MakeFunctionIterator(
-      [vm, java_serialized_record_batch_iterator,
-       schema_moved]() -> arrow::Result<std::shared_ptr<arrow::RecordBatch>> {
-        JNIEnv* env;
-        if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
-          return arrow::Status::Invalid("JNIEnv was not attached to current thread");
-        }
-        if (!env->CallBooleanMethod(java_serialized_record_batch_iterator,
-                                    serialized_record_batch_iterator_hasNext)) {
-          return nullptr;  // stream ended
-        }
-        auto bytes = (jbyteArray)env->CallObjectMethod(
-            java_serialized_record_batch_iterator, serialized_record_batch_iterator_next);
-        RETURN_NOT_OK(arrow::jniutil::CheckException(env));
-        ARROW_ASSIGN_OR_RAISE(auto batch, FromBytes(env, schema_moved, bytes));
-        return batch;
-      });
+  arrow::RecordBatchIterator itr =
+      arrow::Iterator<std::shared_ptr<arrow::RecordBatch>>(JavaRecordBatchIterator(
+          vm, java_serialized_record_batch_iterator, schema_moved));
   return itr;
 }
 
