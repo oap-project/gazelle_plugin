@@ -108,12 +108,12 @@ arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
 arrow::Status MakeSumCountAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+    std::shared_ptr<ActionBase>* out, bool ansiEnabled = false);
 
 arrow::Status MakeSumCountMergeAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+    std::shared_ptr<ActionBase>* out, bool ansiEnabled = false);
 
 arrow::Status MakeAvgByCountAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,

@@ -2430,7 +2430,8 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     overflow_map_.resize(length);
     for (int i = 0; i < length_; i++) {
       if (overflow_map_[i]) {
-        // If the result of this group has overflowed
+        // If the result of this group has overflowed,
+        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
         builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue()));
         builder_isempty_->Append(true);
       } else {
@@ -2460,9 +2461,9 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < res_length; i++) {
       if (overflow_map_[offset + i]) {
-        // If the result of this group has overflowed
-        auto val = arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue());
-        builder_->Append(val);
+        // If the result of this group has overflowed,
+        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue()));
         builder_isempty_->Append(true);
       } else {
         // Not overflowed
@@ -2869,7 +2870,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
                      precompile::enable_if_number<DataType>> : public ActionBase {
  public:
   SumCountAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type)
+                 std::shared_ptr<arrow::DataType> res_type,
+                 bool ansiEnabled = false)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
@@ -3048,8 +3050,12 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
                      precompile::enable_if_decimal<DataType>> : public ActionBase {
  public:
   SumCountAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type)
-      : ctx_(ctx) {
+                 std::shared_ptr<arrow::DataType> res_type,
+                 bool ansiEnabled = false)
+      : ctx_(ctx), ansiEnabled_(ansiEnabled) {
+#ifdef DEBUG
+    std::cout << "Construct SumCountAction" << std::endl;
+#endif
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &sum_builder);
@@ -3058,10 +3064,13 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
         arrow::internal::checked_cast<ResBuilderType*>(sum_builder.release()));
     count_builder_.reset(
         arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
-
-#ifdef DEBUG
-    std::cout << "Construct SumCountAction" << std::endl;
-#endif
+    // Get the precision and scale of Decimal input and output.
+    auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
+    auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
+    scale_ = typed_type->scale();
+    precision_ = typed_type->precision();
+    res_precision_ = typed_type->precision();
+    res_scale_ = typed_res_type->scale();
   }
   ~SumCountAction() {
 #ifdef DEBUG
@@ -3077,6 +3086,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
       cache_sum_.resize(max_group_id + 1, 0);
       cache_count_.resize(max_group_id + 1, 0);
       cache_validity_.resize(max_group_id + 1, false);
+      overflow_map_.resize(max_group_id + 1, false);
       length_ = cache_sum_.size();
     }
 
@@ -3085,11 +3095,24 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
+      if (overflow_map_[dest_group_id]) {
+        row_id++;
+        return arrow::Status::OK();
+      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
-        cache_sum_[dest_group_id] += in_->GetView(row_id);
-        cache_count_[dest_group_id] += 1;
-        cache_validity_[dest_group_id] = true;
+        arrow::Decimal128 left = in_->GetView(row_id);
+        arrow::Decimal128 right = cache_sum_[dest_group_id];
+        overflow_ = false;
+        arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                    res_scale_, res_precision_, res_scale_, &overflow_);
+        if (!overflow_) {
+          cache_sum_[dest_group_id] = out;
+          cache_count_[dest_group_id] += 1;
+          cache_validity_[dest_group_id] = true;
+        } else {
+          overflow_map_[dest_group_id] = true;
+        }
       }
       row_id++;
       return arrow::Status::OK();
@@ -3112,6 +3135,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     cache_sum_.resize(max_group_id, 0);
     cache_count_.resize(max_group_id, 0);
     cache_validity_.resize(max_group_id, false);
+    overflow_map_.resize(max_group_id + 1, false);
     return arrow::Status::OK();
   }
 
@@ -3134,9 +3158,21 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     auto target_group_size = dest_group_id + 1;
     if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    cache_sum_[dest_group_id] += *(CType*)data;
-    cache_count_[dest_group_id] += 1;
-    cache_validity_[dest_group_id] = true;
+    if (overflow_map_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    arrow::Decimal128 left = *(CType*)data;
+    arrow::Decimal128 right = cache_sum_[dest_group_id];
+    overflow_ = false;
+    arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                res_scale_, res_precision_, res_scale_, &overflow_);
+    if (!overflow_) {
+      cache_sum_[dest_group_id] = out;
+      cache_count_[dest_group_id] += 1;
+      cache_validity_[dest_group_id] = true;
+    } else {
+      overflow_map_[dest_group_id] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -3151,12 +3187,21 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     auto length = GetResultLength();
 
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[i]));
+      if (overflow_map_[i]) {
+        // If the result of this group has overflowed,
+        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        RETURN_NOT_OK(
+          sum_builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
       } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+        // Not overflowed
+        if (cache_validity_[i]) {
+          RETURN_NOT_OK(sum_builder_->Append(cache_sum_[i]));
+          RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
+        } else {
+          RETURN_NOT_OK(sum_builder_->AppendNull());
+          RETURN_NOT_OK(count_builder_->AppendNull());
+        }
       }
     }
 
@@ -3176,12 +3221,21 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     count_builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
+      if (overflow_map_[offset + i]) {
+        // If the result of this group has overflowed,
+        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        RETURN_NOT_OK(
+          sum_builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
       } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+        // Not overflowed
+        if (cache_validity_[offset + i]) {
+          RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
+          RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
+        } else {
+          RETURN_NOT_OK(sum_builder_->AppendNull());
+          RETURN_NOT_OK(count_builder_->AppendNull());
+        }
       }
     }
 
@@ -3205,11 +3259,18 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
   std::shared_ptr<ArrayType> in_;
   int row_id;
   int in_null_count_ = 0;
+  int scale_;
+  int res_scale_;
+  int precision_;
+  int res_precision_;
+  bool ansiEnabled_;
   // result
   std::vector<ResCType> cache_sum_;
   std::vector<int64_t> cache_count_;
   std::vector<bool> cache_validity_;
   uint64_t length_ = 0;
+  bool overflow_ = false;
+  std::vector<bool> overflow_map_;
 };
 
 //////////////// SumCountMergeAction ///////////////
@@ -3223,7 +3284,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
  public:
   SumCountMergeAction(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> type,
-                      std::shared_ptr<arrow::DataType> res_type)
+                      std::shared_ptr<arrow::DataType> res_type,
+                      bool ansiEnabled = false)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
@@ -3404,8 +3466,12 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
  public:
   SumCountMergeAction(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> type,
-                      std::shared_ptr<arrow::DataType> res_type)
-      : ctx_(ctx) {
+                      std::shared_ptr<arrow::DataType> res_type,
+                      bool ansiEnabled = false)
+      : ctx_(ctx), ansiEnabled_(ansiEnabled) {
+#ifdef DEBUG
+    std::cout << "Construct SumCountMergeAction" << std::endl;
+#endif
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &sum_builder);
@@ -3414,9 +3480,13 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
         arrow::internal::checked_cast<ResBuilderType*>(sum_builder.release()));
     count_builder_.reset(
         arrow::internal::checked_cast<arrow::Int64Builder*>(count_builder.release()));
-#ifdef DEBUG
-    std::cout << "Construct SumCountMergeAction" << std::endl;
-#endif
+    // Get the precision and scale of Decimal input and output.
+    auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
+    auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
+    scale_ = typed_type->scale();
+    precision_ = typed_type->precision();
+    res_precision_ = typed_type->precision();
+    res_scale_ = typed_res_type->scale();
   }
   ~SumCountMergeAction() {
 #ifdef DEBUG
@@ -3432,6 +3502,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
       cache_sum_.resize(max_group_id + 1, 0);
       cache_count_.resize(max_group_id + 1, 0);
       cache_validity_.resize(max_group_id + 1, false);
+      overflow_map_.resize(max_group_id + 1, false);
       length_ = cache_sum_.size();
     }
 
@@ -3441,11 +3512,24 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
+      if (overflow_map_[dest_group_id]) {
+        row_id++;
+        return arrow::Status::OK();
+      }
       const bool is_null = in_null_count_ > 0 && in_sum_->IsNull(row_id);
       if (!is_null) {
-        cache_sum_[dest_group_id] += in_sum_->GetView(row_id);
-        cache_count_[dest_group_id] += in_count_->GetView(row_id);
-        cache_validity_[dest_group_id] = true;
+        arrow::Decimal128 left = in_sum_->GetView(row_id);
+        arrow::Decimal128 right = cache_sum_[dest_group_id];
+        overflow_ = false;
+        arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                    res_scale_, res_precision_, res_scale_, &overflow_);
+        if (!overflow_) {
+          cache_sum_[dest_group_id] = out;
+          cache_count_[dest_group_id] += in_count_->GetView(row_id);
+          cache_validity_[dest_group_id] = true;
+        } else {
+          overflow_map_[dest_group_id] = true;
+        }
       }
       row_id++;
       return arrow::Status::OK();
@@ -3468,6 +3552,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     cache_sum_.resize(max_group_id, 0);
     cache_count_.resize(max_group_id, 0);
     cache_validity_.resize(max_group_id, false);
+    overflow_map_.resize(max_group_id + 1, false);
     return arrow::Status::OK();
   }
 
@@ -3491,9 +3576,21 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     auto target_group_size = dest_group_id + 1;
     if (cache_sum_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    cache_sum_[dest_group_id] += *(CType*)data;
-    cache_count_[dest_group_id] += *(int64_t*)data2;
-    cache_validity_[dest_group_id] = true;
+    if (overflow_map_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    arrow::Decimal128 left = *(CType*)data;
+    arrow::Decimal128 right = cache_sum_[dest_group_id];
+    overflow_ = false;
+    arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                res_scale_, res_precision_, res_scale_, &overflow_);
+    if (!overflow_) {
+      cache_sum_[dest_group_id] = out;
+      cache_count_[dest_group_id] += *(int64_t*)data2;
+      cache_validity_[dest_group_id] = true;
+    } else {
+      overflow_map_[dest_group_id] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -3507,12 +3604,21 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Finish(ArrayList* out) override {
     auto length = GetResultLength();
     for (uint64_t i = 0; i < length; i++) {
-      if (cache_validity_[i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[i]));
+      if (overflow_map_[i]) {
+        // If the result of this group has overflowed,
+        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        RETURN_NOT_OK(sum_builder_->Append(
+            arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
       } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+        // Not overflowed
+        if (cache_validity_[i]) {
+          RETURN_NOT_OK(sum_builder_->Append(cache_sum_[i]));
+          RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
+        } else {
+          RETURN_NOT_OK(sum_builder_->AppendNull());
+          RETURN_NOT_OK(count_builder_->AppendNull());
+        }
       }
     }
 
@@ -3532,12 +3638,20 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     count_builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
+      if (overflow_map_[offset + i]) {
+        // If the result of this group has overflowed,
+        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        RETURN_NOT_OK(sum_builder_->Append(
+            arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
       } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+        if (cache_validity_[offset + i]) {
+          RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
+          RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
+        } else {
+          RETURN_NOT_OK(sum_builder_->AppendNull());
+          RETURN_NOT_OK(count_builder_->AppendNull());
+        }
       }
     }
 
@@ -3561,11 +3675,18 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   std::shared_ptr<ArrayType> in_sum_;
   std::shared_ptr<precompile::Int64Array> in_count_;
   int in_null_count_ = 0;
+  int scale_;
+  int res_scale_;
+  int precision_;
+  int res_precision_;
+  bool ansiEnabled_;
   // result
   std::vector<ResCType> cache_sum_;
   std::vector<int64_t> cache_count_;
   std::vector<bool> cache_validity_;
   uint64_t length_ = 0;
+  bool overflow_ = false;
+  std::vector<bool> overflow_map_;
 };
 
 //////////////// AvgByCountAction ///////////////
@@ -5138,7 +5259,7 @@ arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
 arrow::Status MakeSumCountAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out) {
+    std::shared_ptr<ActionBase>* out, bool ansiEnabled /*false*/) {
   switch (type->id()) {
 #define PROCESS(InType)                                                         \
   case InType::type_id: {                                                       \
@@ -5156,7 +5277,7 @@ arrow::Status MakeSumCountAction(
       auto action_ptr =
           std::make_shared<SumCountAction<arrow::Decimal128Type, arrow::Decimal128,
                                           arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+              ctx, type, res_type_list[0], ansiEnabled);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::Date32Type::type_id: {
@@ -5183,7 +5304,8 @@ arrow::Status MakeSumCountAction(
 arrow::Status MakeSumCountMergeAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out) {
+    std::shared_ptr<ActionBase>* out,
+    bool ansiEnabled) {
   switch (type->id()) {
 #define PROCESS(InType)                                                              \
   case InType::type_id: {                                                            \
@@ -5201,7 +5323,7 @@ arrow::Status MakeSumCountMergeAction(
       auto action_ptr =
           std::make_shared<SumCountMergeAction<arrow::Decimal128Type, arrow::Decimal128,
                                                arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+              ctx, type, res_type_list[0], ansiEnabled);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::Date32Type::type_id: {
