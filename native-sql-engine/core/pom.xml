@@ -467,6 +467,7 @@
         <artifactId>scalatest-maven-plugin</artifactId>
         <configuration>
           <testFailureIgnore>true</testFailureIgnore>
+          <junitxml>.</junitxml>
         </configuration>
         <executions>
           <execution>
