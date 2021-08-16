@@ -44,6 +44,8 @@ arrow::Status ColumnarToRowConverter::Init() {
     buffer_cursor_.push_back(fixedSize);
   }
 
+  memset(buffer_address_, 0, sizeof(int8_t) * memory_size_);
+
   offsets_ = new int64_t[num_rows_];
   lengths_ = new int64_t[num_rows_];
   return arrow::Status::OK();
@@ -385,10 +387,10 @@ arrow::Status ColumnarToRowConverter::Write() {
       bool is_null = array->IsNull(i);
       int64_t field_offset = field_offsets[j];
       if (is_null) {
-        SetNullAt((uint8_t*)buffer_address_, cur_row_offset, field_offset, j);
+        SetNullAt(buffer_address_, cur_row_offset, field_offset, j);
       } else {
         int64_t updatedCursor = buffer_cursor_[i];
-        WriteValue((uint8_t*)buffer_address_, field_offset, cur_row_offset, i, array,
+        WriteValue(buffer_address_, field_offset, cur_row_offset, i, array,
                    buffer_cursor_[i], j, &updatedCursor);
         buffer_cursor_[i] = updatedCursor;
       }

@@ -26,6 +26,7 @@ import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
 import org.apache.spark.sql.types.{DecimalType, StructField}
@@ -126,9 +127,12 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
           val beforeConvert = System.nanoTime()
 
           val size = estimateBufferSize(batch.numCols(), batch.numRows()) + totalVariableSize.toInt
-          val directBuffer = ByteBuffer.allocateDirect(size).asInstanceOf[DirectBuffer]
+
+          val allocator = SparkMemoryUtils.contextAllocator()
+          val arrowBuf = allocator.buffer(size)
           val info = jniWrapper.nativeConvertColumnarToRow(
-            arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray, directBuffer)
+            arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray, arrowBuf.memoryAddress(), size)
+
           info.offsets.order(ByteOrder.LITTLE_ENDIAN)
           info.lengths.order(ByteOrder.LITTLE_ENDIAN)
 
@@ -143,7 +147,9 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
                 // Release the original batch, the allocated buffer and
                 // the offset and lengths buffer in native.
                 batch.close()
-                directBuffer.cleaner().clean()
+                if (arrowBuf.refCnt() != 0) {
+                  arrowBuf.release()
+                }
                 jniWrapper.nativeClose(info.instanceID)
               }
               return result
@@ -154,9 +160,7 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
 
               val (offset, length) = (info.offsets.getLong(rowId * 8),
                 info.lengths.getLong(rowId * 8))
-
-              row.pointTo(directBuffer.attachment(),
-                directBuffer.address() + offset, length.toInt)
+              row.pointTo(null, arrowBuf.memoryAddress() + offset, length.toInt)
               rowId += 1
               row
             }

@@ -1537,7 +1537,7 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnarToRow(
     JNIEnv* env, jobject, jbyteArray schema_arr, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jobject direct_buffer) {
+    jlongArray buf_sizes, jlong memory_address, jlong memory_size) {
   if (schema_arr == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,
@@ -1590,7 +1590,7 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
     return NULL;
   }
 
-  void* address = env->GetDirectBufferAddress(direct_buffer);
+  uint8_t* address = reinterpret_cast<uint8_t*>(memory_address);
 
   // convert the record batch to spark unsafe row.
   int64_t* offsets;
@@ -1598,7 +1598,7 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
   int64_t instanceID;
   try {
     std::shared_ptr<ColumnarToRowConverter> columnar_to_row_converter =
-        std::make_shared<ColumnarToRowConverter>(rb, address);
+        std::make_shared<ColumnarToRowConverter>(rb, address, memory_size);
     auto status = columnar_to_row_converter->Init();
     if (!status.ok()) {
       env->ThrowNew(illegal_argument_exception_class,

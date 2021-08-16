@@ -119,7 +119,7 @@ TEST_F(BenchmarkColumnarToRow, test) {
 
     uint8_t* address = buffer->mutable_data();
     std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-        std::make_shared<ColumnarToRowConverter>(record_batch, (void*)address);
+        std::make_shared<ColumnarToRowConverter>(record_batch, address);
 
     TIME_NANO_OR_THROW(elapse_init, unsafe_row_writer_reader->Init());
     TIME_NANO_OR_THROW(elapse_write, unsafe_row_writer_reader->Write());

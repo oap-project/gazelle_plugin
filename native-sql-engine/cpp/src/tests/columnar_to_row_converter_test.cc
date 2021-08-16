@@ -118,7 +118,7 @@ TEST_F(UnsaferowTest, TestNullTypeCheck) {
   uint8_t* address = buffer->mutable_data();
 
   std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(nullable_input_batch_, (void*)address);
+      std::make_shared<ColumnarToRowConverter>(nullable_input_batch_, address);
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
@@ -130,7 +130,7 @@ TEST_F(UnsaferowTest, TestColumnarToRowConverter) {
   uint8_t* address = buffer->mutable_data();
 
   std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(input_batch_, (void*)address);
+      std::make_shared<ColumnarToRowConverter>(input_batch_, address);
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();

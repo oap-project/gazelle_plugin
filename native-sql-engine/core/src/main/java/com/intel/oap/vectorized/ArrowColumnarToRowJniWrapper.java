@@ -30,6 +30,6 @@ public class ArrowColumnarToRowJniWrapper {
 
   public native ArrowColumnarToRowInfo nativeConvertColumnarToRow(
           byte[] schema, int numRows, long[] bufAddrs,
-          long[] bufSizes, DirectBuffer directBuffer) throws RuntimeException;
+          long[] bufSizes, long memoryAddress, long memorySize) throws RuntimeException;
   public native void nativeClose(long instanceID);
 }
