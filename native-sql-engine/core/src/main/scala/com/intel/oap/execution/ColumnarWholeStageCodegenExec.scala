@@ -39,10 +39,6 @@ import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
-import org.apache.arrow.dataset.jni.NativeSerializedRecordBatchIterator
-import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
-
 case class ColumnarCodegenContext(inputSchema: Schema, outputSchema: Schema, root: TreeNode) {}
 
 trait ColumnarCodegenSupport extends SparkPlan {
@@ -419,31 +415,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
 
             if (enableColumnarSortMergeJoinLazyRead) {
               // Used as ABI to prevent from serializing buffer data
-              val serializedItr: NativeSerializedRecordBatchIterator = {
-                new NativeSerializedRecordBatchIterator {
-
-                  override def hasNext: Boolean = {
-                    depIter.hasNext
-                  }
-
-                  override def next(): Array[Byte] = {
-                    val dep_cb = depIter.next()
-                    if (dep_cb.numRows > 0) {
-                      val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
-                      serialize(dep_rb)
-                    } else {
-                      throw new IllegalStateException()
-                    }
-                  }
-
-                  private def serialize(batch: ArrowRecordBatch) = {
-                    UnsafeRecordBatchSerializer.serializeUnsafe(batch)
-                  }
-
-                  override def close(): Unit = {
-                  }
-                }
-              }
+              val serializedItr = new ColumnarNativeIterator(depIter.asJava)
               cachedRelationKernel.evaluate(serializedItr)
             } else {
               while (depIter.hasNext) {

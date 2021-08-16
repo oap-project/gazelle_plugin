@@ -63,15 +63,15 @@ static jmethodID serializable_obj_builder_constructor;
 static jclass split_result_class;
 static jmethodID split_result_constructor;
 
-jclass serialized_record_batch_iterator_class;
+static jclass serialized_record_batch_iterator_class;
 static jclass metrics_builder_class;
 static jmethodID metrics_builder_constructor;
 
 static jclass unsafe_row_class;
 static jmethodID unsafe_row_class_constructor;
 static jmethodID unsafe_row_class_point_to;
-jmethodID serialized_record_batch_iterator_hasNext;
-jmethodID serialized_record_batch_iterator_next;
+static jmethodID serialized_record_batch_iterator_hasNext;
+static jmethodID serialized_record_batch_iterator_next;
 
 using arrow::jni::ConcurrentMap;
 static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
@@ -126,17 +126,25 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> FromBytes(
 
 class JavaRecordBatchIterator {
  public:
-  JavaRecordBatchIterator(JavaVM* vm, jobject java_serialized_record_batch_iterator,
-                          std::shared_ptr<arrow::Schema> schema)
+  explicit JavaRecordBatchIterator(JavaVM* vm,
+                                   jobject java_serialized_record_batch_iterator,
+                                   std::shared_ptr<arrow::Schema> schema)
       : vm_(vm),
         java_serialized_record_batch_iterator_(java_serialized_record_batch_iterator),
         schema_(std::move(schema)) {}
 
+  // singleton, avoid stack instantiation
+  JavaRecordBatchIterator(const JavaRecordBatchIterator& itr) = delete;
+  JavaRecordBatchIterator(JavaRecordBatchIterator&& itr) = delete;
+
   virtual ~JavaRecordBatchIterator() {
     JNIEnv* env;
     if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) == JNI_OK) {
-      std::cout << "DELETING GLOBAL ITERATOR REF... " << std::endl;
-      std::flush(std::cout);
+#ifdef DEBUG
+      std::cout << "DELETING GLOBAL ITERATOR REF "
+                << reinterpret_cast<long>(java_serialized_record_batch_iterator_) << "..."
+                << std::endl;
+#endif
       env->DeleteGlobalRef(java_serialized_record_batch_iterator_);
     }
   }
@@ -146,6 +154,11 @@ class JavaRecordBatchIterator {
     if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
       return arrow::Status::Invalid("JNIEnv was not attached to current thread");
     }
+#ifdef DEBUG
+    std::cout << "PICKING ITERATOR REF "
+              << reinterpret_cast<long>(java_serialized_record_batch_iterator_) << "..."
+              << std::endl;
+#endif
     if (!env->CallBooleanMethod(java_serialized_record_batch_iterator_,
                                 serialized_record_batch_iterator_hasNext)) {
       return nullptr;  // stream ended
@@ -162,6 +175,19 @@ class JavaRecordBatchIterator {
   jobject java_serialized_record_batch_iterator_;
   std::shared_ptr<arrow::Schema> schema_;
 };
+
+class JavaRecordBatchIteratorWrapper {
+ public:
+  explicit JavaRecordBatchIteratorWrapper(
+      std::shared_ptr<JavaRecordBatchIterator> delegated)
+      : delegated_(std::move(delegated)) {}
+
+  arrow::Result<std::shared_ptr<arrow::RecordBatch>> Next() { return delegated_->Next(); }
+
+ private:
+  std::shared_ptr<JavaRecordBatchIterator> delegated_;
+};
+
 // See Java class
 // org/apache/arrow/dataset/jni/NativeSerializedRecordBatchIterator
 //
@@ -170,7 +196,8 @@ arrow::Result<arrow::RecordBatchIterator> MakeJavaRecordBatchIterator(
     std::shared_ptr<arrow::Schema> schema) {
   std::shared_ptr<arrow::Schema> schema_moved = std::move(schema);
   arrow::RecordBatchIterator itr = arrow::Iterator<std::shared_ptr<arrow::RecordBatch>>(
-      JavaRecordBatchIterator(vm, java_serialized_record_batch_iterator, schema_moved));
+      JavaRecordBatchIteratorWrapper(std::make_shared<JavaRecordBatchIterator>(
+          vm, java_serialized_record_batch_iterator, schema_moved)));
   return itr;
 }
 
@@ -276,9 +303,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   unsafe_row_class_constructor = GetMethodID(env, unsafe_row_class, "<init>", "(I)V");
   unsafe_row_class_point_to = GetMethodID(env, unsafe_row_class, "pointTo", "([BI)V");
   serialized_record_batch_iterator_class =
-      CreateGlobalClassReference(env,
-                                 "Lorg/apache/arrow/"
-                                 "dataset/jni/NativeSerializedRecordBatchIterator;");
+      CreateGlobalClassReference(env, "Lcom/intel/oap/execution/ColumnarNativeIterator;");
   serialized_record_batch_iterator_hasNext =
       GetMethodID(env, serialized_record_batch_iterator_class, "hasNext", "()Z");
   serialized_record_batch_iterator_next =
