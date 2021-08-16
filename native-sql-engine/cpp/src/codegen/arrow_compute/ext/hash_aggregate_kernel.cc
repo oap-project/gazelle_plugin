@@ -464,19 +464,50 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeCountAction(ctx_, res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_sum") == 0) {
-        auto res_type_list = {result_field_list[result_id]};
-        result_id += 1;
-        RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_sum_partial") == 0) {
-        auto res_type_list = {result_field_list[result_id]};
-        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+      } else if (action_name_list[action_id].compare(0, 10, "action_sum") == 0) {
+        if (action_name_list[action_id].compare("action_sum_count") == 0) {
+          auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
           result_id += 2;
+          RETURN_NOT_OK(MakeSumCountAction(ctx_, type_list[type_id], res_type_list, &action));
+        } else if (action_name_list[action_id].compare("action_sum_count_merge") == 0) {
+          auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
+          result_id += 2;
+          RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, type_list[type_id], res_type_list, &action));
+        } else if (action_name_list[action_id].compare(0, 18, "action_sum_partial") == 0) {
+          auto res_type_list = {result_field_list[result_id]};
+          if (result_field_list[result_id]->id() != arrow::Decimal128Type::type_id) {
+            result_id += 1;
+            RETURN_NOT_OK(MakeSumActionPartial(ctx_, type_list[type_id], res_type_list, &action));
+          } else {
+            result_id += 2;
+            bool ansiEnabled = false;
+            if (action_name_list[action_id].size() > 18 &&
+                action_name_list[action_id].compare(0, 19, "action_sum_partial_") == 0) {
+              auto lit = action_name_list[action_id].substr(19);
+              ansiEnabled = (lit == "true") ? true : false;
+            }
+            RETURN_NOT_OK(
+              MakeSumActionPartial(ctx_, type_list[type_id], res_type_list, &action, ansiEnabled));
+          }
         } else {
+          // should be action_sum/action_sum_true/action_sum_false
+          auto res_type_list = {result_field_list[result_id]};
+          auto res_type_id = result_field_list[result_id]->id();
           result_id += 1;
+          if (res_type_id != arrow::Decimal128Type::type_id) {
+            RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action));
+          } else {
+            bool ansiEnabled = false;
+            if (action_name_list[action_id].size() > 10 &&
+                action_name_list[action_id].compare(0, 11, "action_sum_") == 0) {
+              auto lit = action_name_list[action_id].substr(11);
+              ansiEnabled = (lit == "true") ? true : false;
+            }
+            RETURN_NOT_OK(MakeSumAction(ctx_, type_list[type_id], res_type_list, &action, 
+                                        ansiEnabled));
+          }
         }
-        RETURN_NOT_OK(MakeSumActionPartial(ctx_, type_list[type_id], res_type_list, &action));
-      }else if (action_name_list[action_id].compare("action_avg") == 0) {
+      } else if (action_name_list[action_id].compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], res_type_list, &action));
@@ -489,15 +520,7 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name_list[action_id], ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action, NaN_check));
-      } else if (action_name_list[action_id].compare("action_sum_count") == 0) {
-        auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
-        result_id += 2;
-        RETURN_NOT_OK(MakeSumCountAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_sum_count_merge") == 0) {
-        auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
-        result_id += 2;
-        RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, type_list[type_id], res_type_list, &action));
+        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action));
       } else if (action_name_list[action_id].compare("action_avgByCount") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
@@ -630,19 +653,54 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeCountAction(ctx_, res_type_list, &action));
-      } else if (action_name.compare("action_sum") == 0) {
-        auto res_type_list = {result_field_list[result_id]};
-        result_id += 1;
-        RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare("action_sum_partial") == 0) {
-        auto res_type_list = {result_field_list[result_id]};
-        if (result_field_list[result_id]->id() == arrow::Decimal128Type::type_id) {
+      } else if (action_name.compare(0, 10, "action_sum") == 0) {
+        if (action_name.compare("action_sum_count") == 0) {
+          auto res_type_list = {result_field_list[result_id],
+                                result_field_list[result_id + 1]};
           result_id += 2;
+          RETURN_NOT_OK(
+              MakeSumCountAction(ctx_, action_input_type, res_type_list, &action));
+        } else if (action_name.compare("action_sum_count_merge") == 0) {
+          auto res_type_list = {result_field_list[result_id],
+                                result_field_list[result_id + 1]};
+          result_id += 2;
+          RETURN_NOT_OK(
+              MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action));
+        } else if (action_name.compare(0, 18, "action_sum_partial") == 0) {
+          auto res_type_list = {result_field_list[result_id]};
+          if (result_field_list[result_id]->id() != arrow::Decimal128Type::type_id) {
+            result_id += 1;
+            RETURN_NOT_OK(
+                MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
+          } else {
+            result_id += 2;
+            bool ansiEnabled = false;
+            if (action_name.size() > 18 &&
+                action_name.compare(0, 19, "action_sum_partial_") == 0) {
+              auto lit = action_name.substr(19);
+              ansiEnabled = (lit == "true") ? true : false;
+            }
+            RETURN_NOT_OK(MakeSumActionPartial(ctx_, action_input_type, res_type_list,
+                                               &action, ansiEnabled));
+          }
         } else {
+          // should be each of action_sum/action_sum_true/action_sum_false
+          auto res_type_list = {result_field_list[result_id]};
+          auto res_type_id = result_field_list[result_id]->id();
           result_id += 1;
+          if (res_type_id != arrow::Decimal128Type::type_id) {
+            RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action));
+          } else {
+            bool ansiEnabled = false;
+            if (action_name.size() > 10 &&
+                action_name.compare(0, 11, "action_sum_") == 0) {
+              auto lit = action_name.substr(11);
+              ansiEnabled = (lit == "true") ? true : false;
+            }
+            RETURN_NOT_OK(MakeSumAction(ctx_, action_input_type, res_type_list, &action,
+                                        ansiEnabled));
+          }
         }
-        RETURN_NOT_OK(
-            MakeSumActionPartial(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avg") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
@@ -657,20 +715,7 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name, ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(
-            MakeMaxAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
-      } else if (action_name.compare("action_sum_count") == 0) {
-        auto res_type_list = {result_field_list[result_id],
-                              result_field_list[result_id + 1]};
-        result_id += 2;
-        RETURN_NOT_OK(
-            MakeSumCountAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare("action_sum_count_merge") == 0) {
-        auto res_type_list = {result_field_list[result_id],
-                              result_field_list[result_id + 1]};
-        result_id += 2;
-        RETURN_NOT_OK(
-            MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
       } else if (action_name.compare("action_avgByCount") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;

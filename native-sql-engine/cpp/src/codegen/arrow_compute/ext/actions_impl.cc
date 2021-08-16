@@ -1772,7 +1772,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
                 precompile::enable_if_number<DataType>> : public ActionBase {
  public:
   SumAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            std::shared_ptr<arrow::DataType> res_type)
+            std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct SumAction" << std::endl;
@@ -1919,9 +1919,11 @@ template <typename DataType, typename CType, typename ResDataType, typename ResC
 class SumAction<DataType, CType, ResDataType, ResCType,
                 precompile::enable_if_decimal<DataType>> : public ActionBase {
  public:
-  SumAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            std::shared_ptr<arrow::DataType> res_type)
-      : ctx_(ctx) {
+  SumAction(
+      arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+      std::shared_ptr<arrow::DataType> res_type,
+      bool ansiEnabled = false /* By default, res will be null if decimal overflows.*/)
+      : ctx_(ctx), ansiEnabled_(ansiEnabled) {
 #ifdef DEBUG
     std::cout << "Construct SumAction" << std::endl;
 #endif
@@ -1930,6 +1932,13 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &array_builder);
     builder_.reset(
         arrow::internal::checked_cast<ResBuilderType*>(array_builder.release()));
+    // Get the precision and scale of Decimal input and output.
+    auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
+    auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
+    scale_ = typed_type->scale();
+    precision_ = typed_type->precision();
+    res_precision_ = typed_type->precision();
+    res_scale_ = typed_res_type->scale();
   }
   ~SumAction() {
 #ifdef DEBUG
@@ -1946,6 +1955,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
       cache_.resize(max_group_id + 1, 0);
+      overflow_map_.resize(max_group_id + 1, false);
       length_ = cache_validity_.size();
     }
 
@@ -1954,10 +1964,23 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
+      if (overflow_map_[dest_group_id]) {
+        row_id++;
+        return arrow::Status::OK();
+      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
-        cache_validity_[dest_group_id] = true;
-        cache_[dest_group_id] += in_->GetView(row_id);
+        arrow::Decimal128 left = in_->GetView(row_id);
+        arrow::Decimal128 right = cache_[dest_group_id];
+        overflow_ = false;
+        arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                    res_scale_, res_precision_, res_scale_, &overflow_);
+        if (!overflow_) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] = out;
+        } else {
+          overflow_map_[dest_group_id] = true;
+        }
       }
       row_id++;
       return arrow::Status::OK();
@@ -1979,6 +2002,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     }
     cache_validity_.resize(max_group_id, false);
     cache_.resize(max_group_id, 0);
+    overflow_map_.resize(max_group_id + 1, false);
     return arrow::Status::OK();
   }
 
@@ -2000,8 +2024,20 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    cache_validity_[dest_group_id] = true;
-    cache_[dest_group_id] += *(CType*)data;
+    if (overflow_map_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    arrow::Decimal128 left = *(CType*)data;
+    arrow::Decimal128 right = cache_[dest_group_id];
+    overflow_ = false;
+    arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                res_scale_, res_precision_, res_scale_, &overflow_);
+    if (!overflow_) {
+      cache_[dest_group_id] = out;
+      cache_validity_[dest_group_id] = true;
+    } else {
+      overflow_map_[dest_group_id] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -2017,11 +2053,22 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     auto length = GetResultLength();
     cache_.resize(length);
     cache_validity_.resize(length);
+    overflow_map_.resize(length);
     for (int i = 0; i < length_; i++) {
-      if (cache_validity_[i]) {
-        builder_->Append(cache_[i]);
+      if (overflow_map_[i]) {
+        // If the result of this group has overflowed
+        if (ansiEnabled_) {
+          throw std::runtime_error("Overflow in sum of decimals");
+        } else {
+          builder_->AppendNull();
+        }
       } else {
-        builder_->AppendNull();
+        // Not overflowed
+        if (cache_validity_[i]) {
+          builder_->Append(cache_[i]);
+        } else {
+          builder_->AppendNull();
+        }
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -2034,14 +2081,23 @@ class SumAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
     std::shared_ptr<arrow::Array> arr_out;
-    std::shared_ptr<arrow::Array> arr_isempty_out;
     builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
+      if (overflow_map_[offset + i]) {
+        // If the result of this group has overflowed
+        if (ansiEnabled_) {
+          throw std::runtime_error("Overflow in sum of decimals");
+        } else {
+          builder_->AppendNull();
+        }
       } else {
-        builder_->AppendNull();
+        // Not overflowed
+        if (cache_validity_[offset + i]) {
+          builder_->Append(cache_[offset + i]);
+        } else {
+          builder_->AppendNull();
+        }
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -2057,15 +2113,21 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
+  bool ansiEnabled_;
   std::shared_ptr<ArrayType> in_;
   CType* data_;
   int row_id;
   int in_null_count_ = 0;
+  int scale_;
+  int res_scale_;
+  int precision_;
+  int res_precision_;
   // result
   std::vector<ResCType> cache_;
   std::vector<bool> cache_validity_;
   std::unique_ptr<ResBuilderType> builder_;
-
+  bool overflow_ = false;
+  std::vector<bool> overflow_map_;
   uint64_t length_ = 0;
 };
 
@@ -2079,7 +2141,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
  public:
   SumActionPartial(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> type,
-                   std::shared_ptr<arrow::DataType> res_type)
+                   std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx) {
 #ifdef DEBUG
     std::cout << "Construct SumActionPartial" << std::endl;
@@ -2229,8 +2291,9 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
  public:
   SumActionPartial(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> type,
-                   std::shared_ptr<arrow::DataType> res_type)
-      : ctx_(ctx) {
+                   std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false
+                   /* By default, res will be null if decimal overflows.*/)
+      : ctx_(ctx), ansiEnabled_(ansiEnabled) {
 #ifdef DEBUG
     std::cout << "Construct SumActionPartial" << std::endl;
 #endif
@@ -2245,6 +2308,13 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     builder_isempty_.reset(arrow::internal::checked_cast<
                            arrow::TypeTraits<arrow::BooleanType>::BuilderType*>(
         array_builder_empty.release()));
+    // Get the precision and scale of Decimal input and output.
+    auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
+    auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
+    scale_ = typed_type->scale();
+    precision_ = typed_type->precision();
+    res_precision_ = typed_type->precision();
+    res_scale_ = typed_res_type->scale();
   }
   ~SumActionPartial() {
 #ifdef DEBUG
@@ -2259,6 +2329,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
       cache_.resize(max_group_id + 1, 0);
+      overflow_map_.resize(max_group_id + 1, false);
       length_ = cache_validity_.size();
     }
 
@@ -2267,10 +2338,23 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
+      if (overflow_map_[dest_group_id]) {
+        row_id++;
+        return arrow::Status::OK();
+      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
-        cache_validity_[dest_group_id] = true;
-        cache_[dest_group_id] += in_->GetView(row_id);
+        arrow::Decimal128 left = in_->GetView(row_id);
+        arrow::Decimal128 right = cache_[dest_group_id];
+        overflow_ = false;
+        arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                    res_scale_, res_precision_, res_scale_, &overflow_);
+        if (!overflow_) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] = out;
+        } else {
+          overflow_map_[dest_group_id] = true;
+        }
       }
       row_id++;
       return arrow::Status::OK();
@@ -2292,6 +2376,7 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     }
     cache_validity_.resize(max_group_id, false);
     cache_.resize(max_group_id, 0);
+    overflow_map_.resize(max_group_id + 1, false);
     return arrow::Status::OK();
   }
 
@@ -2313,8 +2398,20 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    cache_validity_[dest_group_id] = true;
-    cache_[dest_group_id] += *(CType*)data;
+    if (overflow_map_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    arrow::Decimal128 left = *(CType*)data;
+    arrow::Decimal128 right = cache_[dest_group_id];
+    overflow_ = false;
+    arrow::Decimal128 out = add(left, precision_, scale_, right, res_precision_,
+                                res_scale_, res_precision_, res_scale_, &overflow_);
+    if (!overflow_) {
+      cache_[dest_group_id] = out;
+      cache_validity_[dest_group_id] = true;
+    } else {
+      overflow_map_[dest_group_id] = true;
+    }
     return arrow::Status::OK();
   }
 
@@ -2330,13 +2427,21 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     auto length = GetResultLength();
     cache_.resize(length);
     cache_validity_.resize(length);
+    overflow_map_.resize(length);
     for (int i = 0; i < length_; i++) {
-      if (cache_validity_[i]) {
-        builder_->Append(cache_[i]);
+      if (overflow_map_[i]) {
+        // If the result of this group has overflowed
+        builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue()));
         builder_isempty_->Append(true);
       } else {
-        builder_->AppendNull();
-        builder_isempty_->Append(false);
+        // Not overflowed
+        if (cache_validity_[i]) {
+          builder_->Append(cache_[i]);
+          builder_isempty_->Append(true);
+        } else {
+          builder_->AppendNull();
+          builder_isempty_->Append(false);
+        }
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -2354,12 +2459,20 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     builder_isempty_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
     for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
+      if (overflow_map_[offset + i]) {
+        // If the result of this group has overflowed
+        auto val = arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue());
+        builder_->Append(val);
         builder_isempty_->Append(true);
       } else {
-        builder_->AppendNull();
-        builder_isempty_->Append(false);
+        // Not overflowed
+        if (cache_validity_[offset + i]) {
+          builder_->Append(cache_[offset + i]);
+          builder_isempty_->Append(true);
+        } else {
+          builder_->AppendNull();
+          builder_isempty_->Append(false);
+        }
       }
     }
     RETURN_NOT_OK(builder_->Finish(&arr_out));
@@ -2375,16 +2488,23 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
   using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
+  bool ansiEnabled_;
   std::shared_ptr<ArrayType> in_;
   CType* data_;
   int row_id;
   int in_null_count_ = 0;
+  int scale_;
+  int res_scale_;
+  int precision_;
+  int res_precision_;
   // result
   std::vector<ResCType> cache_;
   std::vector<bool> cache_validity_;
   std::unique_ptr<ResBuilderType> builder_;
-  std::unique_ptr<arrow::TypeTraits<arrow::BooleanType>::BuilderType> builder_isempty_;
+  std::unique_ptr<arrow::BooleanBuilder> builder_isempty_;
   uint64_t length_ = 0;
+  bool overflow_ = false;
+  std::vector<bool> overflow_map_;
 };
 
 //////////////// AvgAction ///////////////
@@ -4881,7 +5001,8 @@ arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
 arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+                            std::shared_ptr<ActionBase>* out,
+                            bool ansiEnabled /*=false*/) {
   switch (type->id()) {
 #define PROCESS(InType)                                                                  \
   case InType::type_id: {                                                                \
@@ -4899,7 +5020,7 @@ arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
       auto action_ptr =
           std::make_shared<SumAction<arrow::Decimal128Type, arrow::Decimal128,
                                      arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+              ctx, type, res_type_list[0], ansiEnabled);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::Date32Type::type_id: {
@@ -4926,7 +5047,7 @@ arrow::Status MakeSumAction(arrow::compute::ExecContext* ctx,
 arrow::Status MakeSumActionPartial(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out) {
+    std::shared_ptr<ActionBase>* out, bool ansiEnabled /*=false*/) {
   switch (type->id()) {
 #define PROCESS(InType)                                                           \
   case InType::type_id: {                                                         \
@@ -4946,7 +5067,7 @@ arrow::Status MakeSumActionPartial(
       auto action_ptr =
           std::make_shared<SumActionPartial<arrow::Decimal128Type, arrow::Decimal128,
                                             arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
+              ctx, type, res_type_list[0], ansiEnabled);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::Date32Type::type_id: {
