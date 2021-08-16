@@ -65,6 +65,7 @@ class ColumnarHashAggregation(
     aggregateAttributes: Seq[Attribute],
     resultExpressions: Seq[NamedExpression],
     output: Seq[Attribute],
+    ansiEnabled: Boolean,
     sparkConf: SparkConf)
     extends Logging {
 
@@ -131,20 +132,44 @@ class ColumnarHashAggregation(
               case Partial =>
                 val childrenColumnarFuncNodeList =
                   aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
-                TreeBuilder.makeFunction(
-                  "action_sum_partial",
-                  childrenColumnarFuncNodeList.asJava, resultType)
-              case Final | PartialMerge =>
-                val childrenColumnarFuncNodeList =
-                  List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
-                //FIXME(): decimal adds isEmpty column
-                val sum = aggregateFunc.asInstanceOf[Sum]
-                val attrBuf = sum.inputAggBufferAttributes
-                if (attrBuf.size == 2) {
-                  inputAttrQueue.dequeue
+                var actionName = "action_sum_partial"
+                if (aggregateFunc.inputAggBufferAttributes.head
+                  .dataType.isInstanceOf[DecimalType]) {
+                  actionName = actionName + s"_$ansiEnabled"
                 }
                 TreeBuilder.makeFunction(
-                  "action_sum",
+                  actionName,
+                  childrenColumnarFuncNodeList.asJava, resultType)
+              case PartialMerge =>
+                val childrenColumnarFuncNodeList =
+                  List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+                val sum = aggregateFunc.asInstanceOf[Sum]
+                val attrBuf = sum.inputAggBufferAttributes
+                var actionName = "action_sum_partial"
+                if (attrBuf.head.dataType.isInstanceOf[DecimalType]) {
+                  actionName = actionName + s"_$ansiEnabled"
+                  if (attrBuf.size == 2) {
+                    inputAttrQueue.dequeue
+                  }
+                }
+                TreeBuilder.makeFunction(
+                  actionName,
+                  childrenColumnarFuncNodeList.asJava, resultType)
+              case Final =>
+                val childrenColumnarFuncNodeList =
+                  List(inputAttrQueue.dequeue).map(attr => getColumnarFuncNode(attr))
+                // FIXME(): decimal adds isEmpty column
+                val sum = aggregateFunc.asInstanceOf[Sum]
+                val attrBuf = sum.inputAggBufferAttributes
+                var actionName = "action_sum"
+                if (attrBuf.head.dataType.isInstanceOf[DecimalType]) {
+                  actionName = actionName + s"_$ansiEnabled"
+                  if (attrBuf.size == 2) {
+                    inputAttrQueue.dequeue
+                  }
+                }
+                TreeBuilder.makeFunction(
+                  actionName,
                   childrenColumnarFuncNodeList.asJava, resultType)
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
@@ -245,122 +270,108 @@ class ColumnarHashAggregation(
       aggregateFunc match {
         case Average(_) =>
           mode match {
-            case Partial => {
+            case Partial =>
               val avg = aggregateFunc.asInstanceOf[Average]
               val aggBufferAttr = avg.inputAggBufferAttributes
-              for (index <- 0 until aggBufferAttr.size) {
+              for (index <- aggBufferAttr.indices) {
                 val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
                 aggregateAttr += attr
               }
               res_index += 2
-            }
-            case PartialMerge => {
+            case PartialMerge =>
               val avg = aggregateFunc.asInstanceOf[Average]
               val aggBufferAttr = avg.inputAggBufferAttributes
-              for (index <- 0 until aggBufferAttr.size) {
+              for (index <- aggBufferAttr.indices) {
                 val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
                 aggregateAttr += attr
               }
               res_index += 1
-            }
-            case Final => {
+            case Final =>
               aggregateAttr += aggregateAttributeList(res_index)
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Sum(_) =>
           mode match {
-            case Partial | PartialMerge => {
+            case Partial | PartialMerge =>
               val sum = aggregateFunc.asInstanceOf[Sum]
               val aggBufferAttr = sum.inputAggBufferAttributes
               if (aggBufferAttr.size == 2) {
                 // decimal sum check sum.resultType
-                val sum_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+                val sum_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
                 aggregateAttr += sum_attr
                 val isempty_attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(1))
                 aggregateAttr += isempty_attr
                 res_index += 2
               } else {
-                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
                 aggregateAttr += attr
                 res_index += 1
               }
-            }
-            case Final => {
+            case Final =>
               aggregateAttr += aggregateAttributeList(res_index)
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Count(_) =>
           mode match {
-            case Partial | PartialMerge => {
+            case Partial | PartialMerge =>
               val count = aggregateFunc.asInstanceOf[Count]
               val aggBufferAttr = count.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
               aggregateAttr += attr
               res_index += 1
-            }
-            case Final => {
+            case Final =>
               aggregateAttr += aggregateAttributeList(res_index)
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Max(_) =>
           mode match {
-            case Partial | PartialMerge => {
+            case Partial | PartialMerge =>
               val max = aggregateFunc.asInstanceOf[Max]
               val aggBufferAttr = max.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
               aggregateAttr += attr
               res_index += 1
-            }
-            case Final => {
+            case Final =>
               aggregateAttr += aggregateAttributeList(res_index)
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
         case Min(_) =>
           mode match {
-            case Partial | PartialMerge => {
+            case Partial | PartialMerge =>
               val min = aggregateFunc.asInstanceOf[Min]
               val aggBufferAttr = min.inputAggBufferAttributes
-              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(0))
+              val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
               aggregateAttr += attr
               res_index += 1
-            }
-            case Final => {
+            case Final =>
               aggregateAttr += aggregateAttributeList(res_index)
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-        case StddevSamp(_,_) =>
+        case StddevSamp(_, _) =>
           mode match {
-            case Partial => {
+            case Partial =>
               val stddevSamp = aggregateFunc.asInstanceOf[StddevSamp]
               val aggBufferAttr = stddevSamp.inputAggBufferAttributes
-              for (index <- 0 until aggBufferAttr.size) {
+              for (index <- aggBufferAttr.indices) {
                 val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
                 aggregateAttr += attr
               }
               res_index += 3
-            }
-            case PartialMerge => {
+            case PartialMerge =>
               throw new UnsupportedOperationException("not currently supported: PartialMerge.")
-            }
-            case Final => {
+            case Final =>
               aggregateAttr += aggregateAttributeList(res_index)
               res_index += 1
-            }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
@@ -432,7 +443,7 @@ class ColumnarHashAggregation(
     aggregateExpressions.zipWithIndex.foreach {
       case (expr, index) =>
         expr.mode match {
-          case Partial => {
+          case Partial =>
             val internalExpressionList = expr.aggregateFunction.children
             val ordinalList = ColumnarProjection.binding(
               originalInputAttributes,
@@ -444,8 +455,7 @@ class ColumnarHashAggregation(
                 partialProjectOrdinalList += i
               }
             }
-          }
-          case _ => {}
+          case _ =>
         }
     }
     val inputAttrs = originalInputAttributes.zipWithIndex
@@ -520,6 +530,7 @@ object ColumnarHashAggregation extends Logging {
       aggregateAttributes: Seq[Attribute],
       resultExpressions: Seq[NamedExpression],
       output: Seq[Attribute],
+      ansiEnabled: Boolean,
       sparkConf: SparkConf): TreeNode = {
     val ins = new ColumnarHashAggregation(
       groupingExpressions,
@@ -528,8 +539,8 @@ object ColumnarHashAggregation extends Logging {
       aggregateAttributes,
       resultExpressions,
       output,
+      ansiEnabled: Boolean,
       sparkConf)
     ins.prepareKernelFunction
-
   }
 }

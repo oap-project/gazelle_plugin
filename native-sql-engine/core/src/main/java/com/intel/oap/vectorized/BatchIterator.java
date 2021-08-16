@@ -35,7 +35,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 public class BatchIterator implements AutoCloseable {
   private native boolean nativeHasNext(long nativeHandler);
-  private native byte[] nativeNext(long nativeHandler);
+  private native byte[] nativeNext(long nativeHandler) throws Exception;
   private native MetricsObject nativeFetchMetrics(long nativeHandler);
   private native byte[] nativeProcess(long nativeHandler,
       byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes);
@@ -72,7 +72,16 @@ public class BatchIterator implements AutoCloseable {
     if (nativeHandler == 0) {
       return null;
     }
-    byte[] serializedRecordBatch = nativeNext(nativeHandler);
+    byte[] serializedRecordBatch;
+    try {
+      serializedRecordBatch = nativeNext(nativeHandler);
+    } catch (Exception e) {
+      if (e.getMessage().equals("Overflow in sum of decimals")) {
+        throw new ArithmeticException(e.getMessage());
+      } else {
+        throw new RuntimeException(e);
+      }
+    }
     if (serializedRecordBatch == null) {
       return null;
     }

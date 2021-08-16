@@ -179,9 +179,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
         val coreRangeList: Array[String] = tmp.split('|').map(_.trim)
         GazelleNumaBindingInfo(true, coreRangeList, numCores)
       }
-
     }
   }
+  val ansiEnabled: Boolean =
+    conf.getConfString("spark.sql.ansi.enabled", "false").toBoolean
 }
 
 object GazellePluginConfig {

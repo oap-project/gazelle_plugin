@@ -762,6 +762,14 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   //
+  // APIs dealing with Decimal
+  //
+
+  public void setDecimal(int rowId, BigDecimal value) {
+    writer.setBytes(rowId, value);
+  }
+
+  //
   // APIs copied from original ArrowWritableColumnVector
   //
 
@@ -770,6 +778,18 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     if (isNullAt(rowId))
       return null;
     return accessor.getDecimal(rowId, precision, scale);
+  }
+
+  @Override
+  public void putDecimal(int rowId, Decimal value, int precision) {
+    if (precision <= Decimal.MAX_INT_DIGITS()) {
+      putInt(rowId, (int) value.toUnscaledLong());
+    } else if (precision <= Decimal.MAX_LONG_DIGITS()) {
+      putLong(rowId, value.toUnscaledLong());
+    } else {
+      BigDecimal d  = value.toJavaBigDecimal();
+      setDecimal(rowId, d);
+    }
   }
 
   @Override

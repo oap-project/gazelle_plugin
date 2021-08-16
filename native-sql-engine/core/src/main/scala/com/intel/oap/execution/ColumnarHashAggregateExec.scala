@@ -74,6 +74,7 @@ case class ColumnarHashAggregateExec(
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
+  val ansiEnabled: Boolean = GazellePluginConfig.getConf.ansiEnabled
   override def supportsColumnar = true
 
   var resAttributes: Seq[Attribute] = resultExpressions.map(_.toAttribute)
@@ -256,39 +257,60 @@ case class ColumnarHashAggregateExec(
           }
         }
         def putDataIntoVector(vectors: Array[ArrowWritableColumnVector],
-                              res: Any, idx: Int): Unit = {
+                              res: Any, idx: Int, numRows: Int = 1): Unit = {
           if (res == null) {
             vectors(idx).putNull(0)
           } else {
             vectors(idx).dataType match {
               case t: IntegerType =>
                 vectors(idx)
-                  .put(0, res.asInstanceOf[Number].intValue)
+                  .put(0, res.asInstanceOf[Number].intValue * numRows)
               case t: LongType =>
                 vectors(idx)
-                  .put(0, res.asInstanceOf[Number].longValue)
+                  .put(0, res.asInstanceOf[Number].longValue * numRows)
               case t: DoubleType =>
                 vectors(idx)
-                  .put(0, res.asInstanceOf[Number].doubleValue())
+                  .put(0, res.asInstanceOf[Number].doubleValue() * numRows)
               case t: FloatType =>
                 vectors(idx)
-                  .put(0, res.asInstanceOf[Number].floatValue())
+                  .put(0, res.asInstanceOf[Number].floatValue() * numRows)
               case t: ByteType =>
                 vectors(idx)
-                  .put(0, res.asInstanceOf[Number].byteValue())
+                  .put(0, res.asInstanceOf[Number].byteValue() * numRows)
               case t: ShortType =>
                 vectors(idx)
-                  .put(0, res.asInstanceOf[Number].shortValue())
+                  .put(0, res.asInstanceOf[Number].shortValue() * numRows)
               case t: StringType =>
                 val values = (res :: Nil).map(_.toString).map(_.toByte).toArray
                 vectors(idx).putBytes(0, 1, values, 0)
               case t: BooleanType =>
                 vectors(idx)
                   .put(0, res.asInstanceOf[Boolean].booleanValue())
+              case d: DecimalType =>
+                val decimalRows = Decimal(numRows, res.asInstanceOf[Decimal].precision, 0)
+                vectors(idx).putDecimal(
+                  0, res.asInstanceOf[Decimal] * decimalRows, d.precision)
               case other =>
                 throw new UnsupportedOperationException(s"$other is not supported.")
             }
           }
+        }
+        def decimalMultiplyCheckOverflow(left: Decimal, numRows: Int): Boolean = {
+          var overflow = false
+          // Check overflow
+          try {
+            Decimal(left.toDouble * numRows, left.precision, left.scale)
+          } catch {
+            case e: ArithmeticException =>
+              if (ansiEnabled) {
+                throw new ArithmeticException(s"Value cannot be represented as Decimal")
+              } else {
+                overflow = true
+              }
+            case other =>
+              throw other
+          }
+          overflow
         }
         def getResForAggregateAndGroupingLiteral: ColumnarBatch = {
           val resultColumnVectors =
@@ -308,23 +330,47 @@ case class ColumnarHashAggregateExec(
             val out_res = aggregateFunc.children.head.asInstanceOf[Literal].value
             aggregateFunc match {
               case Sum(_) =>
+                val sum = aggregateFunc.asInstanceOf[Sum]
+                val aggBufferAttr = sum.inputAggBufferAttributes
                 mode match {
                   case Partial | PartialMerge =>
-                    val sum = aggregateFunc.asInstanceOf[Sum]
-                    val aggBufferAttr = sum.inputAggBufferAttributes
-                    // decimal sum check sum.resultType
-                    if (aggBufferAttr.size == 2) {
-                      putDataIntoVector(resultColumnVectors, out_res, idx) // sum
-                      idx += 1
-                      putDataIntoVector(resultColumnVectors, false, idx) // isEmpty
+                    if (aggBufferAttr.size == 1) {
+                      putDataIntoVector(resultColumnVectors, out_res, idx, numRowsInput)
                       idx += 1
                     } else {
-                      putDataIntoVector(resultColumnVectors, out_res, idx)
-                      idx += 1
+                      // Decimal Sum
+                      if (!out_res.isInstanceOf[Decimal]) {
+                        throw new UnsupportedOperationException(s"$out_res is not supported")
+                      }
+                      val decimalVal = out_res.asInstanceOf[Decimal]
+                      val overflow = decimalMultiplyCheckOverflow(decimalVal, numRowsInput)
+                      if (overflow) {
+                        putDataIntoVector(resultColumnVectors, null, idx) // sum
+                        idx += 1
+                        putDataIntoVector(resultColumnVectors, false, idx) // isEmpty
+                        idx += 1
+                      } else {
+                        putDataIntoVector(resultColumnVectors, decimalVal, idx, numRowsInput) // sum
+                        idx += 1
+                        putDataIntoVector(resultColumnVectors, true, idx) // isEmpty
+                        idx += 1
+                      }
                     }
                   case Final =>
-                    putDataIntoVector(resultColumnVectors, out_res, idx)
-                    idx += 1
+                    if (!aggBufferAttr.head.dataType.isInstanceOf[DecimalType]) {
+                      putDataIntoVector(resultColumnVectors, out_res, idx, numRowsInput)
+                      idx += 1
+                    } else {
+                      val decimalVal = out_res.asInstanceOf[Decimal]
+                      val overflow = decimalMultiplyCheckOverflow(decimalVal, numRowsInput)
+                      if (overflow) {
+                        putDataIntoVector(resultColumnVectors, null, idx)
+                        idx += 1
+                      } else {
+                        putDataIntoVector(resultColumnVectors, decimalVal, idx, numRowsInput)
+                        idx += 1
+                      }
+                    }
                 }
               case Average(_) =>
                 mode match {
@@ -661,6 +707,7 @@ case class ColumnarHashAggregateExec(
       aggregateAttributes,
       resultExpressions,
       output,
+      ansiEnabled,
       sparkConf)
   }
 
