@@ -92,8 +92,8 @@ class ColumnarSorter(
     elapse.set(NANOSECONDS.toMillis(total_elapse))
     sortTime.set(NANOSECONDS.toMillis(sort_elapse))
     shuffleTime.set(NANOSECONDS.toMillis(shuffle_elapse))
-    //inputBatchHolder.foreach(cb => cb.close())
-    //inputBatchHolder.clear
+    inputBatchHolder.foreach(cb => cb.close())
+    inputBatchHolder.clear
     if (sorter != null) {
       sorter.close()
     }
@@ -107,6 +107,8 @@ class ColumnarSorter(
   def updateSorterResult(input: ColumnarBatch): Unit = {
     inputBatchHolder += input
     val input_batch = ConverterUtils.createArrowRecordBatch(input)
+    (0 until input.numCols).toList.foreach(i =>
+      input.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
     (0 until input.numCols).toList.foreach(i =>
       input.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
     val beforeSort = System.nanoTime()
@@ -160,8 +162,8 @@ class ColumnarSorter(
           return true
         } else {
           has_next = false
-          //inputBatchHolder.foreach(cb => cb.close())
-          //inputBatchHolder.clear
+          inputBatchHolder.foreach(cb => cb.close())
+          inputBatchHolder.clear
           return false
         }
       }
