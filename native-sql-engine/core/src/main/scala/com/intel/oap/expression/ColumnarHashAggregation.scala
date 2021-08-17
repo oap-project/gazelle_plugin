@@ -105,23 +105,38 @@ class ColumnarHashAggregation(
             case Partial =>
               val childrenColumnarFuncNodeList =
                 aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
+              var actionName = "action_sum_count"
+              if (aggregateFunc.inputAggBufferAttributes.head
+                  .dataType.isInstanceOf[DecimalType]) {
+                actionName = actionName + s"_$ansiEnabled"
+              }
               TreeBuilder
-                .makeFunction("action_sum_count", childrenColumnarFuncNodeList.asJava, resultType)
+                .makeFunction(actionName, childrenColumnarFuncNodeList.asJava, resultType)
             case PartialMerge =>
               val childrenColumnarFuncNodeList =
                 List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
                   getColumnarFuncNode(attr))
+              var actionName = "action_sum_count_merge"
+              if (aggregateFunc.inputAggBufferAttributes.head
+                .dataType.isInstanceOf[DecimalType]) {
+                actionName = actionName + s"_$ansiEnabled"
+              }
               TreeBuilder
                 .makeFunction(
-                  "action_sum_count_merge",
+                  actionName,
                   childrenColumnarFuncNodeList.asJava,
                   resultType)
             case Final =>
               val childrenColumnarFuncNodeList =
                 List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
                   getColumnarFuncNode(attr))
+              var actionName = "action_avgByCount"
+              if (aggregateFunc.inputAggBufferAttributes.head
+                .dataType.isInstanceOf[DecimalType]) {
+                actionName = actionName + s"_$ansiEnabled"
+              }
               TreeBuilder.makeFunction(
-                "action_avgByCount",
+                actionName,
                 childrenColumnarFuncNodeList.asJava,
                 resultType)
             case other =>
@@ -174,7 +189,6 @@ class ColumnarHashAggregation(
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
-          
         case Count(_) =>
           mode match {
             case Partial =>

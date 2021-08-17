@@ -160,17 +160,23 @@ TEST(TestArrowCompute, AggregateSumOverflowTest) {
   auto f1 = field("f1", decimal128(38, 18));
 
   auto f_sum = field("sum", decimal128(38, 18));
+  auto f_avg = field("avg", decimal128(38, 18));
+  auto f_count = field("count", int64());
 
   auto arg1 = TreeExprBuilder::MakeField(f1);
 
   auto n_sum = TreeExprBuilder::MakeFunction("action_sum", {arg1}, uint32());
+  auto n_avg = TreeExprBuilder::MakeFunction("action_avg", {arg1}, uint32());
+  auto n_sum_count = TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
 
   auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg1}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions", {n_sum}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions", {n_sum, n_avg, n_sum_count}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
-      "resultSchema", {TreeExprBuilder::MakeField(f_sum)}, uint32());
+      "resultSchema", {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_avg),
+      TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count)}, uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
-      "resultExpressions", {TreeExprBuilder::MakeField(f_sum)}, uint32());
+      "resultExpressions", {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_avg),
+      TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count)}, uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
@@ -179,7 +185,7 @@ TEST(TestArrowCompute, AggregateSumOverflowTest) {
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
 
   auto sch = arrow::schema({f1});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_sum};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_sum, f_avg, f_sum, f_count};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
@@ -227,7 +233,8 @@ TEST(TestArrowCompute, AggregateSumOverflowTest) {
   ////////////////////// Finish //////////////////////////
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {R"([null])"};
+  std::vector<std::string> expected_result_string = {
+      R"([null])", R"([null])", R"(["99999999999999999999.999999999999999999"])", R"([0])"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

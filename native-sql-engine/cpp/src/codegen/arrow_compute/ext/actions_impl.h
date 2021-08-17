@@ -131,8 +131,19 @@ arrow::Status MakeStddevSampFinalAction(
     bool null_on_divide_by_zero, std::shared_ptr<ActionBase>* out);
 
 /* Aggregate Action Names */
+const std::string ACTION_GROUPBY = "action_groupby";
+const std::string ACTION_COUNT = "action_count";
+const std::string ACTION_SUM = "action_sum";
+const std::string ACTION_SUM_COUNT = "action_sum_count";
+const std::string ACTION_SUM_COUNT_MERGE = "action_sum_count_merge";
+const std::string ACTION_SUM_PARTIAL = "action_sum_partial";
+const std::string ACTION_AVG = "action_avg";
+const std::string ACTION_AVGBYCOUNT = "action_avgByCount";
 const std::string ACTION_MIN = "action_min";
 const std::string ACTION_MAX = "action_max";
+const std::string ACTION_COUNT_LITERAL = "action_countLiteral";
+const std::string ACTION_STDDEV_SAMP_PARTIAL = "action_stddev_samp_partial";
+const std::string ACTION_STDDEV_SAMP_FINAL = "action_stddev_samp_final";
 
 }  // namespace extra
 }  // namespace arrowcompute

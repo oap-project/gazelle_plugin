@@ -3271,7 +3271,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
         // assign a max value for Sum result to make sure it overflows in Final Aggregation.
         RETURN_NOT_OK(
           sum_builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
+        RETURN_NOT_OK(count_builder_->Append(0));
       } else {
         // Not overflowed
         if (cache_validity_[i]) {
@@ -3305,7 +3305,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
         // assign a max value for Sum result to make sure it overflows in Final Aggregation.
         RETURN_NOT_OK(
           sum_builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
+        RETURN_NOT_OK(count_builder_->Append(0));
       } else {
         // Not overflowed
         if (cache_validity_[offset + i]) {
@@ -3688,7 +3688,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
         // assign a max value for Sum result to make sure it overflows in Final Aggregation.
         RETURN_NOT_OK(sum_builder_->Append(
             arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[i]));
+        RETURN_NOT_OK(count_builder_->Append(0));
       } else {
         // Not overflowed
         if (cache_validity_[i]) {
@@ -3722,7 +3722,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
         // assign a max value for Sum result to make sure it overflows in Final Aggregation.
         RETURN_NOT_OK(sum_builder_->Append(
             arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
+        RETURN_NOT_OK(count_builder_->Append(0));
       } else {
         if (cache_validity_[offset + i]) {
           RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
