@@ -32,7 +32,8 @@ namespace columnartorow {
 
 class ColumnarToRowConverter {
  public:
-  ColumnarToRowConverter(std::shared_ptr<arrow::RecordBatch> rb, uint8_t* buffer_address, int64_t memory_size = 0)
+  ColumnarToRowConverter(std::shared_ptr<arrow::RecordBatch> rb, uint8_t* buffer_address, 
+                                            int64_t memory_size = 0)
       : rb_(rb), buffer_address_(buffer_address), memory_size_(memory_size) {}
   ~ColumnarToRowConverter();
 

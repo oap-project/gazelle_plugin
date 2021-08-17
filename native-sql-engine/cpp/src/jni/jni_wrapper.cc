@@ -67,9 +67,6 @@ static jclass serialized_record_batch_iterator_class;
 static jclass metrics_builder_class;
 static jmethodID metrics_builder_constructor;
 
-static jclass unsafe_row_class;
-static jmethodID unsafe_row_class_constructor;
-static jmethodID unsafe_row_class_point_to;
 static jmethodID serialized_record_batch_iterator_hasNext;
 static jmethodID serialized_record_batch_iterator_next;
 
