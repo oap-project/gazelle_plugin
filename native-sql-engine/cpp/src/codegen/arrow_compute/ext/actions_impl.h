@@ -93,7 +93,7 @@ arrow::Status MakeSumActionPartial(
 arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out);
+                            std::shared_ptr<ActionBase>* out, bool ansiEnabled = false);
 
 arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
@@ -118,7 +118,7 @@ arrow::Status MakeSumCountMergeAction(
 arrow::Status MakeAvgByCountAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out);
+    std::shared_ptr<ActionBase>* out, bool ansiEnabled = false);
 
 arrow::Status MakeStddevSampPartialAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
