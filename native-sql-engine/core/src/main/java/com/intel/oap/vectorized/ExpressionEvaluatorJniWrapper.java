@@ -17,7 +17,7 @@
 
 package com.intel.oap.vectorized;
 
-import org.apache.arrow.dataset.jni.NativeSerializedRecordBatchIterator;
+import com.intel.oap.execution.ColumnarNativeIterator;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.spark.memory.MemoryConsumer;
 
@@ -156,7 +156,7 @@ public class ExpressionEvaluatorJniWrapper {
          * @param nativeHandler a iterator instance carrying input record batches
          */
         native void nativeEvaluateWithIterator(long nativeHandler,
-            NativeSerializedRecordBatchIterator batchItr) throws RuntimeException;
+            ColumnarNativeIterator batchItr) throws RuntimeException;
 
         /**
          * Get native kernel signature by the nativeHandler.

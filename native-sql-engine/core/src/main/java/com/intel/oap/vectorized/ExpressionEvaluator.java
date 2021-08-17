@@ -18,20 +18,15 @@
 package com.intel.oap.vectorized;
 
 import com.intel.oap.ColumnarPluginConfig;
+import com.intel.oap.execution.ColumnarNativeIterator;
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller;
-import org.apache.arrow.dataset.jni.NativeSerializedRecordBatchIterator;
-import org.apache.arrow.memory.ArrowBuf;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.nio.channels.Channels;
-import java.util.List;
-
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer;
 import org.apache.arrow.gandiva.evaluator.SelectionVectorInt16;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -39,6 +34,11 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.spark.memory.MemoryConsumer;
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
+import java.util.List;
 
 public class ExpressionEvaluator implements AutoCloseable {
   private long nativeHandler = 0;
@@ -144,7 +144,7 @@ public class ExpressionEvaluator implements AutoCloseable {
     return evaluate(recordBatch, null);
   }
 
-  public void evaluate(NativeSerializedRecordBatchIterator batchItr)
+  public void evaluate(ColumnarNativeIterator batchItr)
           throws RuntimeException, IOException {
     jniWrapper.nativeEvaluateWithIterator(nativeHandler,
         batchItr);
