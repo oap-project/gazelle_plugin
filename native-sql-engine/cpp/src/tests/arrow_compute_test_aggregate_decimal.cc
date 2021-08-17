@@ -170,13 +170,18 @@ TEST(TestArrowCompute, AggregateSumOverflowTest) {
   auto n_sum_count = TreeExprBuilder::MakeFunction("action_sum_count", {arg1}, uint32());
 
   auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg1}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions", {n_sum, n_avg, n_sum_count}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions",
+                                                {n_sum, n_avg, n_sum_count}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
-      "resultSchema", {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_avg),
-      TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count)}, uint32());
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_avg),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count)},
+      uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
-      "resultExpressions", {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_avg),
-      TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count)}, uint32());
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_avg),
+       TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count)},
+      uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
@@ -234,7 +239,8 @@ TEST(TestArrowCompute, AggregateSumOverflowTest) {
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      R"([null])", R"([null])", R"(["99999999999999999999.999999999999999999"])", R"([0])"};
+      R"([null])", R"([null])", R"(["99999999999999999999.999999999999999999"])",
+      R"([0])"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

@@ -669,33 +669,36 @@ class HashAggregateKernel::Impl {
         result_id += 1;
         RETURN_NOT_OK(MakeCountAction(ctx_, res_type_list, &action));
       } else if (action_name.compare(0, ACTION_SUM.size(), ACTION_SUM) == 0) {
-        if (action_name.compare(0, ACTION_SUM_COUNT_MERGE.size(), ACTION_SUM_COUNT_MERGE) == 0) {
+        if (action_name.compare(0, ACTION_SUM_COUNT_MERGE.size(),
+                                ACTION_SUM_COUNT_MERGE) == 0) {
           auto res_type_list = {result_field_list[result_id],
                                 result_field_list[result_id + 1]};
           if (result_field_list[result_id]->id() != arrow::Decimal128Type::type_id) {
             result_id += 2;
             RETURN_NOT_OK(
-              MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action));
+                MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action));
           } else {
             bool ansiEnabled = getActionOption(action_name, ACTION_SUM_COUNT_MERGE);
             result_id += 2;
-            RETURN_NOT_OK(
-              MakeSumCountMergeAction(ctx_, action_input_type, res_type_list, &action, ansiEnabled));
+            RETURN_NOT_OK(MakeSumCountMergeAction(ctx_, action_input_type, res_type_list,
+                                                  &action, ansiEnabled));
           }
-        } else if (action_name.compare(0, ACTION_SUM_COUNT.size(), ACTION_SUM_COUNT) == 0) {
+        } else if (action_name.compare(0, ACTION_SUM_COUNT.size(), ACTION_SUM_COUNT) ==
+                   0) {
           auto res_type_list = {result_field_list[result_id],
                                 result_field_list[result_id + 1]};
           if (result_field_list[result_id]->id() != arrow::Decimal128Type::type_id) {
             result_id += 2;
             RETURN_NOT_OK(
-              MakeSumCountAction(ctx_, action_input_type, res_type_list, &action));
+                MakeSumCountAction(ctx_, action_input_type, res_type_list, &action));
           } else {
             bool ansiEnabled = getActionOption(action_name, ACTION_SUM_COUNT);
             result_id += 2;
-            RETURN_NOT_OK(
-              MakeSumCountAction(ctx_, action_input_type, res_type_list, &action, ansiEnabled));
+            RETURN_NOT_OK(MakeSumCountAction(ctx_, action_input_type, res_type_list,
+                                             &action, ansiEnabled));
           }
-        } else if (action_name.compare(0, ACTION_SUM_PARTIAL.size(), ACTION_SUM_PARTIAL) == 0) {
+        } else if (action_name.compare(0, ACTION_SUM_PARTIAL.size(),
+                                       ACTION_SUM_PARTIAL) == 0) {
           auto res_type_list = {result_field_list[result_id]};
           if (result_field_list[result_id]->id() != arrow::Decimal128Type::type_id) {
             result_id += 1;
@@ -720,17 +723,18 @@ class HashAggregateKernel::Impl {
                                         ansiEnabled));
           }
         }
-      } else if (action_name.compare(0, ACTION_AVGBYCOUNT.size(), ACTION_AVGBYCOUNT) == 0) {
+      } else if (action_name.compare(0, ACTION_AVGBYCOUNT.size(), ACTION_AVGBYCOUNT) ==
+                 0) {
         auto res_type_list = {result_field_list[result_id]};
         if (result_field_list[result_id]->id() != arrow::Decimal128Type::type_id) {
           result_id += 1;
           RETURN_NOT_OK(
-            MakeAvgByCountAction(ctx_, action_input_type, res_type_list, &action));
+              MakeAvgByCountAction(ctx_, action_input_type, res_type_list, &action));
         } else {
           bool ansiEnabled = getActionOption(action_name, ACTION_AVGBYCOUNT);
           result_id += 1;
-          RETURN_NOT_OK(
-            MakeAvgByCountAction(ctx_, action_input_type, res_type_list, &action, ansiEnabled));
+          RETURN_NOT_OK(MakeAvgByCountAction(ctx_, action_input_type, res_type_list,
+                                             &action, ansiEnabled));
         }
       } else if (action_name.compare(0, ACTION_AVG.size(), ACTION_AVG) == 0) {
         auto res_type_list = {result_field_list[result_id]};
@@ -740,8 +744,8 @@ class HashAggregateKernel::Impl {
         } else {
           bool ansiEnabled = getActionOption(action_name, ACTION_AVG);
           result_id += 1;
-          RETURN_NOT_OK(MakeAvgAction(
-              ctx_, action_input_type, res_type_list, &action, ansiEnabled));
+          RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, res_type_list, &action,
+                                      ansiEnabled));
         }
       } else if (action_name.compare(ACTION_MIN) == 0) {
         auto res_type_list = {result_field_list[result_id]};
@@ -754,8 +758,8 @@ class HashAggregateKernel::Impl {
         bool NaN_check = getActionOption(action_name, ACTION_MAX);
         result_id += 1;
         RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare(0, ACTION_COUNT_LITERAL.size() + 1, 
-                 ACTION_COUNT_LITERAL + "_") == 0) {
+      } else if (action_name.compare(0, ACTION_COUNT_LITERAL.size() + 1,
+                                     ACTION_COUNT_LITERAL + "_") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         int arg = std::stol(action_name.substr(ACTION_COUNT_LITERAL.size() + 1));
@@ -767,9 +771,10 @@ class HashAggregateKernel::Impl {
         result_id += 3;
         RETURN_NOT_OK(
             MakeStddevSampPartialAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare(0, ACTION_STDDEV_SAMP_FINAL.size(), 
-                 ACTION_STDDEV_SAMP_FINAL) == 0) {
-        bool null_on_divide_by_zero = getActionOption(action_name, ACTION_STDDEV_SAMP_FINAL);
+      } else if (action_name.compare(0, ACTION_STDDEV_SAMP_FINAL.size(),
+                                     ACTION_STDDEV_SAMP_FINAL) == 0) {
+        bool null_on_divide_by_zero =
+            getActionOption(action_name, ACTION_STDDEV_SAMP_FINAL);
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list,

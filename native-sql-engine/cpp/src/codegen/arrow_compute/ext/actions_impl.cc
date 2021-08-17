@@ -2431,7 +2431,8 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     for (int i = 0; i < length_; i++) {
       if (overflow_map_[i]) {
         // If the result of this group has overflowed,
-        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        // assign a max value for Sum result to make sure it overflows in Final
+        // Aggregation.
         builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue()));
         builder_isempty_->Append(true);
       } else {
@@ -2462,7 +2463,8 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < res_length; i++) {
       if (overflow_map_[offset + i]) {
         // If the result of this group has overflowed,
-        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        // assign a max value for Sum result to make sure it overflows in Final
+        // Aggregation.
         builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue()));
         builder_isempty_->Append(true);
       } else {
@@ -2689,8 +2691,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
                 precompile::enable_if_decimal<DataType>> : public ActionBase {
  public:
   AvgAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            std::shared_ptr<arrow::DataType> res_type,
-            bool ansiEnabled = false)
+            std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx), ansiEnabled_(ansiEnabled) {
 #ifdef DEBUG
     std::cout << "Construct AvgAction" << std::endl;
@@ -2737,8 +2738,8 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
           arrow::Decimal128 left = in_->GetView(row_id);
           arrow::Decimal128 right = cache_sum_[dest_group_id];
           overflow_ = false;
-          arrow::Decimal128 out = add(left, precision_, scale_, right, precision_,
-                                    scale_, precision_, scale_, &overflow_);
+          arrow::Decimal128 out = add(left, precision_, scale_, right, precision_, scale_,
+                                      precision_, scale_, &overflow_);
           if (!overflow_) {
             cache_validity_[dest_group_id] = true;
             cache_sum_[dest_group_id] = out;
@@ -2759,8 +2760,8 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
         arrow::Decimal128 left = in_->GetView(row_id);
         arrow::Decimal128 right = cache_sum_[dest_group_id];
         overflow_ = false;
-        arrow::Decimal128 out = add(left, precision_, scale_, right, precision_,
-                                  scale_, precision_, scale_, &overflow_);
+        arrow::Decimal128 out = add(left, precision_, scale_, right, precision_, scale_,
+                                    precision_, scale_, &overflow_);
         if (!overflow_) {
           cache_validity_[dest_group_id] = true;
           cache_sum_[dest_group_id] = out;
@@ -2814,8 +2815,8 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
     arrow::Decimal128 left = *(CType*)data;
     arrow::Decimal128 right = cache_sum_[dest_group_id];
     overflow_ = false;
-    arrow::Decimal128 out = add(left, precision_, scale_, right, precision_,
-                                scale_, precision_, scale_, &overflow_);
+    arrow::Decimal128 out = add(left, precision_, scale_, right, precision_, scale_,
+                                precision_, scale_, &overflow_);
     if (!overflow_) {
       cache_validity_[dest_group_id] = true;
       cache_sum_[dest_group_id] += *(CType*)data;
@@ -2949,8 +2950,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
                      precompile::enable_if_number<DataType>> : public ActionBase {
  public:
   SumCountAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type,
-                 bool ansiEnabled = false)
+                 std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
@@ -3129,8 +3129,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
                      precompile::enable_if_decimal<DataType>> : public ActionBase {
  public:
   SumCountAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type,
-                 bool ansiEnabled = false)
+                 std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx), ansiEnabled_(ansiEnabled) {
 #ifdef DEBUG
     std::cout << "Construct SumCountAction" << std::endl;
@@ -3268,9 +3267,10 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < length; i++) {
       if (overflow_map_[i]) {
         // If the result of this group has overflowed,
-        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
-        RETURN_NOT_OK(
-          sum_builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
+        // assign a max value for Sum result to make sure it overflows in Final
+        // Aggregation.
+        RETURN_NOT_OK(sum_builder_->Append(
+            arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(0));
       } else {
         // Not overflowed
@@ -3302,9 +3302,10 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < res_length; i++) {
       if (overflow_map_[offset + i]) {
         // If the result of this group has overflowed,
-        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
-        RETURN_NOT_OK(
-          sum_builder_->Append(arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
+        // assign a max value for Sum result to make sure it overflows in Final
+        // Aggregation.
+        RETURN_NOT_OK(sum_builder_->Append(
+            arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(0));
       } else {
         // Not overflowed
@@ -3363,8 +3364,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
  public:
   SumCountMergeAction(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> type,
-                      std::shared_ptr<arrow::DataType> res_type,
-                      bool ansiEnabled = false)
+                      std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> sum_builder;
     std::unique_ptr<arrow::ArrayBuilder> count_builder;
@@ -3545,8 +3545,7 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
  public:
   SumCountMergeAction(arrow::compute::ExecContext* ctx,
                       std::shared_ptr<arrow::DataType> type,
-                      std::shared_ptr<arrow::DataType> res_type,
-                      bool ansiEnabled = false)
+                      std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx), ansiEnabled_(ansiEnabled) {
 #ifdef DEBUG
     std::cout << "Construct SumCountMergeAction" << std::endl;
@@ -3685,7 +3684,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < length; i++) {
       if (overflow_map_[i]) {
         // If the result of this group has overflowed,
-        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        // assign a max value for Sum result to make sure it overflows in Final
+        // Aggregation.
         RETURN_NOT_OK(sum_builder_->Append(
             arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(0));
@@ -3719,7 +3719,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < res_length; i++) {
       if (overflow_map_[offset + i]) {
         // If the result of this group has overflowed,
-        // assign a max value for Sum result to make sure it overflows in Final Aggregation.
+        // assign a max value for Sum result to make sure it overflows in Final
+        // Aggregation.
         RETURN_NOT_OK(sum_builder_->Append(
             arrow::Decimal128(arrow::BasicDecimal128::GetMaxValue())));
         RETURN_NOT_OK(count_builder_->Append(0));
@@ -3779,8 +3780,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
  public:
   AvgByCountAction(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> type,
-                   std::shared_ptr<arrow::DataType> res_type,
-                   bool ansiEnabled = false)
+                   std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &builder);
@@ -3955,8 +3955,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
  public:
   AvgByCountAction(arrow::compute::ExecContext* ctx,
                    std::shared_ptr<arrow::DataType> type,
-                   std::shared_ptr<arrow::DataType> res_type,
-                   bool ansiEnabled = false)
+                   std::shared_ptr<arrow::DataType> res_type, bool ansiEnabled = false)
       : ctx_(ctx), ansiEnabled_(ansiEnabled) {
     auto typed_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(type);
     auto typed_res_type = std::dynamic_pointer_cast<arrow::Decimal128Type>(res_type);
@@ -4004,8 +4003,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
         arrow::Decimal128 left = in_sum_->GetView(row_id);
         arrow::Decimal128 right = cache_sum_[dest_group_id];
         overflow_ = false;
-        arrow::Decimal128 out = add(left, precision_, scale_, right, precision_,
-                                    scale_, precision_, scale_, &overflow_);
+        arrow::Decimal128 out = add(left, precision_, scale_, right, precision_, scale_,
+                                    precision_, scale_, &overflow_);
         if (!overflow_) {
           cache_sum_[dest_group_id] = out;
           cache_count_[dest_group_id] += in_count_->GetView(row_id);
@@ -4061,8 +4060,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     arrow::Decimal128 left = *(CType*)data;
     arrow::Decimal128 right = cache_sum_[dest_group_id];
     overflow_ = false;
-    arrow::Decimal128 out = add(left, precision_, scale_, right, precision_,
-                                scale_, precision_, scale_, &overflow_);
+    arrow::Decimal128 out = add(left, precision_, scale_, right, precision_, scale_,
+                                precision_, scale_, &overflow_);
     if (!overflow_) {
       cache_sum_[dest_group_id] = out;
       cache_count_[dest_group_id] += *(int64_t*)data2;
@@ -5438,8 +5437,7 @@ arrow::Status MakeSumCountAction(
 arrow::Status MakeSumCountMergeAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-    std::shared_ptr<ActionBase>* out,
-    bool ansiEnabled) {
+    std::shared_ptr<ActionBase>* out, bool ansiEnabled) {
   switch (type->id()) {
 #define PROCESS(InType)                                                              \
   case InType::type_id: {                                                            \

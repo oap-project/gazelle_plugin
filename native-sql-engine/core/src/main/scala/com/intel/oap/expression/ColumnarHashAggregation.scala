@@ -118,7 +118,7 @@ class ColumnarHashAggregation(
                   getColumnarFuncNode(attr))
               var actionName = "action_sum_count_merge"
               if (aggregateFunc.inputAggBufferAttributes.head
-                .dataType.isInstanceOf[DecimalType]) {
+                  .dataType.isInstanceOf[DecimalType]) {
                 actionName = actionName + s"_$ansiEnabled"
               }
               TreeBuilder
@@ -132,7 +132,7 @@ class ColumnarHashAggregation(
                   getColumnarFuncNode(attr))
               var actionName = "action_avgByCount"
               if (aggregateFunc.inputAggBufferAttributes.head
-                .dataType.isInstanceOf[DecimalType]) {
+                  .dataType.isInstanceOf[DecimalType]) {
                 actionName = actionName + s"_$ansiEnabled"
               }
               TreeBuilder.makeFunction(
@@ -149,7 +149,7 @@ class ColumnarHashAggregation(
                   aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
                 var actionName = "action_sum_partial"
                 if (aggregateFunc.inputAggBufferAttributes.head
-                  .dataType.isInstanceOf[DecimalType]) {
+                    .dataType.isInstanceOf[DecimalType]) {
                   actionName = actionName + s"_$ansiEnabled"
                 }
                 TreeBuilder.makeFunction(
