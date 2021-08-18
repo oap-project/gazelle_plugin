@@ -146,7 +146,6 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
               if (!result) {
                 // Release the original batch, the allocated buffer and
                 // the offset and lengths buffer in native.
-                batch.close()
                 if (arrowBuf.refCnt() != 0) {
                   arrowBuf.release()
                 }
