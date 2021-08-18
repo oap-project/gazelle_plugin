@@ -27,10 +27,12 @@ import org.apache.arrow.dataset.jni.NativeMemoryPool
 import org.apache.arrow.memory.BufferAllocator
 
 import org.apache.spark.TaskContext
+import org.apache.spark.internal.Logging
 import org.apache.spark.memory.TaskMemoryManager
 import org.apache.spark.util.TaskCompletionListener
 
-object SparkMemoryUtils {
+object SparkMemoryUtils extends Logging {
+  private val DEBUG: Boolean = false
 
   class TaskMemoryResources {
     if (!inSparkTask()) {
@@ -116,16 +118,30 @@ object SparkMemoryUtils {
         val allocated = allocator.getAllocatedMemory
         if (allocated == 0L) {
           close(allocator)
-        } else {
+        } else if (DEBUG) {
           softClose(allocator)
+        } else {
+          try {
+            close(allocator)
+          } catch {
+            case _: Exception =>
+              logWarning(s"Force closing leaked allocator, size: ${allocated}...")
+          }
         }
       }
       for (pool <- memoryPools.asScala) {
         val allocated = pool.getBytesAllocated
         if (allocated == 0L) {
           close(pool)
-        } else {
+        } else if (DEBUG) {
           softClose(pool)
+        } else {
+          try {
+            close(pool)
+          } catch {
+            case _: Exception =>
+              logWarning(s"Force closing leaked memory pool, size: ${allocated}...")
+          }
         }
       }
     }
