@@ -51,17 +51,17 @@ object SparkMemoryUtils extends Logging {
         UUID.randomUUID().toString, al, 0, parent.getLimit)
     }
 
-    val defaultMemoryPool: NativeMemoryPool = {
+    val defaultMemoryPool: NativeMemoryPoolWrapper = {
       val rl = new SparkManagedReservationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
         sharedMetrics)
-      NativeMemoryPool.createListenable(rl)
+      NativeMemoryPoolWrapper(NativeMemoryPool.createListenable(rl), rl)
     }
 
     private val allocators = new util.ArrayList[BufferAllocator]()
     allocators.add(defaultAllocator)
 
-    private val memoryPools = new util.ArrayList[NativeMemoryPool]()
+    private val memoryPools = new util.ArrayList[NativeMemoryPoolWrapper]()
     memoryPools.add(defaultMemoryPool)
 
     def createSpillableMemoryPool(spiller: Spiller): NativeMemoryPool = {
@@ -69,7 +69,7 @@ object SparkMemoryUtils extends Logging {
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
         sharedMetrics)
       val pool = NativeMemoryPool.createListenable(rl)
-      memoryPools.add(pool)
+      memoryPools.add(NativeMemoryPoolWrapper(pool, rl))
       pool
     }
 
@@ -101,16 +101,23 @@ object SparkMemoryUtils extends Logging {
      */
     private def softClose(allocator: BufferAllocator): Unit = {
       // move to leaked list
-      leakedAllocators.add(allocator)
+      logWarning(s"Detected leaked allocator, size: ${allocator.getAllocatedMemory}...")
+      if (DEBUG) {
+        leakedAllocators.add(allocator)
+      }
     }
 
-    private def close(pool: NativeMemoryPool): Unit = {
-      pool.close()
+    private def close(pool: NativeMemoryPoolWrapper): Unit = {
+      pool.pool.close()
     }
 
-    private def softClose(pool: NativeMemoryPool): Unit = {
+    private def softClose(pool: NativeMemoryPoolWrapper): Unit = {
       // move to leaked list
-      leakedMemoryPools.add(pool)
+      logWarning(s"Detected leaked memory pool, size: ${pool.pool.getBytesAllocated}...")
+      pool.listener.inactivate()
+      if (DEBUG) {
+        leakedMemoryPools.add(pool)
+      }
     }
 
     def release(): Unit = {
@@ -118,32 +125,16 @@ object SparkMemoryUtils extends Logging {
         val allocated = allocator.getAllocatedMemory
         if (allocated == 0L) {
           close(allocator)
-        } else if (DEBUG) {
-          softClose(allocator)
         } else {
-          logWarning(s"Force closing leaked allocator, size: ${allocated}...")
-          try {
-            close(allocator)
-          } catch {
-            case e: Exception =>
-              logWarning(s"Error closing leaked allocator: " + e)
-          }
+          softClose(allocator)
         }
       }
       for (pool <- memoryPools.asScala) {
-        val allocated = pool.getBytesAllocated
+        val allocated = pool.pool.getBytesAllocated
         if (allocated == 0L) {
           close(pool)
-        } else if (DEBUG) {
-          softClose(pool)
         } else {
-          logWarning(s"Force closing leaked memory pool, size: ${allocated}...")
-          try {
-            close(pool)
-          } catch {
-            case e: Exception =>
-              logWarning(s"Error closing leaked memory pool: " + e)
-          }
+          softClose(pool)
         }
       }
     }
@@ -152,7 +143,7 @@ object SparkMemoryUtils extends Logging {
   private val taskToResourcesMap = new java.util.IdentityHashMap[TaskContext, TaskMemoryResources]()
 
   private val leakedAllocators = new java.util.Vector[BufferAllocator]()
-  private val leakedMemoryPools = new java.util.Vector[NativeMemoryPool]()
+  private val leakedMemoryPools = new java.util.Vector[NativeMemoryPoolWrapper]()
 
   private def getLocalTaskContext: TaskContext = TaskContext.get()
 
@@ -232,7 +223,7 @@ object SparkMemoryUtils extends Logging {
     if (!inSparkTask()) {
       return globalMemoryPool()
     }
-    getTaskMemoryResources().defaultMemoryPool
+    getTaskMemoryResources().defaultMemoryPool.pool
   }
 
   def getLeakedAllocators(): List[BufferAllocator] = {
@@ -240,8 +231,8 @@ object SparkMemoryUtils extends Logging {
     list.asScala.toList
   }
 
-  def getLeakedMemoryPools(): List[NativeMemoryPool] = {
-    val list = new util.ArrayList[NativeMemoryPool](leakedMemoryPools)
+  def getLeakedMemoryPools(): List[NativeMemoryPoolWrapper] = {
+    val list = new util.ArrayList[NativeMemoryPoolWrapper](leakedMemoryPools)
     list.asScala.toList
   }
 
@@ -281,4 +272,7 @@ object SparkMemoryUtils extends Logging {
       retained = None
     }
   }
+
+  case class NativeMemoryPoolWrapper(pool: NativeMemoryPool,
+      listener: SparkManagedReservationListener)
 }
