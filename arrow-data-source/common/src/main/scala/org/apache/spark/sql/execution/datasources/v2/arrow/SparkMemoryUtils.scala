@@ -121,11 +121,12 @@ object SparkMemoryUtils extends Logging {
         } else if (DEBUG) {
           softClose(allocator)
         } else {
+          logWarning(s"Force closing leaked allocator, size: ${allocated}...")
           try {
             close(allocator)
           } catch {
-            case _: Exception =>
-              logWarning(s"Force closing leaked allocator, size: ${allocated}...")
+            case e: Exception =>
+              logWarning(s"Error closing leaked allocator: " + e)
           }
         }
       }
@@ -136,11 +137,12 @@ object SparkMemoryUtils extends Logging {
         } else if (DEBUG) {
           softClose(pool)
         } else {
+          logWarning(s"Force closing leaked memory pool, size: ${allocated}...")
           try {
             close(pool)
           } catch {
-            case _: Exception =>
-              logWarning(s"Force closing leaked memory pool, size: ${allocated}...")
+            case e: Exception =>
+              logWarning(s"Error closing leaked memory pool: " + e)
           }
         }
       }
