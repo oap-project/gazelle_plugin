@@ -228,11 +228,15 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       accessor = new BinaryAccessor((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       accessor = new DateAccessor((DateDayVector) vector);
-    } else if (vector instanceof TimeStampMicroVector || vector instanceof TimeStampMicroTZVector) {
+    } else if (vector instanceof TimeStampMicroVector
+        || vector instanceof TimeStampMicroTZVector) {
       accessor = new TimestampMicroAccessor((TimeStampVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       accessor = new ArrayAccessor(listVector);
+      childColumns = new ArrowWritableColumnVector[1];
+      childColumns[0] = new ArrowWritableColumnVector(
+          listVector.getDataVector(), 0, listVector.size(), false);
     } else if (vector instanceof StructVector) {
       throw new UnsupportedOperationException();
       /*StructVector structVector = (StructVector) vector;
@@ -270,7 +274,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       return new BinaryWriter((VarBinaryVector) vector);
     } else if (vector instanceof DateDayVector) {
       return new DateWriter((DateDayVector) vector);
-    } else if (vector instanceof TimeStampMicroVector || vector instanceof TimeStampMicroTZVector) {
+    } else if (vector instanceof TimeStampMicroVector
+        || vector instanceof TimeStampMicroTZVector) {
       return new TimestampMicroWriter((TimeStampVector) vector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
@@ -284,7 +289,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       }
       return new StructWriter(structVector, children);
     } else {
-      throw new UnsupportedOperationException("Unsupported data type: " + vector.getMinorType());
+      throw new UnsupportedOperationException(
+          "Unsupported data type: " + vector.getMinorType());
     }
   }
 
@@ -678,9 +684,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   @Override
-  public void putFloatsLittleEndian(int rowId, int count, byte[] src, int srcIndex) {
-
-  }
+  public void putFloatsLittleEndian(int rowId, int count, byte[] src, int srcIndex) {}
 
   @Override
   public float getFloat(int rowId) {
@@ -712,10 +716,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   @Override
-  public void putDoublesLittleEndian(int rowId, int count, byte[] src, int srcIndex) {
+  public void putDoublesLittleEndian(int rowId, int count, byte[] src, int srcIndex) {}
 
-  }
-  
   @Override
   public void putDoubles(int rowId, int count, byte[] src, int srcIndex) {
     writer.setDoubles(rowId, count, src, srcIndex);
@@ -737,11 +739,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   @Override
   public int getArrayLength(int rowId) {
-    throw new UnsupportedOperationException();
+    return accessor.getArrayLength(rowId);
   }
   @Override
   public int getArrayOffset(int rowId) {
-    throw new UnsupportedOperationException();
+    return accessor.getArrayOffset(rowId);
   }
 
   @Override
@@ -873,6 +875,14 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
 
     ColumnarArray getArray(int rowId) {
+      throw new UnsupportedOperationException();
+    }
+
+    int getArrayLength(int rowId) {
+      throw new UnsupportedOperationException();
+    }
+
+    int getArrayOffset(int rowId) {
       throw new UnsupportedOperationException();
     }
   }
@@ -1155,16 +1165,17 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   private static class ArrayAccessor extends ArrowVectorAccessor {
     private final ListVector accessor;
-    // private final ArrowWritableColumnVector arrayData;
+    ArrowWritableColumnVector arrayData;
 
     ArrayAccessor(ListVector vector) {
       super(vector);
       this.accessor = vector;
-      // this.arrayData = new ArrowWritableColumnVector(vector.getDataVector());
+      arrayData =
+          new ArrowWritableColumnVector(vector.getDataVector(), 0, vector.size(), false);
     }
 
-    /*@Override
-    final boolean isNullAt(int rowId) {
+    @Override
+    boolean isNullAt(int rowId) {
       // TODO: Workaround if vector has all non-null values, see ARROW-1948
       if (accessor.getValueCount() > 0 && accessor.getValidityBuffer().capacity() == 0) {
         return false;
@@ -1174,13 +1185,18 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     }
 
     @Override
-    final ColumnarArray getArray(int rowId) {
-      ArrowBuf offsets = accessor.getOffsetBuffer();
+    public int getArrayLength(int rowId) {
       int index = rowId * ListVector.OFFSET_WIDTH;
-      int start = offsets.getInt(index);
-      int end = offsets.getInt(index + ListVector.OFFSET_WIDTH);
-      return new ColumnarArray(arrayData, start, end - start);
-    }*/
+      int start = accessor.getOffsetBuffer().getInt(index);
+      int end = accessor.getOffsetBuffer().getInt(index + ListVector.OFFSET_WIDTH);
+      return end - start;
+    }
+
+    @Override
+    public int getArrayOffset(int rowId) {
+      int index = rowId * ListVector.OFFSET_WIDTH;
+      return accessor.getOffsetBuffer().getInt(index);
+    }
   }
 
   /**
@@ -1579,7 +1595,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setDouble(int rowId, double value) {
-      long val = (long)value;
+      long val = (long) value;
       writer.setSafe(rowId, val);
     }
 
@@ -1757,6 +1773,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       for (int i = 0; i < count; i++) {
         writer.setNull(rowId + i);
       }
+    }
+
+    @Override
+    final void setBytes(int rowId, int count, byte[] src, int srcIndex) {
+      writer.setSafe(rowId, src, srcIndex, count);
     }
   }
 

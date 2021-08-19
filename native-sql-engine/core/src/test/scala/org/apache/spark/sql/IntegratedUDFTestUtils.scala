@@ -167,7 +167,7 @@ object IntegratedUDFTestUtils extends SQLHelper {
     throw new RuntimeException(s"Python executable [$pythonExec] and/or pyspark are unavailable.")
   }
 
-  private lazy val pandasFunc: Array[Byte] = if (shouldTestScalarPandasUDFs) {
+  lazy val pandasFunc: Array[Byte] = if (shouldTestScalarPandasUDFs) {
     var binaryPandasFunc: Array[Byte] = null
     withTempPath { path =>
       Process(
@@ -191,7 +191,7 @@ object IntegratedUDFTestUtils extends SQLHelper {
   }
 
   // Make sure this map stays mutable - this map gets updated later in Python runners.
-  private val workerEnv = new java.util.HashMap[String, String]()
+  val workerEnv = new java.util.HashMap[String, String]()
   workerEnv.put("PYTHONPATH", s"$pysparkPythonPath:$pythonPath")
 
   lazy val pythonExec: String = {
