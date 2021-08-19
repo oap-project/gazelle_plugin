@@ -59,8 +59,17 @@ class TakerBase {
   }
 };
 
+template <typename DataType, typename Enable = void>
+class ArrayTaker {};
+
+template <typename T>
+using is_number_or_date = std::integral_constant<bool, arrow::is_number_type<T>::value ||
+                                                           arrow::is_date_type<T>::value>;
+template <typename DataType, typename R = void>
+using enable_if_number_or_date = std::enable_if_t<is_number_or_date<DataType>::value, R>;
+
 template <typename DataType>
-class ArrayTaker : public TakerBase {
+class ArrayTaker<DataType, enable_if_number_or_date<DataType>> : public TakerBase {
  public:
   ArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool)
       : ctx_(ctx), pool_(pool) {}
@@ -119,6 +128,85 @@ class ArrayTaker : public TakerBase {
           null_count++;
           arrow::BitUtil::SetBitTo(out_is_valid, position, false);
           array_data[position] = CType{};
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+    }
+    *out = std::move(out_data);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
+  using CType = typename arrow::TypeTraits<DataType>::CType;
+  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
+  arrow::compute::ExecContext* ctx_;
+  bool has_null_ = false;
+  int size_ = sizeof(CType);
+  arrow::MemoryPool* pool_;
+};
+
+template <typename DataType>
+class ArrayTaker<DataType, arrow::enable_if_boolean<DataType>> : public TakerBase {
+ public:
+  ArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool)
+      : ctx_(ctx), pool_(pool) {}
+
+  ~ArrayTaker() {}
+
+  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
+    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
+    cached_arr_.push_back(typed_arr_);
+    if (!has_null_ && typed_arr_->null_count() > 0) has_null_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status PopArray() override {
+    cached_arr_.pop_back();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status ClearArrays() override {
+    cached_arr_.clear();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+                                arrow::ArrayData* out) {
+    arrow::ArrayData out_data;
+    out_data.length = length;
+    out_data.buffers.resize(2);
+    out_data.type = arrow::TypeTraits<DataType>::type_singleton();
+    ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBitmap(length, pool_));
+    if (has_null_) {
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(length, pool_));
+    }
+    auto array_data = out_data.buffers[1]->mutable_data();
+
+    int64_t position = 0;
+    int64_t null_count = 0;
+    if (!has_null_) {
+      out_data.null_count = 0;
+      while (position < length) {
+        auto item = indices_begin + position;
+        bool val = cached_arr_[item->array_id]->GetView(item->id);
+        arrow::BitUtil::SetBitTo(array_data, position, val);
+        position++;
+      }
+    } else {
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < length) {
+        auto item = indices_begin + position;
+        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
+          arrow::BitUtil::SetBitTo(array_data, position,
+                                   cached_arr_[item->array_id]->GetView(item->id));
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+        } else {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
         }
         position++;
       }
