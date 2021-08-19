@@ -24,8 +24,9 @@ import org.apache.arrow.dataset.jni.ReservationListener;
  */
 public class SparkManagedReservationListener implements ReservationListener {
 
-    private final NativeSQLMemoryConsumer consumer;
-    private final NativeSQLMemoryMetrics metrics;
+    private NativeSQLMemoryConsumer consumer;
+    private NativeSQLMemoryMetrics metrics;
+    private volatile boolean open = true;
 
     public SparkManagedReservationListener(NativeSQLMemoryConsumer consumer, NativeSQLMemoryMetrics metrics) {
         this.consumer = consumer;
@@ -34,13 +35,30 @@ public class SparkManagedReservationListener implements ReservationListener {
 
     @Override
     public void reserve(long size) {
-        consumer.acquire(size);
-        metrics.inc(size);
+        synchronized (this) {
+            if (!open) {
+                return;
+            }
+            consumer.acquire(size);
+            metrics.inc(size);
+        }
     }
 
     @Override
     public void unreserve(long size) {
-        consumer.free(size);
-        metrics.inc(-size);
+        synchronized (this) {
+            if (!open) {
+                return;
+            }
+            consumer.free(size);
+            metrics.inc(-size);
+        }
+    }
+
+    public void inactivate() {
+        synchronized (this) {
+            consumer = null; // make it gc reachable
+            open = false;
+        }
     }
 }
