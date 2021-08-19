@@ -128,6 +128,16 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     // leave it empty for now
   }
 
+  def requireExperimental(describe: String): Unit = {
+    if (!ColumnarPluginConfig.getSessionConf.enableColumnarWindowExperimentalFeatures) {
+      throw new UnsupportedOperationException(
+        s"${describe} is experimental feature of columnar window and not enabled here. To " +
+            s"enable try setting spark.oap.sql.columnar.window.experimental = true in Spark " +
+            s"configuration."
+      )
+    }
+  }
+
   def validateWindowFunctions(): Seq[(String, Expression)] = {
     val windowFunctions = windowExpression
         .map(e => e.asInstanceOf[Alias])
@@ -150,6 +160,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
                 checkAggFunctionSpec(expr.windowSpec)
                 "sum"
               case _: Average =>
+                requireExperimental("Window AVG")
                 checkAggFunctionSpec(expr.windowSpec)
                 "avg"
               case _: Min =>

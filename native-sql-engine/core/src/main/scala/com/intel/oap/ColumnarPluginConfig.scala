@@ -66,6 +66,9 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   // enable or disable columnar window  
   val enableColumnarWindow: Boolean =
     conf.getConfString("spark.oap.sql.columnar.window", "true").toBoolean && enableCpu
+
+  val enableColumnarWindowExperimentalFeatures: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.window.experimental", "false").toBoolean && enableCpu
   
   // enable or disable columnar shuffledhashjoin
   val enableColumnarShuffledHashJoin: Boolean =
@@ -180,7 +183,7 @@ object ColumnarPluginConfig {
   /**
    * @deprecated We should avoid caching this value in entire JVM. us
    */
-  @Deprecated
+  @deprecated
   def getConf: ColumnarPluginConfig = synchronized {
     if (ins == null) {
       ins = getSessionConf
