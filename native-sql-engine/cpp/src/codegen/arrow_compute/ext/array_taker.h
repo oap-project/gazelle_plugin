@@ -307,6 +307,104 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
   arrow::MemoryPool* pool_;
 };
 
+template <typename DataType, typename CType>
+class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringType>> : public TakerBase {
+ public:
+  ArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool)
+      : ctx_(ctx), pool_(pool) {}
+
+  ~ArrayTaker() {}
+
+  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
+    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
+    cached_arr_.push_back(typed_arr_);
+    if (!has_null_ && typed_arr_->null_count() > 0) has_null_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status PopArray() override {
+    cached_arr_.pop_back();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status ClearArrays() override {
+    cached_arr_.clear();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+                                arrow::ArrayData* out) {
+    arrow::ArrayData out_data;
+    out_data.length = length;
+    out_data.buffers.resize(3);
+    out_data.type = arrow::TypeTraits<DataType>::type_singleton();
+    // value_offsets
+    ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBuffer(4 * (length + 1), pool_));
+    if (has_null_) {
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(length, pool_));
+    }
+    auto array_offset = out_data.GetMutableValues<int32_t>(1);
+
+    int64_t position = 0;
+    std::string whole_str = "";
+    int32_t total_bytes = 0;
+    if (!has_null_) {
+      out_data.null_count = 0;
+      while (position < length) {
+        auto item = indices_begin + position;
+        std::string str = cached_arr_[item->array_id]->GetString(item->id);
+        whole_str += str;
+        array_offset[position] = total_bytes;
+        total_bytes += str.size();
+        position++;
+      }
+      array_offset[position] = total_bytes;
+    } else {
+      int64_t null_count = 0;
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      int64_t last_valid_position;
+      while (position < length) {
+        auto item = indices_begin + position;
+        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          std::string str = cached_arr_[item->array_id]->GetString(item->id);
+          whole_str += str;
+          array_offset[position] = total_bytes;
+          total_bytes += str.size();
+          last_valid_position = position;
+        } else {
+          null_count++;
+          array_offset[position] = total_bytes;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+      // Set the next offset for the last valid data, so its length can be correctly decided.
+      array_offset[last_valid_position + 1] = total_bytes;
+    }
+    
+    // value_data
+    ARROW_ASSIGN_OR_RAISE(out_data.buffers[2], AllocateBuffer(total_bytes, pool_));
+    uint8_t* array_data = out_data.buffers[2]->mutable_data();
+    const char* chr = whole_str.c_str();
+    std::memcpy(array_data, chr, total_bytes);
+
+    *out = std::move(out_data);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
+  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
+  arrow::compute::ExecContext* ctx_;
+  bool has_null_ = false;
+  int size_ = sizeof(CType);
+  arrow::MemoryPool* pool_;
+};
+
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
   PROCESS(arrow::BooleanType)            \
   PROCESS(arrow::UInt8Type)              \
@@ -337,6 +435,12 @@ static arrow::Status MakeArrayTaker(arrow::compute::ExecContext* ctx,
       auto app_ptr =
           std::make_shared<ArrayTaker<arrow::Decimal128Type, arrow::Decimal128>>(
               ctx, ctx->memory_pool(), type);
+      *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
+    } break;
+    case arrow::StringType::type_id: {
+      auto app_ptr =
+          std::make_shared<ArrayTaker<arrow::StringType, std::string>>(
+              ctx, ctx->memory_pool());
       *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
     } break;
     default: {
