@@ -161,6 +161,7 @@ class FixedSizeBinaryArray {
   int64_t length() const { return length_; }
   int64_t null_count() const { return null_count_; }
   const uint8_t* value_data() const { return raw_value_; }
+  int32_t byte_width() const { return byte_width_; }
 
   std::shared_ptr<arrow::Array> cache_;
 
