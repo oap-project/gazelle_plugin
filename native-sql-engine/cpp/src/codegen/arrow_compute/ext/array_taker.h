@@ -68,6 +68,12 @@ using is_number_or_date = std::integral_constant<bool, arrow::is_number_type<T>:
 template <typename DataType, typename R = void>
 using enable_if_number_or_date = std::enable_if_t<is_number_or_date<DataType>::value, R>;
 
+template <typename T>
+using is_timestamp = std::integral_constant<bool, arrow::is_timestamp_type<T>::value>;
+
+template <typename DataType, typename R = void>
+using enable_if_timestamp = std::enable_if_t<is_timestamp<DataType>::value, R>;
+
 template <typename DataType, typename CType>
 class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public TakerBase {
  public:
@@ -108,7 +114,6 @@ class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public T
     auto array_data = out_data.GetMutableValues<CType>(1);
 
     int64_t position = 0;
-    int64_t null_count = 0;
     if (!has_null_) {
       out_data.null_count = 0;
       while (position < length) {
@@ -118,6 +123,7 @@ class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public T
         position++;
       }
     } else {
+      int64_t null_count = 0;
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
@@ -186,7 +192,6 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
     auto array_data = out_data.buffers[1]->mutable_data();
 
     int64_t position = 0;
-    int64_t null_count = 0;
     if (!has_null_) {
       out_data.null_count = 0;
       while (position < length) {
@@ -196,6 +201,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
         position++;
       }
     } else {
+      int64_t null_count = 0;
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
@@ -269,7 +275,6 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
     auto array_data = out_data.GetMutableValues<CType>(1);
 
     int64_t position = 0;
-    int64_t null_count = 0;
     if (!has_null_) {
       out_data.null_count = 0;
       while (position < length) {
@@ -278,6 +283,7 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
         position++;
       }
     } else {
+      int64_t null_count = 0;
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
@@ -308,7 +314,8 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
 };
 
 template <typename DataType, typename CType>
-class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringType>> : public TakerBase {
+class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringType>>
+    : public TakerBase {
  public:
   ArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool)
       : ctx_(ctx), pool_(pool) {}
@@ -382,16 +389,95 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
         position++;
       }
       out_data.null_count = null_count;
-      // Set the next offset for the last valid data, so its length can be correctly decided.
+      // Set the next offset for the last valid data, so its length can be correctly
+      // decided.
       array_offset[last_valid_position + 1] = total_bytes;
     }
-    
+
     // value_data
     ARROW_ASSIGN_OR_RAISE(out_data.buffers[2], AllocateBuffer(total_bytes, pool_));
     uint8_t* array_data = out_data.buffers[2]->mutable_data();
     const char* chr = whole_str.c_str();
     std::memcpy(array_data, chr, total_bytes);
 
+    *out = std::move(out_data);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
+  std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
+  arrow::compute::ExecContext* ctx_;
+  bool has_null_ = false;
+  int size_ = sizeof(CType);
+  arrow::MemoryPool* pool_;
+};
+
+template <typename DataType, typename CType>
+class ArrayTaker<DataType, CType, enable_if_timestamp<DataType>> : public TakerBase {
+ public:
+  ArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool)
+      : ctx_(ctx), pool_(pool) {}
+
+  ~ArrayTaker() {}
+
+  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
+    auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
+    cached_arr_.push_back(typed_arr_);
+    if (!has_null_ && typed_arr_->null_count() > 0) has_null_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status PopArray() override {
+    cached_arr_.pop_back();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status ClearArrays() override {
+    cached_arr_.clear();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+                                arrow::ArrayData* out) {
+    arrow::ArrayData out_data;
+    out_data.length = length;
+    out_data.buffers.resize(2);
+    out_data.type = arrow::int64();
+    ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBuffer(size_ * length, pool_));
+    if (has_null_) {
+      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(length, pool_));
+    }
+    auto array_data = out_data.GetMutableValues<CType>(1);
+
+    int64_t position = 0;
+    int64_t null_count = 0;
+    if (!has_null_) {
+      out_data.null_count = 0;
+      while (position < length) {
+        auto item = indices_begin + position;
+        auto val = cached_arr_[item->array_id]->GetView(item->id);
+        array_data[position] = val;
+        position++;
+      }
+    } else {
+      auto out_is_valid = out_data.buffers[0]->mutable_data();
+      while (position < length) {
+        auto item = indices_begin + position;
+        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          array_data[position] = cached_arr_[item->array_id]->GetView(item->id);
+        } else {
+          null_count++;
+          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          array_data[position] = CType{};
+        }
+        position++;
+      }
+      out_data.null_count = null_count;
+    }
     *out = std::move(out_data);
     return arrow::Status::OK();
   }
@@ -418,7 +504,8 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
   PROCESS(arrow::FloatType)              \
   PROCESS(arrow::DoubleType)             \
   PROCESS(arrow::Date32Type)             \
-  PROCESS(arrow::Date64Type)
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::TimestampType)
 static arrow::Status MakeArrayTaker(arrow::compute::ExecContext* ctx,
                                     std::shared_ptr<arrow::DataType> type,
                                     std::shared_ptr<TakerBase>* out) {
@@ -438,9 +525,8 @@ static arrow::Status MakeArrayTaker(arrow::compute::ExecContext* ctx,
       *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
     } break;
     case arrow::StringType::type_id: {
-      auto app_ptr =
-          std::make_shared<ArrayTaker<arrow::StringType, std::string>>(
-              ctx, ctx->memory_pool());
+      auto app_ptr = std::make_shared<ArrayTaker<arrow::StringType, std::string>>(
+          ctx, ctx->memory_pool());
       *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
     } break;
     default: {
