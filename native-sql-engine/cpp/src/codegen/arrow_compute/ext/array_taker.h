@@ -127,13 +127,15 @@ class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public T
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
-        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
-          array_data[position] = cached_arr_[item->array_id]->GetView(item->id);
-        } else {
+        auto array_id = item->array_id;
+        if (cached_arr_[array_id]->null_count() > 0 &&
+            cached_arr_[item->array_id]->IsNull(item->id)) {
           null_count++;
           arrow::BitUtil::SetBitTo(out_is_valid, position, false);
           array_data[position] = CType{};
+        } else {
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          array_data[position] = cached_arr_[array_id]->GetView(item->id);
         }
         position++;
       }
@@ -205,13 +207,15 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
-        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
-          arrow::BitUtil::SetBitTo(array_data, position,
-                                   cached_arr_[item->array_id]->GetView(item->id));
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
-        } else {
+        auto array_id = item->array_id;
+        if (cached_arr_[array_id]->null_count() > 0 &&
+            cached_arr_[array_id]->IsNull(item->id)) {
           null_count++;
           arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+        } else {
+          arrow::BitUtil::SetBitTo(array_data, position,
+                                   cached_arr_[array_id]->GetView(item->id));
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -287,13 +291,15 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
-        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
-          array_data[position] = cached_arr_[item->array_id]->GetView(item->id);
-        } else {
+        auto array_id = item->array_id;
+        if (cached_arr_[array_id]->null_count() > 0 &&
+            cached_arr_[array_id]->IsNull(item->id)) {
           null_count++;
           arrow::BitUtil::SetBitTo(out_is_valid, position, false);
           array_data[position] = CType{};
+        } else {
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          array_data[position] = cached_arr_[array_id]->GetView(item->id);
         }
         position++;
       }
@@ -426,13 +432,15 @@ class ArrayTaker<DataType, CType, enable_if_timestamp<DataType>> : public TakerB
       auto out_is_valid = out_data.buffers[0]->mutable_data();
       while (position < length) {
         auto item = indices_begin + position;
-        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
-          array_data[position] = cached_arr_[item->array_id]->GetView(item->id);
-        } else {
+        auto array_id = item->array_id;
+        if (cached_arr_[array_id]->null_count() > 0 &&
+            cached_arr_[array_id]->IsNull(item->id)) {
           null_count++;
           arrow::BitUtil::SetBitTo(out_is_valid, position, false);
           array_data[position] = CType{};
+        } else {
+          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          array_data[position] = cached_arr_[array_id]->GetView(item->id);
         }
         position++;
       }
