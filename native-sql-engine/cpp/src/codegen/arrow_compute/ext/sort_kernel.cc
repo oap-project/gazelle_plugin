@@ -385,11 +385,9 @@ class SortArraysToIndicesKernel::Impl {
                                                             : (total_length_ - offset_);
       ArrayList arrays;
       for (int i = 0; i < col_num_; i++) {
-        arrow::ArrayData out_data;
-        taker_list_[i]->TakeFromIndices(indices_begin_ + offset_, length, &out_data);
-        std::shared_ptr<arrow::Array> out =
-            MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
-        arrays.push_back(out);
+        std::shared_ptr<arrow::Array> out_array;
+        taker_list_[i]->TakeFromIndices(indices_begin_ + offset_, length, &out_array);
+        arrays.push_back(out_array);
       }
 
       offset_ += length;

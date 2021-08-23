@@ -54,7 +54,7 @@ class TakerBase {
   }
 
   virtual arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
-                                        arrow::ArrayData* out_arr) {
+                                        std::shared_ptr<arrow::Array>* out) {
     return arrow::Status::NotImplemented("TakerBase TakeFromIndices is abstract.");
   }
 };
@@ -102,7 +102,7 @@ class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public T
   }
 
   arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
-                                arrow::ArrayData* out) {
+                                std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
     out_data.buffers.resize(2);
@@ -139,7 +139,7 @@ class ArrayTaker<DataType, CType, enable_if_number_or_date<DataType>> : public T
       }
       out_data.null_count = null_count;
     }
-    *out = std::move(out_data);
+    *out = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
     return arrow::Status::OK();
   }
 
@@ -180,7 +180,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
   }
 
   arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
-                                arrow::ArrayData* out) {
+                                std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
     out_data.buffers.resize(2);
@@ -217,7 +217,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
       }
       out_data.null_count = null_count;
     }
-    *out = std::move(out_data);
+    *out = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
     return arrow::Status::OK();
   }
 
@@ -263,7 +263,7 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
   }
 
   arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
-                                arrow::ArrayData* out) {
+                                std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
     out_data.buffers.resize(2);
@@ -299,7 +299,7 @@ class ArrayTaker<DataType, CType, enable_if_decimal<DataType>> : public TakerBas
       }
       out_data.null_count = null_count;
     }
-    *out = std::move(out_data);
+    *out = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
     return arrow::Status::OK();
   }
 
@@ -318,7 +318,12 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
     : public TakerBase {
  public:
   ArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool)
-      : ctx_(ctx), pool_(pool) {}
+      : ctx_(ctx), pool_(pool) {
+    std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::TypeTraits<DataType>::type_singleton(),
+                       &array_builder);
+    builder_.reset(arrow::internal::checked_cast<BuilderType_*>(array_builder.release()));
+  }
 
   ~ArrayTaker() {}
 
@@ -342,74 +347,29 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
   }
 
   arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
-                                arrow::ArrayData* out) {
-    arrow::ArrayData out_data;
-    out_data.length = length;
-    out_data.buffers.resize(3);
-    out_data.type = arrow::TypeTraits<DataType>::type_singleton();
-    // value_offsets
-    ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBuffer(4 * (length + 1), pool_));
-    if (has_null_) {
-      ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(length, pool_));
-    }
-    auto array_offset = out_data.GetMutableValues<int32_t>(1);
-
-    int64_t position = 0;
-    std::string whole_str = "";
-    int32_t total_bytes = 0;
-    if (!has_null_) {
-      out_data.null_count = 0;
-      while (position < length) {
-        auto item = indices_begin + position;
-        std::string str = cached_arr_[item->array_id]->GetString(item->id);
-        whole_str += str;
-        array_offset[position] = total_bytes;
-        total_bytes += str.size();
-        position++;
+                                std::shared_ptr<arrow::Array>* out) {
+    for (int64_t position = 0; position < length; position++) {
+      auto item = indices_begin + position;
+      int64_t array_id = item->array_id;
+      if (has_null_ && cached_arr_[array_id]->null_count() > 0 &&
+          cached_arr_[array_id]->IsNull(item->id)) {
+        RETURN_NOT_OK(builder_->AppendNull());
+      } else {
+        RETURN_NOT_OK(builder_->Append(cached_arr_[array_id]->GetView(item->id)));
       }
-      array_offset[position] = total_bytes;
-    } else {
-      int64_t null_count = 0;
-      auto out_is_valid = out_data.buffers[0]->mutable_data();
-      int64_t last_valid_position;
-      while (position < length) {
-        auto item = indices_begin + position;
-        if (!cached_arr_[item->array_id]->IsNull(item->id)) {
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
-          std::string str = cached_arr_[item->array_id]->GetString(item->id);
-          whole_str += str;
-          array_offset[position] = total_bytes;
-          total_bytes += str.size();
-          last_valid_position = position;
-        } else {
-          null_count++;
-          array_offset[position] = total_bytes;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
-        }
-        position++;
-      }
-      out_data.null_count = null_count;
-      // Set the next offset for the last valid data, so its length can be correctly
-      // decided.
-      array_offset[last_valid_position + 1] = total_bytes;
     }
+    auto status = builder_->Finish(out);
 
-    // value_data
-    ARROW_ASSIGN_OR_RAISE(out_data.buffers[2], AllocateBuffer(total_bytes, pool_));
-    uint8_t* array_data = out_data.buffers[2]->mutable_data();
-    const char* chr = whole_str.c_str();
-    std::memcpy(array_data, chr, total_bytes);
-
-    *out = std::move(out_data);
-    return arrow::Status::OK();
+    return status;
   }
 
  private:
+  using BuilderType_ = typename arrow::TypeTraits<DataType>::BuilderType;
   using ArrayType_ = typename arrow::TypeTraits<DataType>::ArrayType;
+  std::unique_ptr<BuilderType_> builder_;
   std::vector<std::shared_ptr<ArrayType_>> cached_arr_;
   arrow::compute::ExecContext* ctx_;
   bool has_null_ = false;
-  int size_ = sizeof(CType);
   arrow::MemoryPool* pool_;
 };
 
@@ -441,7 +401,7 @@ class ArrayTaker<DataType, CType, enable_if_timestamp<DataType>> : public TakerB
   }
 
   arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
-                                arrow::ArrayData* out) {
+                                std::shared_ptr<arrow::Array>* out) {
     arrow::ArrayData out_data;
     out_data.length = length;
     out_data.buffers.resize(2);
@@ -478,7 +438,7 @@ class ArrayTaker<DataType, CType, enable_if_timestamp<DataType>> : public TakerB
       }
       out_data.null_count = null_count;
     }
-    *out = std::move(out_data);
+    *out = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
     return arrow::Status::OK();
   }
 
