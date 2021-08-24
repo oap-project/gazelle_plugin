@@ -1534,7 +1534,8 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnarToRow(
     JNIEnv* env, jobject, jbyteArray schema_arr, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jlong memory_address, jlong memory_size) {
+    jlongArray buf_sizes, jlong memory_address, jlong memory_size,
+    jlong fixed_size_per_row) {
   if (schema_arr == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,
@@ -1595,7 +1596,8 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
   int64_t instanceID;
   try {
     std::shared_ptr<ColumnarToRowConverter> columnar_to_row_converter =
-        std::make_shared<ColumnarToRowConverter>(rb, address, memory_size);
+        std::make_shared<ColumnarToRowConverter>(rb, address, memory_size,
+                                                 fixed_size_per_row);
     auto status = columnar_to_row_converter->Init();
     if (!status.ok()) {
       env->ThrowNew(illegal_argument_exception_class,

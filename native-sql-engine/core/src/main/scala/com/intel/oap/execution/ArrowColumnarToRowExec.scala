@@ -125,13 +125,14 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
           }
 
           val beforeConvert = System.nanoTime()
-
-          val size = estimateBufferSize(batch.numCols(), batch.numRows()) + totalVariableSize.toInt
+          val totalFixedSize = estimateBufferSize(batch.numCols(), batch.numRows())
+          val size = totalFixedSize + totalVariableSize.toInt
 
           val allocator = SparkMemoryUtils.contextAllocator()
           val arrowBuf = allocator.buffer(size)
           val info = jniWrapper.nativeConvertColumnarToRow(
-            arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray, arrowBuf.memoryAddress(), size)
+            arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray,
+            arrowBuf.memoryAddress(), size, totalFixedSize / batch.numRows())
 
           info.offsets.order(ByteOrder.LITTLE_ENDIAN)
           info.lengths.order(ByteOrder.LITTLE_ENDIAN)

@@ -33,8 +33,11 @@ namespace columnartorow {
 class ColumnarToRowConverter {
  public:
   ColumnarToRowConverter(std::shared_ptr<arrow::RecordBatch> rb, uint8_t* buffer_address,
-                         int64_t memory_size = 0)
-      : rb_(rb), buffer_address_(buffer_address), memory_size_(memory_size) {}
+                         int64_t memory_size = 0, int64_t fixed_size_per_row = 0)
+      : rb_(rb),
+        buffer_address_(buffer_address),
+        memory_size_(memory_size),
+        fixed_size_per_row_(fixed_size_per_row) {}
   ~ColumnarToRowConverter();
 
   arrow::Status Init();
@@ -45,13 +48,14 @@ class ColumnarToRowConverter {
   int64_t* GetLengths() { return lengths_; }
 
  protected:
-  std::vector<int64_t> buffer_cursor_;
+  int64_t* buffer_cursor_;
   std::shared_ptr<arrow::RecordBatch> rb_;
   int64_t nullBitsetWidthInBytes_;
   int64_t num_cols_;
   int64_t num_rows_;
   uint8_t* buffer_address_;
   int64_t memory_size_;
+  int64_t fixed_size_per_row_;
   int64_t* offsets_;
   int64_t* lengths_;
 };
