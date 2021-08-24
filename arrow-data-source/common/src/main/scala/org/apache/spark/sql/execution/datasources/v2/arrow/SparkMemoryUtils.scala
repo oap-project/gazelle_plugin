@@ -46,7 +46,7 @@ object SparkMemoryUtils extends Logging {
       val al = new SparkManagedAllocationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
         sharedMetrics)
-      new RootAllocator(al, Int.MaxValue)
+      new RootAllocator(al, Long.MaxValue)
     }
 
     val defaultMemoryPool: NativeMemoryPoolWrapper = {
