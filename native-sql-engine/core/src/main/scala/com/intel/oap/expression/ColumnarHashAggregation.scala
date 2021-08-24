@@ -21,14 +21,13 @@ import org.apache.arrow.memory.ArrowBuf
 import java.util.ArrayList
 import java.util.Collections
 import java.util.concurrent.TimeUnit._
-import util.control.Breaks._
 
 import com.intel.oap.GazellePluginConfig
+import util.control.Breaks._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.spark.sql.util.ArrowUtils
 import com.intel.oap.vectorized.ExpressionEvaluator
 import com.intel.oap.vectorized.BatchIterator
-
 import com.google.common.collect.Lists
 import org.apache.hadoop.mapreduce.TaskAttemptID
 import org.apache.spark.{SparkConf, SparkContext}
@@ -41,7 +40,6 @@ import org.apache.spark.sql.vectorized._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.TaskContext
-
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression._
@@ -51,6 +49,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.pojo.ArrowType
+import org.apache.spark.sql.internal.SQLConf
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -65,13 +64,13 @@ class ColumnarHashAggregation(
     aggregateAttributes: Seq[Attribute],
     resultExpressions: Seq[NamedExpression],
     output: Seq[Attribute],
-    ansiEnabled: Boolean,
     sparkConf: SparkConf)
     extends Logging {
 
   var inputAttrQueue: scala.collection.mutable.Queue[Attribute] = _
   val resultType = CodeGeneration.getResultType()
   val NaN_check : Boolean = GazellePluginConfig.getConf.enableColumnarNaNCheck
+  val ansiEnabled: Boolean = SQLConf.get.getConf(SQLConf.ANSI_ENABLED)
 
   def getColumnarFuncNode(expr: Expression): TreeNode = {
     try {
@@ -544,7 +543,6 @@ object ColumnarHashAggregation extends Logging {
       aggregateAttributes: Seq[Attribute],
       resultExpressions: Seq[NamedExpression],
       output: Seq[Attribute],
-      ansiEnabled: Boolean,
       sparkConf: SparkConf): TreeNode = {
     val ins = new ColumnarHashAggregation(
       groupingExpressions,
@@ -553,7 +551,6 @@ object ColumnarHashAggregation extends Logging {
       aggregateAttributes,
       resultExpressions,
       output,
-      ansiEnabled: Boolean,
       sparkConf)
     ins.prepareKernelFunction
   }

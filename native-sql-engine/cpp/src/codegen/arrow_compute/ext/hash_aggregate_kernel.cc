@@ -532,7 +532,7 @@ class HashAggregateKernel::Impl {
           RETURN_NOT_OK(MakeAvgAction(
               ctx_, type_list[type_id], res_type_list, &action, ansiEnabled));
         }
-      } else if (action_name_list[action_id].compare(ACTION_MIN) == 0) {
+      } else if (action_name_list[action_id].compare(0, ACTION_MIN.size(), ACTION_MIN) == 0) {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name_list[action_id], ACTION_MIN);
         result_id += 1;
@@ -541,7 +541,7 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name_list[action_id], ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action));
+        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action, NaN_check));
       } else if (action_name_list[action_id].compare(0, ACTION_COUNT_LITERAL.size() + 1, 
                  ACTION_COUNT_LITERAL + "_") == 0) {
         auto res_type_list = {result_field_list[result_id]};
@@ -747,7 +747,7 @@ class HashAggregateKernel::Impl {
           RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, res_type_list, &action,
                                       ansiEnabled));
         }
-      } else if (action_name.compare(ACTION_MIN) == 0) {
+      } else if (action_name.compare(0, ACTION_MIN.size(), ACTION_MIN) == 0) {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name, ACTION_MIN);
         result_id += 1;
@@ -757,7 +757,8 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name, ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(
+            MakeMaxAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
       } else if (action_name.compare(0, ACTION_COUNT_LITERAL.size() + 1,
                                      ACTION_COUNT_LITERAL + "_") == 0) {
         auto res_type_list = {result_field_list[result_id]};
@@ -915,7 +916,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, batch_size_, &outputs);
+        RETURN_NOT_OK(action->Finish(offset_, batch_size_, &outputs));
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1073,7 +1074,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, batch_size_, &outputs);
+        RETURN_NOT_OK(action->Finish(offset_, batch_size_, &outputs));
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();
@@ -1228,7 +1229,7 @@ class HashAggregateKernel::Impl {
       int gp_idx = 0;
       std::vector<std::shared_ptr<arrow::Array>> outputs;
       for (auto action : action_impl_list_) {
-        action->Finish(offset_, batch_size_, &outputs);
+        RETURN_NOT_OK(action->Finish(offset_, batch_size_, &outputs));
       }
       if (outputs.size() > 0) {
         out_length += outputs[0]->length();

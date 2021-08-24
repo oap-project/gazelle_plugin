@@ -74,7 +74,7 @@ case class ColumnarHashAggregateExec(
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
-  val ansiEnabled: Boolean = GazellePluginConfig.getConf.ansiEnabled
+  val ansiEnabled: Boolean = SQLConf.get.getConf(SQLConf.ANSI_ENABLED)
   override def supportsColumnar = true
 
   var resAttributes: Seq[Attribute] = resultExpressions.map(_.toAttribute)
@@ -338,22 +338,30 @@ case class ColumnarHashAggregateExec(
                       putDataIntoVector(resultColumnVectors, out_res, idx, numRowsInput)
                       idx += 1
                     } else {
-                      // Decimal Sum
-                      if (!out_res.isInstanceOf[Decimal]) {
-                        throw new UnsupportedOperationException(s"$out_res is not supported")
-                      }
-                      val decimalVal = out_res.asInstanceOf[Decimal]
-                      val overflow = decimalMultiplyCheckOverflow(decimalVal, numRowsInput)
-                      if (overflow) {
+                      if (out_res == null) {
                         putDataIntoVector(resultColumnVectors, null, idx) // sum
                         idx += 1
                         putDataIntoVector(resultColumnVectors, false, idx) // isEmpty
                         idx += 1
                       } else {
-                        putDataIntoVector(resultColumnVectors, decimalVal, idx, numRowsInput) // sum
-                        idx += 1
-                        putDataIntoVector(resultColumnVectors, true, idx) // isEmpty
-                        idx += 1
+                        // Decimal Sum
+                        if (!out_res.isInstanceOf[Decimal]) {
+                          throw new UnsupportedOperationException(s"$out_res is not supported")
+                        }
+                        val decimalVal = out_res.asInstanceOf[Decimal]
+                        val overflow = decimalMultiplyCheckOverflow(decimalVal, numRowsInput)
+                        if (overflow) {
+                          putDataIntoVector(resultColumnVectors, null, idx) // sum
+                          idx += 1
+                          putDataIntoVector(resultColumnVectors, false, idx) // isEmpty
+                          idx += 1
+                        } else {
+                          putDataIntoVector(
+                            resultColumnVectors, decimalVal, idx, numRowsInput) // sum
+                          idx += 1
+                          putDataIntoVector(resultColumnVectors, true, idx) // isEmpty
+                          idx += 1
+                        }
                       }
                     }
                   case Final =>
@@ -707,7 +715,6 @@ case class ColumnarHashAggregateExec(
       aggregateAttributes,
       resultExpressions,
       output,
-      ansiEnabled,
       sparkConf)
   }
 

@@ -76,7 +76,7 @@ public class BatchIterator implements AutoCloseable {
     try {
       serializedRecordBatch = nativeNext(nativeHandler);
     } catch (Exception e) {
-      if (e.getMessage().equals("Overflow in sum of decimals")) {
+      if (e.getMessage().contains("Overflow in sum of decimals")) {
         throw new ArithmeticException(e.getMessage());
       } else {
         throw new RuntimeException(e);

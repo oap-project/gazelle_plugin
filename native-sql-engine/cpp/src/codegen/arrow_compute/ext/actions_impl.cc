@@ -2058,7 +2058,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
       if (overflow_map_[i]) {
         // If the result of this group has overflowed
         if (ansiEnabled_) {
-          throw std::runtime_error("Overflow in sum of decimals");
+          return arrow::Status::ExecutionError("Overflow in sum of decimals");
         } else {
           builder_->AppendNull();
         }
@@ -2087,7 +2087,7 @@ class SumAction<DataType, CType, ResDataType, ResCType,
       if (overflow_map_[offset + i]) {
         // If the result of this group has overflowed
         if (ansiEnabled_) {
-          throw std::runtime_error("Overflow in sum of decimals");
+          return arrow::Status::ExecutionError("Overflow in sum of decimals");
         } else {
           builder_->AppendNull();
         }
@@ -2857,7 +2857,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
       if (overflow_map_[i]) {
         // If the result of this group has overflowed
         if (ansiEnabled_) {
-          throw std::runtime_error("Overflow in sum of decimals");
+          return arrow::Status::ExecutionError("Overflow in sum of decimals");
         } else {
           builder_->AppendNull();
         }
@@ -2900,7 +2900,7 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
       if (overflow_map_[i + offset]) {
         // If the result of this group has overflowed
         if (ansiEnabled_) {
-          throw std::runtime_error("Overflow in sum of decimals");
+          return arrow::Status::ExecutionError("Overflow in sum of decimals");
         } else {
           builder_->AppendNull();
         }
@@ -4100,7 +4100,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
       if (overflow_map_[i]) {
         // If the result of this group has overflowed
         if (ansiEnabled_) {
-          throw std::runtime_error("Overflow in sum of decimals");
+          return arrow::Status::ExecutionError("Overflow in sum of decimals");
         } else {
           builder_->AppendNull();
         }
@@ -4143,7 +4143,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
       if (overflow_map_[i + offset]) {
         // If the result of this group has overflowed
         if (ansiEnabled_) {
-          throw std::runtime_error("Overflow in sum of decimals");
+          return arrow::Status::ExecutionError("Overflow in sum of decimals");
         } else {
           builder_->AppendNull();
         }
