@@ -33,22 +33,27 @@ import scala.collection.mutable.ListBuffer
 
 class ColumnarBoundReference(ordinal: Int, dataType: DataType, nullable: Boolean)
     extends BoundReference(ordinal, dataType, nullable)
-    with ColumnarExpression with Logging {
+    with ColumnarExpression
+    with Logging {
 
   buildCheck()
 
   def buildCheck(): Unit = {
     try {
-      ConverterUtils.checkIfTypeSupported(dataType)
+      dataType match {
+        case at: ArrayType =>
+        case _ =>
+          ConverterUtils.checkIfTypeSupported(dataType)
+      }
     } catch {
-      case e : UnsupportedOperationException =>
+      case e: UnsupportedOperationException =>
         throw new UnsupportedOperationException(
           s"${dataType} is not supported in ColumnarBoundReference.")
     }
   }
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val resultType = CodeGeneration.getResultType(dataType)
-    val field = Field.nullable(s"c_$ordinal", resultType)
+    val field = ConverterUtils.createArrowField(s"c_$ordinal", dataType)
     val fieldTypes = args.asInstanceOf[java.util.List[Field]]
     fieldTypes.add(field)
     (TreeBuilder.makeField(field), resultType)

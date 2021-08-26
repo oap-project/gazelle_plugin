@@ -47,36 +47,42 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.List
 import scala.collection.mutable.ArrayBuffer
 
-class ColumnarProjection (
-  originalInputAttributes: Seq[Attribute],
-  exprs: Seq[Expression],
-  skipLiteral: Boolean = false,
-  renameResult: Boolean = false) extends AutoCloseable with Logging {
+class ColumnarProjection(
+    originalInputAttributes: Seq[Attribute],
+    exprs: Seq[Expression],
+    skipLiteral: Boolean = false,
+    renameResult: Boolean = false)
+    extends AutoCloseable
+    with Logging {
   // build gandiva projection here.
   //System.out.println(s"originalInputAttributes is ${originalInputAttributes}, exprs is ${exprs.toList}")
   //////////////// Project original input to aggregate input //////////////////
-  var projector : Projector = null
-  var inputList : java.util.List[Field] = Lists.newArrayList()
+  var projector: Projector = null
+  var inputList: java.util.List[Field] = Lists.newArrayList()
   val expressionList = if (skipLiteral) {
     exprs.filter(expr => !expr.isInstanceOf[Literal])
   } else {
     exprs
   }
-  val resultAttributes = expressionList.toList.zipWithIndex.map{case (expr, i) =>
-    if (renameResult) {
-      ConverterUtils.getResultAttrFromExpr(expr, s"res_$i")
-    } else {
-      ConverterUtils.getResultAttrFromExpr(expr)
-    }
+  val resultAttributes = expressionList.toList.zipWithIndex.map {
+    case (expr, i) =>
+      if (renameResult) {
+        ConverterUtils.getResultAttrFromExpr(expr, s"res_$i")
+      } else {
+        ConverterUtils.getResultAttrFromExpr(expr)
+      }
   }
   var check_if_no_calculation = true
-  val projPrepareList : Seq[ExpressionTree] = expressionList.zipWithIndex.map {
+  val projPrepareList: Seq[ExpressionTree] = expressionList.zipWithIndex.map {
     case (expr, i) => {
       ColumnarExpressionConverter.reset()
       var columnarExpr: Expression =
-        ColumnarExpressionConverter.replaceWithColumnarExpression(expr, originalInputAttributes, i)
+        ColumnarExpressionConverter.replaceWithColumnarExpression(
+          expr,
+          originalInputAttributes,
+          i)
       if (ColumnarExpressionConverter.ifNoCalculation == false) {
-        check_if_no_calculation = false     
+        check_if_no_calculation = false
       }
       logInfo(s"columnarExpr is ${columnarExpr}")
       val (node, resultType) =
@@ -85,26 +91,31 @@ class ColumnarProjection (
     }
   }
 
-  val (ordinalList, arrowSchema) = if (projPrepareList.size > 0 &&
-    (s"${projPrepareList.map(_.toProtobuf)}".contains("fnNode") || projPrepareList.size != inputList.size)) {
-    val inputFieldList = inputList.asScala.toList.distinct
-    val schema = new Schema(inputFieldList.asJava)
-    projector = Projector.make(schema, projPrepareList.toList.asJava)
-    (inputFieldList.map(field => {
-      field.getName.replace("c_", "").toInt
-    }),
-    schema)
-  } else {
-    val inputFieldList = inputList.asScala.toList
-    (inputFieldList.map(field => {
-      field.getName.replace("c_", "").toInt
-    }),
-    new Schema(inputFieldList.asJava))
+  val (ordinalList, arrowSchema) = {
+    var protoBufTest: String = null
+    try {
+      protoBufTest = s"${projPrepareList.map(_.toProtobuf)}"
+    } catch {
+      case _ => protoBufTest = null
+    }
+    if (protoBufTest != null && projPrepareList.size > 0 &&
+        (protoBufTest.contains("fnNode") || projPrepareList.size != inputList.size)) {
+      val inputFieldList = inputList.asScala.toList.distinct
+      val schema = new Schema(inputFieldList.asJava)
+      projector = Projector.make(schema, projPrepareList.toList.asJava)
+      (inputFieldList.map(field => {
+        field.getName.replace("c_", "").toInt
+      }), schema)
+    } else {
+      val inputFieldList = inputList.asScala.toList
+      (inputFieldList.map(field => {
+        field.getName.replace("c_", "").toInt
+      }), new Schema(inputFieldList.asJava))
+    }
   }
   //System.out.println(s"Project input ordinal is ${ordinalList}, Schema is ${arrowSchema}")
-  val outputArrowSchema = new Schema(resultAttributes.map(attr => {
-    Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-  }).asJava)
+  val outputArrowSchema = new Schema(
+    resultAttributes.map(attr => ConverterUtils.createArrowField(attr)).asJava)
   val outputSchema = ArrowUtils.fromArrowSchema(outputArrowSchema)
 
   def output(): List[AttributeReference] = {
@@ -112,20 +123,24 @@ class ColumnarProjection (
   }
 
   def getOrdinalList(): List[Int] = {
-    ordinalList 
+    ordinalList
   }
 
-  def needEvaluate : Boolean = { projector != null }
-  def evaluate(numRows: Int, inputColumnVector: List[ValueVector]): List[ArrowWritableColumnVector] = {
+  def needEvaluate: Boolean = { projector != null }
+  def evaluate(
+      numRows: Int,
+      inputColumnVector: List[ValueVector]): List[ArrowWritableColumnVector] = {
     if (projector != null) {
-      val inputRecordBatch: ArrowRecordBatch = ConverterUtils.createArrowRecordBatch(numRows, inputColumnVector)
+      val inputRecordBatch: ArrowRecordBatch =
+        ConverterUtils.createArrowRecordBatch(numRows, inputColumnVector)
       val outputVectors = ArrowWritableColumnVector.allocateColumns(numRows, outputSchema)
       val valueVectors = outputVectors.map(columnVector => columnVector.getValueVector()).toList
       projector.evaluate(inputRecordBatch, valueVectors.asJava)
       ConverterUtils.releaseArrowRecordBatch(inputRecordBatch)
       outputVectors.toList
     } else {
-      val inputRecordBatch: ArrowRecordBatch = ConverterUtils.createArrowRecordBatch(numRows, inputColumnVector)
+      val inputRecordBatch: ArrowRecordBatch =
+        ConverterUtils.createArrowRecordBatch(numRows, inputColumnVector)
       ArrowWritableColumnVector.loadColumns(numRows, outputArrowSchema, inputRecordBatch).toList
     }
   }
@@ -139,28 +154,31 @@ class ColumnarProjection (
 }
 
 object ColumnarProjection extends Logging {
-  def buildCheck(originalInputAttributes: Seq[Attribute],
-                 exprs: Seq[Expression]): Unit = {
+  def buildCheck(originalInputAttributes: Seq[Attribute], exprs: Seq[Expression]): Unit = {
     for (expr <- exprs) {
       ColumnarExpressionConverter
         .replaceWithColumnarExpression(expr, originalInputAttributes)
     }
   }
-  def binding(originalInputAttributes: Seq[Attribute],
-    exprs: Seq[Expression],
-    expIdx: Int,
-    skipLiteral: Boolean = false): List[Int] = {
-  val expressionList = if (skipLiteral) {
-    exprs.filter(expr => !expr.isInstanceOf[Literal])
+  def binding(
+      originalInputAttributes: Seq[Attribute],
+      exprs: Seq[Expression],
+      expIdx: Int,
+      skipLiteral: Boolean = false): List[Int] = {
+    val expressionList = if (skipLiteral) {
+      exprs.filter(expr => !expr.isInstanceOf[Literal])
     } else {
       exprs
     }
-    var inputList : java.util.List[Field] = Lists.newArrayList()
-    expressionList.map {
-      expr => {
+    var inputList: java.util.List[Field] = Lists.newArrayList()
+    expressionList.map { expr =>
+      {
         ColumnarExpressionConverter.reset()
         var columnarExpr: Expression =
-          ColumnarExpressionConverter.replaceWithColumnarExpression(expr, originalInputAttributes, expIdx)
+          ColumnarExpressionConverter.replaceWithColumnarExpression(
+            expr,
+            originalInputAttributes,
+            expIdx)
         columnarExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(inputList)
       }
     }
@@ -169,11 +187,10 @@ object ColumnarProjection extends Logging {
     })
   }
   def create(
-    originalInputAttributes: Seq[Attribute],
-    exprs: Seq[Expression],
-    skipLiteral: Boolean = false,
-    renameResult: Boolean = false)
-    : ColumnarProjection = {
+      originalInputAttributes: Seq[Attribute],
+      exprs: Seq[Expression],
+      skipLiteral: Boolean = false,
+      renameResult: Boolean = false): ColumnarProjection = {
     new ColumnarProjection(originalInputAttributes, exprs, skipLiteral, renameResult)
   }
 }

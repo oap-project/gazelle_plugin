@@ -55,6 +55,7 @@ object ArrowUtils {
       } else {
         new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC")
       }
+    case at: ArrayType => ArrowType.List.INSTANCE
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
   }
@@ -66,9 +67,11 @@ object ArrowUtils {
     case int: ArrowType.Int if int.getIsSigned && int.getBitWidth == 8 * 4 => IntegerType
     case int: ArrowType.Int if int.getIsSigned && int.getBitWidth == 8 * 8 => LongType
     case float: ArrowType.FloatingPoint
-      if float.getPrecision() == FloatingPointPrecision.SINGLE => FloatType
+        if float.getPrecision() == FloatingPointPrecision.SINGLE =>
+      FloatType
     case float: ArrowType.FloatingPoint
-      if float.getPrecision() == FloatingPointPrecision.DOUBLE => DoubleType
+        if float.getPrecision() == FloatingPointPrecision.DOUBLE =>
+      DoubleType
     case ArrowType.Utf8.INSTANCE => StringType
     case ArrowType.Binary.INSTANCE => BinaryType
     case d: ArrowType.Decimal => DecimalType(d.getPrecision, d.getScale)
@@ -78,29 +81,37 @@ object ArrowUtils {
   }
 
   /** Maps field from Spark to Arrow. NOTE: timeZoneId required for TimestampType */
-  def toArrowField(
-      name: String, dt: DataType, nullable: Boolean, timeZoneId: String): Field = {
+  def toArrowField(name: String, dt: DataType, nullable: Boolean, timeZoneId: String): Field = {
     dt match {
       case ArrayType(elementType, containsNull) =>
         val fieldType = new FieldType(nullable, ArrowType.List.INSTANCE, null)
-        new Field(name, fieldType,
+        new Field(
+          name,
+          fieldType,
           Seq(toArrowField("element", elementType, containsNull, timeZoneId)).asJava)
       case StructType(fields) =>
         val fieldType = new FieldType(nullable, ArrowType.Struct.INSTANCE, null)
-        new Field(name, fieldType,
-          fields.map { field =>
-            toArrowField(field.name, field.dataType, field.nullable, timeZoneId)
-          }.toSeq.asJava)
+        new Field(
+          name,
+          fieldType,
+          fields
+            .map { field => toArrowField(field.name, field.dataType, field.nullable, timeZoneId) }
+            .toSeq
+            .asJava)
       case MapType(keyType, valueType, valueContainsNull) =>
         val mapType = new FieldType(nullable, new ArrowType.Map(false), null)
         // Note: Map Type struct can not be null, Struct Type key field can not be null
-        new Field(name, mapType,
-          Seq(toArrowField(MapVector.DATA_VECTOR_NAME,
-            new StructType()
-              .add(MapVector.KEY_NAME, keyType, nullable = false)
-              .add(MapVector.VALUE_NAME, valueType, nullable = valueContainsNull),
-            nullable = false,
-            timeZoneId)).asJava)
+        new Field(
+          name,
+          mapType,
+          Seq(
+            toArrowField(
+              MapVector.DATA_VECTOR_NAME,
+              new StructType()
+                .add(MapVector.KEY_NAME, keyType, nullable = false)
+                .add(MapVector.VALUE_NAME, valueType, nullable = valueContainsNull),
+              nullable = false,
+              timeZoneId)).asJava)
       case dataType =>
         val fieldType = new FieldType(nullable, toArrowType(dataType, timeZoneId), null)
         new Field(name, fieldType, Seq.empty[Field].asJava)
@@ -145,13 +156,15 @@ object ArrowUtils {
   /** Return Map with conf settings to be used in ArrowPythonRunner */
   def getPythonRunnerConfMap(conf: SQLConf): Map[String, String] = {
     val timeZoneConf = Seq(SQLConf.SESSION_LOCAL_TIMEZONE.key -> conf.sessionLocalTimeZone)
-    val pandasColsByName = Seq(SQLConf.PANDAS_GROUPED_MAP_ASSIGN_COLUMNS_BY_NAME.key ->
-      conf.pandasGroupedMapAssignColumnsByName.toString)
-    val arrowSafeTypeCheck = Seq(SQLConf.PANDAS_ARROW_SAFE_TYPE_CONVERSION.key ->
-      conf.arrowSafeTypeConversion.toString)
+    val pandasColsByName = Seq(
+      SQLConf.PANDAS_GROUPED_MAP_ASSIGN_COLUMNS_BY_NAME.key ->
+        conf.pandasGroupedMapAssignColumnsByName.toString)
+    val arrowSafeTypeCheck = Seq(
+      SQLConf.PANDAS_ARROW_SAFE_TYPE_CONVERSION.key ->
+        conf.arrowSafeTypeConversion.toString)
     Map(timeZoneConf ++ pandasColsByName ++ arrowSafeTypeCheck: _*)
   }
-  
-  def fromAttributes(attributes: Seq[Attribute]): StructType = 
+
+  def fromAttributes(attributes: Seq[Attribute]): StructType =
     StructType.fromAttributes(attributes)
 }

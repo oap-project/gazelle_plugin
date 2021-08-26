@@ -33,11 +33,23 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
-import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
-import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
-import org.apache.arrow.vector.types.pojo.ArrowType
-import org.apache.arrow.vector.types.pojo.Field
-import org.apache.arrow.vector.types.pojo.Schema
+import org.apache.arrow.vector.ipc.message.{
+  ArrowFieldNode,
+  ArrowRecordBatch,
+  IpcOption,
+  MessageChannelReader,
+  MessageResult,
+  MessageSerializer
+}
+import org.apache.arrow.vector.ipc.message.{
+  ArrowFieldNode,
+  ArrowRecordBatch,
+  IpcOption,
+  MessageChannelReader,
+  MessageResult,
+  MessageSerializer
+}
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
 
@@ -507,6 +519,23 @@ object ConverterUtils extends Logging {
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 
+  def createArrowField(name: String, dt: DataType): Field = dt match {
+    case at: ArrayType =>
+      new Field(
+        name,
+        FieldType.nullable(ArrowType.List.INSTANCE),
+        Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))
+    case mt: MapType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported yet")
+    case st: StructType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported yet")
+    case _ =>
+      Field.nullable(name, CodeGeneration.getResultType(dt))
+  }
+
+  def createArrowField(attr: Attribute): Field =
+    createArrowField(s"${attr.name}#${attr.exprId.id}", attr.dataType)
+
   private def asTimestampType(inType: ArrowType): ArrowType.Timestamp = {
     if (inType.getTypeID != ArrowTypeID.Timestamp) {
       throw new IllegalArgumentException(s"Value type to convert must be timestamp")
@@ -514,7 +543,9 @@ object ConverterUtils extends Logging {
     inType.asInstanceOf[ArrowType.Timestamp]
   }
 
-  def convertTimestampZone(inNode: TreeNode, inType: ArrowType,
+  def convertTimestampZone(
+      inNode: TreeNode,
+      inType: ArrowType,
       toZone: String): (TreeNode, ArrowType) = {
     throw new UnsupportedOperationException("not implemented") // fixme 20210602 hongze
     val inTimestamp = asTimestampType(inType)
@@ -536,11 +567,10 @@ object ConverterUtils extends Logging {
       case TimeUnit.MILLISECOND => (inNode, inType)
       case TimeUnit.MICROSECOND =>
         // truncate from micro to milli
-        val outType = new ArrowType.Timestamp(TimeUnit.MILLISECOND,
-          inTimestamp.getTimezone)
-        (TreeBuilder.makeFunction(
-          "convertTimestampUnit",
-          Lists.newArrayList(inNode), outType), outType)
+        val outType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, inTimestamp.getTimezone)
+        (
+          TreeBuilder.makeFunction("convertTimestampUnit", Lists.newArrayList(inNode), outType),
+          outType)
     }
   }
 
@@ -550,58 +580,65 @@ object ConverterUtils extends Logging {
       case TimeUnit.MICROSECOND => (inNode, inType)
       case TimeUnit.MILLISECOND =>
         // truncate from micro to milli
-        val outType = new ArrowType.Timestamp(TimeUnit.MICROSECOND,
-          inTimestamp.getTimezone)
-        (TreeBuilder.makeFunction(
-          "convertTimestampUnit",
-          Lists.newArrayList(inNode), outType), outType)
+        val outType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, inTimestamp.getTimezone)
+        (
+          TreeBuilder.makeFunction("convertTimestampUnit", Lists.newArrayList(inNode), outType),
+          outType)
     }
   }
 
   def toInt32(inNode: TreeNode, inType: ArrowType): (TreeNode, ArrowType) = {
     val toType = ArrowUtils.toArrowType(IntegerType, null)
-    val toNode = TreeBuilder.makeFunction("castINT", Lists.newArrayList(inNode),
-      toType)
+    val toNode = TreeBuilder.makeFunction("castINT", Lists.newArrayList(inNode), toType)
     (toNode, toType)
   }
 
   // use this carefully
-  def toGandivaMicroUTCTimestamp(inNode: TreeNode, inType: ArrowType,
+  def toGandivaMicroUTCTimestamp(
+      inNode: TreeNode,
+      inType: ArrowType,
       timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
     val zoneId = timeZoneId.orElse(Some(SparkSchemaUtils.getLocalTimezoneID())).get
     val utcTimestampNodeOriginal = inNode
     val inTimestampType = asTimestampType(inType)
-    val inTimestampTypeUTC = new ArrowType.Timestamp(inTimestampType.getUnit,
-      "UTC")
-    ConverterUtils.convertTimestampToMicro(utcTimestampNodeOriginal,
-      inTimestampTypeUTC)
+    val inTimestampTypeUTC = new ArrowType.Timestamp(inTimestampType.getUnit, "UTC")
+    ConverterUtils.convertTimestampToMicro(utcTimestampNodeOriginal, inTimestampTypeUTC)
   }
 
   // use this carefully
-  def toGandivaTimestamp(inNode: TreeNode, inType: ArrowType,
+  def toGandivaTimestamp(
+      inNode: TreeNode,
+      inType: ArrowType,
       timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
     val zoneId = timeZoneId.orElse(Some(SparkSchemaUtils.getLocalTimezoneID())).get
 
     val utcTimestampNodeOriginal = inNode
-    val utcTimestampNodeMilli = ConverterUtils.convertTimestampToMilli(utcTimestampNodeOriginal,
-      inType)._1
-    val utcTimestampNodeLong = TreeBuilder.makeFunction("castBIGINT",
-      Lists.newArrayList(utcTimestampNodeMilli), new ArrowType.Int(64,
-        true))
+    val utcTimestampNodeMilli =
+      ConverterUtils.convertTimestampToMilli(utcTimestampNodeOriginal, inType)._1
+    val utcTimestampNodeLong = TreeBuilder.makeFunction(
+      "castBIGINT",
+      Lists.newArrayList(utcTimestampNodeMilli),
+      new ArrowType.Int(64, true))
     val diff = SparkSchemaUtils.getTimeZoneIDOffset(zoneId) *
-        DateTimeConstants.MILLIS_PER_SECOND
+      DateTimeConstants.MILLIS_PER_SECOND
 
-    val localizedTimestampNodeLong = TreeBuilder.makeFunction("add",
-      Lists.newArrayList(utcTimestampNodeLong,
+    val localizedTimestampNodeLong = TreeBuilder.makeFunction(
+      "add",
+      Lists.newArrayList(
+        utcTimestampNodeLong,
         TreeBuilder.makeLiteral(java.lang.Long.valueOf(diff))),
       new ArrowType.Int(64, true))
     val localized = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
-    val localizedTimestampNode = TreeBuilder.makeFunction("castTIMESTAMP",
-      Lists.newArrayList(localizedTimestampNodeLong), localized)
+    val localizedTimestampNode = TreeBuilder.makeFunction(
+      "castTIMESTAMP",
+      Lists.newArrayList(localizedTimestampNodeLong),
+      localized)
     (localizedTimestampNode, localized)
   }
 
-  def toSparkTimestamp(inNode: TreeNode, inType: ArrowType,
+  def toSparkTimestamp(
+      inNode: TreeNode,
+      inType: ArrowType,
       timeZoneId: Option[String] = None): (TreeNode, ArrowType) = {
     throw new UnsupportedOperationException()
   }
