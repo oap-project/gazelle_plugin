@@ -4656,8 +4656,8 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyMinMaxNaN) {
   auto arg1 = TreeExprBuilder::MakeField(f1);
 
   auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
-  auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg1}, uint32());
-  auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg1}, uint32());
+  auto n_min = TreeExprBuilder::MakeFunction("action_min_true", {arg1}, uint32());
+  auto n_max = TreeExprBuilder::MakeFunction("action_max_true", {arg1}, uint32());
   auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
                                               {arg0, arg1}, uint32());
   auto n_action = TreeExprBuilder::MakeFunction(

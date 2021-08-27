@@ -557,7 +557,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     : public ActionBase {
  public:
   MinAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            bool NaN_check = true)
+            bool NaN_check = false)
       : ctx_(ctx),
         NaN_check_(NaN_check) {
 #ifdef DEBUG
@@ -1168,7 +1168,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     : public ActionBase {
  public:
   MaxAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-            bool NaN_check = true)
+            bool NaN_check = false)
       : ctx_(ctx), NaN_check_(NaN_check) {
 #ifdef DEBUG
     std::cout << "Construct MaxAction" << std::endl;
@@ -4804,12 +4804,13 @@ arrow::Status MakeCountLiteralAction(
 arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+                            std::shared_ptr<ActionBase>* out,
+                            bool NaN_check /*false*/) {
   switch (type->id()) {
 #define PROCESS(InType)                                                      \
   case InType::type_id: {                                                    \
     using CType = typename arrow::TypeTraits<InType>::CType;                 \
-    auto action_ptr = std::make_shared<MinAction<InType, CType>>(ctx, type); \
+    auto action_ptr = std::make_shared<MinAction<InType, CType>>(ctx, type, NaN_check); \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
@@ -4843,12 +4844,13 @@ arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
 arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out) {
+                            std::shared_ptr<ActionBase>* out,
+                            bool NaN_check /*false*/) {
   switch (type->id()) {
 #define PROCESS(InType)                                                      \
   case InType::type_id: {                                                    \
     using CType = typename arrow::TypeTraits<InType>::CType;                 \
-    auto action_ptr = std::make_shared<MaxAction<InType, CType>>(ctx, type); \
+    auto action_ptr = std::make_shared<MaxAction<InType, CType>>(ctx, type, NaN_check); \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
