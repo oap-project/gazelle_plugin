@@ -556,8 +556,10 @@ template <typename DataType, typename CType>
 class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     : public ActionBase {
  public:
-  MinAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
-      : ctx_(ctx) {
+  MinAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+            bool NaN_check = true)
+      : ctx_(ctx),
+        NaN_check_(NaN_check) {
 #ifdef DEBUG
     std::cout << "Construct MinAction" << std::endl;
 #endif
@@ -580,30 +582,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
       cache_.resize(max_group_id + 1, 0);
       length_ = cache_validity_.size();
     }
-
-    in_ = std::make_shared<ArrayType>(in_list[0]);
-    in_null_count_ = in_->null_count();
-    // prepare evaluate lambda
-    row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
-        auto data = in_->GetView(row_id);
-        if (!cache_validity_[dest_group_id]) {
-          cache_[dest_group_id] = data;
-          cache_validity_[dest_group_id] = true;
-        }
-        if (data < cache_[dest_group_id]) {
-          cache_[dest_group_id] = data;
-        }
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
-    *on_null = [this]() {
-      row_id++;
-      return arrow::Status::OK();
-    };
+    GetFunction<CType>(in_list, max_group_id, on_valid, on_null);
     return arrow::Status::OK();
   }
 
@@ -617,59 +596,6 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     cache_validity_.resize(max_group_id, false);
     cache_.resize(max_group_id, 0);
     return arrow::Status::OK();
-  }
-
-  /* Returns true if left is less than right. */
-  template <typename CTYPE>
-  bool LessNaNSafe(CTYPE left, CTYPE right) {
-    bool left_is_nan = std::isnan(left);
-    bool right_is_nan = std::isnan(right);
-    if (left_is_nan && right_is_nan) {
-      return false;
-    } else if (left_is_nan) {
-      return false;
-    } else if (right_is_nan) {
-      return true;
-    } else {
-      return left < right;
-    }
-  }
-
-  template <typename CTYPE>
-  auto GetMinResult(const arrow::ArrayVector& in) ->
-      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
-    in_ = std::make_shared<ArrayType>(in[0]);
-    in_null_count_ = in_->null_count();
-    for (int i = 0; i < in_->length(); i++) {
-      if (in_null_count_ == 0 || !in_->IsNull(i)) {
-        auto val = in_->GetView(i);
-        if (!cache_validity_[0]) {
-          cache_[0] = val;
-          cache_validity_[0] = true;
-        }
-        if (LessNaNSafe<CTYPE>(val, cache_[0])) {
-          cache_[0] = val;
-        }
-      }
-    }
-  }
-
-  template <typename CTYPE>
-  auto GetMinResult(const arrow::ArrayVector& in) ->
-      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
-    arrow::Datum minMaxOut;
-    arrow::compute::MinMaxOptions option;
-    auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
-    minMaxOut = *std::move(maybe_minMaxOut);
-    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
-
-    auto& typed_scalar = static_cast<const ScalarType&>(*value.value[0]);
-    if ((in[0]->null_count() != in[0]->length()) && !cache_validity_[0]) {
-      cache_validity_[0] = true;
-      cache_[0] = typed_scalar.value;
-    } else {
-      if (cache_[0] > typed_scalar.value) cache_[0] = typed_scalar.value;
-    }
   }
 
   arrow::Status Evaluate(const arrow::ArrayVector& in) {
@@ -686,13 +612,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    if (!cache_validity_[dest_group_id]) {
-      cache_[dest_group_id] = *(CType*)data;
-      cache_validity_[dest_group_id] = true;
-    }
-    if (*(CType*)data < cache_[dest_group_id]) {
-      cache_[dest_group_id] = *(CType*)data;
-    }
+    GetMinResultWithGroupBy<CType>(dest_group_id, data);
     return arrow::Status::OK();
   }
 
@@ -741,6 +661,7 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   // input
   arrow::compute::ExecContext* ctx_;
+  bool NaN_check_;
   std::shared_ptr<ArrayType> in_;
   int row_id;
   int in_null_count_ = 0;
@@ -749,6 +670,169 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
   std::vector<bool> cache_validity_;
   std::unique_ptr<BuilderType> builder_;
   uint64_t length_ = 0;
+
+  /* Returns true if left is less than right. */
+  template <typename CTYPE>
+  bool LessNaNSafe(CTYPE left, CTYPE right) {
+    bool left_is_nan = std::isnan(left);
+    bool right_is_nan = std::isnan(right);
+    if (left_is_nan && right_is_nan) {
+      return false;
+    } else if (left_is_nan) {
+      return false;
+    } else if (right_is_nan) {
+      return true;
+    } else {
+      return left < right;
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetFunction(const ArrayList& in_list, int max_group_id,
+                   std::function<arrow::Status(int)>* on_valid,
+                   std::function<arrow::Status()>* on_null) ->
+      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in_list[0]);
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    row_id = 0;
+    if (NaN_check_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          auto data = in_->GetView(row_id);
+          if (!cache_validity_[dest_group_id]) {
+            cache_[dest_group_id] = data;
+            cache_validity_[dest_group_id] = true;
+          }
+          if (LessNaNSafe<CTYPE>(data, cache_[dest_group_id])) {
+            cache_[dest_group_id] = data;
+          }
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          auto data = in_->GetView(row_id);
+          if (!cache_validity_[dest_group_id]) {
+            cache_[dest_group_id] = data;
+            cache_validity_[dest_group_id] = true;
+          }
+          if (data < cache_[dest_group_id]) {
+            cache_[dest_group_id] = data;
+          }
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
+
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+  }
+
+  template <typename CTYPE>
+  auto GetFunction(const ArrayList& in_list, int max_group_id,
+                   std::function<arrow::Status(int)>* on_valid,
+                   std::function<arrow::Status()>* on_null) ->
+      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in_list[0]);
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    row_id = 0;
+    *on_valid = [this](int dest_group_id) {
+      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+      if (!is_null) {
+        auto data = in_->GetView(row_id);
+        if (!cache_validity_[dest_group_id]) {
+          cache_[dest_group_id] = data;
+          cache_validity_[dest_group_id] = true;
+        }
+        if (data < cache_[dest_group_id]) {
+          cache_[dest_group_id] = data;
+        }
+      }
+      row_id++;
+      return arrow::Status::OK();
+    };
+
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+  }
+
+  template <typename CTYPE>
+  auto GetMinResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in[0]);
+    in_null_count_ = in_->null_count();
+    for (int i = 0; i < in_->length(); i++) {
+      if (in_null_count_ == 0 || !in_->IsNull(i)) {
+        auto val = in_->GetView(i);
+        if (!cache_validity_[0]) {
+          cache_[0] = val;
+          cache_validity_[0] = true;
+        }
+        if (LessNaNSafe<CTYPE>(val, cache_[0])) {
+          cache_[0] = val;
+        }
+      }
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetMinResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
+    arrow::Datum minMaxOut;
+    arrow::compute::MinMaxOptions option;
+    auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
+    minMaxOut = *std::move(maybe_minMaxOut);
+    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
+
+    auto& typed_scalar = static_cast<const ScalarType&>(*value.value[0]);
+    if ((in[0]->null_count() != in[0]->length()) && !cache_validity_[0]) {
+      cache_validity_[0] = true;
+      cache_[0] = typed_scalar.value;
+    } else {
+      if (cache_[0] > typed_scalar.value) cache_[0] = typed_scalar.value;
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetMinResultWithGroupBy(int dest_group_id, void* data) ->
+      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
+    if (!cache_validity_[dest_group_id]) {
+      cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
+    }
+    if (NaN_check_) {
+      if (LessNaNSafe<CType>(*(CType*)data, cache_[dest_group_id])) {
+        cache_[dest_group_id] = *(CType*)data;
+      }
+    } else {
+      if (*(CType*)data < cache_[dest_group_id]) {
+        cache_[dest_group_id] = *(CType*)data;
+      }
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetMinResultWithGroupBy(int dest_group_id, void* data) ->
+      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
+    if (!cache_validity_[dest_group_id]) {
+      cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
+    }
+    if (*(CType*)data < cache_[dest_group_id]) {
+      cache_[dest_group_id] = *(CType*)data;
+    }
+  }
 };
 
 /// Decimal ///
@@ -1083,8 +1167,9 @@ template <typename DataType, typename CType>
 class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     : public ActionBase {
  public:
-  MaxAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type)
-      : ctx_(ctx) {
+  MaxAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+            bool NaN_check = true)
+      : ctx_(ctx), NaN_check_(NaN_check) {
 #ifdef DEBUG
     std::cout << "Construct MaxAction" << std::endl;
 #endif
@@ -1107,31 +1192,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
       cache_.resize(max_group_id + 1, 0);
       length_ = cache_validity_.size();
     }
-
-    in_ = std::make_shared<ArrayType>(in_list[0]);
-    in_null_count_ = in_->null_count();
-    // prepare evaluate lambda
-    row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
-        auto val = in_->GetView(row_id);
-        if (!cache_validity_[dest_group_id]) {
-          cache_[dest_group_id] = val;
-          cache_validity_[dest_group_id] = true;
-        }
-        if (val > cache_[dest_group_id]) {
-          cache_[dest_group_id] = val;
-        }
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
-
-    *on_null = [this]() {
-      row_id++;
-      return arrow::Status::OK();
-    };
+    GetFunction<CType>(in_list, max_group_id, on_valid, on_null);
     return arrow::Status::OK();
   }
 
@@ -1145,48 +1206,6 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     cache_validity_.resize(max_group_id, false);
     cache_.resize(max_group_id, 0);
     return arrow::Status::OK();
-  }
-
-  template <typename TYPE>
-  auto GetMaxResult(const arrow::ArrayVector& in) ->
-      typename std::enable_if_t<std::is_floating_point<TYPE>::value> {
-    in_ = std::make_shared<ArrayType>(in[0]);
-    in_null_count_ = in_->null_count();
-    for (int i = 0; i < in_->length(); i++) {
-      if (in_null_count_ == 0 || !in_->IsNull(i)) {
-        auto val = in_->GetView(i);
-        if (std::isnan(val)) {
-          cache_[0] = val;
-          cache_validity_[0] = true;
-          break;
-        }
-        if (!cache_validity_[0]) {
-          cache_[0] = val;
-          cache_validity_[0] = true;
-        }
-        if (val > cache_[0]) {
-          cache_[0] = val;
-        }
-      }
-    }
-  }
-
-  template <typename TYPE>
-  auto GetMaxResult(const arrow::ArrayVector& in) ->
-      typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
-    arrow::Datum minMaxOut;
-    arrow::compute::MinMaxOptions option;
-    auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
-    minMaxOut = *std::move(maybe_minMaxOut);
-    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
-
-    auto& typed_scalar = static_cast<const ScalarType&>(*value.value[1]);
-    if ((in[0]->null_count() != in[0]->length()) && !cache_validity_[0]) {
-      cache_validity_[0] = true;
-      cache_[0] = typed_scalar.value;
-    } else {
-      if (cache_[0] < typed_scalar.value) cache_[0] = typed_scalar.value;
-    }
   }
 
   arrow::Status Evaluate(const arrow::ArrayVector& in) {
@@ -1203,13 +1222,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     auto target_group_size = dest_group_id + 1;
     if (cache_validity_.size() <= target_group_size) GrowByFactor(target_group_size);
     if (length_ < target_group_size) length_ = target_group_size;
-    if (!cache_validity_[dest_group_id]) {
-      cache_[dest_group_id] = *(CType*)data;
-    }
-    cache_validity_[dest_group_id] = true;
-    if (*(CType*)data > cache_[dest_group_id]) {
-      cache_[dest_group_id] = *(CType*)data;
-    }
+    GetMaxResultWithGroupBy<CType>(dest_group_id, data);
     return arrow::Status::OK();
   }
 
@@ -1257,6 +1270,7 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
   using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
   // input
   arrow::compute::ExecContext* ctx_;
+  bool NaN_check_;
   std::shared_ptr<ArrayType> in_;
   CType* data_;
   int row_id;
@@ -1266,6 +1280,164 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
   std::vector<bool> cache_validity_;
   std::unique_ptr<BuilderType> builder_;
   uint64_t length_ = 0;
+
+  template <typename CTYPE>
+  auto GetFunction(const ArrayList& in_list, int max_group_id,
+                   std::function<arrow::Status(int)>* on_valid,
+                   std::function<arrow::Status()>* on_null) ->
+      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in_list[0]);
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    row_id = 0;
+    if (NaN_check_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          auto val = in_->GetView(row_id);
+          if (std::isnan(val)) {
+            cache_[dest_group_id] = val;
+            cache_validity_[dest_group_id] = true;
+          } else {
+            if (!cache_validity_[dest_group_id]) {
+              cache_[dest_group_id] = val;
+              cache_validity_[dest_group_id] = true;
+            }
+            if (val > cache_[dest_group_id]) {
+              cache_[dest_group_id] = val;
+            }
+          }
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          auto val = in_->GetView(row_id);
+          if (!cache_validity_[dest_group_id]) {
+            cache_[dest_group_id] = val;
+            cache_validity_[dest_group_id] = true;
+          }
+          if (val > cache_[dest_group_id]) {
+            cache_[dest_group_id] = val;
+          }
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
+
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+  }
+
+  template <typename CTYPE>
+  auto GetFunction(const ArrayList& in_list, int max_group_id,
+                   std::function<arrow::Status(int)>* on_valid,
+                   std::function<arrow::Status()>* on_null) ->
+      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in_list[0]);
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    row_id = 0;
+    *on_valid = [this](int dest_group_id) {
+      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+      if (!is_null) {
+        auto val = in_->GetView(row_id);
+        if (!cache_validity_[dest_group_id]) {
+          cache_[dest_group_id] = val;
+          cache_validity_[dest_group_id] = true;
+        }
+        if (val > cache_[dest_group_id]) {
+          cache_[dest_group_id] = val;
+        }
+      }
+      row_id++;
+      return arrow::Status::OK();
+    };
+
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+  }
+
+  template <typename TYPE>
+  auto GetMaxResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<std::is_floating_point<TYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in[0]);
+    in_null_count_ = in_->null_count();
+    for (int i = 0; i < in_->length(); i++) {
+      if (in_null_count_ == 0 || !in_->IsNull(i)) {
+        auto val = in_->GetView(i);
+        if (NaN_check_ && std::isnan(val)) {
+          cache_[0] = val;
+          cache_validity_[0] = true;
+          break;
+        }
+        if (!cache_validity_[0]) {
+          cache_[0] = val;
+          cache_validity_[0] = true;
+        }
+        if (val > cache_[0]) {
+          cache_[0] = val;
+        }
+      }
+    }
+  }
+
+  template <typename TYPE>
+  auto GetMaxResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
+    arrow::Datum minMaxOut;
+    arrow::compute::MinMaxOptions option;
+    auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
+    minMaxOut = *std::move(maybe_minMaxOut);
+    const arrow::StructScalar& value = minMaxOut.scalar_as<arrow::StructScalar>();
+
+    auto& typed_scalar = static_cast<const ScalarType&>(*value.value[1]);
+    if ((in[0]->null_count() != in[0]->length()) && !cache_validity_[0]) {
+      cache_validity_[0] = true;
+      cache_[0] = typed_scalar.value;
+    } else {
+      if (cache_[0] < typed_scalar.value) cache_[0] = typed_scalar.value;
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetMaxResultWithGroupBy(int dest_group_id, void* data) ->
+      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
+    auto val = *(CTYPE*)data;
+    if (NaN_check_ && std::isnan(val)) {
+      cache_[dest_group_id] = val;
+      cache_validity_[dest_group_id] = true;
+    } else {
+      if (!cache_validity_[dest_group_id]) {
+        cache_[dest_group_id] = val;
+        cache_validity_[dest_group_id] = true;
+      }
+      if (val > cache_[dest_group_id]) {
+        cache_[dest_group_id] = val;
+      }
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetMaxResultWithGroupBy(int dest_group_id, void* data) ->
+      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
+    auto val = *(CTYPE*)data;
+    if (!cache_validity_[dest_group_id]) {
+      cache_[dest_group_id] = val;
+      cache_validity_[dest_group_id] = true;
+    }
+    if (val > cache_[dest_group_id]) {
+      cache_[dest_group_id] = val;
+    }
+  }
 };
 
 /// Decimal ///
