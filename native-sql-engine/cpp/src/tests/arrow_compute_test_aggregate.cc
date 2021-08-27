@@ -156,6 +156,77 @@ TEST(TestArrowCompute, AggregateTest) {
   }
 }
 
+TEST(TestArrowCompute, MinMaxNaNTest) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", float64());
+
+  auto arg_0 = TreeExprBuilder::MakeField(f0);
+
+  auto n_min = TreeExprBuilder::MakeFunction("action_min", {arg_0}, int64());
+  auto n_max = TreeExprBuilder::MakeFunction("action_max", {arg_0}, int64());
+
+  auto f_min = field("min", float64());
+  auto f_max = field("max", float64());
+  auto f_res = field("res", int32());
+
+  auto n_proj = TreeExprBuilder::MakeFunction(
+      "aggregateExpressions", {arg_0}, uint32());
+  auto n_action =
+      TreeExprBuilder::MakeFunction("aggregateActions",
+                                    {n_min, n_max},
+                                    uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+  auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
+
+  auto sch = arrow::schema({f0});
+  std::vector<std::shared_ptr<Field>> ret_types = {
+      f_min, f_max};
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<CodeGenerator> expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, {aggr_expr}, ret_types, &expr, true));
+
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+  std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
+  ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
+  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      aggr_result_iterator_base);
+
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::string> input_data_string = {
+      "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10, 16, 19, 42, 78, 12, 5, NaN, 11, 19]"};
+  MakeInputBatch(input_data_string, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+  std::vector<std::string> input_data_2_string = {
+      "[16, 7, 8, 9, 10, 10, 9, 6, 7, 7, 6, 6, 6, 9, 9, 8, 18, 19, 12, 13]"};
+  MakeInputBatch(input_data_2_string, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  std::vector<std::string> expected_result_string = {
+      "[1]", "[NaN]"};
+  auto res_sch = arrow::schema(ret_types);
+  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  if (aggr_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 TEST(TestArrowCompute, AggregateAllNullTest) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", int32());

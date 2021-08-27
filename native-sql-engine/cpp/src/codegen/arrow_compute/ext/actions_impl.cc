@@ -586,13 +586,13 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
-      if (!cache_validity_[dest_group_id]) {
-        cache_[dest_group_id] = in_->GetView(row_id);
-      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         auto data = in_->GetView(row_id);
-        cache_validity_[dest_group_id] = true;
+        if (!cache_validity_[dest_group_id]) {
+          cache_[dest_group_id] = data;
+          cache_validity_[dest_group_id] = true;
+        }
         if (data < cache_[dest_group_id]) {
           cache_[dest_group_id] = data;
         }
@@ -619,13 +619,44 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status Evaluate(const arrow::ArrayVector& in) {
-    if (cache_validity_.empty()) {
-      cache_.resize(1, 0);
-      cache_validity_.resize(1, false);
-      length_ = 1;
+  /* Returns true if left is less than right. */
+  template <typename CTYPE>
+  bool LessNaNSafe(CTYPE left, CTYPE right) {
+    bool left_is_nan = std::isnan(left);
+    bool right_is_nan = std::isnan(right);
+    if (left_is_nan && right_is_nan) {
+      return false;
+    } else if (left_is_nan) {
+      return false;
+    } else if (right_is_nan) {
+      return true;
+    } else {
+      return left < right;
     }
+  }
 
+  template <typename CTYPE>
+  auto GetMinResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in[0]);
+    in_null_count_ = in_->null_count();
+    for (int i = 0; i < in_->length(); i++) {
+      if (in_null_count_ == 0 || !in_->IsNull(i)) {
+        auto val = in_->GetView(i);
+        if (!cache_validity_[0]) {
+          cache_[0] = val;
+          cache_validity_[0] = true;
+        }
+        if (LessNaNSafe<CTYPE>(val, cache_[0])) {
+          cache_[0] = val;
+        }
+      }
+    }
+  }
+
+  template <typename CTYPE>
+  auto GetMinResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
     arrow::Datum minMaxOut;
     arrow::compute::MinMaxOptions option;
     auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
@@ -639,6 +670,15 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     } else {
       if (cache_[0] > typed_scalar.value) cache_[0] = typed_scalar.value;
     }
+  }
+
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+    GetMinResult<CType>(in);
     return arrow::Status::OK();
   }
 
@@ -648,8 +688,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
     }
-    cache_validity_[dest_group_id] = true;
     if (*(CType*)data < cache_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
     }
@@ -746,13 +786,13 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
-      if (!cache_validity_[dest_group_id]) {
-        cache_[dest_group_id] = in_->GetView(row_id);
-      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         auto data = in_->GetView(row_id);
-        cache_validity_[dest_group_id] = true;
+        if (!cache_validity_[dest_group_id]) {
+          cache_[dest_group_id] = data;
+          cache_validity_[dest_group_id] = true;
+        }
         if (data < cache_[dest_group_id]) {
           cache_[dest_group_id] = data;
         }
@@ -800,8 +840,8 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
     }
-    cache_validity_[dest_group_id] = true;
     if (*(CType*)data < cache_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
     }
@@ -903,13 +943,13 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
-      if (!cache_validity_[dest_group_id]) {
-        cache_[dest_group_id] = in_->GetString(row_id);
-      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         auto data = in_->GetString(row_id);
-        cache_validity_[dest_group_id] = true;
+        if (!cache_validity_[dest_group_id]) {
+          cache_[dest_group_id] = data;
+          cache_validity_[dest_group_id] = true;
+        }
         if (data < cache_[dest_group_id]) {
           cache_[dest_group_id] = data;
         }
@@ -945,13 +985,13 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     in_ = std::make_shared<ArrayType>(in[0]);
     in_null_count_ = in_->null_count();
     for (int64_t row_id = 0; row_id < in_->length(); row_id++) {
-      if (!cache_validity_[0]) {
-        cache_[0] = in_->GetString(row_id);
-      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         auto data = in_->GetString(row_id);
-        cache_validity_[0] = true;
+        if (!cache_validity_[0]) {
+          cache_[0] = data;
+          cache_validity_[0] = true;
+        }
         if (data < cache_[0]) {
           cache_[0] = data;
         }
@@ -966,8 +1006,8 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
     }
-    cache_validity_[dest_group_id] = true;
     if (*(CType*)data < cache_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
     }
@@ -1073,14 +1113,15 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     // prepare evaluate lambda
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
-      if (!cache_validity_[dest_group_id]) {
-        cache_[dest_group_id] = in_->GetView(row_id);
-      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
-        cache_validity_[dest_group_id] = true;
-        if (in_->GetView(row_id) > cache_[dest_group_id]) {
-          cache_[dest_group_id] = in_->GetView(row_id);
+        auto val = in_->GetView(row_id);
+        if (!cache_validity_[dest_group_id]) {
+          cache_[dest_group_id] = val;
+          cache_validity_[dest_group_id] = true;
+        }
+        if (val > cache_[dest_group_id]) {
+          cache_[dest_group_id] = val;
         }
       }
       row_id++;
@@ -1106,13 +1147,33 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     return arrow::Status::OK();
   }
 
-  arrow::Status Evaluate(const arrow::ArrayVector& in) {
-    if (cache_validity_.empty()) {
-      cache_.resize(1, 0);
-      cache_validity_.resize(1, false);
-      length_ = 1;
+  template <typename TYPE>
+  auto GetMaxResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<std::is_floating_point<TYPE>::value> {
+    in_ = std::make_shared<ArrayType>(in[0]);
+    in_null_count_ = in_->null_count();
+    for (int i = 0; i < in_->length(); i++) {
+      if (in_null_count_ == 0 || !in_->IsNull(i)) {
+        auto val = in_->GetView(i);
+        if (std::isnan(val)) {
+          cache_[0] = val;
+          cache_validity_[0] = true;
+          break;
+        }
+        if (!cache_validity_[0]) {
+          cache_[0] = val;
+          cache_validity_[0] = true;
+        }
+        if (val > cache_[0]) {
+          cache_[0] = val;
+        }
+      }
     }
+  }
 
+  template <typename TYPE>
+  auto GetMaxResult(const arrow::ArrayVector& in) ->
+      typename std::enable_if_t<!std::is_floating_point<TYPE>::value> {
     arrow::Datum minMaxOut;
     arrow::compute::MinMaxOptions option;
     auto maybe_minMaxOut = arrow::compute::MinMax(*in[0].get(), option, ctx_);
@@ -1126,6 +1187,15 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
     } else {
       if (cache_[0] < typed_scalar.value) cache_[0] = typed_scalar.value;
     }
+  }
+
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_validity_.empty()) {
+      cache_.resize(1, 0);
+      cache_validity_.resize(1, false);
+      length_ = 1;
+    }
+    GetMaxResult<CType>(in);
     return arrow::Status::OK();
   }
 
@@ -1286,8 +1356,8 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
     }
-    cache_validity_[dest_group_id] = true;
     if (*(CType*)data > cache_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
     }
@@ -1432,13 +1502,13 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     in_ = std::make_shared<ArrayType>(in[0]);
     in_null_count_ = in_->null_count();
     for (int64_t row_id = 0; row_id < in_->length(); row_id++) {
-      if (!cache_validity_[0]) {
-        cache_[0] = in_->GetString(row_id);
-      }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
       if (!is_null) {
         auto data = in_->GetString(row_id);
-        cache_validity_[0] = true;
+        if (!cache_validity_[0]) {
+          cache_[0] = data;
+          cache_validity_[0] = true;
+        }
         if (data > cache_[0]) {
           cache_[0] = data;
         }
@@ -1453,8 +1523,8 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
     if (length_ < target_group_size) length_ = target_group_size;
     if (!cache_validity_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
+      cache_validity_[dest_group_id] = true;
     }
-    cache_validity_[dest_group_id] = true;
     if (*(CType*)data > cache_[dest_group_id]) {
       cache_[dest_group_id] = *(CType*)data;
     }
