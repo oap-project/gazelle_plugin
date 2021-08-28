@@ -17,17 +17,13 @@
 
 #include "operators/columnar_to_row_converter.h"
 
+#include <iostream>
+
 namespace sparkcolumnarplugin {
 namespace columnartorow {
 
 int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
   return ((numFields + 63) / 64) * 8;
-}
-
-ColumnarToRowConverter::~ColumnarToRowConverter() {
-  delete offsets_;
-  delete lengths_;
-  delete buffer_cursor_;
 }
 
 arrow::Status ColumnarToRowConverter::Init() {
@@ -36,9 +32,6 @@ arrow::Status ColumnarToRowConverter::Init() {
   // Calculate the initial size
   nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
   memset(buffer_address_, 0, sizeof(int8_t) * memory_size_);
-  offsets_ = new int64_t[num_rows_];
-  lengths_ = new int64_t[num_rows_];
-  buffer_cursor_ = new int64_t[num_rows_];
   return arrow::Status::OK();
 }
 
@@ -63,7 +56,7 @@ void SetNullAt(uint8_t* buffer_address, int64_t row_offset, int64_t field_offset
   return;
 }
 
-int32_t FirstNonzeroLongNum(int32_t* mag, int32_t length) {
+int32_t FirstNonzeroLongNum(std::vector<int32_t> mag, int32_t length) {
   int32_t fn = 0;
   int32_t i;
   for (i = length - 1; i >= 0 && mag[i] == 0; i--)
@@ -72,7 +65,7 @@ int32_t FirstNonzeroLongNum(int32_t* mag, int32_t length) {
   return fn;
 }
 
-int32_t GetInt(int32_t n, int32_t sig, int32_t* mag, int32_t length) {
+int32_t GetInt(int32_t n, int32_t sig, std::vector<int32_t> mag, int32_t length) {
   if (n < 0) return 0;
   if (n >= length) return sig < 0 ? -1 : 0;
 
@@ -117,7 +110,7 @@ int32_t GetBitCount(uint32_t i) {
   return i & 0x3f;
 }
 
-int32_t GetBitLength(int32_t sig, int32_t* mag, int32_t len) {
+int32_t GetBitLength(int32_t sig, std::vector<int32_t> mag, int32_t len) {
   int32_t n = -1;
   if (len == 0) {
     n = 0;
@@ -137,13 +130,14 @@ int32_t GetBitLength(int32_t sig, int32_t* mag, int32_t len) {
   return n;
 }
 
-uint32_t* ConvertMagArray(int64_t new_high, uint64_t new_low, int32_t* size) {
-  // convert the new_high and new_low to 4 int value.
-  uint32_t* mag = new uint32_t[4];
-  mag[3] = (uint32_t)new_low;
-  mag[2] = new_low >>= 32;
-  mag[1] = (uint32_t)new_high;
-  mag[0] = new_high >>= 32;
+std::vector<uint32_t> ConvertMagArray(int64_t new_high, uint64_t new_low, int32_t* size) {
+  std::vector<uint32_t> mag;
+  int64_t orignal_low = new_low;
+  int64_t orignal_high = new_high;
+  mag.push_back(new_high >>= 32);
+  mag.push_back((uint32_t)orignal_high);
+  mag.push_back(new_low >>= 32);
+  mag.push_back((uint32_t)orignal_low);
 
   int32_t start = 0;
   // remove the front 0
@@ -153,14 +147,12 @@ uint32_t* ConvertMagArray(int64_t new_high, uint64_t new_low, int32_t* size) {
   }
 
   int32_t length = 4 - start;
-  uint32_t* new_mag = new uint32_t[length];
-  int32_t k = 0;
+  std::vector<uint32_t> new_mag;
   // get the mag after remove the high 0
   for (int32_t i = start; i < 4; i++) {
-    new_mag[k++] = mag[i];
+    new_mag.push_back(mag[i]);
   }
 
-  delete mag;
   *size = length;
   return new_mag;
 }
@@ -187,12 +179,14 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
   int64_t new_high = new_value.high_bits();
   uint64_t new_low = new_value.low_bits();
 
-  uint32_t* mag;
+  std::vector<uint32_t> mag;
   int32_t size;
   mag = ConvertMagArray(new_high, new_low, &size);
 
-  int32_t* final_mag = new int32_t[size];
-  memcpy(final_mag, mag, size * 4);
+  std::vector<int32_t> final_mag;
+  for (auto i = 0; i < size; i++) {
+    final_mag.push_back(mag[i]);
+  }
 
   int32_t byte_length = GetBitLength(sig, final_mag, size) / 8 + 1;
 
@@ -210,14 +204,13 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
     out[i] = (uint8_t)next_int;
   }
   *length = byte_length;
-
-  delete mag, final_mag;
   return out;
 }
 
 arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
                          std::shared_ptr<arrow::Array> array, int32_t col_index,
-                         int64_t num_rows, int64_t* offsets, int64_t* buffer_cursor) {
+                         int64_t num_rows, std::vector<int64_t>& offsets,
+                         std::vector<int64_t>& buffer_cursor) {
   switch (array->type_id()) {
     case arrow::BooleanType::type_id: {
       // Boolean type
@@ -428,9 +421,9 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
 arrow::Status ColumnarToRowConverter::Write() {
   // Initialize the offsets_ , lengths_, buffer_cursor_
   for (auto i = 0; i < num_rows_; i++) {
-    lengths_[i] = fixed_size_per_row_;
-    offsets_[i] = 0;
-    buffer_cursor_[i] = nullBitsetWidthInBytes_ + 8 * num_cols_;
+    lengths_.push_back(fixed_size_per_row_);
+    offsets_.push_back(0);
+    buffer_cursor_.push_back(nullBitsetWidthInBytes_ + 8 * num_cols_);
   }
 
   // Calculated the lengths_
@@ -446,24 +439,15 @@ arrow::Status ColumnarToRowConverter::Write() {
       }
     }
   }
-  // // Calculated the offsets_ based on lengths_
+
+  // Calculated the offsets_ based on lengths_
   for (auto i = 1; i < num_rows_; i++) {
     offsets_[i] = offsets_[i - 1] + lengths_[i - 1];
   }
 
-  // Avoid access the column array and field_offset in for loop
-  std::vector<std::shared_ptr<arrow::Array>> arrays;
-  std::vector<int64_t> field_offsets;
   for (auto i = 0; i < num_cols_; i++) {
     auto array = rb_->column(i);
-    arrays.push_back(array);
     int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);
-    field_offsets.push_back(field_offset);
-  }
-
-  for (auto i = 0; i < num_cols_; i++) {
-    auto array = arrays[i];
-    int64_t field_offset = field_offsets[i];
     WriteValue(buffer_address_, field_offset, array, i, num_rows_, offsets_,
                buffer_cursor_);
   }

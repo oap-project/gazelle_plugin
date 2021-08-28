@@ -21,12 +21,12 @@ package com.intel.oap.vectorized;
 import java.nio.ByteBuffer;
 
 public class ArrowColumnarToRowInfo {
-    public ByteBuffer offsets;
-    public ByteBuffer lengths;
     public long instanceID;
+    public long[] offsets;
+    public long[] lengths;
 
     public ArrowColumnarToRowInfo(long instanceID,
-                                  ByteBuffer offsets, ByteBuffer lengths) {
+                                  long[] offsets, long[] lengths) {
         this.instanceID = instanceID;
         this.offsets = offsets;
         this.lengths = lengths;

@@ -17,12 +17,11 @@
 
 package com.intel.oap.execution
 
-import java.nio.{ByteBuffer, ByteOrder}
-
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowColumnarToRowJniWrapper, ArrowWritableColumnVector}
 import org.apache.arrow.vector.BaseVariableWidthVector
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
@@ -30,7 +29,6 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
 import org.apache.spark.sql.types.{DecimalType, StructField}
-import sun.nio.ch.DirectBuffer
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -59,17 +57,13 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
   override lazy val metrics: Map[String, SQLMetric] = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches"),
-    "convertTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert"),
-    "hasNextTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to has next"),
-    "nextTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to next")
+    "convertTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert")
   )
 
   override def doExecute(): RDD[InternalRow] = {
     val numOutputRows = longMetric("numOutputRows")
     val numInputBatches = longMetric("numInputBatches")
     val convertTime = longMetric("convertTime")
-    val hasNextTime = longMetric("hasNextTime")
-    val nextTime = longMetric("nextTime")
 
     child.executeColumnar().mapPartitions { batches =>
       // TODO:: pass the jni jniWrapper and arrowSchema  and serializeSchema method by broadcast
@@ -134,23 +128,18 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
             arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray,
             arrowBuf.memoryAddress(), size, totalFixedSize / batch.numRows())
 
-          info.offsets.order(ByteOrder.LITTLE_ENDIAN)
-          info.lengths.order(ByteOrder.LITTLE_ENDIAN)
-
           convertTime += NANOSECONDS.toMillis(System.nanoTime() - beforeConvert)
 
           new Iterator[InternalRow] {
             var rowId = 0
             val row = new UnsafeRow(batch.numCols())
+            var closed = false
             override def hasNext: Boolean = {
               val result = rowId < batch.numRows()
-              if (!result) {
-                // Release the original batch, the allocated buffer and
-                // the offset and lengths buffer in native.
-                if (arrowBuf.refCnt() != 0) {
-                  arrowBuf.release()
-                }
+              if (!result && !closed) {
+                arrowBuf.release()
                 jniWrapper.nativeClose(info.instanceID)
+                closed = true
               }
               return result
             }
@@ -158,8 +147,7 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
             override def next: UnsafeRow = {
               if (rowId >= batch.numRows()) throw new NoSuchElementException
 
-              val (offset, length) = (info.offsets.getLong(rowId * 8),
-                info.lengths.getLong(rowId * 8))
+              val (offset, length) = (info.offsets(rowId), info.lengths(rowId))
               row.pointTo(null, arrowBuf.memoryAddress() + offset, length.toInt)
               rowId += 1
               row

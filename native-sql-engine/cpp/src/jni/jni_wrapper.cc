@@ -307,8 +307,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   arrow_columnar_to_row_info_class = CreateGlobalClassReference(
       env, "Lcom/intel/oap/vectorized/ArrowColumnarToRowInfo;");
   arrow_columnar_to_row_info_constructor =
-      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>",
-                  "(JLjava/nio/ByteBuffer;Ljava/nio/ByteBuffer;)V");
+      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>", "(J[J[J)V");
 
   return JNI_VERSION;
 }
@@ -1591,9 +1590,6 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
   uint8_t* address = reinterpret_cast<uint8_t*>(memory_address);
 
   // convert the record batch to spark unsafe row.
-  int64_t* offsets;
-  int64_t* lengths;
-  int64_t instanceID;
   try {
     std::shared_ptr<ColumnarToRowConverter> columnar_to_row_converter =
         std::make_shared<ColumnarToRowConverter>(rb, address, memory_size,
@@ -1620,21 +1616,29 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
       return NULL;
     }
 
-    offsets = columnar_to_row_converter->GetOffsets();
-    lengths = columnar_to_row_converter->GetLengths();
-    instanceID = columnar_to_row_converter_holder_.Insert(columnar_to_row_converter);
+    const auto& offsets = columnar_to_row_converter->GetOffsets();
+    const auto& lengths = columnar_to_row_converter->GetLengths();
+    int64_t instanceID =
+        columnar_to_row_converter_holder_.Insert(columnar_to_row_converter);
+
+    auto offsets_arr = env->NewLongArray(num_rows);
+    auto offsets_src = reinterpret_cast<const jlong*>(offsets.data());
+    env->SetLongArrayRegion(offsets_arr, 0, num_rows, offsets_src);
+    auto lengths_arr = env->NewLongArray(num_rows);
+    auto lengths_src = reinterpret_cast<const jlong*>(lengths.data());
+    env->SetLongArrayRegion(lengths_arr, 0, num_rows, lengths_src);
+
+    jobject arrow_columnar_to_row_info = env->NewObject(
+        arrow_columnar_to_row_info_class, arrow_columnar_to_row_info_constructor,
+        instanceID, offsets_arr, lengths_arr);
+    return arrow_columnar_to_row_info;
 
   } catch (const std::runtime_error& error) {
     env->ThrowNew(unsupportedoperation_exception_class, error.what());
   } catch (const std::exception& error) {
     env->ThrowNew(io_exception_class, error.what());
   }
-  int64_t size = (num_rows) * sizeof(int64_t);
-  jobject arrow_columnar_to_row_info = env->NewObject(
-      arrow_columnar_to_row_info_class, arrow_columnar_to_row_info_constructor,
-      instanceID, env->NewDirectByteBuffer(offsets, size),
-      env->NewDirectByteBuffer(lengths, size));
-  return arrow_columnar_to_row_info;
+  return NULL;
 }
 
 JNIEXPORT void JNICALL
