@@ -17,8 +17,6 @@
 
 #include "operators/columnar_to_row_converter.h"
 
-#include <iostream>
-
 namespace sparkcolumnarplugin {
 namespace columnartorow {
 
@@ -214,13 +212,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
   switch (array->type_id()) {
     case arrow::BooleanType::type_id: {
       // Boolean type
-      auto boolArray = std::static_pointer_cast<arrow::BooleanArray>(array);
+      auto bool_array = std::static_pointer_cast<arrow::BooleanArray>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = boolArray->Value(i);
+          auto value = bool_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
         }
       }
@@ -228,13 +226,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::Int8Type::type_id: {
       // Byte type
-      auto int8Array = std::static_pointer_cast<arrow::Int8Array>(array);
+      auto int8_array = std::static_pointer_cast<arrow::Int8Array>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = int8Array->Value(i);
+          auto value = int8_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int8_t));
         }
       }
@@ -242,13 +240,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::Int16Type::type_id: {
       // Short type
-      auto int16Array = std::static_pointer_cast<arrow::Int16Array>(array);
+      auto int16_array = std::static_pointer_cast<arrow::Int16Array>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = int16Array->Value(i);
+          auto value = int16_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int16_t));
         }
       }
@@ -256,13 +254,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::Int32Type::type_id: {
       // Integer type
-      auto int32Array = std::static_pointer_cast<arrow::Int32Array>(array);
+      auto int32_array = std::static_pointer_cast<arrow::Int32Array>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = int32Array->Value(i);
+          auto value = int32_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int32_t));
         }
       }
@@ -270,13 +268,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::Int64Type::type_id: {
       // Long type
-      auto int64Array = std::static_pointer_cast<arrow::Int64Array>(array);
+      auto int64_array = std::static_pointer_cast<arrow::Int64Array>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = int64Array->Value(i);
+          auto value = int64_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int64_t));
         }
       }
@@ -284,13 +282,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::FloatType::type_id: {
       // Float type
-      auto floatArray = std::static_pointer_cast<arrow::FloatArray>(array);
+      auto float_array = std::static_pointer_cast<arrow::FloatArray>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = floatArray->Value(i);
+          auto value = float_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(float));
         }
       }
@@ -298,13 +296,13 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::DoubleType::type_id: {
       // Double type
-      auto doubleArray = std::static_pointer_cast<arrow::DoubleArray>(array);
+      auto double_array = std::static_pointer_cast<arrow::DoubleArray>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = doubleArray->Value(i);
+          auto value = double_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(double));
         }
       }
@@ -312,7 +310,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::BinaryType::type_id: {
       // Binary type
-      auto binaryArray = std::static_pointer_cast<arrow::BinaryArray>(array);
+      auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
       using offset_type = typename arrow::BinaryType::offset_type;
 
       for (auto i = 0; i < num_rows; i++) {
@@ -321,7 +319,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
           offset_type length;
-          auto value = binaryArray->GetValue(i, &length);
+          auto value = binary_array->GetValue(i, &length);
           // write the variable value
           memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
           // write the offset and size
@@ -335,7 +333,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
     }
     case arrow::StringType::type_id: {
       // String type
-      auto stringArray = std::static_pointer_cast<arrow::StringArray>(array);
+      auto string_array = std::static_pointer_cast<arrow::StringArray>(array);
       using offset_type = typename arrow::StringType::offset_type;
       offset_type length;
       for (auto i = 0; i < num_rows; i++) {
@@ -344,7 +342,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
           offset_type length;
-          auto value = stringArray->GetValue(i, &length);
+          auto value = string_array->GetValue(i, &length);
           // write the variable value
           memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
           // write the offset and size
@@ -400,14 +398,27 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       break;
     }
     case arrow::Date32Type::type_id: {
-      auto date32Array = std::static_pointer_cast<arrow::Date32Array>(array);
+      auto date32_array = std::static_pointer_cast<arrow::Date32Array>(array);
       for (auto i = 0; i < num_rows; i++) {
         bool is_null = array->IsNull(i);
         if (is_null) {
           SetNullAt(buffer_address, offsets[i], field_offset, col_index);
         } else {
-          auto value = date32Array->Value(i);
+          auto value = date32_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int32_t));
+        }
+      }
+      break;
+    }
+    case arrow::TimestampType::type_id: {
+      auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = timestamp_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int64_t));
         }
       }
       break;
