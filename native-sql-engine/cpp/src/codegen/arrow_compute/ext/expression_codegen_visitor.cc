@@ -885,7 +885,73 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
+  } else if (func_name.compare("convertTimestampUnit") == 0) {
+    codes_str_ = "convertTimestampUnit_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
+    real_codes_str_ = codes_str_;
+    real_validity_str_ = validity;
+    auto childNode = node.children().at(0);
+    if (childNode->return_type()->id() != arrow::Type::TIMESTAMP) {
+      return arrow::Status::NotImplemented(
+        childNode->return_type(), " not currently not supported.");
+    }
+    auto ts_type =
+          std::dynamic_pointer_cast<arrow::TimestampType>(childNode->return_type());
+    std::stringstream fix_ss;
+    if (ts_type->unit() == arrow::TimeUnit::NANO) {
+      fix_ss << child_visitor_list[0]->GetResult() << " / 1000";
+    } else if (ts_type->unit() == arrow::TimeUnit::MICRO) {
+      fix_ss << child_visitor_list[0]->GetResult();
+    } else if (ts_type->unit() == arrow::TimeUnit::MILLI) {
+      fix_ss << child_visitor_list[0]->GetResult() << " * 1000";
+    } else if (ts_type->unit() == arrow::TimeUnit::SECOND) {
+      fix_ss << child_visitor_list[0]->GetResult() << " * 1000000";
+    } else {
+      return arrow::Status::NotImplemented(
+        ts_type->unit(), " not currently not supported.");
+    }
+    std::stringstream prepare_ss;
+    prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+               << std::endl;
+    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "if (" << validity << ") {" << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
+    prepare_ss << "}" << std::endl;
+
+    for (int i = 0; i < 1; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    prepare_str_ += prepare_ss.str();
+    check_str_ = validity;
+  } else if (func_name.compare("micros_to_timestamp") == 0) {
+    codes_str_ = "micros_to_timestamp_" + std::to_string(cur_func_id);
+    auto validity = codes_str_ + "_validity";
+    real_codes_str_ = codes_str_;
+    real_validity_str_ = validity;
+    std::stringstream fix_ss;
+    if (node.children().size() == 1) {
+      fix_ss << "(int64_t)" << child_visitor_list[0]->GetResult();
+    } else {
+      fix_ss << child_visitor_list[0]->GetResult() << " - " 
+             << child_visitor_list[1]->GetResult();
+    }
+    std::stringstream prepare_ss;
+    prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
+               << std::endl;
+    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
+    prepare_ss << "if (" << validity << ") {" << std::endl;
+    prepare_ss << codes_str_ << " = " << fix_ss.str() << ";" << std::endl;
+    prepare_ss << "}" << std::endl;
+
+    for (int i = 0; i < 1; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    prepare_str_ += prepare_ss.str();
+    check_str_ = validity;
   } else {
+    std::cout << "function name: " << func_name << std::endl;
     return arrow::Status::NotImplemented(func_name, " is currently not supported.");
   }
   return arrow::Status::OK();
