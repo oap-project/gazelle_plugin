@@ -651,12 +651,14 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name, ACTION_MIN);
         result_id += 1;
-        RETURN_NOT_OK(MakeMinAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
+        RETURN_NOT_OK(
+            MakeMinAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
       } else if (action_name.compare(0, ACTION_MAX.size(), ACTION_MAX) == 0) {
         auto res_type_list = {result_field_list[result_id]};
         bool NaN_check = getActionOption(action_name, ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
+        RETURN_NOT_OK(
+            MakeMaxAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
       } else if (action_name.compare("action_sum_count") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};

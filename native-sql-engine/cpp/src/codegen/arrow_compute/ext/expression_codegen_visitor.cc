@@ -892,11 +892,11 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     real_validity_str_ = validity;
     auto childNode = node.children().at(0);
     if (childNode->return_type()->id() != arrow::Type::TIMESTAMP) {
-      return arrow::Status::NotImplemented(
-        childNode->return_type(), " not currently not supported.");
+      return arrow::Status::NotImplemented(childNode->return_type(),
+                                           " not currently not supported.");
     }
     auto ts_type =
-          std::dynamic_pointer_cast<arrow::TimestampType>(childNode->return_type());
+        std::dynamic_pointer_cast<arrow::TimestampType>(childNode->return_type());
     std::stringstream fix_ss;
     if (ts_type->unit() == arrow::TimeUnit::NANO) {
       fix_ss << child_visitor_list[0]->GetResult() << " / 1000";
@@ -907,8 +907,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else if (ts_type->unit() == arrow::TimeUnit::SECOND) {
       fix_ss << child_visitor_list[0]->GetResult() << " * 1000000";
     } else {
-      return arrow::Status::NotImplemented(
-        ts_type->unit(), " not currently not supported.");
+      return arrow::Status::NotImplemented(ts_type->unit(),
+                                           " not currently not supported.");
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
@@ -933,7 +933,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     if (node.children().size() == 1) {
       fix_ss << "(int64_t)" << child_visitor_list[0]->GetResult();
     } else {
-      fix_ss << child_visitor_list[0]->GetResult() << " - " 
+      fix_ss << child_visitor_list[0]->GetResult() << " - "
              << child_visitor_list[1]->GetResult();
     }
     std::stringstream prepare_ss;

@@ -4658,11 +4658,10 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyMinMaxNaN) {
   auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
   auto n_min = TreeExprBuilder::MakeFunction("action_min_true", {arg1}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max_true", {arg1}, uint32());
-  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
-                                              {arg0, arg1}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_groupby, n_min, n_max},
-      uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions",
+                                                {n_groupby, n_min, n_max}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
@@ -4670,8 +4669,8 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyMinMaxNaN) {
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
-      {TreeExprBuilder::MakeField(f_unique),
-       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max)},
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
@@ -4715,8 +4714,7 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyMinMaxNaN) {
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, null, 6, 7, 8, 9, 10]",
-      "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10]",
+      "[1, 2, 3, 4, 5, null, 6, 7, 8, 9, 10]", "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10]",
       "[19, 9, 12, 78, NaN, NaN, 16, 7, 8, 9, NaN]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);

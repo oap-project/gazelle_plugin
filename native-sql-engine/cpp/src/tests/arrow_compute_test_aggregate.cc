@@ -169,30 +169,22 @@ TEST(TestArrowCompute, MinMaxNaNTest) {
   auto f_max = field("max", float64());
   auto f_res = field("res", int32());
 
-  auto n_proj = TreeExprBuilder::MakeFunction(
-      "aggregateExpressions", {arg_0}, uint32());
+  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions", {arg_0}, uint32());
   auto n_action =
-      TreeExprBuilder::MakeFunction("aggregateActions",
-                                    {n_min, n_max},
-                                    uint32());
+      TreeExprBuilder::MakeFunction("aggregateActions", {n_min, n_max}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
-      {TreeExprBuilder::MakeField(f_min),
-       TreeExprBuilder::MakeField(f_max)},
-      uint32());
+      {TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max)}, uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
-      {TreeExprBuilder::MakeField(f_min),
-       TreeExprBuilder::MakeField(f_max)},
-      uint32());
+      {TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max)}, uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
   auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   auto sch = arrow::schema({f0});
-  std::vector<std::shared_ptr<Field>> ret_types = {
-      f_min, f_max};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_min, f_max};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
@@ -217,8 +209,7 @@ TEST(TestArrowCompute, MinMaxNaNTest) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-  std::vector<std::string> expected_result_string = {
-      "[1]", "[NaN]"};
+  std::vector<std::string> expected_result_string = {"[1]", "[NaN]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
@@ -243,11 +234,10 @@ TEST(TestArrowCompute, GroupByMinMaxNaNTest) {
   auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
   auto n_min = TreeExprBuilder::MakeFunction("action_min_true", {arg1}, uint32());
   auto n_max = TreeExprBuilder::MakeFunction("action_max_true", {arg1}, uint32());
-  auto n_proj = TreeExprBuilder::MakeFunction("aggregateExpressions",
-                                              {arg0, arg1}, uint32());
-  auto n_action = TreeExprBuilder::MakeFunction(
-      "aggregateActions", {n_groupby, n_min, n_max},
-      uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions",
+                                                {n_groupby, n_min, n_max}, uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
@@ -255,8 +245,8 @@ TEST(TestArrowCompute, GroupByMinMaxNaNTest) {
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
-      {TreeExprBuilder::MakeField(f_unique),
-       TreeExprBuilder::MakeField(f_min), TreeExprBuilder::MakeField(f_max)},
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
@@ -266,7 +256,7 @@ TEST(TestArrowCompute, GroupByMinMaxNaNTest) {
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
 
   auto sch = arrow::schema({f0, f1});
-  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_min,f_max};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_min, f_max};
 
   /////////////////////// Create Expression Evaluator ////////////////////
   std::shared_ptr<CodeGenerator> expr;
@@ -299,8 +289,7 @@ TEST(TestArrowCompute, GroupByMinMaxNaNTest) {
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4, 5, null, 6, 7, 8, 9, 10]",
-      "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10]",
+      "[1, 2, 3, 4, 5, null, 6, 7, 8, 9, 10]", "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10]",
       "[19, 9, 12, 78, NaN, NaN, 16, 7, 8, 9, NaN]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
