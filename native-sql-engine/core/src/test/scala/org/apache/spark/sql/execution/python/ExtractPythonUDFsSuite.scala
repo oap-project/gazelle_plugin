@@ -39,6 +39,11 @@ class ExtractPythonUDFsSuite extends SparkPlanTest with SharedSparkSession {
     case b: ArrowEvalPythonExec => b
   }
 
+  private def collectColumnarArrowExec(plan: SparkPlan)
+      : Seq[ColumnarArrowEvalPythonExec] = plan.collect {
+    case b: ColumnarArrowEvalPythonExec => b
+  }
+
   test("Chained Batched Python UDFs should be combined to a single physical node") {
     val df = Seq(("Hello", 4)).toDF("a", "b")
     val df2 = df.withColumn("c", batchedPythonUDF(col("a")))
@@ -51,7 +56,7 @@ class ExtractPythonUDFsSuite extends SparkPlanTest with SharedSparkSession {
     val df = Seq(("Hello", 4)).toDF("a", "b")
     val df2 = df.withColumn("c", scalarPandasUDF(col("a")))
       .withColumn("d", scalarPandasUDF(col("c")))
-    val arrowEvalNodes = collectArrowExec(df2.queryExecution.executedPlan)
+    val arrowEvalNodes = collectColumnarArrowExec(df2.queryExecution.executedPlan)
     assert(arrowEvalNodes.size == 1)
   }
 
@@ -61,7 +66,7 @@ class ExtractPythonUDFsSuite extends SparkPlanTest with SharedSparkSession {
       .withColumn("d", scalarPandasUDF(col("b")))
 
     val pythonEvalNodes = collectBatchExec(df2.queryExecution.executedPlan)
-    val arrowEvalNodes = collectArrowExec(df2.queryExecution.executedPlan)
+    val arrowEvalNodes = collectColumnarArrowExec(df2.queryExecution.executedPlan)
     assert(pythonEvalNodes.size == 1)
     assert(arrowEvalNodes.size == 1)
   }
@@ -74,7 +79,7 @@ class ExtractPythonUDFsSuite extends SparkPlanTest with SharedSparkSession {
       .withColumn("d2", scalarPandasUDF(col("d1")))
 
     val pythonEvalNodes = collectBatchExec(df2.queryExecution.executedPlan)
-    val arrowEvalNodes = collectArrowExec(df2.queryExecution.executedPlan)
+    val arrowEvalNodes = collectColumnarArrowExec(df2.queryExecution.executedPlan)
     assert(pythonEvalNodes.size == 1)
     assert(arrowEvalNodes.size == 1)
   }
@@ -87,7 +92,7 @@ class ExtractPythonUDFsSuite extends SparkPlanTest with SharedSparkSession {
       .withColumn("d2", scalarPandasUDF(col("c2")))
 
     val pythonEvalNodes = collectBatchExec(df2.queryExecution.executedPlan)
-    val arrowEvalNodes = collectArrowExec(df2.queryExecution.executedPlan)
+    val arrowEvalNodes = collectColumnarArrowExec(df2.queryExecution.executedPlan)
     assert(pythonEvalNodes.size == 2)
     assert(arrowEvalNodes.size == 2)
   }

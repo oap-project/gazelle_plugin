@@ -20,8 +20,8 @@ package org.apache.spark.sql.execution.adaptive
 import java.io.File
 import java.net.URI
 
+import com.intel.oap.execution.ColumnarBroadcastHashJoinExec
 import org.apache.log4j.Level
-
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.{Dataset, QueryTest, Row, SparkSession, Strategy}
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight}
@@ -898,7 +898,7 @@ class AdaptiveQueryExecSuite
         val (_, adaptivePlan) = runAdaptiveAndVerifyResult(
           "SELECT * FROM testData join testData2 ON key = a where value = '1'")
         val join = collect(adaptivePlan) {
-          case j: BroadcastHashJoinExec => j
+          case j: ColumnarBroadcastHashJoinExec => j
         }.head
         assert(join.buildSide == BuildLeft)
 
