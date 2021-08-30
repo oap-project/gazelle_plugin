@@ -307,11 +307,11 @@ class SortArraysToIndicesKernel::Impl {
                          std::vector<arrow::ArrayVector> cached)
         : ctx_(ctx),
           schema_(schema),
-          indices_in_cache_(indices_in),
           total_length_(indices_in->length()),
+          indices_in_cache_(std::move(indices_in)),
           cached_in_(std::move(cached)) {
       col_num_ = schema->num_fields();
-      indices_begin_ = (ArrayItemIndexS*)indices_in->value_data();
+      indices_begin_ = (ArrayItemIndexS*)indices_in_cache_->value_data();
       // appender_type won't be used
       AppenderBase::AppenderType appender_type = AppenderBase::left;
       for (int i = 0; i < col_num_; i++) {
@@ -374,6 +374,9 @@ class SortArraysToIndicesKernel::Impl {
 
     bool HasNext() override {
       if (offset_ >= total_length_) {
+        std::cout << "before: " << ctx_->memory_pool()->bytes_allocated() << "\n";
+        indices_in_cache_.reset();
+        std::cout << "after: " << ctx_->memory_pool()->bytes_allocated() << "\n";
         return false;
       }
       return true;
@@ -1945,7 +1948,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     std::shared_ptr<arrow::FixedSizeBinaryType> out_type;
     RETURN_NOT_OK(
         MakeFixedSizeBinaryType(sizeof(ArrayItemIndexS) / sizeof(int32_t), &out_type));
-    RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, indices_buf, out));
+    RETURN_NOT_OK(MakeFixedSizeBinaryArray(out_type, items_total_, std::move(indices_buf), out));
     return arrow::Status::OK();
   }
 
