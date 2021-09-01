@@ -94,6 +94,16 @@ object SparkMemoryUtils extends Logging {
       LegacyBufferLedger.FACTORY
     }
 
+    val sparkManagedAllocationListener = new SparkManagedAllocationListener(
+      new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
+      sharedMetrics)
+    val directAllocationListener = DirectAllocationListener.INSTANCE
+
+    val allocListener: AllocationListener = if (isArrowAutoReleaseEnabled) {
+      new AllocationListenerList(sparkManagedAllocationListener, directAllocationListener)
+    } else {
+      sparkManagedAllocationListener
+    }
 
     private def collectStackForDebug = {
       if (DEBUG) {
@@ -112,13 +122,10 @@ object SparkMemoryUtils extends Logging {
     private val memoryPools = new util.ArrayList[NativeMemoryPoolWrapper]()
 
     val defaultAllocator: BufferAllocator = {
-      val al = new SparkManagedAllocationListener(
-        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
-        sharedMetrics)
       val alloc = new RootAllocator(ImmutableConfig.builder()
           .maxAllocation(Long.MaxValue)
           .bufferLedgerFactory(ledgerFactory)
-          .listener(new AllocationListenerList(al, DirectAllocationListener.INSTANCE))
+          .listener(allocListener)
           .build)
       allocators.add(alloc)
       alloc
