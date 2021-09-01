@@ -70,7 +70,7 @@ class ColumnarHashAggregation(
 
   var inputAttrQueue: scala.collection.mutable.Queue[Attribute] = _
   val resultType = CodeGeneration.getResultType()
-  val NaN_check : Boolean = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+  val NaN_check : Boolean = GazellePluginConfig.getConf.enableColumnarNaNCheck
 
   def getColumnarFuncNode(expr: Expression): TreeNode = {
     try {
