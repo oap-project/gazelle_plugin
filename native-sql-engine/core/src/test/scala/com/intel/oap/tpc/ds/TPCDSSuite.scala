@@ -53,6 +53,8 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
         .set("spark.network.io.preferDirectBufs", "false")
         .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
         .set("spark.sql.autoBroadcastJoinThreshold", "-1")
+        .set("spark.oap.sql.columnar.sortmergejoin.lazyread", "true")
+        .set("spark.oap.sql.columnar.autorelease", "true")
     return conf
   }
 
@@ -96,8 +98,20 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     runner.runTPCQuery("q1", 1, true)
   }
 
+  test("smj query 2") {
+    runner.runTPCQuery("q24a", 1, true)
+  }
+
+  test("smj query 3") {
+    runner.runTPCQuery("q95", 1, true)
+  }
+
+  test("q47") {
+    runner.runTPCQuery("q47", 1, true)
+  }
+
   test("window function with non-decimal input") {
-    val df = spark.sql("SELECT i_item_sk, i_class_id, SUM(i_category_id)" +
+    val df = spark.sql("SELECT i_item_sk, i_clalss_id, SUM(i_category_id)" +
             " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
     df.explain()
     df.show()
