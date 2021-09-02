@@ -202,26 +202,27 @@ arrow::Result<arrow::RecordBatchIterator> MakeJavaRecordBatchIterator(
 
 jobject MakeRecordBatchBuilder(JNIEnv* env, std::shared_ptr<arrow::Schema> schema,
                                std::shared_ptr<arrow::RecordBatch> record_batch) {
-  jobjectArray field_array =
-      env->NewObjectArray(schema->num_fields(), arrow_field_node_builder_class, nullptr);
-
+  std::vector<std::pair<int64_t, int64_t>> nodes;
   std::vector<std::shared_ptr<arrow::Buffer>> buffers;
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto column = record_batch->column(i);
-    auto dataArray = column->data();
-    jobject field = env->NewObject(arrow_field_node_builder_class,
-                                   arrow_field_node_builder_constructor, column->length(),
-                                   column->null_count());
-    env->SetObjectArrayElement(field_array, i, field);
-
-    for (auto& buffer : dataArray->buffers) {
-      buffers.push_back(buffer);
-    }
+    AppendNodes(column, &nodes);
+    AppendBuffers(column, &buffers);
   }
+
+  jobjectArray field_array =
+      env->NewObjectArray(nodes.size(), arrow_field_node_builder_class, nullptr);
 
   jobjectArray arrowbuf_builder_array =
       env->NewObjectArray(buffers.size(), arrowbuf_builder_class, nullptr);
 
+  int node_idx = 0;
+  for (auto node : nodes) {
+    jobject field =
+        env->NewObject(arrow_field_node_builder_class,
+                       arrow_field_node_builder_constructor, node.first, node.second);
+    env->SetObjectArrayElement(field_array, node_idx++, field);
+  }
   for (size_t j = 0; j < buffers.size(); ++j) {
     auto buffer = buffers[j];
     uint8_t* data = nullptr;
@@ -1477,18 +1478,12 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
   auto in_buf_sizes = env->GetLongArrayElements(buf_sizes, JNI_FALSE);
   auto in_buf_mask = env->GetLongArrayElements(buf_mask, JNI_FALSE);
 
-  auto num_fields = schema->num_fields();
-
   std::vector<std::shared_ptr<arrow::Buffer>> input_buffers;
   input_buffers.reserve(in_bufs_len);
-  for (auto field_idx = 0, buffer_idx = 0; field_idx < num_fields; ++field_idx) {
-    auto field = schema->field(field_idx);
-    auto num_buf = arrow::is_base_binary_like(field->type()->id()) ? 3 : 2;
-    for (auto i = 0; i < num_buf; ++i, ++buffer_idx) {
-      input_buffers.push_back(std::make_shared<arrow::Buffer>(
-          reinterpret_cast<const uint8_t*>(in_buf_addrs[buffer_idx]),
-          in_buf_sizes[buffer_idx]));
-    }
+  for (auto buffer_idx = 0; buffer_idx < in_bufs_len; buffer_idx++) {
+    input_buffers.push_back(std::make_shared<arrow::Buffer>(
+        reinterpret_cast<const uint8_t*>(in_buf_addrs[buffer_idx]),
+        in_buf_sizes[buffer_idx]));
   }
 
   // decompress buffers
@@ -1497,10 +1492,12 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
   auto status = DecompressBuffers(compression_type, options, (uint8_t*)in_buf_mask,
                                   input_buffers, schema->fields());
   if (!status.ok()) {
-    env->ThrowNew(
-        io_exception_class,
-        std::string("failed to decompress buffers, error message is " + status.message())
-            .c_str());
+    env->ThrowNew(io_exception_class,
+                  std::string("ShuffleDecompressionJniWrapper_decompress, failed to "
+                              "decompress buffers, error message is " +
+                              status.message())
+                      .c_str());
+    return nullptr;
   }
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
@@ -1508,21 +1505,17 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
   env->ReleaseLongArrayElements(buf_mask, in_buf_mask, JNI_ABORT);
 
   // make arrays from buffers
-  std::vector<std::shared_ptr<arrow::ArrayData>> arrays;
-  for (auto field_idx = 0, buffer_idx = 0; field_idx < num_fields; ++field_idx) {
-    auto field = schema->field(field_idx);
-    auto num_buf = arrow::is_base_binary_like(field->type()->id()) ? 3 : 2;
-
-    std::vector<std::shared_ptr<arrow::Buffer>> bufs;
-    bufs.reserve(num_buf);
-    for (auto i = 0; i < num_buf; ++i, ++buffer_idx) {
-      bufs.push_back(std::move(input_buffers[buffer_idx]));
-    }
-    arrays.push_back(arrow::ArrayData::Make(field->type(), num_rows, std::move(bufs)));
+  std::shared_ptr<arrow::RecordBatch> rb;
+  status = MakeRecordBatch(schema, num_rows, input_buffers, input_buffers.size(), &rb);
+  if (!status.ok()) {
+    env->ThrowNew(io_exception_class,
+                  std::string("ShuffleDecompressionJniWrapper_decompress, failed to "
+                              "MakeRecordBatch upon buffers, error message is " +
+                              status.message())
+                      .c_str());
+    return nullptr;
   }
-
-  return MakeRecordBatchBuilder(
-      env, schema, arrow::RecordBatch::Make(schema, num_rows, std::move(arrays)));
+  return MakeRecordBatchBuilder(env, schema, rb);
 }
 
 JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(

@@ -54,6 +54,7 @@ object ArrowUtils {
       } else {
         new ArrowType.Timestamp(TimeUnit.MICROSECOND, "UTC")
       }
+    case at: ArrayType => ArrowType.List.INSTANCE
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: ${dt.catalogString}")
   }

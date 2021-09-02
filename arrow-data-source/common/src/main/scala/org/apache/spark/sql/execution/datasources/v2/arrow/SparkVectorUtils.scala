@@ -21,11 +21,17 @@ import scala.collection.JavaConverters._
 
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.memory.ArrowBuf
-import org.apache.arrow.vector.FieldVector
-import org.apache.arrow.vector.TypeLayout
-import org.apache.arrow.vector.ValueVector
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
+import org.apache.arrow.vector.{
+  BaseFixedWidthVector,
+  BaseVariableWidthVector,
+  FieldVector,
+  TypeLayout,
+  VectorLoader,
+  ValueVector,
+  VectorSchemaRoot
+}
 
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
@@ -49,8 +55,7 @@ object SparkVectorUtils {
     toArrowRecordBatch(numRowsInBatch, cols)
   }
 
-  def toArrowRecordBatch(numRows: Int,
-      cols: List[ValueVector]): ArrowRecordBatch = {
+  def toArrowRecordBatch(numRows: Int, cols: List[ValueVector]): ArrowRecordBatch = {
     val nodes = new java.util.ArrayList[ArrowFieldNode]()
     val buffers = new java.util.ArrayList[ArrowBuf]()
     cols.foreach(vector => {
@@ -59,19 +64,48 @@ object SparkVectorUtils {
     new ArrowRecordBatch(numRows, nodes, buffers);
   }
 
-  private def appendNodes(
+  def getArrowBuffers(vector: FieldVector): Array[ArrowBuf] = {
+    try {
+      vector.getFieldBuffers.asScala.toArray
+    } catch {
+      case _  : Throwable =>
+        vector match {
+          case fixed: BaseFixedWidthVector =>
+            Array(fixed.getValidityBuffer, fixed.getDataBuffer)
+          case variable: BaseVariableWidthVector =>
+            Array(variable.getValidityBuffer, variable.getOffsetBuffer, variable.getDataBuffer)
+          case _ =>
+            throw new UnsupportedOperationException(
+              s"Could not decompress vector of class ${vector.getClass}")
+        }
+    }
+  }
+
+  def appendNodes(
       vector: FieldVector,
       nodes: java.util.List[ArrowFieldNode],
-      buffers: java.util.List[ArrowBuf]): Unit = {
-    nodes.add(new ArrowFieldNode(vector.getValueCount, vector.getNullCount))
-    val fieldBuffers = vector.getFieldBuffers
+      buffers: java.util.List[ArrowBuf],
+      bits: java.util.List[Boolean] = null): Unit = {
+    if (nodes != null) {
+      nodes.add(new ArrowFieldNode(vector.getValueCount, vector.getNullCount))
+    }
+    val fieldBuffers = getArrowBuffers(vector)
     val expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField.getType)
     if (fieldBuffers.size != expectedBufferCount) {
       throw new IllegalArgumentException(
         s"Wrong number of buffers for field ${vector.getField} in vector " +
-            s"${vector.getClass.getSimpleName}. found: ${fieldBuffers}")
+          s"${vector.getClass.getSimpleName}. found: ${fieldBuffers}")
     }
-    buffers.addAll(fieldBuffers)
-    vector.getChildrenFromFields.asScala.foreach(child => appendNodes(child, nodes, buffers))
+    import collection.JavaConversions._
+    buffers.addAll(fieldBuffers.toSeq)
+    if (bits != null) {
+      val bits_tmp = Array.fill[Boolean](expectedBufferCount)(false)
+      bits_tmp(0) = true
+      bits.addAll(bits_tmp.toSeq)
+      vector.getChildrenFromFields.asScala.foreach(child =>
+        appendNodes(child, nodes, buffers, bits))
+    } else {
+      vector.getChildrenFromFields.asScala.foreach(child => appendNodes(child, nodes, buffers))
+    }
   }
 }

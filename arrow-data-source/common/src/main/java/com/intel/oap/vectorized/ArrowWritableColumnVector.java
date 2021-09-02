@@ -776,7 +776,15 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   public UTF8String getUTF8String(int rowId) {
     if (isNullAt(rowId))
       return null;
-    return accessor.getUTF8String(rowId);
+    if (dataType() instanceof ArrayType) {
+      UTF8String ret_0 = accessor.getUTF8String(rowId);
+      for (int i = 0; i < ((ArrayAccessor) accessor).getArrayLength(rowId); i++) {
+        ret_0 = UTF8String.concat(ret_0, getArray(rowId).getUTF8String(i));
+      }
+      return ret_0;
+    } else {
+      return accessor.getUTF8String(rowId);
+    }
   }
 
   @Override
@@ -1165,13 +1173,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   private static class ArrayAccessor extends ArrowVectorAccessor {
     private final ListVector accessor;
-    ArrowWritableColumnVector arrayData;
 
     ArrayAccessor(ListVector vector) {
       super(vector);
       this.accessor = vector;
-      arrayData =
-          new ArrowWritableColumnVector(vector.getDataVector(), 0, vector.size(), false);
     }
 
     @Override
@@ -1196,6 +1201,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     public int getArrayOffset(int rowId) {
       int index = rowId * ListVector.OFFSET_WIDTH;
       return accessor.getOffsetBuffer().getInt(index);
+    }
+
+    @Override
+    final UTF8String getUTF8String(int rowId) {
+      return UTF8String.fromString(
+          "Array[" + getArrayOffset(rowId) + "-" + getArrayLength(rowId) + "]");
     }
   }
 
@@ -1849,11 +1860,23 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   private static class ArrayWriter extends ArrowVectorWriter {
     private final ListVector writer;
-    // private final ArrowWritableColumnVector arrayData;
 
     ArrayWriter(ListVector vector, ArrowVectorWriter elementVector) {
       super(vector);
       this.writer = vector;
+    }
+
+    @Override
+    void setArray(int rowId, int offset, int length) {
+      int index = rowId * ListVector.OFFSET_WIDTH;
+      writer.getOffsetBuffer().setInt(index, offset);
+      writer.getOffsetBuffer().setInt(index + ListVector.OFFSET_WIDTH, offset + length);
+      writer.setNotNull(rowId);
+    }
+
+    @Override
+    final void setNull(int rowId) {
+      writer.setNull(rowId);
     }
   }
 

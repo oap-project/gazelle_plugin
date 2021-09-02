@@ -100,56 +100,183 @@ jmethodID GetStaticMethodID(JNIEnv* env, jclass this_class, const char* name,
   return ret;
 }
 
+std::shared_ptr<arrow::DataType> GetOffsetDataType(
+    std::shared_ptr<arrow::DataType> parent_type) {
+  switch (parent_type->id()) {
+    case arrow::BinaryType::type_id:
+      return std::make_shared<arrow::TypeTraits<arrow::BinaryType>::OffsetType>();
+    case arrow::LargeBinaryType::type_id:
+      return std::make_shared<arrow::TypeTraits<arrow::LargeBinaryType>::OffsetType>();
+    case arrow::ListType::type_id:
+      return std::make_shared<arrow::TypeTraits<arrow::ListType>::OffsetType>();
+    case arrow::LargeListType::type_id:
+      return std::make_shared<arrow::TypeTraits<arrow::LargeListType>::OffsetType>();
+    default:
+      return nullptr;
+  }
+}
+
+template <typename T>
+bool is_fixed_width_type(T _) {
+  return std::is_base_of<arrow::FixedWidthType, T>::value;
+}
+
+arrow::Status AppendNodes(std::shared_ptr<arrow::Array> column,
+                          std::vector<std::pair<int64_t, int64_t>>* nodes) {
+  auto type = column->type();
+  (*nodes).push_back(std::make_pair(column->length(), column->null_count()));
+  switch (type->id()) {
+    case arrow::Type::LIST:
+    case arrow::Type::LARGE_LIST: {
+      auto list_array = std::dynamic_pointer_cast<arrow::ListArray>(column);
+      RETURN_NOT_OK(AppendNodes(list_array->values(), nodes));
+    } break;
+    default: {
+    } break;
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status AppendBuffers(std::shared_ptr<arrow::Array> column,
+                            std::vector<std::shared_ptr<arrow::Buffer>>* buffers) {
+  auto type = column->type();
+  switch (type->id()) {
+    case arrow::Type::LIST:
+    case arrow::Type::LARGE_LIST: {
+      auto list_array = std::dynamic_pointer_cast<arrow::ListArray>(column);
+      (*buffers).push_back(list_array->null_bitmap());
+      (*buffers).push_back(list_array->value_offsets());
+      RETURN_NOT_OK(AppendBuffers(list_array->values(), buffers));
+    } break;
+    default: {
+      for (auto& buffer : column->data()->buffers) {
+        (*buffers).push_back(buffer);
+      }
+    } break;
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status FIXOffsetBuffer(std::shared_ptr<arrow::Buffer>* in_buf, int fix_row) {
+  if ((*in_buf) == nullptr || (*in_buf)->size() == 0) return arrow::Status::OK();
+  if ((*in_buf)->size() * 8 <= fix_row) {
+    ARROW_ASSIGN_OR_RAISE(auto valid_copy, arrow::AllocateBuffer((*in_buf)->size() + 1));
+    std::memcpy(valid_copy->mutable_data(), (*in_buf)->data(),
+                static_cast<size_t>((*in_buf)->size()));
+    (*in_buf) = std::move(valid_copy);
+  }
+  arrow::BitUtil::SetBitsTo(const_cast<uint8_t*>((*in_buf)->data()), fix_row, 1, true);
+  return arrow::Status::OK();
+}
+
+arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
+                            std::vector<std::shared_ptr<arrow::Buffer>> in_bufs,
+                            int in_bufs_len, std::shared_ptr<arrow::ArrayData>* arr_data,
+                            int* buf_idx_ptr) {
+  if (arrow::is_nested(type->id())) {
+    // Maybe ListType, MapType, StructType or UnionType
+    switch (type->id()) {
+      case arrow::Type::LIST:
+      case arrow::Type::LARGE_LIST: {
+        auto offset_data_type = GetOffsetDataType(type);
+        auto list_type = std::dynamic_pointer_cast<arrow::ListType>(type);
+        auto child_type = list_type->value_type();
+        std::shared_ptr<arrow::ArrayData> child_array_data, offset_array_data;
+        // create offset array
+        // Chendi: For some reason, for ListArray::FromArrays will remove last row from
+        // offset array, refer to array_nested.cc CleanListOffsets function
+        FIXOffsetBuffer(&in_bufs[*buf_idx_ptr], num_rows);
+        RETURN_NOT_OK(MakeArrayData(offset_data_type, num_rows + 1, in_bufs, in_bufs_len,
+                                    &offset_array_data, buf_idx_ptr));
+        auto offset_array = arrow::MakeArray(offset_array_data);
+        // create child data array
+        RETURN_NOT_OK(MakeArrayData(child_type, -1, in_bufs, in_bufs_len,
+                                    &child_array_data, buf_idx_ptr));
+        auto child_array = arrow::MakeArray(child_array_data);
+        auto list_array =
+            arrow::ListArray::FromArrays(*offset_array, *child_array).ValueOrDie();
+        *arr_data = list_array->data();
+
+      } break;
+      default:
+        return arrow::Status::NotImplemented("MakeArrayData for type ", type->ToString(),
+                                             " is not supported yet.");
+    }
+
+  } else {
+    int64_t null_count = arrow::kUnknownNullCount;
+    std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+    if (*buf_idx_ptr >= in_bufs_len) {
+      return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+    }
+    if (in_bufs[*buf_idx_ptr]->size() == 0) {
+      null_count = 0;
+    }
+    buffers.push_back(in_bufs[*buf_idx_ptr]);
+    *buf_idx_ptr += 1;
+
+    if (arrow::is_binary_like(type->id())) {
+      if (*buf_idx_ptr >= in_bufs_len) {
+        return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+      }
+
+      buffers.push_back(in_bufs[*buf_idx_ptr]);
+      auto offsets_size = in_bufs[*buf_idx_ptr]->size();
+      *buf_idx_ptr += 1;
+      if (num_rows == -1) num_rows = offsets_size / 4 - 1;
+    }
+
+    if (*buf_idx_ptr >= in_bufs_len) {
+      return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+    }
+    auto value_size = in_bufs[*buf_idx_ptr]->size();
+    buffers.push_back(in_bufs[*buf_idx_ptr]);
+    *buf_idx_ptr += 1;
+    if (num_rows == -1) {
+      num_rows = value_size * 8 / arrow::bit_width(type->id());
+    }
+
+    *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), null_count);
+  }
+  return arrow::Status::OK();
+}
+
 arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema, int num_rows,
-                              int64_t* in_buf_addrs, int64_t* in_buf_sizes,
+                              std::vector<std::shared_ptr<arrow::Buffer>> in_bufs,
                               int in_bufs_len,
                               std::shared_ptr<arrow::RecordBatch>* batch) {
   std::vector<std::shared_ptr<arrow::ArrayData>> arrays;
   auto num_fields = schema->num_fields();
   int buf_idx = 0;
-  int sz_idx = 0;
 
   for (int i = 0; i < num_fields; i++) {
     auto field = schema->field(i);
-    std::vector<std::shared_ptr<arrow::Buffer>> buffers;
-
-    if (buf_idx >= in_bufs_len) {
-      return arrow::Status::Invalid("insufficient number of in_buf_addrs");
-    }
-    int64_t validity_addr = in_buf_addrs[buf_idx++];
-    int64_t validity_size = in_buf_sizes[sz_idx++];
-    auto validity = std::shared_ptr<arrow::Buffer>(
-        new arrow::Buffer(reinterpret_cast<uint8_t*>(validity_addr), validity_size));
-    buffers.push_back(validity);
-
-    if (arrow::is_binary_like(field->type()->id())) {
-      if (buf_idx >= in_bufs_len) {
-        return arrow::Status::Invalid("insufficient number of in_buf_addrs");
-      }
-
-      // add offsets buffer for variable-len fields.
-      int64_t offsets_addr = in_buf_addrs[buf_idx++];
-      int64_t offsets_size = in_buf_sizes[sz_idx++];
-      auto offsets = std::shared_ptr<arrow::Buffer>(
-          new arrow::Buffer(reinterpret_cast<uint8_t*>(offsets_addr), offsets_size));
-      buffers.push_back(offsets);
-    }
-
-    if (buf_idx >= in_bufs_len) {
-      return arrow::Status::Invalid("insufficient number of in_buf_addrs");
-    }
-    int64_t value_addr = in_buf_addrs[buf_idx++];
-    int64_t value_size = in_buf_sizes[sz_idx++];
-    auto data = std::shared_ptr<arrow::Buffer>(
-        new arrow::Buffer(reinterpret_cast<uint8_t*>(value_addr), value_size));
-    buffers.push_back(data);
-
-    auto array_data = arrow::ArrayData::Make(field->type(), num_rows, std::move(buffers));
+    std::shared_ptr<arrow::ArrayData> array_data;
+    RETURN_NOT_OK(MakeArrayData(field->type(), num_rows, in_bufs, in_bufs_len,
+                                &array_data, &buf_idx));
     arrays.push_back(array_data);
   }
 
   *batch = arrow::RecordBatch::Make(schema, num_rows, arrays);
   return arrow::Status::OK();
+}
+
+arrow::Status MakeRecordBatch(const std::shared_ptr<arrow::Schema>& schema, int num_rows,
+                              int64_t* in_buf_addrs, int64_t* in_buf_sizes,
+                              int in_bufs_len,
+                              std::shared_ptr<arrow::RecordBatch>* batch) {
+  std::vector<std::shared_ptr<arrow::ArrayData>> arrays;
+  std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+  for (int i = 0; i < in_bufs_len; i++) {
+    if (in_buf_addrs[i] != 0) {
+      auto data = std::shared_ptr<arrow::Buffer>(new arrow::Buffer(
+          reinterpret_cast<uint8_t*>(in_buf_addrs[i]), in_buf_sizes[i]));
+      buffers.push_back(data);
+    } else {
+      buffers.push_back(std::make_shared<arrow::Buffer>(nullptr, 0));
+    }
+  }
+  return MakeRecordBatch(schema, num_rows, buffers, in_bufs_len, batch);
 }
 
 std::string JStringToCString(JNIEnv* env, jstring string) {
@@ -245,7 +372,6 @@ Status DecompressBuffer(const arrow::Buffer& buffer, arrow::util::Codec* codec,
   int64_t compressed_size = buffer.size() - sizeof(int64_t);
   int64_t uncompressed_size =
       arrow::BitUtil::FromLittleEndian(arrow::util::SafeLoadAs<int64_t>(data));
-
   ARROW_ASSIGN_OR_RAISE(auto uncompressed, AllocateBuffer(uncompressed_size, pool));
 
   int64_t actual_decompressed;
@@ -343,6 +469,9 @@ arrow::Status DecompressBuffers(
     }
     // if the buffer has been rebuilt to uncompressed on java side, return
     if (arrow::BitUtil::GetBit(buf_mask, i)) {
+      ARROW_ASSIGN_OR_RAISE(auto valid_copy,
+                            buffers[i]->CopySlice(0, buffers[i]->size()));
+      buffers[i] = valid_copy;
       return arrow::Status::OK();
     }
 

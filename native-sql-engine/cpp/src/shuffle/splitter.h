@@ -126,11 +126,22 @@ class Splitter {
 
   arrow::Status SplitLargeBinaryArray(const arrow::RecordBatch& rb);
 
+  arrow::Status SplitListArray(const arrow::RecordBatch& rb);
+
+  arrow::Status SplitLargeListArray(const arrow::RecordBatch& rb);
+
   template <typename T, typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
             typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
   arrow::Status AppendBinary(
       const std::shared_ptr<ArrayType>& src_arr,
       const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
+
+  template <typename T, typename ValueType,
+            typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
+            typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
+  arrow::Status AppendList(const std::shared_ptr<ArrayType>& src_arr,
+                           const std::vector<std::shared_ptr<BuilderType>>& dst_builders,
+                           int64_t num_rows);
 
   // Cache the partition buffer/builder as compressed record batch. If reset
   // buffers, the partition buffer/builder will be set to nullptr. Two cases for
@@ -167,6 +178,9 @@ class Splitter {
       partition_binary_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
       partition_large_binary_builders_;
+  std::vector<std::vector<std::shared_ptr<arrow::ListBuilder>>> partition_list_builders_;
+  std::vector<std::vector<std::shared_ptr<arrow::LargeListBuilder>>>
+      partition_large_list_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
       partition_cached_recordbatch_;
   std::vector<int64_t> partition_cached_recordbatch_size_;  // in bytes
@@ -174,6 +188,8 @@ class Splitter {
   std::vector<int32_t> fixed_width_array_idx_;
   std::vector<int32_t> binary_array_idx_;
   std::vector<int32_t> large_binary_array_idx_;
+  std::vector<int32_t> list_array_idx_;
+  std::vector<int32_t> large_list_array_idx_;
 
   bool empirical_size_calculated_ = false;
   std::vector<int32_t> binary_array_empirical_size_;
@@ -197,7 +213,7 @@ class Splitter {
   int64_t total_compute_pid_time_ = 0;
   std::vector<int64_t> partition_lengths_;
 
-  std::vector<Type::typeId> column_type_id_;
+  std::vector<std::shared_ptr<arrow::DataType>> column_type_id_;
 
   // configured local dirs for spilled file
   int32_t dir_selection_ = 0;

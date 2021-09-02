@@ -85,26 +85,31 @@ class ColumnarProjection (
     }
   }
 
-  val (ordinalList, arrowSchema) = if (projPrepareList.size > 0 &&
-    (s"${projPrepareList.map(_.toProtobuf)}".contains("fnNode") || projPrepareList.size != inputList.size)) {
-    val inputFieldList = inputList.asScala.toList.distinct
-    val schema = new Schema(inputFieldList.asJava)
-    projector = Projector.make(schema, projPrepareList.toList.asJava)
-    (inputFieldList.map(field => {
-      field.getName.replace("c_", "").toInt
-    }),
-    schema)
-  } else {
-    val inputFieldList = inputList.asScala.toList
-    (inputFieldList.map(field => {
-      field.getName.replace("c_", "").toInt
-    }),
-    new Schema(inputFieldList.asJava))
+  val (ordinalList, arrowSchema) = {
+    var protoBufTest: String = null
+    try {
+      protoBufTest = s"${projPrepareList.map(_.toProtobuf)}"
+    } catch {
+      case _ => protoBufTest = null
+    }
+    if (protoBufTest != null && projPrepareList.size > 0 &&
+        (protoBufTest.contains("fnNode") || projPrepareList.size != inputList.size)) {
+      val inputFieldList = inputList.asScala.toList.distinct
+      val schema = new Schema(inputFieldList.asJava)
+      projector = Projector.make(schema, projPrepareList.toList.asJava)
+      (inputFieldList.map(field => {
+        field.getName.replace("c_", "").toInt
+      }), schema)
+    } else {
+      val inputFieldList = inputList.asScala.toList
+      (inputFieldList.map(field => {
+        field.getName.replace("c_", "").toInt
+      }), new Schema(inputFieldList.asJava))
+    }
   }
   //System.out.println(s"Project input ordinal is ${ordinalList}, Schema is ${arrowSchema}")
-  val outputArrowSchema = new Schema(resultAttributes.map(attr => {
-    Field.nullable(s"${attr.name}#${attr.exprId.id}", CodeGeneration.getResultType(attr.dataType))
-  }).asJava)
+  val outputArrowSchema = new Schema(
+    resultAttributes.map(attr => ConverterUtils.createArrowField(attr)).asJava)
   val outputSchema = ArrowUtils.fromArrowSchema(outputArrowSchema)
 
   def output(): List[AttributeReference] = {

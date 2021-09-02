@@ -33,6 +33,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.Utils
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 class ColumnarShuffleWriter[K, V](
@@ -119,19 +120,14 @@ class ColumnarShuffleWriter[K, V](
       } else {
         val bufAddrs = new ListBuffer[Long]()
         val bufSizes = new ListBuffer[Long]()
-        (0 until cb.numCols).foreach { idx =>
-          val column = cb.column(idx).asInstanceOf[ArrowWritableColumnVector]
-          column.getValueVector
-            .getBuffers(false)
-            .foreach { buffer =>
-              bufAddrs += buffer.memoryAddress()
-              bufSizes += buffer.readableBytes()
-            }
+        val recordBatch = ConverterUtils.createArrowRecordBatch(cb)
+        recordBatch.getBuffers().asScala.foreach { buffer => bufAddrs += buffer.memoryAddress() }
+        recordBatch.getBuffersLayout().asScala.foreach { bufLayout =>
+          bufSizes += bufLayout.getSize()
         }
         dep.dataSize.add(bufSizes.sum)
 
         val startTime = System.nanoTime()
-
         val existingIntType: Boolean = if (firstRecordBatch) {
           // Check whether the recordbatch contain the Int data type.
           val arrowSchema = ConverterUtils.getSchemaFromBytesBuf(dep.nativePartitioning.getSchema)
@@ -167,6 +163,7 @@ class ColumnarShuffleWriter[K, V](
         dep.splitTime.add(System.nanoTime() - startTime)
         dep.numInputRows.add(cb.numRows)
         writeMetrics.incRecordsWritten(1)
+        ConverterUtils.releaseArrowRecordBatch(recordBatch)
       }
     }
 

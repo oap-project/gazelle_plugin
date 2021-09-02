@@ -34,10 +34,7 @@ import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
 import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
-import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
-import org.apache.arrow.vector.types.pojo.ArrowType
-import org.apache.arrow.vector.types.pojo.Field
-import org.apache.arrow.vector.types.pojo.Schema
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.evaluator._
 
@@ -506,6 +503,23 @@ object ConverterUtils extends Logging {
     case _ =>
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
+
+  def createArrowField(name: String, dt: DataType): Field = dt match {
+    case at: ArrayType =>
+      new Field(
+        name,
+        FieldType.nullable(ArrowType.List.INSTANCE),
+        Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))
+    case mt: MapType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported yet")
+    case st: StructType =>
+      throw new UnsupportedOperationException(s"${dt} is not supported yet")
+    case _ =>
+      Field.nullable(name, CodeGeneration.getResultType(dt))
+  }
+
+  def createArrowField(attr: Attribute): Field =
+    createArrowField(s"${attr.name}#${attr.exprId.id}", attr.dataType)
 
   private def asTimestampType(inType: ArrowType): ArrowType.Timestamp = {
     if (inType.getTypeID != ArrowTypeID.Timestamp) {

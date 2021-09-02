@@ -20,6 +20,7 @@
 #include <arrow/ipc/writer.h>
 #include <arrow/memory_pool.h>
 #include <arrow/util/bit_util.h>
+#include <arrow/util/checked_cast.h>
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
@@ -38,6 +39,7 @@
 
 namespace sparkcolumnarplugin {
 namespace shuffle {
+using arrow::internal::checked_cast;
 
 SplitOptions SplitOptions::Defaults() { return SplitOptions(); }
 #if defined(COLUMNAR_PLUGIN_USE_AVX512)
@@ -278,14 +280,22 @@ arrow::Status Splitter::Init() {
   partition_lengths_.resize(num_partitions_);
 
   for (int i = 0; i < column_type_id_.size(); ++i) {
-    switch (column_type_id_[i]) {
-      case Type::SHUFFLE_BINARY:
+    switch (column_type_id_[i]->id()) {
+      case arrow::BinaryType::type_id:
+      case arrow::StringType::type_id:
         binary_array_idx_.push_back(i);
         break;
-      case Type::SHUFFLE_LARGE_BINARY:
+      case arrow::LargeBinaryType::type_id:
+      case arrow::LargeStringType::type_id:
         large_binary_array_idx_.push_back(i);
         break;
-      case Type::SHUFFLE_NULL:
+      case arrow::ListType::type_id:
+        list_array_idx_.push_back(i);
+        break;
+      case arrow::LargeListType::type_id:
+        large_list_array_idx_.push_back(i);
+        break;
+      case arrow::NullType::type_id:
         break;
       default:
         fixed_width_array_idx_.push_back(i);
@@ -312,6 +322,14 @@ arrow::Status Splitter::Init() {
   partition_large_binary_builders_.resize(large_binary_array_idx_.size());
   for (auto i = 0; i < large_binary_array_idx_.size(); ++i) {
     partition_large_binary_builders_[i].resize(num_partitions_);
+  }
+  partition_list_builders_.resize(list_array_idx_.size());
+  for (auto i = 0; i < list_array_idx_.size(); ++i) {
+    partition_list_builders_[i].resize(num_partitions_);
+  }
+  partition_large_list_builders_.resize(large_list_array_idx_.size());
+  for (auto i = 0; i < large_list_array_idx_.size(); ++i) {
+    partition_large_list_builders_[i].resize(num_partitions_);
   }
 
   ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
@@ -417,13 +435,16 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     auto fixed_width_idx = 0;
     auto binary_idx = 0;
     auto large_binary_idx = 0;
+    auto list_idx = 0;
+    auto large_list_idx = 0;
     auto num_fields = schema_->num_fields();
     auto num_rows = partition_buffer_idx_base_[partition_id];
     auto buffer_sizes = 0;
     std::vector<std::shared_ptr<arrow::Array>> arrays(num_fields);
     for (int i = 0; i < num_fields; ++i) {
-      switch (column_type_id_[i]) {
-        case Type::SHUFFLE_BINARY: {
+      switch (column_type_id_[i]->id()) {
+        case arrow::BinaryType::type_id:
+        case arrow::StringType::type_id: {
           auto& builder = partition_binary_builders_[binary_idx][partition_id];
           if (reset_buffers) {
             RETURN_NOT_OK(builder->Finish(&arrays[i]));
@@ -438,7 +459,8 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           binary_idx++;
           break;
         }
-        case Type::SHUFFLE_LARGE_BINARY: {
+        case arrow::LargeBinaryType::type_id:
+        case arrow::LargeStringType::type_id: {
           auto& builder =
               partition_large_binary_builders_[large_binary_idx][partition_id];
           if (reset_buffers) {
@@ -454,7 +476,33 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           large_binary_idx++;
           break;
         }
-        case Type::SHUFFLE_NULL: {
+        case arrow::ListType::type_id: {
+          auto& builder = partition_list_builders_[list_idx][partition_id];
+          if (reset_buffers) {
+            RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
+          } else {
+            RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
+            RETURN_NOT_OK(builder->Reserve(num_rows));
+          }
+          list_idx++;
+          break;
+        }
+        case arrow::LargeListType::type_id: {
+          auto& builder = partition_large_list_builders_[large_list_idx][partition_id];
+          if (reset_buffers) {
+            RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
+          } else {
+            RETURN_NOT_OK(builder->Finish(&arrays[i]));
+            builder->Reset();
+            RETURN_NOT_OK(builder->Reserve(num_rows));
+          }
+          large_list_idx++;
+          break;
+        }
+        case arrow::NullType::type_id: {
           arrays[i] = arrow::MakeArray(arrow::ArrayData::Make(
               arrow::null(), num_rows, {nullptr, nullptr}, num_rows));
           break;
@@ -479,6 +527,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
       }
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
+
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
     TIME_NANO_OR_RAISE(total_compress_time_,
                        arrow::ipc::GetRecordBatchPayload(
@@ -496,14 +545,19 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
   auto fixed_width_idx = 0;
   auto binary_idx = 0;
   auto large_binary_idx = 0;
+  auto list_idx = 0;
+  auto large_list_idx = 0;
 
   std::vector<std::shared_ptr<arrow::BinaryBuilder>> new_binary_builders;
   std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>> new_large_binary_builders;
+  std::vector<std::shared_ptr<arrow::ListBuilder>> new_list_builders;
+  std::vector<std::shared_ptr<arrow::LargeListBuilder>> new_large_list_builders;
   std::vector<std::shared_ptr<arrow::ResizableBuffer>> new_value_buffers;
   std::vector<std::shared_ptr<arrow::ResizableBuffer>> new_validity_buffers;
   for (auto i = 0; i < num_fields; ++i) {
-    switch (column_type_id_[i]) {
-      case Type::SHUFFLE_BINARY: {
+    switch (column_type_id_[i]->id()) {
+      case arrow::BinaryType::type_id:
+      case arrow::StringType::type_id: {
         auto builder = std::make_shared<arrow::BinaryBuilder>(options_.memory_pool);
         assert(builder != nullptr);
         RETURN_NOT_OK(builder->Reserve(new_size));
@@ -513,7 +567,8 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         binary_idx++;
         break;
       }
-      case Type::SHUFFLE_LARGE_BINARY: {
+      case arrow::LargeBinaryType::type_id:
+      case arrow::LargeStringType::type_id: {
         auto builder = std::make_shared<arrow::LargeBinaryBuilder>(options_.memory_pool);
         assert(builder != nullptr);
         RETURN_NOT_OK(builder->Reserve(new_size));
@@ -523,18 +578,47 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         large_binary_idx++;
         break;
       }
-      case Type::SHUFFLE_NULL:
+      case arrow::ListType::type_id: {
+        auto child_type =
+            std::dynamic_pointer_cast<arrow::ListType>(column_type_id_[i])->value_type();
+        std::unique_ptr<arrow::ArrayBuilder> child_builder;
+        RETURN_NOT_OK(MakeBuilder(options_.memory_pool, child_type, &child_builder));
+        auto builder = std::make_shared<arrow::ListBuilder>(options_.memory_pool,
+                                                            std::move(child_builder));
+        assert(builder != nullptr);
+        RETURN_NOT_OK(builder->Reserve(new_size));
+        new_list_builders.push_back(std::move(builder));
+        list_idx++;
+        break;
+      }
+      case arrow::LargeListType::type_id: {
+        auto child_type =
+            std::dynamic_pointer_cast<arrow::LargeListType>(column_type_id_[i])
+                ->value_type();
+        std::unique_ptr<arrow::ArrayBuilder> child_builder;
+        RETURN_NOT_OK(MakeBuilder(options_.memory_pool, child_type, &child_builder));
+        auto builder = std::make_shared<arrow::LargeListBuilder>(
+            options_.memory_pool, std::move(child_builder));
+        assert(builder != nullptr);
+        RETURN_NOT_OK(builder->Reserve(new_size));
+        new_large_list_builders.push_back(std::move(builder));
+        large_list_idx++;
+        break;
+      }
+      case arrow::NullType::type_id:
         break;
       default: {
         std::shared_ptr<arrow::ResizableBuffer> value_buffer;
-        if (column_type_id_[i] == Type::SHUFFLE_BIT) {
+        if (column_type_id_[i]->id() == arrow::BooleanType::type_id) {
           ARROW_ASSIGN_OR_RAISE(value_buffer, arrow::AllocateResizableBuffer(
                                                   arrow::BitUtil::BytesForBits(new_size),
                                                   options_.memory_pool));
         } else {
-          ARROW_ASSIGN_OR_RAISE(value_buffer, arrow::AllocateResizableBuffer(
-                                                  new_size * (1 << column_type_id_[i]),
-                                                  options_.memory_pool));
+          ARROW_ASSIGN_OR_RAISE(
+              value_buffer,
+              arrow::AllocateResizableBuffer(
+                  new_size * (arrow::bit_width(column_type_id_[i]->id()) / 8),
+                  options_.memory_pool));
         }
         new_value_buffers.push_back(std::move(value_buffer));
         if (input_fixed_width_has_null_[fixed_width_idx]) {
@@ -555,19 +639,33 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
 
   // point to newly allocated buffers
   fixed_width_idx = binary_idx = large_binary_idx = 0;
+  list_idx = 0;
+  large_list_idx = 0;
   for (auto i = 0; i < num_fields; ++i) {
-    switch (column_type_id_[i]) {
-      case Type::SHUFFLE_BINARY:
+    switch (column_type_id_[i]->id()) {
+      case arrow::BinaryType::type_id:
+      case arrow::StringType::type_id:
         partition_binary_builders_[binary_idx][partition_id] =
             std::move(new_binary_builders[binary_idx]);
         binary_idx++;
         break;
-      case Type::SHUFFLE_LARGE_BINARY:
+      case arrow::LargeBinaryType::type_id:
+      case arrow::LargeStringType::type_id:
         partition_large_binary_builders_[large_binary_idx][partition_id] =
             std::move(new_large_binary_builders[large_binary_idx]);
         large_binary_idx++;
         break;
-      case Type::SHUFFLE_NULL:
+      case arrow::ListType::type_id:
+        partition_list_builders_[list_idx][partition_id] =
+            std::move(new_list_builders[list_idx]);
+        list_idx++;
+        break;
+      case arrow::LargeListType::type_id:
+        partition_large_list_builders_[large_list_idx][partition_id] =
+            std::move(new_large_list_builders[large_list_idx]);
+        large_list_idx++;
+        break;
+      case arrow::NullType::type_id:
         break;
       default:
         partition_fixed_width_value_addrs_[fixed_width_idx][partition_id] =
@@ -741,6 +839,8 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   RETURN_NOT_OK(SplitFixedWidthValidityBuffer(rb));
   RETURN_NOT_OK(SplitBinaryArray(rb));
   RETURN_NOT_OK(SplitLargeBinaryArray(rb));
+  RETURN_NOT_OK(SplitListArray(rb));
+  RETURN_NOT_OK(SplitLargeListArray(rb));
 
   // update partition buffer base
   for (auto pid = 0; pid < num_partitions_; ++pid) {
@@ -757,26 +857,39 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
     auto col_idx = fixed_width_array_idx_[col];
     auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[1]->data());
     const auto& dst_addrs = partition_fixed_width_value_addrs_[col];
-    switch (column_type_id_[col_idx]) {
-#define PROCESS(SHUFFLE_TYPE, CTYPE)                                           \
-  case Type::SHUFFLE_TYPE:                                                     \
-    for (auto row = 0; row < num_rows; ++row) {                                \
-      auto pid = partition_id_[row];                                           \
-      auto dst_offset =                                                        \
-          partition_buffer_idx_base_[pid] + partition_buffer_idx_offset_[pid]; \
-      reinterpret_cast<CTYPE*>(dst_addrs[pid])[dst_offset] =                   \
-          reinterpret_cast<CTYPE*>(src_addr)[row];                             \
-      partition_buffer_idx_offset_[pid]++;                                     \
-      _mm_prefetch(&reinterpret_cast<CTYPE*>(dst_addrs[pid])[dst_offset + 1],  \
-                   _MM_HINT_T0);                                               \
-    }                                                                          \
+    switch (column_type_id_[col_idx]->id()) {
+#define PROCESS(SHUFFLE_TYPE, _CTYPE)                                               \
+  case SHUFFLE_TYPE::type_id:                                                       \
+    for (auto row = 0; row < num_rows; ++row) {                                     \
+      auto pid = partition_id_[row];                                                \
+      auto dst_offset =                                                             \
+          partition_buffer_idx_base_[pid] + partition_buffer_idx_offset_[pid];      \
+      reinterpret_cast<arrow::TypeTraits<SHUFFLE_TYPE>::CType*>(                    \
+          dst_addrs[pid])[dst_offset] =                                             \
+          reinterpret_cast<arrow::TypeTraits<SHUFFLE_TYPE>::CType*>(src_addr)[row]; \
+      partition_buffer_idx_offset_[pid]++;                                          \
+      _mm_prefetch(&reinterpret_cast<arrow::TypeTraits<SHUFFLE_TYPE>::CType*>(      \
+                       dst_addrs[pid])[dst_offset + 1],                             \
+                   _MM_HINT_T0);                                                    \
+    }                                                                               \
     break;
-      PROCESS(SHUFFLE_1BYTE, uint8_t)
-      PROCESS(SHUFFLE_2BYTE, uint16_t)
-      PROCESS(SHUFFLE_4BYTE, uint32_t)
-      PROCESS(SHUFFLE_8BYTE, uint64_t)
+      PROCESS(arrow::Int8Type, uint8_t)
+      PROCESS(arrow::UInt8Type, uint8_t)
+      PROCESS(arrow::Int16Type, uint16_t)
+      PROCESS(arrow::UInt16Type, uint16_t)
+      PROCESS(arrow::Int32Type, uint32_t)
+      PROCESS(arrow::UInt32Type, uint32_t)
+      PROCESS(arrow::FloatType, uint32_t)
+      PROCESS(arrow::Date32Type, uint32_t)
+      PROCESS(arrow::Time32Type, uint32_t)
+      PROCESS(arrow::Int64Type, uint64_t)
+      PROCESS(arrow::UInt64Type, uint64_t)
+      PROCESS(arrow::DoubleType, uint64_t)
+      PROCESS(arrow::Date64Type, uint64_t)
+      PROCESS(arrow::Time64Type, uint64_t)
+      PROCESS(arrow::TimestampType, uint64_t)
 #undef PROCESS
-      case Type::SHUFFLE_DECIMAL128:
+      case arrow::Decimal128Type::type_id:
         for (auto row = 0; row < num_rows; ++row) {
           auto pid = partition_id_[row];
           auto dst_offset =
@@ -790,7 +903,7 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
                        _MM_HINT_T0);
         }
         break;
-      case Type::SHUFFLE_BIT:
+      case arrow::BooleanType::type_id:
         for (auto row = 0; row < num_rows; ++row) {
           auto pid = partition_id_[row];
           auto dst_offset =
@@ -1044,6 +1157,69 @@ arrow::Status Splitter::SplitLargeBinaryArray(const arrow::RecordBatch& rb) {
   return arrow::Status::OK();
 }
 
+#define PROCESS_SUPPORTED_TYPES(PROCESS) \
+  PROCESS(arrow::BooleanType)            \
+  PROCESS(arrow::UInt8Type)              \
+  PROCESS(arrow::Int8Type)               \
+  PROCESS(arrow::UInt16Type)             \
+  PROCESS(arrow::Int16Type)              \
+  PROCESS(arrow::UInt32Type)             \
+  PROCESS(arrow::Int32Type)              \
+  PROCESS(arrow::UInt64Type)             \
+  PROCESS(arrow::Int64Type)              \
+  PROCESS(arrow::FloatType)              \
+  PROCESS(arrow::DoubleType)             \
+  PROCESS(arrow::Date32Type)             \
+  PROCESS(arrow::Date64Type)             \
+  PROCESS(arrow::Decimal128Type)         \
+  PROCESS(arrow::StringType)             \
+  PROCESS(arrow::BinaryType)
+arrow::Status Splitter::SplitListArray(const arrow::RecordBatch& rb) {
+  for (int i = 0; i < list_array_idx_.size(); ++i) {
+    auto src_arr =
+        std::static_pointer_cast<arrow::ListArray>(rb.column(list_array_idx_[i]));
+    switch (src_arr->value_type()->id()) {
+#define PROCESS(InType)                                       \
+  case InType::type_id: {                                     \
+    auto status = AppendList<arrow::ListType, InType>(        \
+        src_arr, partition_list_builders_[i], rb.num_rows()); \
+    if (!status.ok()) return status;                          \
+  } break;
+      PROCESS_SUPPORTED_TYPES(PROCESS)
+#undef PROCESS
+      default: {
+        return arrow::Status::NotImplemented(
+            "AppendList internal type not supported, type is ",
+            src_arr->value_type()->ToString());
+      } break;
+    }
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status Splitter::SplitLargeListArray(const arrow::RecordBatch& rb) {
+  for (int i = 0; i < large_list_array_idx_.size(); ++i) {
+    auto src_arr = std::static_pointer_cast<arrow::LargeListArray>(
+        rb.column(large_list_array_idx_[i]));
+    switch (src_arr->value_type()->id()) {
+#define PROCESS(InType)                                       \
+  case InType::type_id: {                                     \
+    return AppendList<arrow::LargeListType, InType>(          \
+        src_arr, partition_list_builders_[i], rb.num_rows()); \
+  } break;
+      PROCESS_SUPPORTED_TYPES(PROCESS)
+#undef PROCESS
+      default: {
+        return arrow::Status::NotImplemented(
+            "AppendList internal type not supported, type is ",
+            src_arr->value_type()->ToString());
+      } break;
+    }
+  }
+  return arrow::Status::OK();
+}
+#undef PROCESS_SUPPORTED_TYPES
+
 template <typename T, typename ArrayType, typename BuilderType>
 arrow::Status Splitter::AppendBinary(
     const std::shared_ptr<ArrayType>& src_arr,
@@ -1069,6 +1245,53 @@ arrow::Status Splitter::AppendBinary(
         builder->UnsafeAppend(value, length);
       } else {
         dst_builders[partition_id_[row]]->AppendNull();
+      }
+    }
+  }
+  return arrow::Status::OK();
+}
+
+template <typename T, typename ValueType, typename ArrayType, typename BuilderType>
+arrow::Status Splitter::AppendList(
+    const std::shared_ptr<ArrayType>& src_arr,
+    const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows) {
+  using offset_type = typename T::offset_type;
+  using ValueBuilderType = typename arrow::TypeTraits<ValueType>::BuilderType;
+  using ValueArrayType = typename arrow::TypeTraits<ValueType>::ArrayType;
+  std::vector<ValueBuilderType*> dst_values_builders;
+  for (auto builder : dst_builders) {
+    dst_values_builders.push_back(
+        checked_cast<ValueBuilderType*>(builder->value_builder()));
+  }
+  auto src_arr_values = std::dynamic_pointer_cast<ValueArrayType>(src_arr->values());
+
+  if (src_arr->values()->null_count() == 0) {
+    for (auto row = 0; row < num_rows; ++row) {
+      auto src_arr_values_offset = src_arr->value_offset(row);
+      auto src_arr_values_length = src_arr->value_offset(row + 1) - src_arr_values_offset;
+      RETURN_NOT_OK(dst_builders[partition_id_[row]]->Append());
+      for (auto i = 0; i < src_arr_values_length; i++) {
+        RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->Append(
+            src_arr_values->GetView(src_arr_values_offset + i)));
+      }
+    }
+  } else {
+    for (auto row = 0; row < num_rows; ++row) {
+      if (src_arr->IsValid(row)) {
+        auto src_arr_values_offset = src_arr->value_offset(row);
+        auto src_arr_values_length =
+            src_arr->value_offset(row + 1) - src_arr_values_offset;
+        RETURN_NOT_OK(dst_builders[partition_id_[row]]->Append());
+        for (auto i = 0; i < src_arr_values_length; i++) {
+          if (src_arr_values->IsValid(src_arr_values_offset + i)) {
+            RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->Append(
+                src_arr_values->GetView(src_arr_values_offset + i)));
+          } else {
+            RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->AppendNull());
+          }
+        }
+      } else {
+        RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendNull());
       }
     }
   }
