@@ -17,7 +17,6 @@
 
 package com.intel.oap.datasource.parquet;
 
-import com.intel.oap.vectorized.ArrowRecordBatchBuilder;
 import com.intel.oap.vectorized.JniUtils;
 
 import java.io.IOException;
@@ -76,7 +75,7 @@ public class ParquetReaderJniWrapper {
    * @param id parquet reader instance number
    * @throws IOException throws exception in case of any io exception in native codes
    */
-  public native ArrowRecordBatchBuilder nativeReadNext(long id) throws IOException;
+  public native byte[] nativeReadNext(long id) throws IOException;
 
   /**
    * Get schema from parquet file reader.

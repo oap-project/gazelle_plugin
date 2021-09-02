@@ -141,13 +141,13 @@ public class ExpressionEvaluatorJniWrapper {
          *                      for offset vectors later).
          * @param bufSizes      An array of buffer sizes. For each memory address in
          *                      bufAddrs, the size of the buffer is present in bufSizes
-         * @return A list of ArrowRecordBatchBuilder which can be used to build a List
+         * @return A list of serialized record batch which can be used to build a List
          *         of ArrowRecordBatch
          */
-        native ArrowRecordBatchBuilder[] nativeEvaluate(long nativeHandler, int numRows, long[] bufAddrs,
+        native byte[][] nativeEvaluate(long nativeHandler, int numRows, long[] bufAddrs,
                         long[] bufSizes) throws RuntimeException;
 
-       native ArrowRecordBatchBuilder[] nativeEvaluate2(long nativeHandler, byte[] bytes) throws RuntimeException;
+       native byte[][] nativeEvaluate2(long nativeHandler, byte[] bytes) throws RuntimeException;
 
         /**
          * Evaluate the expressions represented by the nativeHandler on a record batch
@@ -182,10 +182,10 @@ public class ExpressionEvaluatorJniWrapper {
          * @param selectionVector     valid selected item record count
          * @param selectionVector     selectionVector memory address
          * @param selectionVectorSize selectionVector total size
-         * @return A list of ArrowRecordBatchBuilder which can be used to build a List
+         * @return A list of serialized record batch which can be used to build a List
          *         of ArrowRecordBatch
          */
-        native ArrowRecordBatchBuilder[] nativeEvaluateWithSelection(long nativeHandler, int numRows, long[] bufAddrs,
+        native byte[][] nativeEvaluateWithSelection(long nativeHandler, int numRows, long[] bufAddrs,
                         long[] bufSizes, int selectionVectorRecordCount, long selectionVectorAddr,
                         long selectionVectorSize) throws RuntimeException;
 
@@ -197,10 +197,10 @@ public class ExpressionEvaluatorJniWrapper {
          *
          * @param nativeHandler nativeHandler representing expressions. Created using a
          *                      call to buildNativeCode
-         * @return A list of ArrowRecordBatchBuilder which can be used to build a List
+         * @return A list of serialized record batch which can be used to build a List
          *         of ArrowRecordBatch
          */
-        native ArrowRecordBatchBuilder[] nativeFinish(long nativeHandler) throws RuntimeException;
+        native byte[][] nativeFinish(long nativeHandler) throws RuntimeException;
 
         /**
          * Call Finish to get result, result will be as a iterator.

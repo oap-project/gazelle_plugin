@@ -34,7 +34,7 @@ public class ShuffleDecompressionJniWrapper {
    */
   public native long make(byte[] schemaBuf) throws RuntimeException;
 
-  public native ArrowRecordBatchBuilder decompress(
+  public native byte[] decompress(
       long schemaHolderId,
       String compressionCodec,
       int numRows,
