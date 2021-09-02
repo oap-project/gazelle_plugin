@@ -9,7 +9,7 @@
   
   
   <link rel="shortcut icon" href="img/favicon.ico">
-  <title>Gazelle Plugin - 1.1.1</title>
+  <title>Gazelle Plugin - 1.2.0</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
   <link rel="stylesheet" href="css/theme.css" />
@@ -18,7 +18,7 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "Spark Native SQL Engine";
+    var mkdocs_page_name = "Gazelle Plugin";
     var mkdocs_page_input_path = "index.md";
     var mkdocs_page_url = null;
   </script>
@@ -38,7 +38,7 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
     <div class="wy-side-scroll">
       <div class="wy-side-nav-search">
-        <a href="." class="icon icon-home"> Gazelle Plugin - 1.1.1</a>
+        <a href="." class="icon icon-home"> Gazelle Plugin - 1.2.0</a>
         <div role="search">
   <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
@@ -96,7 +96,7 @@
       
       <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
         <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href=".">Gazelle Plugin - 1.1.1</a>
+        <a href=".">Gazelle Plugin - 1.2.0</a>
       </nav>
 
       
@@ -108,7 +108,7 @@
     
       
     
-    <li>Spark Native SQL Engine</li>
+    <li>Gazelle Plugin</li>
     <li class="wy-breadcrumbs-aside">
       
     </li>
@@ -119,12 +119,12 @@
           <div role="main">
             <div class="section">
               
-                <h1 id="spark-native-sql-engine">Spark Native SQL Engine</h1>
+                <h1 id="gazelle-plugin">Gazelle Plugin</h1>
 <p>A Native Engine for Spark SQL with vectorized SIMD optimizations</p>
 <h2 id="introduction">Introduction</h2>
 <p><img alt="Overview" src="image/nativesql_arch.png" /></p>
 <p>Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. <a href="https://arrow.apache.org/">Apache Arrow</a> provided CPU-cache friendly columnar in-memory layout, its SIMD-optimized kernels and LLVM-based SQL engine Gandiva are also very efficient.</p>
-<p>Native SQL Engine reimplements Spark SQL execution layer with SIMD-friendly columnar data processing based on Apache Arrow, 
+<p>Gazelle Plugin reimplements Spark SQL execution layer with SIMD-friendly columnar data processing based on Apache Arrow, 
 and leverages Arrow's CPU-cache friendly columnar in-memory layout, SIMD-optimized kernels and LLVM-based expression engine to bring better performance to Spark SQL.</p>
 <h2 id="key-features">Key Features</h2>
 <h3 id="apache-arrow-formatted-intermediate-data-among-spark-operator">Apache Arrow formatted intermediate data among Spark operator</h3>
@@ -140,13 +140,13 @@ and leverages Arrow's CPU-cache friendly columnar in-memory layout, SIMD-optimiz
 <p><img alt="Overview" src="image/shuffle.png" /></p>
 <p>We implemented columnar shuffle to improve the shuffle performance. With the columnar layout we could do very efficient data compression for different data format.</p>
 <p>Please check the operator supporting details <a href="operators/">here</a></p>
-<h2 id="how-to-use-oap-native-sql-engine">How to use OAP: Native SQL Engine</h2>
-<p>There are three ways to use OAP: Native SQL Engine,
+<h2 id="how-to-use-oap-gazelle-plugin">How to use OAP: Gazelle Plugin</h2>
+<p>There are three ways to use OAP: Gazelle Plugin,
 1. Use precompiled jars
 2. Building by Conda Environment
 3. Building by Yourself</p>
 <h3 id="use-precompiled-jars">Use precompiled jars</h3>
-<p>Please go to <a href="https://repo1.maven.org/maven2/com/intel/oap/">OAP's Maven Central Repository</a> to find Native SQL Engine jars.
+<p>Please go to <a href="https://repo1.maven.org/maven2/com/intel/oap/">OAP's Maven Central Repository</a> to find Gazelle Plugin jars.
 For usage, you will require below two jar files:
 1. spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
 2. spark-columnar-core-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-columnar-core/<version>/
@@ -163,7 +163,7 @@ If you are running a SPARK Cluster, please make sure all the software are instal
 <h4 id="installation">Installation</h4>
 <p>Please check the document <a href="Installation/">Installation Guide</a> </p>
 <h2 id="get-started">Get started</h2>
-<p>To enable OAP NativeSQL Engine, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
+<p>To enable Gazelle Plugin, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
 SPARK related options are:</p>
 <ul>
 <li><code>spark.driver.extraClassPath</code> : Set to load jar file to driver.</li>
@@ -195,28 +195,47 @@ For Spark Yarn Cluster Mode, please set the above value as absolute path to the 
         --jars $PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar,$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar
 </code></pre>
 
-<p>Here is one example to verify if native sql engine works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to <a href="https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql">Solution Guide</a>.</p>
+<p>Here is one example to verify if Gazelle Plugin works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to <a href="https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql">Solution Guide</a>.</p>
 <pre><code>val orders = spark.read.format(&quot;arrow&quot;).load(&quot;hdfs:////user/root/date_tpch_10/orders&quot;)
 orders.createOrReplaceTempView(&quot;orders&quot;)
 spark.sql(&quot;select * from orders where o_orderdate &gt; date '1998-07-26'&quot;).show(20000, false)
 </code></pre>
 
-<p>The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Native SQL engine still lacks some features, please check out the <a href="limitations/">limitations</a>.</p>
+<p>The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the <a href="limitations/">limitations</a>.</p>
+<h2 id="couldk8s-integration">Could/K8s Integration</h2>
+<h3 id="google-cloud-dataproc">Google Cloud Dataproc</h3>
+<p>Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.</p>
+<p>Please refer to <a href="https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md">Gazelle_on_Dataproc</a> to find details about:</p>
+<ol>
+<li>
+<p>Create a cluster on Dataproc 2.0 with initialization actions. 
+Gazelle Plugin jars compiled with <code>-Pdataproc-2.0</code> parameter will installed by Conda in all cluster nodes.</p>
+</li>
+<li>
+<p>Config for enabling Gazelle Plugin.</p>
+</li>
+<li>
+<p>Run TPC-DS with notebooks or scripts.</p>
+</li>
+</ol>
 <h2 id="performance-data">Performance data</h2>
 <p>For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
 All the testing environment for Decision Support Benchmark1&amp;2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
-* Decision Support Benchmark1 is a query set modified from <a href="http://tpc.org/tpch/default5.asp">TPC-H benchmark</a>. We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
-Overall, the result shows a 1.49X performance speed up from OAP v1.0-Native SQL Engine comparing to Vanilla SPARK 3.0.0.
-We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Native SQL Engine. The performance boost ratio may depend on the individual query.</p>
+* Decision Support Benchmark1 is a query set modified from <a href="http://tpc.org/tpch/default5.asp">TPC-H benchmark</a>. We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
+Overall, the result shows a 1.49X performance speed up from OAP v1.0-Gazelle Plugin comparing to Vanilla SPARK 3.0.0.
+We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Gazelle Plugin. The performance boost ratio may depend on the individual query.</p>
 <p><img alt="Performance" src="image/decision_support_bench1_result_in_total.png" /></p>
 <p><img alt="Performance" src="image/decision_support_bench1_result_by_query.png" /></p>
 <ul>
-<li>Decision Support Benchmark2 is a query set modified from <a href="http://tpc.org/tpcds/default5.asp">TPC-DS benchmark</a>. We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Native SQL Engine.
-We pick up 10 queries which can be fully supported in OAP v1.0-Native SQL Engine and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.</li>
+<li>Decision Support Benchmark2 is a query set modified from <a href="http://tpc.org/tpcds/default5.asp">TPC-DS benchmark</a>. We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
+We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.</li>
 </ul>
 <p><img alt="Performance" src="image/decision_support_bench2_result_in_total.png" /></p>
 <p><img alt="Performance" src="image/decision_support_bench2_result_by_query.png" /></p>
-<p>Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with native SQL Engine first and check the DAG or log file to see if all the operators can be supported in OAP-Native SQL Engine.</p>
+<p>Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.</p>
+<h2 id="memory-allocation">Memory allocation</h2>
+<p>The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings <a href="memory/">here</a>, the memroy footprint is stable during a TPC-DS power run.
+<img alt="Memory" src="image/rssmem.png" /></p>
 <h2 id="coding-style">Coding Style</h2>
 <ul>
 <li>For Java code, we used <a href="https://github.com/google/google-java-format">google-java-format</a></li>
@@ -270,5 +289,5 @@ binwei.yang@intel.com</p>
 
 <!--
 MkDocs version : 1.1.2
-Build Date UTC : 2021-06-04 05:06:16.945002+00:00
+Build Date UTC : 2021-09-02 10:13:11.985506+00:00
 -->
