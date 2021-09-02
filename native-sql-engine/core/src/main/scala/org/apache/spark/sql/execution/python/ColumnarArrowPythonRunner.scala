@@ -163,7 +163,7 @@ class ColumnarArrowPythonRunner(
             loader.load(next_rb)
             writer.writeBatch()
             ConverterUtils.releaseArrowRecordBatch(next_rb)
-          }            
+          }
           // end writes footer to the output stream and doesn't clean any resources.
           // It could throw exception if the output stream is closed, so it should be
           // in the try block.
