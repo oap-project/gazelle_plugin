@@ -1,5 +1,197 @@
 # Change log
-Generated on 2021-06-02
+Generated on 2021-09-02
+
+## Release 1.2.0
+
+### Gazelle Plugin
+
+#### Features
+|||
+|:---|:---|
+|[#394](https://github.com/oap-project/gazelle_plugin/issues/394)|Support ColumnarArrowEvalPython operator |
+|[#368](https://github.com/oap-project/gazelle_plugin/issues/368)|Encountered Hadoop version (3.2.1) conflict issue on AWS EMR-6.3.0|
+|[#375](https://github.com/oap-project/gazelle_plugin/issues/375)|Implement a series of datetime functions|
+|[#183](https://github.com/oap-project/gazelle_plugin/issues/183)|Add Date/Timestamp type support|
+|[#362](https://github.com/oap-project/gazelle_plugin/issues/362)|make arrow-unsafe allocator as the default|
+|[#343](https://github.com/oap-project/gazelle_plugin/issues/343)|configurable codegen opt level|
+|[#333](https://github.com/oap-project/gazelle_plugin/issues/333)|Arrow Data Source: CSV format support fix|
+|[#223](https://github.com/oap-project/gazelle_plugin/issues/223)|Add Parquet write support to Arrow data source|
+|[#320](https://github.com/oap-project/gazelle_plugin/issues/320)|Add build option to enable unsafe Arrow allocator|
+|[#337](https://github.com/oap-project/gazelle_plugin/issues/337)|UDF: Add test case for validating basic row-based udf|
+|[#326](https://github.com/oap-project/gazelle_plugin/issues/326)|Update Scala unit test to spark-3.1.1|
+
+#### Performance
+|||
+|:---|:---|
+|[#400](https://github.com/oap-project/gazelle_plugin/issues/400)|Optimize ColumnarToRow Operator in NSE.|
+|[#411](https://github.com/oap-project/gazelle_plugin/issues/411)|enable ccache on C++ code compiling|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#358](https://github.com/oap-project/gazelle_plugin/issues/358)|Running TPC DS all queries with native-sql-engine for 10 rounds  will have performance degradation problems in the last few rounds|
+|[#481](https://github.com/oap-project/gazelle_plugin/issues/481)|JVM heap memory leak on memory leak tracker facilities|
+|[#436](https://github.com/oap-project/gazelle_plugin/issues/436)|Fix for Arrow Data Source test suite|
+|[#317](https://github.com/oap-project/gazelle_plugin/issues/317)|persistent memory cache issue|
+|[#382](https://github.com/oap-project/gazelle_plugin/issues/382)|Hadoop version conflict when supporting to use gazelle_plugin on Google Cloud Dataproc|
+|[#384](https://github.com/oap-project/gazelle_plugin/issues/384)|ColumnarBatchScanExec reading parquet failed on java.lang.IllegalArgumentException: not all nodes and buffers were consumed|
+|[#370](https://github.com/oap-project/gazelle_plugin/issues/370)|Failed to get time zone: NoSuchElementException: None.get|
+|[#360](https://github.com/oap-project/gazelle_plugin/issues/360)|Cannot compile master branch.|
+|[#341](https://github.com/oap-project/gazelle_plugin/issues/341)|build failed on v2 with -Phadoop-3.2|
+
+#### PRs
+|||
+|:---|:---|
+|[#489](https://github.com/oap-project/gazelle_plugin/pull/489)|[NSE-481] JVM heap memory leak on memory leak tracker facilities (Arrow Allocator)|
+|[#486](https://github.com/oap-project/gazelle_plugin/pull/486)|[NSE-475] restore coalescebatches operator before window|
+|[#482](https://github.com/oap-project/gazelle_plugin/pull/482)|[NSE-481] JVM heap memory leak on memory leak tracker facilities|
+|[#470](https://github.com/oap-project/gazelle_plugin/pull/470)|[NSE-469] Lazy Read: Iterator objects are not correctly released|
+|[#464](https://github.com/oap-project/gazelle_plugin/pull/464)|[NSE-460] fix decimal partial sum in 1.2 branch|
+|[#439](https://github.com/oap-project/gazelle_plugin/pull/439)|[NSE-433]Support pre-built Jemalloc|
+|[#453](https://github.com/oap-project/gazelle_plugin/pull/453)|[NSE-254] remove arrow-data-source-common from jar with dependency|
+|[#452](https://github.com/oap-project/gazelle_plugin/pull/452)|[NSE-254]Fix redundant arrow library issue.|
+|[#432](https://github.com/oap-project/gazelle_plugin/pull/432)|[NSE-429] TPC-DS Q14a/b get slowed down within setting spark.oap.sql.columnar.sortmergejoin.lazyread=true|
+|[#426](https://github.com/oap-project/gazelle_plugin/pull/426)|[NSE-207] Fix aggregate and refresh UT test script|
+|[#442](https://github.com/oap-project/gazelle_plugin/pull/442)|[NSE-254]Issue0410 jar size|
+|[#441](https://github.com/oap-project/gazelle_plugin/pull/441)|[NSE-254]Issue0410 jar size|
+|[#440](https://github.com/oap-project/gazelle_plugin/pull/440)|[NSE-254]Solve the redundant arrow library issue|
+|[#437](https://github.com/oap-project/gazelle_plugin/pull/437)|[NSE-436] Fix for Arrow Data Source test suite|
+|[#387](https://github.com/oap-project/gazelle_plugin/pull/387)|[NSE-383] Release SMJ input data immediately after being used|
+|[#423](https://github.com/oap-project/gazelle_plugin/pull/423)|[NSE-417] fix sort spill on inplsace sort|
+|[#416](https://github.com/oap-project/gazelle_plugin/pull/416)|[NSE-207] fix left/right outer join in SMJ|
+|[#422](https://github.com/oap-project/gazelle_plugin/pull/422)|[NSE-421]Disable the wholestagecodegen feature for the ArrowColumnarToRow operator|
+|[#369](https://github.com/oap-project/gazelle_plugin/pull/369)|[NSE-417] Sort spill support framework|
+|[#401](https://github.com/oap-project/gazelle_plugin/pull/401)|[NSE-400] Optimize ColumnarToRow Operator in NSE.|
+|[#413](https://github.com/oap-project/gazelle_plugin/pull/413)|[NSE-411] adding ccache support|
+|[#393](https://github.com/oap-project/gazelle_plugin/pull/393)|[NSE-207] fix scala unit tests|
+|[#407](https://github.com/oap-project/gazelle_plugin/pull/407)|[NSE-403]Add Dataproc integration section to README|
+|[#406](https://github.com/oap-project/gazelle_plugin/pull/406)|[NSE-404]Modify repo name in documents|
+|[#402](https://github.com/oap-project/gazelle_plugin/pull/402)|[NSE-368]Update emr-6.3.0 support|
+|[#395](https://github.com/oap-project/gazelle_plugin/pull/395)|[NSE-394]Support ColumnarArrowEvalPython operator|
+|[#346](https://github.com/oap-project/gazelle_plugin/pull/346)|[NSE-317]fix columnar cache|
+|[#392](https://github.com/oap-project/gazelle_plugin/pull/392)|[NSE-382]Support GCP Dataproc 2.0|
+|[#388](https://github.com/oap-project/gazelle_plugin/pull/388)|[NSE-382]Fix Hadoop version issue|
+|[#385](https://github.com/oap-project/gazelle_plugin/pull/385)|[NSE-384] "Select count(*)" without group by results in error: java.lang.IllegalArgumentException: not all nodes and buffers were consumed|
+|[#374](https://github.com/oap-project/gazelle_plugin/pull/374)|[NSE-207] fix left anti join and support filter wo/ project|
+|[#376](https://github.com/oap-project/gazelle_plugin/pull/376)|[NSE-375] Implement a series of datetime functions|
+|[#373](https://github.com/oap-project/gazelle_plugin/pull/373)|[NSE-183] fix timestamp in native side|
+|[#356](https://github.com/oap-project/gazelle_plugin/pull/356)|[NSE-207] fix issues found in scala unit tests|
+|[#371](https://github.com/oap-project/gazelle_plugin/pull/371)|[NSE-370] Failed to get time zone: NoSuchElementException: None.get|
+|[#347](https://github.com/oap-project/gazelle_plugin/pull/347)|[NSE-183] Add Date/Timestamp type support|
+|[#363](https://github.com/oap-project/gazelle_plugin/pull/363)|[NSE-362] use arrow-unsafe allocator by default|
+|[#361](https://github.com/oap-project/gazelle_plugin/pull/361)|[NSE-273] Spark shim layer infrastructure|
+|[#364](https://github.com/oap-project/gazelle_plugin/pull/364)|[NSE-360] fix ut compile and travis test|
+|[#264](https://github.com/oap-project/gazelle_plugin/pull/264)|[NSE-207] fix issues found from join unit tests|
+|[#344](https://github.com/oap-project/gazelle_plugin/pull/344)|[NSE-343]allow to config codegen opt level|
+|[#342](https://github.com/oap-project/gazelle_plugin/pull/342)|[NSE-341] fix maven build failure|
+|[#324](https://github.com/oap-project/gazelle_plugin/pull/324)|[NSE-223] Add Parquet write support to Arrow data source|
+|[#321](https://github.com/oap-project/gazelle_plugin/pull/321)|[NSE-320] Add build option to enable unsafe Arrow allocator|
+|[#299](https://github.com/oap-project/gazelle_plugin/pull/299)|[NSE-207] fix unsuppored types in aggregate|
+|[#338](https://github.com/oap-project/gazelle_plugin/pull/338)|[NSE-337] UDF: Add test case for validating basic row-based udf|
+|[#336](https://github.com/oap-project/gazelle_plugin/pull/336)|[NSE-333] Arrow Data Source: CSV format support fix|
+|[#327](https://github.com/oap-project/gazelle_plugin/pull/327)|[NSE-326] update scala unit tests to spark-3.1.1|
+
+### OAP MLlib
+
+#### Features
+|||
+|:---|:---|
+|[#110](https://github.com/oap-project/oap-mllib/issues/110)|Update isOAPEnabled for Kmeans, PCA & ALS|
+|[#108](https://github.com/oap-project/oap-mllib/issues/108)|Update PCA GPU, LiR CPU and Improve JAR packaging and libs loading|
+|[#93](https://github.com/oap-project/oap-mllib/issues/93)|[GPU] Add GPU support for PCA|
+|[#101](https://github.com/oap-project/oap-mllib/issues/101)|[Release] Add version update scripts and improve scripts for examples|
+|[#76](https://github.com/oap-project/oap-mllib/issues/76)|Reorganize Spark version specific code structure|
+|[#82](https://github.com/oap-project/oap-mllib/issues/82)|[Tests] Add NaiveBayes test and refactors|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#119](https://github.com/oap-project/oap-mllib/issues/119)|[SDLe][Klocwork] Security vulnerabilities found by static code scan|
+|[#121](https://github.com/oap-project/oap-mllib/issues/121)|Meeting freeing memory issue after the training stage when using Intel-MLlib to run PCA and K-means algorithms.|
+|[#122](https://github.com/oap-project/oap-mllib/issues/122)|Cannot run K-means and PCA algorithm with oap-mllib on Google Dataproc|
+|[#123](https://github.com/oap-project/oap-mllib/issues/123)|[Core] Improve locality handling for native lib loading|
+|[#116](https://github.com/oap-project/oap-mllib/issues/116)|Cannot run ALS algorithm with oap-mllib thanks to the commit "2883d3447d07feb55bf5d4fee8225d74b0b1e2b1"|
+|[#114](https://github.com/oap-project/oap-mllib/issues/114)|[Core] Improve native lib loading|
+|[#94](https://github.com/oap-project/oap-mllib/issues/94)|Failed to run KMeans workload with oap-mllib in JLSE|
+|[#95](https://github.com/oap-project/oap-mllib/issues/95)|Some shared libs are missing in 1.1.1 release|
+|[#105](https://github.com/oap-project/oap-mllib/issues/105)|[Core] crash when libfabric version conflict|
+|[#98](https://github.com/oap-project/oap-mllib/issues/98)|[SDLe][Klocwork] Security vulnerabilities found by static code scan|
+|[#88](https://github.com/oap-project/oap-mllib/issues/88)|[Test] Fix ALS Suite "ALS shuffle cleanup standalone"|
+|[#86](https://github.com/oap-project/oap-mllib/issues/86)|[NaiveBayes] Fix isOAPEnabled and add multi-version support|
+
+#### PRs
+|||
+|:---|:---|
+|[#124](https://github.com/oap-project/oap-mllib/pull/124)|[ML-123][Core] Improve locality handling for native lib loading|
+|[#118](https://github.com/oap-project/oap-mllib/pull/118)|[ML-116] use getOneCCLIPPort and fix lib loading|
+|[#115](https://github.com/oap-project/oap-mllib/pull/115)|[ML-114] [Core] Improve native lib loading|
+|[#113](https://github.com/oap-project/oap-mllib/pull/113)|[ML-110] Update isOAPEnabled for Kmeans, PCA & ALS|
+|[#112](https://github.com/oap-project/oap-mllib/pull/112)|[ML-105][Core] Fix crash when libfabric version conflict|
+|[#111](https://github.com/oap-project/oap-mllib/pull/111)|[ML-108] Update PCA GPU, LiR CPU and Improve JAR packaging and libs loading|
+|[#104](https://github.com/oap-project/oap-mllib/pull/104)|[ML-93][GPU] Add GPU support for PCA|
+|[#103](https://github.com/oap-project/oap-mllib/pull/103)|[ML-98] [Release] Clean Service.java code|
+|[#102](https://github.com/oap-project/oap-mllib/pull/102)|[ML-101] [Release] Add version update scripts and improve scripts for examples|
+|[#90](https://github.com/oap-project/oap-mllib/pull/90)|[ML-88][Test] Fix ALS Suite "ALS shuffle cleanup standalone"|
+|[#87](https://github.com/oap-project/oap-mllib/pull/87)|[ML-86][NaiveBayes] Fix isOAPEnabled and add multi-version support|
+|[#83](https://github.com/oap-project/oap-mllib/pull/83)|[ML-82] [Tests] Add NaiveBayes test and refactors|
+|[#75](https://github.com/oap-project/oap-mllib/pull/75)|[ML-53] [CPU] Add Linear & Ridge Regression|
+|[#77](https://github.com/oap-project/oap-mllib/pull/77)|[ML-76] Reorganize multiple Spark version support code structure|
+|[#68](https://github.com/oap-project/oap-mllib/pull/68)|[ML-55] [CPU] Add Naive Bayes|
+|[#64](https://github.com/oap-project/oap-mllib/pull/64)|[ML-42] [PIP] Misc improvements and refactor code|
+|[#62](https://github.com/oap-project/oap-mllib/pull/62)|[ML-30][Coding Style] Add code style rules & scripts for Scala, Java and C++|
+
+### SQL DS Cache
+
+#### Features
+|||
+|:---|:---|
+|[#155](https://github.com/oap-project/sql-ds-cache/issues/155)|reorg to support profile based multi spark version|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#190](https://github.com/oap-project/sql-ds-cache/issues/190)|The function of vmem-cache and guava-cache should not be associated with arrow.|
+|[#181](https://github.com/oap-project/sql-ds-cache/issues/181)|[SDLe]Vulnerabilities scanned by Snyk|
+
+#### PRs
+|||
+|:---|:---|
+|[#182](https://github.com/oap-project/sql-ds-cache/pull/182)|[SQL-DS-CACHE-181][SDLe]Fix Snyk code scan issues|
+|[#191](https://github.com/oap-project/sql-ds-cache/pull/191)|[SQL-DS-CACHE-190]put plasma detector in seperate object to avoid unnecessary dependency of arrow|
+|[#189](https://github.com/oap-project/sql-ds-cache/pull/189)|[SQL-DS-CACHE-188][POAE7-1253] improvement of fallback from plasma cache to simple cache|
+|[#157](https://github.com/oap-project/sql-ds-cache/pull/157)|[SQL-DS-CACHE-155][POAE7-1187]reorg to support profile based multi spark version|
+
+### PMem Shuffle
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#46](https://github.com/oap-project/pmem-shuffle/issues/46)|Cannot run Terasort with pmem-shuffle of branch-1.2|
+|[#43](https://github.com/oap-project/pmem-shuffle/issues/43)|Rpmp cannot be compiled due to the lack of boost header file.|
+
+#### PRs
+|||
+|:---|:---|
+|[#51](https://github.com/oap-project/pmem-shuffle/pull/51)|[PMEM-SHUFFLE-50] Remove description about download submodules manually since they can be downloaded automatically.|
+|[#49](https://github.com/oap-project/pmem-shuffle/pull/49)|[PMEM-SHUFFLE-48] Fix the bug about mapstatus tracking and add more connections for metastore.|
+|[#47](https://github.com/oap-project/pmem-shuffle/pull/47)|[PMEM-SHUFFLE-46] Fix the bug that off-heap memory is over used in shuffle reduce stage. |
+|[#40](https://github.com/oap-project/pmem-shuffle/pull/40)|[PMEM-SHUFFLE-39] Fix the bug that pmem-shuffle without RPMP fails to pass Terasort benchmark due to latest patch.|
+|[#38](https://github.com/oap-project/pmem-shuffle/pull/38)|[PMEM-SHUFFLE-37] Add start-rpmp.sh and stop-rpmp.sh|
+|[#33](https://github.com/oap-project/pmem-shuffle/pull/33)|[PMEM-SHUFFLE-28]Add RPMP with HA support and integrate it with Spark3.1.1|
+|[#27](https://github.com/oap-project/pmem-shuffle/pull/27)|[PMEM-SHUFFLE] Change artifact name to make it compatible with naming…|
+
+### Remote Shuffle
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#24](https://github.com/oap-project/remote-shuffle/issues/24)|Enhance executor memory release|
+
+#### PRs
+|||
+|:---|:---|
+|[#25](https://github.com/oap-project/remote-shuffle/pull/25)|[REMOTE-SHUFFLE-24] Enhance executor memory release|
+
 
 ## Release 1.1.1
 
@@ -88,7 +280,7 @@ Generated on 2021-06-02
 |[#39](https://github.com/oap-project/oap-mllib/pull/39)|[ML-26] Build for different spark version by -Pprofile|
 
 
-### PMEM Spill
+### PMem Spill
 
 #### Features
 |||
@@ -101,7 +293,7 @@ Generated on 2021-06-02
 |[#41](https://github.com/oap-project/pmem-spill/pull/41)|[PMEM-SPILL-34][POAE7-1119]Port RDD cache to Spark 3.1.1 as separate module|
 
 
-### PMEM Common
+### PMem Common
 
 #### Features
 |||
@@ -116,7 +308,7 @@ Generated on 2021-06-02
 |[#9](https://github.com/oap-project/pmem-common/pull/9)|[PMEM-COMMON-8][POAE7-896]use clflush optimize version for clflush|
 
 
-### PMEM Shuffle
+### PMem Shuffle
 
 #### Features
 |||
@@ -363,7 +555,7 @@ Generated on 2021-06-02
 |[#19](https://github.com/oap-project/oap-mllib/pull/19)|[ML-18]  Auto detect KVS port for oneCCL to avoid port conflict|
 
 
-### PMEM Spill
+### PMem Spill
 
 #### Bugs Fixed
 |||
@@ -383,7 +575,7 @@ Generated on 2021-06-02
 |[#10](https://github.com/oap-project/pmem-spill/pull/10)|Fixing one pmem path on AppDirect mode may cause the pmem initialization path to be empty Path|
 
 
-### PMEM Shuffle
+### PMem Shuffle
 
 #### Features
 |||

@@ -76,7 +76,7 @@ Please check the document [Installation Guide](./Installation.md)
 
 ## Get started
 
-To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
+To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
 SPARK related options are:
 
 * `spark.driver.extraClassPath` : Set to load jar file to driver.
@@ -120,6 +120,21 @@ spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(200
 
 The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the [limitations](./limitations.md).
 
+## Could/K8s Integration
+
+###  Google Cloud Dataproc
+
+Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.
+
+Please refer to [Gazelle_on_Dataproc](https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md) to find details about:
+
+1. Create a cluster on Dataproc 2.0 with initialization actions. 
+Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by Conda in all cluster nodes.
+   
+2. Config for enabling Gazelle Plugin.
+
+3. Run TPC-DS with notebooks or scripts.
+
 
 ## Performance data
 
@@ -141,6 +156,11 @@ We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin an
 ![Performance](./image/decision_support_bench2_result_by_query.png)
 
 Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.
+
+## Memory allocation
+The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings [here](./memory.md), the memroy footprint is stable during a TPC-DS power run.
+![Memory](./image/rssmem.png)
+
 
 
 ## Coding Style

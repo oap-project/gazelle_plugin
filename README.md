@@ -84,7 +84,7 @@ Please check the document [Installation Guide](./docs/Installation.md)
 
 ## Get started
 
-To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
+To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
 SPARK related options are:
 
 * `spark.driver.extraClassPath` : Set to load jar file to driver.
@@ -132,7 +132,7 @@ The result should showup on Spark console and you can check the DAG diagram with
 
 ###  Google Cloud Dataproc
 
-Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS, TPC-H with scripts provided.
+Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.
 
 Please refer to [Gazelle_on_Dataproc](https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md) to find details about:
 
@@ -141,7 +141,7 @@ Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by C
    
 2. Config for enabling Gazelle Plugin.
 
-3. Run TPC-DS and TPC-H with scripts.
+3. Run TPC-DS with notebooks or scripts.
 
 
 ## Performance data
