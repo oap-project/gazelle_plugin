@@ -128,9 +128,15 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
               for (rowId <- 0 until batch.numRows()) {
                 val variableColSize = arrowType match {
                   case ArrowType.Utf8.INSTANCE =>
-                    column.getUTF8String(rowId).numBytes()
+                    val value = column.getUTF8String(rowId)
+                    if (value == null) {
+                      0
+                    } else value.numBytes()
                   case ArrowType.Binary.INSTANCE =>
-                    column.getBinary(rowId).length
+                    val value = column.getBinary(rowId)
+                    if (value == null) {
+                      0
+                    } else value.length
                   case _ => 0
                 }
                 val alignedSize = ByteArrayMethods.roundNumberOfBytesToNearestWord(variableColSize)
