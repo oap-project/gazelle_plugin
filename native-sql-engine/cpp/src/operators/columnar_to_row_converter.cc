@@ -438,7 +438,6 @@ int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
   }
 }
 
-
 arrow::Status ColumnarToRowConverter::Write() {
   // Initialize the offsets_ , lengths_, buffer_cursor_
   for (auto i = 0; i < num_rows_; i++) {
