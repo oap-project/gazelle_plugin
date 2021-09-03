@@ -3,13 +3,13 @@
 This document contains the instructions & scripts on installing necessary dependencies and building OAP modules. 
 You can get more detailed information from OAP each module below.
 
-* [SQL Index and Data Source Cache](https://github.com/oap-project/sql-ds-cache/blob/v1.1.1-spark-3.1.1/docs/Developer-Guide.md)
-* [PMem Common](https://github.com/oap-project/pmem-common/tree/v1.1.1-spark-3.1.1)
-* [PMem Spill](https://github.com/oap-project/pmem-spill/tree/v1.1.1-spark-3.1.1)
-* [PMem Shuffle](https://github.com/oap-project/pmem-shuffle/tree/v1.1.1-spark-3.1.1#5-install-dependencies-for-pmem-shuffle)
-* [Remote Shuffle](https://github.com/oap-project/remote-shuffle/tree/v1.1.1-spark-3.1.1)
-* [OAP MLlib](https://github.com/oap-project/oap-mllib/tree/v1.1.1-spark-3.1.1)
-* [Gazelle Plugin](https://github.com/oap-project/gazelle_plugin/tree/v1.1.1-spark-3.1.1)
+* [SQL Index and Data Source Cache](https://github.com/oap-project/sql-ds-cache/blob/v1.2.0/docs/Developer-Guide.md)
+* [PMem Common](https://github.com/oap-project/pmem-common/tree/v1.2.0)
+* [PMem Spill](https://github.com/oap-project/pmem-spill/tree/v1.2.0)
+* [PMem Shuffle](https://github.com/oap-project/pmem-shuffle/tree/v1.2.0#5-install-dependencies-for-pmem-shuffle)
+* [Remote Shuffle](https://github.com/oap-project/remote-shuffle/tree/v1.2.0)
+* [OAP MLlib](https://github.com/oap-project/oap-mllib/tree/v1.2.0)
+* [Gazelle Plugin](https://github.com/oap-project/gazelle_plugin/tree/v1.2.0)
 
 ## Building OAP
 
@@ -22,7 +22,7 @@ We provide scripts to help automatically install dependencies required, please c
 # cd oap-tools
 # sh dev/install-compile-time-dependencies.sh
 ```
-*Note*: oap-tools tag version `v1.1.1-spark-3.1.1` corresponds to  all OAP modules' tag version `v1.1.1-spark-3.1.1`.
+*Note*: oap-tools tag version `v1.2.0` corresponds to  all OAP modules' tag version `v1.2.0`.
 
 Then the dependencies below will be installed:
 
@@ -33,34 +33,31 @@ Then the dependencies below will be installed:
 * [HPNL](https://github.com/Intel-bigdata/HPNL)
 * [PMDK](https://github.com/pmem/pmdk)  
 * [OneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html)
-* [Arrow](https://github.com/oap-project/arrow/tree/arrow-4.0.0-oap)
+* [Arrow](https://github.com/oap-project/arrow/tree/v4.0.0-oap-1.2.0)
 * [LLVM](https://llvm.org/) 
-
-Run the following command to learn more.
-
-```
-# sh dev/scripts/prepare_oap_env.sh --help
-```
-
-Run the following command to automatically install specific dependency such as Maven.
-
-```
-# sh dev/scripts/prepare_oap_env.sh --prepare_maven
-```
 
 - **Requirements for Shuffle Remote PMem Extension**  
 If enable Shuffle Remote PMem extension with RDMA, you can refer to [PMem Shuffle](https://github.com/oap-project/pmem-shuffle) to configure and validate RDMA in advance.
 
 ### Building
 
+#### Building OAP 
+
 OAP is built with [Apache Maven](http://maven.apache.org/) and Oracle Java 8.
 
-To build OAP package, run command below then you can find a tarball named `oap-$VERSION-bin-spark-$VERSION.tar.gz` under directory `$OAP_TOOLS_HOME/dev/release-package `.
+To build OAP package, run command below then you can find a tarball named `oap-$VERSION-*.tar.gz` under directory `$OAP_TOOLS_HOME/dev/release-package `, which contains all OAP module jars.
+Change to `root` user, run
+
 ```
-$ sh $OAP_TOOLS_HOME/dev/compile-oap.sh
+# cd oap-tools
+# sh dev/compile-oap.sh
 ```
 
-Building specified OAP Module, such as `sql-ds-cache`, run:
+#### Building OAP specific module 
+
+If you just want to build a specific OAP Module, such as `sql-ds-cache`, change to `root` user, then run:
+
 ```
-$ sh $OAP_TOOLS_HOME/dev/compile-oap.sh --sql-ds-cache
+# cd oap-tools
+# sh dev/compile-oap.sh --component=sql-ds-cache
 ```
