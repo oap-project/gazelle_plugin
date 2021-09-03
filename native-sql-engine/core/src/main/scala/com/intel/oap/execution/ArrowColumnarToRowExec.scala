@@ -20,7 +20,7 @@ package com.intel.oap.execution
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowColumnarToRowJniWrapper, ArrowWritableColumnVector}
 import org.apache.arrow.vector.BaseVariableWidthVector
-import org.apache.arrow.vector.types.pojo.{Field, Schema}
+import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{UnsafeProjection, UnsafeRow}
@@ -28,6 +28,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
 import org.apache.spark.sql.types._
+import org.apache.spark.unsafe.array.ByteArrayMethods
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -92,8 +93,8 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
         val fields = child.schema.fields
         val decimalCols = fields.filter(field => containDecimalCol(field)).length
         val fixedLength = UnsafeRow.calculateBitSetWidthInBytes(numCols) + numCols * 8
-        val initialBufferSize = 16 * decimalCols
-        (fixedLength + initialBufferSize) * numRows
+        val decimalColSize = 16 * decimalCols
+        (fixedLength + decimalColSize) * numRows
       }
 
       batches.flatMap { batch =>
@@ -122,7 +123,19 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
             fields += column.getValueVector.getField
             val valueVector = column.getValueVector
             if (valueVector.isInstanceOf[BaseVariableWidthVector]) {
-              totalVariableSize += valueVector.getDataBuffer.getPossibleMemoryConsumed()
+              // Calculate the total aligned size of variable cols
+              val arrowType = column.getValueVector.getField.getFieldType.getType
+              for (rowId <- 0 until batch.numRows()) {
+                val variableColSize = arrowType match {
+                  case ArrowType.Utf8.INSTANCE =>
+                    column.getUTF8String(rowId).numBytes()
+                  case ArrowType.Binary.INSTANCE =>
+                    column.getBinary(rowId).length
+                  case _ => 0
+                }
+                val alignedSize = ByteArrayMethods.roundNumberOfBytesToNearestWord(variableColSize)
+                totalVariableSize += alignedSize
+              }
             }
             valueVector.getBuffers(false)
               .foreach { buffer =>

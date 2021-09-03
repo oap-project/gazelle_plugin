@@ -429,6 +429,16 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
   return arrow::Status::OK();
 }
 
+int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
+  int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
+  if (remainder == 0) {
+    return numBytes;
+  } else {
+    return numBytes + (8 - remainder);
+  }
+}
+
+
 arrow::Status ColumnarToRowConverter::Write() {
   // Initialize the offsets_ , lengths_, buffer_cursor_
   for (auto i = 0; i < num_rows_; i++) {
@@ -446,7 +456,7 @@ arrow::Status ColumnarToRowConverter::Write() {
       offset_type length;
       for (auto j = 0; j < num_rows_; j++) {
         auto value = binary_array->GetValue(j, &length);
-        lengths_[j] += length;
+        lengths_[j] += RoundNumberOfBytesToNearestWord(length);
       }
     }
   }
