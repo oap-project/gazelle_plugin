@@ -130,3 +130,5 @@
 - intersect *** FAILED ***
 - SPARK-17123: Performing set operations that combine non-scala native types *** FAILED ***
 - union by name - type coercion *** FAILED ***
+- SPARK-22520: support code generation for large CaseWhen *** FAILED ***
+- SPARK-29894 test Codegen Stage Id in SparkPlanInfo *** FAILED ***
