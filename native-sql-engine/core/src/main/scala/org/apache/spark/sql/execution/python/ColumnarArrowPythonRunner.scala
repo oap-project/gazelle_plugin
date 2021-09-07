@@ -68,7 +68,8 @@ class ColumnarArrowPythonRunner(
       context: TaskContext): Iterator[ColumnarBatch] = {
 
     new ReaderIterator(stream, writerThread, startTime, env, worker, releasedOrClosed, context) {
-      private val allocator = SparkMemoryUtils.globalAllocator().newChildAllocator(
+
+      private val allocator = SparkMemoryUtils.contextAllocator().newChildAllocator(
         s"stdin reader for $pythonExec", 0, Long.MaxValue)
 
       private var reader: ArrowStreamReader = _
@@ -148,7 +149,7 @@ class ColumnarArrowPythonRunner(
       protected override def writeIteratorToStream(dataOut: DataOutputStream): Unit = {
         var numRows: Long = 0
         val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
-        val allocator = SparkMemoryUtils.globalAllocator().newChildAllocator(
+        val allocator = SparkMemoryUtils.contextAllocator().newChildAllocator(
           s"stdout writer for $pythonExec", 0, Long.MaxValue)
         val root = VectorSchemaRoot.create(arrowSchema, allocator)
 
@@ -163,7 +164,7 @@ class ColumnarArrowPythonRunner(
             loader.load(next_rb)
             writer.writeBatch()
             ConverterUtils.releaseArrowRecordBatch(next_rb)
-          }            
+          }
           // end writes footer to the output stream and doesn't clean any resources.
           // It could throw exception if the output stream is closed, so it should be
           // in the try block.
