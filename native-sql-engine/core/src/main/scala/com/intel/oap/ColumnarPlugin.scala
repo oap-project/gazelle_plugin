@@ -35,6 +35,7 @@ import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrow
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.CalendarIntervalType
+import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
 
 case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
@@ -177,18 +178,41 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
 
     case plan: SortMergeJoinExec =>
       if (columnarConf.enableColumnarSortMergeJoin) {
-        val left = replaceWithColumnarPlan(plan.left)
-        val right = replaceWithColumnarPlan(plan.right)
+        if (plan.left.isInstanceOf[SortExec] || plan.right.isInstanceOf[SortExec]) {
+          val left = if (plan.left.isInstanceOf[SortExec]) {
+            replaceWithColumnarPlan(plan.left.asInstanceOf[SortExec].child)
+          } else {
+            replaceWithColumnarPlan(plan.left)
+          }
+          val right = if (plan.right.isInstanceOf[SortExec]) {
+            replaceWithColumnarPlan(plan.right.asInstanceOf[SortExec].child)
+          } else {
+            replaceWithColumnarPlan(plan.right)
+          }
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      return ColumnarShuffledHashJoinExec(
+        plan.leftKeys,
+        plan.rightKeys,
+        plan.joinType,
+        BuildLeft,
+        plan.condition,
+        left,
+        right)
 
-        ColumnarSortMergeJoinExec(
-          plan.leftKeys,
-          plan.rightKeys,
-          plan.joinType,
-          plan.condition,
-          left,
-          right,
-          plan.isSkewJoin)
+        } else {
+          val left = replaceWithColumnarPlan(plan.left)
+          val right = replaceWithColumnarPlan(plan.right)
+          logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+
+          return ColumnarSortMergeJoinExec(
+                  plan.leftKeys,
+                  plan.rightKeys,
+                  plan.joinType,
+                  plan.condition,
+                  left,
+                  right,
+                  plan.isSkewJoin)
+        }
       } else {
         val children = plan.children.map(replaceWithColumnarPlan)
         logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
