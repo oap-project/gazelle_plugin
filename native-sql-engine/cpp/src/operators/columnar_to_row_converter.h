@@ -28,29 +28,36 @@
 #include "gandiva/decimal_type_util.h"
 
 namespace sparkcolumnarplugin {
-namespace unsaferow {
+namespace columnartorow {
 
-class UnsafeRowWriterAndReader {
+class ColumnarToRowConverter {
  public:
-  UnsafeRowWriterAndReader(std::shared_ptr<arrow::RecordBatch> rb,
-                           arrow::MemoryPool* memory_pool)
-      : rb_(rb), memory_pool_(memory_pool) {}
+  ColumnarToRowConverter(std::shared_ptr<arrow::RecordBatch> rb, uint8_t* buffer_address,
+                         int64_t memory_size = 0, int64_t fixed_size_per_row = 0)
+      : rb_(rb),
+        buffer_address_(buffer_address),
+        memory_size_(memory_size),
+        fixed_size_per_row_(fixed_size_per_row) {}
+
   arrow::Status Init();
   arrow::Status Write();
-  bool HasNext();
-  arrow::Status Next(int64_t* length, std::shared_ptr<arrow::ResizableBuffer>* buffer);
-  int64_t GetNumCols() { return num_cols_; }
+
+  uint8_t* GetBufferAddress() { return buffer_address_; }  // for test
+  const std::vector<int64_t>& GetOffsets() { return offsets_; }
+  const std::vector<int64_t>& GetLengths() { return lengths_; }
 
  protected:
-  std::vector<std::shared_ptr<arrow::ResizableBuffer>> buffers_;
   std::vector<int64_t> buffer_cursor_;
   std::shared_ptr<arrow::RecordBatch> rb_;
   int64_t nullBitsetWidthInBytes_;
-  int64_t row_cursor_;
   int64_t num_cols_;
   int64_t num_rows_;
-  arrow::MemoryPool* memory_pool_ = arrow::default_memory_pool();
+  uint8_t* buffer_address_;
+  int64_t memory_size_;
+  int64_t fixed_size_per_row_;
+  std::vector<int64_t> offsets_;
+  std::vector<int64_t> lengths_;
 };
 
-}  // namespace unsaferow
+}  // namespace columnartorow
 }  // namespace sparkcolumnarplugin

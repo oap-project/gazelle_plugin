@@ -17,19 +17,18 @@
 
 package com.intel.oap.vectorized;
 
-import sun.nio.ch.DirectBuffer;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class ArrowColumnarToRowJniWrapper {
+public class ArrowColumnarToRowInfo {
+    public long instanceID;
+    public long[] offsets;
+    public long[] lengths;
 
-  public ArrowColumnarToRowJniWrapper() throws IOException {
-    JniUtils.getInstance();
-  }
-
-  public native ArrowColumnarToRowInfo nativeConvertColumnarToRow(
-          byte[] schema, int numRows, long[] bufAddrs,
-          long[] bufSizes, long memoryAddress, long memorySize, long fixedSizePerRow) throws RuntimeException;
-  public native void nativeClose(long instanceID);
+    public ArrowColumnarToRowInfo(long instanceID,
+                                  long[] offsets, long[] lengths) {
+        this.instanceID = instanceID;
+        this.offsets = offsets;
+        this.lengths = lengths;
+    }
 }

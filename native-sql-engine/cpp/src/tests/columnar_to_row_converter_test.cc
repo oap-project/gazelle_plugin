@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include "operators/columnar_to_row_converter.h"
+
 #include <arrow/compute/api.h>
 #include <arrow/datum.h>
 #include <arrow/io/api.h>
@@ -26,11 +28,10 @@
 
 #include <iostream>
 
-#include "operators/unsafe_row_writer_and_reader.h"
 #include "tests/test_utils.h"
 
 namespace sparkcolumnarplugin {
-namespace unsaferow {
+namespace columnartorow {
 
 class MyMemoryPool : public arrow::MemoryPool {
  public:
@@ -112,52 +113,27 @@ const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
                                                              R"(["100.00", "100.00"])"};
 
 TEST_F(UnsaferowTest, TestNullTypeCheck) {
-  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
-  std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader =
-      std::make_shared<UnsafeRowWriterAndReader>(nullable_input_batch_, pool.get());
+  std::shared_ptr<arrow::Buffer> buffer;
+  buffer = *arrow::AllocateBuffer(419430400);
+  uint8_t* address = buffer->mutable_data();
+
+  std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
+      std::make_shared<ColumnarToRowConverter>(nullable_input_batch_, address);
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
-
-  long expected[2][3] = {{1, 0, 1}, {2, 1, 0}};
-  int32_t count = 0;
-  while (unsafe_row_writer_reader->HasNext()) {
-    int64_t length;
-    std::shared_ptr<arrow::ResizableBuffer> buffer;
-    unsafe_row_writer_reader->Next(&length, &buffer);
-
-    auto data = buffer->mutable_data();
-    long value = 0;
-    long result[3] = {0, 0, 0};
-    int32_t k = 0;
-    for (int32_t i = 0; i < length; i += sizeof(long)) {
-      memcpy(&value, data + i, sizeof(long));
-      result[k++] = value;
-    }
-
-    int32_t result_size = sizeof(result) / sizeof(result[0]);
-    ASSERT_EQ(result_size, 3);
-
-    for (int32_t i = 0; i < result_size; i++) {
-      ASSERT_EQ(result[i], expected[count][i]);
-    }
-    count++;
-  }
 }
 
-TEST_F(UnsaferowTest, TestUnsaferowWriterandReader) {
-  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000);
-  std::shared_ptr<UnsafeRowWriterAndReader> unsafe_row_writer_reader =
-      std::make_shared<UnsafeRowWriterAndReader>(input_batch_, pool.get());
+TEST_F(UnsaferowTest, TestColumnarToRowConverter) {
+  std::shared_ptr<arrow::Buffer> buffer;
+  buffer = *arrow::AllocateBuffer(419430400);
+  uint8_t* address = buffer->mutable_data();
+
+  std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
+      std::make_shared<ColumnarToRowConverter>(input_batch_, address);
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
-
-  while (unsafe_row_writer_reader->HasNext()) {
-    int64_t length;
-    std::shared_ptr<arrow::ResizableBuffer> buffer;
-    unsafe_row_writer_reader->Next(&length, &buffer);
-  }
 }
-}  // namespace unsaferow
+}  // namespace columnartorow
 }  // namespace sparkcolumnarplugin

@@ -111,7 +111,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   }
 
   test("window function with non-decimal input") {
-    val df = spark.sql("SELECT i_item_sk, i_class_id, SUM(i_category_id)" +
+    val df = spark.sql("SELECT i_item_sk, i_clalss_id, SUM(i_category_id)" +
             " OVER (PARTITION BY i_class_id) FROM item LIMIT 1000")
     df.explain()
     df.show()
