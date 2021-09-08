@@ -47,6 +47,11 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
     case _ => false
   }
 
+  private def canBuildLeft(joinType: JoinType): Boolean = joinType match {
+    case _: InnerLike | RightOuter | FullOuter => true
+    case _ => false
+  }
+
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
       replaceWithColumnarPlan(child)
@@ -195,10 +200,10 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           } else {
             replaceWithColumnarPlan(plan.right)
           }
-        val buildSide = if (canBuildRight(plan.joinType)) {
-            BuildRight
-          } else {
+        val buildSide = if (canBuildLeft(plan.joinType)) {
             BuildLeft
+          } else {
+            BuildRight
           }
         logDebug(s"Converting SMJ to SHJ.")
       return ColumnarShuffledHashJoinExec(
