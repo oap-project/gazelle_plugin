@@ -36,10 +36,16 @@ import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.CalendarIntervalType
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
+import org.apache.spark.sql.catalyst.plans._
 
 case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
+
+  private def canBuildRight(joinType: JoinType): Boolean = joinType match {
+    case _: InnerLike | LeftOuter | LeftSemi | LeftAnti | _: ExistenceJoin => true
+    case _ => false
+  }
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
@@ -189,12 +195,17 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           } else {
             replaceWithColumnarPlan(plan.right)
           }
-        logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+        val buildSide = if (canBuildRight(plan.joinType)) {
+            BuildRight
+          } else {
+            BuildLeft
+          }
+        logDebug(s"Converting SMJ to SHJ.")
       return ColumnarShuffledHashJoinExec(
         plan.leftKeys,
         plan.rightKeys,
         plan.joinType,
-        BuildLeft,
+        buildSide,
         plan.condition,
         left,
         right)
