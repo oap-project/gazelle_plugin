@@ -38,7 +38,7 @@
 #include <numeric>
 #include <vector>
 
-#include "array_appender.h"
+#include "array_taker.h"
 #include "cmp_function.h"
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/arrow_compute/ext/code_generator_base.h"
@@ -312,19 +312,17 @@ class SortArraysToIndicesKernel::Impl {
           cached_in_(std::move(cached)) {
       col_num_ = schema->num_fields();
       indices_begin_ = (ArrayItemIndexS*)indices_in->value_data();
-      // appender_type won't be used
-      AppenderBase::AppenderType appender_type = AppenderBase::left;
       for (int i = 0; i < col_num_; i++) {
         auto field = schema->field(i);
-        std::shared_ptr<AppenderBase> appender;
-        THROW_NOT_OK(MakeUnsafeAppender(ctx_, field->type(), appender_type, &appender));
-        appender_list_.push_back(appender);
+        std::shared_ptr<TakerBase> taker;
+        THROW_NOT_OK(MakeArrayTaker(ctx_, field->type(), &taker));
+        taker_list_.push_back(taker);
       }
 
       for (int i = 0; i < col_num_; i++) {
         int array_num = cached_in_[i].size();
         for (int array_id = 0; array_id < array_num; array_id++) {
-          appender_list_[i]->AddArray(cached_in_[i][array_id]);
+          taker_list_[i]->AddArray(cached_in_[i][array_id]);
         }
       }
       batch_size_ = GetBatchSize();
@@ -347,8 +345,8 @@ class SortArraysToIndicesKernel::Impl {
       spillablecachestore_->DoSpill(spilled_size);
 
       // clean up references on cached array
-      for (auto appender : appender_list_) {
-        appender->ClearArrays();
+      for (auto taker : taker_list_) {
+        taker->ClearArrays();
       }
       cached_in_.clear();
       is_spilled_ = true;
@@ -365,7 +363,7 @@ class SortArraysToIndicesKernel::Impl {
         int array_num = array_vector.size();
         for (int array_id = 0; array_id < array_num; array_id++) {
           auto arr = array_vector[array_id];
-          appender_list_[i]->AddArray(arr);
+          taker_list_[i]->AddArray(arr);
         }
       }
       is_spilled_ = false;
@@ -385,24 +383,14 @@ class SortArraysToIndicesKernel::Impl {
       }
       auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
                                                             : (total_length_ - offset_);
-      uint64_t count = 0;
-      for (int i = 0; i < col_num_; i++) {
-        RETURN_NOT_OK(appender_list_[i]->Reserve(length));
-        while (count < length) {
-          auto item = indices_begin_ + offset_ + count++;
-          RETURN_NOT_OK(appender_list_[i]->Append(item->array_id, item->id));
-        }
-        count = 0;
-      }
-      offset_ += length;
       ArrayList arrays;
       for (int i = 0; i < col_num_; i++) {
         std::shared_ptr<arrow::Array> out_array;
-        RETURN_NOT_OK(appender_list_[i]->Finish(&out_array));
+        taker_list_[i]->TakeFromIndices(indices_begin_ + offset_, length, &out_array);
         arrays.push_back(out_array);
-        appender_list_[i]->Reset();
       }
 
+      offset_ += length;
       *out = arrow::RecordBatch::Make(schema_, length, arrays);
       return arrow::Status::OK();
     }
@@ -417,7 +405,7 @@ class SortArraysToIndicesKernel::Impl {
     ArrayItemIndexS* indices_begin_;
     std::vector<arrow::ArrayVector> cached_in_;
     std::vector<std::shared_ptr<arrow::DataType>> type_list_;
-    std::vector<std::shared_ptr<AppenderBase>> appender_list_;
+    std::vector<std::shared_ptr<TakerBase>> taker_list_;
     std::shared_ptr<FixedSizeBinaryArray> indices_in_cache_;
     bool is_spilled_ = false;
     std::shared_ptr<SpillableCacheStore> spillablecachestore_;
