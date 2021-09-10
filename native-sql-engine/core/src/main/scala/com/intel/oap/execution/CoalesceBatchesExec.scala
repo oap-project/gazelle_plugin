@@ -20,8 +20,11 @@ package com.intel.oap.execution
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import com.intel.oap.vectorized.CloseableColumnBatchIterator
+
 import org.apache.arrow.vector.util.VectorBatchAppender
 import org.apache.arrow.memory.{BufferAllocator, RootAllocator}
+import org.apache.arrow.vector.types.pojo.Schema;
+
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
@@ -32,8 +35,10 @@ import org.apache.spark.sql.execution.{SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.{StructType, StructField}
+import org.apache.spark.sql.util.ArrowUtils;
 
 import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
 
 case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
 
@@ -75,9 +80,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
         new Iterator[ColumnarBatch] {
           var numBatchesTotal: Long = _
           var numRowsTotal: Long = _
-          val resultStructType =
-            StructType(output.map(a => StructField(a.name, a.dataType, a.nullable, a.metadata)))
-
           SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit] { _ =>
             if (numBatchesTotal > 0) {
               avgCoalescedNumRows.set(numRowsTotal.toDouble / numBatchesTotal)
@@ -107,6 +109,16 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
               batchesToAppend += delta
             }
 
+            // chendi: We need make sure target FieldTypes are exactly the same as src
+            val expected_output_arrow_fields = if (batchesToAppend.size > 0) {
+              (0 until batchesToAppend(0).numCols).map(i => {
+                batchesToAppend(0).column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector.getField
+              })
+            } else {
+              Nil
+            }
+
+            val resultStructType = ArrowUtils.fromArrowSchema(new Schema(expected_output_arrow_fields.asJava))
             val beforeConcat = System.nanoTime
             val resultColumnVectors =
               ArrowWritableColumnVector.allocateColumns(rowCount, resultStructType).toArray

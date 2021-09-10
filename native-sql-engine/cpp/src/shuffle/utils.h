@@ -113,63 +113,44 @@ static arrow::Result<std::string> CreateTempShuffleFile(const std::string& dir) 
   return file_path;
 }
 
-static arrow::Result<std::vector<Type::typeId>> ToSplitterTypeId(
+static arrow::Result<std::vector<std::shared_ptr<arrow::DataType>>> ToSplitterTypeId(
     const std::vector<std::shared_ptr<arrow::Field>>& fields) {
-  std::vector<Type::typeId> splitter_type_id;
-  splitter_type_id.reserve(fields.size());
+  std::vector<std::shared_ptr<arrow::DataType>> splitter_type_id;
   std::pair<std::string, arrow::Type::type> field_type_not_implemented;
-
-  std::transform(std::cbegin(fields), std::cend(fields),
-                 std::back_inserter(splitter_type_id),
-                 [&field_type_not_implemented](
-                     const std::shared_ptr<arrow::Field>& field) -> Type::typeId {
-                   auto arrow_type_id = field->type()->id();
-                   switch (arrow_type_id) {
-                     case arrow::BooleanType::type_id:
-                       return Type::SHUFFLE_BIT;
-                     case arrow::Int8Type::type_id:
-                     case arrow::UInt8Type::type_id:
-                       return Type::SHUFFLE_1BYTE;
-                     case arrow::Int16Type::type_id:
-                     case arrow::UInt16Type::type_id:
-                     case arrow::HalfFloatType::type_id:
-                       return Type::SHUFFLE_2BYTE;
-                     case arrow::Int32Type::type_id:
-                     case arrow::UInt32Type::type_id:
-                     case arrow::FloatType::type_id:
-                     case arrow::Date32Type::type_id:
-                     case arrow::Time32Type::type_id:
-                       return Type::SHUFFLE_4BYTE;
-                     case arrow::Int64Type::type_id:
-                     case arrow::UInt64Type::type_id:
-                     case arrow::DoubleType::type_id:
-                     case arrow::Date64Type::type_id:
-                     case arrow::Time64Type::type_id:
-                     case arrow::TimestampType::type_id:
-                       return Type::SHUFFLE_8BYTE;
-                     case arrow::BinaryType::type_id:
-                     case arrow::StringType::type_id:
-                       return Type::SHUFFLE_BINARY;
-                     case arrow::LargeBinaryType::type_id:
-                     case arrow::LargeStringType::type_id:
-                       return Type::SHUFFLE_LARGE_BINARY;
-                     case arrow::Decimal128Type::type_id:
-                       return Type::SHUFFLE_DECIMAL128;
-                     case arrow::NullType::type_id:
-                       return Type::SHUFFLE_NULL;
-                     default:
-                       field_type_not_implemented =
-                           std::make_pair(std::move(field->ToString()), arrow_type_id);
-                       return Type::SHUFFLE_NOT_IMPLEMENTED;
-                   }
-                 });
-
-  auto it = std::find(std::begin(splitter_type_id), std::end(splitter_type_id),
-                      Type::SHUFFLE_NOT_IMPLEMENTED);
-  if (it != std::end(splitter_type_id)) {
-    RETURN_NOT_OK(arrow::Status::NotImplemented(
-        "Field type not implemented: " + field_type_not_implemented.first +
-        "\n arrow type id: " + std::to_string(field_type_not_implemented.second)));
+  for (auto field : fields) {
+    switch (field->type()->id()) {
+      case arrow::BooleanType::type_id:
+      case arrow::Int8Type::type_id:
+      case arrow::UInt8Type::type_id:
+      case arrow::Int16Type::type_id:
+      case arrow::UInt16Type::type_id:
+      case arrow::HalfFloatType::type_id:
+      case arrow::Int32Type::type_id:
+      case arrow::UInt32Type::type_id:
+      case arrow::FloatType::type_id:
+      case arrow::Date32Type::type_id:
+      case arrow::Time32Type::type_id:
+      case arrow::Int64Type::type_id:
+      case arrow::UInt64Type::type_id:
+      case arrow::DoubleType::type_id:
+      case arrow::Date64Type::type_id:
+      case arrow::Time64Type::type_id:
+      case arrow::TimestampType::type_id:
+      case arrow::BinaryType::type_id:
+      case arrow::StringType::type_id:
+      case arrow::LargeBinaryType::type_id:
+      case arrow::LargeStringType::type_id:
+      case arrow::ListType::type_id:
+      case arrow::LargeListType::type_id:
+      case arrow::Decimal128Type::type_id:
+      case arrow::NullType::type_id:
+        splitter_type_id.push_back(field->type());
+        break;
+      default:
+        RETURN_NOT_OK(arrow::Status::NotImplemented(
+            "Field type not implemented in ColumnarShuffle, type is ",
+            field->type()->ToString()));
+    }
   }
   return splitter_type_id;
 }

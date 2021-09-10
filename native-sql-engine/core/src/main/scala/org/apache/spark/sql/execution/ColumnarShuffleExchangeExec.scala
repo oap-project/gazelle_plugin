@@ -97,7 +97,7 @@ case class ColumnarShuffleExchangeExec(
     // check input datatype
     for (attr <- child.output) {
       try {
-        ColumnarShuffleExchangeExec.createArrowField(attr)
+        ConverterUtils.createArrowField(attr)
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
@@ -289,22 +289,6 @@ object ColumnarShuffleExchangeExec extends Logging {
     }
   }
 
-  def createArrowField(name: String, dt: DataType): Field = dt match {
-    case at: ArrayType =>
-      throw new UnsupportedOperationException(s"${dt} is not supported in ColumnarShuffleExchange")
-    case mt: MapType =>
-      throw new UnsupportedOperationException(s"${dt} is not supported in ColumnarShuffleExchange")
-    case st: StructType =>
-      throw new UnsupportedOperationException(s"${dt} is not supported in ColumnarShuffleExchange")
-      /*new Field(name, FieldType.nullable(ArrowType.List.INSTANCE),
-        Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))*/
-    case _ =>
-      Field.nullable(name, CodeGeneration.getResultType(dt))
-  }
-
-  def createArrowField(attr: Attribute): Field = 
-      createArrowField(s"${attr.name}#${attr.exprId.id}", attr.dataType)
-
   def prepareShuffleDependency(
       rdd: RDD[ColumnarBatch],
       outputAttributes: Seq[Attribute],
@@ -318,7 +302,7 @@ object ColumnarShuffleExchangeExec extends Logging {
       splitTime: SQLMetric,
       spillTime: SQLMetric,
       compressTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
-    val arrowFields = outputAttributes.map(attr => createArrowField(attr))
+    val arrowFields = outputAttributes.map(attr => ConverterUtils.createArrowField(attr))
     def serializeSchema(fields: Seq[Field]): Array[Byte] = {
       val schema = new Schema(fields.asJava)
       ConverterUtils.getSchemaBytesBuf(schema)

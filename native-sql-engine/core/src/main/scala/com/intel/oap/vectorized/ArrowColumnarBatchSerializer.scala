@@ -23,6 +23,8 @@ import java.nio.ByteBuffer
 import com.intel.oap.ColumnarPluginConfig
 import com.intel.oap.expression.ConverterUtils
 import org.apache.arrow.memory.BufferAllocator
+import org.apache.arrow.memory.ArrowBuf
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode
 import org.apache.arrow.vector.ipc.ArrowStreamReader
 import org.apache.arrow.vector.{
   BaseFixedWidthVector,
@@ -38,7 +40,7 @@ import org.apache.spark.serializer.{
   Serializer,
   SerializerInstance
 }
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkVectorUtils}
 import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
@@ -69,7 +71,8 @@ private class ArrowColumnarBatchSerializerInstance(
       private val compressionEnabled =
         SparkEnv.get.conf.getBoolean("spark.shuffle.compress", true)
 
-      private val allocator: BufferAllocator = SparkMemoryUtils.contextAllocator()
+      private val allocator: BufferAllocator = SparkMemoryUtils
+        .contextAllocator()
         .newChildAllocator("ArrowColumnarBatch deserialize", 0, Long.MaxValue)
 
       private var reader: ArrowStreamReader = _
@@ -198,28 +201,25 @@ private class ArrowColumnarBatchSerializerInstance(
         var bufIdx = 0
 
         root.getFieldVectors.asScala.foreach { vector =>
-          val validityBuf = vector.getValidityBuffer
-          if (validityBuf
-                .capacity() <= 8 || java.lang.Long.bitCount(validityBuf.getLong(0)) == 64 ||
-              java.lang.Long.bitCount(validityBuf.getLong(0)) == 0) {
-            bufBS.add(bufIdx)
-          }
-          // don't call vector.getBuffers to avoid extra check
-          val buffers = vector match {
-            case fixed: BaseFixedWidthVector =>
-              fixed.getValidityBuffer :: fixed.getDataBuffer :: Nil
-            case variable: BaseVariableWidthVector =>
-              variable.getValidityBuffer :: variable.getOffsetBuffer :: variable.getDataBuffer :: Nil
-            case _ =>
-              throw new UnsupportedOperationException(
-                s"Could not decompress vector of class ${vector.getClass}")
-          }
-          buffers.foreach { buffer =>
-            bufAddrs += buffer.memoryAddress()
-            // buffer.readableBytes() will return wrong readable length here since it is initialized by
-            // data stored in IPC message header, which is not the actual compressed length
-            bufSizes += buffer.capacity()
-            bufIdx += 1
+          val buffers = new java.util.ArrayList[ArrowBuf]()
+          val bits = new java.util.ArrayList[Boolean]()
+          SparkVectorUtils.appendNodes(vector, null, buffers, bits);
+          (buffers.asScala zip bits.asScala).foreach {
+            case (buffer, is_bit) =>
+              if (is_bit) {
+                val validityBuf = buffer
+                if (validityBuf
+                      .capacity() <= 8 || java.lang.Long.bitCount(validityBuf.getLong(0)) == 64 ||
+                    java.lang.Long.bitCount(validityBuf.getLong(0)) == 0) {
+                  bufBS.add(bufIdx)
+                }
+              }
+
+              bufAddrs += buffer.memoryAddress()
+              // buffer.readableBytes() will return wrong readable length here since it is initialized by
+              // data stored in IPC message header, which is not the actual compressed length
+              bufSizes += buffer.capacity()
+              bufIdx += 1
           }
         }
 
@@ -236,6 +236,8 @@ private class ArrowColumnarBatchSerializerInstance(
         root.clear()
         if (decompressedRecordBatch != null) {
           vectorLoader.load(decompressedRecordBatch)
+          logDebug(
+            s"ArrowColumnarBatchSerializer, Decompressed vector is ${root.contentToTSVString()}")
           decompressedRecordBatch.close()
         }
       }
