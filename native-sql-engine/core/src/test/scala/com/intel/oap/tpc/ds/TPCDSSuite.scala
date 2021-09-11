@@ -54,7 +54,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
         .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
         .set("spark.sql.autoBroadcastJoinThreshold", "-1")
         .set("spark.oap.sql.columnar.sortmergejoin.lazyread", "true")
-        .set("spark.oap.sql.columnar.autorelease", "true")
+        .set("spark.oap.sql.columnar.autorelease", "false")
     return conf
   }
 
