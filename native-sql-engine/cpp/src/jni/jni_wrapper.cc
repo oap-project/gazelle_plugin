@@ -1486,7 +1486,7 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
     return nullptr;
   }
   const arrow::Result<jbyteArray>& r =
-      ToBytes(env, arrow::RecordBatch::Make(schema, num_rows, std::move(arrays)));
+      ToBytes(env, rb);
   if (!r.ok()) {
     std::string error_message = "Error deserializing message" + r.status().message();
     env->ThrowNew(io_exception_class, error_message.c_str());
