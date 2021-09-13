@@ -20,8 +20,7 @@ package com.intel.oap.datasource.parquet;
 import java.io.IOException;
 import java.util.List;
 
-import com.intel.oap.vectorized.ArrowRecordBatchBuilder;
-import com.intel.oap.vectorized.ArrowRecordBatchBuilderImpl;
+import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorLoader;
@@ -111,14 +110,13 @@ public class ParquetReader implements AutoCloseable {
    * @throws IOException throws io exception in case of native failure
    */
   public ArrowRecordBatch readNext() throws IOException {
-    ArrowRecordBatchBuilder recordBatchBuilder =
+    byte[] serializedBatch =
         jniWrapper.nativeReadNext(nativeInstanceId);
-    if (recordBatchBuilder == null) {
+    if (serializedBatch == null) {
       return null;
     }
-    ArrowRecordBatchBuilderImpl recordBatchBuilderImpl =
-        new ArrowRecordBatchBuilderImpl(recordBatchBuilder);
-    ArrowRecordBatch batch = recordBatchBuilderImpl.build();
+    ArrowRecordBatch batch = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
+        serializedBatch);
     if (batch == null) {
       throw new IllegalArgumentException("failed to build record batch");
     }

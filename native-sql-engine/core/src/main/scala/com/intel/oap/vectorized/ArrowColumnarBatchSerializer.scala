@@ -20,35 +20,30 @@ package com.intel.oap.vectorized
 import java.io._
 import java.nio.ByteBuffer
 
-import com.intel.oap.ColumnarPluginConfig
-import com.intel.oap.expression.ConverterUtils
-import org.apache.arrow.memory.BufferAllocator
-import org.apache.arrow.memory.ArrowBuf
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode
-import org.apache.arrow.vector.ipc.ArrowStreamReader
-import org.apache.arrow.vector.{
-  BaseFixedWidthVector,
-  BaseVariableWidthVector,
-  VectorLoader,
-  VectorSchemaRoot
-}
-import org.apache.spark.SparkEnv
-import org.apache.spark.internal.Logging
-import org.apache.spark.serializer.{
-  DeserializationStream,
-  SerializationStream,
-  Serializer,
-  SerializerInstance
-}
-import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkVectorUtils}
-import org.apache.spark.sql.execution.metric.SQLMetric
-import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
+
+import com.intel.oap.expression.ConverterUtils
+import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
+import org.apache.arrow.memory.ArrowBuf
+import org.apache.arrow.memory.BufferAllocator
+import org.apache.arrow.vector.ipc.ArrowStreamReader
+import org.apache.arrow.vector.VectorLoader
+import org.apache.arrow.vector.VectorSchemaRoot
+
+import org.apache.spark.SparkEnv
+import org.apache.spark.internal.Logging
+import org.apache.spark.serializer.DeserializationStream
+import org.apache.spark.serializer.SerializationStream
+import org.apache.spark.serializer.Serializer
+import org.apache.spark.serializer.SerializerInstance
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+import org.apache.spark.sql.execution.metric.SQLMetric
+import org.apache.spark.sql.vectorized.ColumnVector
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
 class ArrowColumnarBatchSerializer(readBatchNumRows: SQLMetric, numOutputRows: SQLMetric)
     extends Serializer
@@ -223,15 +218,15 @@ private class ArrowColumnarBatchSerializerInstance(
           }
         }
 
-        val builder = jniWrapper.decompress(
+        val serializedBatch = jniWrapper.decompress(
           schemaHolderId,
           reader.asInstanceOf[ArrowCompressedStreamReader].GetCompressType(),
           root.getRowCount,
           bufAddrs.toArray,
           bufSizes.toArray,
           bufBS.toBitMask)
-        val builerImpl = new ArrowRecordBatchBuilderImpl(builder)
-        val decompressedRecordBatch = builerImpl.build
+        val decompressedRecordBatch =
+          UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedBatch);
 
         root.clear()
         if (decompressedRecordBatch != null) {

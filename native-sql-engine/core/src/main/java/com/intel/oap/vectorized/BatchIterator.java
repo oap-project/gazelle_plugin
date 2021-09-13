@@ -18,6 +18,9 @@
 package com.intel.oap.vectorized;
 
 import java.io.IOException;
+
+import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import java.util.List;
@@ -28,16 +31,17 @@ import org.apache.arrow.gandiva.evaluator.SelectionVectorInt16;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 public class BatchIterator implements AutoCloseable {
   private native boolean nativeHasNext(long nativeHandler);
-  private native ArrowRecordBatchBuilder nativeNext(long nativeHandler);
+  private native byte[] nativeNext(long nativeHandler);
   private native MetricsObject nativeFetchMetrics(long nativeHandler);
-  private native ArrowRecordBatchBuilder nativeProcess(long nativeHandler,
+  private native byte[] nativeProcess(long nativeHandler,
       byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes);
   private native void nativeProcessAndCacheOne(long nativeHandler, byte[] schemaBuf,
       int numRows, long[] bufAddrs, long[] bufSizes);
-  private native ArrowRecordBatchBuilder nativeProcessWithSelection(long nativeHandler,
+  private native byte[] nativeProcessWithSelection(long nativeHandler,
       byte[] schemaBuf, int numRows, long[] bufAddrs, long[] bufSizes,
       int selectionVectorRecordCount, long selectionVectorAddr, long selectionVectorSize);
   private native void nativeProcessAndCacheOneWithSelection(long nativeHandler,
@@ -64,16 +68,16 @@ public class BatchIterator implements AutoCloseable {
   }
 
   public ArrowRecordBatch next() throws IOException {
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
     if (nativeHandler == 0) {
       return null;
     }
-    ArrowRecordBatchBuilder resRecordBatchBuilder = nativeNext(nativeHandler);
-    if (resRecordBatchBuilder == null) {
+    byte[] serializedRecordBatch = nativeNext(nativeHandler);
+    if (serializedRecordBatch == null) {
       return null;
     }
-    ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl =
-        new ArrowRecordBatchBuilderImpl(resRecordBatchBuilder);
-    return resRecordBatchBuilderImpl.build();
+    return UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
+        serializedRecordBatch);
   }
 
   public MetricsObject getMetrics() throws IOException, ClassNotFoundException {
@@ -128,24 +132,24 @@ public class BatchIterator implements AutoCloseable {
     if (nativeHandler == 0) {
       return null;
     }
-    ArrowRecordBatchBuilder resRecordBatchBuilder;
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    byte[] serializedRecordBatch;
     if (selectionVector != null) {
       int selectionVectorRecordCount = selectionVector.getRecordCount();
       long selectionVectorAddr = selectionVector.getBuffer().memoryAddress();
       long selectionVectorSize = selectionVector.getBuffer().capacity();
-      resRecordBatchBuilder = nativeProcessWithSelection(nativeHandler,
+      serializedRecordBatch = nativeProcessWithSelection(nativeHandler,
           getSchemaBytesBuf(schema), num_rows, bufAddrs, bufSizes,
           selectionVectorRecordCount, selectionVectorAddr, selectionVectorSize);
     } else {
-      resRecordBatchBuilder = nativeProcess(
+      serializedRecordBatch = nativeProcess(
           nativeHandler, getSchemaBytesBuf(schema), num_rows, bufAddrs, bufSizes);
     }
-    if (resRecordBatchBuilder == null) {
+    if (serializedRecordBatch == null) {
       return null;
     }
-    ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl =
-        new ArrowRecordBatchBuilderImpl(resRecordBatchBuilder);
-    return resRecordBatchBuilderImpl.build();
+    return UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
+        serializedRecordBatch);
   }
 
   public void processAndCacheOne(Schema schema, ArrowRecordBatch recordBatch)

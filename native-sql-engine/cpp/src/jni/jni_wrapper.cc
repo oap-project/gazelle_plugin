@@ -48,17 +48,10 @@ namespace types {
 class ExpressionList;
 }  // namespace types
 
-static jclass arrow_record_batch_builder_class;
-static jmethodID arrow_record_batch_builder_constructor;
-
-static jclass arrow_field_node_builder_class;
-static jmethodID arrow_field_node_builder_constructor;
-
-static jclass arrowbuf_builder_class;
-static jmethodID arrowbuf_builder_constructor;
-
 static jclass serializable_obj_builder_class;
 static jmethodID serializable_obj_builder_constructor;
+
+static jclass byte_array_class;
 
 static jclass split_result_class;
 static jmethodID split_result_constructor;
@@ -74,7 +67,6 @@ static jclass arrow_columnar_to_row_info_class;
 static jmethodID arrow_columnar_to_row_info_constructor;
 
 using arrow::jni::ConcurrentMap;
-static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;
 
 static jint JNI_VERSION = JNI_VERSION_1_8;
 
@@ -121,6 +113,13 @@ arrow::Result<std::shared_ptr<arrow::RecordBatch>> FromBytes(
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::RecordBatch> batch,
                         arrow::jniutil::DeserializeUnsafeFromJava(env, schema, bytes))
   return batch;
+}
+
+arrow::Result<jbyteArray> ToBytes(JNIEnv* env,
+                                  std::shared_ptr<arrow::RecordBatch> batch) {
+  ARROW_ASSIGN_OR_RAISE(jbyteArray bytes,
+                        arrow::jniutil::SerializeUnsafeFromNative(env, batch))
+  return bytes;
 }
 
 class JavaRecordBatchIterator {
@@ -200,52 +199,6 @@ arrow::Result<arrow::RecordBatchIterator> MakeJavaRecordBatchIterator(
   return itr;
 }
 
-jobject MakeRecordBatchBuilder(JNIEnv* env, std::shared_ptr<arrow::Schema> schema,
-                               std::shared_ptr<arrow::RecordBatch> record_batch) {
-  std::vector<std::pair<int64_t, int64_t>> nodes;
-  std::vector<std::shared_ptr<arrow::Buffer>> buffers;
-  for (int i = 0; i < schema->num_fields(); ++i) {
-    auto column = record_batch->column(i);
-    AppendNodes(column, &nodes);
-    AppendBuffers(column, &buffers);
-  }
-
-  jobjectArray field_array =
-      env->NewObjectArray(nodes.size(), arrow_field_node_builder_class, nullptr);
-
-  jobjectArray arrowbuf_builder_array =
-      env->NewObjectArray(buffers.size(), arrowbuf_builder_class, nullptr);
-
-  int node_idx = 0;
-  for (auto node : nodes) {
-    jobject field =
-        env->NewObject(arrow_field_node_builder_class,
-                       arrow_field_node_builder_constructor, node.first, node.second);
-    env->SetObjectArrayElement(field_array, node_idx++, field);
-  }
-  for (size_t j = 0; j < buffers.size(); ++j) {
-    auto buffer = buffers[j];
-    uint8_t* data = nullptr;
-    int size = 0;
-    int64_t capacity = 0;
-    if (buffer != nullptr) {
-      data = (uint8_t*)buffer->data();
-      size = (int)buffer->size();
-      capacity = buffer->capacity();
-    }
-    jobject arrowbuf_builder =
-        env->NewObject(arrowbuf_builder_class, arrowbuf_builder_constructor,
-                       buffer_holder_.Insert(std::move(buffer)), data, size, capacity);
-    env->SetObjectArrayElement(arrowbuf_builder_array, j, arrowbuf_builder);
-  }
-
-  // create RecordBatch
-  jobject arrow_record_batch_builder = env->NewObject(
-      arrow_record_batch_builder_class, arrow_record_batch_builder_constructor,
-      record_batch->num_rows(), field_array, arrowbuf_builder_array);
-  return arrow_record_batch_builder;
-}
-
 using FileSystem = arrow::fs::FileSystem;
 
 #ifdef __cplusplus
@@ -266,28 +219,12 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   illegal_argument_exception_class =
       CreateGlobalClassReference(env, "Ljava/lang/IllegalArgumentException;");
 
-  arrow_record_batch_builder_class = CreateGlobalClassReference(
-      env, "Lcom/intel/oap/vectorized/ArrowRecordBatchBuilder;");
-  arrow_record_batch_builder_constructor =
-      GetMethodID(env, arrow_record_batch_builder_class, "<init>",
-                  "(I[Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;"
-                  "[Lcom/intel/oap/vectorized/ArrowBufBuilder;)V");
-
-  arrow_field_node_builder_class =
-      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/ArrowFieldNodeBuilder;");
-  arrow_field_node_builder_constructor =
-      GetMethodID(env, arrow_field_node_builder_class, "<init>", "(II)V");
-
-  arrowbuf_builder_class =
-      CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/ArrowBufBuilder;");
-  arrowbuf_builder_constructor =
-      GetMethodID(env, arrowbuf_builder_class, "<init>", "(JJIJ)V");
-
   serializable_obj_builder_class = CreateGlobalClassReference(
       env, "Lcom/intel/oap/vectorized/NativeSerializableObject;");
   serializable_obj_builder_constructor =
       GetMethodID(env, serializable_obj_builder_class, "<init>", "([J[I)V");
 
+  byte_array_class = CreateGlobalClassReference(env, "[B");
   split_result_class =
       CreateGlobalClassReference(env, "Lcom/intel/oap/vectorized/SplitResult;");
   split_result_constructor =
@@ -323,15 +260,13 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
   env->DeleteGlobalRef(illegal_access_exception_class);
   env->DeleteGlobalRef(illegal_argument_exception_class);
 
-  env->DeleteGlobalRef(arrow_field_node_builder_class);
-  env->DeleteGlobalRef(arrowbuf_builder_class);
-  env->DeleteGlobalRef(arrow_record_batch_builder_class);
   env->DeleteGlobalRef(serializable_obj_builder_class);
   env->DeleteGlobalRef(split_result_class);
   env->DeleteGlobalRef(serialized_record_batch_iterator_class);
   env->DeleteGlobalRef(arrow_columnar_to_row_info_class);
 
-  buffer_holder_.Clear();
+  env->DeleteGlobalRef(byte_array_class);
+
   handler_holder_.Clear();
   batch_iterator_holder_.Clear();
   shuffle_splitter_holder_.Clear();
@@ -423,10 +358,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeBuild(
 #ifdef DEBUG
   auto handler_holder_size = handler_holder_.Size();
   auto batch_holder_size = batch_iterator_holder_.Size();
-  auto buffer_holder_size = buffer_holder_.Size();
   std::cout << "build native Evaluator " << handler->ToString()
             << "\nremain refCnt [buffer|Evaluator|batchIterator] is ["
-            << buffer_holder_size << "|" << handler_holder_size << "|"
             << batch_holder_size << "]" << std::endl;
 #endif
 
@@ -516,10 +449,8 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeClose(JNIEnv* 
 #ifdef DEBUG
   auto handler_holder_size = handler_holder_.Size();
   auto batch_holder_size = batch_iterator_holder_.Size();
-  auto buffer_holder_size = buffer_holder_.Size();
   std::cout << "close native Evaluator " << handler->ToString()
             << "\nremain refCnt [buffer|Evaluator|batchIterator] is ["
-            << buffer_holder_size << "|" << handler_holder_size << "|"
             << batch_holder_size << "]" << std::endl;
 #endif
   handler_holder_.Erase(id);
@@ -540,7 +471,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSpill(
   return spilled_size;
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes) {
@@ -574,18 +505,25 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate(
 
   std::shared_ptr<arrow::Schema> res_schema;
   status = handler->getResSchema(&res_schema);
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray serialized_record_batch_array =
+      env->NewObjectArray(out.size(), byte_array_class, nullptr);
   int i = 0;
-  for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, res_schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+  for (const auto& record_batch : out) {
+    const arrow::Result<jbyteArray>& r = ToBytes(env, record_batch);
+    if (!r.ok()) {
+      std::string error_message = "Error deserializing message" + r.status().message();
+      env->ThrowNew(io_exception_class, error_message.c_str());
+      return nullptr;
+    }
+    jbyteArray serialized_record_batch = r.ValueOrDie();
+    env->SetObjectArrayElement(serialized_record_batch_array, i++,
+                               serialized_record_batch);
   }
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 
-  return record_batch_builder_array;
+  return serialized_record_batch_array;
 }
 
 JNIEXPORT void JNICALL
@@ -630,7 +568,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeGetSignature(
   return env->NewStringUTF((handler->GetSignature()).c_str());
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSelection(
     JNIEnv* env, jobject obj, jlong id, jint num_rows, jlongArray buf_addrs,
     jlongArray buf_sizes, jint selection_vector_count, jlong selection_vector_buf_addr,
@@ -673,18 +611,25 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSe
 
   std::shared_ptr<arrow::Schema> res_schema;
   status = handler->getResSchema(&res_schema);
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray serialized_record_batch_array =
+      env->NewObjectArray(out.size(), byte_array_class, nullptr);
   int i = 0;
-  for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, res_schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+  for (const auto& record_batch : out) {
+    const arrow::Result<jbyteArray>& r = ToBytes(env, record_batch);
+    if (!r.ok()) {
+      std::string error_message = "Error deserializing message" + r.status().message();
+      env->ThrowNew(io_exception_class, error_message.c_str());
+      return nullptr;
+    }
+    jbyteArray serialized_record_batch = r.ValueOrDie();
+    env->SetObjectArrayElement(serialized_record_batch_array, i++,
+                               serialized_record_batch);
   }
 
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 
-  return record_batch_builder_array;
+  return serialized_record_batch_array;
 }
 
 JNIEXPORT void JNICALL
@@ -722,7 +667,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetMember(
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(JNIEnv* env,
                                                                          jobject obj,
                                                                          jlong id) {
@@ -740,15 +685,22 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeFinish(JNIEnv*
   std::shared_ptr<arrow::Schema> schema;
   status = handler->getResSchema(&schema);
 
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray serialized_record_batch_array =
+      env->NewObjectArray(out.size(), byte_array_class, nullptr);
   int i = 0;
-  for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+  for (const auto& record_batch : out) {
+    const arrow::Result<jbyteArray>& r = ToBytes(env, record_batch);
+    if (!r.ok()) {
+      std::string error_message = "Error deserializing message" + r.status().message();
+      env->ThrowNew(io_exception_class, error_message.c_str());
+      return nullptr;
+    }
+    jbyteArray serialized_record_batch = r.ValueOrDie();
+    env->SetObjectArrayElement(serialized_record_batch_array, i++,
+                               serialized_record_batch);
   }
 
-  return record_batch_builder_array;
+  return serialized_record_batch_array;
 }
 
 JNIEXPORT jlong JNICALL
@@ -819,7 +771,15 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeNext
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 
-  return MakeRecordBatchBuilder(env, out->schema(), out);
+  const arrow::Result<jbyteArray>& r = ToBytes(env, out);
+  if (!r.ok()) {
+    std::string error_message = "Error deserializing message" + r.status().message();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+    return nullptr;
+  }
+  jbyteArray serialized_record_batch = r.ValueOrDie();
+
+  return serialized_record_batch;
 }
 
 JNIEXPORT jobject JNICALL
@@ -916,7 +876,15 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeProc
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 
-  return MakeRecordBatchBuilder(env, out->schema(), out);
+  const arrow::Result<jbyteArray>& r = ToBytes(env, out);
+  if (!r.ok()) {
+    std::string error_message = "Error deserializing message" + r.status().message();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+    return nullptr;
+  }
+  jbyteArray serialized_record_batch = r.ValueOrDie();
+
+  return serialized_record_batch;
 }
 
 JNIEXPORT jobject JNICALL
@@ -972,7 +940,15 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessWithSelection(
   env->ReleaseLongArrayElements(buf_addrs, in_buf_addrs, JNI_ABORT);
   env->ReleaseLongArrayElements(buf_sizes, in_buf_sizes, JNI_ABORT);
 
-  return MakeRecordBatchBuilder(env, out->schema(), out);
+  const arrow::Result<jbyteArray>& r = ToBytes(env, out);
+  if (!r.ok()) {
+    std::string error_message = "Error deserializing message" + r.status().message();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+    return nullptr;
+  }
+  jbyteArray serialized_record_batch = r.ValueOrDie();
+
+  return serialized_record_batch;
 }
 
 JNIEXPORT void JNICALL
@@ -1109,19 +1085,6 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_BatchIterator_nativeClose(
   batch_iterator_holder_.Erase(id);
 }
 
-JNIEXPORT void JNICALL
-Java_com_intel_oap_vectorized_AdaptorReferenceManager_nativeRelease(JNIEnv* env,
-                                                                    jobject this_obj,
-                                                                    jlong id) {
-#ifdef DEBUG
-  auto it = buffer_holder_.Lookup(id);
-  if (it.use_count() > 2) {
-    std::cout << "buffer ptr use count is " << it.use_count() << std::endl;
-  }
-#endif
-  buffer_holder_.Erase(id);
-}
-
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
     JNIEnv* env, jobject obj, jlong splitter_id, jlong size, jboolean call_by_self) {
@@ -1143,7 +1106,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeSpill(
   return spilled_size;
 }
 
-JNIEXPORT jobject JNICALL
+JNIEXPORT jobjectArray JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate2(
     JNIEnv* env, jobject obj, jlong id, jbyteArray bytes) {
   arrow::Status status;
@@ -1165,15 +1128,22 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate2(
 
   std::shared_ptr<arrow::Schema> res_schema;
   status = handler->getResSchema(&res_schema);
-  jobjectArray record_batch_builder_array =
-      env->NewObjectArray(out.size(), arrow_record_batch_builder_class, nullptr);
+  jobjectArray serialized_record_batch_array =
+      env->NewObjectArray(out.size(), byte_array_class, nullptr);
   int i = 0;
-  for (auto record_batch : out) {
-    jobject record_batch_builder = MakeRecordBatchBuilder(env, res_schema, record_batch);
-    env->SetObjectArrayElement(record_batch_builder_array, i++, record_batch_builder);
+  for (const auto& record_batch : out) {
+    const arrow::Result<jbyteArray>& r = ToBytes(env, record_batch);
+    if (!r.ok()) {
+      std::string error_message = "Error deserializing message" + r.status().message();
+      env->ThrowNew(io_exception_class, error_message.c_str());
+      return nullptr;
+    }
+    jbyteArray serialized_record_batch = r.ValueOrDie();
+    env->SetObjectArrayElement(serialized_record_batch_array, i++,
+                               serialized_record_batch);
   }
 
-  return record_batch_builder_array;
+  return serialized_record_batch_array;
 }
 
 JNIEXPORT jlong JNICALL
@@ -1515,7 +1485,15 @@ Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_decompress(
                       .c_str());
     return nullptr;
   }
-  return MakeRecordBatchBuilder(env, schema, rb);
+  const arrow::Result<jbyteArray>& r = ToBytes(env, rb);
+  if (!r.ok()) {
+    std::string error_message = "Error deserializing message" + r.status().message();
+    env->ThrowNew(io_exception_class, error_message.c_str());
+    return nullptr;
+  }
+  jbyteArray serialized_record_batch = r.ValueOrDie();
+
+  return serialized_record_batch;
 }
 
 JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrapper_close(

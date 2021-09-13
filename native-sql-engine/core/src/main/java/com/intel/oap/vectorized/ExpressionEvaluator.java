@@ -27,6 +27,7 @@ import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -155,16 +156,16 @@ public class ExpressionEvaluator implements AutoCloseable {
    */
   public ArrowRecordBatch[] evaluate2(ArrowRecordBatch recordBatch) throws RuntimeException, IOException {
     byte[] bytes = UnsafeRecordBatchSerializer.serializeUnsafe(recordBatch);
-    ArrowRecordBatchBuilder[] resRecordBatchBuilderList = jniWrapper.nativeEvaluate2(nativeHandler, bytes);
-    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[resRecordBatchBuilderList.length];
-    for (int i = 0; i < resRecordBatchBuilderList.length; i++) {
-      if (resRecordBatchBuilderList[i] == null) {
+    byte[][] serializedBatchArray = jniWrapper.nativeEvaluate2(nativeHandler, bytes);
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[serializedBatchArray.length];
+    for (int i = 0; i < serializedBatchArray.length; i++) {
+      if (serializedBatchArray[i] == null) {
         recordBatchList[i] = null;
         break;
       }
-      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl = new ArrowRecordBatchBuilderImpl(
-          resRecordBatchBuilderList[i]);
-      recordBatchList[i] = resRecordBatchBuilderImpl.build();
+      recordBatchList[i] = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
+          serializedBatchArray[i]);
     }
     return recordBatchList;
   }
@@ -188,25 +189,26 @@ public class ExpressionEvaluator implements AutoCloseable {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
-    ArrowRecordBatchBuilder[] resRecordBatchBuilderList;
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+
+    byte[][] serializedBatchArray;
     if (selectionVector != null) {
       int selectionVectorRecordCount = selectionVector.getRecordCount();
       long selectionVectorAddr = selectionVector.getBuffer().memoryAddress();
       long selectionVectorSize = selectionVector.getBuffer().capacity();
-      resRecordBatchBuilderList = jniWrapper.nativeEvaluateWithSelection(nativeHandler, recordBatch.getLength(),
+      serializedBatchArray = jniWrapper.nativeEvaluateWithSelection(nativeHandler, recordBatch.getLength(),
           bufAddrs, bufSizes, selectionVectorRecordCount, selectionVectorAddr, selectionVectorSize);
     } else {
-      resRecordBatchBuilderList = jniWrapper.nativeEvaluate(nativeHandler, recordBatch.getLength(), bufAddrs, bufSizes);
+      serializedBatchArray = jniWrapper.nativeEvaluate(nativeHandler, recordBatch.getLength(), bufAddrs, bufSizes);
     }
-    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[resRecordBatchBuilderList.length];
-    for (int i = 0; i < resRecordBatchBuilderList.length; i++) {
-      if (resRecordBatchBuilderList[i] == null) {
+    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[serializedBatchArray.length];
+    for (int i = 0; i < serializedBatchArray.length; i++) {
+      if (serializedBatchArray[i] == null) {
         recordBatchList[i] = null;
         break;
       }
-      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl = new ArrowRecordBatchBuilderImpl(
-          resRecordBatchBuilderList[i]);
-      recordBatchList[i] = resRecordBatchBuilderImpl.build();
+      recordBatchList[i] = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
+          serializedBatchArray[i]);
     }
     return recordBatchList;
   }
@@ -233,16 +235,16 @@ public class ExpressionEvaluator implements AutoCloseable {
   }
 
   public ArrowRecordBatch[] finish() throws RuntimeException, IOException {
-    ArrowRecordBatchBuilder[] resRecordBatchBuilderList = jniWrapper.nativeFinish(nativeHandler);
-    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[resRecordBatchBuilderList.length];
-    for (int i = 0; i < resRecordBatchBuilderList.length; i++) {
-      if (resRecordBatchBuilderList[i] == null) {
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    byte[][] serializedBatchArray = jniWrapper.nativeFinish(nativeHandler);
+    ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[serializedBatchArray.length];
+    for (int i = 0; i < serializedBatchArray.length; i++) {
+      if (serializedBatchArray[i] == null) {
         recordBatchList[i] = null;
         break;
       }
-      ArrowRecordBatchBuilderImpl resRecordBatchBuilderImpl = new ArrowRecordBatchBuilderImpl(
-          resRecordBatchBuilderList[i]);
-      recordBatchList[i] = resRecordBatchBuilderImpl.build();
+      recordBatchList[i] = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
+          serializedBatchArray[i]);
     }
     return recordBatchList;
   }
