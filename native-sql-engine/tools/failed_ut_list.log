@@ -112,7 +112,6 @@
 - Parquet output committer, no merge schema *** FAILED ***
 - input_file_name, input_file_block_start, input_file_block_length - more than one source *** FAILED ***
 - input_file_name, input_file_block_start, input_file_block_length - FileScanRDD *** FAILED ***
-- arrow_udf test *** FAILED ***
 - unsafe broadcast hash join updates peak execution memory *** FAILED ***
 - unsafe broadcast hash outer join updates peak execution memory *** FAILED ***
 - unsafe broadcast left semi join updates peak execution memory *** FAILED ***
