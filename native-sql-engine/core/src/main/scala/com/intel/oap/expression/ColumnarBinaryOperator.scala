@@ -18,7 +18,7 @@
 package com.intel.oap.expression
 
 import com.google.common.collect.Lists
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
 import org.apache.arrow.gandiva.expression._
@@ -176,7 +176,7 @@ class ColumnarEqualTo(left: Expression, right: Expression, original: Expression)
     }
 
     var function = "equal"
-    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val nanCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
       unifiedType match {
         case t: ArrowType.FloatingPoint =>
@@ -227,7 +227,7 @@ class ColumnarEqualNull(left: Expression, right: Expression, original: Expressio
     val falseNode = TreeBuilder.makeLiteral(false.asInstanceOf[java.lang.Boolean])
 
     var function = "equal"
-    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val nanCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
       unifiedType match {
         case t: ArrowType.FloatingPoint =>
@@ -274,7 +274,7 @@ class ColumnarLessThan(left: Expression, right: Expression, original: Expression
     }
 
     var function = "less_than"
-    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val nanCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
       unifiedType match {
         case t: ArrowType.FloatingPoint =>
@@ -316,7 +316,7 @@ class ColumnarLessThanOrEqual(left: Expression, right: Expression, original: Exp
     }
 
     var function = "less_than_or_equal_to"
-    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val nanCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
       unifiedType match {
         case t: ArrowType.FloatingPoint =>
@@ -360,7 +360,7 @@ class ColumnarGreaterThan(left: Expression, right: Expression, original: Express
     }
 
     var function = "greater_than"
-    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val nanCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
       unifiedType match {
         case t: ArrowType.FloatingPoint =>
@@ -404,7 +404,7 @@ class ColumnarGreaterThanOrEqual(left: Expression, right: Expression, original: 
     }
 
     var function = "greater_than_or_equal_to"
-    val nanCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
+    val nanCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
     if (nanCheck) {
       unifiedType match {
         case t: ArrowType.FloatingPoint =>

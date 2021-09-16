@@ -17,7 +17,7 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
 import org.apache.spark.sql.catalyst.InternalRow
@@ -35,7 +35,7 @@ import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
 import com.google.common.collect.Lists
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 case class ColumnarConditionProjectExec(
@@ -48,7 +48,7 @@ case class ColumnarConditionProjectExec(
     with AliasAwareOutputPartitioning
     with Logging {
 
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
 
   val sparkConf: SparkConf = sparkContext.getConf
 
@@ -249,7 +249,7 @@ case class ColumnarConditionProjectExec(
     numInputBatches.set(0)
 
     child.executeColumnar().mapPartitions { iter =>
-      ColumnarPluginConfig.getConf
+      GazellePluginConfig.getConf
       ExecutorManager.tryTaskSet(numaBindingInfo)
       val condProj = ColumnarConditionProjector.create(
         condition,

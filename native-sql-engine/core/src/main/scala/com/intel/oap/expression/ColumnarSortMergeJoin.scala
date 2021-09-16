@@ -19,7 +19,7 @@ package com.intel.oap.expression
 
 import java.util.concurrent.TimeUnit._
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
@@ -79,7 +79,7 @@ class ColumnarSortMergeJoin(
     streamProjector: ColumnarProjection,
     streamKeyProjectOrdinalList: List[Int])
     extends Logging {
-  ColumnarPluginConfig.getConf
+  GazellePluginConfig.getConf
   var probe_iterator: BatchIterator = _
   var build_cb: ColumnarBatch = null
   var last_cb: ColumnarBatch = null
@@ -279,7 +279,7 @@ object ColumnarSortMergeJoin extends Logging {
     val totaltime_sortmergejoin = _totaltime_sortmergejoin
     val numOutputRows = _numOutputRows
     val sparkConf = _sparkConf
-    ColumnarPluginConfig.getConf
+    GazellePluginConfig.getConf
     // TODO
     val l_input_schema: List[Attribute] = left.output.toList
     val r_input_schema: List[Attribute] = right.output.toList

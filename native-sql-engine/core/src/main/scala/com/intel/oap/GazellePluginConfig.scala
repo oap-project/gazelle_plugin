@@ -21,18 +21,19 @@ import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.internal.SQLConf
 
-case class ColumnarNumaBindingInfo(
+case class GazelleNumaBindingInfo(
     enableNumaBinding: Boolean,
     totalCoreRange: Array[String] = null,
     numCoresPerExecutor: Int = -1) {}
 
-class ColumnarPluginConfig(conf: SQLConf) extends Logging {
+class GazellePluginConfig(conf: SQLConf) extends Logging {
   def getCpu(): Boolean = {
     val source = scala.io.Source.fromFile("/proc/cpuinfo")
     val lines =
       try source.mkString
       finally source.close()
     //TODO(): check CPU flags to enable/disable AVX512
+    return true
     if (lines.contains("GenuineIntel")) {
       return true
     } else {
@@ -77,6 +78,10 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
 
   val enableArrowColumnarToRow: Boolean =
     conf.getConfString("spark.oap.sql.columnar.columnartorow", "true").toBoolean && enableCpu
+
+  val forceShuffledHashJoin: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.forceshuffledhashjoin", "false").toBoolean &&
+        enableCpu
 
   // enable or disable columnar sortmergejoin
   // this should be set with preferSortMergeJoin=false
@@ -161,42 +166,42 @@ class ColumnarPluginConfig(conf: SQLConf) extends Logging {
   val columnarShuffleUseCustomizedCompressionCodec: String =
     conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
 
-  val numaBindingInfo: ColumnarNumaBindingInfo = {
+  val numaBindingInfo: GazelleNumaBindingInfo = {
     val enableNumaBinding: Boolean =
       conf.getConfString("spark.oap.sql.columnar.numaBinding", "false").toBoolean
     if (!enableNumaBinding) {
-      ColumnarNumaBindingInfo(false)
+      GazelleNumaBindingInfo(false)
     } else {
       val tmp = conf.getConfString("spark.oap.sql.columnar.coreRange", null)
       if (tmp == null) {
-        ColumnarNumaBindingInfo(false)
+        GazelleNumaBindingInfo(false)
       } else {
         val numCores = conf.getConfString("spark.executor.cores", "1").toInt
         val coreRangeList: Array[String] = tmp.split('|').map(_.trim)
-        ColumnarNumaBindingInfo(true, coreRangeList, numCores)
+        GazelleNumaBindingInfo(true, coreRangeList, numCores)
       }
 
     }
   }
 }
 
-object ColumnarPluginConfig {
-  var ins: ColumnarPluginConfig = null
+object GazellePluginConfig {
+  var ins: GazellePluginConfig = null
   var random_temp_dir_path: String = null
 
   /**
    * @deprecated We should avoid caching this value in entire JVM. us
    */
   @Deprecated
-  def getConf: ColumnarPluginConfig = synchronized {
+  def getConf: GazellePluginConfig = synchronized {
     if (ins == null) {
       ins = getSessionConf
     }
     ins
   }
 
-  def getSessionConf: ColumnarPluginConfig = {
-    new ColumnarPluginConfig(SQLConf.get)
+  def getSessionConf: GazellePluginConfig = {
+    new GazellePluginConfig(SQLConf.get)
   }
 
   def getBatchSize: Int = synchronized {

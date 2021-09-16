@@ -46,7 +46,7 @@ Below is an example for spark-default.conf, if you are using conda to install OA
 
 spark.sql.sources.useV1SourceList avro
 spark.sql.join.preferSortMergeJoin false
-spark.sql.extensions com.intel.oap.ColumnarPlugin
+spark.plugins com.intel.oap.GazellePlugin
 spark.shuffle.manager org.apache.spark.shuffle.sort.ColumnarShuffleManager
 
 # note Gazelle Plugin depends on arrow data source

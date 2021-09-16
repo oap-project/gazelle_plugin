@@ -78,7 +78,7 @@ trait SharedSparkSessionBase
       .setAppName("test")
       .set("spark.sql.parquet.columnarReaderBatchSize", "4096")
       .set("spark.sql.sources.useV1SourceList", "avro")
-      .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+      .set("spark.plugins", "com.intel.oap.GazellePlugin")
       .set("spark.sql.execution.arrow.maxRecordsPerBatch", "4096")
       // .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
       .set("spark.memory.offHeap.enabled", "true")

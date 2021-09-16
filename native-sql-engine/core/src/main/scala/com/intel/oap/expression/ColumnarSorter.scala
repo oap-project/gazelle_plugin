@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.TimeUnit._
 import com.google.common.collect.Lists
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import com.intel.oap.vectorized.ExpressionEvaluator
 import com.intel.oap.vectorized.BatchIterator
@@ -233,8 +233,8 @@ object ColumnarSorter extends Logging {
       result_type: Int = 0): TreeNode = {
     logInfo(s"ColumnarSorter sortOrder is ${sortOrder}, outputAttributes is ${outputAttributes}")
     checkIfKeyFound(sortOrder, outputAttributes)
-    val NaNCheck = ColumnarPluginConfig.getConf.enableColumnarNaNCheck
-    val codegen = ColumnarPluginConfig.getConf.enableColumnarCodegenSort
+    val NaNCheck = GazellePluginConfig.getConf.enableColumnarNaNCheck
+    val codegen = GazellePluginConfig.getConf.enableColumnarCodegenSort
     /////////////// Prepare ColumnarSorter //////////////
     val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
       val attr = ConverterUtils.getAttrFromExpr(sort.child)

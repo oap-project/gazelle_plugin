@@ -18,7 +18,10 @@
 package com.intel.oap
 
 import com.intel.oap.execution._
+import com.intel.oap.extension.columnar.ColumnarGuardRule
+import com.intel.oap.extension.columnar.RowGuard
 import com.intel.oap.sql.execution.RowToArrowColumnarExec
+
 import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
@@ -37,7 +40,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.CalendarIntervalType
 
 case class ColumnarPreOverrides() extends Rule[SparkPlan] {
-  val columnarConf: ColumnarPluginConfig = ColumnarPluginConfig.getSessionConf
+  val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
@@ -284,7 +287,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
 }
 
 case class ColumnarPostOverrides() extends Rule[SparkPlan] {
-  val columnarConf = ColumnarPluginConfig.getSessionConf
+  val columnarConf = GazellePluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
@@ -396,19 +399,10 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
       plan
     }
   }
-
 }
 
-/**
- * Extension point to enable columnar processing.
- *
- * To run with columnar set spark.sql.extensions to com.intel.oap.ColumnarPlugin
- */
-class ColumnarPlugin extends Function1[SparkSessionExtensions, Unit] with Logging {
-  override def apply(extensions: SparkSessionExtensions): Unit = {
-    logDebug(
-      "Installing extensions to enable columnar CPU support." +
-        " To disable this set `org.apache.spark.example.columnar.enabled` to false")
-    extensions.injectColumnar((session) => ColumnarOverrideRules(session))
+object ColumnarOverrides extends GazelleSparkExtensionsInjector {
+  override def inject(extensions: SparkSessionExtensions): Unit = {
+    extensions.injectColumnar(ColumnarOverrideRules)
   }
 }

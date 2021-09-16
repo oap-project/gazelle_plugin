@@ -19,7 +19,7 @@ package com.intel.oap.expression
 
 import java.util.concurrent.TimeUnit._
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD

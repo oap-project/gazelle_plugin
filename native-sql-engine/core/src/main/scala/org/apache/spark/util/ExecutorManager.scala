@@ -30,7 +30,7 @@ import com.intel.oap._
 object ExecutorManager {
   def getExecutorIds(sc: SparkContext): Seq[String] = sc.getExecutorIds
   var isTaskSet: Boolean = false
-  def tryTaskSet(numaInfo: ColumnarNumaBindingInfo) = synchronized {
+  def tryTaskSet(numaInfo: GazelleNumaBindingInfo) = synchronized {
     if (numaInfo.enableNumaBinding && !isTaskSet) {
       val cmd_output =
         Utils.executeAndGetOutput(

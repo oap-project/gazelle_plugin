@@ -17,7 +17,7 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReaderFactory, Scan}
@@ -27,7 +27,7 @@ import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
 class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan)
     extends BatchScanExec(output, scan) {
-  val tmpDir: String = ColumnarPluginConfig.getConf.tmpFile
+  val tmpDir: String = GazellePluginConfig.getConf.tmpFile
   override def supportsColumnar(): Boolean = true
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),

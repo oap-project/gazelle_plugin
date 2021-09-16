@@ -20,7 +20,7 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit
 
 import com.google.flatbuffers.FlatBufferBuilder
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatchIterator, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression.TreeBuilder
@@ -92,7 +92,7 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   val totalTime = longMetric("totalTime")
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
 
   def buildCheck(): Unit = {
     var allLiteral = true
