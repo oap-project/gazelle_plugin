@@ -17,10 +17,7 @@
 
 package com.intel.oap.vectorized;
 
-import sun.nio.ch.DirectBuffer;
-
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 public class ArrowColumnarToRowJniWrapper {
 
@@ -30,6 +27,6 @@ public class ArrowColumnarToRowJniWrapper {
 
   public native ArrowColumnarToRowInfo nativeConvertColumnarToRow(
           byte[] schema, int numRows, long[] bufAddrs,
-          long[] bufSizes, long memoryAddress, long memorySize, long fixedSizePerRow) throws RuntimeException;
+          long[] bufSizes, long memoryPollID) throws RuntimeException;
   public native void nativeClose(long instanceID);
 }

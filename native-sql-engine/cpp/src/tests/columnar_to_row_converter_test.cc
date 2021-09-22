@@ -113,24 +113,18 @@ const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
                                                              R"(["100.00", "100.00"])"};
 
 TEST_F(UnsaferowTest, TestNullTypeCheck) {
-  std::shared_ptr<arrow::Buffer> buffer;
-  buffer = *arrow::AllocateBuffer(419430400);
-  uint8_t* address = buffer->mutable_data();
 
   std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(nullable_input_batch_, address);
+      std::make_shared<ColumnarToRowConverter>(nullable_input_batch_, arrow::default_memory_pool());
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
 }
 
 TEST_F(UnsaferowTest, TestColumnarToRowConverter) {
-  std::shared_ptr<arrow::Buffer> buffer;
-  buffer = *arrow::AllocateBuffer(419430400);
-  uint8_t* address = buffer->mutable_data();
 
   std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(input_batch_, address);
+      std::make_shared<ColumnarToRowConverter>(input_batch_, arrow::default_memory_pool());
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();

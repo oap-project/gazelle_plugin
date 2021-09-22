@@ -245,7 +245,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   arrow_columnar_to_row_info_class = CreateGlobalClassReference(
       env, "Lcom/intel/oap/vectorized/ArrowColumnarToRowInfo;");
   arrow_columnar_to_row_info_constructor =
-      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>", "(J[J[J)V");
+      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>", "(J[J[JJ)V");
 
   return JNI_VERSION;
 }
@@ -1504,8 +1504,7 @@ JNIEXPORT void JNICALL Java_com_intel_oap_vectorized_ShuffleDecompressionJniWrap
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnarToRow(
     JNIEnv* env, jobject, jbyteArray schema_arr, jint num_rows, jlongArray buf_addrs,
-    jlongArray buf_sizes, jlong memory_address, jlong memory_size,
-    jlong fixed_size_per_row) {
+    jlongArray buf_sizes, jlong memory_pool_id) {
   if (schema_arr == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,
@@ -1558,13 +1557,17 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
     return NULL;
   }
 
-  uint8_t* address = reinterpret_cast<uint8_t*>(memory_address);
-
   // convert the record batch to spark unsafe row.
   try {
+    auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+    if (pool == nullptr) {
+      env->ThrowNew(illegal_argument_exception_class,
+                    "Memory pool does not exist or has been closed");
+      return NULL;
+    }
+
     std::shared_ptr<ColumnarToRowConverter> columnar_to_row_converter =
-        std::make_shared<ColumnarToRowConverter>(rb, address, memory_size,
-                                                 fixed_size_per_row);
+        std::make_shared<ColumnarToRowConverter>(rb, pool);
     auto status = columnar_to_row_converter->Init();
     if (!status.ok()) {
       env->ThrowNew(illegal_argument_exception_class,
@@ -1574,9 +1577,7 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
                         .c_str());
       return NULL;
     }
-
     status = columnar_to_row_converter->Write();
-
     if (!status.ok()) {
       env->ThrowNew(
           illegal_argument_exception_class,
@@ -1598,12 +1599,12 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
     auto lengths_arr = env->NewLongArray(num_rows);
     auto lengths_src = reinterpret_cast<const jlong*>(lengths.data());
     env->SetLongArrayRegion(lengths_arr, 0, num_rows, lengths_src);
+    long address = reinterpret_cast<long>(columnar_to_row_converter->GetBufferAddress());
 
     jobject arrow_columnar_to_row_info = env->NewObject(
         arrow_columnar_to_row_info_class, arrow_columnar_to_row_info_constructor,
-        instanceID, offsets_arr, lengths_arr);
+        instanceID, offsets_arr, lengths_arr, address);
     return arrow_columnar_to_row_info;
-
   } catch (const std::runtime_error& error) {
     env->ThrowNew(unsupportedoperation_exception_class, error.what());
   } catch (const std::exception& error) {
