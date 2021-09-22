@@ -16,6 +16,7 @@
  */
 
 #include "operators/columnar_to_row_converter.h"
+
 #include <iostream>
 
 namespace sparkcolumnarplugin {
@@ -34,16 +35,17 @@ int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
   }
 }
 
-int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema, int64_t num_cols) {
+int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema,
+                                 int64_t num_cols) {
   std::vector<std::shared_ptr<arrow::Field>> fields = schema->fields();
-  // Calculate the decimal col num when the precision >18 
+  // Calculate the decimal col num when the precision >18
   int32_t count = 0;
   for (auto i = 0; i < num_cols; i++) {
     auto type = fields[i]->type();
     if (type->id() == arrow::Decimal128Type::type_id) {
       auto dtype = dynamic_cast<arrow::Decimal128Type*>(type.get());
-       int32_t precision = dtype->precision();
-       if (precision > 18) count++;
+      int32_t precision = dtype->precision();
+      if (precision > 18) count++;
     }
   }
 
@@ -52,14 +54,13 @@ int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema, int64_t 
   return fixed_size + decimal_cols_size;
 }
 
-
 arrow::Status ColumnarToRowConverter::Init() {
   num_rows_ = rb_->num_rows();
   num_cols_ = rb_->num_columns();
   // Calculate the initial size
   nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
 
-  int64_t  fixed_size_per_row = CalculatedFixeSizePerRow(rb_->schema(), num_cols_);
+  int64_t fixed_size_per_row = CalculatedFixeSizePerRow(rb_->schema(), num_cols_);
 
   // Initialize the offsets_ , lengths_, buffer_cursor_
   for (auto i = 0; i < num_rows_; i++) {
@@ -87,11 +88,9 @@ arrow::Status ColumnarToRowConverter::Init() {
     total_memory_size += lengths_[i];
   }
 
-   ARROW_ASSIGN_OR_RAISE(
-      buffer_,
-      AllocateBuffer(total_memory_size * 8, memory_pool_));
+  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size * 8, memory_pool_));
 
-  memset(buffer_->mutable_data(), 0,  sizeof(int8_t) * total_memory_size);
+  memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
 
   buffer_address_ = buffer_->mutable_data();
   return arrow::Status::OK();
@@ -494,7 +493,6 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
 }
 
 arrow::Status ColumnarToRowConverter::Write() {
-
   for (auto i = 0; i < num_cols_; i++) {
     auto array = rb_->column(i);
     int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);
