@@ -88,7 +88,7 @@ arrow::Status ColumnarToRowConverter::Init() {
     total_memory_size += lengths_[i];
   }
 
-  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size * 8, memory_pool_));
+  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size, memory_pool_));
 
   memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
 
