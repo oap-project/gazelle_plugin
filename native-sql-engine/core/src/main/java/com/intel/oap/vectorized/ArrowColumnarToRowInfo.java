@@ -17,18 +17,17 @@
 
 package com.intel.oap.vectorized;
 
-
-import java.nio.ByteBuffer;
-
 public class ArrowColumnarToRowInfo {
     public long instanceID;
     public long[] offsets;
     public long[] lengths;
+    public long memoryAddress;
 
     public ArrowColumnarToRowInfo(long instanceID,
-                                  long[] offsets, long[] lengths) {
+                                  long[] offsets, long[] lengths, long memoryAddress) {
         this.instanceID = instanceID;
         this.offsets = offsets;
         this.lengths = lengths;
+        this.memoryAddress = memoryAddress;
     }
 }

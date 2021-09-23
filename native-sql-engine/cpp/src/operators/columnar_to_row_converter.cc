@@ -17,6 +17,8 @@
 
 #include "operators/columnar_to_row_converter.h"
 
+#include <iostream>
+
 namespace sparkcolumnarplugin {
 namespace columnartorow {
 
@@ -24,12 +26,73 @@ int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
   return ((numFields + 63) / 64) * 8;
 }
 
+int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
+  int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
+  if (remainder == 0) {
+    return numBytes;
+  } else {
+    return numBytes + (8 - remainder);
+  }
+}
+
+int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema,
+                                 int64_t num_cols) {
+  std::vector<std::shared_ptr<arrow::Field>> fields = schema->fields();
+  // Calculate the decimal col num when the precision >18
+  int32_t count = 0;
+  for (auto i = 0; i < num_cols; i++) {
+    auto type = fields[i]->type();
+    if (type->id() == arrow::Decimal128Type::type_id) {
+      auto dtype = dynamic_cast<arrow::Decimal128Type*>(type.get());
+      int32_t precision = dtype->precision();
+      if (precision > 18) count++;
+    }
+  }
+
+  int64_t fixed_size = CalculateBitSetWidthInBytes(num_cols) + num_cols * 8;
+  int64_t decimal_cols_size = count * 16;
+  return fixed_size + decimal_cols_size;
+}
+
 arrow::Status ColumnarToRowConverter::Init() {
   num_rows_ = rb_->num_rows();
   num_cols_ = rb_->num_columns();
   // Calculate the initial size
   nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
-  memset(buffer_address_, 0, sizeof(int8_t) * memory_size_);
+
+  int64_t fixed_size_per_row = CalculatedFixeSizePerRow(rb_->schema(), num_cols_);
+
+  // Initialize the offsets_ , lengths_, buffer_cursor_
+  for (auto i = 0; i < num_rows_; i++) {
+    lengths_.push_back(fixed_size_per_row);
+    offsets_.push_back(0);
+    buffer_cursor_.push_back(nullBitsetWidthInBytes_ + 8 * num_cols_);
+  }
+  // Calculated the lengths_
+  for (auto i = 0; i < num_cols_; i++) {
+    auto array = rb_->column(i);
+    if (arrow::is_binary_like(array->type_id())) {
+      auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
+      using offset_type = typename arrow::BinaryType::offset_type;
+      offset_type length;
+      for (auto j = 0; j < num_rows_; j++) {
+        auto value = binary_array->GetValue(j, &length);
+        lengths_[j] += RoundNumberOfBytesToNearestWord(length);
+      }
+    }
+  }
+  // Calculated the offsets_  and total memory size based on lengths_
+  int64_t total_memory_size = lengths_[0];
+  for (auto i = 1; i < num_rows_; i++) {
+    offsets_[i] = offsets_[i - 1] + lengths_[i - 1];
+    total_memory_size += lengths_[i];
+  }
+
+  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size, memory_pool_));
+
+  memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
+
+  buffer_address_ = buffer_->mutable_data();
   return arrow::Status::OK();
 }
 
@@ -429,42 +492,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
   return arrow::Status::OK();
 }
 
-int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
-  int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
-  if (remainder == 0) {
-    return numBytes;
-  } else {
-    return numBytes + (8 - remainder);
-  }
-}
-
 arrow::Status ColumnarToRowConverter::Write() {
-  // Initialize the offsets_ , lengths_, buffer_cursor_
-  for (auto i = 0; i < num_rows_; i++) {
-    lengths_.push_back(fixed_size_per_row_);
-    offsets_.push_back(0);
-    buffer_cursor_.push_back(nullBitsetWidthInBytes_ + 8 * num_cols_);
-  }
-
-  // Calculated the lengths_
-  for (auto i = 0; i < num_cols_; i++) {
-    auto array = rb_->column(i);
-    if (arrow::is_binary_like(array->type_id())) {
-      auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
-      using offset_type = typename arrow::BinaryType::offset_type;
-      offset_type length;
-      for (auto j = 0; j < num_rows_; j++) {
-        auto value = binary_array->GetValue(j, &length);
-        lengths_[j] += RoundNumberOfBytesToNearestWord(length);
-      }
-    }
-  }
-
-  // Calculated the offsets_ based on lengths_
-  for (auto i = 1; i < num_rows_; i++) {
-    offsets_[i] = offsets_[i - 1] + lengths_[i - 1];
-  }
-
   for (auto i = 0; i < num_cols_; i++) {
     auto array = rb_->column(i);
     int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);

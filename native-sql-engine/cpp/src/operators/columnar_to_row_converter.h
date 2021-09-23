@@ -32,29 +32,26 @@ namespace columnartorow {
 
 class ColumnarToRowConverter {
  public:
-  ColumnarToRowConverter(std::shared_ptr<arrow::RecordBatch> rb, uint8_t* buffer_address,
-                         int64_t memory_size = 0, int64_t fixed_size_per_row = 0)
-      : rb_(rb),
-        buffer_address_(buffer_address),
-        memory_size_(memory_size),
-        fixed_size_per_row_(fixed_size_per_row) {}
+  ColumnarToRowConverter(std::shared_ptr<arrow::RecordBatch> rb,
+                         arrow::MemoryPool* memory_pool)
+      : rb_(rb), memory_pool_(memory_pool) {}
 
   arrow::Status Init();
   arrow::Status Write();
 
-  uint8_t* GetBufferAddress() { return buffer_address_; }  // for test
+  uint8_t* GetBufferAddress() { return buffer_address_; }
   const std::vector<int64_t>& GetOffsets() { return offsets_; }
   const std::vector<int64_t>& GetLengths() { return lengths_; }
 
  protected:
   std::vector<int64_t> buffer_cursor_;
   std::shared_ptr<arrow::RecordBatch> rb_;
+  std::shared_ptr<arrow::Buffer> buffer_;
+  arrow::MemoryPool* memory_pool_ = arrow::default_memory_pool();
   int64_t nullBitsetWidthInBytes_;
   int64_t num_cols_;
   int64_t num_rows_;
   uint8_t* buffer_address_;
-  int64_t memory_size_;
-  int64_t fixed_size_per_row_;
   std::vector<int64_t> offsets_;
   std::vector<int64_t> lengths_;
 };

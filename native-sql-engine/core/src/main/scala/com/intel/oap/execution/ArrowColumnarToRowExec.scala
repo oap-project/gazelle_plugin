@@ -19,8 +19,8 @@ package com.intel.oap.execution
 
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowColumnarToRowJniWrapper, ArrowWritableColumnVector}
-import org.apache.arrow.vector.BaseVariableWidthVector
-import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
+import org.apache.arrow.vector.types.pojo.{Field, Schema}
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{UnsafeProjection, UnsafeRow}
@@ -28,7 +28,6 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
 import org.apache.spark.sql.types._
-import org.apache.spark.unsafe.array.ByteArrayMethods
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -83,19 +82,6 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
         val schema = new Schema(fields.asJava)
         ConverterUtils.getSchemaBytesBuf(schema)
       }
-      // For decimal type if the precision > 18 will need 16 bytes variable size.
-      def containDecimalCol(field: StructField): Boolean = field.dataType match {
-        case d: DecimalType if d.precision > 18 => true
-        case _ => false
-      }
-
-      def estimateBufferSize(numCols: Int, numRows: Int): Int = {
-        val fields = child.schema.fields
-        val decimalCols = fields.filter(field => containDecimalCol(field)).length
-        val fixedLength = UnsafeRow.calculateBitSetWidthInBytes(numCols) + numCols * 8
-        val decimalColSize = 16 * decimalCols
-        (fixedLength + decimalColSize) * numRows
-      }
 
       batches.flatMap { batch =>
         numInputBatches += 1
@@ -117,33 +103,10 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
           val bufAddrs = new ListBuffer[Long]()
           val bufSizes = new ListBuffer[Long]()
           val fields = new ListBuffer[Field]()
-          var totalVariableSize = 0L
           (0 until batch.numCols).foreach { idx =>
             val column = batch.column(idx).asInstanceOf[ArrowWritableColumnVector]
             fields += column.getValueVector.getField
-            val valueVector = column.getValueVector
-            if (valueVector.isInstanceOf[BaseVariableWidthVector]) {
-              // Calculate the total aligned size of variable cols
-              val arrowType = column.getValueVector.getField.getFieldType.getType
-              for (rowId <- 0 until batch.numRows()) {
-                val variableColSize = arrowType match {
-                  case ArrowType.Utf8.INSTANCE =>
-                    val value = column.getUTF8String(rowId)
-                    if (value == null) {
-                      0
-                    } else value.numBytes()
-                  case ArrowType.Binary.INSTANCE =>
-                    val value = column.getBinary(rowId)
-                    if (value == null) {
-                      0
-                    } else value.length
-                  case _ => 0
-                }
-                val alignedSize = ByteArrayMethods.roundNumberOfBytesToNearestWord(variableColSize)
-                totalVariableSize += alignedSize
-              }
-            }
-            valueVector.getBuffers(false)
+            column.getValueVector.getBuffers(false)
               .foreach { buffer =>
                 bufAddrs += buffer.memoryAddress()
                 bufSizes += buffer.readableBytes()
@@ -155,14 +118,10 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
           }
 
           val beforeConvert = System.nanoTime()
-          val totalFixedSize = estimateBufferSize(batch.numCols(), batch.numRows())
-          val size = totalFixedSize + totalVariableSize.toInt
 
-          val allocator = SparkMemoryUtils.contextAllocator()
-          val arrowBuf = allocator.buffer(size)
           val info = jniWrapper.nativeConvertColumnarToRow(
             arrowSchema, batch.numRows, bufAddrs.toArray, bufSizes.toArray,
-            arrowBuf.memoryAddress(), size, totalFixedSize / batch.numRows())
+            SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
 
           convertTime += NANOSECONDS.toMillis(System.nanoTime() - beforeConvert)
 
@@ -173,7 +132,6 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
             override def hasNext: Boolean = {
               val result = rowId < batch.numRows()
               if (!result && !closed) {
-                arrowBuf.release()
                 jniWrapper.nativeClose(info.instanceID)
                 closed = true
               }
@@ -184,7 +142,7 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
               if (rowId >= batch.numRows()) throw new NoSuchElementException
 
               val (offset, length) = (info.offsets(rowId), info.lengths(rowId))
-              row.pointTo(null, arrowBuf.memoryAddress() + offset, length.toInt)
+              row.pointTo(null, info.memoryAddress + offset, length.toInt)
               rowId += 1
               row
             }
