@@ -164,11 +164,12 @@ TEST_F(BenchmarkArrowComputeWSCG, JoinBenchmark) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr}, field_list,
-                                    &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+                                    field_list, &expr_probe, true));
 
   ///////////////////// Calculation //////////////////
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -305,14 +306,15 @@ TEST_F(BenchmarkArrowComputeWSCG, MultipleJoinBenchmark) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build_0;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build_0, true));
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build_0, true));
   std::shared_ptr<CodeGenerator> expr_build_1;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build_1, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build_1, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr}, field_list,
-                                    &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+                                    field_list, &expr_probe, true));
 
   ///////////////////// Calculation //////////////////
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;

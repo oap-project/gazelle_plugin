@@ -164,11 +164,12 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmark) {
   auto n_hash = TreeExprBuilder::MakeFunction("standalone", {n_hash_kernel}, uint32());
   auto hashRelation_expr = TreeExprBuilder::MakeExpression(n_hash, f_res);
   std::shared_ptr<CodeGenerator> expr_build;
-  ASSERT_NOT_OK(
-      CreateCodeGenerator(schema_table_0, {hashRelation_expr}, {}, &expr_build, true));
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_0,
+                                    {hashRelation_expr}, {}, &expr_build, true));
   std::shared_ptr<CodeGenerator> expr_probe;
-  ASSERT_NOT_OK(CreateCodeGenerator(schema_table_1, {probeArrays_expr}, field_list,
-                                    &expr_probe, true));
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), schema_table_1, {probeArrays_expr},
+                                    field_list, &expr_probe, true));
 
   ///////////////////// Calculation //////////////////
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
@@ -300,8 +301,10 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
   uint64_t num_batches = 0;
   uint64_t num_rows = 0;
 
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(left_schema, {probeArrays_expr},
-                                                      field_list, &expr_probe, true));
+  arrow::compute::ExecContext ctx;
+  TIME_MICRO_OR_THROW(
+      elapse_gen, CreateCodeGenerator(ctx.memory_pool(), left_schema, {probeArrays_expr},
+                                      field_list, &expr_probe, true));
 
   do {
     TIME_MICRO_OR_THROW(elapse_left_read,

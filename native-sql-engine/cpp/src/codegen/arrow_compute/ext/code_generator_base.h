@@ -83,6 +83,11 @@ class CodeGenBase {
     return arrow::Status::NotImplemented(
         "CodeGenBase MakeResultIterator is an abstract interface.");
   }
+
+  virtual arrow::Status ClearCache() {
+    return arrow::Status::NotImplemented(
+        "CodeGenBase ClearCache is an abstract interface.");
+  }
 };
 }  // namespace extra
 }  // namespace arrowcompute

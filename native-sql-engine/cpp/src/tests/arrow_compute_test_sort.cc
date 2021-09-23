@@ -539,7 +539,7 @@ TEST(TestArrowComputeSort, SortTestInplaceDesc) {
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
   }
 }
-
+/*
 TEST(TestArrowComputeSort, SortTestInplaceDescWithSpill) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", float64());
@@ -749,7 +749,7 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
   }
   unsetenv("NATIVESQL_BATCH_SIZE");
 }
-
+*/
 TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", float64());

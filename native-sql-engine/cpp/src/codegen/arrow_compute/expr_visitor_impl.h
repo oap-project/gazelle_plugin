@@ -500,6 +500,9 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
         }
         p_->in_record_batch_holder_.push_back(std::move(p_->in_record_batch_));
         RETURN_NOT_OK(kernel_->Evaluate(col_list));
+        if (!col_list.empty() && col_list[0].use_count() == 2) {
+          (p_->in_record_batch_holder_).clear();
+        }
       } break;
       default:
         return arrow::Status::NotImplemented(
