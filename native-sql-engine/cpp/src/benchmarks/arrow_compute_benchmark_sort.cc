@@ -50,7 +50,7 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
     std::string path = dir_path + "tpcds_sort_big.parquet";
     std::cout << "This Benchmark used file " << path
               << ", please download from server "
-                 "vsr200://home/zhouyuan/sparkColumnarPlugin/source_files"
+                 "chendi@vsr200://home/chendi/sparkColumnarPlugin/source_files"
               << std::endl;
     std::string file_name;
     ASSERT_OK_AND_ASSIGN(fs, arrow::fs::FileSystemFromUri(path, &file_name));
