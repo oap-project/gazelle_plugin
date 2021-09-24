@@ -25,7 +25,6 @@ import com.intel.oap.spark.sql.execution.datasources.v2.arrow._
 import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 import org.apache.arrow.dataset.jni.NativeMemoryPool
 import org.apache.arrow.memory.AllocationListener
-import org.apache.arrow.memory.BaseAllocator.configBuilder
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.memory.ImmutableConfig
 import org.apache.arrow.memory.MemoryChunkCleaner
@@ -88,7 +87,7 @@ object SparkMemoryUtils extends Logging {
 
     val defaultAllocator: BufferAllocator = {
       val alloc = new RootAllocator(
-        configBuilder()
+        RootAllocator.configBuilder()
             .maxAllocation(Long.MaxValue)
             .memoryChunkManagerFactory(memoryChunkManagerFactory)
             .listener(allocListener)
@@ -238,7 +237,7 @@ object SparkMemoryUtils extends Logging {
   }
 
   private val allocator = new RootAllocator(
-    configBuilder()
+    RootAllocator.configBuilder()
         .maxAllocation(SQLConf.get.getConf(MEMORY_OFFHEAP_SIZE))
         .memoryChunkManagerFactory(MemoryChunkCleaner.newFactory())
         .listener(MemoryChunkCleaner.gcTrigger())
