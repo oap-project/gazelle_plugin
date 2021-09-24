@@ -573,7 +573,7 @@ int GetMemoryThreshold() {
   if (env_size != nullptr) {
     size = atoi(env_size);
   } else {
-    size = 256 * 1024 * 1024;
+    size = -1;
   }
   return size;
 }

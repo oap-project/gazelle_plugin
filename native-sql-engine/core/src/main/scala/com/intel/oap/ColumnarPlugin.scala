@@ -112,6 +112,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       child match {
+        case p: CoalesceBatchesExec =>
+          ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
         case _ =>
           ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
       }

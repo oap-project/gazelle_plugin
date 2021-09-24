@@ -148,7 +148,7 @@ class SortArraysToIndicesKernel::Impl {
   virtual std::string GetSignature() { return ""; }
 
   virtual arrow::Status MaybeSpill() {
-    if (GetCurrentMemoryUsage() < GetCurrentMemoryThreshold()) {
+    if (GetCurrentMemoryThreshold() > 0 && GetCurrentMemoryUsage() < GetCurrentMemoryThreshold()) {
 #ifdef DEBUG
       std::cout << "CurrentMemoryUsage is " << GetCurrentMemoryUsage()
                 << ", MemoryThreshold is " << GetCurrentMemoryThreshold()
