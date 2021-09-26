@@ -30,6 +30,9 @@
 #include "codegen/common/result_iterator.h"
 #include "codegen/common/sort_relation.h"
 
+#include <thread>
+#include <mutex>
+
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 
 namespace sparkcolumnarplugin {
@@ -224,6 +227,7 @@ class SortArraysToIndicesKernel : public KernalBase {
 
  private:
   std::unique_ptr<Impl> impl_;
+  std::mutex spill_lck_;
   arrow::compute::ExecContext* ctx_ = nullptr;
 };
 

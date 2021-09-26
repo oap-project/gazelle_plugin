@@ -29,6 +29,7 @@
 #include <parquet/file_reader.h>
 
 #include <chrono>
+#include <thread>
 
 #include "codegen/code_generator.h"
 #include "codegen/code_generator_factory.h"
@@ -78,7 +79,14 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
     NaN_check = TreeExprBuilder::MakeFunction("NaN_check", {true_literal}, uint32());
   }
 
-  void StartWithIterator(std::shared_ptr<CodeGenerator> sort_expr) {
+  static void DoSpill(std::shared_ptr<CodeGenerator> sort_expr) {
+    sleep(rand() % 5);
+    int64_t spilled_size = 0;
+    sort_expr->Spill(0, false, &spilled_size);
+    std::cout << "Manully triggering spill, size is " << spilled_size << std::endl;
+  }
+
+  void StartWithIterator(std::shared_ptr<CodeGenerator> sort_expr, int manual_spill = 0) {
     std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
     std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
     std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
@@ -104,11 +112,17 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
     sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
         sort_result_iterator_base);
     std::shared_ptr<arrow::RecordBatch> result_batch;
-
+    std::vector<std::thread> spill_thread;
+    if (manual_spill == 2) {
+      spill_thread.push_back(std::thread(DoSpill, sort_expr));
+    }
     uint64_t num_output_batches = 0;
     while (sort_result_iterator->HasNext()) {
       TIME_MICRO_OR_THROW(elapse_shuffle, sort_result_iterator->Next(&result_batch));
       num_output_batches++;
+    }
+    for (auto& th : spill_thread) {
+      th.join();
     }
 #ifdef DEBUG
     arrow::PrettyPrint(*result_batch.get(), 2, &std::cout);
@@ -160,6 +174,7 @@ class BenchmarkArrowComputeSort : public ::testing::Test {
 };
 
 TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntColumn) {
+  setenv("NATIVESQL_MAX_MEMORY_SIZE", "536870912", 1);
   elapse_gen = 0;
   elapse_read = 0;
   elapse_eval = 0;
@@ -217,9 +232,11 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntColumn) {
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
+  unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
 TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntKeyWithoutCodegen) {
+  setenv("NATIVESQL_MAX_MEMORY_SIZE", "536870912", 1);
   elapse_gen = 0;
   elapse_read = 0;
   elapse_eval = 0;
@@ -271,9 +288,11 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntKeyWithoutCodegen) {
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
+  unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
 TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntKeyWithCodegen) {
+  setenv("NATIVESQL_MAX_MEMORY_SIZE", "536870912", 1);
   elapse_gen = 0;
   elapse_read = 0;
   elapse_eval = 0;
@@ -325,9 +344,11 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntKeyWithCodegen) {
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
+  unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
 TEST_F(BenchmarkArrowComputeSort, SortBenchmarkMultipleKeysWithoutCodegen) {
+  setenv("NATIVESQL_MAX_MEMORY_SIZE", "536870912", 1);
   elapse_gen = 0;
   elapse_read = 0;
   elapse_eval = 0;
@@ -379,9 +400,11 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkMultipleKeysWithoutCodegen) {
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
+  unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
 TEST_F(BenchmarkArrowComputeSort, SortBenchmarkMultipleKeysWithCodegen) {
+  setenv("NATIVESQL_MAX_MEMORY_SIZE", "536870912", 1);
   elapse_gen = 0;
   elapse_read = 0;
   elapse_eval = 0;
@@ -433,6 +456,63 @@ TEST_F(BenchmarkArrowComputeSort, SortBenchmarkMultipleKeysWithCodegen) {
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(sort_expr);
+  unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
+}
+
+TEST_F(BenchmarkArrowComputeSort, SortBenchmarkSingleIntKeyManualSpill) {
+  setenv("NATIVESQL_MAX_MEMORY_SIZE", "-1", 1);
+  elapse_gen = 0;
+  elapse_read = 0;
+  elapse_eval = 0;
+  elapse_sort = 0;
+  elapse_shuffle = 0;
+  num_batches = 0;
+  num_rows = 0;
+  ////////////////////// prepare expr_vector ///////////////////////
+  do_codegen = TreeExprBuilder::MakeFunction("codegen", {false_literal}, uint32());
+
+  std::vector<int> key_idxs = {5};
+  key_field_list.clear();
+  for (auto idx : key_idxs) {
+    key_field_list.push_back(field_list[idx]);
+  }
+  n_dir = TreeExprBuilder::MakeFunction(
+      "sort_directions", {true_literal, true_literal, true_literal, true_literal},
+      uint32());
+  n_nulls_order = TreeExprBuilder::MakeFunction(
+      "sort_nulls_order", {true_literal, true_literal, true_literal, true_literal},
+      uint32());
+
+  auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
+  auto f_indices = field("indices", indices_type);
+
+  std::vector<std::shared_ptr<::gandiva::Node>> gandiva_field_list;
+  for (auto field : key_field_list) {
+    gandiva_field_list.push_back(TreeExprBuilder::MakeField(field));
+  }
+
+  auto n_key_func =
+      TreeExprBuilder::MakeFunction("key_function", gandiva_field_list, uint32());
+  auto n_key_field =
+      TreeExprBuilder::MakeFunction("key_field", gandiva_field_list, uint32());
+
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndices",
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
+  auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
+
+  auto sch = arrow::schema(field_list);
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<CodeGenerator> sort_expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr},
+                                    ret_field_list, &sort_expr, true));
+
+  ///////////////////// Calculation //////////////////
+  StartWithIterator(sort_expr, 2);
+  unsetenv("NATIVESQL_MAX_MEMORY_SIZE");
 }
 
 }  // namespace codegen

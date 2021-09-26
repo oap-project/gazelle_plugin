@@ -58,6 +58,8 @@ class ResultIterator : public ResultIteratorBase {
   virtual arrow::Status Next(std::shared_ptr<T>* out) {
     return arrow::Status::NotImplemented("ResultIterator abstract Next()");
   }
+  virtual bool HasNextUnsafe() { return HasNext(); }
+  virtual arrow::Status NextUnsafe(std::shared_ptr<T>* out) { return Next(out); }
   virtual arrow::Status Process(
       const std::vector<std::shared_ptr<arrow::Array>>& in, std::shared_ptr<T>* out,
       const std::shared_ptr<arrow::Array>& selection = nullptr) {

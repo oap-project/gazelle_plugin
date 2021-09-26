@@ -28,7 +28,9 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <numeric>
+#include <thread>
 #include <vector>
 
 #include "array_appender.h"
@@ -78,6 +80,7 @@ namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using namespace sparkcolumnarplugin::precompile;
+using namespace std::chrono_literals;
 
 template <typename T>
 using is_number_bool_date = std::integral_constant<
@@ -108,8 +111,13 @@ class SortArraysToIndicesKernel::Impl {
   }
 
   virtual arrow::Status Spill(int64_t size, int64_t* spilled_size) {
-    return arrow::Status::NotImplemented(
-        "This function is not supported in SortArraysToIndicesKernel::Impl.");
+    if (GetCurrentMemoryThreshold() == -1) {
+      auto status = SortAndSpill(spilled_size);
+      std::cout << this << " SortKernel Spilled " << *spilled_size << " bytes"
+                << std::endl;
+      return status;
+    }
+    return arrow::Status::OK();
   }
 
   virtual arrow::Status MakeResultIterator(
@@ -148,7 +156,8 @@ class SortArraysToIndicesKernel::Impl {
   virtual std::string GetSignature() { return ""; }
 
   virtual arrow::Status MaybeSpill() {
-    if (GetCurrentMemoryThreshold() > 0 && GetCurrentMemoryUsage() < GetCurrentMemoryThreshold()) {
+    if (GetCurrentMemoryThreshold() > 0 &&
+        GetCurrentMemoryUsage() < GetCurrentMemoryThreshold()) {
 #ifdef DEBUG
       std::cout << "CurrentMemoryUsage is " << GetCurrentMemoryUsage()
                 << ", MemoryThreshold is " << GetCurrentMemoryThreshold()
@@ -162,10 +171,11 @@ class SortArraysToIndicesKernel::Impl {
                 << std::endl;
       //#endif
     }
-    return SortAndSpill();
+    int64_t spilled_size;
+    return SortAndSpill(&spilled_size);
   }
 
-  virtual arrow::Status SortAndSpill() {
+  virtual arrow::Status SortAndSpill(int64_t* spilled_size) {
     return arrow::Status::NotImplemented(
         "This function is not supported in SortArraysToIndicesKernel::Impl.");
   }
@@ -231,13 +241,29 @@ class SortArraysToIndicesKernel::Impl {
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 
     bool HasNext() override {
+      thread_lck_.lock();
+      auto status = HasNextUnsafe();
+      thread_lck_.unlock();
+      return status;
+    }
+
+    bool HasNextUnsafe() override {
+      if (ext_sort_result_iter_) return ext_sort_result_iter_->HasNext();
       if (offset_ >= total_length_) {
         return false;
       }
       return true;
     }
 
-    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
+    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) override {
+      thread_lck_.lock();
+      auto status = NextUnsafe(out);
+      thread_lck_.unlock();
+      return status;
+    }
+
+    arrow::Status NextUnsafe(std::shared_ptr<arrow::RecordBatch>* out) override {
+      if (ext_sort_result_iter_) return ext_sort_result_iter_->Next(out);
       auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
                                                             : (total_length_ - offset_);
       ArrayList arrays;
@@ -252,7 +278,40 @@ class SortArraysToIndicesKernel::Impl {
       return arrow::Status::OK();
     }
 
+    arrow::Status ClearCache() {
+      indices_in_cache_.reset();
+      indices_begin_ = nullptr;
+      taker_list_.clear();
+      return arrow::Status::OK();
+    }
+
+    arrow::Status StartLock() {
+      if (thread_lck_.try_lock_for(30s)) {
+        return arrow::Status::OK();
+      } else {
+        return arrow::Status::Cancelled("Unable to get lock in 30s");
+      }
+      return arrow::Status::OK();
+    }
+
+    arrow::Status EndLock() {
+      thread_lck_.unlock();
+      return arrow::Status::OK();
+    }
+
+    arrow::Status SwitchToExternalSorterResultIterator(
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter) {
+      ext_sort_result_iter_ = ext_sort_result_iter;
+      RETURN_NOT_OK(ClearCache());
+      return arrow::Status::OK();
+    }
+
+    bool IsSpilled() { return ext_sort_result_iter_ ? true : false; }
+
    private:
+    std::timed_mutex
+        thread_lck_;  // since there maybe two threads will access this ResultIter,
+                      // one is regular task thread, one is spill thread
     uint64_t offset_ = 0;
     const uint64_t total_length_;
     std::shared_ptr<arrow::Schema> schema_;
@@ -266,6 +325,7 @@ class SortArraysToIndicesKernel::Impl {
     bool is_spilled_ = false;
     int64_t spilled_size_ = 0;
     std::shared_ptr<SpillableCacheStore> spillablecachestore_;
+    std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter_;
   };
 
   class ExternalSorter {
@@ -363,6 +423,28 @@ class SortArraysToIndicesKernel::Impl {
           }
         }
         return true;
+      }
+
+      arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
+        // This api is used when only one item in Heap
+        if (cache_offset_ == 0) {
+          *out = current_in_cache_batch_;
+          cache_offset_ += current_in_cache_batch_->num_rows();
+        } else {
+          // copy to a new batch of remaining data
+          auto cur_size = current_in_cache_batch_->num_rows() - cache_offset_;
+          auto schema = current_in_cache_batch_->schema();
+          std::vector<std::shared_ptr<arrow::Array>> out_arrs;
+          for (auto arr : current_in_cache_batch_->columns()) {
+            std::shared_ptr<arrow::Array> copied;
+            auto sliced = arr->Slice(cache_offset_);
+            RETURN_NOT_OK(arrow::Concatenate({sliced}, ctx_->memory_pool(), &copied));
+            out_arrs.push_back(copied);
+          }
+          *out = arrow::RecordBatch::Make(schema, cur_size, out_arrs);
+          cache_offset_ += cur_size;
+        }
+        return arrow::Status::OK();
       }
 
       arrow::Status UpdateComparator() {
@@ -483,6 +565,16 @@ class SortArraysToIndicesKernel::Impl {
       }
 
       arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) override {
+        // if there is only one item in heap
+        if (sorted_iter_heap_.size() == 1) {
+          auto min_iter = sorted_iter_heap_.top();
+          RETURN_NOT_OK(min_iter->Next(out));
+          if (!min_iter->HasNext()) {
+            sorted_iter_heap_.pop();
+          }
+          return arrow::Status::OK();
+        }
+
         int64_t cur_size = 0;
         while (cur_size < expected_batch_size_ && !sorted_iter_heap_.empty()) {
           auto min_iter = sorted_iter_heap_.top();
@@ -576,16 +668,28 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status Spill(int64_t size, int64_t* spilled_size) {
-    // inplace sort does not support spill
-    *spilled_size = 0;
-
-    return arrow::Status::OK();
-  }
-
-  arrow::Status SortAndSpill() override {
+  arrow::Status SortAndSpill(int64_t* spilled_size) override {
     std::shared_ptr<ResultIterator<arrow::RecordBatch>> out;
-    RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    if (final_result_iter_ && external_sorter_) {
+      // external sort is enabled and still need extra space, nothing can be done here
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    } else if (final_result_iter_) {
+      // sort has reached final phase, we don't need to create result iter
+      out = final_result_iter_;
+    } else {
+      // sort is in evaluate phase, we should create result Iter for current in memory
+      // data
+      RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    }
+    *spilled_size = GetCurrentMemoryUsage();
+    auto typed_final_result_iter = std::dynamic_pointer_cast<SorterResultIterator>(out);
+    auto lock_status = typed_final_result_iter->StartLock();
+    if (!lock_status.ok()) {
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    }
+
     if (!external_sorter_) {
       std::shared_ptr<ComparatorBase> comp;
       RETURN_NOT_OK(MakeComparator<DATATYPE>(asc_, nulls_first_, NaN_check_, &comp));
@@ -596,8 +700,25 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
               : std::make_shared<ComparatorKeyProjector>(std::vector<int>({0}));
       external_sorter_ = std::make_shared<ExternalSorter>(ctx_, comp_v, key_proj);
     }
-    RETURN_NOT_OK(external_sorter_->Spill(out));
+
+    if (typed_final_result_iter->HasNextUnsafe()) {
+      RETURN_NOT_OK(external_sorter_->Spill(out));
+      if (final_result_iter_) {
+        // update final_result_iter_ to use external result iterator
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter;
+        RETURN_NOT_OK(
+            external_sorter_->MakeResultIterator(result_schema_, &ext_sort_result_iter));
+        RETURN_NOT_OK(typed_final_result_iter->SwitchToExternalSorterResultIterator(
+            ext_sort_result_iter));
+      }
+    } else {
+      *spilled_size = 0;
+    }
+    typed_final_result_iter->EndLock();
     RETURN_NOT_OK(ClearCache());
+#ifdef DEBUG
+    std::cout << "Spilled called, " << *spilled_size << " released" << std::endl;
+#endif
     return arrow::Status::OK();
   }
 
@@ -616,13 +737,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   arrow::Status MergeSpilledAndMakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
-    //#ifdef DEBUG
+#ifdef DEBUG
     std::cout << "MergeSpilledAndMakeResultIterator "
               << (external_sorter_ ? "merge with external sorter"
                                    : "no spilled data to merge")
               << std::endl;
-    //#endif
+#endif
     RETURN_NOT_OK(MakeResultIterator(schema, out));
+    final_result_iter_ = *out;
     if (external_sorter_) {
       if (*out) {
         RETURN_NOT_OK(external_sorter_->Enqueue(*out));
@@ -881,6 +1003,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
   uint64_t memory_threshold_ = -1;
   uint64_t cache_size_total_ = 0;
   std::shared_ptr<ExternalSorter> external_sorter_;
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> final_result_iter_;
 
   class SorterResultIterator : public ResultIterator<arrow::RecordBatch> {
    public:
@@ -901,6 +1024,14 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     std::string ToString() override { return "SortArraysToIndicesResultIterator"; }
 
     bool HasNext() override {
+      thread_lck_.lock();
+      auto status = HasNextUnsafe();
+      thread_lck_.unlock();
+      return status;
+    }
+
+    bool HasNextUnsafe() {
+      if (ext_sort_result_iter_) return ext_sort_result_iter_->HasNext();
       if (offset_ >= total_length_) {
         return false;
       }
@@ -1019,7 +1150,15 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       int size = sizeof(KeyType);
     };
 
-    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) {
+    arrow::Status Next(std::shared_ptr<arrow::RecordBatch>* out) override {
+      thread_lck_.lock();
+      auto status = NextUnsafe(out);
+      thread_lck_.unlock();
+      return status;
+    }
+
+    arrow::Status NextUnsafe(std::shared_ptr<arrow::RecordBatch>* out) {
+      if (ext_sort_result_iter_) return ext_sort_result_iter_->Next(out);
       auto length = (total_length_ - offset_) > batch_size_ ? batch_size_
                                                             : (total_length_ - offset_);
       arrow::ArrayData result_data = *result_arr_->data();
@@ -1034,7 +1173,37 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       return arrow::Status::OK();
     }
 
+    arrow::Status ClearCache() {
+      result_arr_.reset();
+      return arrow::Status::OK();
+    }
+
+    arrow::Status StartLock() {
+      if (thread_lck_.try_lock_for(30s)) {
+        return arrow::Status::OK();
+      } else {
+        return arrow::Status::Cancelled("Unable to get lock in 30s");
+      }
+    }
+
+    arrow::Status EndLock() {
+      thread_lck_.unlock();
+      return arrow::Status::OK();
+    }
+
+    arrow::Status SwitchToExternalSorterResultIterator(
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter) {
+      ext_sort_result_iter_ = ext_sort_result_iter;
+      RETURN_NOT_OK(ClearCache());
+      return arrow::Status::OK();
+    }
+
+    bool IsSpilled() { return ext_sort_result_iter_ ? true : false; }
+
    private:
+    std::timed_mutex
+        thread_lck_;  // since there maybe two threads will access this ResultIter,
+                      // one is regular task thread, one is spill thread
     using ArrayType_0 = typename arrow::TypeTraits<DATATYPE>::ArrayType;
     using BuilderType_0 = typename arrow::TypeTraits<DATATYPE>::BuilderType;
     std::shared_ptr<arrow::Array> result_arr_;
@@ -1046,6 +1215,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     uint64_t batch_size_;
     bool nulls_first_;
     bool asc_;
+    std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter_;
   };
 };
 
@@ -1123,9 +1293,28 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status SortAndSpill() override {
+  arrow::Status SortAndSpill(int64_t* spilled_size) override {
     std::shared_ptr<ResultIterator<arrow::RecordBatch>> out;
-    RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    if (final_result_iter_ && external_sorter_) {
+      // external sort is enabled and still need extra space, nothing can be done here
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    } else if (final_result_iter_) {
+      // sort has reached final phase, we don't need to create result iter
+      out = final_result_iter_;
+    } else {
+      // sort is in evaluate phase, we should create result Iter for current in memory
+      // data
+      RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    }
+    *spilled_size = GetCurrentMemoryUsage();
+    auto typed_final_result_iter = std::dynamic_pointer_cast<SorterResultIterator>(out);
+    auto lock_status = typed_final_result_iter->StartLock();
+    if (!lock_status.ok()) {
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    }
+
     if (!external_sorter_) {
       std::shared_ptr<ComparatorBase> comp;
       auto key_proj =
@@ -1136,8 +1325,24 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       std::vector<std::shared_ptr<ComparatorBase>> comp_v = {comp};
       external_sorter_ = std::make_shared<ExternalSorter>(ctx_, comp_v, key_proj);
     }
-    RETURN_NOT_OK(external_sorter_->Spill(out));
+    if (typed_final_result_iter->HasNextUnsafe()) {
+      RETURN_NOT_OK(external_sorter_->Spill(out));
+      if (final_result_iter_) {
+        // update final_result_iter_ to use external result iterator
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter;
+        RETURN_NOT_OK(
+            external_sorter_->MakeResultIterator(result_schema_, &ext_sort_result_iter));
+        RETURN_NOT_OK(typed_final_result_iter->SwitchToExternalSorterResultIterator(
+            ext_sort_result_iter));
+      }
+    } else {
+      *spilled_size = 0;
+    }
+    typed_final_result_iter->EndLock();
     RETURN_NOT_OK(ClearCache());
+#ifdef DEBUG
+    std::cout << "Spilled called, " << *spilled_size << " released" << std::endl;
+#endif
     return arrow::Status::OK();
   }
 
@@ -1148,13 +1353,14 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   arrow::Status MergeSpilledAndMakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
-    //#ifdef DEBUG
+#ifdef DEBUG
     std::cout << "MergeSpilledAndMakeResultIterator "
               << (external_sorter_ ? "merge with external sorter"
                                    : "no spilled data to merge")
               << std::endl;
-    //#endif
+#endif
     RETURN_NOT_OK(MakeResultIterator(schema, out));
+    final_result_iter_ = *out;
     if (external_sorter_) {
       if (*out) {
         RETURN_NOT_OK(external_sorter_->Enqueue(
@@ -1425,8 +1631,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
     if (cached_.empty()) return arrow::Status::OK();
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(FinishInternal(&indices_out));
-    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out,
-                                                  std::move(cached_));
+    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, cached_);
     return arrow::Status::OK();
   }
 
@@ -1449,6 +1654,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
   uint64_t memory_threshold_ = -1;
   uint64_t cache_size_total_ = 0;
   std::shared_ptr<ExternalSorter> external_sorter_;
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> final_result_iter_;
 };
 
 ///////////////  SortArraysCodegen  ////////////////
@@ -1586,9 +1792,28 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
     return sorter_->ClearCache();
   }
 
-  arrow::Status SortAndSpill() override {
+  arrow::Status SortAndSpill(int64_t* spilled_size) override {
     std::shared_ptr<ResultIterator<arrow::RecordBatch>> out;
-    RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    if (final_result_iter_ && external_sorter_) {
+      // external sort is enabled and still need extra space, nothing can be done here
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    } else if (final_result_iter_) {
+      // sort has reached final phase, we don't need to create result iter
+      out = final_result_iter_;
+    } else {
+      // sort is in evaluate phase, we should create result Iter for current in memory
+      // data
+      RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    }
+    *spilled_size = GetCurrentMemoryUsage();
+    auto typed_final_result_iter = std::dynamic_pointer_cast<SorterResultIterator>(out);
+    auto lock_status = typed_final_result_iter->StartLock();
+    if (!lock_status.ok()) {
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    }
+
     if (!external_sorter_) {
       std::vector<std::shared_ptr<ComparatorBase>> comp_v;
       gandiva::FieldVector field_list =
@@ -1607,8 +1832,24 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
       }
       external_sorter_ = std::make_shared<ExternalSorter>(ctx_, comp_v, key_proj);
     }
-    RETURN_NOT_OK(external_sorter_->Spill(out));
+    if (typed_final_result_iter->HasNextUnsafe()) {
+      RETURN_NOT_OK(external_sorter_->Spill(out));
+      if (final_result_iter_) {
+        // update final_result_iter_ to use external result iterator
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter;
+        RETURN_NOT_OK(
+            external_sorter_->MakeResultIterator(result_schema_, &ext_sort_result_iter));
+        RETURN_NOT_OK(typed_final_result_iter->SwitchToExternalSorterResultIterator(
+            ext_sort_result_iter));
+      }
+    } else {
+      *spilled_size = 0;
+    }
+    typed_final_result_iter->EndLock();
     RETURN_NOT_OK(ClearCache());
+#ifdef DEBUG
+    std::cout << "Spilled called, " << *spilled_size << " released" << std::endl;
+#endif
     return arrow::Status::OK();
   }
 
@@ -1619,13 +1860,14 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
   arrow::Status MergeSpilledAndMakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
-    //#ifdef DEBUG
+#ifdef DEBUG
     std::cout << "MergeSpilledAndMakeResultIterator "
               << (external_sorter_ ? "merge with external sorter"
                                    : "no spilled data to merge")
               << std::endl;
-    //#endif
+#endif
     RETURN_NOT_OK(MakeResultIterator(schema, out));
+    final_result_iter_ = *out;
     if (external_sorter_) {
       if (*out) {
         RETURN_NOT_OK(external_sorter_->Enqueue(
@@ -1650,8 +1892,7 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
     if (cached_.empty()) return arrow::Status::OK();
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(sorter_->FinishInternal(&indices_out));
-    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out,
-                                                  std::move(cached_));
+    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, cached_);
     return arrow::Status::OK();
   }
 
@@ -2110,6 +2351,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
   uint64_t memory_threshold_ = -1;
   uint64_t cache_size_total_ = 0;
   std::shared_ptr<ExternalSorter> external_sorter_;
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> final_result_iter_;
 };
 
 ///////////////  SortArraysMultipleKeys  ////////////////
@@ -2228,9 +2470,28 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     return arrow::Status::OK();
   }
 
-  arrow::Status SortAndSpill() override {
+  arrow::Status SortAndSpill(int64_t* spilled_size) override {
     std::shared_ptr<ResultIterator<arrow::RecordBatch>> out;
-    RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    if (final_result_iter_ && external_sorter_) {
+      // external sort is enabled and still need extra space, nothing can be done here
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    } else if (final_result_iter_) {
+      // sort has reached final phase, we don't need to create result iter
+      out = final_result_iter_;
+    } else {
+      // sort is in evaluate phase, we should create result Iter for current in memory
+      // data
+      RETURN_NOT_OK(MakeResultIterator(result_schema_, &out));
+    }
+    *spilled_size = GetCurrentMemoryUsage();
+    auto typed_final_result_iter = std::dynamic_pointer_cast<SorterResultIterator>(out);
+    auto lock_status = typed_final_result_iter->StartLock();
+    if (!lock_status.ok()) {
+      *spilled_size = 0;
+      return arrow::Status::OK();
+    }
+
     if (!external_sorter_) {
       std::vector<std::shared_ptr<ComparatorBase>> comp_v;
       gandiva::FieldVector field_list =
@@ -2249,8 +2510,24 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
       }
       external_sorter_ = std::make_shared<ExternalSorter>(ctx_, comp_v, key_proj);
     }
-    RETURN_NOT_OK(external_sorter_->Spill(out));
+    if (typed_final_result_iter->HasNextUnsafe()) {
+      RETURN_NOT_OK(external_sorter_->Spill(out));
+      if (final_result_iter_) {
+        // update final_result_iter_ to use external result iterator
+        std::shared_ptr<ResultIterator<arrow::RecordBatch>> ext_sort_result_iter;
+        RETURN_NOT_OK(
+            external_sorter_->MakeResultIterator(result_schema_, &ext_sort_result_iter));
+        RETURN_NOT_OK(typed_final_result_iter->SwitchToExternalSorterResultIterator(
+            ext_sort_result_iter));
+      }
+    } else {
+      *spilled_size = 0;
+    }
+    typed_final_result_iter->EndLock();
     RETURN_NOT_OK(ClearCache());
+#ifdef DEBUG
+    std::cout << "Spilled called, " << *spilled_size << " released" << std::endl;
+#endif
     return arrow::Status::OK();
   }
 
@@ -2261,13 +2538,14 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
   arrow::Status MergeSpilledAndMakeResultIterator(
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
-    //#ifdef DEBUG
+#ifdef DEBUG
     std::cout << "MergeSpilledAndMakeResultIterator "
               << (external_sorter_ ? "merge with external sorter"
                                    : "no spilled data to merge")
               << std::endl;
-    //#endif
+#endif
     RETURN_NOT_OK(MakeResultIterator(schema, out));
+    final_result_iter_ = *out;
     if (external_sorter_) {
       if (*out) {
         RETURN_NOT_OK(external_sorter_->Enqueue(
@@ -2335,8 +2613,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
     if (cached_.empty()) return arrow::Status::OK();
     std::shared_ptr<FixedSizeBinaryArray> indices_out;
     RETURN_NOT_OK(FinishInternal(&indices_out));
-    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out,
-                                                  std::move(cached_));
+    *out = std::make_shared<SorterResultIterator>(ctx_, schema, indices_out, cached_);
     return arrow::Status::OK();
   }
 
@@ -2361,6 +2638,7 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
   std::shared_ptr<ExternalSorter> external_sorter_;
   std::vector<std::shared_ptr<ComparatorBase>> comparators_;
   std::vector<std::function<void(int, int, int64_t, int64_t, int&)>> cmp_functions_;
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> final_result_iter_;
 };
 
 arrow::Status SortArraysToIndicesKernel::Make(
@@ -2530,24 +2808,28 @@ SortArraysToIndicesKernel::SortArraysToIndicesKernel(
 #undef PROCESS_SUPPORTED_TYPES
 
 arrow::Status SortArraysToIndicesKernel::Evaluate(ArrayList& in) {
+  const std::lock_guard<std::mutex> lock(spill_lck_);
   RETURN_NOT_OK(impl_->Evaluate(in));
   RETURN_NOT_OK(impl_->MaybeSpill());
   return arrow::Status::OK();
 }
 
 arrow::Status SortArraysToIndicesKernel::Spill(int64_t size, int64_t* spilled_size) {
+  const std::lock_guard<std::mutex> lock(spill_lck_);
   return impl_->Spill(size, spilled_size);
 }
 
 arrow::Status SortArraysToIndicesKernel::MakeResultIterator(
     std::shared_ptr<arrow::Schema> schema,
     std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) {
+  const std::lock_guard<std::mutex> lock(spill_lck_);
   return impl_->MergeSpilledAndMakeResultIterator(schema, out);
 }
 
 arrow::Status SortArraysToIndicesKernel::MakeResultIterator(
     std::shared_ptr<arrow::Schema> schema,
     std::shared_ptr<ResultIterator<SortRelation>>* out) {
+  const std::lock_guard<std::mutex> lock(spill_lck_);
   return impl_->MergeSpilledAndMakeResultIterator(schema, out);
 }
 

@@ -68,17 +68,13 @@ class SpillableCacheStore {
 
   arrow::Status DoSpill(std::shared_ptr<ResultIterator<arrow::RecordBatch>> iter,
                         int64_t* spilled_size) {
-    if (!iter->HasNext()) {
+    if (!iter->HasNextUnsafe()) {
       return arrow::Status::OK();
     }
 
     auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
-    ARROW_ASSIGN_OR_RAISE(auto path_info, fs->GetFileInfo(local_spill_dir_));
-    if (path_info.type() == arrow::fs::FileType::NotFound) {
-      RETURN_NOT_OK(fs->CreateDir(local_spill_dir_, true));
-    }
 
-    std::string spilled_file = local_spill_dir_ + "/0.arrow";  // TODO(): get tmp dir
+    std::string spilled_file = local_spill_dir_ + ".arrow";  // TODO(): get tmp dir
     auto spilled_file_os = *fs->OpenOutputStream(spilled_file);
 
     int64_t size = 0;
@@ -86,10 +82,10 @@ class SpillableCacheStore {
     bool first_batch = true;
     std::shared_ptr<arrow::ipc::RecordBatchWriter> writer;
 
-    while (iter->HasNext()) {
+    while (iter->HasNextUnsafe()) {
       int64_t single_call_spilled;
       std::shared_ptr<arrow::RecordBatch> batch;
-      RETURN_NOT_OK(iter->Next(&batch));
+      RETURN_NOT_OK(iter->NextUnsafe(&batch));
       if (first_batch) {
         writer = *arrow::ipc::MakeStreamWriter(spilled_file_os.get(), batch->schema());
         first_batch = false;
@@ -152,9 +148,11 @@ class SpillableCacheStore {
     SpillableCacheReaderIterator(std::vector<std::string> spill_file_list,
                                  const int& num_batches)
         : spill_file_list_(spill_file_list), total_num_batches_(num_batches) {
-      auto file = *arrow::io::ReadableFile::Open(spill_file_list_[0]);
-      file_reader_ = *arrow::ipc::RecordBatchStreamReader::Open(
-          file, arrow::ipc::IpcReadOptions::Defaults());
+      if (!spill_file_list_.empty()) {
+        auto file = *arrow::io::ReadableFile::Open(spill_file_list_[0]);
+        file_reader_ = *arrow::ipc::RecordBatchStreamReader::Open(
+            file, arrow::ipc::IpcReadOptions::Defaults());
+      }
     }
 
     bool HasNext() override { return cur_idx_ < total_num_batches_; }
