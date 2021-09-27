@@ -88,8 +88,9 @@ class BenchmarkArrowComputeHashAggregate : public ::testing::Test {
     } while (record_batch);
     std::cout << "Readed " << num_batches << " batches." << std::endl;
     TIME_MICRO_OR_THROW(elapse_aggr, aggr_expr->finish(&aggr_result_iterator_base));
-    auto aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
-      aggr_result_iterator_base);
+    auto aggr_result_iterator =
+        std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+            aggr_result_iterator_base);
     std::shared_ptr<arrow::RecordBatch> result_batch;
 
     uint64_t num_output_batches = 0;

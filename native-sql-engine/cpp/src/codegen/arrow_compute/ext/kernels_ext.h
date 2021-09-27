@@ -24,14 +24,14 @@
 #include <gandiva/node.h>
 #include <gandiva/tree_expr_builder.h>
 
+#include <mutex>
+#include <thread>
+
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "codegen/arrow_compute/ext/codegen_context.h"
 #include "codegen/common/hash_relation.h"
 #include "codegen/common/result_iterator.h"
 #include "codegen/common/sort_relation.h"
-
-#include <thread>
-#include <mutex>
 
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 

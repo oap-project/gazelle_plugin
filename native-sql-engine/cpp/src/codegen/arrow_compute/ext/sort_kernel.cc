@@ -112,9 +112,18 @@ class SortArraysToIndicesKernel::Impl {
 
   virtual arrow::Status Spill(int64_t size, int64_t* spilled_size) {
     if (GetCurrentMemoryThreshold() == -1) {
+#ifdef DEBUG
+      auto before = arrow::default_memory_pool()->bytes_allocated();
+#endif
       auto status = SortAndSpill(spilled_size);
-      std::cout << this << " SortKernel Spilled " << *spilled_size << " bytes"
-                << std::endl;
+
+#ifdef DEBUG
+      auto after = arrow::default_memory_pool()->bytes_allocated();
+      auto gap = after - before;
+      std::cout << this << " SortKernel Spilled " << *spilled_size
+                << " bytes due to manual spill trigger, current memory is " << after
+                << " memory released from arrow memory_pool is " << gap << std::endl;
+#endif
       return status;
     }
     return arrow::Status::OK();
@@ -165,14 +174,26 @@ class SortArraysToIndicesKernel::Impl {
 #endif
       return arrow::Status::OK();
     } else {
-      //#ifdef DEBUG
+#ifdef DEBUG
       std::cout << "CurrentMemoryUsage is " << GetCurrentMemoryUsage()
                 << ", MemoryThreshold is " << GetCurrentMemoryThreshold() << ", do spill"
                 << std::endl;
-      //#endif
+#endif
     }
+#ifdef DEBUG
+    auto before = arrow::default_memory_pool()->bytes_allocated();
+#endif
     int64_t spilled_size;
-    return SortAndSpill(&spilled_size);
+    auto status = SortAndSpill(&spilled_size);
+
+#ifdef DEBUG
+    auto after = arrow::default_memory_pool()->bytes_allocated();
+    auto gap = after - before;
+    std::cout << this << " SortKernel Spilled " << spilled_size
+              << " bytes upon external sort threshold, current memory is " << after
+              << ", memory released from arrow memory_pool is " << gap << std::endl;
+#endif
+    return status;
   }
 
   virtual arrow::Status SortAndSpill(int64_t* spilled_size) {
