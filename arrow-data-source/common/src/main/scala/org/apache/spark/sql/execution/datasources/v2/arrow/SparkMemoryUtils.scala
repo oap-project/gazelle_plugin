@@ -28,12 +28,11 @@ import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 import org.apache.arrow.dataset.jni.NativeMemoryPool
 import org.apache.arrow.memory.AllocationListener
 import org.apache.arrow.memory.BufferAllocator
-import org.apache.arrow.memory.ImmutableConfig
 import org.apache.arrow.memory.MemoryChunkCleaner
 import org.apache.arrow.memory.MemoryChunkManager
 import org.apache.arrow.memory.RootAllocator
 
-import org.apache.spark.SparkContext
+import org.apache.spark.SparkEnv
 import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config._
@@ -89,7 +88,7 @@ object SparkMemoryUtils extends Logging {
 
     private val memoryPools = new util.ArrayList[NativeMemoryPoolWrapper]()
 
-    val defaultAllocator: BufferAllocator = {
+    val taskDefaultAllocator: BufferAllocator = {
       val alloc = new RootAllocator(
         RootAllocator.configBuilder()
             .maxAllocation(Long.MaxValue)
@@ -123,7 +122,7 @@ object SparkMemoryUtils extends Logging {
       val al = new SparkManagedAllocationListener(
         new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
         sharedMetrics)
-      val parent = defaultAllocator
+      val parent = taskDefaultAllocator
       val alloc = parent.newChildAllocator("Spark Managed Allocator - " +
         UUID.randomUUID().toString, al, 0, parent.getLimit).asInstanceOf[BufferAllocator]
       allocators.add(alloc)
@@ -241,10 +240,10 @@ object SparkMemoryUtils extends Logging {
   }
 
   private val maxAllocationSize = {
-    SparkContext.getOrCreate().getConf.get(MEMORY_OFFHEAP_SIZE)
+    SparkEnv.get.conf.get(MEMORY_OFFHEAP_SIZE)
   }
 
-  private val allocator = new RootAllocator(
+  private val globalAlloc = new RootAllocator(
     RootAllocator.configBuilder()
         .maxAllocation(maxAllocationSize)
         .memoryChunkManagerFactory(MemoryChunkCleaner.newFactory())
@@ -252,7 +251,7 @@ object SparkMemoryUtils extends Logging {
         .build)
 
   def globalAllocator(): BufferAllocator = {
-    allocator
+    globalAlloc
   }
 
   def globalMemoryPool(): NativeMemoryPool = {
@@ -277,7 +276,7 @@ object SparkMemoryUtils extends Logging {
     if (!inSparkTask()) {
       return globalAllocator()
     }
-    getTaskMemoryResources().defaultAllocator
+    getTaskMemoryResources().taskDefaultAllocator
   }
 
   def contextMemoryPool(): NativeMemoryPool = {
