@@ -176,7 +176,8 @@ object SparkMemoryUtils extends Logging {
         if (allocated == 0L) {
           close(allocator)
         } else {
-          softClose(allocator)
+//          softClose(allocator)
+          close(allocator)
         }
       }
       for (pool <- memoryPools.asScala) {
