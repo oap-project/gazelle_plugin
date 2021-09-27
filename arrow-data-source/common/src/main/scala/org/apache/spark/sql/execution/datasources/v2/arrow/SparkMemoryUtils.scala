@@ -176,8 +176,11 @@ object SparkMemoryUtils extends Logging {
         if (allocated == 0L) {
           close(allocator)
         } else {
-//          softClose(allocator)
-          close(allocator)
+          if (isArrowAutoReleaseEnabled) {
+            close(allocator)
+          } else {
+            softClose(allocator)
+          }
         }
       }
       for (pool <- memoryPools.asScala) {
