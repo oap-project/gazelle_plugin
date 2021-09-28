@@ -111,22 +111,19 @@ class SortArraysToIndicesKernel::Impl {
   }
 
   virtual arrow::Status Spill(int64_t size, int64_t* spilled_size) {
-    if (GetCurrentMemoryThreshold() == -1) {
 #ifdef DEBUG
-      auto before = arrow::default_memory_pool()->bytes_allocated();
+    auto before = arrow::default_memory_pool()->bytes_allocated();
 #endif
-      auto status = SortAndSpill(spilled_size);
+    auto status = SortAndSpill(spilled_size);
 
 #ifdef DEBUG
-      auto after = arrow::default_memory_pool()->bytes_allocated();
-      auto gap = after - before;
-      std::cout << this << " SortKernel Spilled " << *spilled_size
-                << " bytes due to manual spill trigger, current memory is " << after
-                << " memory released from arrow memory_pool is " << gap << std::endl;
+    auto after = arrow::default_memory_pool()->bytes_allocated();
+    auto gap = after - before;
+    std::cout << this << " SortKernel Spilled " << *spilled_size
+              << " bytes due to manual spill trigger, current memory is " << after
+              << " memory released from arrow memory_pool is " << gap << std::endl;
 #endif
-      return status;
-    }
-    return arrow::Status::OK();
+    return status;
   }
 
   virtual arrow::Status MakeResultIterator(
@@ -307,11 +304,12 @@ class SortArraysToIndicesKernel::Impl {
     }
 
     arrow::Status StartLock() {
-      if (thread_lck_.try_lock_for(30s)) {
+      /*if (thread_lck_.try_lock_for(30s)) {
         return arrow::Status::OK();
       } else {
         return arrow::Status::Cancelled("Unable to get lock in 30s");
-      }
+      }*/
+      thread_lck_.lock();
       return arrow::Status::OK();
     }
 
@@ -1200,11 +1198,13 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
     }
 
     arrow::Status StartLock() {
-      if (thread_lck_.try_lock_for(30s)) {
+      /*if (thread_lck_.try_lock_for(30s)) {
         return arrow::Status::OK();
       } else {
         return arrow::Status::Cancelled("Unable to get lock in 30s");
-      }
+      }*/
+      thread_lck_.lock();
+      return arrow::Status::OK();
     }
 
     arrow::Status EndLock() {
@@ -2836,8 +2836,15 @@ arrow::Status SortArraysToIndicesKernel::Evaluate(ArrayList& in) {
 }
 
 arrow::Status SortArraysToIndicesKernel::Spill(int64_t size, int64_t* spilled_size) {
+  if (in_spilling_) {
+    *spilled_size = 0;
+    return arrow::Status::OK();
+  }
   const std::lock_guard<std::mutex> lock(spill_lck_);
-  return impl_->Spill(size, spilled_size);
+  in_spilling_ = true;
+  auto status = impl_->Spill(size, spilled_size);
+  in_spilling_ = false;
+  return status;
 }
 
 arrow::Status SortArraysToIndicesKernel::MakeResultIterator(

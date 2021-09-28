@@ -228,6 +228,7 @@ class SortArraysToIndicesKernel : public KernalBase {
  private:
   std::unique_ptr<Impl> impl_;
   std::mutex spill_lck_;
+  bool in_spilling_ = false;
   arrow::compute::ExecContext* ctx_ = nullptr;
 };
 
