@@ -86,19 +86,36 @@ class UnsaferowTest : public ::testing::Test {
     auto f_binary = field("f_binary", arrow::binary());
     auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
 
+    auto f_arr_bool = field("f_arr_bool", arrow::list(arrow::boolean()));
+    auto f_arr_int8 = field("f_arr_int8", arrow::list(arrow::int8()));
+    auto f_arr_int16 = field("f_arr_int16", arrow::list(arrow::int16()));
+    auto f_arr_int32 = field("f_arr_int32", arrow::list(arrow::int32()));
+    auto f_arr_int64 = field("f_arr_int64", arrow::list(arrow::int64()));
+    auto f_arr_double = field("f_arr_double", arrow::list(arrow::float64()));
+    auto f_arr_float = field("f_arr_float", arrow::list(arrow::float32()));
+    auto f_arr_string = field("f_arr_string", arrow::list(arrow::utf8()));
+    auto f_arr_decimal = field("f_arr_decimal128", arrow::list(arrow::decimal(19, 2)));
+
     schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
                              f_binary, f_decimal});
 
     MakeInputBatch(input_data_, schema_, &input_batch_);
+
+    schema_ =
+        arrow::schema({f_arr_bool, f_arr_int8, f_arr_int16, f_arr_int32, f_arr_int64,
+                       f_arr_double, f_arr_float, f_arr_string, f_arr_decimal});
+
+    MakeInputBatch(input_data_list_array_, schema_, &input_batch_list_array_);
     ConstructNullInputBatch(&nullable_input_batch_);
   }
 
-  static const std::vector<std::string> input_data_1;
+  static const std::vector<std::string> input_data_list_array_;
   static const std::vector<std::string> input_data_;
 
   std::shared_ptr<arrow::Schema> schema_;
 
   std::shared_ptr<arrow::RecordBatch> input_batch_;
+  std::shared_ptr<arrow::RecordBatch> input_batch_list_array_;
   std::shared_ptr<arrow::RecordBatch> nullable_input_batch_;
 };
 
@@ -111,6 +128,17 @@ const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
                                                              "[1, 1]",
                                                              R"(["abc", "abc"])",
                                                              R"(["100.00", "100.00"])"};
+
+const std::vector<std::string> UnsaferowTest::input_data_list_array_ = {
+    R"([[false, true]])",
+    R"([[3, 3]])",
+    R"([[1, 1]])",
+    R"([[1, 1]])",
+    R"([[1, 1]])",
+    R"([[1, 1]])",
+    R"([[3.5, 3.5]])",
+    R"([["abc", "abc", "abc"]])",
+    R"([["100.00", "100.00", "100.00"]])"};
 
 TEST_F(UnsaferowTest, TestNullTypeCheck) {
   std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
@@ -126,6 +154,14 @@ TEST_F(UnsaferowTest, TestColumnarToRowConverter) {
       std::make_shared<ColumnarToRowConverter>(input_batch_,
                                                arrow::default_memory_pool());
 
+  unsafe_row_writer_reader->Init();
+  unsafe_row_writer_reader->Write();
+}
+
+TEST_F(UnsaferowTest, TestListArrayType) {
+  std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
+      std::make_shared<ColumnarToRowConverter>(input_batch_list_array_,
+                                               arrow::default_memory_pool());
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
 }
