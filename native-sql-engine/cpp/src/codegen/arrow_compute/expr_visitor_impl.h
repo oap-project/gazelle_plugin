@@ -500,6 +500,9 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
         }
         p_->in_record_batch_holder_.push_back(std::move(p_->in_record_batch_));
         RETURN_NOT_OK(kernel_->Evaluate(col_list));
+        if (!col_list.empty() && col_list[0].use_count() == 2) {
+          (p_->in_record_batch_holder_).clear();
+        }
       } break;
       default:
         return arrow::Status::NotImplemented(
@@ -509,7 +512,7 @@ class SortArraysToIndicesVisitorImpl : public ExprVisitorImpl {
     return arrow::Status::OK();
   }
 
-  arrow::Status Spill(int64_t size, int64_t* spilled_size) override {
+  arrow::Status Spill(int64_t size, int64_t* spilled_size) {
     RETURN_NOT_OK(kernel_->Spill(size, spilled_size));
 
     if (*spilled_size != 0) {

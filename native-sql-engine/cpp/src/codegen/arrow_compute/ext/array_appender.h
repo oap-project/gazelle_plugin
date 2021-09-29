@@ -39,8 +39,14 @@ class AppenderBase {
   enum AppenderType { left, right, exist };
   virtual AppenderType GetType() { return left; }
 
+  virtual int64_t GetCacheSize() { return 0; }
+
   virtual arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) {
     return arrow::Status::NotImplemented("AppenderBase AddArray is abstract.");
+  }
+
+  virtual arrow::Status ReleaseArray(const uint16_t& array_id) {
+    return arrow::Status::NotImplemented("AppenderBase ReleaseArray is abstract.");
   }
 
   virtual arrow::Status PopArray() {
@@ -110,6 +116,16 @@ class ArrayAppender<DataType, enable_if_timestamp<DataType>> : public AppenderBa
   ~ArrayAppender() {}
 
   AppenderType GetType() override { return type_; }
+
+  int64_t GetCacheSize() { return cached_arr_.size(); }
+
+  arrow::Status ReleaseArray(const uint16_t& array_id) {
+    if (cached_arr_.size() > array_id) {
+      cached_arr_[array_id] = nullptr;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.push_back(typed_arr_);
@@ -206,6 +222,16 @@ class ArrayAppender<DataType, enable_if_number_or_date<DataType>> : public Appen
   ~ArrayAppender() {}
 
   AppenderType GetType() override { return type_; }
+
+  virtual int64_t GetCacheSize() { return cached_arr_.size(); }
+
+  arrow::Status ReleaseArray(const uint16_t& array_id) {
+    if (cached_arr_.size() > array_id) {
+      cached_arr_[array_id] = nullptr;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.push_back(typed_arr_);
@@ -297,6 +323,16 @@ class ArrayAppender<DataType, arrow::enable_if_string_like<DataType>>
   ~ArrayAppender() {}
 
   AppenderType GetType() override { return type_; }
+
+  virtual int64_t GetCacheSize() { return cached_arr_.size(); }
+
+  arrow::Status ReleaseArray(const uint16_t& array_id) {
+    if (cached_arr_.size() > array_id) {
+      cached_arr_[array_id] = nullptr;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.push_back(typed_arr_);
@@ -386,6 +422,16 @@ class ArrayAppender<DataType, arrow::enable_if_boolean<DataType>> : public Appen
   ~ArrayAppender() {}
 
   AppenderType GetType() override { return type_; }
+
+  virtual int64_t GetCacheSize() { return cached_arr_.size(); }
+
+  arrow::Status ReleaseArray(const uint16_t& array_id) {
+    if (cached_arr_.size() > array_id) {
+      cached_arr_[array_id] = nullptr;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.push_back(typed_arr_);
@@ -477,6 +523,16 @@ class ArrayAppender<DataType, enable_if_decimal<DataType>> : public AppenderBase
   ~ArrayAppender() {}
 
   AppenderType GetType() override { return type_; }
+
+  virtual int64_t GetCacheSize() { return cached_arr_.size(); }
+
+  arrow::Status ReleaseArray(const uint16_t& array_id) {
+    if (cached_arr_.size() > array_id) {
+      cached_arr_[array_id] = nullptr;
+    }
+    return arrow::Status::OK();
+  }
+
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     auto typed_arr_ = std::dynamic_pointer_cast<ArrayType_>(arr);
     cached_arr_.push_back(typed_arr_);

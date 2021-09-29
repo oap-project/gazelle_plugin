@@ -65,7 +65,6 @@ class ColumnarSorter(
   var sort_elapse: Long = 0
   var shuffle_elapse: Long = 0
   var total_elapse: Long = 0
-  val inputBatchHolder = new ListBuffer[ColumnarBatch]()
   var nextVector: FieldVector = _
   var closed: Boolean = false
   val resultSchema: StructType = StructType(
@@ -105,15 +104,11 @@ class ColumnarSorter(
   }
 
   def updateSorterResult(input: ColumnarBatch): Unit = {
-    inputBatchHolder += input
     val input_batch = ConverterUtils.createArrowRecordBatch(input)
-    (0 until input.numCols).toList.foreach(i =>
-      input.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
     val beforeSort = System.nanoTime()
     sorter.evaluate2(input_batch)
     sort_elapse += System.nanoTime() - beforeSort
     total_elapse += System.nanoTime() - beforeSort
-    ConverterUtils.releaseArrowRecordBatch(input_batch)
   }
 
   def getSorterResult(resultBatch: ArrowRecordBatch): ColumnarBatch = {

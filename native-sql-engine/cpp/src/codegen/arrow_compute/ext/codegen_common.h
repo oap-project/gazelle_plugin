@@ -38,6 +38,7 @@ int FileSpinLock();
 void FileSpinUnLock(int fd);
 
 int GetBatchSize();
+int GetMemoryThreshold();
 bool GetEnableTimeMetrics();
 std::string exec(const char* cmd);
 std::string GetTempPath();
@@ -86,6 +87,9 @@ arrow::Status CompileCodes(std::string codes, std::string signature);
 
 arrow::Status LoadLibrary(std::string signature, arrow::compute::ExecContext* ctx,
                           std::shared_ptr<CodeGenBase>* out);
+
+uint64_t GetArrayVectorSize(std::vector<std::shared_ptr<arrow::Array>> arr_v);
+
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

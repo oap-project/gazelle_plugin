@@ -567,6 +567,17 @@ int GetBatchSize() {
   return batch_size;
 }
 
+int GetMemoryThreshold() {
+  int size;
+  const char* env_size = std::getenv("NATIVESQL_MAX_MEMORY_SIZE");
+  if (env_size != nullptr) {
+    size = atoi(env_size);
+  } else {
+    size = -1;
+  }
+  return size;
+}
+
 int FileSpinLock() {
   std::string lockfile = GetTempPath() + "/nativesql_compile.lock";
 
@@ -725,6 +736,40 @@ arrow::Status LoadLibrary(std::string signature, arrow::compute::ExecContext* ct
 
   MakeCodeGen(ctx, out);
   return arrow::Status::OK();
+}
+
+arrow::Status AppendBuffers(std::shared_ptr<arrow::Array> column,
+                            std::vector<std::shared_ptr<arrow::Buffer>>* buffers) {
+  auto type = column->type();
+  switch (type->id()) {
+    case arrow::Type::LIST:
+    case arrow::Type::LARGE_LIST: {
+      auto list_array = std::dynamic_pointer_cast<arrow::ListArray>(column);
+      (*buffers).push_back(list_array->null_bitmap());
+      (*buffers).push_back(list_array->value_offsets());
+      RETURN_NOT_OK(AppendBuffers(list_array->values(), buffers));
+    } break;
+    default: {
+      for (auto& buffer : column->data()->buffers) {
+        (*buffers).push_back(buffer);
+      }
+    } break;
+  }
+  return arrow::Status::OK();
+}
+
+uint64_t GetArrayVectorSize(std::vector<std::shared_ptr<arrow::Array>> arr_v) {
+  uint64_t total_size = 0;
+  std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+  for (auto arr : arr_v) {
+    AppendBuffers(arr, &buffers);
+  }
+  for (auto buffer : buffers) {
+    if (buffer != nullptr) {
+      total_size += buffer->size();
+    }
+  }
+  return total_size;
 }
 }  // namespace extra
 }  // namespace arrowcompute

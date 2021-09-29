@@ -620,9 +620,9 @@ TEST(TestArrowComputeSort, SortTestInplaceDescWithSpill) {
   std::shared_ptr<arrow::RecordBatch> result_batch;
 
   int64_t size = -1;
+  sort_expr->Spill(100, false, &size);
+  EXPECT_TRUE(size == 280);
   if (sort_result_iterator->HasNext()) {
-    sort_expr->Spill(100, false, &size);
-    EXPECT_TRUE(size == 0);
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
   }
@@ -732,17 +732,16 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAscWithSpill) {
 
   sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
       sort_result_iterator_base);
+  int64_t size;
+  sort_expr->Spill(100, false, &size);
+  // should spill all record batches
+  EXPECT_TRUE(size == 424);
 
   std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-  int64_t size;
   auto result_iter = result_batch_list.begin();
   while (sort_result_iterator->HasNext()) {
     ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
-    sort_expr->Spill(100, false, &size);
-    // should spill all record batches
-    EXPECT_TRUE(size == 960);
-
     expected_result = *result_iter;
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
     result_iter++;

@@ -74,7 +74,7 @@ class BenchmarkArrowComputeHashAggregate : public ::testing::Test {
   void StartWithIterator(std::shared_ptr<CodeGenerator> aggr_expr) {
     std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
     std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
-    std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+    std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
 
     std::shared_ptr<arrow::RecordBatch> record_batch;
 
@@ -87,7 +87,10 @@ class BenchmarkArrowComputeHashAggregate : public ::testing::Test {
       }
     } while (record_batch);
     std::cout << "Readed " << num_batches << " batches." << std::endl;
-    TIME_MICRO_OR_THROW(elapse_aggr, aggr_expr->finish(&aggr_result_iterator));
+    TIME_MICRO_OR_THROW(elapse_aggr, aggr_expr->finish(&aggr_result_iterator_base));
+    auto aggr_result_iterator =
+        std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+            aggr_result_iterator_base);
     std::shared_ptr<arrow::RecordBatch> result_batch;
 
     uint64_t num_output_batches = 0;
@@ -168,8 +171,10 @@ TEST_F(BenchmarkArrowComputeHashAggregate, GroupbyAggregateBenchmark) {
   ret_field_list = {field(f0_name, f0_type), field(f1_name + "_sum", int64()),
                     field(f2_name + "_sum", int64())};
   std::shared_ptr<CodeGenerator> aggr_expr;
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(schema, {aggrArrays_expr},
-                                                      ret_field_list, &aggr_expr, true));
+  arrow::compute::ExecContext ctx;
+  TIME_MICRO_OR_THROW(elapse_gen,
+                      CreateCodeGenerator(ctx.memory_pool(), schema, {aggrArrays_expr},
+                                          ret_field_list, &aggr_expr, true));
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(aggr_expr);
@@ -226,8 +231,10 @@ TEST_F(BenchmarkArrowComputeHashAggregate, GroupbyAggregateWithAvgBenchmark) {
                     field(f2_name + "_avg", float64()),
                     field("count_all", int64())};
   std::shared_ptr<CodeGenerator> aggr_expr;
-  TIME_MICRO_OR_THROW(elapse_gen, CreateCodeGenerator(schema, {aggrArrays_expr},
-                                                      ret_field_list, &aggr_expr, true));
+  arrow::compute::ExecContext ctx;
+  TIME_MICRO_OR_THROW(elapse_gen,
+                      CreateCodeGenerator(ctx.memory_pool(), schema, {aggrArrays_expr},
+                                          ret_field_list, &aggr_expr, true));
 
   ///////////////////// Calculation //////////////////
   StartWithIterator(aggr_expr);
