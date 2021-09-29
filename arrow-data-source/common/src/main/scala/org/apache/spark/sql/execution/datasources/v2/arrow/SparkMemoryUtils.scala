@@ -57,7 +57,7 @@ object SparkMemoryUtils extends Logging {
     }
 
     val memoryChunkManagerFactory: MemoryChunkManager.Factory = if (isArrowAutoReleaseEnabled) {
-      MemoryChunkCleaner.newFactory(MemoryChunkCleaner.Mode.HYBRID)
+      MemoryChunkCleaner.newFactory(MemoryChunkCleaner.Mode.HYBRID_WITH_LOG)
     } else {
       MemoryChunkManager.FACTORY
     }
