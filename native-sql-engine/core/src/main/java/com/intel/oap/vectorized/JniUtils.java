@@ -61,7 +61,7 @@ public class JniUtils {
           try {
             INSTANCE = new JniUtils(tmp_dir);
           } catch (IllegalAccessException ex) {
-            throw new IOException("IllegalAccess");
+            throw new IOException("IllegalAccess", ex);
           }
         }
       }
