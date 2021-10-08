@@ -34,7 +34,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
-        .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+        .set("spark.plugins", "com.intel.oap.GazellePlugin")
         .set("spark.sql.codegen.wholeStage", "true")
         .set("spark.sql.sources.useV1SourceList", "")
         .set("spark.oap.sql.columnar.tmp_dir", "/tmp/")
@@ -106,8 +106,22 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     runner.runTPCQuery("q95", 1, true)
   }
 
+  test("q2") {
+    runner.runTPCQuery("q2", 1, true)
+  }
+
+  test("q2 - shj") {
+    withSQLConf(("spark.oap.sql.columnar.forceshuffledhashjoin", "true")) {
+      runner.runTPCQuery("q2", 1, true)
+    }
+  }
+
   test("q47") {
     runner.runTPCQuery("q47", 1, true)
+  }
+
+  test("q59") {
+    runner.runTPCQuery("q59", 1, true)
   }
 
   test("window function with non-decimal input") {

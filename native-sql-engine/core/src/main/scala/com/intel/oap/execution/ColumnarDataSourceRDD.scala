@@ -17,7 +17,7 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized._
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
@@ -47,7 +47,7 @@ class ColumnarDataSourceRDD(
     inputSize: SQLMetric,
     tmp_dir: String)
     extends RDD[ColumnarBatch](sc, Nil) {
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
 
   override protected def getPartitions: Array[Partition] = {
     inputPartitions.zipWithIndex.map {

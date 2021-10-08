@@ -18,7 +18,7 @@
 package com.intel.oap.execution
 
 import com.google.common.collect.Lists
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.{ExpressionEvaluator, _}
 import org.apache.arrow.gandiva.expression._
@@ -62,7 +62,7 @@ case class ColumnarBroadcastHashJoinExec(
     with ShuffledJoin {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
@@ -495,7 +495,7 @@ case class ColumnarBroadcastHashJoinExec(
   def uploadAndListJars(signature: String): Seq[String] =
     if (signature != "") {
       if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
-        val tempDir = ColumnarPluginConfig.getRandomTempDir
+        val tempDir = GazellePluginConfig.getRandomTempDir
         val jarFileName =
           s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
         sparkContext.addJar(jarFileName)
@@ -525,8 +525,8 @@ case class ColumnarBroadcastHashJoinExec(
 
     streamedPlan.executeColumnar().mapPartitions { streamIter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
-      ColumnarPluginConfig.getConf
-      val execTempDir = ColumnarPluginConfig.getTempFile
+      GazellePluginConfig.getConf
+      val execTempDir = GazellePluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
         logWarning(s"Get Codegened library Jar ${jarUrl}")
         UserAddedJarUtils.fetchJarFromSpark(

@@ -20,7 +20,7 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit._
 
 import com.intel.oap.vectorized._
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import org.apache.spark.TaskContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.{UserAddedJarUtils, Utils}
@@ -410,7 +410,7 @@ case class ColumnarSortMergeJoinExec(
   def uploadAndListJars(signature: String) =
     if (signature != "") {
       if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
-        val tempDir = ColumnarPluginConfig.getRandomTempDir
+        val tempDir = GazellePluginConfig.getRandomTempDir
         val jarFileName =
           s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
         sparkContext.addJar(jarFileName)
@@ -424,8 +424,8 @@ case class ColumnarSortMergeJoinExec(
     val signature = getCodeGenSignature
     val listJars = uploadAndListJars(signature)
     right.executeColumnar().zipPartitions(left.executeColumnar()) { (streamIter, buildIter) =>
-      ColumnarPluginConfig.getConf
-      val execTempDir = ColumnarPluginConfig.getTempFile
+      GazellePluginConfig.getConf
+      val execTempDir = GazellePluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
         logWarning(s"Get Codegened library Jar ${jarUrl}")
         UserAddedJarUtils.fetchJarFromSpark(

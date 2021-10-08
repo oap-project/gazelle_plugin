@@ -47,7 +47,7 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
 
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
-        .set("spark.sql.extensions", "com.intel.oap.ColumnarPlugin")
+        .set("spark.plugins", "com.intel.oap.GazellePlugin")
         .set("spark.sql.codegen.wholeStage", "false")
         .set("spark.sql.sources.useV1SourceList", "")
         .set("spark.sql.columnar.tmp_dir", "/tmp/")

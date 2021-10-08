@@ -17,7 +17,7 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
 import com.google.common.collect.Lists
@@ -60,7 +60,7 @@ case class ColumnarSortExec(
     with ColumnarCodegenSupport {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
   override protected def doExecute(): RDD[InternalRow] = {
     throw new UnsupportedOperationException(s"ColumnarSortExec doesn't support doExecute")
@@ -187,7 +187,7 @@ case class ColumnarSortExec(
   def uploadAndListJars(signature: String): Seq[String] =
     if (signature != "") {
       if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
-        val tempDir = ColumnarPluginConfig.getRandomTempDir
+        val tempDir = GazellePluginConfig.getRandomTempDir
         val jarFileName =
           s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
         sparkContext.addJar(jarFileName)
@@ -210,8 +210,8 @@ case class ColumnarSortExec(
         // If sortOrder are all Literal, no need to do sorting.
         new CloseableColumnBatchIterator(iter)
       } else {
-        ColumnarPluginConfig.getConf
-        val execTempDir = ColumnarPluginConfig.getTempFile
+        GazellePluginConfig.getConf
+        val execTempDir = GazellePluginConfig.getTempFile
         val jarList = listJars.map(jarUrl => {
           logWarning(s"Get Codegened library Jar ${jarUrl}")
           UserAddedJarUtils.fetchJarFromSpark(

@@ -17,7 +17,7 @@
 
 package com.intel.oap.vectorized;
 
-import com.intel.oap.ColumnarPluginConfig;
+import com.intel.oap.GazellePluginConfig;
 import com.intel.oap.execution.ColumnarNativeIterator;
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
@@ -51,17 +51,17 @@ public class ExpressionEvaluator implements AutoCloseable {
   }
 
   public ExpressionEvaluator(List<String> listJars) throws IOException, IllegalAccessException, IllegalStateException {
-    String tmp_dir = ColumnarPluginConfig.getTempFile();
+    String tmp_dir = GazellePluginConfig.getTempFile();
     if (tmp_dir == null) {
       tmp_dir = System.getProperty("java.io.tmpdir");
     }
     jniWrapper = new ExpressionEvaluatorJniWrapper(tmp_dir, listJars);
     jniWrapper.nativeSetJavaTmpDir(jniWrapper.tmp_dir_path);
-    jniWrapper.nativeSetBatchSize(ColumnarPluginConfig.getBatchSize());
-    if (ColumnarPluginConfig.getSpillThreshold() != -1)
-        jniWrapper.nativeSetSortSpillThreshold(ColumnarPluginConfig.getSpillThreshold());
-    jniWrapper.nativeSetMetricsTime(ColumnarPluginConfig.getEnableMetricsTime());
-    ColumnarPluginConfig.setRandomTempDir(jniWrapper.tmp_dir_path);
+    jniWrapper.nativeSetBatchSize(GazellePluginConfig.getBatchSize());
+    if (GazellePluginConfig.getSpillThreshold() != -1)
+        jniWrapper.nativeSetSortSpillThreshold(GazellePluginConfig.getSpillThreshold());
+    jniWrapper.nativeSetMetricsTime(GazellePluginConfig.getEnableMetricsTime());
+    GazellePluginConfig.setRandomTempDir(jniWrapper.tmp_dir_path);
   }
 
   long getInstanceId() {

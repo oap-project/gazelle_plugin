@@ -15,17 +15,16 @@
  * limitations under the License.
  */
 
-package com.intel.oap
+package com.intel.oap.extension.columnar
 
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution._
-import org.apache.spark.SparkConf
-import org.apache.spark.internal.Logging
+
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
-import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans.FullOuter
+import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive._
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
@@ -33,9 +32,9 @@ import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
 import org.apache.spark.sql.execution.joins._
-import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrowEvalPythonExec}
+import org.apache.spark.sql.execution.python.ArrowEvalPythonExec
+import org.apache.spark.sql.execution.python.ColumnarArrowEvalPythonExec
 import org.apache.spark.sql.execution.window.WindowExec
-import org.apache.spark.sql.internal.SQLConf
 
 case class RowGuard(child: SparkPlan) extends SparkPlan {
   def output: Seq[Attribute] = child.output
@@ -46,7 +45,7 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
 }
 
 case class ColumnarGuardRule() extends Rule[SparkPlan] {
-  val columnarConf = ColumnarPluginConfig.getSessionConf
+  val columnarConf = GazellePluginConfig.getSessionConf
   val preferColumnar = columnarConf.enablePreferColumnar
   val optimizeLevel = columnarConf.joinOptimizationThrottle
   val enableColumnarShuffle = columnarConf.enableColumnarShuffle

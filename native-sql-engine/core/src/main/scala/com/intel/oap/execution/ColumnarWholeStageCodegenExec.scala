@@ -20,7 +20,7 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit.NANOSECONDS
 
 import com.google.common.collect.Lists
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.{BatchIterator, ExpressionEvaluator, _}
 import org.apache.arrow.gandiva.expression._
@@ -74,8 +74,8 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
     with ColumnarCodegenSupport {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
-  val enableColumnarSortMergeJoinLazyRead = ColumnarPluginConfig.getConf.enableColumnarSortMergeJoinLazyRead
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
+  val enableColumnarSortMergeJoinLazyRead = GazellePluginConfig.getConf.enableColumnarSortMergeJoinLazyRead
 
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
@@ -123,7 +123,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
   def uploadAndListJars(signature: String): Seq[String] =
     if (signature != "") {
       if (sparkContext.listJars.filter(path => path.contains(s"${signature}.jar")).isEmpty) {
-        val tempDir = ColumnarPluginConfig.getRandomTempDir
+        val tempDir = GazellePluginConfig.getRandomTempDir
         val jarFileName =
           s"${tempDir}/tmp/spark-columnar-plugin-codegen-precompile-${signature}.jar"
         sparkContext.addJar(jarFileName)
@@ -304,7 +304,7 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
           val buildPlan = p.getBuildPlan
           val buildInputByteBuf = buildPlan.executeBroadcast[ColumnarHashedRelation]()
           curRDD.mapPartitions { iter =>
-            ColumnarPluginConfig.getConf
+            GazellePluginConfig.getConf
             ExecutorManager.tryTaskSet(numaBindingInfo)
             // received broadcast value contain a hashmap and raw recordBatch
             val beforeFetch = System.nanoTime()
@@ -442,8 +442,8 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
 
     curRDD.mapPartitions { iter =>
       ExecutorManager.tryTaskSet(numaBindingInfo)
-      ColumnarPluginConfig.getConf
-      val execTempDir = ColumnarPluginConfig.getTempFile
+      GazellePluginConfig.getConf
+      val execTempDir = GazellePluginConfig.getTempFile
       val jarList = listJars.map(jarUrl => {
         logWarning(s"Get Codegened library Jar ${jarUrl}")
         UserAddedJarUtils.fetchJarFromSpark(

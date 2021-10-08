@@ -17,7 +17,7 @@
 
 package com.intel.oap.execution
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
 import com.google.common.collect.Lists
@@ -73,7 +73,7 @@ case class ColumnarHashAggregateExec(
     with AliasAwareOutputPartitioning {
 
   val sparkConf = sparkContext.getConf
-  val numaBindingInfo = ColumnarPluginConfig.getConf.numaBindingInfo
+  val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
 
   var resAttributes: Seq[Attribute] = resultExpressions.map(_.toAttribute)

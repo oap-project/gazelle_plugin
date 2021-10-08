@@ -23,7 +23,7 @@ import java.util.Collections
 import java.util.concurrent.TimeUnit._
 import util.control.Breaks._
 
-import com.intel.oap.ColumnarPluginConfig
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.spark.sql.util.ArrowUtils
 import com.intel.oap.vectorized.ExpressionEvaluator
@@ -393,7 +393,7 @@ class ColumnarHashAggregation(
 
   def prepareKernelFunction: TreeNode = {
     // build gandiva projection here.
-    ColumnarPluginConfig.getConf
+    GazellePluginConfig.getConf
 
     val mode = if (aggregateExpressions.size > 0) {
       aggregateExpressions(0).mode
