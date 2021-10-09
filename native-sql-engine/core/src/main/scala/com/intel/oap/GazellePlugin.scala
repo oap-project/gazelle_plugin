@@ -66,7 +66,7 @@ private[oap] class GazelleExecutorPlugin extends ExecutorPlugin {
   // N/A
 }
 
-private[oap] class GazelleSessionsExtensions extends (SparkSessionExtensions => Unit) {
+private[oap] class GazelleSessionExtensions extends (SparkSessionExtensions => Unit) {
   override def apply(exts: SparkSessionExtensions): Unit = {
     GazellePlugin.DEFAULT_INJECTORS.foreach(injector => injector.inject(exts))
   }
@@ -93,7 +93,7 @@ private[oap] object GazellePlugin {
       .getCanonicalName)
   val SPARK_SESSION_EXTS_KEY: String = StaticSQLConf.SPARK_SESSION_EXTENSIONS.key
   val GAZELLE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
-    classOf[GazelleSessionsExtensions].getCanonicalName)
+    classOf[GazelleSessionExtensions].getCanonicalName)
 
   /**
    * Specify all injectors that Gazelle is using in following list.
