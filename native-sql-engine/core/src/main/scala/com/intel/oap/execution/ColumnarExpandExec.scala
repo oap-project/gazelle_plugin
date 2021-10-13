@@ -133,4 +133,7 @@ case class ColumnarExpandExec(
       new CloseableColumnBatchIterator(res)
     }
   }
+
+  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarExpandExec =
+    copy(child = newChild)
 }

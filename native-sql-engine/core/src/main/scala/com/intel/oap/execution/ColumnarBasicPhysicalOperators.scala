@@ -99,7 +99,7 @@ case class ColumnarConditionProjectExec(
     }
   }
 
-  def isNullIntolerant(expr: Expression): Boolean = expr match {
+  override def isNullIntolerant(expr: Expression): Boolean = expr match {
     case e: NullIntolerant => e.children.forall(isNullIntolerant)
     case _ => false
   }
@@ -266,6 +266,8 @@ case class ColumnarConditionProjectExec(
     }
   }
 
+  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarConditionProjectExec =
+    copy(child = newChild)
 }
 
 case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
@@ -307,4 +309,7 @@ case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
+
+  override protected def withNewChildrenInternal(newChildren: IndexedSeq[SparkPlan]): ColumnarUnionExec =
+    copy(children = newChildren)
 }

@@ -55,6 +55,57 @@ import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide
 import org.apache.spark.sql.execution.joins.{HashJoin,ShuffledJoin,BaseJoinExec}
 import org.apache.spark.sql.execution.joins.HashedRelationInfo
 
+trait ColumnarShuffledJoin extends BaseJoinExec {
+  def isSkewJoin: Boolean
+
+  override def nodeName: String = {
+    if (isSkewJoin) super.nodeName + "(skew=true)" else super.nodeName
+  }
+
+  override def stringArgs: Iterator[Any] = super.stringArgs.toSeq.dropRight(1).iterator
+
+  override def requiredChildDistribution: Seq[Distribution] = {
+    if (isSkewJoin) {
+      // We re-arrange the shuffle partitions to deal with skew join, and the new children
+      // partitioning doesn't satisfy `HashClusteredDistribution`.
+      UnspecifiedDistribution :: UnspecifiedDistribution :: Nil
+    } else {
+      HashClusteredDistribution(leftKeys) :: HashClusteredDistribution(rightKeys) :: Nil
+    }
+  }
+
+  override def outputPartitioning: Partitioning = joinType match {
+    case _: InnerLike =>
+      PartitioningCollection(Seq(left.outputPartitioning, right.outputPartitioning))
+    case LeftOuter => left.outputPartitioning
+    case RightOuter => right.outputPartitioning
+    case FullOuter => UnknownPartitioning(left.outputPartitioning.numPartitions)
+    case LeftExistence(_) => left.outputPartitioning
+    case x =>
+      throw new IllegalArgumentException(
+        s"ShuffledJoin should not take $x as the JoinType")
+  }
+
+  override def output: Seq[Attribute] = {
+    joinType match {
+      case _: InnerLike =>
+        left.output ++ right.output
+      case LeftOuter =>
+        left.output ++ right.output.map(_.withNullability(true))
+      case RightOuter =>
+        left.output.map(_.withNullability(true)) ++ right.output
+      case FullOuter =>
+        (left.output ++ right.output).map(_.withNullability(true))
+      case j: ExistenceJoin =>
+        left.output :+ j.exists
+      case LeftExistence(_) =>
+        left.output
+      case x =>
+        throw new IllegalArgumentException(
+          s"${getClass.getSimpleName} not take $x as the JoinType")
+    }
+  }
+}
 /**
  * Performs a hash join of two child relations by first shuffling the data using the join keys.
  */
@@ -69,7 +120,7 @@ case class ColumnarShuffledHashJoinExec(
     projectList: Seq[NamedExpression] = null)
     extends BaseJoinExec
     with ColumnarCodegenSupport
-    with ShuffledJoin {
+    with ColumnarShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
@@ -81,7 +132,7 @@ case class ColumnarShuffledHashJoinExec(
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
   buildCheck()
-
+  def isSkewJoin: Boolean = false
   protected lazy val (buildPlan, streamedPlan) = buildSide match {
     case BuildLeft => (left, right)
     case BuildRight => (right, left)
@@ -573,5 +624,7 @@ case class ColumnarShuffledHashJoinExec(
         new CloseableColumnBatchIterator(res)
     }
   }
-
+  override protected def withNewChildrenInternal(
+      newLeft: SparkPlan, newRight: SparkPlan): ColumnarShuffledHashJoinExec =
+    copy(left = newLeft, right = newRight)
 }

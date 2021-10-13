@@ -25,8 +25,8 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
-class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan)
-    extends BatchScanExec(output, scan) {
+class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan, runtimeFilters: Seq[Expression])
+    extends BatchScanExec(output, scan, runtimeFilters) {
   val tmpDir: String = GazellePluginConfig.getConf.tmpFile
   override def supportsColumnar(): Boolean = true
   override lazy val metrics = Map(

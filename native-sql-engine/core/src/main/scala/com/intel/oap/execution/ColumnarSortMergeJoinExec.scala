@@ -458,4 +458,9 @@ case class ColumnarSortMergeJoinExec(
       new CloseableColumnBatchIterator(vjoinResult)
     }
   }
+
+  override protected def withNewChildrenInternal(
+      newLeft: SparkPlan, newRight: SparkPlan): ColumnarSortMergeJoinExec =
+    copy(left = newLeft, right = newRight)
+
 }

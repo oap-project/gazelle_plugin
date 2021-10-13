@@ -69,6 +69,9 @@ case class ColumnarCoalesceExec(numPartitions: Int, child: SparkPlan) extends Un
       child.executeColumnar().coalesce(numPartitions, shuffle = false)
     }
   }
+
+  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarCoalesceExec =
+    copy(child = newChild)
 }
 
 object ColumnarCoalesceExec {

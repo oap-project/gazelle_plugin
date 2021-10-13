@@ -33,7 +33,6 @@ import org.apache.spark.memory.{SparkOutOfMemoryError, TaskMemoryManager}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.{UserAddedJarUtils, Utils, ExecutorManager}
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.errors._
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.BindReferences.bindReferences
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -307,7 +306,7 @@ case class ColumnarHashAggregateExec(
             val aggregateFunc = exp.aggregateFunction
             val out_res = aggregateFunc.children.head.asInstanceOf[Literal].value
             aggregateFunc match {
-              case Sum(_) =>
+              case Sum(_, _) =>
                 mode match {
                   case Partial | PartialMerge =>
                     val sum = aggregateFunc.asInstanceOf[Sum]
@@ -326,7 +325,7 @@ case class ColumnarHashAggregateExec(
                     putDataIntoVector(resultColumnVectors, out_res, idx)
                     idx += 1
                 }
-              case Average(_) =>
+              case Average(_, _) =>
                 mode match {
                   case Partial | PartialMerge =>
                     putDataIntoVector(resultColumnVectors, out_res, idx) // sum
@@ -401,7 +400,7 @@ case class ColumnarHashAggregateExec(
           var idx = 0
           for (expr <- aggregateExpressions) {
             expr.aggregateFunction match {
-              case Average(_) | StddevSamp(_, _) | Sum(_) | Max(_) | Min(_) =>
+              case Average(_, _) | StddevSamp(_, _) | Sum(_, _) | Max(_) | Min(_) =>
                 expr.mode match {
                   case Final =>
                     resultColumnVectors(idx).putNull(0)
@@ -483,7 +482,7 @@ case class ColumnarHashAggregateExec(
       val mode = exp.mode
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {
-        case Average(_) =>
+        case Average(_, _) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType)
           val avg = aggregateFunc.asInstanceOf[Average]
@@ -505,7 +504,7 @@ case class ColumnarHashAggregateExec(
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar Average")
           }
-        case Sum(_) =>
+        case Sum(_, _) =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType)
           val sum = aggregateFunc.asInstanceOf[Sum]
@@ -707,4 +706,7 @@ case class ColumnarHashAggregateExec(
       s"ColumnarHashAggregate(keys=$keyString, functions=$functionString)"
     }
   }
+
+  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarHashAggregateExec =
+    copy(child = newChild)
 }

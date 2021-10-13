@@ -36,12 +36,15 @@ import org.apache.spark.sql.execution.python.ArrowEvalPythonExec
 import org.apache.spark.sql.execution.python.ColumnarArrowEvalPythonExec
 import org.apache.spark.sql.execution.window.WindowExec
 
-case class RowGuard(child: SparkPlan) extends SparkPlan {
+case class RowGuard(child: SparkPlan) extends UnaryExecNode {
   def output: Seq[Attribute] = child.output
   protected def doExecute(): RDD[InternalRow] = {
     throw new UnsupportedOperationException
   }
-  def children: Seq[SparkPlan] = Seq(child)
+  //def children: Seq[SparkPlan] = Seq(child)
+  
+  override protected def withNewChildInternal(newChild: SparkPlan): RowGuard =
+    copy(child = newChild)
 }
 
 case class ColumnarGuardRule() extends Rule[SparkPlan] {
@@ -70,7 +73,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, plan.child, plan.evalType)
         case plan: BatchScanExec =>
           if (!enableColumnarBatchScan) return false
-          new ColumnarBatchScanExec(plan.output, plan.scan)
+          new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
             return false
@@ -133,9 +136,9 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           left match {
             case exec: BroadcastExchangeExec =>
               new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
+            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec, _) =>
               new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
-            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
+            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec, _) =>
               plan match {
                 case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
                   new ColumnarBroadcastExchangeExec(b.mode, b.child)
@@ -147,9 +150,9 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           right match {
             case exec: BroadcastExchangeExec =>
               new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
+            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec, _) =>
               new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
-            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
+            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec, _) =>
               plan match {
                 case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
                   new ColumnarBroadcastExchangeExec(b.mode, b.child)
@@ -239,7 +242,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
       case p if !supportCodegen(p) =>
         // insert row guard them recursively
         p.withNewChildren(p.children.map(insertRowGuardOrNot))
-      case p: CustomShuffleReaderExec =>
+      case p: AQEShuffleReadExec =>
         p.withNewChildren(p.children.map(insertRowGuardOrNot))
       case p: BroadcastQueryStageExec =>
         p

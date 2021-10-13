@@ -117,4 +117,9 @@ class ColumnarScalarSubquery(
         s"$dataType is not supported in ColumnarScalarSubquery")
     }
   }
+
+  //TODO: fix this copy
+  // override protected def withNewChildrenInternal(
+  //     newChildren: IndexedSeq[Expression]): ColumnarScalarSubquery =
+  //     copy(children = newChildren)
 }

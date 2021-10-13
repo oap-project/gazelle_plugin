@@ -59,7 +59,7 @@ case class ColumnarBroadcastHashJoinExec(
     nullAware: Boolean = false)
     extends BaseJoinExec
     with ColumnarCodegenSupport
-    with ShuffledJoin {
+    with ColumnarShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
@@ -88,6 +88,7 @@ case class ColumnarBroadcastHashJoinExec(
     }
   }
   buildCheck()
+  def isSkewJoin: Boolean = false
 
   def buildCheck(): Unit = {
     joinType match {
@@ -148,12 +149,10 @@ case class ColumnarBroadcastHashJoinExec(
 
   val isNullAwareAntiJoin : Boolean = nullAware
 
-  val broadcastHashJoinOutputPartitioningExpandLimit: Int = sqlContext.getConf(
-    "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
 
   override lazy val outputPartitioning: Partitioning = {
     joinType match {
-      case _: InnerLike if broadcastHashJoinOutputPartitioningExpandLimit > 0 =>
+      case _: InnerLike if conf.broadcastHashJoinOutputPartitioningExpandLimit > 0 =>
         streamedPlan.outputPartitioning match {
           case h: HashPartitioning => expandOutputPartitioning(h)
           case c: PartitioningCollection => expandOutputPartitioning(c)
@@ -193,7 +192,7 @@ case class ColumnarBroadcastHashJoinExec(
   // Seq("a", "b", "c"), Seq("a", "b", "y"), Seq("a", "x", "c"), Seq("a", "x", "y").
   // The expanded expressions are returned as PartitioningCollection.
   private def expandOutputPartitioning(partitioning: HashPartitioning): PartitioningCollection = {
-    val maxNumCombinations = broadcastHashJoinOutputPartitioningExpandLimit
+    val maxNumCombinations = conf.broadcastHashJoinOutputPartitioningExpandLimit
     var currentNumCombinations = 0
 
     def generateExprCombinations(current: Seq[Expression],
@@ -629,4 +628,7 @@ case class ColumnarBroadcastHashJoinExec(
     }
 
   }
+    override protected def withNewChildrenInternal(
+      newLeft: SparkPlan, newRight: SparkPlan): ColumnarBroadcastHashJoinExec =
+    copy(left = newLeft, right = newRight)
 }

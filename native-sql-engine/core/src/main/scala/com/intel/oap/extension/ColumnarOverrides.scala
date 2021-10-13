@@ -44,7 +44,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
-    case RowGuard(child: CustomShuffleReaderExec) =>
+    case RowGuard(child: AQEShuffleReadExec) =>
       replaceWithColumnarPlan(child)
     case plan: RowGuard =>
       val actualPlan = plan.child match {
@@ -69,7 +69,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, columnarChild, plan.evalType)
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarBatchScanExec(plan.output, plan.scan)
+      new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
     case plan: CoalesceExec =>
       ColumnarCoalesceExec(plan.numPartitions, replaceWithColumnarPlan(plan.child))
     case plan: InMemoryTableScanExec =>
@@ -204,17 +204,17 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       plan
 
-    case plan: CustomShuffleReaderExec if columnarConf.enableColumnarShuffle =>
+    case plan: AQEShuffleReadExec if columnarConf.enableColumnarShuffle =>
       plan.child match {
         case shuffle: ColumnarShuffleExchangeAdaptor =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
             ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
-        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
+        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor, _) =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
             ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
-        case ShuffleQueryStageExec(_, reused: ReusedExchangeExec) =>
+        case ShuffleQueryStageExec(_, reused: ReusedExchangeExec, _) =>
           reused match {
             case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
@@ -250,17 +250,18 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   def fallBackBroadcastQueryStage(curPlan: BroadcastQueryStageExec): BroadcastQueryStageExec = {
     curPlan.plan match {
       case originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor =>
-        BroadcastQueryStageExec(
-          curPlan.id,
-          BroadcastExchangeExec(
+        val newBroadcast = BroadcastExchangeExec(
             originalBroadcastPlan.mode,
-            DataToArrowColumnarExec(originalBroadcastPlan, 1)))
+            DataToArrowColumnarExec(originalBroadcastPlan, 1))
+
+        BroadcastQueryStageExec(
+          curPlan.id, newBroadcast, newBroadcast.doCanonicalize)
       case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor) =>
-        BroadcastQueryStageExec(
-          curPlan.id,
-          BroadcastExchangeExec(
+        val newBroadcast = BroadcastExchangeExec(
             originalBroadcastPlan.mode,
-            DataToArrowColumnarExec(curPlan.plan, 1)))
+            DataToArrowColumnarExec(originalBroadcastPlan, 1))
+        BroadcastQueryStageExec(
+          curPlan.id, newBroadcast, newBroadcast.doCanonicalize)
       case _ =>
         curPlan
     }

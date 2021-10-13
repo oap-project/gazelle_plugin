@@ -241,7 +241,9 @@ object RowToColumnConverter {
  * populate with [[RowToColumnConverter]], but the performance requirements are different and it
  * would only be to reduce code.
  */
-case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
+trait RowToArrowColumnarTransition extends UnaryExecNode
+
+case class RowToArrowColumnarExec(child: SparkPlan) extends RowToArrowColumnarTransition {
   override def output: Seq[Attribute] = child.output
 
   override def outputPartitioning: Partitioning = child.outputPartitioning
@@ -310,4 +312,6 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
       }
     }
   }
+    override protected def withNewChildInternal(newChild: SparkPlan): RowToArrowColumnarExec =
+    copy(child = newChild)
 }

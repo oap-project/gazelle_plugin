@@ -35,8 +35,10 @@ import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.types._
 import org.apache.spark.util.SparkFatalException
 import org.apache.spark.{SparkException, broadcast}
+import org.apache.spark.unsafe.map.BytesToBytesMap
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Promise
@@ -82,11 +84,23 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
   @transient
   lazy val completionFuture: scala.concurrent.Future[broadcast.Broadcast[Any]] =
     promise.future
-
+  
+  @transient
+  private lazy val maxBroadcastRows = mode match {
+    case HashedRelationBroadcastMode(key, _)
+      // NOTE: LongHashedRelation is used for single key with LongType. This should be kept
+      // consistent with HashedRelation.apply.
+      if !(key.length == 1 && key.head.dataType == LongType) =>
+      // Since the maximum number of keys that BytesToBytesMap supports is 1 << 29,
+      // and only 70% of the slots can be used before growing in UnsafeHashedRelation,
+      // here the limitation should not be over 341 million.
+      (BytesToBytesMap.MAX_CAPACITY / 1.5).toLong
+    case _ => 512000000
+  }
   @transient
   private[sql] lazy val relationFuture: java.util.concurrent.Future[broadcast.Broadcast[Any]] = {
     SQLExecution.withThreadLocalCaptured[broadcast.Broadcast[Any]](
-      sqlContext.sparkSession,
+      session,
       BroadcastExchangeExec.executionContext) {
       var relation: Any = null
       try {
@@ -162,9 +176,9 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
 
         /////////////////////////////////////////////////////////////////////////////
 
-        if (numRows >= BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS) {
+        if (numRows >= maxBroadcastRows) {
           throw new SparkException(
-            s"Cannot broadcast the table over ${BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS} rows: $numRows rows")
+            s"Cannot broadcast the table over ${maxBroadcastRows} rows: $numRows rows")
         }
 
         longMetric("collectTime") += NANOSECONDS.toMillis(System.nanoTime() - beforeCollect)
@@ -254,6 +268,8 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     }
   }
 
+  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeExec =
+    copy(child = newChild)
 }
 
 class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
