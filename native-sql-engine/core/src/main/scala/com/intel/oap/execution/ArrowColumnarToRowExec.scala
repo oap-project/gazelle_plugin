@@ -102,15 +102,16 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
         } else {
           val bufAddrs = new ListBuffer[Long]()
           val bufSizes = new ListBuffer[Long]()
+          val recordBatch = ConverterUtils.createArrowRecordBatch(batch)
+          recordBatch.getBuffers().asScala.foreach { buffer => bufAddrs += buffer.memoryAddress() }
+          recordBatch.getBuffersLayout().asScala.foreach { bufLayout =>
+            bufSizes += bufLayout.getSize()
+          }
+
           val fields = new ListBuffer[Field]()
           (0 until batch.numCols).foreach { idx =>
             val column = batch.column(idx).asInstanceOf[ArrowWritableColumnVector]
             fields += column.getValueVector.getField
-            column.getValueVector.getBuffers(false)
-              .foreach { buffer =>
-                bufAddrs += buffer.memoryAddress()
-                bufSizes += buffer.readableBytes()
-              }
           }
 
           if (arrowSchema == null) {
