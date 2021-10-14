@@ -116,6 +116,12 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     }
   }
 
+  test("q95 - shj") {
+    withSQLConf(("spark.oap.sql.columnar.forceshuffledhashjoin", "true")) {
+      runner.runTPCQuery("q95", 1, true)
+    }
+  }
+
   test("q47") {
     runner.runTPCQuery("q47", 1, true)
   }
