@@ -107,6 +107,7 @@ class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child =
           recordBatch.getBuffersLayout().asScala.foreach { bufLayout =>
             bufSizes += bufLayout.getSize()
           }
+          ConverterUtils.releaseArrowRecordBatch(recordBatch)
 
           val fields = new ListBuffer[Field]()
           (0 until batch.numCols).foreach { idx =>
