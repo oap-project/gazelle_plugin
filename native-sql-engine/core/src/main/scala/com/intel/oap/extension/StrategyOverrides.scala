@@ -17,13 +17,14 @@
 
 package com.intel.oap.extension
 
-import com.intel.oap.GazellePlugin
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.GazelleSparkExtensionsInjector
 
 import org.apache.spark.sql.SparkSessionExtensions
 import org.apache.spark.sql.Strategy
 import org.apache.spark.sql.catalyst.SQLConfHelper
+import org.apache.spark.sql.catalyst.optimizer.BuildLeft
+import org.apache.spark.sql.catalyst.optimizer.BuildRight
 import org.apache.spark.sql.catalyst.optimizer.JoinSelectionHelper
 import org.apache.spark.sql.catalyst.planning.ExtractEquiJoinKeys
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
@@ -42,7 +43,19 @@ object JoinSelectionOverrides extends Strategy with JoinSelectionHelper with SQL
       if (GazellePluginConfig.getSessionConf.forceShuffledHashJoin) {
         // Force use of ShuffledHashJoin in preference to SortMergeJoin. With no respect to
         // conf setting "spark.sql.join.preferSortMergeJoin".
-        return Option(getSmallerSide(left, right)).map {
+        val leftBuildable = canBuildShuffledHashJoinLeft(joinType)
+        val rightBuildable = canBuildShuffledHashJoinRight(joinType)
+        if (!leftBuildable && !rightBuildable) {
+          return Nil
+        }
+        val buildSide = if (!leftBuildable) {
+          BuildRight
+        } else if (!rightBuildable) {
+          BuildLeft
+        } else {
+          getSmallerSide(left, right)
+        }
+        return Option(buildSide).map {
           buildSide =>
             Seq(joins.ShuffledHashJoinExec(
               leftKeys,
