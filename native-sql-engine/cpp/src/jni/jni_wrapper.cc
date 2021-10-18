@@ -75,7 +75,7 @@ T JniGetOrThrow(arrow::Result<T> result) {
 }
 
 template <typename T>
-T JniGetOrThrow(arrow::Result<T> result, std::string message) {
+T JniGetOrThrow(arrow::Result<T> result, const std::string& message) {
   if (!result.status().ok()) {
     ThrowPendingException(message + " - " + result.status().message());
   }
@@ -88,13 +88,13 @@ void JniAssertOkOrThrow(arrow::Status status) {
   }
 }
 
-void JniAssertOkOrThrow(arrow::Status status, std::string message) {
+void JniAssertOkOrThrow(arrow::Status status, const std::string& message) {
   if (!status.ok()) {
     ThrowPendingException(message + " - " + status.message());
   }
 }
 
-void JniThrow(std::string message) { ThrowPendingException(message); }
+void JniThrow(const std::string& message) { ThrowPendingException(message); }
 
 }  // namespace
 
@@ -1180,9 +1180,9 @@ JNIEXPORT jlong JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_
 
   if (first_record_batch) {
     return splitter->CompressedSize(*in);
-  } else {
-    JniAssertOkOrThrow(splitter->Split(*in), "Native split: splitter split failed");
   }
+  JniAssertOkOrThrow(splitter->Split(*in), "Native split: splitter split failed");
+  return -1L;
   JNI_METHOD_END(-1L)
 }
 
