@@ -360,14 +360,16 @@ case class ColumnarShuffledHashJoinExec(
           val beforeEval = System.nanoTime()
           val input_rb =
             ConverterUtils.createArrowRecordBatch(cb)
+          if (input_rb.getLength == 0) {
+            ConverterUtils.releaseArrowRecordBatch(input_rb)
+            eval_elapse += System.nanoTime() - beforeEval
+            return createEmptyBatch()
+          }
           val output_rb = nativeIterator.process(probe_input_schema, input_rb)
           if (output_rb == null) {
             ConverterUtils.releaseArrowRecordBatch(input_rb)
             eval_elapse += System.nanoTime() - beforeEval
-            val resultStructType = ArrowUtils.fromArrowSchema(probe_out_schema)
-            val resultColumnVectors =
-              ArrowWritableColumnVector.allocateColumns(0, resultStructType).toArray
-            return new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
+            return createEmptyBatch()
           }
           val outputNumRows = output_rb.getLength
           ConverterUtils.releaseArrowRecordBatch(input_rb)
@@ -376,6 +378,13 @@ case class ColumnarShuffledHashJoinExec(
           eval_elapse += System.nanoTime() - beforeEval
           numOutputRows += outputNumRows
           new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+        }
+
+        private def createEmptyBatch() = {
+          val resultStructType = ArrowUtils.fromArrowSchema(probe_out_schema)
+          val resultColumnVectors =
+            ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+          new ColumnarBatch(resultColumnVectors.map(_.asInstanceOf[ColumnVector]), 0)
         }
       }
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
