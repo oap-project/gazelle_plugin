@@ -29,7 +29,7 @@ import org.apache.spark.sql.types._
 class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
   import testImplicits._
 
-  test("except") {
+  ignore("except") {
     checkAnswer(
       lowerCaseData.except(upperCaseData),
       Row(1, "a") ::
@@ -176,7 +176,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     assert(df4.schema.forall(!_.nullable))
   }
 
-  test("intersect") {
+  ignore("intersect") {
     checkAnswer(
       lowerCaseData.intersect(lowerCaseData),
       Row(1, "a") ::
@@ -331,7 +331,7 @@ class DataFrameSetOperationsSuite extends QueryTest with SharedSparkSession {
     )
   }
 
-  test("SPARK-17123: Performing set operations that combine non-scala native types") {
+  ignore("SPARK-17123: Performing set operations that combine non-scala native types") {
     val dates = Seq(
       (new Date(0), BigDecimal.valueOf(1), new Timestamp(2)),
       (new Date(3), BigDecimal.valueOf(4), new Timestamp(5))
