@@ -1,7 +1,4 @@
 - SPARK-3173 Timestamp support in the parser *** FAILED ***
-- EXCEPT *** FAILED ***
-- MINUS *** FAILED ***
-- INTERSECT *** FAILED ***
 - changing schema of state when restarting query - schema check off - state format version 1 *** FAILED ***
 - timestamp type conversion *** FAILED ***
 - SHOW PARTITIONS V1: SPARK-33591: null as a partition value *** FAILED ***
@@ -125,9 +122,6 @@
 - columnar batch scan implementation *** FAILED ***
 - Write timestamps correctly with timestampFormat option and timeZone option *** FAILED ***
 - SPARK-15824 - Execute an INSERT wrapped in a WITH statement immediately *** FAILED ***
-- except *** FAILED ***
-- intersect *** FAILED ***
-- SPARK-17123: Performing set operations that combine non-scala native types *** FAILED ***
 - union by name - type coercion *** FAILED ***
 - SPARK-22520: support code generation for large CaseWhen *** FAILED ***
 - SPARK-29894 test Codegen Stage Id in SparkPlanInfo *** FAILED ***
