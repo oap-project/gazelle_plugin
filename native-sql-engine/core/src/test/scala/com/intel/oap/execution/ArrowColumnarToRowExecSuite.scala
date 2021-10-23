@@ -326,6 +326,7 @@ object ArrowColumnarToRowExecSuite {
     recordBatch.getBuffersLayout().asScala.foreach { bufLayout =>
       bufSizes += bufLayout.getSize()
     }
+    ConverterUtils.releaseArrowRecordBatch(recordBatch)
 
     (0 until batch.numCols).foreach { idx =>
       val column = batch.column(idx).asInstanceOf[ArrowWritableColumnVector]
