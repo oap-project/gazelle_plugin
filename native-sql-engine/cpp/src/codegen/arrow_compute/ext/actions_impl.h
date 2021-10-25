@@ -98,12 +98,12 @@ arrow::Status MakeAvgAction(arrow::compute::ExecContext* ctx,
 arrow::Status MakeMinAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out);
+                            std::shared_ptr<ActionBase>* out, bool NaN_check = false);
 
 arrow::Status MakeMaxAction(arrow::compute::ExecContext* ctx,
                             std::shared_ptr<arrow::DataType> type,
                             std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
-                            std::shared_ptr<ActionBase>* out);
+                            std::shared_ptr<ActionBase>* out, bool NaN_check = false);
 
 arrow::Status MakeSumCountAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
@@ -129,6 +129,11 @@ arrow::Status MakeStddevSampFinalAction(
     arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     bool null_on_divide_by_zero, std::shared_ptr<ActionBase>* out);
+
+/* Aggregate Action Names */
+const std::string ACTION_MIN = "action_min";
+const std::string ACTION_MAX = "action_max";
+
 }  // namespace extra
 }  // namespace arrowcompute
 }  // namespace codegen

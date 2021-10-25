@@ -22,11 +22,11 @@ import java.net.URI
 import java.nio.file.{Files, StandardOpenOption}
 import java.util.Locale
 
-import scala.collection.mutable
+import com.intel.oap.execution.{ColumnarBroadcastHashJoinExec, ColumnarSortMergeJoinExec}
 
+import scala.collection.mutable
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{LocalFileSystem, Path}
-
 import org.apache.spark.SparkException
 import org.apache.spark.scheduler.{SparkListener, SparkListenerTaskEnd}
 import org.apache.spark.sql.TestingUDT.{IntervalUDT, NullData, NullUDT}
@@ -708,21 +708,21 @@ class FileBasedDataSourceSuite extends QueryTest
           val joinedDF = df1FromFile.join(df2FromFile, Seq("count"))
           if (compressionFactor == 0.5) {
             val bJoinExec = collect(joinedDF.queryExecution.executedPlan) {
-              case bJoin: BroadcastHashJoinExec => bJoin
+              case bJoin: ColumnarBroadcastHashJoinExec => bJoin
             }
             assert(bJoinExec.nonEmpty)
             val smJoinExec = collect(joinedDF.queryExecution.executedPlan) {
-              case smJoin: SortMergeJoinExec => smJoin
+              case smJoin: ColumnarSortMergeJoinExec => smJoin
             }
             assert(smJoinExec.isEmpty)
           } else {
             // compressionFactor is 1.0
             val bJoinExec = collect(joinedDF.queryExecution.executedPlan) {
-              case bJoin: BroadcastHashJoinExec => bJoin
+              case bJoin: ColumnarBroadcastHashJoinExec => bJoin
             }
             assert(bJoinExec.isEmpty)
             val smJoinExec = collect(joinedDF.queryExecution.executedPlan) {
-              case smJoin: SortMergeJoinExec => smJoin
+              case smJoin: ColumnarSortMergeJoinExec => smJoin
             }
             assert(smJoinExec.nonEmpty)
           }

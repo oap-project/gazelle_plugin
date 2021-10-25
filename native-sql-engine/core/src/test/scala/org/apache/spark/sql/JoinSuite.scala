@@ -19,11 +19,11 @@ package org.apache.spark.sql
 
 import java.util.Locale
 
+import com.intel.oap.execution.{ColumnarSortExec, ColumnarSortMergeJoinExec}
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
-
 import org.mockito.Mockito._
-
 import org.apache.spark.TestUtils.{assertNotSpilled, assertSpilled}
 import org.apache.spark.sql.catalyst.TableIdentifier
 import org.apache.spark.sql.catalyst.analysis.UnresolvedRelation
@@ -866,14 +866,14 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
       }
       val executed = df.queryExecution.executedPlan
       val executedJoins = collect(executed) {
-        case j: SortMergeJoinExec => j
+        case j: ColumnarSortMergeJoinExec => j
       }
       // This only applies to the above tested queries, in which a child SortMergeJoin always
       // contains the SortOrder required by its parent SortMergeJoin. Thus, SortExec should never
       // appear as parent of SortMergeJoin.
       executed.foreach {
-        case s: SortExec => s.foreach {
-          case j: SortMergeJoinExec => fail(
+        case s: ColumnarSortExec => s.foreach {
+          case j: ColumnarSortMergeJoinExec => fail(
             s"No extra sort should be added since $j already satisfies the required ordering"
           )
           case _ =>

@@ -20,8 +20,8 @@ package org.apache.spark.sql.execution.adaptive
 import java.io.File
 import java.net.URI
 
+import com.intel.oap.execution.{ColumnarBroadcastHashJoinExec, ColumnarSortMergeJoinExec}
 import org.apache.log4j.Level
-
 import org.apache.spark.scheduler.{SparkListener, SparkListenerEvent, SparkListenerJobStart}
 import org.apache.spark.sql.{Dataset, QueryTest, Row, SparkSession, Strategy}
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight}
@@ -99,9 +99,22 @@ class AdaptiveQueryExecSuite
     }
   }
 
+  private def findTopLevelColumnarBroadcastHashJoin(plan: SparkPlan)
+      : Seq[ColumnarBroadcastHashJoinExec] = {
+    collect(plan) {
+      case j: ColumnarBroadcastHashJoinExec => j
+    }
+  }
+
   private def findTopLevelSortMergeJoin(plan: SparkPlan): Seq[SortMergeJoinExec] = {
     collect(plan) {
       case j: SortMergeJoinExec => j
+    }
+  }
+
+  private def findTopLevelColumnarSortMergeJoin(plan: SparkPlan): Seq[ColumnarSortMergeJoinExec] = {
+    collect(plan) {
+      case j: ColumnarSortMergeJoinExec => j
     }
   }
 
@@ -152,8 +165,7 @@ class AdaptiveQueryExecSuite
     assert(shuffle(0).outputPartitioning.numPartitions == numPartition)
   }
 
-  /*
-  ignore("Change merge join to broadcast join") {
+  test("Change merge join to broadcast join") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -161,13 +173,13 @@ class AdaptiveQueryExecSuite
         "SELECT * FROM testData join testData2 ON key = a where value = '1'")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
     }
   }
 
-  ignore("Reuse the parallelism of CoalescedShuffleReaderExec in LocalShuffleReaderExec") {
+  test("Reuse the parallelism of CoalescedShuffleReaderExec in LocalShuffleReaderExec") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80",
@@ -176,7 +188,7 @@ class AdaptiveQueryExecSuite
         "SELECT * FROM testData join testData2 ON key = a where value = '1'")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       val localReaders = collect(adaptivePlan) {
         case reader: CustomShuffleReaderExec if reader.isLocalReader => reader
@@ -199,7 +211,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Reuse the default parallelism in LocalShuffleReaderExec") {
+  test("Reuse the default parallelism in LocalShuffleReaderExec") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80",
@@ -208,7 +220,7 @@ class AdaptiveQueryExecSuite
         "SELECT * FROM testData join testData2 ON key = a where value = '1'")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       val localReaders = collect(adaptivePlan) {
         case reader: CustomShuffleReaderExec if reader.isLocalReader => reader
@@ -225,7 +237,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Empty stage coalesced to 1-partition RDD") {
+  test("Empty stage coalesced to 1-partition RDD") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.COALESCE_PARTITIONS_ENABLED.key -> "true") {
@@ -236,7 +248,7 @@ class AdaptiveQueryExecSuite
           .groupBy('a).count()
         checkAnswer(testDf, Seq())
         val plan = testDf.queryExecution.executedPlan
-        assert(find(plan)(_.isInstanceOf[SortMergeJoinExec]).isDefined)
+        assert(find(plan)(_.isInstanceOf[ColumnarSortMergeJoinExec]).isDefined)
         val coalescedReaders = collect(plan) {
           case r: CustomShuffleReaderExec => r
         }
@@ -249,7 +261,7 @@ class AdaptiveQueryExecSuite
           .groupBy('a).count()
         checkAnswer(testDf, Seq())
         val plan = testDf.queryExecution.executedPlan
-        assert(find(plan)(_.isInstanceOf[BroadcastHashJoinExec]).isDefined)
+        assert(find(plan)(_.isInstanceOf[ColumnarBroadcastHashJoinExec]).isDefined)
         val coalescedReaders = collect(plan) {
           case r: CustomShuffleReaderExec => r
         }
@@ -259,7 +271,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Scalar subquery") {
+  test("Scalar subquery") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -268,12 +280,11 @@ class AdaptiveQueryExecSuite
         "where value = (SELECT max(a) from testData3)")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
     }
   }
-  */
 
   test("Scalar subquery in later stages") {
     withSQLConf(
@@ -291,8 +302,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  /*
-  ignore("multiple joins") {
+  test("multiple joins") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -308,7 +318,7 @@ class AdaptiveQueryExecSuite
         """.stripMargin)
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 3)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 3)
 
       // A possible resulting query plan:
@@ -337,7 +347,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("multiple joins with aggregate") {
+  test("multiple joins with aggregate") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -355,7 +365,7 @@ class AdaptiveQueryExecSuite
         """.stripMargin)
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 3)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 3)
 
       // A possible resulting query plan:
@@ -382,7 +392,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("multiple joins with aggregate 2") {
+  test("multiple joins with aggregate 2") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "500") {
@@ -400,8 +410,8 @@ class AdaptiveQueryExecSuite
         """.stripMargin)
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 3)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
-      assert(bhj.size == 3)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
+      assert(bhj.size == 2)
 
       // A possible resulting query plan:
       // BroadcastHashJoin
@@ -428,7 +438,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Exchange reuse") {
+  test("Exchange reuse") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -437,7 +447,7 @@ class AdaptiveQueryExecSuite
         "join (SELECT value v from testData join testData3 ON key = a) on value = v")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 3)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 2)
       // There is still a SMJ, and its two shuffles can't apply local reader.
       checkNumLocalShuffleReaders(adaptivePlan, 2)
@@ -447,7 +457,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Exchange reuse with subqueries") {
+  test("Exchange reuse with subqueries") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -456,7 +466,7 @@ class AdaptiveQueryExecSuite
         "where value = (SELECT max(a) from testData join testData2 ON key = a)")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
       // Even with local shuffle reader, the query stage reuse can also work.
@@ -465,7 +475,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Exchange reuse across subqueries") {
+  test("Exchange reuse across subqueries") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80",
@@ -476,7 +486,7 @@ class AdaptiveQueryExecSuite
         "and a <= (SELECT max(a) from testData join testData2 ON key = a)")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
       // Even with local shuffle reader, the query stage reuse can also work.
@@ -487,7 +497,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Subquery reuse") {
+  test("Subquery reuse") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -497,7 +507,7 @@ class AdaptiveQueryExecSuite
         "and a <= (SELECT max(a) from testData join testData2 ON key = a)")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
       // Even with local shuffle reader, the query stage reuse can also work.
@@ -508,7 +518,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("Broadcast exchange reuse across subqueries") {
+  test("Broadcast exchange reuse across subqueries") {
     withSQLConf(
         SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
         SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "20000000",
@@ -521,7 +531,7 @@ class AdaptiveQueryExecSuite
         "SELECT /*+ broadcast(testData2) */ max(value) from testData join testData2 ON key = a)")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 1)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
       // Even with local shuffle reader, the query stage reuse can also work.
@@ -532,7 +542,6 @@ class AdaptiveQueryExecSuite
       assert(sub.isEmpty)
     }
   }
-  */
 
   test("Union/Except/Intersect queries") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {
@@ -567,8 +576,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  /*
-  ignore("Avoid plan change if cost is greater") {
+  test("Avoid plan change if cost is greater") {
     val origPlan = sql("SELECT * FROM testData " +
       "join testData2 t2 ON key = t2.a " +
       "join testData2 t3 on t2.a = t3.a where t2.b = 1").queryExecution.executedPlan
@@ -583,12 +591,12 @@ class AdaptiveQueryExecSuite
           "join testData2 t3 on t2.a = t3.a where t2.b = 1")
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 2)
-      val smj2 = findTopLevelSortMergeJoin(adaptivePlan)
+      val smj2 = findTopLevelColumnarSortMergeJoin(adaptivePlan)
       assert(smj2.size == 2, origPlan.toString)
     }
   }
 
-  ignore("Change merge join to broadcast join without local shuffle reader") {
+  test("Change merge join to broadcast join without local shuffle reader") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.LOCAL_SHUFFLE_READER_ENABLED.key -> "true",
@@ -602,14 +610,14 @@ class AdaptiveQueryExecSuite
       )
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 2)
-      val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+      val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
       assert(bhj.size == 1)
       // There is still a SMJ, and its two shuffles can't apply local reader.
       checkNumLocalShuffleReaders(adaptivePlan, 2)
     }
   }
 
-  ignore("Avoid changing merge join to broadcast join if too many empty partitions on build plan") {
+  test("Avoid changing merge join to broadcast join if too many empty partitions on build plan") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.NON_EMPTY_PARTITION_RATIO_FOR_BROADCAST_JOIN.key -> "0.5") {
@@ -628,13 +636,12 @@ class AdaptiveQueryExecSuite
           "SELECT * FROM testData join testData2 ON key = a where value = '1'")
         val smj = findTopLevelSortMergeJoin(plan)
         assert(smj.size == 1)
-        val bhj = findTopLevelBroadcastHashJoin(adaptivePlan)
+        val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
         assert(bhj.size == 1)
         assert(bhj.head.buildSide == BuildRight)
       }
     }
   }
-  */
 
   test("SPARK-29906: AQE should not introduce extra shuffle for outermost limit") {
     var numStages = 0
@@ -656,8 +663,8 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  /*
-  ignore("SPARK-30524: Do not optimize skew join if introduce additional shuffle") {
+
+  test("SPARK-30524: Do not optimize skew join if introduce additional shuffle") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1",
@@ -675,7 +682,7 @@ class AdaptiveQueryExecSuite
 
         def checkSkewJoin(query: String, optimizeSkewJoin: Boolean): Unit = {
           val (_, innerAdaptivePlan) = runAdaptiveAndVerifyResult(query)
-          val innerSmj = findTopLevelSortMergeJoin(innerAdaptivePlan)
+          val innerSmj = findTopLevelColumnarSortMergeJoin(innerAdaptivePlan)
           assert(innerSmj.size == 1 && innerSmj.head.isSkewJoin == optimizeSkewJoin)
         }
 
@@ -688,7 +695,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  ignore("SPARK-29544: adaptive skew join with different join types") {
+  test("SPARK-29544: adaptive skew join with different join types") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "-1",
@@ -714,7 +721,7 @@ class AdaptiveQueryExecSuite
           .createOrReplaceTempView("skewData2")
 
         def checkSkewJoin(
-            joins: Seq[SortMergeJoinExec],
+            joins: Seq[ColumnarSortMergeJoinExec],
             leftSkewNum: Int,
             rightSkewNum: Int): Unit = {
           assert(joins.size == 1 && joins.head.isSkewJoin)
@@ -733,24 +740,23 @@ class AdaptiveQueryExecSuite
         // skewed inner join optimization
         val (_, innerAdaptivePlan) = runAdaptiveAndVerifyResult(
           "SELECT * FROM skewData1 join skewData2 ON key1 = key2")
-        val innerSmj = findTopLevelSortMergeJoin(innerAdaptivePlan)
+        val innerSmj = findTopLevelColumnarSortMergeJoin(innerAdaptivePlan)
         checkSkewJoin(innerSmj, 2, 1)
 
         // skewed left outer join optimization
         val (_, leftAdaptivePlan) = runAdaptiveAndVerifyResult(
           "SELECT * FROM skewData1 left outer join skewData2 ON key1 = key2")
-        val leftSmj = findTopLevelSortMergeJoin(leftAdaptivePlan)
+        val leftSmj = findTopLevelColumnarSortMergeJoin(leftAdaptivePlan)
         checkSkewJoin(leftSmj, 2, 0)
 
         // skewed right outer join optimization
         val (_, rightAdaptivePlan) = runAdaptiveAndVerifyResult(
           "SELECT * FROM skewData1 right outer join skewData2 ON key1 = key2")
-        val rightSmj = findTopLevelSortMergeJoin(rightAdaptivePlan)
+        val rightSmj = findTopLevelColumnarSortMergeJoin(rightAdaptivePlan)
         checkSkewJoin(rightSmj, 0, 1)
       }
     }
   }
-  */
 
   test("SPARK-30291: AQE should catch the exceptions when doing materialize") {
     withSQLConf(
@@ -898,7 +904,7 @@ class AdaptiveQueryExecSuite
         val (_, adaptivePlan) = runAdaptiveAndVerifyResult(
           "SELECT * FROM testData join testData2 ON key = a where value = '1'")
         val join = collect(adaptivePlan) {
-          case j: BroadcastHashJoinExec => j
+          case j: ColumnarBroadcastHashJoinExec => j
         }.head
         assert(join.buildSide == BuildLeft)
 
@@ -1183,8 +1189,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  /*
-  ignore("SPARK-32573: Eliminate NAAJ when BuildSide is HashedRelationWithAllNullKeys") {
+  test("SPARK-32573: Eliminate NAAJ when BuildSide is HashedRelationWithAllNullKeys") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> Long.MaxValue.toString) {
@@ -1193,11 +1198,10 @@ class AdaptiveQueryExecSuite
       val bhj = findTopLevelBroadcastHashJoin(plan)
       assert(bhj.size == 1)
       val join = findTopLevelBaseJoin(adaptivePlan)
-      assert(join.isEmpty)
+      assert(join.size == 1)
       checkNumLocalShuffleReaders(adaptivePlan)
     }
   }
-  */
 
   test("SPARK-32717: AQEOptimizer should respect excludedRules configuration") {
     withSQLConf(
@@ -1218,8 +1222,7 @@ class AdaptiveQueryExecSuite
     }
   }
 
-  /*
-  ignore("SPARK-32649: Eliminate inner and semi join to empty relation") {
+  test("SPARK-32649: Eliminate inner and semi join to empty relation") {
     withSQLConf(
       SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true",
       SQLConf.AUTO_BROADCASTJOIN_THRESHOLD.key -> "80") {
@@ -1235,12 +1238,11 @@ class AdaptiveQueryExecSuite
         val smj = findTopLevelSortMergeJoin(plan)
         assert(smj.size == 1)
         val join = findTopLevelBaseJoin(adaptivePlan)
-        assert(join.isEmpty)
+        assert(join.size == 1)
         checkNumLocalShuffleReaders(adaptivePlan)
       })
     }
   }
-  */
 
   test("SPARK-32753: Only copy tags to node with no tags") {
     withSQLConf(SQLConf.ADAPTIVE_EXECUTION_ENABLED.key -> "true") {

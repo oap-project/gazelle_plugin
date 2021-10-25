@@ -4642,6 +4642,88 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyHashAggregate) {
   }
 }
 
+TEST(TestArrowComputeWSCG, WSCGTestGroupbyMinMaxNaN) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", int64());
+  auto f1 = field("f1", float64());
+
+  auto f_unique = field("unique", int64());
+  auto f_min = field("min", float64());
+  auto f_max = field("max", float64());
+  auto f_res = field("res", uint32());
+
+  auto arg0 = TreeExprBuilder::MakeField(f0);
+  auto arg1 = TreeExprBuilder::MakeField(f1);
+
+  auto n_groupby = TreeExprBuilder::MakeFunction("action_groupby", {arg0}, uint32());
+  auto n_min = TreeExprBuilder::MakeFunction("action_min_true", {arg1}, uint32());
+  auto n_max = TreeExprBuilder::MakeFunction("action_max_true", {arg1}, uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", {arg0, arg1}, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions",
+                                                {n_groupby, n_min, n_max}, uint32());
+  auto n_result = TreeExprBuilder::MakeFunction(
+      "resultSchema",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max)},
+      uint32());
+  auto n_result_expr = TreeExprBuilder::MakeFunction(
+      "resultExpressions",
+      {TreeExprBuilder::MakeField(f_unique), TreeExprBuilder::MakeField(f_min),
+       TreeExprBuilder::MakeField(f_max)},
+      uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("child", {n_aggr}, uint32());
+  auto n_wscg = TreeExprBuilder::MakeFunction("wholestagecodegen", {n_child}, uint32());
+  auto aggr_expr = TreeExprBuilder::MakeExpression(n_wscg, f_res);
+
+  std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector = {aggr_expr};
+
+  auto sch = arrow::schema({f0, f1});
+  std::vector<std::shared_ptr<Field>> ret_types = {f_unique, f_min, f_max};
+
+  /////////////////////// Create Expression Evaluator ////////////////////
+  std::shared_ptr<CodeGenerator> expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(
+      CreateCodeGenerator(ctx.memory_pool(), sch, expr_vector, ret_types, &expr, true));
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> output_batch_list;
+
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> aggr_result_iterator;
+  std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
+  ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
+  aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      aggr_result_iterator_base);
+
+  ////////////////////// calculation /////////////////////
+  std::vector<std::string> input_data = {
+      "[1, 2, 3, 4, 5, null, 4, 1, 2, 2, 1, 1, 1, 4, 4, 3, 5, 5, 5, 5]",
+      "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10, 16, 19, 42, 78, 12, 5, NaN, 11, 19]"};
+  MakeInputBatch(input_data, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  std::vector<std::string> input_data_2 = {
+      "[6, 7, 8, 9, 10, 10, 9, 6, 7, 7, 6, 6, 6, 9, 9, 8, 10, 10, 10, 10]",
+      "[16, 7, 8, 9, 10, NaN, 9, 6, 7, 7, 6, 6, 6, 9, 9, 8, 18, 19, 12, 13]"};
+  MakeInputBatch(input_data_2, sch, &input_batch);
+  ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
+
+  ////////////////////// Finish //////////////////////////
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {
+      "[1, 2, 3, 4, 5, null, 6, 7, 8, 9, 10]", "[1, 2, 3, 4, 5, NaN, 6, 7, 8, 9, 10]",
+      "[19, 9, 12, 78, NaN, NaN, 16, 7, 8, 9, NaN]"};
+  auto res_sch = arrow::schema(ret_types);
+  MakeInputBatch(expected_result_string, res_sch, &expected_result);
+  if (aggr_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 TEST(TestArrowComputeWSCG, WSCGTestInnerJoinWithGroupbyAggregate) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto table0_f0 = field("table0_f0", uint32());

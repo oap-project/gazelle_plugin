@@ -433,6 +433,18 @@ class HashAggregateKernel::Impl {
     }
 
     action_list_define_function_ss
+        << "bool getActionOption(std::string action_name, std::string "
+           "action_name_prefix) {\n"
+        << "int prefix_size = action_name_prefix.size();\n"
+        << "bool option = false;\n"
+        << "if (action_name.size() > prefix_size &&\n"
+        << "action_name.compare(0, prefix_size + 1, action_name_prefix + \"_\") == 0) {\n"
+        << "auto lit = action_name.substr(prefix_size + 1);\n"
+        << "option = (lit == \"true\") ? true : false;\n"
+        << "}\n"
+        << "return option;\n"
+        << "}" << std::endl;
+    action_list_define_function_ss
         << "arrow::Status PrepareActionList(std::vector<std::string> "
            "action_name_list, "
            "std::vector<std::shared_ptr<arrow::DataType>> type_list,"
@@ -468,14 +480,16 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeAvgAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_min") == 0) {
+      } else if (action_name_list[action_id].compare(0, ACTION_MIN.size(), ACTION_MIN) == 0) {
         auto res_type_list = {result_field_list[result_id]};
+        bool NaN_check = getActionOption(action_name_list[action_id], ACTION_MIN);
         result_id += 1;
-        RETURN_NOT_OK(MakeMinAction(ctx_, type_list[type_id], res_type_list, &action));
-      } else if (action_name_list[action_id].compare("action_max") == 0) {
+        RETURN_NOT_OK(MakeMinAction(ctx_, type_list[type_id], res_type_list, &action, NaN_check));
+      } else if (action_name_list[action_id].compare(0, ACTION_MAX.size(), ACTION_MAX) == 0) {
         auto res_type_list = {result_field_list[result_id]};
+        bool NaN_check = getActionOption(action_name_list[action_id], ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action));
+        RETURN_NOT_OK(MakeMaxAction(ctx_, type_list[type_id], res_type_list, &action, NaN_check));
       } else if (action_name_list[action_id].compare("action_sum_count") == 0) {
         auto res_type_list = {result_field_list[result_id], result_field_list[result_id + 1]};
         result_id += 2;
@@ -588,6 +602,17 @@ class HashAggregateKernel::Impl {
   std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list_;
   std::vector<std::vector<int>> action_prepare_index_list_;
 
+  bool getActionOption(std::string action_name, std::string action_name_prefix) {
+    int prefix_size = action_name_prefix.size();
+    bool option = false;
+    if (action_name.size() > prefix_size &&
+        action_name.compare(0, prefix_size + 1, action_name_prefix + "_") == 0) {
+      auto lit = action_name.substr(prefix_size + 1);
+      option = (lit == "true") ? true : false;
+    }
+    return option;
+  }
+
   arrow::Status PrepareActionList(
       std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
       std::vector<gandiva::DataTypePtr> result_field_list,
@@ -622,14 +647,18 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeAvgAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare("action_min") == 0) {
+      } else if (action_name.compare(0, ACTION_MIN.size(), ACTION_MIN) == 0) {
         auto res_type_list = {result_field_list[result_id]};
+        bool NaN_check = getActionOption(action_name, ACTION_MIN);
         result_id += 1;
-        RETURN_NOT_OK(MakeMinAction(ctx_, action_input_type, res_type_list, &action));
-      } else if (action_name.compare("action_max") == 0) {
+        RETURN_NOT_OK(
+            MakeMinAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
+      } else if (action_name.compare(0, ACTION_MAX.size(), ACTION_MAX) == 0) {
         auto res_type_list = {result_field_list[result_id]};
+        bool NaN_check = getActionOption(action_name, ACTION_MAX);
         result_id += 1;
-        RETURN_NOT_OK(MakeMaxAction(ctx_, action_input_type, res_type_list, &action));
+        RETURN_NOT_OK(
+            MakeMaxAction(ctx_, action_input_type, res_type_list, &action, NaN_check));
       } else if (action_name.compare("action_sum_count") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};

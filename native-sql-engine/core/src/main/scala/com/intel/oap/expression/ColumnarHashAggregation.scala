@@ -70,6 +70,7 @@ class ColumnarHashAggregation(
 
   var inputAttrQueue: scala.collection.mutable.Queue[Attribute] = _
   val resultType = CodeGeneration.getResultType()
+  val NaN_check : Boolean = GazellePluginConfig.getConf.enableColumnarNaNCheck
 
   def getColumnarFuncNode(expr: Expression): TreeNode = {
     try {
@@ -181,7 +182,8 @@ class ColumnarHashAggregation(
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
-          TreeBuilder.makeFunction("action_max", childrenColumnarFuncNodeList.asJava, resultType)
+          val actionName = "action_max" + s"_$NaN_check"
+          TreeBuilder.makeFunction(actionName, childrenColumnarFuncNodeList.asJava, resultType)
         case Min(_) =>
           val childrenColumnarFuncNodeList =
             mode match {
@@ -192,7 +194,8 @@ class ColumnarHashAggregation(
               case other =>
                 throw new UnsupportedOperationException(s"not currently supported: $other.")
             }
-          TreeBuilder.makeFunction("action_min", childrenColumnarFuncNodeList.asJava, resultType)
+          val actionName = "action_min" + s"_$NaN_check"
+          TreeBuilder.makeFunction(actionName, childrenColumnarFuncNodeList.asJava, resultType)
         case StddevSamp(_, _) =>
           mode match {
             case Partial =>

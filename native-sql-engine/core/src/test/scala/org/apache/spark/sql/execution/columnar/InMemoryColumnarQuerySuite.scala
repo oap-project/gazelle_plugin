@@ -20,6 +20,8 @@ package org.apache.spark.sql.execution.columnar
 import java.nio.charset.StandardCharsets
 import java.sql.{Date, Timestamp}
 
+import com.intel.oap.execution.ColumnarConditionProjectExec
+import com.intel.oap.sql.execution.RowToArrowColumnarExec
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, QueryTest, Row}
 import org.apache.spark.sql.catalyst.InternalRow
@@ -504,14 +506,14 @@ class InMemoryColumnarQuerySuite extends QueryTest with SharedSparkSession {
     val df2 = df1.where("y = 3")
 
     val planBeforeFilter = df2.queryExecution.executedPlan.collect {
+      case ColumnarConditionProjectExec(_, _, c: RowToArrowColumnarExec) => c.child
       case FilterExec(_, c: ColumnarToRowExec) => c.child
       case WholeStageCodegenExec(FilterExec(_, ColumnarToRowExec(i: InputAdapter))) => i.child
     }
-    // ignored plan check -- Mo Rui
-    // assert(planBeforeFilter.head.isInstanceOf[InMemoryTableScanExec])
+     assert(planBeforeFilter.head.isInstanceOf[InMemoryTableScanExec])
 
-    // val execPlan = planBeforeFilter.head
-    // assert(execPlan.executeCollectPublic().length == 0)
+     val execPlan = planBeforeFilter.head
+     assert(execPlan.executeCollectPublic().length == 0)
   }
 
   test("SPARK-25727 - otherCopyArgs in InMemoryRelation does not include outputOrdering") {

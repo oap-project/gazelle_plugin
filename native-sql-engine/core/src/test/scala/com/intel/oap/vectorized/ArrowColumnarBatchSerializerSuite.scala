@@ -21,12 +21,16 @@ import java.io.FileInputStream
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.vectorized.ColumnarBatch
-import org.apache.spark.SparkFunSuite
+import org.apache.spark.{SparkConf, SparkFunSuite}
 
 class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSession {
 
   protected var avgBatchNumRows: SQLMetric = _
   protected var outputNumRows: SQLMetric = _
+
+  override def sparkConf: SparkConf =
+    super.sparkConf
+      .set("spark.shuffle.compress", "false")
 
   override def beforeEach() = {
     avgBatchNumRows = SQLMetrics.createAverageMetric(
