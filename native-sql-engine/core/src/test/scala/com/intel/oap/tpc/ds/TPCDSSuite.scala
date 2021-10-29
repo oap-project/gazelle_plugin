@@ -63,7 +63,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
     super.beforeAll()
     LogManager.getRootLogger.setLevel(Level.WARN)
     val tGen = new TPCDSTableGen(spark, 0.1D, TPCDS_WRITE_PATH)
-    tGen.gen()
+//    tGen.gen()
     tGen.createTables()
     runner = new TPCRunner(spark, TPCDS_QUERIES_RESOURCE)
   }
@@ -104,6 +104,10 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   test("smj query 3") {
     runner.runTPCQuery("q95", 1, true)
+  }
+
+  test("query 67") {
+    runner.runTPCQuery("q67", 1, true)
   }
 
   test("q2") {

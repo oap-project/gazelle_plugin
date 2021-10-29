@@ -19,14 +19,16 @@ package com.intel.oap.extension
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.GazelleSparkExtensionsInjector
-
-import org.apache.spark.sql.SparkSessionExtensions
-import org.apache.spark.sql.Strategy
+import org.apache.spark.sql.{AnalysisException, SparkSessionExtensions, Strategy, execution}
 import org.apache.spark.sql.catalyst.SQLConfHelper
+import org.apache.spark.sql.catalyst.expressions.WindowFunctionType.{Python, SQL}
+import org.apache.spark.sql.catalyst.expressions.aggregate.AggregateFunction
+import org.apache.spark.sql.catalyst.expressions.{Expression, NamedExpression, PythonUDF, Rank, SortOrder, WindowFunction, WindowFunctionType}
 import org.apache.spark.sql.catalyst.optimizer.BuildLeft
 import org.apache.spark.sql.catalyst.optimizer.BuildRight
 import org.apache.spark.sql.catalyst.optimizer.JoinSelectionHelper
-import org.apache.spark.sql.catalyst.planning.ExtractEquiJoinKeys
+import org.apache.spark.sql.catalyst.planning.{ExtractEquiJoinKeys, PhysicalWindow}
+import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.joins
@@ -70,6 +72,39 @@ object JoinSelectionOverrides extends Strategy with JoinSelectionHelper with SQL
 
       Nil
     case _ => Nil
+  }
+}
+
+object LocalRankWindow extends Strategy with SQLConfHelper {
+  // todo do this on window-filter pattern only
+  def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+    case RankWindow(windowExprs, partitionSpec, orderSpec, child) =>
+      execution.window.WindowExec(
+        windowExprs, partitionSpec, orderSpec, planLater(child)) :: Nil
+
+    case _ => Nil
+  }
+}
+
+object RankWindow {
+  // windowFunctionType, windowExpression, partitionSpec, orderSpec, child
+  private type ReturnType =
+    (Seq[NamedExpression], Seq[Expression], Seq[SortOrder], LogicalPlan)
+
+  def unapply(a: Any): Option[ReturnType] = a match {
+    case expr @ logical.Window(windowExpressions, partitionSpec, orderSpec, child) =>
+      if (windowExpressions.size != 1) {
+        None
+      } else {
+        windowExpressions.head.collectFirst {
+          case _: Rank =>
+            Some((windowExpressions, partitionSpec, orderSpec, child))
+          case _ =>
+            None
+        }.flatten
+      }
+
+    case _ => None
   }
 }
 
