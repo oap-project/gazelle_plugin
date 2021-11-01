@@ -178,7 +178,7 @@ case class ColumnarCollapseCodegenStages(
       plan: ColumnarConditionProjectExec,
       skip_smj: Boolean = false): SparkPlan = plan.child match {
     case p: ColumnarBroadcastHashJoinExec
-        if plan.condition == null && plan.projectList == null =>
+      if plan.condition == null && !containsExpression(plan.projectList) =>
       ColumnarBroadcastHashJoinExec(
         p.leftKeys,
         p.rightKeys,
