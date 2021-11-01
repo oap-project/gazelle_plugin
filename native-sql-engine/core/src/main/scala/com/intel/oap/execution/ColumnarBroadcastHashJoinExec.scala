@@ -137,7 +137,7 @@ case class ColumnarBroadcastHashJoinExec(
   }
 
   override def output: Seq[Attribute] =
-    if (projectList == null || projectList.isEmpty) super.output
+    if (projectList == null) super.output
     else projectList.map(_.toAttribute)
   def getBuildPlan: SparkPlan = buildPlan
   override def supportsColumnar = true
@@ -429,11 +429,22 @@ case class ColumnarBroadcastHashJoinExec(
           }
           val outputNumRows = output_rb.getLength
           ConverterUtils.releaseArrowRecordBatch(input_rb)
-          val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, output_rb)
-          ConverterUtils.releaseArrowRecordBatch(output_rb)
-          eval_elapse += System.nanoTime() - beforeEval
+          val resBatch = if (probe_out_schema.getFields.size() == 0) {
+            // If no col is selected by Projection, empty batch will be returned.
+            val resultColumnVectors =
+              ArrowWritableColumnVector.allocateColumns(0, resultStructType)
+            ConverterUtils.releaseArrowRecordBatch(output_rb)
+            eval_elapse += System.nanoTime() - beforeEval
+            new ColumnarBatch(
+              resultColumnVectors.map(_.asInstanceOf[ColumnVector]), outputNumRows)
+          } else {
+            val output = ConverterUtils.fromArrowRecordBatch(probe_out_schema, output_rb)
+            ConverterUtils.releaseArrowRecordBatch(output_rb)
+            eval_elapse += System.nanoTime() - beforeEval
+            new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+          }
           numOutputRows += outputNumRows
-          new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+          resBatch
         }
       }
       SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit](_ => {
