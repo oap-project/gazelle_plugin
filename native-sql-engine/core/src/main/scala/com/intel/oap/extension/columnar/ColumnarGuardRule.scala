@@ -181,8 +181,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,
-            plan.child,
-            plan.requiredChildDistribution)
+            plan.child)
           window
         case plan: CoalesceExec =>
           ColumnarCoalesceExec(plan.numPartitions, plan.child)
