@@ -44,8 +44,8 @@ jobs:
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
-          git clone https://github.com/oap-project/arrow.git
-          cd arrow && git checkout arrow-4.0.0-oap && cd cpp
+          git clone https://github.com/zhixingheyi-tian/arrow.git
+          cd arrow && git checkout orcbackport && cd cpp
           mkdir build && cd build
           cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
           sudo make install
@@ -87,8 +87,8 @@ jobs:
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
-          git clone https://github.com/oap-project/arrow.git
-          cd arrow && git checkout arrow-4.0.0-oap && cd cpp
+          git clone https://github.com/zhixingheyi-tian/arrow.git
+          cd arrow && git checkout orcbackport && cd cpp
           mkdir build && cd build
           cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
           sudo make install
@@ -134,8 +134,8 @@ jobs:
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
-          git clone https://github.com/oap-project/arrow.git
-          cd arrow && git checkout arrow-4.0.0-oap && cd cpp
+          git clone https://github.com/zhixingheyi-tian/arrow.git
+          cd arrow && git checkout orcbackport && cd cpp
           mkdir build && cd build
           cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
           sudo make install
