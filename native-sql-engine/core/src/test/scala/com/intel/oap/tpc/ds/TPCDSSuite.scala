@@ -91,9 +91,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
   }
 
   test("window query") {
-    System.clearProperty("spark.testing") // to workaround SparkOptimizer#isPlanIntegral
     runner.runTPCQuery("q67", 1, true)
-    System.setProperty("spark.testing", "true")
   }
 
   test("smj query") {

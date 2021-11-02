@@ -31,8 +31,6 @@ import org.apache.spark.api.plugin.ExecutorPlugin
 import org.apache.spark.api.plugin.PluginContext
 import org.apache.spark.api.plugin.SparkPlugin
 import org.apache.spark.sql.SparkSessionExtensions
-import org.apache.spark.sql.catalyst.analysis.CleanupAliases
-import org.apache.spark.sql.catalyst.optimizer.FoldablePropagation
 import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
 
 class GazellePlugin extends SparkPlugin {
@@ -87,7 +85,7 @@ private[oap] trait GazelleSparkExtensionsInjector {
 
 private[oap] object GazellePlugin {
 
-  val LOCAL_OVERRIDDEN_CLASSES = Seq(CleanupAliases.getClass)
+  val LOCAL_OVERRIDDEN_CLASSES: Seq[Class[_]] = Seq()
 
   initialLocalOverriddenClasses()
 

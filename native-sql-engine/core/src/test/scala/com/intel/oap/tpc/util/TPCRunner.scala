@@ -33,7 +33,7 @@ class TPCRunner(val spark: SparkSession, val resource: String) {
     println("Running query %s (round %d)... ".format(caseId, roundId))
     val df = spark.sql(sql)
     if (explain) {
-      df.explain(extended = false)
+      df.explain(extended = true)
     }
     df.show(100)
   }

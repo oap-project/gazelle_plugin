@@ -18,9 +18,7 @@
 package com.intel.oap.extension
 
 import java.util.Objects
-
 import com.intel.oap.GazelleSparkExtensionsInjector
-
 import org.apache.spark.sql.SparkSessionExtensions
 import org.apache.spark.sql.catalyst.SQLConfHelper
 import org.apache.spark.sql.catalyst.expressions.{Alias, Attribute, AttributeReference, AttributeSet, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, NamedExpression, Rank, SortOrder, WindowExpression, WindowFunctionType}
@@ -28,9 +26,11 @@ import org.apache.spark.sql.catalyst.planning.PhysicalWindow
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
 
+import java.util
 
 object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
-  private val LOCAL_SUFFIX = "<>local"
+  val LOCAL_WINDOW_COLUMN_SUFFIX = "<>local"
+  val GLOBAL_WINDOW_COLUMN_SUFFIX = "<>global"
 
   // rank->filter to rank(local)->filter->rank-filter
   def apply(plan: LogicalPlan): LogicalPlan = {
@@ -42,10 +42,10 @@ object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
           case w @ PhysicalWindow(WindowFunctionType.SQL, windowExprs, partitionSpec, orderSpec,
           windowChild) =>
             if (w eq matchedWindow) {
-              val innerWindow = LocalWindow(windowExprs.map(expr => expr.transformDown {
+              val innerWindow = Window(windowExprs.map(expr => expr.transformDown {
                 case alias: Alias =>
                   if (filteredRankColumns.contains(alias.name)) {
-                    Alias(alias.child, alias.name + LOCAL_SUFFIX)()
+                    Alias(alias.child, toLocalWindowColumnName(alias.name))()
                   } else {
                     alias
                   }
@@ -56,7 +56,8 @@ object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
                 case attr: AttributeReference =>
                   if (filteredRankColumns.contains(attr.name)) {
                     val windowOutAttr = innerWindow.output
-                        .find(windowAttr => windowAttr.name == attr.name + LOCAL_SUFFIX).get
+                        .find(windowAttr => windowAttr.name ==
+                            toLocalWindowColumnName(attr.name)).get
                     windowOutAttr.toAttribute
                   } else {
                     attr
@@ -64,15 +65,41 @@ object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
                 case other => other
               }, innerWindow)
 
-              Window(windowExprs, partitionSpec, orderSpec,
+              val originalOutputAttributes = new util.HashMap[String, Alias]()
+
+              val outerWindow = Window(windowExprs.map {
+                expr => expr.transformDown {
+                  case alias: Alias =>
+                    if (filteredRankColumns.contains(alias.name)) {
+                      val globalName = toGlobalWindowColumnName(alias.name)
+                      val globalAlias = Alias(alias.child, globalName)()
+                      originalOutputAttributes.put(globalName, alias)
+                      globalAlias
+                    } else {
+                      alias
+                    }
+                  case other => other
+                }.asInstanceOf[NamedExpression]
+              }, partitionSpec, orderSpec,
                 Project(innerFilter.output.flatMap {
                   attr: Attribute =>
-                    if (attr.name.endsWith(LOCAL_SUFFIX)) {
+                    if (isLocalWindowColumnName(attr.name)) {
                       None
                     } else {
                       Some(attr)
                     }
                 }, innerFilter))
+              Project(outerWindow.output.map {
+                attr: Attribute =>
+                  if (isGlobalWindowColumnName(attr.name)) {
+                    val restoredAlias = originalOutputAttributes.get(attr.name)
+                    Alias(attr, restoredAlias.name)(restoredAlias.exprId,
+                      restoredAlias.qualifier, restoredAlias.explicitMetadata,
+                      restoredAlias.nonInheritableMetadataKeys)
+                  } else {
+                    attr
+                  }
+              }, outerWindow)
             } else {
               w
             }
@@ -81,18 +108,22 @@ object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
       case other @ _ => other
     }
   }
-}
 
-case class LocalWindow(
-    windowExpressions: Seq[NamedExpression],
-    partitionSpec: Seq[Expression],
-    orderSpec: Seq[SortOrder],
-    child: LogicalPlan) extends UnaryNode {
+  def toLocalWindowColumnName(col: String): String = {
+    col + LOCAL_WINDOW_COLUMN_SUFFIX
+  }
 
-  override def output: Seq[Attribute] =
-    child.output ++ windowExpressions.map(_.toAttribute)
+  def isLocalWindowColumnName(col: String): Boolean = {
+    col.endsWith(LOCAL_WINDOW_COLUMN_SUFFIX)
+  }
 
-  def windowOutputSet: AttributeSet = AttributeSet(windowExpressions.map(_.toAttribute))
+  def toGlobalWindowColumnName(col: String): String = {
+    col + GLOBAL_WINDOW_COLUMN_SUFFIX
+  }
+
+  def isGlobalWindowColumnName(col: String): Boolean = {
+    col.endsWith(GLOBAL_WINDOW_COLUMN_SUFFIX)
+  }
 }
 
 object RankFilterPattern {
@@ -119,7 +150,13 @@ object RankFilterPattern {
         } else {
           w.windowExpressions.head.collectFirst {
             case a @ Alias(WindowExpression(Rank(children), _), aliasName) =>
-              (Seq(Some(aliasName)), Some(w))
+              if (LocalRankWindow.isLocalWindowColumnName(a.name) ||
+                  LocalRankWindow.isGlobalWindowColumnName(a.name)) {
+                // already optimized
+                (Nil, None)
+              } else {
+                (Seq(Some(aliasName)), Some(w))
+              }
           }.getOrElse((Nil, None))
         }
       case _ => (Nil, None)

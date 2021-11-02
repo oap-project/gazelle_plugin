@@ -16,9 +16,9 @@
  */
 package com.intel.oap.execution
 
-import com.intel.oap.extension.LocalWindow
-import org.apache.spark.sql.catalyst.expressions.{Expression, NamedExpression, SortOrder, WindowFunctionType}
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
+import com.intel.oap.extension.LocalRankWindow
+import org.apache.spark.sql.catalyst.expressions.{Alias, Expression, NamedExpression, SortOrder, WindowFunctionType}
+import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, Window}
 
 object LocalPhysicalWindow {
   // windowFunctionType, windowExpression, partitionSpec, orderSpec, child
@@ -26,11 +26,18 @@ object LocalPhysicalWindow {
     (WindowFunctionType, Seq[NamedExpression], Seq[Expression], Seq[SortOrder], LogicalPlan)
 
   def unapply(a: Any): Option[ReturnType] = a match {
-    case expr @ LocalWindow(windowExpressions, partitionSpec, orderSpec, child) =>
+    case expr @ Window(windowExpressions, partitionSpec, orderSpec, child) =>
 
       // The window expression should not be empty here, otherwise it's a bug.
       if (windowExpressions.isEmpty) {
         throw new IllegalArgumentException(s"Window expression is empty in $expr")
+      }
+
+      if (!windowExpressions.exists(expr => {
+        expr.isInstanceOf[Alias] &&
+            LocalRankWindow.isLocalWindowColumnName(expr.asInstanceOf[Alias].name)
+      })) {
+        return None
       }
 
       val windowFunctionType = windowExpressions.map(WindowFunctionType.functionType)
