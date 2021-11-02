@@ -30,7 +30,7 @@ import java.util
 
 /**
  * This contains workarounds to vanilla spark's restrictions extending
- * optimizer rule sets. An ideal implementation may starts from SQL parser
+ * optimizer rule sets. An ideal implementation may start from SQL parser
  * to separate window using similar way as local/global limit were created.
  * Also, the rules around specific pattern matching of logical.Window may
  * need to be tuned as it's possible that we are adding LocalWindow, GlobalWindow
