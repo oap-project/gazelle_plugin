@@ -19,17 +19,19 @@ package com.intel.oap.extension
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.GazelleSparkExtensionsInjector
-
-import org.apache.spark.sql.SparkSessionExtensions
-import org.apache.spark.sql.Strategy
-import org.apache.spark.sql.catalyst.SQLConfHelper
+import com.intel.oap.execution.LocalPhysicalWindow
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.{SparkSessionExtensions, Strategy, execution}
+import org.apache.spark.sql.catalyst.{InternalRow, SQLConfHelper}
+import org.apache.spark.sql.catalyst.expressions.{Ascending, Attribute, Expression, JoinedRow, NamedExpression, SortOrder, SpecificInternalRow, UnsafeProjection, UnsafeRow, WindowFunctionType}
 import org.apache.spark.sql.catalyst.optimizer.BuildLeft
 import org.apache.spark.sql.catalyst.optimizer.BuildRight
 import org.apache.spark.sql.catalyst.optimizer.JoinSelectionHelper
-import org.apache.spark.sql.catalyst.planning.ExtractEquiJoinKeys
+import org.apache.spark.sql.catalyst.planning.{ExtractEquiJoinKeys, PhysicalWindow}
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.execution.SparkPlan
-import org.apache.spark.sql.execution.joins
+import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning}
+import org.apache.spark.sql.execution.{ExternalAppendOnlyUnsafeRowArray, SparkPlan, joins}
+import org.apache.spark.sql.execution.window.WindowExecBase
 
 
 object JoinSelectionOverrides extends Strategy with JoinSelectionHelper with SQLConfHelper {
@@ -73,8 +75,51 @@ object JoinSelectionOverrides extends Strategy with JoinSelectionHelper with SQL
   }
 }
 
+case class LocalWindowExec(
+    windowExpression: Seq[NamedExpression],
+    partitionSpec: Seq[Expression],
+    orderSpec: Seq[SortOrder],
+    child: SparkPlan)
+    extends WindowExecBase {
+
+  override def output: Seq[Attribute] =
+    child.output ++ windowExpression.map(_.toAttribute)
+
+  override def requiredChildDistribution: Seq[Distribution] = {
+    super.requiredChildDistribution
+  }
+
+  override def requiredChildOrdering: Seq[Seq[SortOrder]] =
+    Seq(partitionSpec.map(SortOrder(_, Ascending)) ++ orderSpec)
+
+  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
+
+  override def outputPartitioning: Partitioning = child.outputPartitioning
+
+  protected override def doExecute(): RDD[InternalRow] = {
+    // todo implement this to fall back
+    throw new UnsupportedOperationException()
+  }
+}
+
+object LocalWindowApply extends Strategy {
+  override def apply(plan: LogicalPlan): Seq[SparkPlan] = plan match {
+    case LocalPhysicalWindow(
+    WindowFunctionType.SQL, windowExprs, partitionSpec, orderSpec, child) =>
+      LocalWindowExec(
+        windowExprs, partitionSpec, orderSpec, planLater(child)) :: Nil
+
+    case LocalPhysicalWindow(
+    WindowFunctionType.Python, windowExprs, partitionSpec, orderSpec, child) =>
+      Nil // python window not supported
+
+    case _ => Nil
+  }
+}
+
 object StrategyOverrides extends GazelleSparkExtensionsInjector {
   override def inject(extensions: SparkSessionExtensions): Unit = {
     extensions.injectPlannerStrategy(_ => JoinSelectionOverrides)
+    extensions.injectPlannerStrategy(_ => LocalWindowApply)
   }
 }

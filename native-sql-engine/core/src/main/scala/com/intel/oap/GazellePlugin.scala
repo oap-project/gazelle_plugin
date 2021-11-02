@@ -31,7 +31,9 @@ import org.apache.spark.api.plugin.ExecutorPlugin
 import org.apache.spark.api.plugin.PluginContext
 import org.apache.spark.api.plugin.SparkPlugin
 import org.apache.spark.sql.SparkSessionExtensions
-import org.apache.spark.sql.internal.StaticSQLConf
+import org.apache.spark.sql.catalyst.analysis.CleanupAliases
+import org.apache.spark.sql.catalyst.optimizer.FoldablePropagation
+import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
 
 class GazellePlugin extends SparkPlugin {
   override def driverPlugin(): DriverPlugin = {
@@ -84,6 +86,11 @@ private[oap] trait GazelleSparkExtensionsInjector {
 }
 
 private[oap] object GazellePlugin {
+
+  val LOCAL_OVERRIDDEN_CLASSES = Seq(CleanupAliases.getClass)
+
+  initialLocalOverriddenClasses()
+
   // To enable GazellePlugin in production, set "spark.plugins=com.intel.oap.GazellePlugin"
   val SPARK_SQL_PLUGINS_KEY: String = "spark.plugins"
   val GAZELLE_PLUGIN_NAME: String = Objects.requireNonNull(classOf[GazellePlugin]
@@ -91,7 +98,6 @@ private[oap] object GazellePlugin {
   val SPARK_SESSION_EXTS_KEY: String = StaticSQLConf.SPARK_SESSION_EXTENSIONS.key
   val GAZELLE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     classOf[GazelleSessionExtensions].getCanonicalName)
-
   /**
    * Specify all injectors that Gazelle is using in following list.
    */
@@ -100,6 +106,11 @@ private[oap] object GazellePlugin {
     OptimizerOverrides,
     StrategyOverrides
   )
+
+  def initialLocalOverriddenClasses(): Unit = {
+    LOCAL_OVERRIDDEN_CLASSES.foreach(clazz =>
+      GazellePlugin.getClass.getClassLoader.loadClass(clazz.getName))
+  }
 
   implicit def sparkConfImplicit(conf: SparkConf): SparkConfImplicits = {
     new SparkConfImplicits(conf)

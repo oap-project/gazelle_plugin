@@ -19,7 +19,7 @@ package com.intel.oap.extension.columnar
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution._
-
+import com.intel.oap.extension.LocalWindowExec
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
@@ -181,6 +181,16 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
             plan.windowExpression,
             plan.partitionSpec,
             plan.orderSpec,
+            isLocalized = false,
+            plan.child)
+          window
+        case plan: LocalWindowExec =>
+          if (!enableColumnarWindow) return false
+          val window = ColumnarWindowExec.createWithOptimizations(
+            plan.windowExpression,
+            plan.partitionSpec,
+            plan.orderSpec,
+            isLocalized = true,
             plan.child)
           window
         case plan: CoalesceExec =>

@@ -18,7 +18,6 @@
 package com.intel.oap.execution
 
 import java.util.concurrent.TimeUnit
-
 import com.google.flatbuffers.FlatBufferBuilder
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.{CodeGeneration, ConverterUtils}
@@ -26,13 +25,12 @@ import com.intel.oap.vectorized.{ArrowWritableColumnVector, CloseableColumnBatch
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.aggregate._
 import org.apache.spark.sql.catalyst.expressions.{Alias, Ascending, Attribute, AttributeReference, Cast, Descending, Expression, Literal, MakeDecimal, NamedExpression, PredicateHelper, Rank, SortOrder, UnscaledValue, WindowExpression, WindowFunction, WindowSpecDefinition}
-import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning}
+import org.apache.spark.sql.catalyst.plans.physical.{AllTuples, ClusteredDistribution, Distribution, Partitioning, UnspecifiedDistribution}
 import org.apache.spark.sql.catalyst.rules.{Rule, RuleExecutor}
 import org.apache.spark.sql.catalyst.util.DateTimeUtils
 import org.apache.spark.sql.execution.{SortExec, SparkPlan}
@@ -44,17 +42,19 @@ import org.apache.spark.sql.types.{DataType, DateType, DecimalType, DoubleType, 
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.ExecutorManager
+
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Stream.Empty
 import scala.collection.mutable.ListBuffer
 import scala.util.Random
-
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+
 import util.control.Breaks._
 
 case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
     partitionSpec: Seq[Expression],
     orderSpec: Seq[SortOrder],
+    isLocal: Boolean,
     child: SparkPlan) extends WindowExecBase {
 
   override def supportsColumnar: Boolean = true
@@ -64,6 +64,10 @@ case class ColumnarWindowExec(windowExpression: Seq[NamedExpression],
   buildCheck()
 
   override def requiredChildDistribution: Seq[Distribution] = {
+    if (isLocal) {
+      // localized window doesn't require distribution
+      return Seq.fill(children.size)(UnspecifiedDistribution)
+    }
     if (partitionSpec.isEmpty) {
       // Only show warning when the number of bytes is larger than 100 MiB?
       logWarning("No Partition Defined for Window operation! Moving all data to a single "
@@ -421,7 +425,7 @@ object ColumnarWindowExec extends Logging {
     }
 
     override def apply(plan: SparkPlan): SparkPlan = plan transformUp {
-      case p @ ColumnarWindowExec(windowExpression, partitionSpec, orderSpec, child) =>
+      case p @ ColumnarWindowExec(windowExpression, partitionSpec, orderSpec, isLocalized, child) =>
         val windows = ListBuffer[NamedExpression]()
         val inProjectExpressions = ListBuffer[NamedExpression]()
         val outProjectExpressions = windowExpression.map(e => e.asInstanceOf[Alias])
@@ -431,7 +435,8 @@ object ColumnarWindowExec extends Logging {
           }
         val inputProject = ColumnarConditionProjectExec(null,
           child.output ++ inProjectExpressions, child)
-        val window = new ColumnarWindowExec(windows, partitionSpec, orderSpec, inputProject)
+        val window = new ColumnarWindowExec(windows, partitionSpec, orderSpec, isLocalized,
+          inputProject)
         val outputProject = ColumnarConditionProjectExec(null,
           child.output ++ outProjectExpressions, window)
         outputProject
@@ -440,14 +445,14 @@ object ColumnarWindowExec extends Logging {
 
   object RemoveSort extends Rule[SparkPlan] with PredicateHelper {
     override def apply(plan: SparkPlan): SparkPlan = plan transform {
-      case p1 @ ColumnarWindowExec(_, _, _, p2 @ (_: SortExec | _: ColumnarSortExec)) =>
+      case p1 @ ColumnarWindowExec(_, _, _, _, p2 @ (_: SortExec | _: ColumnarSortExec)) =>
         p1.withNewChildren(p2.children)
     }
   }
 
   object RemoveCoalesceBatches extends Rule[SparkPlan] with PredicateHelper {
     override def apply(plan: SparkPlan): SparkPlan = plan transform {
-      case p1 @ ColumnarWindowExec(_, _, _, p2: CoalesceBatchesExec) =>
+      case p1 @ ColumnarWindowExec(_, _, _, _, p2: CoalesceBatchesExec) =>
         p1.withNewChildren(p2.children)
     }
   }
@@ -516,11 +521,13 @@ object ColumnarWindowExec extends Logging {
   def createWithOptimizations(windowExpression: Seq[NamedExpression],
       partitionSpec: Seq[Expression],
       orderSpec: Seq[SortOrder],
+      isLocalized: Boolean,
       child: SparkPlan): SparkPlan = {
     val columnar = new ColumnarWindowExec(
       windowExpression,
       partitionSpec,
       orderSpec,
+      isLocalized,
       child)
     ColumnarWindowExec.optimize(columnar)
   }

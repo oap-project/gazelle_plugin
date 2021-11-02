@@ -18,10 +18,10 @@
 package com.intel.oap
 
 import com.intel.oap.execution._
+import com.intel.oap.extension.LocalWindowExec
 import com.intel.oap.extension.columnar.ColumnarGuardRule
 import com.intel.oap.extension.columnar.RowGuard
 import com.intel.oap.sql.execution.RowToArrowColumnarExec
-
 import org.apache.spark.internal.config._
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
@@ -235,10 +235,24 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           plan.windowExpression,
           plan.partitionSpec,
           plan.orderSpec,
+          isLocalized = false,
           replaceWithColumnarPlan(plan.child))
       } catch {
         case _: Throwable =>
           logInfo("Columnar Window: Falling back to regular Window...")
+          plan
+      }
+    case plan: LocalWindowExec =>
+      try {
+        ColumnarWindowExec.createWithOptimizations(
+          plan.windowExpression,
+          plan.partitionSpec,
+          plan.orderSpec,
+          isLocalized = true,
+          replaceWithColumnarPlan(plan.child))
+      } catch {
+        case _: Throwable =>
+          logInfo("Localized Columnar Window: Falling back to regular Window...")
           plan
       }
     case p =>

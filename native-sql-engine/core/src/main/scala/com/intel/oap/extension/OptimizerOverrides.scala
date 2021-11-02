@@ -23,42 +23,56 @@ import com.intel.oap.GazelleSparkExtensionsInjector
 
 import org.apache.spark.sql.SparkSessionExtensions
 import org.apache.spark.sql.catalyst.SQLConfHelper
-import org.apache.spark.sql.catalyst.expressions.Alias
-import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.expressions.AttributeReference
-import org.apache.spark.sql.catalyst.expressions.AttributeSet
-import org.apache.spark.sql.catalyst.expressions.Expression
-import org.apache.spark.sql.catalyst.expressions.GreaterThan
-import org.apache.spark.sql.catalyst.expressions.GreaterThanOrEqual
-import org.apache.spark.sql.catalyst.expressions.LessThan
-import org.apache.spark.sql.catalyst.expressions.LessThanOrEqual
-import org.apache.spark.sql.catalyst.expressions.Literal
-import org.apache.spark.sql.catalyst.expressions.NamedExpression
-import org.apache.spark.sql.catalyst.expressions.Rank
-import org.apache.spark.sql.catalyst.expressions.SortOrder
-import org.apache.spark.sql.catalyst.expressions.WindowExpression
-import org.apache.spark.sql.catalyst.plans.logical.Filter
-import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
-import org.apache.spark.sql.catalyst.plans.logical.Project
-import org.apache.spark.sql.catalyst.plans.logical.SubqueryAlias
-import org.apache.spark.sql.catalyst.plans.logical.UnaryNode
-import org.apache.spark.sql.catalyst.plans.logical.Window
+import org.apache.spark.sql.catalyst.expressions.{Alias, Attribute, AttributeReference, AttributeSet, Expression, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Literal, NamedExpression, Rank, SortOrder, WindowExpression, WindowFunctionType}
+import org.apache.spark.sql.catalyst.planning.PhysicalWindow
+import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.catalyst.rules.Rule
 
 
 object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
+  private val LOCAL_SUFFIX = "<>local"
+
   // rank->filter to rank(local)->filter->rank-filter
   def apply(plan: LogicalPlan): LogicalPlan = {
     plan.transformUp {
       // up
-      case p @ RankFilterPattern(filterCond, matchedWindow) =>
+      case p @ RankFilterPattern(filterCond, matchedWindow, filteredRankColumns) =>
         p.transformDown {
           // down
-          case w @ Window(windowExprs, partitionSpec, orderSpec, windowChild) =>
+          case w @ PhysicalWindow(WindowFunctionType.SQL, windowExprs, partitionSpec, orderSpec,
+          windowChild) =>
             if (w eq matchedWindow) {
+              val innerWindow = LocalWindow(windowExprs.map(expr => expr.transformDown {
+                case alias: Alias =>
+                  if (filteredRankColumns.contains(alias.name)) {
+                    Alias(alias.child, alias.name + LOCAL_SUFFIX)()
+                  } else {
+                    alias
+                  }
+                case other => other
+              }.asInstanceOf[NamedExpression]), partitionSpec, orderSpec, windowChild)
+
+              val innerFilter = Filter(filterCond.transformDown {
+                case attr: AttributeReference =>
+                  if (filteredRankColumns.contains(attr.name)) {
+                    val windowOutAttr = innerWindow.output
+                        .find(windowAttr => windowAttr.name == attr.name + LOCAL_SUFFIX).get
+                    windowOutAttr.toAttribute
+                  } else {
+                    attr
+                  }
+                case other => other
+              }, innerWindow)
+
               Window(windowExprs, partitionSpec, orderSpec,
-                Filter(filterCond,
-                  LocalizedWindow(windowExprs, partitionSpec, orderSpec, windowChild)))
+                Project(innerFilter.output.flatMap {
+                  attr: Attribute =>
+                    if (attr.name.endsWith(LOCAL_SUFFIX)) {
+                      None
+                    } else {
+                      Some(attr)
+                    }
+                }, innerFilter))
             } else {
               w
             }
@@ -69,7 +83,7 @@ object LocalRankWindow extends Rule[LogicalPlan] with SQLConfHelper {
   }
 }
 
-case class LocalizedWindow(
+case class LocalWindow(
     windowExpressions: Seq[NamedExpression],
     partitionSpec: Seq[Expression],
     orderSpec: Seq[SortOrder],
@@ -82,8 +96,8 @@ case class LocalizedWindow(
 }
 
 object RankFilterPattern {
-  // filterExpression, window relation
-  private type ReturnType = (Expression, Window)
+  // filterExpression, window relation, filtered rank column name
+  private type ReturnType = (Expression, Window, Seq[String])
 
   def getRankColumns(plan: LogicalPlan): (Seq[Option[String]], Option[Window]) = {
     plan match {
@@ -131,21 +145,25 @@ object RankFilterPattern {
   def unapply(a: Any): Option[ReturnType] = a match {
     case f @ Filter(cond, child) =>
       val (rankColumns, window) = getRankColumns(f.child)
-      if (rankColumns.flatten.exists { col =>
-        cond match {
-          case lt @ LessThan(l, r) =>
+      val filteredRankColumns: Seq[String] = rankColumns.flatten.flatMap { col =>
+        val isDesiredPattern = cond match {
+          // todo rk < 100 && xxx ?
+          case lt@LessThan(l, r) =>
             isColumnReference(l, col) && isLiteral(r)
-          case lte @ LessThanOrEqual(l, r) =>
+          case lte@LessThanOrEqual(l, r) =>
             isColumnReference(l, col) && isLiteral(r)
-          case gt @ GreaterThan(l, r) =>
+          case gt@GreaterThan(l, r) =>
             isColumnReference(r, col) && isLiteral(l)
-          case gt @ GreaterThanOrEqual(l, r) =>
+          case gt@GreaterThanOrEqual(l, r) =>
             isColumnReference(r, col) && isLiteral(l)
           case _ =>
             false
         }
-      }) {
-        Some(cond, window.get)
+        if (isDesiredPattern) Some(col) else None
+      }
+
+      if (filteredRankColumns.nonEmpty) {
+        Some(cond, window.get, filteredRankColumns)
       } else {
         None
       }
