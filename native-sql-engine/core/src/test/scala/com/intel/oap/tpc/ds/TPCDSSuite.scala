@@ -92,6 +92,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   test("window query") {
     runner.runTPCQuery("q67", 1, true)
+    Thread.sleep(3600000L)
   }
 
   test("smj query") {
