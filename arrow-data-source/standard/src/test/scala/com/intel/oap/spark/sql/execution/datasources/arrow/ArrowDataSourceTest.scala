@@ -297,6 +297,24 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     assert(fdGrowth < 100)
   }
 
+  private val orcFile = "people.orc"
+  test("read orc file") {
+    val path = ArrowDataSourceTest.locateResourcePath(orcFile)
+    verifyFrame(
+      spark.read
+        .format("arrow")
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+        .load(path), 2, 3)
+  }
+
+  test("read orc file - programmatic API ") {
+    val path = ArrowDataSourceTest.locateResourcePath(orcFile)
+    verifyFrame(
+      spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+        .arrow(path), 2, 3)
+  }
+
   private val csvFile1 = "people.csv"
   private val csvFile2 = "example.csv"
   private val csvFile3 = "example-tab.csv"
