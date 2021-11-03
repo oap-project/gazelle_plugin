@@ -246,7 +246,7 @@ trait RowToArrowColumnarTransition extends UnaryExecNode
 case class RowToArrowColumnarExec(child: SparkPlan) extends RowToArrowColumnarTransition {
   override def output: Seq[Attribute] = child.output
 
-  override def outputPartitioning: Partitioning = child.outputPartitioning
+  override def outputPartitioning: Partitioning = child.outputPartitioning  
 
   override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 

@@ -94,6 +94,10 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           override def close(): Unit = {
             writeQueue.close()
           }
+
+          override def path(): String = {
+            path
+          }
         }
       }
     }

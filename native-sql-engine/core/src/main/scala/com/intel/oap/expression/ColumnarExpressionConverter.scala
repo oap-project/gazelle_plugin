@@ -271,11 +271,7 @@ object ColumnarExpressionConverter extends Logging {
             columnarDivide,
             expr)
         }
-      case oaps: com.intel.oap.expression.ColumnarScalarSubquery =>
-        oaps
-      case s: org.apache.spark.sql.execution.ScalarSubquery =>
-        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
-        new ColumnarScalarSubquery(s)
+
       case c: Concat =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -348,8 +344,6 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(i.value)
       case ss: Substring =>
         containsSubquery(ss.str) || containsSubquery(ss.pos) || containsSubquery(ss.len)
-      case oaps: com.intel.oap.expression.ColumnarScalarSubquery =>
-        return true
       case s: org.apache.spark.sql.execution.ScalarSubquery =>
         return true
       case c: Concat =>
