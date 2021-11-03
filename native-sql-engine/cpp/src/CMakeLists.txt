@@ -138,9 +138,9 @@ macro(build_arrow STATIC_ARROW)
   set(BINARY_RELEASE_DIR "${root_directory}/releases")
 
   ExternalProject_Add(arrow_ep
-                      GIT_REPOSITORY https://github.com/oap-project/arrow.git
+                      GIT_REPOSITORY https://github.com/FelixYBW/arrow.git
                       SOURCE_DIR ${ARROW_SOURCE_DIR}
-                      GIT_TAG arrow-4.0.0-oap
+                      GIT_TAG oap_project_arrow-4.0.0-oap
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${ARROW_PREFIX}
                       INSTALL_COMMAND make install
