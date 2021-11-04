@@ -314,6 +314,15 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
         .arrow(path), 2, 3)
   }
 
+  test("create catalog table for orc") {
+    val path = ArrowDataSourceTest.locateResourcePath(orcFile)
+    //    spark.catalog.createTable("people", path, "arrow")
+    spark.catalog.createTable("people", "arrow", Map("path" -> path, "originalFormat" -> "orc"))
+    val sql = "select * from people"
+    spark.sql(sql).explain()
+    verifyFrame(spark.sql(sql), 2, 3)
+  }
+
   test("simple SQL query on orc file ") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     val frame = spark.read
