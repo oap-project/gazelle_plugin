@@ -26,7 +26,6 @@ import com.intel.oap.spark.sql.DataFrameWriterImplicits._
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
 import com.sun.management.UnixOperatingSystemMXBean
 import org.apache.commons.io.FileUtils
-
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{DataFrame, QueryTest, Row}
@@ -35,7 +34,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.StaticSQLConf.SPARK_SESSION_EXTENSIONS
 import org.apache.spark.sql.test.SharedSparkSession
-import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 
 class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   private val parquetFile1 = "parquet-1.parquet"
@@ -313,6 +312,24 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
         .arrow(path), 2, 3)
+  }
+
+  test("simple SQL query on orc file ") {
+    val path = ArrowDataSourceTest.locateResourcePath(orcFile)
+    val frame = spark.read
+      .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+      .arrow(path)
+    frame.createOrReplaceTempView("people")
+    val sqlFrame = spark.sql("select * from people")
+    assert(
+      sqlFrame.schema ===
+        StructType(Seq(StructField("name", StringType),
+          StructField("age", IntegerType), StructField("job", StringType))))
+    val rows = sqlFrame.collect()
+    assert(rows(0).get(0) == "Jorge")
+    assert(rows(0).get(1) == 30)
+    assert(rows(0).get(2) == "Developer")
+    assert(rows.length === 2)
   }
 
   private val csvFile1 = "people.csv"
