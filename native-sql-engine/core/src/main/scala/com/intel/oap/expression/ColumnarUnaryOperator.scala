@@ -436,7 +436,7 @@ class ColumnarCast(
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castINT")
       }
     } else if (datatype == LongType) {
-      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType, TimestampType)
+      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType, TimestampType, StringType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
@@ -547,6 +547,8 @@ class ColumnarCast(
                 TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0),
                   toType),
                 TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), toType), toType)
+        case _: StringType => (
+            TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0), toType), toType)
         case _ => (TreeBuilder.makeFunction("castBIGINT",
           Lists.newArrayList(child_node0), toType), toType)
       }
