@@ -20,13 +20,10 @@ package com.intel.oap
 import java.util
 import java.util.Collections
 import java.util.Objects
-
 import scala.language.implicitConversions
-
 import com.intel.oap.GazellePlugin.GAZELLE_SESSION_EXTENSION_NAME
 import com.intel.oap.GazellePlugin.SPARK_SESSION_EXTS_KEY
-import com.intel.oap.extension.StrategyOverrides
-
+import com.intel.oap.extension.{OptimizerOverrides, StrategyOverrides}
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.api.plugin.DriverPlugin
@@ -34,7 +31,7 @@ import org.apache.spark.api.plugin.ExecutorPlugin
 import org.apache.spark.api.plugin.PluginContext
 import org.apache.spark.api.plugin.SparkPlugin
 import org.apache.spark.sql.SparkSessionExtensions
-import org.apache.spark.sql.internal.StaticSQLConf
+import org.apache.spark.sql.internal.{SQLConf, StaticSQLConf}
 
 class GazellePlugin extends SparkPlugin {
   override def driverPlugin(): DriverPlugin = {
@@ -87,6 +84,11 @@ private[oap] trait GazelleSparkExtensionsInjector {
 }
 
 private[oap] object GazellePlugin {
+
+  val LOCAL_OVERRIDDEN_CLASSES: Seq[Class[_]] = Seq()
+
+  initialLocalOverriddenClasses()
+
   // To enable GazellePlugin in production, set "spark.plugins=com.intel.oap.GazellePlugin"
   val SPARK_SQL_PLUGINS_KEY: String = "spark.plugins"
   val GAZELLE_PLUGIN_NAME: String = Objects.requireNonNull(classOf[GazellePlugin]
@@ -94,14 +96,19 @@ private[oap] object GazellePlugin {
   val SPARK_SESSION_EXTS_KEY: String = StaticSQLConf.SPARK_SESSION_EXTENSIONS.key
   val GAZELLE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     classOf[GazelleSessionExtensions].getCanonicalName)
-
   /**
    * Specify all injectors that Gazelle is using in following list.
    */
   val DEFAULT_INJECTORS: List[GazelleSparkExtensionsInjector] = List(
     ColumnarOverrides,
+    OptimizerOverrides,
     StrategyOverrides
   )
+
+  def initialLocalOverriddenClasses(): Unit = {
+    LOCAL_OVERRIDDEN_CLASSES.foreach(clazz =>
+      GazellePlugin.getClass.getClassLoader.loadClass(clazz.getName))
+  }
 
   implicit def sparkConfImplicit(conf: SparkConf): SparkConfImplicits = {
     new SparkConfImplicits(conf)
