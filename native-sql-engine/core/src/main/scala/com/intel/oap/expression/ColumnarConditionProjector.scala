@@ -153,7 +153,7 @@ class ColumnarConditionProjector(
           projectionSchema,
           resultSchema,
           fieldNodesList,
-          SelectionVectorType.SV_INT16)
+          SelectionVectorType.SV_INT32)
       } else {
         new FieldOptimizedProjector(projectionSchema, resultSchema, fieldNodesList)
       }
@@ -200,7 +200,7 @@ class ColumnarConditionProjector(
         var afterEval: Long = 0
         var numRows = 0
         var input: ArrowRecordBatch = null
-        var selectionVector: SelectionVectorInt16 = null
+        var selectionVector: SelectionVectorInt32 = null
         while (numRows == 0) {
           if (cbIterator.hasNext) {
             columnarBatch = cbIterator.next()
@@ -230,8 +230,8 @@ class ColumnarConditionProjector(
                 selectionBuffer.close()
                 selectionBuffer = null
               }
-              selectionBuffer = allocator.buffer(numRows * 2)
-              selectionVector = new SelectionVectorInt16(selectionBuffer)
+              selectionBuffer = allocator.buffer(numRows * 4)
+              selectionVector = new SelectionVectorInt32(selectionBuffer)
               val cols = conditionOrdinalList.map(i => {
                 columnarBatch.column(i).asInstanceOf[ArrowWritableColumnVector].getValueVector
               })
