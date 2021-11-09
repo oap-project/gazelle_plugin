@@ -25,7 +25,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.FloatingPointPrecision
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.DateUnit
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.optimizer._
@@ -48,9 +47,9 @@ import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMillis
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixSeconds
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import org.apache.arrow.vector.types.TimeUnit
-
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+import org.apache.spark.sql.internal.SQLConf
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -479,6 +478,10 @@ class ColumnarCast(
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+
+    // To compatible with Spark SQL ansi
+    val ansiEnabled = SQLConf.get.ansiEnabled
+
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
@@ -534,6 +537,13 @@ class ColumnarCast(
             Lists.newArrayList(round_down_node),
             new ArrowType.Int(64, true))
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), toType)
+        case _: StringType =>
+          // compatible with spark ANSI
+          if (ansiEnabled) {
+            TreeBuilder.makeFunction("castINTOrNull", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
+          }
         case other =>
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
       }
@@ -547,6 +557,13 @@ class ColumnarCast(
                 TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0),
                   toType),
                 TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), toType), toType)
+        case _: StringType =>
+          // compatible with spark ANSI
+          if (ansiEnabled) {
+            (TreeBuilder.makeFunction("castBIGINTOrNull", Lists.newArrayList(child_node0), toType), toType)
+          } else {
+            (TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0), toType), toType)
+          }
         case _ => (TreeBuilder.makeFunction("castBIGINT",
           Lists.newArrayList(child_node0), toType), toType)
       }
@@ -558,13 +575,28 @@ class ColumnarCast(
             Lists.newArrayList(child_node0),
             new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))
           TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(double_node), toType)
+        case _: StringType =>
+          // compatible with spark ANSI
+          if (ansiEnabled) {
+            TreeBuilder.makeFunction("castFLOAT4OrNull", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
+          }
         case other =>
           TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
       }
       (funcNode, toType)
     } else if (dataType == DoubleType) {
-      val funcNode =
-        TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+      val funcNode = child.dataType match {
+        case _: StringType =>
+          if (ansiEnabled) {
+            TreeBuilder.makeFunction("castFLOAT8OrNull", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+          }
+        case other =>
+          TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+      }
       (funcNode, toType)
     } else if (dataType == DateType) {
       val funcNode = child.dataType match {
