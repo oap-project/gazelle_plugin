@@ -71,6 +71,7 @@ cmake ./cpp \
         -DARROW_GANDIVA_JAVA=ON \
         -DARROW_GANDIVA=ON \
         -DARROW_PARQUET=ON \
+        -DARROW_ORC=ON \
         -DARROW_HDFS=ON \
         -DARROW_BOOST_USE_SHARED=OFF \
         -DARROW_JNI=ON \

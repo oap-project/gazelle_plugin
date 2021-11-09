@@ -116,6 +116,7 @@ object ArrowUtils {
     val paramMap = options.parameters.toMap.asJava
     options.originalFormat match {
       case "parquet" => org.apache.arrow.dataset.file.format.ParquetFileFormat.create(paramMap)
+      case "orc" => org.apache.arrow.dataset.file.format.OrcFileFormat.create(paramMap)
       case "csv" => org.apache.arrow.dataset.file.format.CsvFileFormat.create(paramMap)
       case _ => throw new IllegalArgumentException("Unrecognizable format")
     }
