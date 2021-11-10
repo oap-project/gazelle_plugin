@@ -32,7 +32,6 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     val lines =
       try source.mkString
       finally source.close()
-    return true
     //TODO(): check CPU flags to enable/disable AVX512
     if (lines.contains("GenuineIntel")) {
       return true
