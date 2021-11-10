@@ -26,6 +26,7 @@ import com.intel.oap.spark.sql.DataFrameWriterImplicits._
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
 import com.sun.management.UnixOperatingSystemMXBean
 import org.apache.commons.io.FileUtils
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SaveMode
 import org.apache.spark.sql.{DataFrame, QueryTest, Row}
@@ -34,14 +35,18 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.internal.StaticSQLConf.SPARK_SESSION_EXTENSIONS
 import org.apache.spark.sql.test.SharedSparkSession
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.{LongType, StringType, StructField, StructType}
 
 class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
+  import testImplicits._
+
   private val parquetFile1 = "parquet-1.parquet"
   private val parquetFile2 = "parquet-2.parquet"
   private val parquetFile3 = "parquet-3.parquet"
   private val parquetFile4 = "parquet-4.parquet"
   private val parquetFile5 = "parquet-5.parquet"
+  private val parquetFile6 = "parquet-6.parquet"
 
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
@@ -94,6 +99,14 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       .format("parquet")
       .mode("overwrite")
       .parquet(ArrowDataSourceTest.locateResourcePath(parquetFile5))
+
+    spark.range(100)
+        .map(i => Tuple1((i, Seq(s"val1_$i", s"val2_$i"), Map((s"ka_$i", s"va_$i"),
+          (s"kb_$i", s"vb_$i")))))
+        .write
+        .format("parquet")
+        .mode("overwrite")
+        .parquet(ArrowDataSourceTest.locateResourcePath(parquetFile6))
 
   }
 
@@ -296,22 +309,33 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     assert(fdGrowth < 100)
   }
 
+  test("parquet reader on data type: struct, array, map") {
+    val path = ArrowDataSourceTest.locateResourcePath(parquetFile6)
+    val frame = spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+        .arrow(path)
+    frame.createOrReplaceTempView("ptab3")
+    val df = spark.sql("select * from ptab3")
+    df.explain()
+    df.show()
+  }
+
   private val orcFile = "people.orc"
   test("read orc file") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     verifyFrame(
       spark.read
-        .format("arrow")
-        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
-        .load(path), 2, 3)
+          .format("arrow")
+          .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+          .load(path), 2, 3)
   }
 
   test("read orc file - programmatic API ") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     verifyFrame(
       spark.read
-        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
-        .arrow(path), 2, 3)
+          .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+          .arrow(path), 2, 3)
   }
 
   test("create catalog table for orc") {
@@ -326,14 +350,14 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   test("simple SQL query on orc file ") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     val frame = spark.read
-      .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
-      .arrow(path)
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+        .arrow(path)
     frame.createOrReplaceTempView("people")
     val sqlFrame = spark.sql("select * from people")
     assert(
       sqlFrame.schema ===
-        StructType(Seq(StructField("name", StringType),
-          StructField("age", IntegerType), StructField("job", StringType))))
+          StructType(Seq(StructField("name", StringType),
+            StructField("age", IntegerType), StructField("job", StringType))))
     val rows = sqlFrame.collect()
     assert(rows(0).get(0) == "Jorge")
     assert(rows(0).get(1) == 30)
