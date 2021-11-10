@@ -93,7 +93,7 @@ class ColumnarFilter (
       selectionBuffer.close()
       selectionBuffer = null
     }
-    selectionBuffer = allocator.buffer(inputRecordBatch.getLength * 2)
+    selectionBuffer = allocator.buffer(inputRecordBatch.getLength * 4)
     val selectionVector = new SelectionVectorInt32(selectionBuffer)
     filter.evaluate(inputRecordBatch, selectionVector)
     selectionVector
