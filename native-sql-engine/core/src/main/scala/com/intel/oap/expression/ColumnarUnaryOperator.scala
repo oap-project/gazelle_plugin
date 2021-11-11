@@ -538,11 +538,11 @@ class ColumnarCast(
             new ArrowType.Int(64, true))
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), toType)
         case _: StringType =>
-          // compatible with spark ANSI
+          // Compatible with spark ANSI
           if (ansiEnabled) {
-            TreeBuilder.makeFunction("castINTOrNull", Lists.newArrayList(child_node0), toType)
-          } else {
             TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castINTOrNull", Lists.newArrayList(child_node0), toType)
           }
         case other =>
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
@@ -558,11 +558,11 @@ class ColumnarCast(
                   toType),
                 TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), toType), toType)
         case _: StringType =>
-          // compatible with spark ANSI
+          // Compatible with spark ANSI
           if (ansiEnabled) {
-            (TreeBuilder.makeFunction("castBIGINTOrNull", Lists.newArrayList(child_node0), toType), toType)
-          } else {
             (TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0), toType), toType)
+          } else {
+            (TreeBuilder.makeFunction("castBIGINTOrNull", Lists.newArrayList(child_node0), toType), toType)
           }
         case _ => (TreeBuilder.makeFunction("castBIGINT",
           Lists.newArrayList(child_node0), toType), toType)
@@ -576,11 +576,11 @@ class ColumnarCast(
             new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))
           TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(double_node), toType)
         case _: StringType =>
-          // compatible with spark ANSI
+          // Compatible with spark ANSI
           if (ansiEnabled) {
-            TreeBuilder.makeFunction("castFLOAT4OrNull", Lists.newArrayList(child_node0), toType)
-          } else {
             TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castFLOAT4OrNull", Lists.newArrayList(child_node0), toType)
           }
         case other =>
           TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
@@ -589,10 +589,11 @@ class ColumnarCast(
     } else if (dataType == DoubleType) {
       val funcNode = child.dataType match {
         case _: StringType =>
+          // Compatible with spark ANSI
           if (ansiEnabled) {
-            TreeBuilder.makeFunction("castFLOAT8OrNull", Lists.newArrayList(child_node0), toType)
-          } else {
             TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castFLOAT8OrNull", Lists.newArrayList(child_node0), toType)
           }
         case other =>
           TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
