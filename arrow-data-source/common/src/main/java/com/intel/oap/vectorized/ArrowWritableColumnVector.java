@@ -58,7 +58,6 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   private ArrowVectorAccessor accessor;
   private ArrowVectorWriter writer;
 
-  private int ordinal;
   private ValueVector vector;
   private ValueVector dictionaryVector;
   private static BufferAllocator OffRecordAllocator = SparkMemoryUtils.globalAllocator();
@@ -89,7 +88,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     ArrowWritableColumnVector[] vectors =
         new ArrowWritableColumnVector[fieldVectors.size()];
     for (int i = 0; i < fieldVectors.size(); i++) {
-      vectors[i] = new ArrowWritableColumnVector(fieldVectors.get(i), i, capacity, true);
+      vectors[i] = new ArrowWritableColumnVector(fieldVectors.get(i), capacity, true);
     }
     // LOG.info("allocateColumns allocator is " + allocator);
     return vectors;
@@ -107,7 +106,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
         new ArrowWritableColumnVector[fieldVectors.size()];
     for (int i = 0; i < fieldVectors.size(); i++) {
       vectors[i] = new ArrowWritableColumnVector(
-          fieldVectors.get(i), dictionaryVectors.get(i), i, capacity, false);
+          fieldVectors.get(i), dictionaryVectors.get(i), capacity, false);
     }
     return vectors;
   }
@@ -117,7 +116,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     ArrowWritableColumnVector[] vectors =
         new ArrowWritableColumnVector[fieldVectors.size()];
     for (int i = 0; i < fieldVectors.size(); i++) {
-      vectors[i] = new ArrowWritableColumnVector(fieldVectors.get(i), i, capacity, false);
+      vectors[i] = new ArrowWritableColumnVector(fieldVectors.get(i), capacity, false);
     }
     return vectors;
   }
@@ -140,17 +139,16 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   @Deprecated
   public ArrowWritableColumnVector(
-      ValueVector vector, int ordinal, int capacity, boolean init) {
-    this(vector, null, ordinal, capacity, init);
+      ValueVector vector, int capacity, boolean init) {
+    this(vector, null, capacity, init);
   }
 
-  public ArrowWritableColumnVector(ValueVector vector, ValueVector dicionaryVector,
-      int ordinal, int capacity, boolean init) {
+  public ArrowWritableColumnVector(ValueVector vector, ValueVector dicionaryVector, int capacity,
+                                   boolean init) {
     super(capacity, ArrowUtils.fromArrowField(vector.getField()));
     vectorCount.getAndIncrement();
     refCnt.getAndIncrement();
 
-    this.ordinal = ordinal;
     this.vector = vector;
     this.dictionaryVector = dicionaryVector;
     if (init) {
@@ -231,21 +229,23 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     } else if (vector instanceof TimeStampMicroVector
         || vector instanceof TimeStampMicroTZVector) {
       accessor = new TimestampMicroAccessor((TimeStampVector) vector);
+    } else if (vector instanceof MapVector) {
+      MapVector mapVector = (MapVector) vector;
+      accessor = new MapAccessor(mapVector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       accessor = new ArrayAccessor(listVector);
       childColumns = new ArrowWritableColumnVector[1];
       childColumns[0] = new ArrowWritableColumnVector(
-          listVector.getDataVector(), 0, listVector.size(), false);
+          listVector.getDataVector(), listVector.size(), false);
     } else if (vector instanceof StructVector) {
-      throw new UnsupportedOperationException();
-      /*StructVector structVector = (StructVector) vector;
+      StructVector structVector = (StructVector) vector;
       accessor = new StructAccessor(structVector);
 
       childColumns = new ArrowWritableColumnVector[structVector.size()];
       for (int i = 0; i < childColumns.length; ++i) {
-        childColumns[i] = new ArrowWritableColumnVector(structVector.getVectorById(i));
-      }*/
+        childColumns[i] = new ArrowWritableColumnVector(structVector.getVectorById(i), null, structVector.size(), false);
+      }
     } else {
       throw new UnsupportedOperationException();
     }
@@ -277,6 +277,9 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     } else if (vector instanceof TimeStampMicroVector
         || vector instanceof TimeStampMicroTZVector) {
       return new TimestampMicroWriter((TimeStampVector) vector);
+    } else if (vector instanceof MapVector) {
+      MapVector mapVector = (MapVector) vector;
+      return new MapWriter(mapVector);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       ArrowVectorWriter elementVector = createVectorWriter(listVector.getDataVector());
@@ -893,6 +896,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     int getArrayOffset(int rowId) {
       throw new UnsupportedOperationException();
     }
+
+    ColumnarMap getMap(int rowId) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private static class BooleanAccessor extends ArrowVectorAccessor {
@@ -1223,6 +1230,40 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       super(vector);
     }
   }
+
+  private static class MapAccessor extends ArrowVectorAccessor {
+    private final MapVector accessor;
+    private final ArrowColumnVector keys;
+    private final ArrowColumnVector values;
+
+    MapAccessor(MapVector vector) {
+      super(vector);
+      this.accessor = vector;
+      StructVector entries = (StructVector) vector.getDataVector();
+      this.keys = new ArrowColumnVector(entries.getChild(MapVector.KEY_NAME));
+      this.values = new ArrowColumnVector(entries.getChild(MapVector.VALUE_NAME));
+    }
+
+    @Override
+    final ColumnarMap getMap(int rowId) {
+      int index = rowId * MapVector.OFFSET_WIDTH;
+      int offset = accessor.getOffsetBuffer().getInt(index);
+      int length = accessor.getInnerValueCountAt(rowId);
+      return new ColumnarMap(keys, values, offset, length);
+    }
+
+    @Override
+    int getArrayOffset(int rowId) {
+      int index = rowId * MapVector.OFFSET_WIDTH;
+      return accessor.getOffsetBuffer().getInt(index);
+    }
+
+    @Override
+    int getArrayLength(int rowId) {
+      return accessor.getInnerValueCountAt(rowId);
+    }
+  }
+
 
   /* Arrow Vector Writer */
   private abstract static class ArrowVectorWriter {
@@ -1882,6 +1923,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
   private static class StructWriter extends ArrowVectorWriter {
     StructWriter(StructVector vector, ArrowVectorWriter[] children) {
+      super(vector);
+    }
+  }
+
+  private static class MapWriter extends ArrowVectorWriter {
+    MapWriter(ValueVector vector) {
       super(vector);
     }
   }
