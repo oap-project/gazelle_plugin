@@ -312,7 +312,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              func_name.compare("castINTOrNull") != 0 &&
              func_name.compare("castBIGINTOrNull") != 0 &&
              func_name.compare("castFLOAT4OrNull") != 0 &&
-             func_name.copmare("castFLOAT8OrNull") != 0) {
+             func_name.compare("castFLOAT8OrNull") != 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
     real_codes_str_ = codes_str_;
@@ -507,7 +507,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
 
-    if (func_name.compare("castINTOrNull") == 0 ) {
+    std::string func_str;
+    if (func_name.compare("castINTOrNull") == 0) {
       func_str = " = std::stoi";
     } else if (func_name.compare("castBIGINTOrNull") == 0) {
       func_str = " = std::stol";
@@ -518,8 +519,15 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_ss << codes_str_ << func_str
                << "("
-               << child_visitor_list[0]->GetResult() << fix_ss.str() << ");"
+               << child_visitor_list[0]->GetResult() << ");"
                << std::endl;
+    prepare_ss << "}" << std::endl;
+
+    for (int i = 0; i < 1; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    prepare_str_ += prepare_ss.str();
+    check_str_ = validity;
   } else if (func_name.compare("rescaleDECIMAL") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
