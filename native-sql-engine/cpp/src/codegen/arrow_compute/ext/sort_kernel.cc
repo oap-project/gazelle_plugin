@@ -1574,8 +1574,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       -> typename std::enable_if_t<std::is_same<T, arrow::StringType>::value> {
     if (asc_) {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetString(x.id) <
-               cached_key_[y.array_id]->GetString(y.id);
+        return cached_key_[x.array_id]->GetView(x.id) <
+               cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
         std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
@@ -1584,8 +1584,8 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       }
     } else {
       auto comp = [this](const ArrayItemIndexS& x, const ArrayItemIndexS& y) {
-        return cached_key_[x.array_id]->GetString(x.id) >
-               cached_key_[y.array_id]->GetString(y.id);
+        return cached_key_[x.array_id]->GetView(x.id) >
+               cached_key_[y.array_id]->GetView(y.id);
       };
       if (nulls_first_) {
         std::sort(indices_begin + nulls_total_, indices_begin + items_total_, comp);
@@ -2143,11 +2143,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     auto x_num_value =
         array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto x_str_value =
-        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetString(x.id)";
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto y_num_value =
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto y_str_value =
-        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto is_x_null = array + std::to_string(cur_key_idx) + "_[x.array_id]->IsNull(x.id)";
     auto is_y_null = array + std::to_string(cur_key_idx) + "_[y.array_id]->IsNull(y.id)";
     auto x_null_count =
@@ -2259,11 +2259,11 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext* ctx,
     auto x_num_value =
         array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto x_str_value =
-        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetString(x.id)";
+        array + std::to_string(cur_key_idx) + "_[x.array_id]->GetView(x.id)";
     auto y_num_value =
         array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto y_str_value =
-        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetString(y.id)";
+        array + std::to_string(cur_key_idx) + "_[y.array_id]->GetView(y.id)";
     auto is_x_nan = "std::isnan(" + x_num_value + ")";
     auto is_y_nan = "std::isnan(" + y_num_value + ")";
 
