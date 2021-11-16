@@ -62,7 +62,7 @@ echo "ARROW_SOURCE_DIR=${ARROW_SOURCE_DIR}"
 echo "ARROW_INSTALL_DIR=${ARROW_INSTALL_DIR}"
 mkdir -p $ARROW_SOURCE_DIR
 mkdir -p $ARROW_INSTALL_DIR
-git clone https://github.com/oap-project/arrow.git  --branch arrow-4.0.0-oap $ARROW_SOURCE_DIR
+git clone https://github.com/zhouyuan/arrow.git  --branch wip_update_fastpfor $ARROW_SOURCE_DIR
 pushd $ARROW_SOURCE_DIR
 
 cmake ./cpp \
