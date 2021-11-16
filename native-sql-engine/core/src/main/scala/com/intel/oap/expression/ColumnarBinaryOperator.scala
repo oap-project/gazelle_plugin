@@ -110,8 +110,11 @@ class ColumnarLike(left: Expression, right: Expression, original: Expression)
 
   def buildCheck(): Unit = {
     if (original.asInstanceOf[Like].escapeChar.toString.nonEmpty) {
-      throw new UnsupportedOperationException(
-        s"escapeChar is not supported in ColumnarLike")
+      val escapeChar = original.asInstanceOf[Like].escapeChar.toString
+      if (escapeChar != "\\") {
+        throw new UnsupportedOperationException(
+          s"escapeChar $escapeChar is not supported in ColumnarLike")
+      }
     }
     if (!right.isInstanceOf[Literal]) {
       throw new UnsupportedOperationException(
