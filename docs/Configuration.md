@@ -29,6 +29,7 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 | spark.oap.sql.columnar.nanCheck | Enable or Disable Nan Check, default is true | true |
 | spark.oap.sql.columnar.hashCompare | Enable or Disable Hash Compare in HashJoins or HashAgg, default is true | true |
 | spark.oap.sql.columnar.broadcastJoin | Enable or Disable Columnar BradcastHashJoin, default is true | true |
+| spark.oap.sql.columnar.sortmergejoin.lazyread | Enable or Disable lazy reading on Sort result. On disable, whole partition will be cached before doing SortMergeJoin | false |
 | spark.oap.sql.columnar.wholestagecodegen | Enable or Disable Columnar WholeStageCodeGen, default is true | true |
 | spark.oap.sql.columnar.preferColumnar | Enable or Disable Columnar Operators, default is false.<br /> This parameter could impact the performance in different case. In some cases, to set false can get some performance boost. | false |
 | spark.oap.sql.columnar.joinOptimizationLevel | Fallback to row operators if there are several continous joins | 6 |
@@ -39,6 +40,53 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 | spark.oap.sql.columnar.shuffle.customizedCompression.codec | Set up the codec to be used for Columnar Shuffle, default is lz4| lz4 |
 | spark.oap.sql.columnar.numaBinding | Set up NUMABinding, default is false| true |
 | spark.oap.sql.columnar.coreRange | Set up the core range for NUMABinding, only works when numaBinding set to true. <br /> The setting is based on the number of cores in your system(lscpu | grep node[0-4]). Use 72 cores as an example. | 0-17,36-53 &#124;18-35,54-71 |
+
+## Example thrift-server configuration
+Here's one example of the thrift-server configuration
+```
+THRIFTSERVER_CONFIG="--name ${runname}
+--num-executors 72
+--driver-memory 20g
+--executor-memory 6g
+--executor-cores 6
+--master yarn
+--deploy-mode client
+--conf spark.executor.memoryOverhead=384
+--conf spark.executorEnv.CC=/home/sparkuser/miniconda3/envs/arrow-new/bin/gcc
+--conf spark.plugins=com.intel.oap.GazellePlugin
+--conf spark.executorEnv.LD_LIBRARY_PATH=/home/sparkuser/miniconda3/envs/arrow-new/lib/:/home/sparkuser/miniconda3/envs/arrow-new/lib64/
+--conf spark.executorEnv.LIBARROW_DIR=/home/sparkuser/miniconda3/envs/arrow-new
+--conf spark.driver.extraClassPath=${nativesql_jars}
+--conf spark.executor.extraClassPath=${nativesql_jars}
+--conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager
+--conf spark.sql.join.preferSortMergeJoin=false
+--conf spark.sql.inMemoryColumnarStorage.batchSize=${batchsize}
+--conf spark.sql.execution.arrow.maxRecordsPerBatch=${batchsize}
+--conf spark.sql.parquet.columnarReaderBatchSize=${batchsize}
+--conf spark.sql.autoBroadcastJoinThreshold=10M
+--conf spark.sql.broadcastTimeout=600
+--conf spark.sql.crossJoin.enabled=true
+--conf spark.driver.maxResultSize=20g
+--hiveconf hive.server2.thrift.port=10001
+--hiveconf hive.server2.thrift.bind.host=sr270
+--conf spark.sql.codegen.wholeStage=true
+--conf spark.sql.shuffle.partitions=432
+--conf spark.memory.offHeap.enabled=true
+--conf spark.memory.offHeap.size=15g
+--conf spark.kryoserializer.buffer.max=128m
+--conf spark.kryoserializer.buffer=32m
+--conf spark.oap.sql.columnar.preferColumnar=false
+--conf spark.oap.sql.columnar.sortmergejoin.lazyread=true
+--conf spark.sql.execution.sort.spillThreshold=2147483648
+--conf spark.executorEnv.LD_PRELOAD=/home/sparkuser/miniconda3/envs/arrow-new/lib/libjemalloc.so
+--conf spark.executorEnv.MALLOC_CONF=background_thread:true,dirty_decay_ms:0,muzzy_decay_ms:0,narenas:2
+--conf spark.executorEnv.MALLOC_ARENA_MAX=2
+--conf spark.oap.sql.columnar.numaBinding=true
+--conf spark.oap.sql.columnar.coreRange=0-35,72-107|36-71,108-143
+--conf spark.oap.sql.columnar.joinOptimizationLevel=18
+--conf spark.oap.sql.columnar.shuffle.customizedCompression.codec=lz4
+--conf spark.yarn.appMasterEnv.LD_PRELOAD=/home/sparkuser/miniconda3/envs/arrow-new/lib/libjemalloc.so"
+```
 
 Below is an example for spark-default.conf, if you are using conda to install OAP project.
 
