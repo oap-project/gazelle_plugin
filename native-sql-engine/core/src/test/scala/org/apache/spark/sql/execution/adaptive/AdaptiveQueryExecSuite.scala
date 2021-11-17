@@ -411,7 +411,7 @@ class AdaptiveQueryExecSuite
       val smj = findTopLevelSortMergeJoin(plan)
       assert(smj.size == 3)
       val bhj = findTopLevelColumnarBroadcastHashJoin(adaptivePlan)
-      assert(bhj.size == 2)
+      assert(bhj.size == 3)
 
       // A possible resulting query plan:
       // BroadcastHashJoin
@@ -1360,7 +1360,7 @@ class AdaptiveQueryExecSuite
         val plan = dfRepartition.queryExecution.executedPlan
         // The top shuffle from repartition is optimized out.
         assert(!hasRepartitionShuffle(plan))
-        val bhj = findTopLevelBroadcastHashJoin(plan)
+        val bhj = findTopLevelColumnarBroadcastHashJoin(plan)
         assert(bhj.length == 1)
         checkNumLocalShuffleReaders(plan, 1)
         // Probe side is coalesced.
@@ -1374,7 +1374,7 @@ class AdaptiveQueryExecSuite
         val planWithNum = dfRepartitionWithNum.queryExecution.executedPlan
         // The top shuffle from repartition is optimized out.
         assert(!hasRepartitionShuffle(planWithNum))
-        val bhjWithNum = findTopLevelBroadcastHashJoin(planWithNum)
+        val bhjWithNum = findTopLevelColumnarBroadcastHashJoin(planWithNum)
         assert(bhjWithNum.length == 1)
         checkNumLocalShuffleReaders(planWithNum, 1)
         // Probe side is not coalesced.
@@ -1387,7 +1387,7 @@ class AdaptiveQueryExecSuite
         // The top shuffle from repartition is not optimized out, and this is the only shuffle that
         // does not have local shuffle reader.
         assert(hasRepartitionShuffle(planWithNum2))
-        val bhjWithNum2 = findTopLevelBroadcastHashJoin(planWithNum2)
+        val bhjWithNum2 = findTopLevelColumnarBroadcastHashJoin(planWithNum2)
         assert(bhjWithNum2.length == 1)
         checkNumLocalShuffleReaders(planWithNum2, 1)
         val customReader2 = bhjWithNum2.head.right.find(_.isInstanceOf[CustomShuffleReaderExec])
@@ -1407,7 +1407,7 @@ class AdaptiveQueryExecSuite
         val plan = dfRepartition.queryExecution.executedPlan
         // The top shuffle from repartition is optimized out.
         assert(!hasRepartitionShuffle(plan))
-        val smj = findTopLevelSortMergeJoin(plan)
+        val smj = findTopLevelColumnarSortMergeJoin(plan)
         assert(smj.length == 1)
         // No skew join due to the repartition.
         assert(!smj.head.isSkewJoin)
@@ -1423,7 +1423,7 @@ class AdaptiveQueryExecSuite
         val planWithNum = dfRepartitionWithNum.queryExecution.executedPlan
         // The top shuffle from repartition is optimized out.
         assert(!hasRepartitionShuffle(planWithNum))
-        val smjWithNum = findTopLevelSortMergeJoin(planWithNum)
+        val smjWithNum = findTopLevelColumnarSortMergeJoin(planWithNum)
         assert(smjWithNum.length == 1)
         // No skew join due to the repartition.
         assert(!smjWithNum.head.isSkewJoin)
@@ -1439,7 +1439,7 @@ class AdaptiveQueryExecSuite
         val planWithNum2 = dfRepartitionWithNum2.queryExecution.executedPlan
         // The top shuffle from repartition is not optimized out.
         assert(hasRepartitionShuffle(planWithNum2))
-        val smjWithNum2 = findTopLevelSortMergeJoin(planWithNum2)
+        val smjWithNum2 = findTopLevelColumnarSortMergeJoin(planWithNum2)
         assert(smjWithNum2.length == 1)
         // Skew join can apply as the repartition is not optimized out.
         assert(smjWithNum2.head.isSkewJoin)
