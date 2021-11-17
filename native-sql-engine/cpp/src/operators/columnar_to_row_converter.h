@@ -47,7 +47,7 @@ class ColumnarToRowConverter {
   std::vector<int64_t> buffer_cursor_;
   std::shared_ptr<arrow::RecordBatch> rb_;
   std::shared_ptr<arrow::Buffer> buffer_;
-  arrow::MemoryPool* memory_pool_ = arrow::default_memory_pool();
+  arrow::MemoryPool* memory_pool_;
   int64_t nullBitsetWidthInBytes_;
   int64_t num_cols_;
   int64_t num_rows_;
