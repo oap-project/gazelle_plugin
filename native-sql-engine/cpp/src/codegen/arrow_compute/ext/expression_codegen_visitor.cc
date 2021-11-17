@@ -517,10 +517,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     } else {
       func_str = " = std::stod";
     }
-    prepare_ss << codes_str_ << func_str
-               << "("
-               << child_visitor_list[0]->GetResult() << ");"
-               << std::endl;
+    prepare_ss << codes_str_ << func_str << "(" << child_visitor_list[0]->GetResult()
+               << ");" << std::endl;
     prepare_ss << "}" << std::endl;
 
     for (int i = 0; i < 1; i++) {
