@@ -66,38 +66,26 @@ case class ColumnarHashAggregateExec(
     aggregateExpressions: Seq[AggregateExpression],
     aggregateAttributes: Seq[Attribute],
     initialInputBufferOffset: Int,
-    var resultExpressions: Seq[NamedExpression],
+    resultExpressions: Seq[NamedExpression],
     child: SparkPlan)
     extends BaseAggregateExec
-    with ColumnarCodegenSupport
-    with AliasAwareOutputPartitioning {
+    with ColumnarCodegenSupport  {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
   override def supportsColumnar = true
 
   var resAttributes: Seq[Attribute] = resultExpressions.map(_.toAttribute)
-  if (aggregateExpressions != null && aggregateExpressions.nonEmpty) {
-    aggregateExpressions.head.mode match {
-      case Partial =>
-        // To fix the expression ids in result expressions being different with those from
-        // inputAggBufferAttributes, in Partial Aggregate,
-        // result attributes are recalculated to set the result expressions.
-        resAttributes = groupingExpressions.map(_.toAttribute) ++
-          aggregateExpressions.flatMap(_.aggregateFunction.inputAggBufferAttributes)
-        resultExpressions = resAttributes
-      case _ =>
-    }
-  }
+
+  override lazy val allAttributes: AttributeSeq =
+    child.output ++ aggregateBufferAttributes ++ aggregateAttributes ++
+      aggregateExpressions.flatMap(_.aggregateFunction.inputAggBufferAttributes)
 
   // Members declared in org.apache.spark.sql.execution.AliasAwareOutputPartitioning
   override protected def outputExpressions: Seq[NamedExpression] = resultExpressions
 
   // Members declared in org.apache.spark.sql.execution.CodegenSupport
   protected def doProduce(ctx: CodegenContext): String = throw new UnsupportedOperationException()
-
-  // Members declared in org.apache.spark.sql.catalyst.plans.QueryPlan
-  override def output: Seq[Attribute] = resAttributes
 
   // Members declared in org.apache.spark.sql.execution.SparkPlan
   protected override def doExecute()
