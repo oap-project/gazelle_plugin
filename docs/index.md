@@ -96,8 +96,10 @@ ${SPARK_HOME}/bin/spark-shell \
         --verbose \
         --master yarn \
         --driver-memory 10G \
+        --conf --conf spark.plugins=com.intel.oap.GazellePlugin \
         --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
         --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
+        --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
@@ -155,7 +157,7 @@ We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin an
 
 ![Performance](./image/decision_support_bench2_result_by_query.png)
 
-Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.
+Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin. Please check the [detailed page](./performance.md) on performance tuning for TPC-H and TPC-DS workloads.
 
 ## Memory allocation
 The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings [here](./memory.md), the memroy footprint is stable during a TPC-DS power run.
