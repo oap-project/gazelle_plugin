@@ -2,10 +2,13 @@
 
 It is complicated to tune for Spark workloads as each varies a lot. Here are several general tuning options on the most popular TPCH/TPC-DS benchmarking.
 
-## Data Generating
-On non-partiton tables, it's better to set the number of files to times of total HT cores in your cluster, e.g., there are 384 cores in your cluster, we'd better to set the file numbers to 2*384 or 3*384 to ensure. In this way Spark would only issue one task for each file(together with spark.sql.files.maxPartitionBytes option).
-
-Note the spark.sql.files.maxRecordsPerFile will also split the files in to smaller ones. We may just disable this feature to -1.
+## Columnar Batch size
+Spark have several options to control the batch size at different operators. We suggest to use bigger value as this will bring better cache efficiency especially for columnar processing.
+```
+--conf spark.sql.inMemoryColumnarStorage.batchSize=20480
+--conf spark.sql.execution.arrow.maxRecordsPerBatch=20480
+--conf spark.sql.parquet.columnarReaderBatchSize=20480
+```
 
 ## Shuffle Partitions
 As Gazelle currently only supports hash based shuffle, it's recommended to use 1 or 2 times shuffle partitions of the total HT cores in the cluster. e.g., there are 384 cores in the cluster, it's better to use spark.sql.shuffle.partitions = 384 or 768. It this way it's most efficient for Gazelle. 
@@ -19,3 +22,7 @@ Unlike Spark, most of the memory usage in Gazelle would be off-heap based. So a 
 --conf spark.memory.offHeap.enabled=true // enable off-heap thus Spark can control the memory
 --conf spark.memory.offHeap.size=15g // a big off-heap is required
 ```  
+## Data Generating
+On non-partiton tables, it's better to set the number of files to times of total HT cores in your cluster, e.g., there are 384 cores in your cluster, we'd better to set the file numbers to 2x384 or 3x384 to ensure. In this way Spark would only issue one task for each file(together with spark.sql.files.maxPartitionBytes option).
+
+Note the spark.sql.files.maxRecordsPerFile will also split the files in to smaller ones. We may just disable this feature to -1.

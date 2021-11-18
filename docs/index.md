@@ -96,7 +96,7 @@ ${SPARK_HOME}/bin/spark-shell \
         --verbose \
         --master yarn \
         --driver-memory 10G \
-        --conf --conf spark.plugins=com.intel.oap.GazellePlugin \
+        --conf spark.plugins=com.intel.oap.GazellePlugin \
         --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
         --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
         --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
@@ -104,7 +104,8 @@ ${SPARK_HOME}/bin/spark-shell \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
         --conf spark.executor.memory=20G \
-        --conf spark.memory.offHeap.size=80G \
+        --conf spark.memory.offHeap.enabled=true \
+        --conf spark.memory.offHeap.size=20G \
         --conf spark.task.cpus=1 \
         --conf spark.locality.wait=0s \
         --conf spark.sql.shuffle.partitions=72 \
@@ -173,5 +174,5 @@ The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1
 
 ## Contact
 
-chendi.xue@intel.com
+weiting.chen@intel.com
 binwei.yang@intel.com
