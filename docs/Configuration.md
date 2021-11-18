@@ -32,12 +32,12 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 | spark.oap.sql.columnar.sortmergejoin.lazyread | Enable or Disable lazy reading on Sort result. On disable, whole partition will be cached before doing SortMergeJoin | false |
 | spark.oap.sql.columnar.wholestagecodegen | Enable or Disable Columnar WholeStageCodeGen, default is true | true |
 | spark.oap.sql.columnar.preferColumnar | Enable or Disable Columnar Operators, default is false.<br /> This parameter could impact the performance in different case. In some cases, to set false can get some performance boost. | false |
-| spark.oap.sql.columnar.joinOptimizationLevel | Fallback to row operators if there are several continous joins | 6 |
+| spark.oap.sql.columnar.joinOptimizationLevel | Fallback to row operators if there are several continous joins | 18 |
 | spark.sql.execution.arrow.maxRecordsPerBatch | Set up the Max Records per Batch | 10000 |
 | spark.sql.execution.sort.spillThreshold | Set up the Max sort in memory threshold in bytes, default is disabled | -1 |
 | spark.oap.sql.columnar.wholestagecodegen.breakdownTime | Enable or Disable metrics in Columnar WholeStageCodeGen | false |
 | spark.oap.sql.columnar.tmp_dir | Set up a folder to store the codegen files, default is disabled | "" |
-| spark.oap.sql.columnar.shuffle.customizedCompression.codec | Set up the codec to be used for Columnar Shuffle, default is lz4| lz4 |
+| spark.oap.sql.columnar.shuffle.customizedCompression.codec | Set up the codec to be used for Columnar Shuffle, default is lz4. The other option is fastpfor which can bring better perf on compressing fixed-size based contents like int| lz4 |
 | spark.oap.sql.columnar.numaBinding | Set up NUMABinding, default is false| true |
 | spark.oap.sql.columnar.coreRange | Set up the core range for NUMABinding, only works when numaBinding set to true. <br /> The setting is based on the number of cores in your system(lscpu | grep node[0-4]). Use 72 cores as an example. | 0-17,36-53 &#124;18-35,54-71 |
 
