@@ -49,6 +49,7 @@ import org.apache.spark.sql.catalyst.expressions.UnixMicros
 import org.apache.spark.sql.catalyst.expressions.UnixMillis
 import org.apache.spark.sql.catalyst.expressions.UnixSeconds
 import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
+import org.apache.spark.sql.catalyst.expressions.FromUnixTime
 import org.apache.spark.sql.catalyst.expressions.Year
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{DateType, IntegerType, LongType, StringType, TimestampType}
@@ -489,6 +490,43 @@ object ColumnarDateTimeExpressions {
         TreeBuilder.makeFunction(
           "unix_date_seconds", Lists.newArrayList(leftNode), outType)
       }
+      (dateNode, outType)
+    }
+  }
+
+  class ColumnarFromUnixTime(left: Expression, right: Expression)
+      extends FromUnixTime(left, right) with
+      ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedTypes = List(TimestampType)
+      if (supportedTypes.indexOf(left.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} is not supported in ColumnarFromUnixTime.")
+      }
+      if (left.dataType == StringType) {
+        right match {
+          case literal: ColumnarLiteral =>
+            val format = literal.value.toString
+            if (format.length > 10) {
+              throw new UnsupportedOperationException(
+                s"$format is not supported in ColumnarFromUnixTime.")
+            }
+          case _ =>
+        }
+      }
+    }
+
+    override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+      val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      //val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val outType = CodeGeneration.getResultType(dataType)
+
+      val dateNode = TreeBuilder.makeFunction(
+        "castVARCHAR", Lists.newArrayList(leftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(10L))), outType)
+
       (dateNode, outType)
     }
   }
