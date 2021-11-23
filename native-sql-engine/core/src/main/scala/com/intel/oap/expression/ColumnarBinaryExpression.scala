@@ -34,6 +34,7 @@ import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateDiff
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarFromUnixTime
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -83,6 +84,8 @@ object ColumnarBinaryExpression {
         new ColumnarDateDiff(left, right)
       case a: UnixTimestamp =>
         new ColumnarUnixTimestamp(left, right)
+      case a: FromUnixTime =>
+        new ColumnarFromUnixTime(left, right)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
