@@ -67,7 +67,24 @@ object ColumnarExpressionConverter extends Logging {
         new ColumnarLiteral(lit)
       case regexp: RegExpReplace =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
-        ColumnarRegExpReplaceOperator.create(regexp.subject, regexp.regexp, regexp.rep, regexp.pos, regexp)
+        ColumnarRegExpReplaceOperator.create(
+          replaceWithColumnarExpression(
+            regexp.subject,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            regexp.regexp,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            regexp.rep,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            regexp.pos,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          regexp)
 
       case binArith: BinaryArithmetic =>
         check_if_no_calculation = false
@@ -367,6 +384,8 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(b.left) || containsSubquery(b.right)
       case s: String2TrimExpression =>
         s.children.map(containsSubquery).exists(_ == true)
+      case regexp: RegExpReplace =>
+        containsSubquery(regexp.subject) || containsSubquery(regexp.regexp) || containsSubquery(regexp.rep) || containsSubquery(regexp.pos)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
