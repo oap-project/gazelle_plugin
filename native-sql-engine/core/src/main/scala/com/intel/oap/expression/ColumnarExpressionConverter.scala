@@ -65,6 +65,10 @@ object ColumnarExpressionConverter extends Logging {
       case lit: Literal =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         new ColumnarLiteral(lit)
+      case regexp: RegExpReplace =>
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        ColumnarRegExpReplaceOperator.create(regexp.subject, regexp.regexp, regexp.rep, regexp.pos, regexp)
+
       case binArith: BinaryArithmetic =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
