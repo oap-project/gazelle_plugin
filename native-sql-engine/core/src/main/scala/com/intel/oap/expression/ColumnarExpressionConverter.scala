@@ -156,11 +156,13 @@ object ColumnarExpressionConverter extends Logging {
       case st: String2TrimExpression =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
-        ColumnarString2TrimOperator.create(replaceWithColumnarExpression(
-          st,
-          attributeSeq,
-          convertBoundRefToAttrRef = convertBoundRefToAttrRef
-        ), expr)
+        val exps = st.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarString2TrimOperator.create(exps, expr)
       case i: If =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")

@@ -28,8 +28,8 @@ import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.util.ArrowUtils
 
 // StringTrim
-class ColumnarStringTrim(child: Expression, trimStr: Option[Expression], original: Expression)
-    extends StringTrim(child: Expression, trimStr: Option[Expression])
+class ColumnarStringTrim(srcStr: Expression, trimStr: Option[Expression], original: Expression)
+    extends StringTrim(srcStr: Expression, trimStr: Option[Expression])
         with ColumnarExpression
         with Logging {
 
@@ -40,27 +40,27 @@ class ColumnarStringTrim(child: Expression, trimStr: Option[Expression], origina
       StringType
     )
     // It is not supported to specify trimStr. By default, space is trimmed.
-    if (supportedTypes.indexOf(child.dataType) == -1 || !trimStr.isEmpty) {
+    if (supportedTypes.indexOf(srcStr.dataType) == -1 || !trimStr.isEmpty) {
       throw new UnsupportedOperationException(
-        s"${child.dataType} is not supported in ColumnarStringTrim.")
+        s"${srcStr.dataType} is not supported in ColumnarStringTrim.")
     }
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    val (child_node, childType): (TreeNode, ArrowType) =
-      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (srcStr_node, srcStrType): (TreeNode, ArrowType) =
+      srcStr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val resultType = ArrowUtils.toArrowType(StringType,
       SparkSchemaUtils.getLocalTimezoneID())
     val funcNode =
-      TreeBuilder.makeFunction("btrim", Lists.newArrayList(child_node), resultType)
+      TreeBuilder.makeFunction("btrim", Lists.newArrayList(srcStr_node), resultType)
     (funcNode, resultType)
   }
 }
 
 // StringTrimLeft
-class ColumnarStringTrimLeft(child: Expression, trimStr: Option[Expression], original: Expression)
-    extends StringTrimLeft(child: Expression, trimStr: Option[Expression])
+class ColumnarStringTrimLeft(srcStr: Expression, trimStr: Option[Expression], original: Expression)
+    extends StringTrimLeft(srcStr: Expression, trimStr: Option[Expression])
         with ColumnarExpression
         with Logging {
 
@@ -70,20 +70,20 @@ class ColumnarStringTrimLeft(child: Expression, trimStr: Option[Expression], ori
     val supportedTypes = List(
       StringType
     )
-    if (supportedTypes.indexOf(child.dataType) == -1 || !trimStr.isEmpty) {
+    if (supportedTypes.indexOf(srcStr.dataType) == -1 || !trimStr.isEmpty) {
       throw new UnsupportedOperationException(
-        s"${child.dataType} is not supported in ColumnarStringTrimLeft.")
+        s"${srcStr.dataType} is not supported in ColumnarStringTrimLeft.")
     }
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    val (child_node, childType): (TreeNode, ArrowType) =
-      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (srcStr_node, srcStrType): (TreeNode, ArrowType) =
+      srcStr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
     val resultType = ArrowUtils.toArrowType(StringType,
       SparkSchemaUtils.getLocalTimezoneID())
     val funcNode =
-      TreeBuilder.makeFunction("ltrim", Lists.newArrayList(child_node), resultType)
+      TreeBuilder.makeFunction("ltrim", Lists.newArrayList(srcStr_node), resultType)
     (funcNode, resultType)
   }
 }
@@ -120,14 +120,14 @@ class ColumnarStringTrimRight(child: Expression, trimStr: Option[Expression], or
 
 object ColumnarString2TrimOperator {
 
-  def create(value: Expression,
+  def create(value: Seq[Expression],
              original: Expression): Expression = original match {
     case a: StringTrim =>
-      new ColumnarStringTrim(value, a.trimStr, a)
+      new ColumnarStringTrim(value(0), Some(value(1)), a)
     case a: StringTrimLeft =>
-      new ColumnarStringTrimLeft(value, a.trimStr, a)
+      new ColumnarStringTrimLeft(value(0), Some(value(1)), a)
     case a: StringTrimRight =>
-      new ColumnarStringTrimRight(value, a.trimStr, a)
+      new ColumnarStringTrimRight(value(0), Some(value(1)), a)
 
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
