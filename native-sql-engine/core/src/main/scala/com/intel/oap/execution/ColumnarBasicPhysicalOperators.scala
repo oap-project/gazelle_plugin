@@ -23,6 +23,7 @@ import com.intel.oap.vectorized._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
+import org.apache.spark.sql.catalyst.plans.physical._
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
@@ -332,7 +333,7 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
   
   override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 
-  //override def outputPartitioning: Partitioning = child.outputPartitioning
+  override def outputPartitioning: Partitioning = child.outputPartitioning
 
   override def supportsColumnar = true
   override def output: Seq[Attribute] = child.output
@@ -370,8 +371,8 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
   
   override def outputOrdering: Seq[SortOrder] = child.outputOrdering
 
-  //override def outputPartitioning: Partitioning = child.outputPartitioning
-  //override def requiredChildDistribution: List[Distribution] = AllTuples :: Nil
+  override def outputPartitioning: Partitioning = child.outputPartitioning
+  override def requiredChildDistribution: List[Distribution] = AllTuples :: Nil
 
   override def supportsColumnar = true
   override def output: Seq[Attribute] = child.output
