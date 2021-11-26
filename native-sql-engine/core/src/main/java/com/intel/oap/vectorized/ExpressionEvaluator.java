@@ -22,7 +22,7 @@ import com.intel.oap.execution.ColumnarNativeIterator;
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer;
-import org.apache.arrow.gandiva.evaluator.SelectionVectorInt16;
+import org.apache.arrow.gandiva.evaluator.SelectionVectorInt32;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
@@ -175,7 +175,7 @@ public class ExpressionEvaluator implements AutoCloseable {
   /**
    * Evaluate input data using builded native function, and output as recordBatch.
    */
-  public ArrowRecordBatch[] evaluate(ArrowRecordBatch recordBatch, SelectionVectorInt16 selectionVector)
+  public ArrowRecordBatch[] evaluate(ArrowRecordBatch recordBatch, SelectionVectorInt32 selectionVector)
       throws RuntimeException, IOException {
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();

@@ -590,7 +590,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluateWithSe
       reinterpret_cast<uint8_t*>(selection_vector_buf_addr), selection_vector_buf_size);
 
   auto selection_arraydata = arrow::ArrayData::Make(
-      arrow::uint16(), selection_vector_count, {NULLPTR, selection_vector_buf});
+      arrow::uint32(), selection_vector_count, {NULLPTR, selection_vector_buf});
   auto selection_array = arrow::MakeArray(selection_arraydata);
 
   std::vector<std::shared_ptr<arrow::RecordBatch>> out;
@@ -852,7 +852,7 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessWithSelection(
       reinterpret_cast<uint8_t*>(selection_vector_buf_addr), selection_vector_buf_size);
 
   auto selection_arraydata = arrow::ArrayData::Make(
-      arrow::uint16(), selection_vector_count, {NULLPTR, selection_vector_buf});
+      arrow::uint32(), selection_vector_count, {NULLPTR, selection_vector_buf});
   auto selection_array = arrow::MakeArray(selection_arraydata);
 
   std::shared_ptr<arrow::RecordBatch> out;
@@ -938,7 +938,7 @@ Java_com_intel_oap_vectorized_BatchIterator_nativeProcessAndCacheOneWithSelectio
       reinterpret_cast<uint8_t*>(selection_vector_buf_addr), selection_vector_buf_size);
 
   auto selection_arraydata = arrow::ArrayData::Make(
-      arrow::uint16(), selection_vector_count, {NULLPTR, selection_vector_buf});
+      arrow::uint32(), selection_vector_count, {NULLPTR, selection_vector_buf});
   auto selection_array = arrow::MakeArray(selection_arraydata);
   JniAssertOkOrThrow(iter->ProcessAndCacheOne(in, selection_array),
                      "nativeProcessAndCache: ResultIterator process next failed");
