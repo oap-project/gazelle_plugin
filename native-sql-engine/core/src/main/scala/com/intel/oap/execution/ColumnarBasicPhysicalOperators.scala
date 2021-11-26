@@ -339,7 +339,38 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
   override def output: Seq[Attribute] = child.output
   protected override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitions { iter =>
-      iter.take(limit)
+    val hasInput = iter.hasNext
+      val res = if (hasInput) {
+        new Iterator[ColumnarBatch] {
+          var rowCount = 0
+          override def hasNext: Boolean = {
+            val hasNext = iter.hasNext
+            hasNext && (rowCount <= limit)
+          }
+
+          override def next(): ColumnarBatch = {
+
+            if (!hasNext) {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+
+            if (rowCount < limit) {
+              val delta = iter.next()
+              rowCount += delta.numRows
+              if (rowCount > limit) {
+                val newSize = rowCount - limit
+                delta.setNumRows(newSize)
+              }
+              delta
+            } else {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+          }
+        }
+      } else {
+        Iterator.empty
+      }
+      new CloseableColumnBatchIterator(res)
     }
   }
   
@@ -347,6 +378,7 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
+
 }
 
 case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
@@ -378,7 +410,38 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
   override def output: Seq[Attribute] = child.output
   protected override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     child.executeColumnar().mapPartitions { iter =>
-      iter.take(limit)
+      val hasInput = iter.hasNext
+      val res = if (hasInput) {
+        new Iterator[ColumnarBatch] {
+          var rowCount = 0
+          override def hasNext: Boolean = {
+            val hasNext = iter.hasNext
+            hasNext && (rowCount <= limit)
+          }
+
+          override def next(): ColumnarBatch = {
+
+            if (!hasNext) {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+
+            if (rowCount < limit) {
+              val delta = iter.next()
+              rowCount += delta.numRows
+              if (rowCount > limit) {
+                val newSize = rowCount - limit
+                delta.setNumRows(newSize)
+              }
+              delta
+            } else {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+          }
+        }
+      } else {
+        Iterator.empty
+      }
+      new CloseableColumnBatchIterator(res)
     }
   }
   
