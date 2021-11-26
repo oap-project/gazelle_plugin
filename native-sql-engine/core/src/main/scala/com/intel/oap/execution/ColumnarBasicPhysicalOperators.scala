@@ -356,9 +356,10 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
 
             if (rowCount < limit) {
               val delta = iter.next()
+              val preRowCount = rowCount
               rowCount += delta.numRows
               if (rowCount > limit) {
-                val newSize = rowCount - limit
+                val newSize = limit - preRowCount
                 delta.setNumRows(newSize)
               }
               delta
@@ -427,9 +428,10 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
 
             if (rowCount < limit) {
               val delta = iter.next()
+              val preRowCount = rowCount
               rowCount += delta.numRows
               if (rowCount > limit) {
-                val newSize = rowCount - limit
+                val newSize = limit - preRowCount
                 delta.setNumRows(newSize)
               }
               delta
