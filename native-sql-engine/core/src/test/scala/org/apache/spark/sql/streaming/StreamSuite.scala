@@ -31,6 +31,8 @@ import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.scalatest.time.SpanSugar._
 
+import com.intel.oap.execution.ColumnarLocalLimitExec
+
 import org.apache.spark.{SparkConf, SparkContext, TaskContext, TestUtils}
 import org.apache.spark.scheduler.{SparkListener, SparkListenerJobStart}
 import org.apache.spark.sql._
@@ -1096,7 +1098,7 @@ class StreamSuite extends StreamTest {
       require(execPlan != null)
 
       val localLimits = execPlan.collect {
-        case l: LocalLimitExec => l
+        case l: ColumnarLocalLimitExec => l
         case l: StreamingLocalLimitExec => l
       }
 
@@ -1110,7 +1112,7 @@ class StreamSuite extends StreamTest {
           s"Local limit was not StreamingLocalLimitExec:\n$execPlan")
       } else {
         assert(
-          localLimits.head.isInstanceOf[LocalLimitExec],
+          localLimits.head.isInstanceOf[ColumnarLocalLimitExec],
           s"Local limit was not LocalLimitExec:\n$execPlan")
       }
     }
