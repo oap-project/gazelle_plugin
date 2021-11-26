@@ -72,11 +72,53 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
   }
 }
 
+// StringSplit, not functionality ready, need array type support.
+class ColumnarStringSplit(child: Expression, regex: Expression,
+                          limit: Expression, original: Expression)
+    extends StringSplit(child: Expression,
+      regex: Expression, limit: Expression)
+        with ColumnarExpression
+        with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(
+      StringType
+    )
+    if (supportedTypes.indexOf(child.dataType) == -1) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarStringSplit.")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object)
+  : (TreeNode, ArrowType) = {
+    val (child_node, childType): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (regex_node, regexType): (TreeNode, ArrowType) =
+      regex.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (limit_node, limitType): (TreeNode, ArrowType) =
+      limit.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Bool()
+    val funcNode =
+      TreeBuilder.makeFunction(
+        "split_part", Lists.newArrayList(child_node, regex_node,
+          limit_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
-  def create(str: Expression, pos: Expression, len: Expression, original: Expression): Expression = original match {
+  def create(str: Expression, pos: Expression, len: Expression,
+             original: Expression): Expression = original match {
     case ss: Substring =>
       new ColumnarSubString(str, pos, len, ss)
+      // Currently not supported.
+//    case a: StringSplit =>
+//      new ColumnarStringSplit(str, a.regex, a.limit, a)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
