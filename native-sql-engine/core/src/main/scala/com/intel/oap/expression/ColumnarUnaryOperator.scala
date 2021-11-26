@@ -850,7 +850,6 @@ object ColumnarUnaryOperator {
       new ColumnarMillisToTimestamp(child)
     case a: MicrosToTimestamp =>
       new ColumnarMicrosToTimestamp(child)
-
     case other =>
       child.dataType match {
         case _: DateType => other match {

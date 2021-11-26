@@ -161,14 +161,6 @@ object ColumnarExpressionConverter extends Logging {
           attributeSeq,
           convertBoundRefToAttrRef = convertBoundRefToAttrRef
         ), expr)
-      case qe: QuaternaryExpression =>
-        check_if_no_calculation = false
-        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
-        ColumnarQuaternaryOperator.create(replaceWithColumnarExpression(
-          qe,
-          attributeSeq,
-          convertBoundRefToAttrRef = convertBoundRefToAttrRef
-        ), expr)
       case i: If =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
