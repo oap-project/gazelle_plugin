@@ -207,7 +207,7 @@ spark.sql("SELECT * FROM my_temp_view LIMIT 10").show(10)
 ```
 
 ### Example on integrating with hive metastore
-hive metastore is commonly used in thrift-server based testing, arrow data source also supports this. Here's one example on how to create metadata table for TPCH tables:
+Hive metastore is commonly used in thrift-server based setup, arrow data source also supports this case. The APIs are little different than vanilla Spark. Here's one example on how to create metadata table for parqute based TPCH tables:
 ```
 // create a database first, otherwise those tables will be stored in default database
 spark.sql("create database testtpch;").show
@@ -232,7 +232,7 @@ spark.sql("ALTER TABLE partsupp RECOVER PARTITIONS").show;
 spark.sql("ALTER TABLE part RECOVER PARTITIONS").show;
 spark.sql("ALTER TABLE supplier RECOVER PARTITIONS").show;
 ```
-By default, the "arrow" format means for reading with parquet files. Note this only creates metadata, those original files are not changed. We also support other file formats(ORC, CSV). Here's one example on how to create metadata table for ORC files:
+By default, the "arrow" format indicates for reading parquet files with arrow data source. Note this step only creates the metadata, those original files are not changed. We also support other file formats(ORC, CSV). Here's one example on how to create metadata table for ORC files:
 ```
 spark.catalog.createTable("web_site", "arrow", Map("path" -> "hdfs:///root/tmp/TPCDS_ORC/web_site", "originalFormat" -> "orc"))
 ```
