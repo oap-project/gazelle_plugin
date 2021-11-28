@@ -361,6 +361,8 @@ object ColumnarExpressionConverter extends Logging {
         c.children.map(containsSubquery).exists(_ == true)
       case b: BinaryExpression =>
         containsSubquery(b.left) || containsSubquery(b.right)
+      case s: String2TrimExpression =>
+        s.children.map(containsSubquery).exists(_ == true)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
