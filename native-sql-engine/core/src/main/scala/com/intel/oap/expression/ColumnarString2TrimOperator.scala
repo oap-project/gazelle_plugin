@@ -123,11 +123,11 @@ object ColumnarString2TrimOperator {
   def create(value: Seq[Expression],
              original: Expression): Expression = original match {
     case a: StringTrim =>
-      new ColumnarStringTrim(value(0), Some(value(1)), a)
+      new ColumnarStringTrim(value.lift(0).get, value.lift(1), a)
     case a: StringTrimLeft =>
-      new ColumnarStringTrimLeft(value(0), Some(value(1)), a)
+      new ColumnarStringTrimLeft(value.lift(0).get, value.lift(1), a)
     case a: StringTrimRight =>
-      new ColumnarStringTrimRight(value(0), Some(value(1)), a)
+      new ColumnarStringTrimRight(value.lift(0).get, value.lift(1), a)
 
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
