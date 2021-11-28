@@ -33,6 +33,7 @@ With [Spark 27396](https://issues.apache.org/jira/browse/SPARK-27396) its possib
 ![Overview](./docs/image/dataset.png)
 
 A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check [Arrow Data Source](https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source)
+Note both data source V1 and V2 are supported. Please check the [example section](arrow-data-source/#run-a-query-with-arrowdatasource-scala) for arrow data source
 
 ### Apache Arrow Compute/Gandiva based operators
 
