@@ -205,6 +205,38 @@ val df = spark.read
 df.createOrReplaceTempView("my_temp_view")
 spark.sql("SELECT * FROM my_temp_view LIMIT 10").show(10)
 ```
+
+### Example on integrating with hive metastore
+hive metastore is commonly used in thrift-server based testing, arrow data source also supports this. Here's one example on how to create metadata table for TPCH tables:
+```
+// create a database first, otherwise those tables will be stored in default database
+spark.sql("create database testtpch;").show
+spark.sql("use testtpch;").show
+
+spark.catalog.createTable("lineitem", "hdfs:////user/root/date_tpchnp_1000/lineitem", "arrow")
+spark.catalog.createTable("orders", "hdfs:////user/root/date_tpchnp_1000/orders", "arrow")
+spark.catalog.createTable("customer", "hdfs:////user/root/date_tpchnp_1000/customer", "arrow")
+spark.catalog.createTable("nation", "hdfs:////user/root/date_tpchnp_1000/nation", "arrow")
+spark.catalog.createTable("region", "hdfs:////user/root/date_tpchnp_1000/region", "arrow")
+spark.catalog.createTable("part", "hdfs:////user/root/date_tpchnp_1000/part", "arrow")
+spark.catalog.createTable("partsupp", "hdfs:////user/root/date_tpchnp_1000/partsupp", "arrow")
+spark.catalog.createTable("supplier", "hdfs:////user/root/date_tpchnp_1000/supplier", "arrow")
+
+// need to recover the partitions if it's partiton table
+spark.sql("ALTER TABLE lineitem RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE orders RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE customer RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE nation RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE region RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE partsupp RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE part RECOVER PARTITIONS").show;
+spark.sql("ALTER TABLE supplier RECOVER PARTITIONS").show;
+```
+By default, the "arrow" format means for reading with parquet files. Note this only creates metadata, those original files are not changed. We also support other file formats(ORC, CSV). Here's one example on how to create metadata table for ORC files:
+```
+spark.catalog.createTable("web_site", "arrow", Map("path" -> "hdfs:///root/tmp/TPCDS_ORC/web_site", "originalFormat" -> "orc"))
+```
+
 ### To validate if ArrowDataSource works properly
 
 To validate if ArrowDataSource works, you can go to the DAG to check if ArrowScan has been used from the above example query.
