@@ -98,6 +98,8 @@ class Splitter {
 
   const std::vector<int64_t>& PartitionLengths() const { return partition_lengths_; }
 
+  const std::vector<int64_t>& RawPartitionLengths() const { return raw_partition_lengths_; }
+
   // for testing
   const std::string& DataFile() const { return options_.data_file; }
 
@@ -212,6 +214,7 @@ class Splitter {
   int64_t total_compress_time_ = 0;
   int64_t total_compute_pid_time_ = 0;
   std::vector<int64_t> partition_lengths_;
+  std::vector<int64_t> raw_partition_lengths_;
 
   std::vector<std::shared_ptr<arrow::DataType>> column_type_id_;
 

@@ -18,7 +18,6 @@
 package org.apache.spark.shuffle
 
 import java.io.IOException
-
 import com.google.common.annotations.VisibleForTesting
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.ConverterUtils
@@ -34,7 +33,7 @@ import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.Utils
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 
 class ColumnarShuffleWriter[K, V](
     shuffleBlockResolver: IndexShuffleBlockResolver,
@@ -77,6 +76,8 @@ class ColumnarShuffleWriter[K, V](
   private var splitResult: SplitResult = _
 
   private var partitionLengths: Array[Long] = _
+
+  private var rawPartitionLengths: Array[Long] = _
 
   private var firstRecordBatch: Boolean = true
 
@@ -180,6 +181,7 @@ class ColumnarShuffleWriter[K, V](
     writeMetrics.incWriteTime(splitResult.getTotalWriteTime + splitResult.getTotalSpillTime)
 
     partitionLengths = splitResult.getPartitionLengths
+    rawPartitionLengths = splitResult.getRawPartitionLengths
     try {
       shuffleBlockResolver.writeIndexFileAndCommit(
         dep.shuffleId,
@@ -191,7 +193,12 @@ class ColumnarShuffleWriter[K, V](
         logError(s"Error while deleting temp file ${dataTmp.getAbsolutePath}")
       }
     }
-    mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths, mapId)
+
+    // fixme workaround: to store uncompressed sizes on the rhs of (maybe) compressed sizes
+    val unionPartitionLengths = ArrayBuffer[Long]()
+    unionPartitionLengths ++= partitionLengths
+    unionPartitionLengths ++= rawPartitionLengths
+    mapStatus = MapStatus(blockManager.shuffleServerId, unionPartitionLengths.toArray, mapId)
   }
 
   override def stop(success: Boolean): Option[MapStatus] = {
