@@ -98,7 +98,9 @@ class Splitter {
 
   const std::vector<int64_t>& PartitionLengths() const { return partition_lengths_; }
 
-  const std::vector<int64_t>& RawPartitionLengths() const { return raw_partition_lengths_; }
+  const std::vector<int64_t>& RawPartitionLengths() const {
+    return raw_partition_lengths_;
+  }
 
   // for testing
   const std::string& DataFile() const { return options_.data_file; }

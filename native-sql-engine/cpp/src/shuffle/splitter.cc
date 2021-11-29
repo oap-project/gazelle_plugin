@@ -436,11 +436,11 @@ int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
   if (batch == nullptr) {
     return accumulated;
   }
-  for (const auto &array : batch->columns()) {
+  for (const auto& array : batch->columns()) {
     if (array == nullptr || array->data() == nullptr) {
       continue;
     }
-    for (const auto &buf : array->data()->buffers) {
+    for (const auto& buf : array->data()->buffers) {
       if (buf == nullptr) {
         continue;
       }
@@ -449,7 +449,6 @@ int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
   }
   return accumulated;
 }
-
 
 arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffers) {
   if (partition_buffer_idx_base_[partition_id] > 0) {

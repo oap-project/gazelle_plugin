@@ -1205,7 +1205,8 @@ JNIEXPORT jobject JNICALL Java_com_intel_oap_vectorized_ShuffleSplitterJniWrappe
   const auto& raw_partition_lengths = splitter->RawPartitionLengths();
   auto raw_partition_length_arr = env->NewLongArray(raw_partition_lengths.size());
   auto raw_src = reinterpret_cast<const jlong*>(raw_partition_lengths.data());
-  env->SetLongArrayRegion(raw_partition_length_arr, 0, raw_partition_lengths.size(), raw_src);
+  env->SetLongArrayRegion(raw_partition_length_arr, 0, raw_partition_lengths.size(),
+                          raw_src);
 
   jobject split_result = env->NewObject(
       split_result_class, split_result_constructor, splitter->TotalComputePidTime(),
