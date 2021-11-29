@@ -20,10 +20,14 @@ package com.intel.oap
 import java.util
 import java.util.Collections
 import java.util.Objects
+
 import scala.language.implicitConversions
+
 import com.intel.oap.GazellePlugin.GAZELLE_SESSION_EXTENSION_NAME
 import com.intel.oap.GazellePlugin.SPARK_SESSION_EXTS_KEY
+import com.intel.oap.extension.ColumnarOverrides
 import com.intel.oap.extension.{OptimizerOverrides, StrategyOverrides}
+
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.api.plugin.DriverPlugin

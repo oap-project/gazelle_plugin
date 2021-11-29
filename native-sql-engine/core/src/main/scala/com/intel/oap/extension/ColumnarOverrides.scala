@@ -15,20 +15,33 @@
  * limitations under the License.
  */
 
-package com.intel.oap
+package com.intel.oap.extension
 
+import com.intel.oap.GazellePluginConfig
+import com.intel.oap.GazelleSparkExtensionsInjector
+
+import scala.collection.mutable
 import com.intel.oap.execution._
-import com.intel.oap.extension.LocalWindowExec
 import com.intel.oap.extension.columnar.ColumnarGuardRule
 import com.intel.oap.extension.columnar.RowGuard
 import com.intel.oap.sql.execution.RowToArrowColumnarExec
-import org.apache.spark.internal.config._
+import org.apache.spark.{MapOutputStatistics, SparkContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.optimizer.BuildLeft
+import org.apache.spark.sql.catalyst.optimizer.BuildRight
+import org.apache.spark.sql.catalyst.plans.Cross
+import org.apache.spark.sql.catalyst.plans.Inner
+import org.apache.spark.sql.catalyst.plans.JoinType
+import org.apache.spark.sql.catalyst.plans.LeftAnti
+import org.apache.spark.sql.catalyst.plans.LeftOuter
+import org.apache.spark.sql.catalyst.plans.LeftSemi
+import org.apache.spark.sql.catalyst.plans.RightOuter
 import org.apache.spark.sql.catalyst.rules.Rule
+import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution._
-import org.apache.spark.sql.execution.adaptive._
+import org.apache.spark.sql.execution.adaptive.{ShuffleStageInfo, _}
 import org.apache.spark.sql.execution.aggregate.HashAggregateExec
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
@@ -37,11 +50,12 @@ import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrowEvalPythonExec}
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.CalendarIntervalType
+import org.apache.spark.util.ShufflePartitionUtils
 
 case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
+
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: CustomShuffleReaderExec) =>
@@ -146,15 +160,25 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
         plan.withNewChildren(Seq(child))
       }
     case plan: ShuffledHashJoinExec =>
-      val left = replaceWithColumnarPlan(plan.left)
-      val right = replaceWithColumnarPlan(plan.right)
-      logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+      val maybeOptimized = if (
+        GazellePluginConfig.getSessionConf.resizeShuffledHashJoinInputPartitions &&
+            ShufflePartitionUtils.withCustomShuffleReaders(plan)) {
+        // We are on AQE execution. Try repartitioning inputs
+        // to avoid OOM as ColumnarShuffledHashJoin doesn't spill
+        // input data.
+        ShufflePartitionUtils.reoptimizeShuffledHashJoinInput(plan)
+      } else {
+        plan
+      }
+      val left = replaceWithColumnarPlan(maybeOptimized.left)
+      val right = replaceWithColumnarPlan(maybeOptimized.right)
+      logDebug(s"Columnar Processing for ${maybeOptimized.getClass} is currently supported.")
       ColumnarShuffledHashJoinExec(
-        plan.leftKeys,
-        plan.rightKeys,
-        plan.joinType,
-        plan.buildSide,
-        plan.condition,
+        maybeOptimized.leftKeys,
+        maybeOptimized.rightKeys,
+        maybeOptimized.joinType,
+        maybeOptimized.buildSide,
+        maybeOptimized.condition,
         left,
         right)
     case plan: BroadcastQueryStageExec =>
