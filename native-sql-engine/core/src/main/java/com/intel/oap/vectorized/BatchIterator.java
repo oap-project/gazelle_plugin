@@ -68,7 +68,7 @@ public class BatchIterator implements AutoCloseable {
   }
 
   public ArrowRecordBatch next() throws IOException {
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
     if (nativeHandler == 0) {
       return null;
     }
@@ -132,7 +132,7 @@ public class BatchIterator implements AutoCloseable {
     if (nativeHandler == 0) {
       return null;
     }
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
     byte[] serializedRecordBatch;
     if (selectionVector != null) {
       int selectionVectorRecordCount = selectionVector.getRecordCount();

@@ -20,9 +20,13 @@ package com.intel.oap.spark.sql.execution.datasources.v2.arrow;
 import org.apache.arrow.memory.AllocationListener;
 
 public class SparkManagedAllocationListener implements AllocationListener {
+    public static long BLOCK_SIZE = 8L * 1024 * 1024; // 8MB per block
 
     private final NativeSQLMemoryConsumer consumer;
     private final NativeSQLMemoryMetrics metrics;
+
+    private long bytesReserved = 0L;
+    private long blocksReserved = 0L;
 
     public SparkManagedAllocationListener(NativeSQLMemoryConsumer consumer, NativeSQLMemoryMetrics metrics) {
         this.consumer = consumer;
@@ -31,13 +35,40 @@ public class SparkManagedAllocationListener implements AllocationListener {
 
     @Override
     public void onPreAllocation(long size) {
-        consumer.acquire(size);
-        metrics.inc(size);
+        long requiredBlocks = updateReservation(size);
+        if (requiredBlocks < 0) {
+            throw new IllegalStateException();
+        }
+        if (requiredBlocks == 0) {
+            return;
+        }
+        long toBeAcquired = requiredBlocks * BLOCK_SIZE;
+        consumer.acquire(toBeAcquired);
+        metrics.inc(toBeAcquired);
     }
 
     @Override
     public void onRelease(long size) {
-        consumer.free(size);
-        metrics.inc(-size);
+        long requiredBlocks = updateReservation(-size);
+        if (requiredBlocks > 0) {
+            throw new IllegalStateException();
+        }
+        if (requiredBlocks == 0) {
+            return;
+        }
+        long toBeReleased = -requiredBlocks * BLOCK_SIZE;
+        consumer.free(toBeReleased);
+        metrics.inc(-toBeReleased);
+    }
+
+    public long updateReservation(long bytesToAdd) {
+        synchronized (this) {
+            long newBytesReserved = bytesReserved + bytesToAdd;
+            long newBlocksReserved = (newBytesReserved - 1L) / BLOCK_SIZE + 1L; // ceiling
+            long requiredBlocks = newBlocksReserved - blocksReserved;
+            bytesReserved = newBytesReserved;
+            blocksReserved = newBlocksReserved;
+            return requiredBlocks;
+        }
     }
 }

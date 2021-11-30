@@ -72,6 +72,12 @@ object SparkMemoryUtils extends Logging {
       sparkManagedAllocationListener
     }
 
+    val allocListenerForBufferImport: AllocationListener = if (isArrowAutoReleaseEnabled) {
+      MemoryChunkCleaner.gcTrigger()
+    } else {
+      AllocationListener.NOOP
+    }
+
     private def collectStackForDebug = {
       if (DEBUG) {
         val out = new ByteOutputStream()
@@ -98,6 +104,10 @@ object SparkMemoryUtils extends Logging {
       allocators.add(alloc)
       alloc
     }
+
+    val taskDefaultAllocatorForBufferImport: BufferAllocator = taskDefaultAllocator
+        .newChildAllocator("CHILD-ALLOC-BUFFER-IMPORT", allocListenerForBufferImport, 0L,
+          Long.MaxValue)
 
     val defaultMemoryPool: NativeMemoryPoolWrapper = {
       val rl = new SparkManagedReservationListener(
@@ -281,6 +291,13 @@ object SparkMemoryUtils extends Logging {
       return globalAllocator()
     }
     getTaskMemoryResources().taskDefaultAllocator
+  }
+
+  def contextAllocatorForBufferImport(): BufferAllocator = {
+    if (!inSparkTask()) {
+      return globalAllocator()
+    }
+    getTaskMemoryResources().taskDefaultAllocatorForBufferImport
   }
 
   def contextMemoryPool(): NativeMemoryPool = {

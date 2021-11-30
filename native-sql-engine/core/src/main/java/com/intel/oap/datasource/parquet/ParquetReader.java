@@ -32,6 +32,7 @@ import org.apache.arrow.vector.ipc.message.MessageResult;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
 
 /** Parquet Reader Class. */
 public class ParquetReader implements AutoCloseable {
@@ -41,7 +42,6 @@ public class ParquetReader implements AutoCloseable {
   /** last readed length of a record batch. */
   private long lastReadLength;
 
-  private BufferAllocator allocator;
   private ParquetReaderJniWrapper jniWrapper;
 
   /**
@@ -51,13 +51,11 @@ public class ParquetReader implements AutoCloseable {
    * @param rowGroupIndices An array to indicate which rowGroup to read.
    * @param columnIndices An array to indicate which columns to read.
    * @param batchSize number of rows expected to be read in one batch.
-   * @param allocator A BufferAllocator reference.
    * @throws IOException throws io exception in case of native failure.
    */
   public ParquetReader(String path, int[] rowGroupIndices, int[] columnIndices,
-      long batchSize, BufferAllocator allocator, String tmp_dir) throws IOException {
+      long batchSize, String tmp_dir) throws IOException {
     this.jniWrapper = new ParquetReaderJniWrapper(tmp_dir);
-    this.allocator = allocator;
     this.nativeInstanceId = jniWrapper.nativeOpenParquetReader(path, batchSize);
     jniWrapper.nativeInitParquetReader(nativeInstanceId, columnIndices, rowGroupIndices);
   }
@@ -76,7 +74,6 @@ public class ParquetReader implements AutoCloseable {
   public ParquetReader(String path, long startPos, long endPos, int[] columnIndices,
       long batchSize, BufferAllocator allocator, String tmp_dir) throws IOException {
     this.jniWrapper = new ParquetReaderJniWrapper(tmp_dir);
-    this.allocator = allocator;
     this.nativeInstanceId = jniWrapper.nativeOpenParquetReader(path, batchSize);
     jniWrapper.nativeInitParquetReader2(
         nativeInstanceId, columnIndices, startPos, endPos);
@@ -93,7 +90,7 @@ public class ParquetReader implements AutoCloseable {
 
     try (MessageChannelReader schemaReader = new MessageChannelReader(
              new ReadChannel(new ByteArrayReadableSeekableByteChannel(schemaBytes)),
-             allocator)) {
+            SparkMemoryUtils.contextAllocator())) {
       MessageResult result = schemaReader.readNext();
       if (result == null) {
         throw new IOException("Unexpected end of input. Missing schema.");
@@ -115,8 +112,8 @@ public class ParquetReader implements AutoCloseable {
     if (serializedBatch == null) {
       return null;
     }
-    ArrowRecordBatch batch = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator,
-        serializedBatch);
+    ArrowRecordBatch batch = UnsafeRecordBatchSerializer.deserializeUnsafe(
+            SparkMemoryUtils.contextAllocatorForBufferImport(), serializedBatch);
     if (batch == null) {
       throw new IllegalArgumentException("failed to build record batch");
     }
