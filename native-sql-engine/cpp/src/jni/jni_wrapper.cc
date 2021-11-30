@@ -1029,7 +1029,7 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeEvaluate2(
 JNIEXPORT jlong JNICALL
 Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
-    jbyteArray schema_arr, jbyteArray expr_arr, jint buffer_size,
+    jbyteArray schema_arr, jbyteArray expr_arr, jlong offheap_per_task, jint buffer_size,
     jstring compression_type_jstr, jstring data_file_jstr, jint num_sub_dirs,
     jstring local_dirs_jstr, jboolean prefer_spill, jlong memory_pool_id) {
   JNI_METHOD_START
@@ -1056,6 +1056,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   if (buffer_size > 0) {
     splitOptions.buffer_size = buffer_size;
   }
+  splitOptions.offheap_per_task = offheap_per_task;
+
   if (num_sub_dirs > 0) {
     splitOptions.num_sub_dirs = num_sub_dirs;
   }

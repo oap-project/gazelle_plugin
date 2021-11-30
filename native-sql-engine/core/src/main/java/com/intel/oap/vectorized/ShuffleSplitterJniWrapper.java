@@ -40,6 +40,7 @@ public class ShuffleSplitterJniWrapper {
    */
   public long make(
       NativePartitioning part,
+      long offheapPerTask,
       int bufferSize,
       String codec,
       String dataFile,
@@ -52,6 +53,7 @@ public class ShuffleSplitterJniWrapper {
         part.getNumPartitions(),
         part.getSchema(),
         part.getExprList(),
+        offheapPerTask,
         bufferSize,
         codec,
         dataFile,
@@ -66,6 +68,7 @@ public class ShuffleSplitterJniWrapper {
       int numPartitions,
       byte[] schema,
       byte[] exprList,
+      long offheapPerTask,
       int bufferSize,
       String codec,
       String dataFile,

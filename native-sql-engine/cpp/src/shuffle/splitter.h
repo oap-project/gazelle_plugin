@@ -211,6 +211,8 @@ class Splitter {
   int64_t total_spill_time_ = 0;
   int64_t total_compress_time_ = 0;
   int64_t total_compute_pid_time_ = 0;
+  int64_t peak_memory_allocated_ = 0;
+
   std::vector<int64_t> partition_lengths_;
 
   std::vector<std::shared_ptr<arrow::DataType>> column_type_id_;
