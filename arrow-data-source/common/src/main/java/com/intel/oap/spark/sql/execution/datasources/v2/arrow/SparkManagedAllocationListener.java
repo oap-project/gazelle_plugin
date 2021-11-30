@@ -64,7 +64,14 @@ public class SparkManagedAllocationListener implements AllocationListener {
     public long updateReservation(long bytesToAdd) {
         synchronized (this) {
             long newBytesReserved = bytesReserved + bytesToAdd;
-            long newBlocksReserved = (newBytesReserved - 1L) / BLOCK_SIZE + 1L; // ceiling
+            final long newBlocksReserved;
+            // ceiling
+            if (newBytesReserved == 0L) {
+                // 0 is the special case in ceiling algorithm
+                newBlocksReserved = 0L;
+            } else {
+                newBlocksReserved = (newBytesReserved - 1L) / BLOCK_SIZE + 1L;
+            }
             long requiredBlocks = newBlocksReserved - blocksReserved;
             bytesReserved = newBytesReserved;
             blocksReserved = newBlocksReserved;
