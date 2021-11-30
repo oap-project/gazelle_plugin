@@ -153,6 +153,16 @@ object ColumnarExpressionConverter extends Logging {
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case st: String2TrimExpression =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        val exps = st.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarString2TrimOperator.create(exps, expr)
       case i: If =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -351,6 +361,8 @@ object ColumnarExpressionConverter extends Logging {
         c.children.map(containsSubquery).exists(_ == true)
       case b: BinaryExpression =>
         containsSubquery(b.left) || containsSubquery(b.right)
+      case s: String2TrimExpression =>
+        s.children.map(containsSubquery).exists(_ == true)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
