@@ -19,7 +19,9 @@ package com.intel.oap
 
 import org.apache.spark.SparkConf
 import org.apache.spark.internal.Logging
+import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.util.Utils
 
 case class GazelleNumaBindingInfo(
     enableNumaBinding: Boolean,
@@ -81,6 +83,15 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val forceShuffledHashJoin: Boolean =
     conf.getConfString("spark.oap.sql.columnar.forceshuffledhashjoin", "false").toBoolean &&
         enableCpu
+
+  val resizeShuffledHashJoinInputPartitions: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.shuffledhashjoin.resizeinputpartitions", "false")
+        .toBoolean && enableCpu
+
+  // build size limit for shj, per task
+  val shuffledHashJoinBuildSizeLimit: Long =
+    JavaUtils.byteStringAsBytes(
+      conf.getConfString("spark.oap.sql.columnar.shuffledhashjoin.buildsizelimit", "100m"))
 
   // enable or disable columnar sortmergejoin
   // this should be set with preferSortMergeJoin=false

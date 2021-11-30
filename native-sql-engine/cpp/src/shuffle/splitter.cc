@@ -278,6 +278,7 @@ arrow::Status Splitter::Init() {
   partition_cached_recordbatch_.resize(num_partitions_);
   partition_cached_recordbatch_size_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
+  raw_partition_lengths_.resize(num_partitions_);
 
   for (int i = 0; i < column_type_id_.size(); ++i) {
     switch (column_type_id_[i]->id()) {
@@ -430,6 +431,25 @@ arrow::Status Splitter::Stop() {
   return arrow::Status::OK();
 }
 
+int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
+  int64_t accumulated = 0L;
+  if (batch == nullptr) {
+    return accumulated;
+  }
+  for (const auto& array : batch->columns()) {
+    if (array == nullptr || array->data() == nullptr) {
+      continue;
+    }
+    for (const auto& buf : array->data()->buffers) {
+      if (buf == nullptr) {
+        continue;
+      }
+      accumulated += buf->capacity();
+    }
+  }
+  return accumulated;
+}
+
 arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffers) {
   if (partition_buffer_idx_base_[partition_id] > 0) {
     auto fixed_width_idx = 0;
@@ -532,6 +552,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     TIME_NANO_OR_RAISE(total_compress_time_,
                        arrow::ipc::GetRecordBatchPayload(
                            *batch, options_.ipc_write_options, payload.get()));
+    raw_partition_lengths_[partition_id] += batch_nbytes(batch);
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
