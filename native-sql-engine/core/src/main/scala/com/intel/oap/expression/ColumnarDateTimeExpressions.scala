@@ -501,16 +501,16 @@ object ColumnarDateTimeExpressions {
     buildCheck()
 
     def buildCheck(): Unit = {
-      val supportedTypes = List(TimestampType)
+      val supportedTypes = List(LongType)
       if (supportedTypes.indexOf(left.dataType) == -1) {
         throw new UnsupportedOperationException(
           s"${left.dataType} is not supported in ColumnarFromUnixTime.")
       }
-      if (left.dataType == StringType) {
+      if (left.dataType == LongType) {
         right match {
           case literal: ColumnarLiteral =>
             val format = literal.value.toString
-            if (format.length > 10) {
+            if (format.length != 10) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarFromUnixTime.")
             }
@@ -523,9 +523,19 @@ object ColumnarDateTimeExpressions {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       //val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
-
+      val date32LeftNode = if (left.dataType == LongType) {
+        // cast unix seconds to date64()
+        val milliNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(leftNode,
+          TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), new ArrowType.Int(8 * 8, true))
+        val date64Node = TreeBuilder.makeFunction("castDATE",
+          Lists.newArrayList(milliNode), new ArrowType.Date(DateUnit.MILLISECOND))
+        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(date64Node), new ArrowType.Date(DateUnit.DAY))
+      } else {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} is not supported in ColumnarFromUnixTime.")
+      }
       val dateNode = TreeBuilder.makeFunction(
-        "castVARCHAR", Lists.newArrayList(leftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(10L))), outType)
+        "castVARCHAR", Lists.newArrayList(date32LeftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(10L))), outType)
 
       (dateNode, outType)
     }
