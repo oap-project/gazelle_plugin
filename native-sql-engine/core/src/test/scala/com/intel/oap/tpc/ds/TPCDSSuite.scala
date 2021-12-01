@@ -28,7 +28,7 @@ import java.nio.file.Files
 
 class TPCDSSuite extends QueryTest with SharedSparkSession {
 
-  private val MAX_DIRECT_MEMORY = "6g"
+  private val MAX_DIRECT_MEMORY = "20g"
   private val TPCDS_QUERIES_RESOURCE = "tpcds"
   private val TPCDS_WRITE_PATH = "/tmp/tpcds-generated"
 
