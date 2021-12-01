@@ -345,7 +345,7 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
           var rowCount = 0
           override def hasNext: Boolean = {
             val hasNext = iter.hasNext
-            hasNext && (rowCount <= limit)
+            hasNext && (rowCount < limit)
           }
 
           override def next(): ColumnarBatch = {
@@ -417,7 +417,7 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
           var rowCount = 0
           override def hasNext: Boolean = {
             val hasNext = iter.hasNext
-            hasNext && (rowCount <= limit)
+            hasNext && (rowCount < limit)
           }
 
           override def next(): ColumnarBatch = {
