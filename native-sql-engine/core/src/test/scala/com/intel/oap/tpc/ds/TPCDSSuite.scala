@@ -132,7 +132,6 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
           "ws_item_sk = i_item_sk LIMIT 10")
       df.explain(true)
       df.show()
-      Thread.sleep(1000000)
     }
   }
 
@@ -142,7 +141,6 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
           "web_sales) LIMIT 10")
       df.explain()
       df.show()
-      Thread.sleep(1000000)
     }
   }
 
@@ -165,7 +163,6 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
       )
       df.explain(true)
       df.show()
-      Thread.sleep(1000000)
     }
   }
 

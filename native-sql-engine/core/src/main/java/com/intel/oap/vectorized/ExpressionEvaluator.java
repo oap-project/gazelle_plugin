@@ -159,7 +159,7 @@ public class ExpressionEvaluator implements AutoCloseable {
   public ArrowRecordBatch[] evaluate2(ArrowRecordBatch recordBatch) throws RuntimeException, IOException {
     byte[] bytes = UnsafeRecordBatchSerializer.serializeUnsafe(recordBatch);
     byte[][] serializedBatchArray = jniWrapper.nativeEvaluate2(nativeHandler, bytes);
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
     ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[serializedBatchArray.length];
     for (int i = 0; i < serializedBatchArray.length; i++) {
       if (serializedBatchArray[i] == null) {
@@ -191,7 +191,7 @@ public class ExpressionEvaluator implements AutoCloseable {
       bufSizes[idx++] = bufLayout.getSize();
     }
 
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
 
     byte[][] serializedBatchArray;
     if (selectionVector != null) {
@@ -237,7 +237,7 @@ public class ExpressionEvaluator implements AutoCloseable {
   }
 
   public ArrowRecordBatch[] finish() throws RuntimeException, IOException {
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
     byte[][] serializedBatchArray = jniWrapper.nativeFinish(nativeHandler);
     ArrowRecordBatch[] recordBatchList = new ArrowRecordBatch[serializedBatchArray.length];
     for (int i = 0; i < serializedBatchArray.length; i++) {

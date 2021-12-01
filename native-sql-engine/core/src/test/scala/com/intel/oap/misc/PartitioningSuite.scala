@@ -100,7 +100,6 @@ class PartitioningSuite extends QueryTest with SharedSparkSession {
       val df = spark.sql("SELECT COUNT(*) AS cnt FROM ltab, rtab WHERE ltab.id = rtab.id")
       df.explain(true)
       df.show()
-      Thread.sleep(1000000)
     }
   }
 
