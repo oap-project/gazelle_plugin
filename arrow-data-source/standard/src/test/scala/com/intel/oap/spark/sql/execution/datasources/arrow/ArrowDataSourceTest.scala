@@ -47,6 +47,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   private val parquetFile4 = "parquet-4.parquet"
   private val parquetFile5 = "parquet-5.parquet"
   private val parquetFile6 = "parquet-6.parquet"
+  private val orcFile1 = "orc-1.orc"
 
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
@@ -107,6 +108,13 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
         .format("parquet")
         .mode("overwrite")
         .parquet(ArrowDataSourceTest.locateResourcePath(parquetFile6))
+
+    spark.range(100)
+      .map(i => Tuple1((i, Seq(s"val1_$i", s"val2_$i"), Map((s"ka_$i", s"va_$i"),
+        (s"kb_$i", s"vb_$i")))))
+      .write
+      .mode("overwrite")
+      .orc(ArrowDataSourceTest.locateResourcePath(orcFile1))
 
   }
 
@@ -316,6 +324,17 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
         .arrow(path)
     frame.createOrReplaceTempView("ptab3")
     val df = spark.sql("select * from ptab3")
+    df.explain()
+    df.show()
+  }
+
+  test("orc reader on data type: struct, array, map") {
+    val path = ArrowDataSourceTest.locateResourcePath(orcFile1)
+    val frame = spark.read
+      .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+      .arrow(path)
+    frame.createOrReplaceTempView("orctab1")
+    val df = spark.sql("select * from orctab1")
     df.explain()
     df.show()
   }
