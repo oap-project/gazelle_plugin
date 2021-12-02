@@ -186,7 +186,7 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
 
   val shuffleSplitDefaultSize: Int = 
     conf
-      .getConfString("spark.oap.sql.columnar.shuffleSplitDefaultSize", "4096").toInt
+      .getConfString("spark.oap.sql.columnar.shuffleSplitDefaultSize", "8192").toInt
 
   val numaBindingInfo: GazelleNumaBindingInfo = {
     val enableNumaBinding: Boolean =
