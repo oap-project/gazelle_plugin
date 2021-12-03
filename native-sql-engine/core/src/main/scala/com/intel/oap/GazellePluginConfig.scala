@@ -166,7 +166,7 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     conf
       .getConfString("spark.oap.sql.columnar.wholestagecodegen.breakdownTime", "false")
       .toBoolean
-
+      
   // a folder to store the codegen files
   val tmpFile: String =
     conf.getConfString("spark.oap.sql.columnar.tmp_dir", null)
@@ -183,6 +183,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   // The supported customized compression codec is lz4 and fastpfor.
   val columnarShuffleUseCustomizedCompressionCodec: String =
     conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
+
+  val shuffleSplitDefaultSize: Int = 
+    conf
+      .getConfString("spark.oap.sql.columnar.shuffleSplitDefaultSize", "8192").toInt
 
   val numaBindingInfo: GazelleNumaBindingInfo = {
     val enableNumaBinding: Boolean =

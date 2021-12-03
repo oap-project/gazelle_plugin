@@ -57,8 +57,12 @@ class ColumnarShuffleWriter[K, V](
   private var mapStatus: MapStatus = _
 
   private val localDirs = blockManager.diskBlockManager.localDirs.mkString(",")
-  private val nativeBufferSize =
-    conf.getInt("spark.sql.execution.arrow.maxRecordsPerBatch", 4096)
+
+  private val offheapSize = conf.getSizeAsBytes("spark.memory.offHeap.size", 0)
+  private val executorNum = conf.getInt("spark.executor.cores",1)
+  private val offheapPerTask = offheapSize / executorNum;
+
+  private val nativeBufferSize = GazellePluginConfig.getConf.shuffleSplitDefaultSize
 
   private val customizedCompressCodec =
     GazellePluginConfig.getConf.columnarShuffleUseCustomizedCompressionCodec
@@ -94,6 +98,7 @@ class ColumnarShuffleWriter[K, V](
     if (nativeSplitter == 0) {
       nativeSplitter = jniWrapper.make(
         dep.nativePartitioning,
+        offheapPerTask,
         nativeBufferSize,
         defaultCompressionCodec,
         dataTmp.getAbsolutePath,
