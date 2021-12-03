@@ -327,7 +327,12 @@ object ConverterUtils extends Logging {
         if (skipAlias && a.child.isInstanceOf[AttributeReference]) {
           getAttrFromExpr(a.child)
         } else {
-          a.toAttribute.asInstanceOf[AttributeReference]
+          // FIXME(): special case
+          if (a.child.isInstanceOf[Coalesce]) {
+            getAttrFromExpr(a.child)
+          } else {
+            a.toAttribute.asInstanceOf[AttributeReference]
+          }
         }
       case a: KnownFloatingPointNormalized =>
         logInfo(s"$a")
