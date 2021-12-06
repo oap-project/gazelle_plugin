@@ -232,6 +232,14 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     } else if (vector instanceof MapVector) {
       MapVector mapVector = (MapVector) vector;
       accessor = new MapAccessor(mapVector);
+      childColumns = new ArrowWritableColumnVector[2];
+      final StructVector structVector = (StructVector) mapVector.getDataVector();
+      final FieldVector keyChild = structVector.getChild(MapVector.KEY_NAME);
+      final FieldVector valueChild = structVector.getChild(MapVector.VALUE_NAME);
+      childColumns[0] = new ArrowWritableColumnVector(
+          keyChild, structVector.size(), false);
+      childColumns[1] = new ArrowWritableColumnVector(
+          valueChild, structVector.size(), false);
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       accessor = new ArrayAccessor(listVector);
