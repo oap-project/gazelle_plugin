@@ -97,11 +97,11 @@ case class ColumnarShuffleExchangeExec(
     // check input datatype
     for (attr <- child.output) {
       try {
-        ConverterUtils.createArrowField(attr)
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarShuffleExchange")
+            s"${attr.dataType} is not supported in ColumnarShuffledHashJoinExec.")
       }
     }
   }
