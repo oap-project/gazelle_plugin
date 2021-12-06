@@ -47,12 +47,15 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   private val parquetFile4 = "parquet-4.parquet"
   private val parquetFile5 = "parquet-5.parquet"
   private val parquetFile6 = "parquet-6.parquet"
+  private val parquetFile7 = "parquet-7.parquet"
   private val orcFile1 = "orc-1.orc"
 
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(100 * 1024 * 1024))
+    conf.set("spark.sql.codegen.wholeStage", "false")
     conf.set("spark.unsafe.exceptionOnMemoryLeak", "false")
+    conf.set("spark.sql.codegen.factoryMode", "NO_CODEGEN")
     conf.set(SPARK_SESSION_EXTENSIONS.key, classOf[ArrowWriteExtension].getCanonicalName)
     conf
   }
@@ -115,6 +118,14 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
       .write
       .mode("overwrite")
       .orc(ArrowDataSourceTest.locateResourcePath(orcFile1))
+
+    spark.range(100)
+        .map(i => Tuple4(s"val1_$i", Seq(s"val1_$i", s"val2_$i"), Seq(Seq(s"val1_$i", s"val2_$i"),
+          Seq(s"val3_$i", s"val4_$i")), Map((s"ka_$i", s"va_$i"))))
+        .write
+        .format("parquet")
+        .mode("overwrite")
+        .parquet(ArrowDataSourceTest.locateResourcePath(parquetFile7))
 
   }
 
@@ -331,12 +342,24 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   test("orc reader on data type: struct, array, map") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile1)
     val frame = spark.read
-      .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
-      .arrow(path)
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
+        .arrow(path)
     frame.createOrReplaceTempView("orctab1")
     val df = spark.sql("select * from orctab1")
     df.explain()
     df.show()
+  }
+
+  test("parquet reader on struct schema: string, array[string], array[array[string]], " +
+      "map[string, string]") {
+    val path = ArrowDataSourceTest.locateResourcePath(parquetFile7)
+    val frame = spark.read
+        .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
+        .arrow(path)
+    frame.createOrReplaceTempView("ptab4")
+    val df = spark.sql("select _4['ka_0'] from ptab4")
+    df.explain()
+    df.show(200, false)
   }
 
   private val orcFile = "people.orc"
