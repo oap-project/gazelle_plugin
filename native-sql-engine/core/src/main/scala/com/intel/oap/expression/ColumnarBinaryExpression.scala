@@ -74,6 +74,25 @@ class ColumnarDateAddInterval(start: Expression, interval: Expression, original:
   }
 }
 
+class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJsonObject)
+    extends GetJsonObject(original.json, original.path)
+    with ColumnarExpression
+    with Logging {
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    var (left_node, left_type): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    var (right_node, right_type): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode = TreeBuilder.makeFunction("get_json_object",
+      Lists.newArrayList(left_node, right_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
+
 object ColumnarBinaryExpression {
 
   def create(left: Expression, right: Expression, original: Expression): Expression =
@@ -86,6 +105,8 @@ object ColumnarBinaryExpression {
         new ColumnarUnixTimestamp(left, right)
       case a: FromUnixTime =>
         new ColumnarFromUnixTime(left, right)
+      case g: GetJsonObject =>
+        new ColumnarGetJsonObject(left, right, g)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
