@@ -448,7 +448,7 @@ class TypedWholeStageCodeGenImpl : public CodeGenBase {
         codes_ss << validity << " = " << typed_array_name << "->IsNull(i) ? false : true;"
                  << std::endl;
         codes_ss << "if (" << validity << ") {" << std::endl;
-        codes_ss << name << " = " << typed_array_name << "->GetString(i);" << std::endl;
+        codes_ss << name << " = " << typed_array_name << "->GetView(i);" << std::endl;
         codes_ss << "}" << std::endl;
 
       } else {
@@ -582,7 +582,7 @@ extern "C" void MakeCodeGen(arrow::compute::ExecContext *ctx,
       codes_ss << pair.first.second << std::endl;
       codes_ss << "if (" << validity << ") {" << std::endl;
       if (type->id() == arrow::Type::STRING) {
-        codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->AppendString(" << name << "));"
+        codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->Append(" << name << "));"
                  << std::endl;
       } else {
         codes_ss << "  RETURN_NOT_OK(builder_" << i << "_->Append(" << name << "));"

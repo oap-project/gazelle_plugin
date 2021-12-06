@@ -139,7 +139,7 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
     case arrow::TimestampType::type_id:
       return "int64_t";
     case arrow::StringType::type_id:
-      return "std::string";
+      return "arrow::util::string_view";
     case arrow::BooleanType::type_id:
       return "bool";
     case arrow::Decimal128Type::type_id:
