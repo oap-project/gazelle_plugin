@@ -101,7 +101,7 @@ case class ColumnarShuffleExchangeExec(
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarShuffledHashJoinExec.")
+            s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec.")
       }
     }
   }
