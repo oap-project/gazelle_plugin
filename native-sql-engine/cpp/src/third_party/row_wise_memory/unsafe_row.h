@@ -120,6 +120,18 @@ static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
 }
 
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
+                                     const arrow::util::string_view& str) {
+  int numBytes = str.size();
+  // int roundedSize = roundNumberOfBytesToNearestWord(numBytes);
+
+  // zeroOutPaddingBytes(row, numBytes);
+  memcpy(row->data + row->cursor, str.data(), numBytes);
+
+  // move the cursor forward.
+  row->cursor += numBytes;
+}
+
+static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      const arrow::Decimal128& dcm) {
   int numBytes = 16;
   zeroOutPaddingBytes(row, numBytes);

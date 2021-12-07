@@ -281,6 +281,15 @@ class HashRelation {
     return 0;
   }
 
+  int Get(int32_t v, arrow::util::string_view payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+    if (res == -1) return -1;
+    return 0;
+  }
+
   int Get(int32_t v, std::string payload) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
@@ -347,6 +356,15 @@ class HashRelation {
   }
 
   int Get(std::string payload) {
+    if (hash_table_ == nullptr) {
+      throw std::runtime_error("HashRelation Get failed, hash_table is null.");
+    }
+    int32_t v = hash32(payload, true);
+    auto res = safeLookup(hash_table_, payload.data(), payload.size(), v, &arrayid_list_);
+    if (res == -1) return -1;
+    return 0;
+  }
+ int Get(arrow::util::string_view payload) {
     if (hash_table_ == nullptr) {
       throw std::runtime_error("HashRelation Get failed, hash_table is null.");
     }

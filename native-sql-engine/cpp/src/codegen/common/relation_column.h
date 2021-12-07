@@ -186,8 +186,8 @@ class TypedRelationColumn<DataType, enable_if_string_like<DataType>>
     }
     return arrow::Status::OK();
   }
-  std::string GetValue(int array_id, int id) {
-    return array_vector_[array_id]->GetString(id);
+  arrow::util::string_view GetValue(int array_id, int id) {
+    return array_vector_[array_id]->GetView(id);
   }
   virtual bool HasNull() { return has_null_; }
 

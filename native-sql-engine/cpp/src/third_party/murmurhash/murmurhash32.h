@@ -36,14 +36,24 @@ template <typename T>
 using is_string = std::is_same<std::string, T>;
 
 template <typename T>
+using is_stringview = std::is_same<arrow::util::string_view, T>;
+
+template <typename T>
+using is_string_or_stringview =
+    std::integral_constant<bool, is_string<T>::value || is_stringview<T>::value>;
+
+template <typename T>
 using enable_if_string = typename std::enable_if<is_string<T>::value, int32_t>::type;
+
+template <typename T>
+using enable_if_string_or_stringview = typename std::enable_if<is_string_or_stringview<T>::value, int32_t>::type;
 
 template <typename T>
 using enable_if_decimal =
     typename std::enable_if<std::is_same<T, arrow::Decimal128>::value, int32_t>::type;
 template <typename T>
 using is_string_or_decimal =
-    std::integral_constant<bool, is_string<T>::value ||
+    std::integral_constant<bool, is_string<T>::value || is_stringview<T>::value ||
                                      std::is_same<T, arrow::Decimal128>::value>;
 
 template <typename T>
@@ -108,7 +118,7 @@ inline enable_if_int64<T> hash32(T val, int32_t seed) {
 }
 
 template <typename T>
-inline enable_if_string<T> hash32(T val, bool validity, int32_t seed) {
+inline enable_if_string_or_stringview<T> hash32(T val, bool validity, int32_t seed) {
   if (!validity) return seed;
   auto key = val.data();
   auto len = val.length();
@@ -173,7 +183,7 @@ inline enable_if_string<T> hash32(T val, bool validity, int32_t seed) {
 }
 
 template <typename T>
-inline enable_if_string<T> hash32(T val, bool validity) {
+inline enable_if_string_or_stringview<T> hash32(T val, bool validity) {
   return hash32(val, validity, 0);
 }
 
