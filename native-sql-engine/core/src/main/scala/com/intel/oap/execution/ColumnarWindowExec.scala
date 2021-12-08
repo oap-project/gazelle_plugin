@@ -433,8 +433,8 @@ object ColumnarWindowExec extends Logging {
             a.withNewChildren(List(makeOutputProject(a.child, windows, inProjectExpressions)))
               .asInstanceOf[NamedExpression]
           }
-        val inputProject = ColumnarConditionProjectExec(null,
-          child.output ++ inProjectExpressions, child)
+        val inputProject = CoalesceBatchesExec(ColumnarConditionProjectExec(null,
+          child.output ++ inProjectExpressions, child))
         val window = new ColumnarWindowExec(windows, partitionSpec, orderSpec, isLocalized,
           inputProject)
         val outputProject = ColumnarConditionProjectExec(null,
