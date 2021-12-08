@@ -77,6 +77,7 @@ case class ColumnarShuffleExchangeExec(
     "splitTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_split"),
     "spillTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "shuffle spill time"),
     "compressTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_compress"),
+    "prepareTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_prepare"),
     "avgReadBatchNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg read batch num rows"),
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
@@ -140,7 +141,8 @@ case class ColumnarShuffleExchangeExec(
       longMetric("computePidTime"),
       longMetric("splitTime"),
       longMetric("spillTime"),
-      longMetric("compressTime"))
+      longMetric("compressTime"),
+      longMetric("prepareTime"))
   }
 
   var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
@@ -187,6 +189,7 @@ class ColumnarShuffleExchangeAdaptor(
     "splitTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_split"),
     "spillTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "shuffle spill time"),
     "compressTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_compress"),
+    "prepareTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_prepare"),
     "avgReadBatchNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg read batch num rows"),
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
@@ -236,7 +239,8 @@ class ColumnarShuffleExchangeAdaptor(
       longMetric("computePidTime"),
       longMetric("splitTime"),
       longMetric("spillTime"),
-      longMetric("compressTime"))
+      longMetric("compressTime"),
+      longMetric("prepareTime"))
   }
 
   var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
@@ -301,7 +305,8 @@ object ColumnarShuffleExchangeExec extends Logging {
       computePidTime: SQLMetric,
       splitTime: SQLMetric,
       spillTime: SQLMetric,
-      compressTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
+      compressTime: SQLMetric,
+      prepareTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
     val arrowFields = outputAttributes.map(attr => ConverterUtils.createArrowField(attr))
     def serializeSchema(fields: Seq[Field]): Array[Byte] = {
       val schema = new Schema(fields.asJava)
@@ -447,7 +452,8 @@ object ColumnarShuffleExchangeExec extends Logging {
         computePidTime = computePidTime,
         splitTime = splitTime,
         spillTime = spillTime,
-        compressTime = compressTime)
+        compressTime = compressTime,
+        prepareTime = prepareTime)
 
     dependency
   }
