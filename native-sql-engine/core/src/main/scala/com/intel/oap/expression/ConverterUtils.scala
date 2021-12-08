@@ -385,6 +385,9 @@ object ConverterUtils extends Logging {
         new AttributeReference(name, DoubleType, d.nullable)()
       case m: ColumnarMultiply =>
         new AttributeReference(name, m.dataType, m.nullable)()
+      // for situation like: case when x = y
+      case cet: ColumnarEqualTo =>
+        new AttributeReference(name, cet.dataType, cet.nullable)()
       case other =>
         val a = if (name != "None") {
           new Alias(other, name)()
