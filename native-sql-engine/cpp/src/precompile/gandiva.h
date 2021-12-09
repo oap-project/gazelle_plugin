@@ -16,6 +16,9 @@
  */
 #pragma once
 
+#include <arrow/array.h>
+#include <arrow/json/api.h>
+#include <arrow/json/parser.h>
 #include <arrow/util/decimal.h>
 #include <math.h>
 
@@ -225,4 +228,43 @@ arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,
     *overflow_ = true;
   }
   return arrow::Decimal128(out);
+}
+
+std::string get_json_object(const std::string& json_str, const std::string& json_path) {
+  std::unique_ptr<arrow::json::BlockParser> parser;
+  (arrow::json::BlockParser::Make(arrow::json::ParseOptions::Defaults(), &parser));
+  (parser->Parse(std::make_shared<arrow::Buffer>(json_str)));
+  std::shared_ptr<arrow::Array> parsed;
+  (parser->Finish(&parsed));
+  auto struct_parsed = std::dynamic_pointer_cast<arrow::StructArray>(parsed);
+  // json_path example: $.col_14, will extract col_14 here
+  if (json_path.length() < 3) {
+    return nullptr;
+  }
+  auto col_name = json_path.substr(2);
+  // illegal json string.
+  if (struct_parsed == nullptr) {
+    return nullptr;
+  }
+  auto dict_parsed = std::dynamic_pointer_cast<arrow::DictionaryArray>(
+      struct_parsed->GetFieldByName(col_name));
+  // no data contained for given field.
+  if (dict_parsed == nullptr) {
+    return nullptr;
+  }
+
+  auto dict_array = dict_parsed->dictionary();
+  // needs to see whether there is a case that has more than one indices.
+  auto res_index = dict_parsed->GetValueIndex(0);
+
+  auto utf8_array = std::dynamic_pointer_cast<arrow::BinaryArray>(dict_array);
+  int32_t* out_len;
+
+  auto res = utf8_array->GetValue(res_index, out_len);
+  // empty string case.
+  if (*out_len == 0) {
+    return "";
+  }
+
+  return std::string((char*)res, *out_len);
 }
