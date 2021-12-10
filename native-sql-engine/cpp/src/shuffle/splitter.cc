@@ -210,7 +210,7 @@ class Splitter::PartitionWriter {
     int32_t metadata_length = 0;  // unused
     for (auto& payload : splitter_->partition_cached_recordbatch_[partition_id_]) {
       RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-          *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
+          *payload, splitter_->options_.ipc_spill_options, os, &metadata_length));
       payload = nullptr;
     }
     return arrow::Status::OK();
