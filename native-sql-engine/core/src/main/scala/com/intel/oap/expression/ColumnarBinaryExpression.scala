@@ -30,12 +30,14 @@ import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types._
+
 import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateDiff
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateSub
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarFromUnixTime
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarGetTimestamp
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -104,6 +106,10 @@ object ColumnarBinaryExpression {
         new ColumnarDateDiff(left, right)
       case a: UnixTimestamp =>
         new ColumnarUnixTimestamp(left, right)
+      // To match GetTimestamp (a private class).
+      case _ if (original.isInstanceOf[ToTimestamp] && original.dataType == TimestampType) =>
+        // Convert a string to Timestamp. Default timezone is used.
+        new ColumnarGetTimestamp(left, right, None)
       case a: FromUnixTime =>
         new ColumnarFromUnixTime(left, right)
       case d: DateSub =>
