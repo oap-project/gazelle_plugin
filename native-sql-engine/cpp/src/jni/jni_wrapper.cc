@@ -1052,8 +1052,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   env->ReleaseStringUTFChars(partitioning_name_jstr, partitioning_name_c);
 
   auto splitOptions = SplitOptions::Defaults();
-  splitOptions.ipc_spill_options.codec = JniGetOrThrow(arrow::util::Codec::CreateInt32(
-    arrow::Compression::UNCOMPRESSED));
+  splitOptions.ipc_spill_options.codec =
+      JniGetOrThrow(arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
   splitOptions.prefer_spill = prefer_spill;
   if (buffer_size > 0) {
     splitOptions.buffer_size = buffer_size;
