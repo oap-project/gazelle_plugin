@@ -551,13 +551,8 @@ object ColumnarDateTimeExpressions {
             val funcNode = TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
               Lists.newArrayList(leftNode), intermediateType)
             ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
-          } else if (format.equals("yyyyMMdd")) {
-            // TODO: introduce a new gandiva function.
-            val funcNode = TreeBuilder.makeFunction("castTIMESTAMP_without_hyphen",
-              Lists.newArrayList(leftNode), intermediateType)
-            ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
-            // TODO: add other format support.
           } else {
+            // TODO: add other format support.
             throw new UnsupportedOperationException(
               s"$format is not supported in ColumnarUnixTimestamp.")
           }
