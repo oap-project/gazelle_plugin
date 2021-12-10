@@ -259,8 +259,9 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "std::string " << codes_str_ << " = get_json_object("
                << child_visitor_list[0]->GetResult()
                << ", " << child_visitor_list[1]->GetResult()
-               << ");";
+               << ");\n";
     prepare_str_ += prepare_ss.str();
+    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("substr") == 0) {
     ss << child_visitor_list[0]->GetResult() << ".substr("
        << "((" << child_visitor_list[1]->GetResult() << " - 1) < 0 ? 0 : ("
