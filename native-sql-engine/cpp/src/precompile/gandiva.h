@@ -256,15 +256,10 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto dict_array = dict_parsed->dictionary();
   // needs to see whether there is a case that has more than one indices.
   auto res_index = dict_parsed->GetValueIndex(0);
-
+  // TODO(): check null results
   auto utf8_array = std::dynamic_pointer_cast<arrow::BinaryArray>(dict_array);
-  int32_t* out_len;
 
-  auto res = utf8_array->GetValue(res_index, out_len);
-  // empty string case.
-  if (*out_len == 0) {
-    return "";
-  }
+  auto res = utf8_array->GetString(res_index);
 
-  return std::string((char*)res, *out_len);
+  return res;
 }
