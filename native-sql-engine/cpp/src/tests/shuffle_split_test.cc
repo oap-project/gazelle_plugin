@@ -525,6 +525,53 @@ TEST_F(SplitterTest, TestRoundRobinListArraySplitter) {
   }
 }
 
+TEST_F(SplitterTest, TestHashListArraySplitterWithMorePartitions) {
+  int32_t num_partitions = 5;
+  split_options_.buffer_size = 4;
+
+  auto f_uint64 = field("f_uint64", arrow::uint64());
+  auto f_arr_str = field("f_arr", arrow::list(arrow::utf8()));
+
+  auto rb_schema =
+      arrow::schema({f_uint64, f_arr_str});
+
+  const std::vector<std::string> input_batch_1_data = {
+    R"([1, 2])",
+    R"([["alice0", "bob1"], ["alice2"]])"};
+  std::shared_ptr<arrow::RecordBatch> input_batch_arr;
+  MakeInputBatch(input_batch_1_data, rb_schema, &input_batch_arr);
+
+  auto f_2 = TreeExprBuilder::MakeField(f_uint64);
+  auto expr_1 = TreeExprBuilder::MakeExpression(f_2, field("f_uint64", uint64()));
+
+  ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make("hash", rb_schema, num_partitions,
+                                                  {expr_1}, split_options_));
+
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_arr));
+
+  ASSERT_NOT_OK(splitter_->Stop());
+
+  const auto& lengths = splitter_->PartitionLengths();
+  ASSERT_EQ(lengths.size(), 5);
+
+  CheckFileExsists(splitter_->DataFile());
+
+  std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+
+  for (const auto& rb : batches) {
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto i = 0; i < rb->num_columns(); ++i) {
+      ASSERT_EQ(rb->column(i)->length(), rb->num_rows());
+    }
+  }
+}
+
 TEST_F(SplitterTest, TestRoundRobinListArraySplitterwithCompression) {
   auto f_arr_str = field("f_arr", arrow::list(arrow::utf8()));
   auto f_arr_bool = field("f_bool", arrow::list(arrow::boolean()));
