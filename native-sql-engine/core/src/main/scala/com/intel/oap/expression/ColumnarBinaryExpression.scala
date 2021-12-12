@@ -33,6 +33,7 @@ import org.apache.spark.sql.types._
 import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateDiff
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateSub
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarFromUnixTime
 
@@ -105,6 +106,8 @@ object ColumnarBinaryExpression {
         new ColumnarUnixTimestamp(left, right)
       case a: FromUnixTime =>
         new ColumnarFromUnixTime(left, right)
+      case d: DateSub =>
+        new ColumnarDateSub(left, right)
       case g: GetJsonObject =>
         new ColumnarGetJsonObject(left, right, g)
       case other =>

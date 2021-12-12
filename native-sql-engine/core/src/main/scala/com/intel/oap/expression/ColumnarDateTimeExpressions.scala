@@ -30,6 +30,7 @@ import org.apache.spark.sql.catalyst.expressions.CheckOverflow
 import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
 import org.apache.spark.sql.catalyst.expressions.DateDiff
+import org.apache.spark.sql.catalyst.expressions.DateSub
 import org.apache.spark.sql.catalyst.expressions.DayOfMonth
 import org.apache.spark.sql.catalyst.expressions.DayOfWeek
 import org.apache.spark.sql.catalyst.expressions.DayOfYear
@@ -52,7 +53,7 @@ import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
 import org.apache.spark.sql.catalyst.expressions.FromUnixTime
 import org.apache.spark.sql.catalyst.expressions.Year
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{DateType, IntegerType, LongType, StringType, TimestampType}
+import org.apache.spark.sql.types.{ByteType, DateType, IntegerType, LongType, ShortType, StringType, TimestampType}
 import org.apache.spark.sql.util.ArrowUtils
 
 object ColumnarDateTimeExpressions {
@@ -538,6 +539,31 @@ object ColumnarDateTimeExpressions {
         "castVARCHAR", Lists.newArrayList(date32LeftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(10L))), outType)
 
       (dateNode, outType)
+    }
+  }
+
+  class ColumnarDateSub(left: Expression, right: Expression) extends
+      DateSub(left, right) with ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedLeftTypes = List(DateType)
+      val supportedRightTypes = List(IntegerType, ShortType, ByteType)
+      if (supportedLeftTypes.indexOf(left.dataType) == -1 ||
+          supportedRightTypes.indexOf(right.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} or ${right.dataType} is not supported in ColumnarDateDiff.")
+      }
+    }
+
+    override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+      val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val outType = CodeGeneration.getResultType(dataType)
+      val funcNode = TreeBuilder.makeFunction(
+        "date_sub", Lists.newArrayList(leftNode, rightNode), outType)
+      (funcNode, outType)
     }
   }
 
