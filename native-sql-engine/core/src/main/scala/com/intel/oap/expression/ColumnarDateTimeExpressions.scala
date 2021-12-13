@@ -548,7 +548,7 @@ object ColumnarDateTimeExpressions {
         case literal: ColumnarLiteral =>
           val format = literal.value.toString
           if (format.equals("yyyy-MM-dd")) {
-            val funcNode = TreeBuilder.makeFunction("castTIMESTAMP_withCarrying",
+            val funcNode = TreeBuilder.makeFunction("castTIMESTAMP_with_validation_check",
               Lists.newArrayList(leftNode), intermediateType)
             ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
           } else {
