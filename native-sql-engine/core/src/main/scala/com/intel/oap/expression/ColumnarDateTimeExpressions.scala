@@ -518,6 +518,13 @@ object ColumnarDateTimeExpressions {
     buildCheck()
 
     def buildCheck(): Unit = {
+      val parserPolicy = SQLConf.get.getConf(SQLConf.LEGACY_TIME_PARSER_POLICY);
+      // TODO: support "exception" time parser policy.
+      if (!parserPolicy.equalsIgnoreCase("corrected")) {
+        throw new UnsupportedOperationException(
+          s"$parserPolicy is NOT a supported time parser policy");
+      }
+      
       val supportedTypes = List(StringType)
       if (supportedTypes.indexOf(left.dataType) == -1) {
         throw new UnsupportedOperationException(
