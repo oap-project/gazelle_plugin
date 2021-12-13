@@ -246,6 +246,21 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                << ".rfind(" << child_visitor_list[1]->GetResult()
                << ") != std::string::npos;";
     prepare_str_ += prepare_ss.str();
+  } else if (func_name.compare("get_json_object") == 0) {
+    for (int i = 0; i < 2; i++) {
+      prepare_str_ += child_visitor_list[i]->GetPrepare();
+    }
+    codes_str_ = "get_json_object_" + std::to_string(cur_func_id);
+    check_str_ = GetValidityName(codes_str_);
+    real_codes_str_ = codes_str_;
+    real_validity_str_ = check_str_;
+    std::stringstream prepare_ss;
+    prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
+    prepare_ss << "std::string " << codes_str_ << " = get_json_object("
+               << child_visitor_list[0]->GetResult() << ", "
+               << child_visitor_list[1]->GetResult() << ");\n";
+    prepare_str_ += prepare_ss.str();
+    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("substr") == 0) {
     ss << child_visitor_list[0]->GetResult() << ".substr("
        << "((" << child_visitor_list[1]->GetResult() << " - 1) < 0 ? 0 : ("
