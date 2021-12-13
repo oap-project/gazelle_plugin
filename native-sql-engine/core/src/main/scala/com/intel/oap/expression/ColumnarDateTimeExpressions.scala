@@ -510,7 +510,7 @@ object ColumnarDateTimeExpressions {
         right match {
           case literal: ColumnarLiteral =>
             val format = literal.value.toString
-            if (format.length != 10) {
+            if (!format.equals("yyyy-MM-dd") && !format.equals("yyyyMMdd")) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarFromUnixTime.")
             }
@@ -534,9 +534,19 @@ object ColumnarDateTimeExpressions {
         throw new UnsupportedOperationException(
           s"${left.dataType} is not supported in ColumnarFromUnixTime.")
       }
+      var formatLength = 0L
+      right match {
+        case literal: ColumnarLiteral =>
+          val format = literal.value.toString
+          if (format.equals("yyyy-MM-dd")) {
+            formatLength = 10L
+          } else if (format.equals("yyyyMMdd")) {
+            formatLength = 8L
+          }
+      }
       val dateNode = TreeBuilder.makeFunction(
-        "castVARCHAR", Lists.newArrayList(date32LeftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(10L))), outType)
-
+        "castVARCHAR", Lists.newArrayList(date32LeftNode,
+          TreeBuilder.makeLiteral(java.lang.Long.valueOf(formatLength))), outType)
       (dateNode, outType)
     }
   }
