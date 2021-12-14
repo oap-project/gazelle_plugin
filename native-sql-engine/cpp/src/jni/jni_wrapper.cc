@@ -40,10 +40,10 @@
 #include "codegen/common/result_iterator.h"
 #include "jni/concurrent_map.h"
 #include "jni/jni_common.h"
-#include "utils/exception.h"
 #include "operators/columnar_to_row_converter.h"
 #include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
+#include "utils/exception.h"
 
 namespace {
 
@@ -57,7 +57,6 @@ namespace {
     return fallback_expr;                             \
   }
 // macro ended
-
 
 void ThrowPendingException(const std::string& message) {
   throw JniPendingException(message);

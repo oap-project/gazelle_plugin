@@ -1714,7 +1714,8 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
       auto status = LoadJITFunction(key_field_list);
       if (!status.ok()) {
         std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-        throw JniPendingException("Sort LoadJITFunction failed");;
+        throw JniPendingException("Sort LoadJITFunction failed");
+        ;
       }
     } else {
       int i = 0;
@@ -1726,7 +1727,8 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
       auto status = LoadJITFunction(projected_field_list_);
       if (!status.ok()) {
         std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-        throw JniPendingException("Sort LoadJITFunction failed");;
+        throw JniPendingException("Sort LoadJITFunction failed");
+        ;
       }
     }
     memory_threshold_ = GetMemoryThreshold();

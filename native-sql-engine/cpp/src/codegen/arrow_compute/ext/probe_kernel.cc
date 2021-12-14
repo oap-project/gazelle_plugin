@@ -869,7 +869,9 @@ class ConditionedProbeArraysKernel::Impl {
                      "InnerJoin, "
                      "RightJoin"
                   << std::endl;
-        throw JniPendingException("ConditionedProbeArraysTypedImpl does not support join type");;
+        throw JniPendingException(
+            "ConditionedProbeArraysTypedImpl does not support join type");
+        ;
     }
     return "";
   }

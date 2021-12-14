@@ -29,8 +29,8 @@
 #include <iostream>
 #include <sstream>
 
-#include "utils/macros.h"
 #include "utils/exception.h"
+#include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -186,7 +186,7 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       return "Decimal128" + tail;
     default:
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
-      throw  JniPendingException("GetTypeString can't convert" + type->ToString());
+      throw JniPendingException("GetTypeString can't convert" + type->ToString());
   }
 }
 std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
@@ -540,7 +540,8 @@ std::string GetTempPath() {
 #ifdef NATIVESQL_SRC_PATH
     tmp_dir_ = NATIVESQL_SRC_PATH;
 #else
-    std::cerr << "envioroment variable NATIVESQL_TMP_DIR is not set, setting to /tmp" << std::endl;
+    std::cerr << "envioroment variable NATIVESQL_TMP_DIR is not set, setting to /tmp"
+              << std::endl;
     tmp_dir_ = "/tmp/";
 #endif
   }

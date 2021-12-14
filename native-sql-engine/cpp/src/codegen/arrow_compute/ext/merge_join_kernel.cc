@@ -1002,7 +1002,8 @@ class ConditionedJoinArraysKernel::Impl {
       default:
         std::cout << "ConditionedProbeArraysTypedImpl does not support this join type"
                   << std::endl;
-        throw JniPendingException("ConditionedProbeArraysTypedImpl does not support join type");
+        throw JniPendingException(
+            "ConditionedProbeArraysTypedImpl does not support join type");
     }
     return "";
   }

@@ -712,7 +712,7 @@ WindowSortKernel::WindowSortKernel(
     auto status = impl_->LoadJITFunction(key_field_list, result_schema);
     if (!status.ok()) {
       std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-    throw JniPendingException("Window Sort LoadJITFunction failed");
+      throw JniPendingException("Window Sort LoadJITFunction failed");
     }
   }
   kernel_name_ = "WindowSortKernel";
