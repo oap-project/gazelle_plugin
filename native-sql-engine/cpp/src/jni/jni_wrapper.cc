@@ -40,6 +40,7 @@
 #include "codegen/common/result_iterator.h"
 #include "jni/concurrent_map.h"
 #include "jni/jni_common.h"
+#include "utils/exception.h"
 #include "operators/columnar_to_row_converter.h"
 #include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
@@ -57,10 +58,6 @@ namespace {
   }
 // macro ended
 
-class JniPendingException : public std::runtime_error {
- public:
-  explicit JniPendingException(const std::string& arg) : runtime_error(arg) {}
-};
 
 void ThrowPendingException(const std::string& message) {
   throw JniPendingException(message);

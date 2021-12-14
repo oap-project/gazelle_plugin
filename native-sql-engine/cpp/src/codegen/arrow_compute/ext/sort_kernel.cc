@@ -1265,7 +1265,7 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       std::cout << "[ERROR] SortOnekeyKernel for arithmetic can't find key "
                 << key_field_list[0]->ToString() << " from " << result_schema->ToString()
                 << std::endl;
-      throw;
+      throw JniPendingException("SortOnekeyKernel for arithmetic can't find key");
     }
     key_id_ = indices[0];
     col_num_ = result_schema->num_fields();
@@ -1701,11 +1701,11 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
 #endif
     for (auto field : key_field_list) {
       auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
-      if (indices.size() != 1) {
+      if (indices.size() < 1) {
         std::cout << "[ERROR] SortArraysCodegenKernel can't find key "
                   << field->ToString() << " from " << result_schema->ToString()
                   << std::endl;
-        throw;
+        throw JniPendingException("SortArraysCodegenKernel can't find key");
       }
       key_index_list_.push_back(indices[0]);
     }
@@ -1714,7 +1714,7 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
       auto status = LoadJITFunction(key_field_list);
       if (!status.ok()) {
         std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-        throw;
+        throw JniPendingException("Sort LoadJITFunction failed");;
       }
     } else {
       int i = 0;
@@ -1726,7 +1726,7 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
       auto status = LoadJITFunction(projected_field_list_);
       if (!status.ok()) {
         std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-        throw;
+        throw JniPendingException("Sort LoadJITFunction failed");;
       }
     }
     memory_threshold_ = GetMemoryThreshold();
@@ -1765,7 +1765,7 @@ class SortArraysCodegenKernel : public SortArraysToIndicesKernel::Impl {
       const arrow::Status& status2 = LoadLibrary(signature_, ctx_, &sorter_);
       if (!status2.ok()) {
         FileSpinUnLock(file_lock);
-        return status1;
+        return status2;
       }
     }
     FileSpinUnLock(file_lock);
@@ -2397,11 +2397,11 @@ class SortMultiplekeyKernel : public SortArraysToIndicesKernel::Impl {
 #endif
     for (auto field : key_field_list) {
       auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
-      if (indices.size() != 1) {
+      if (indices.size() < 1) {
         std::cout << "[ERROR] SortArraysToIndicesKernel::Impl can't find key "
                   << field->ToString() << " from " << result_schema->ToString()
                   << std::endl;
-        throw;
+        throw JniPendingException("SortArraysToIndicesKernel::Impl can't find key");
       }
       key_index_list_.push_back(indices[0]);
     }

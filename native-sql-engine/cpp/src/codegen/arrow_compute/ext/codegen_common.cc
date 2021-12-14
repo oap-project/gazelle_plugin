@@ -30,6 +30,7 @@
 #include <sstream>
 
 #include "utils/macros.h"
+#include "utils/exception.h"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -107,7 +108,7 @@ std::string GetArrowTypeDefString(std::shared_ptr<arrow::DataType> type) {
       return type->ToString();
     default:
       std::cout << "GetArrowTypeString can't convert " << type->ToString() << std::endl;
-      throw;
+      throw JniPendingException("GetArrowTypeString can't convert" + type->ToString());
   }
 }
 std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
@@ -146,7 +147,7 @@ std::string GetCTypeString(std::shared_ptr<arrow::DataType> type) {
       return "arrow::Decimal128";
     default:
       std::cout << "GetCTypeString can't convert " << type->ToString() << std::endl;
-      throw;
+      throw JniPendingException("GetCTypeString can't convert" + type->ToString());
   }
 }
 std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tail) {
@@ -185,7 +186,7 @@ std::string GetTypeString(std::shared_ptr<arrow::DataType> type, std::string tai
       return "Decimal128" + tail;
     default:
       std::cout << "GetTypeString can't convert " << type->ToString() << std::endl;
-      throw;
+      throw  JniPendingException("GetTypeString can't convert" + type->ToString());
   }
 }
 std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
@@ -274,7 +275,7 @@ std::string GetTemplateString(std::shared_ptr<arrow::DataType> type,
         return template_name + "<" + prefix + "Decimal128" + tail + ">";
     default:
       std::cout << "GetTemplateString can't convert " << type->ToString() << std::endl;
-      throw;
+      throw JniPendingException("GetTemplateString can't convert" + type->ToString());
   }
 }
 
@@ -539,8 +540,8 @@ std::string GetTempPath() {
 #ifdef NATIVESQL_SRC_PATH
     tmp_dir_ = NATIVESQL_SRC_PATH;
 #else
-    std::cerr << "envioroment variable NATIVESQL_TMP_DIR is not set" << std::endl;
-    throw;
+    std::cerr << "envioroment variable NATIVESQL_TMP_DIR is not set, setting to /tmp" << std::endl;
+    tmp_dir_ = "/tmp/";
 #endif
   }
   return tmp_dir_;
@@ -669,16 +670,17 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
 #endif
   ret = system(cmd.c_str());
   if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
-    exit(EXIT_FAILURE);
+    return arrow::Status::Invalid("package jar failed");
   }
 
+#ifdef DEBUG
   struct stat tstat;
   ret = stat(libfile.c_str(), &tstat);
   if (ret == -1) {
     std::cout << "stat failed: " << strerror(errno) << std::endl;
-    exit(EXIT_FAILURE);
+    return arrow::Status::Invalid("stat jar failed");
   }
-
+#endif
   return arrow::Status::OK();
 }
 
@@ -697,7 +699,7 @@ std::string exec(const char* cmd) {
     }
   } catch (...) {
     pclose(file);
-    throw;
+    throw JniPendingException("Exec failed");
   }
   return result;
 }

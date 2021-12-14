@@ -285,7 +285,7 @@ arrow::Status WindowRankKernel::Make(
     auto status = sorter->LoadJITFunction(key_fields, result_schema);
     if (!status.ok()) {
       std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-      throw;
+      throw JniPendingException("Window Sort codegen failed");
     }
   }
   *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);
