@@ -1292,7 +1292,8 @@ arrow::Status Splitter::AppendList(
   dst_values_builders.resize(dst_builders.size());
   for (auto i = 0; i < dst_builders.size(); ++i) {
     if (dst_builders[i] != nullptr)
-        dst_values_builders[i] = checked_cast<ValueBuilderType*>(dst_builders[i]->value_builder());
+      dst_values_builders[i] =
+          checked_cast<ValueBuilderType*>(dst_builders[i]->value_builder());
   }
   auto src_arr_values = std::dynamic_pointer_cast<ValueArrayType>(src_arr->values());
 

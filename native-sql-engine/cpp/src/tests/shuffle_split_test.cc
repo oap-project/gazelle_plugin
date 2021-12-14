@@ -532,12 +532,10 @@ TEST_F(SplitterTest, TestHashListArraySplitterWithMorePartitions) {
   auto f_uint64 = field("f_uint64", arrow::uint64());
   auto f_arr_str = field("f_arr", arrow::list(arrow::utf8()));
 
-  auto rb_schema =
-      arrow::schema({f_uint64, f_arr_str});
+  auto rb_schema = arrow::schema({f_uint64, f_arr_str});
 
   const std::vector<std::string> input_batch_1_data = {
-    R"([1, 2])",
-    R"([["alice0", "bob1"], ["alice2"]])"};
+      R"([1, 2])", R"([["alice0", "bob1"], ["alice2"]])"};
   std::shared_ptr<arrow::RecordBatch> input_batch_arr;
   MakeInputBatch(input_batch_1_data, rb_schema, &input_batch_arr);
 
