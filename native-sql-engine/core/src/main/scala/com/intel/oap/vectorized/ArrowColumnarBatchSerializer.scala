@@ -32,6 +32,7 @@ import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.vector.ipc.ArrowStreamReader
 import org.apache.arrow.vector.VectorLoader
 import org.apache.arrow.vector.VectorSchemaRoot
+import org.apache.arrow.vector.types.pojo.Schema
 
 import org.apache.spark.SparkEnv
 import org.apache.spark.internal.Logging
@@ -45,16 +46,17 @@ import org.apache.spark.sql.execution.metric.SQLMetric
 import org.apache.spark.sql.vectorized.ColumnVector
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
-class ArrowColumnarBatchSerializer(readBatchNumRows: SQLMetric, numOutputRows: SQLMetric)
-    extends Serializer
-    with Serializable {
+class ArrowColumnarBatchSerializer(
+    scheme: Schema, readBatchNumRows: SQLMetric, numOutputRows: SQLMetric)
+extends Serializer with Serializable {
 
   /** Creates a new [[SerializerInstance]]. */
   override def newInstance(): SerializerInstance =
-    new ArrowColumnarBatchSerializerInstance(readBatchNumRows, numOutputRows)
+    new ArrowColumnarBatchSerializerInstance(scheme, readBatchNumRows, numOutputRows)
 }
 
 private class ArrowColumnarBatchSerializerInstance(
+    schema: Schema,
     readBatchNumRows: SQLMetric,
     numOutputRows: SQLMetric)
     extends SerializerInstance
@@ -149,9 +151,9 @@ private class ArrowColumnarBatchSerializerInstance(
           }
         } else {
           if (compressionEnabled) {
-            reader = new ArrowCompressedStreamReader(in, allocator)
+            reader = new SchemaAwareArrowCompressedStreamReader(schema, in, allocator)
           } else {
-            reader = new ArrowStreamReader(in, allocator)
+            reader = new SchemaAwareArrowStreamReader(schema, in, allocator)
           }
           try {
             root = reader.getVectorSchemaRoot
@@ -220,7 +222,7 @@ private class ArrowColumnarBatchSerializerInstance(
 
         val serializedBatch = jniWrapper.decompress(
           schemaHolderId,
-          reader.asInstanceOf[ArrowCompressedStreamReader].GetCompressType(),
+          reader.asInstanceOf[SchemaAwareArrowCompressedStreamReader].GetCompressType(),
           root.getRowCount,
           bufAddrs.toArray,
           bufSizes.toArray,
