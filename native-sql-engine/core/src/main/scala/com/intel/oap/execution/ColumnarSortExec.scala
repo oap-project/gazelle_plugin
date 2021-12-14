@@ -169,7 +169,7 @@ case class ColumnarSortExec(
   def getCodeGenSignature =
     if (sortOrder.exists(expr =>
         !expr.child.isInstanceOf[Literal] &&
-        bindReference(ConverterUtils.getAttrFromExpr(expr.child), child.output, true)
+        bindReference(ConverterUtils.getAttrFromExpr(expr.child, true), child.output, true)
         .isInstanceOf[BoundReference])) {
       ColumnarSorter.prebuild(
         sortOrder,
