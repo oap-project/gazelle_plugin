@@ -25,6 +25,11 @@ import org.apache.arrow.vector.types.pojo.Schema
 
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.test.SharedSparkSession
+import org.apache.spark.sql.types.BooleanType
+import org.apache.spark.sql.types.IntegerType
+import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.types.StructField
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.{SparkConf, SparkFunSuite}
 
@@ -50,15 +55,9 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
     val input = getTestResourcePath("test-data/native-splitter-output-all-null")
     val serializer =
       new ArrowColumnarBatchSerializer(
-        new Schema(
-          util.Arrays.asList(
-            Field.nullable("f1", ArrowType
-                .Bool.INSTANCE),
-            Field.nullable("f2", new ArrowType
-                .Int(32, true)),
-            Field.nullable("f3", ArrowType
-                .Utf8.INSTANCE)
-          )),
+        new StructType(
+          Array(StructField("f1", BooleanType), StructField("f2", IntegerType),
+            StructField("f3", StringType))),
         avgBatchNumRows,
         outputNumRows).newInstance()
     val deserializedStream =
@@ -90,15 +89,9 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
     val input = getTestResourcePath("test-data/native-splitter-output-nullable-string")
     val serializer =
       new ArrowColumnarBatchSerializer(
-        new Schema(
-          util.Arrays.asList(
-            Field.nullable("f1", ArrowType
-                .Bool.INSTANCE),
-            Field.nullable("f2", ArrowType
-                .Utf8.INSTANCE),
-            Field.nullable("f3", ArrowType
-                .Utf8.INSTANCE)
-          )), avgBatchNumRows,
+          new StructType(
+            Array(StructField("f1", BooleanType), StructField("f2", StringType),
+              StructField("f3", StringType))), avgBatchNumRows,
         outputNumRows).newInstance()
     val deserializedStream =
       serializer.deserializeStream(new FileInputStream(input))

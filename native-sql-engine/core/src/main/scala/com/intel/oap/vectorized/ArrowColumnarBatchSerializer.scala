@@ -43,20 +43,23 @@ import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.metric.SQLMetric
+import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.ColumnVector
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
 class ArrowColumnarBatchSerializer(
-    scheme: Schema, readBatchNumRows: SQLMetric, numOutputRows: SQLMetric)
+    schema: StructType, readBatchNumRows: SQLMetric, numOutputRows: SQLMetric)
 extends Serializer with Serializable {
 
   /** Creates a new [[SerializerInstance]]. */
   override def newInstance(): SerializerInstance =
-    new ArrowColumnarBatchSerializerInstance(scheme, readBatchNumRows, numOutputRows)
+    new ArrowColumnarBatchSerializerInstance(schema, readBatchNumRows, numOutputRows)
 }
 
 private class ArrowColumnarBatchSerializerInstance(
-    schema: Schema,
+    schema: StructType,
     readBatchNumRows: SQLMetric,
     numOutputRows: SQLMetric)
     extends SerializerInstance
@@ -150,10 +153,11 @@ private class ArrowColumnarBatchSerializerInstance(
             throw new EOFException
           }
         } else {
+          val arrowSchema = ArrowUtils.toArrowSchema(schema, SQLConf.get.sessionLocalTimeZone)
           if (compressionEnabled) {
-            reader = new SchemaAwareArrowCompressedStreamReader(schema, in, allocator)
+            reader = new SchemaAwareArrowCompressedStreamReader(arrowSchema, in, allocator)
           } else {
-            reader = new SchemaAwareArrowStreamReader(schema, in, allocator)
+            reader = new SchemaAwareArrowStreamReader(arrowSchema, in, allocator)
           }
           try {
             root = reader.getVectorSchemaRoot

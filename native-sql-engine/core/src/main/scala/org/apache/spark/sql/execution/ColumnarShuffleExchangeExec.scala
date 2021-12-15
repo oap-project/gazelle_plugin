@@ -96,7 +96,7 @@ case class ColumnarShuffleExchangeExec(
   }
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
-    ArrowUtils.toArrowSchema(schema, SQLConf.get.sessionLocalTimeZone),
+    schema,
     longMetric("avgReadBatchNumRows"),
     longMetric("numOutputRows"))
 
@@ -195,7 +195,7 @@ class ColumnarShuffleExchangeAdaptor(
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
-    ArrowUtils.toArrowSchema(schema, SQLConf.get.sessionLocalTimeZone),
+    schema,
     longMetric("avgReadBatchNumRows"),
     longMetric("numOutputRows"))
 
