@@ -54,12 +54,14 @@ class ArrowColumnarBatchSerializer(
 extends Serializer with Serializable {
 
   /** Creates a new [[SerializerInstance]]. */
-  override def newInstance(): SerializerInstance =
-    new ArrowColumnarBatchSerializerInstance(schema, readBatchNumRows, numOutputRows)
+  override def newInstance(): SerializerInstance = {
+    val arrowSchema = ArrowUtils.toArrowSchema(schema, SQLConf.get.sessionLocalTimeZone)
+    new ArrowColumnarBatchSerializerInstance(arrowSchema, readBatchNumRows, numOutputRows)
+  }
 }
 
 private class ArrowColumnarBatchSerializerInstance(
-    schema: StructType,
+    schema: Schema,
     readBatchNumRows: SQLMetric,
     numOutputRows: SQLMetric)
     extends SerializerInstance
@@ -153,11 +155,10 @@ private class ArrowColumnarBatchSerializerInstance(
             throw new EOFException
           }
         } else {
-          val arrowSchema = ArrowUtils.toArrowSchema(schema, SQLConf.get.sessionLocalTimeZone)
           if (compressionEnabled) {
-            reader = new SchemaAwareArrowCompressedStreamReader(arrowSchema, in, allocator)
+            reader = new SchemaAwareArrowCompressedStreamReader(schema, in, allocator)
           } else {
-            reader = new SchemaAwareArrowStreamReader(arrowSchema, in, allocator)
+            reader = new SchemaAwareArrowStreamReader(schema, in, allocator)
           }
           try {
             root = reader.getVectorSchemaRoot
