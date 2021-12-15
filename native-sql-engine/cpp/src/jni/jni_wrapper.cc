@@ -1389,7 +1389,8 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeClose(
 
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToColumnar(
-    JNIEnv* env, jobject, jbyteArray schema_arr,  jlongArray row_length, jlong memory_address) {
+    JNIEnv* env, jobject, jbyteArray schema_arr,  jlongArray row_length, jlong memory_address, 
+      jlong memory_pool_id) {
       std::cout << "Calling the nativeConvertRowToColumnar method" << "\n";
 
   if (schema_arr == NULL) {
@@ -1408,24 +1409,16 @@ Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToCol
   std::shared_ptr<arrow::Schema> schema;
   // ValueOrDie in MakeSchema
   MakeSchema(env, schema_arr, &schema);
-
   jlong* in_row_length = env->GetLongArrayElements(row_length, JNI_FALSE);
-  int rows_num = env->GetArrayLength(row_length);
-  auto cols_num = schema->num_fields();
   uint8_t* address = reinterpret_cast<uint8_t*>(memory_address);
-  if (pool == nullptr) {
-      JniThrow("Memory pool does not exist or has been closed");
-  }
-
+  auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+  int num_rows = env->GetArrayLength(row_length);
+  int num_columnars = schema->num_fields();
   std::shared_ptr<RowToColumnarConverter> row_to_columnar_converter =
-        std::make_shared<RowToColumnarConverter>(schema, cols_num, rows_num, in_row_length, address);
-  //
-  JniAssertOkOrThrow(row_to_columnar_converter->Init(),
-                     "Native convert row to columnar: Init "
+      std::make_shared<RowToColumnarConverter>(schema, num_columnars, num_rows, 
+                in_row_length, address, pool);
+  JniAssertOkOrThrow(row_to_columnar_converter->Init(), "Native convert Row to Columnar Init "
                      "RowToColumnarConverter failed");
-  JniAssertOkOrThrow(row_to_columnar_converter->Write(),
-      "Native convert row to columnar: RowToColumnarConverter write failed");
-
 
   return NULL;
 }

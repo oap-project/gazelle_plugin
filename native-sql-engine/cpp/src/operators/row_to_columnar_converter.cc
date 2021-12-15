@@ -58,14 +58,12 @@ int32_t WordOffset(uint8_t* buffer_address, int32_t index) {
 
 }
 
-arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t num_rows, int32_t columnar_id, 
-    int64_t fieldOffset, std::vector<int64_t>& offsets, int64_t* row_length_, uint8_t* memory_address_, std::shared_ptr<arrow::Array>* array, arrow::MemoryPool* pool) {
+arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num_rows, int32_t columnar_id, 
+    int64_t fieldOffset, std::vector<int64_t>& offsets, uint8_t* memory_address_,
+     std::shared_ptr<arrow::Array>* array, arrow::MemoryPool* pool) {
   
   auto field = schema->field(columnar_id);
   auto type = field->type();
-  
-  
-
   if (type->id() == arrow::BooleanType::type_id) {
     arrow::ArrayData out_data;
     out_data.length = num_rows;
@@ -128,7 +126,6 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
     out_data.null_count = null_count;
     *array = MakeArray(std::make_shared<arrow::ArrayData>(std::move(out_data)));
     return arrow::Status::OK();
-
   }
   else if (type->id() == arrow::Int16Type::type_id)
   {
@@ -303,7 +300,7 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
         memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));
         offset_type length = int32_t(offsetAndSize);
         int32_t wordoffset = int32_t(offsetAndSize >> 32);
-        RETURN_NOT_OK(builder_->Append(memory_address_ + wordoffset, length));
+        RETURN_NOT_OK(builder_->Append(memory_address_ + offsets[position] + wordoffset, length));
       }
     }
     auto status = builder_->Finish(array);  
@@ -327,7 +324,7 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
         memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));
         offset_type length = int32_t(offsetAndSize);
         int32_t wordoffset = int32_t(offsetAndSize >> 32);
-        RETURN_NOT_OK(builder_->Append(memory_address_ + wordoffset, length));
+        RETURN_NOT_OK(builder_->Append(memory_address_ + offsets[position] + wordoffset, length));
       }
     }
     auto status = builder_->Finish(array);  
@@ -446,19 +443,41 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
   }
   else if (type->id() == arrow::ListType::type_id)
   {
-
     // int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
     auto list_type = std::dynamic_pointer_cast<arrow::ListType>(type);
     auto child_type = list_type->value_type();
-    if (child_type->id() == arrow::Int8Type::type_id){
-      // ListBuilder components_builder(pool, std::make_shared<DoubleBuilder>(pool)); 
-      // std::unique_ptr<arrow::TypeTraits<arrow::ListType>::BuilderType> builder_;
-      // std::unique_ptr<arrow::ArrayBuilder> array_builder;
-      // arrow::MakeBuilder(pool, std::make_shared<arrow::ListType>(arrow::BooleanType()), &array_builder);
-      // builder_.reset(arrow::internal::checked_cast<arrow::TypeTraits<arrow::ListType>::BuilderType *>(array_builder.release()));
-      
-      // arrow::BooleanBuilder& cost_components_builder = *(static_cast<arrow::BooleanBuilder *>(builder_.value_builder()));
-
+    if (child_type->id() == arrow::BooleanType::type_id)
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::BooleanBuilder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::BooleanBuilder& child_builder = *(static_cast<arrow::BooleanBuilder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                bool value = *(bool *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                           j * sizeof(bool));
+                RETURN_NOT_OK(child_builder.Append(value));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (child_type->id() == arrow::Int8Type::type_id){
       arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::Int8Builder>(pool));
       // The following builder is owned by components_builder.
       arrow::Int8Builder& child_builder = *(static_cast<arrow::Int8Builder*>(parent_builder.value_builder()));
@@ -479,7 +498,7 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
             if (is_null) {
               child_builder.AppendNull();
             } else {
-                bool value = *(int8_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                auto value = *(int8_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
                            j * sizeof(int8_t));
                 RETURN_NOT_OK(child_builder.Append(value));
             }
@@ -510,7 +529,7 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
             if (is_null) {
               child_builder.AppendNull();
             } else {
-                bool value = *(int16_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                auto value = *(int16_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
                            j * sizeof(int16_t));
                 RETURN_NOT_OK(child_builder.Append(value));
             }
@@ -541,7 +560,7 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
             if (is_null) {
               child_builder.AppendNull();
             } else {
-                bool value = *(int32_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                auto value = *(int32_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
                            j * sizeof(int32_t));
                 RETURN_NOT_OK(child_builder.Append(value));
             }
@@ -572,7 +591,131 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
             if (is_null) {
               child_builder.AppendNull();
             } else {
-                bool value = *(int64_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                auto value = *(int64_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                           j * sizeof(int64_t));
+                RETURN_NOT_OK(child_builder.Append(value));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (child_type->id() == arrow::FloatType::type_id)
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::FloatBuilder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::FloatBuilder& child_builder = *(static_cast<arrow::FloatBuilder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                auto value = *(float *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                           j * sizeof(float));
+                RETURN_NOT_OK(child_builder.Append(value));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (child_type->id() == arrow::DoubleType::type_id)
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::DoubleBuilder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::DoubleBuilder& child_builder = *(static_cast<arrow::DoubleBuilder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                auto value = *(double *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                           j * sizeof(double));
+                RETURN_NOT_OK(child_builder.Append(value));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (child_type->id() == arrow::DoubleType::type_id)
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::DoubleBuilder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::DoubleBuilder& child_builder = *(static_cast<arrow::DoubleBuilder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                auto value = *(double *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                           j * sizeof(double));
+                RETURN_NOT_OK(child_builder.Append(value));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (child_type->id() == arrow::Date32Type::type_id)
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::Date32Builder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::Date32Builder& child_builder = *(static_cast<arrow::Date32Builder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                auto value = *(int32_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
                            j * sizeof(int32_t));
                 RETURN_NOT_OK(child_builder.Append(value));
             }
@@ -581,134 +724,136 @@ arrow::Status CreateArrayData2(std::shared_ptr<arrow::Schema> schema, int64_t nu
         }
       }
     }
+    else if (child_type->id() == arrow::TimestampType::type_id)
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::TimestampBuilder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::TimestampBuilder& child_builder = *(static_cast<arrow::TimestampBuilder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                auto value = *(int64_t *)(memory_address_ + offsets[position] + wordoffset + header_in_bytes +
+                           j * sizeof(int64_t));
+                RETURN_NOT_OK(child_builder.Append(value));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (arrow::is_binary_like(child_type->id()))
+    {
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::BinaryBuilder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::BinaryBuilder& child_builder = *(static_cast<arrow::BinaryBuilder*>(parent_builder.value_builder()));
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          using offset_type = typename arrow::BinaryType::offset_type;
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+                int64_t elementOffsetAndSize;
+                memcpy(&elementOffsetAndSize, memory_address_ + offsets[position] + wordoffset + header_in_bytes + 8*j,
+                   sizeof(int64_t));
+                offset_type elementLength = int32_t(elementOffsetAndSize);
+                int32_t elementOffset = int32_t(elementOffsetAndSize >> 32);
+                RETURN_NOT_OK(child_builder.Append(memory_address_ + offsets[position] + wordoffset + elementOffset,
+                   elementLength));
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
+    else if (child_type->id() == arrow::Decimal128Type::type_id)
+    {  
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::Decimal128Builder>(pool));
+      // The following builder is owned by components_builder.
+      arrow::Decimal128Builder& child_builder = *(static_cast<arrow::Decimal128Builder*>(parent_builder.value_builder()));
+      auto dtype = std::dynamic_pointer_cast<arrow::Decimal128Type>(child_type);
+      int32_t precision = dtype->precision();
+      int32_t scale = dtype->scale();
 
-
-    // std::unique_ptr<arrow::TypeTraits<arrow::ListType>::BuilderType> builder_;
-    // std::unique_ptr<arrow::ArrayBuilder> array_builder;
-    // arrow::MakeBuilder(pool, arrow::ListType{}, &array_builder);
-    // builder_.reset(arrow::internal::checked_cast<arrow::TypeTraits<arrow::ListType>::BuilderType *>(array_builder.release()));
-
+      for (int64_t position = 0; position < num_rows; position++) {
+        bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
+        if (is_null) {
+          RETURN_NOT_OK(parent_builder.AppendNull());
+        } else { 
+          RETURN_NOT_OK(parent_builder.Append());      
+          int64_t offsetAndSize;
+          memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset, sizeof(int64_t));          
+          int32_t length = int32_t(offsetAndSize);
+          int32_t wordoffset = int32_t(offsetAndSize >> 32);
+          int64_t num_elements = *(int64_t *)(memory_address_ + offsets[position] + wordoffset); 
+          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+          for (auto j = 0; j < num_elements; j++) {
+            bool is_null = IsNull(memory_address_ + offsets[position] + wordoffset + 8, j);
+            if (is_null) {
+              child_builder.AppendNull();
+            } else {
+              if(precision < 18) {
+                uint8_t bytesValue[8] = {0};
+                memcpy(&bytesValue, memory_address_ + offsets[position] + wordoffset + header_in_bytes + 8*j,
+                   sizeof(int64_t));
+                auto value = arrow::Decimal128(arrow::BasicDecimal128(bytesValue));
+                RETURN_NOT_OK(child_builder.Append(value));
+              }
+              else {
+                int64_t elementOffsetAndSize;
+                memcpy(&elementOffsetAndSize, memory_address_ + offsets[position] + wordoffset + header_in_bytes + 8*j,
+                   sizeof(int64_t));
+                int32_t elementLength = int32_t(elementOffsetAndSize);
+                int32_t elementOffset = int32_t(elementOffsetAndSize >> 32);
+                uint8_t bytesValue[16] = {0};
+                memcpy(&bytesValue, memory_address_ + offsets[position] + wordoffset + elementOffset, elementLength);
+                auto value = arrow::Decimal128(arrow::BasicDecimal128(bytesValue));
+                RETURN_NOT_OK(child_builder.Append(value));
+              }
+            }
+          }
+          ARROW_RETURN_NOT_OK(parent_builder.Finish(array));
+        }
+      }
+    }
     return arrow::Status::OK();   
   }
-  
 }
-
-
-arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num_rows, int32_t columnar_id, 
-    int64_t fieldOffset, std::vector<int64_t>& offsets, int64_t* row_length_, uint8_t* memory_address_, std::shared_ptr<arrow::Array>* array_data) {
-  
-  
-
-
-  auto field = schema->field(columnar_id);
-  auto type = field->type();
-  
-  if (type->id() == arrow::BooleanType::type_id) 
-  {
-    arrow::BooleanBuilder builder;
-    builder.Resize(num_rows);   
-    bool value;
-    for (auto i = 0; i < num_rows; i++) {
-      bool is_null = IsNull(memory_address_ + offsets[i], columnar_id);
-      if (is_null) {
-        builder.UnsafeAppendNull();
-        // SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-      } else {
-        
-        memcpy(&value, memory_address_ + offsets[i] + fieldOffset, sizeof(bool));
-        // auto value = bool_array->Value(i);
-        // memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
-        builder.UnsafeAppend(value);
-      }
-    }
-    return builder.Finish(array_data);
-  }
-  else if (type->id() == arrow::Int8Type::type_id)
-  {    
-    arrow::Int8Builder builder;
-    builder.Resize(num_rows);   
-    int8_t value;
-    for (auto i = 0; i < num_rows; i++) {
-      bool is_null = IsNull(memory_address_ + offsets[i], columnar_id);
-      if (is_null) {
-        builder.UnsafeAppendNull();
-        // SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-      } else {   
-        memcpy(&value, memory_address_ + offsets[i] + CalculateBitSetWidthInBytes(schema->num_fields()), sizeof(int8_t));
-        // auto value = bool_array->Value(i);
-        // memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
-        builder.UnsafeAppend(value);
-      }
-    }
-    return builder.Finish(array_data); 
-  }
-  else if (type->id() == arrow::Int16Type::type_id)
-  {    
-    arrow::Int16Builder builder;
-    builder.Resize(num_rows);   
-    int16_t value;
-    for (auto i = 0; i < num_rows; i++) {
-      bool is_null = IsNull(memory_address_ + offsets[i], columnar_id);
-      if (is_null) {
-        builder.UnsafeAppendNull();
-        // SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-      } else {   
-        memcpy(&value, memory_address_ + offsets[i] + CalculateBitSetWidthInBytes(schema->num_fields()), sizeof(int16_t));
-        // auto value = bool_array->Value(i);
-        // memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
-        builder.UnsafeAppend(value);
-      }
-    }
-    return builder.Finish(array_data); 
-  }
-  else if (type->id() == arrow::Int32Type::type_id)
-  {    
-    arrow::Int32Builder builder;
-    builder.Resize(num_rows);   
-    int8_t value;
-    for (auto i = 0; i < num_rows; i++) {
-      bool is_null = IsNull(memory_address_ + offsets[i], columnar_id);
-      if (is_null) {
-        builder.UnsafeAppendNull();
-        // SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-      } else {   
-        memcpy(&value, memory_address_ + offsets[i] + CalculateBitSetWidthInBytes(schema->num_fields()), sizeof(int32_t));
-        // auto value = bool_array->Value(i);
-        // memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
-        builder.UnsafeAppend(value);
-      }
-    }
-    return builder.Finish(array_data); 
-  }
-
-
-  // switch (type->id) {
-  //   case arrow::Int16Type::type_id:
-  //     auto dtype = dynamic_cast<arrow::Decimal128Type*>(type.get());
-  //     int32_t precision = dtype->precision();
-  //     break;
-  //   }
-
-  //   default:
-  //     return arrow::Status::Invalid("Unsupported data type in ListArray: ");
-  // }
-   
-
-  return arrow::Status::OK();
-}
-
-
 
 arrow::Status RowToColumnarConverter::Init() {
 
-  nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
+  int64_t nullBitsetWidthInBytes = CalculateBitSetWidthInBytes(num_cols_);
   for (auto i = 0; i < num_rows_; i++) {
     offsets_.push_back(0);
   }
-  for (auto i = 0; i < num_rows_; i++) {
+  for (auto i = 1; i < num_rows_; i++) {
     offsets_[i] = offsets_[i - 1] + row_length_[i - 1];
   }
-  
 
   std::vector<std::shared_ptr<arrow::Array>> arrays;
   auto num_fields = schema_->num_fields();
@@ -716,121 +861,15 @@ arrow::Status RowToColumnarConverter::Init() {
   for (auto i = 0; i < num_fields; i++) {
     auto field = schema_->field(i);
     std::shared_ptr<arrow::Array> array_data;
-    int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);
-    // RETURN_NOT_OK(CreateArrayData(schema_, num_rows_, i, field_offset, offsets_, row_length_, memory_address_,
-    //                             &array_data));
-
-    RETURN_NOT_OK(CreateArrayData2(schema_, num_rows_, i, field_offset, offsets_, row_length_, memory_address_,
+    int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes, i);
+    RETURN_NOT_OK(CreateArrayData(schema_, num_rows_, i, field_offset, offsets_, memory_address_,
                                 &array_data, m_pool_));
-    // arrow::ArrayData out_data;
-    // out_data.length = num_rows_;
-    // out_data.buffers.resize(2);
-
-    // out_data.type = arrow::TypeTraits<arrow::BooleanType>::type_singleton();
-
-
-    // RETURN_NOT_OK();
     arrays.push_back(array_data);
   }
   std::shared_ptr<arrow::RecordBatch> rb;
   rb = arrow::RecordBatch::Make(schema_, num_rows_, arrays);
-
   return arrow::Status::OK();
-
-//  num_rows_ = rb_->num_rows();
-//  num_cols_ = rb_->num_columns();
-//  // Calculate the initial size
-//  nullBitsetWidthInBytes_ = CalculateBitSetWidthInBytes(num_cols_);
-//
-//  int64_t fixed_size_per_row = CalculatedFixeSizePerRow(rb_->schema(), num_cols_);
-//
-//  // Initialize the offsets_ , lengths_, buffer_cursor_
-//  for (auto i = 0; i < num_rows_; i++) {
-//    lengths_.push_back(fixed_size_per_row);
-//    offsets_.push_back(0);
-//    buffer_cursor_.push_back(nullBitsetWidthInBytes_ + 8 * num_cols_);
-//  }
-//  // Calculated the lengths_
-//  for (auto i = 0; i < num_cols_; i++) {
-//    auto array = rb_->column(i);
-//    if (arrow::is_binary_like(array->type_id())) {
-//      auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
-//      using offset_type = typename arrow::BinaryType::offset_type;
-//      offset_type length;
-//      for (auto j = 0; j < num_rows_; j++) {
-//        auto value = binary_array->GetValue(j, &length);
-//        lengths_[j] += RoundNumberOfBytesToNearestWord(length);
-//      }
-//    }
-//
-//    // Each array has four parts in Spark UnsafeArrayData class:
-//    // [numElements][null bits][values or offset&length][variable length portion]
-//    // The array type is considered to be the variable col in the Spark UnsafeRow.
-//    if (array->type_id() == arrow::ListType::type_id) {
-//      auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
-//      int32_t element_size_in_bytes = -1;
-//      // header_in_bytes:  [numElements][null bits]
-//      int32_t num_elements = 0, header_in_bytes = 0, fixed_part_in_bytes = 0,
-//              variable_part_in_bytes = 0;
-//      for (auto j = 0; j < num_rows_; j++) {
-//        // Calculated the size of per row in list array
-//        auto row_array = list_array->value_slice(j);
-//        num_elements = row_array->length();
-//        header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
-//
-//        if (element_size_in_bytes == -1) {
-//          // only calculated once
-//          CalculatedElementSize(row_array->type_id(), &element_size_in_bytes);
-//        }
-//
-//        fixed_part_in_bytes =
-//            RoundNumberOfBytesToNearestWord(num_elements * element_size_in_bytes);
-//
-//        // If the type is binary like or decimal precision > 18, need to calculated the
-//        // variable part size
-//        if (arrow::is_binary_like(row_array->type_id())) {
-//          auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(row_array);
-//          using offset_type = typename arrow::BinaryType::offset_type;
-//          offset_type length;
-//          for (auto k = 0; k < num_elements; k++) {
-//            if (!binary_array->IsNull(k)) {
-//              auto value = binary_array->GetValue(k, &length);
-//              variable_part_in_bytes += RoundNumberOfBytesToNearestWord(length);
-//            }
-//          }
-//        }
-//
-//        if (row_array->type_id() == arrow::Decimal128Type::type_id) {
-//          auto dtype = dynamic_cast<arrow::Decimal128Type*>(row_array->type().get());
-//          int32_t precision = dtype->precision();
-//          int32_t null_count = row_array->null_count();
-//          // TODO: the size in UnsafeArrayData is not 16 and is the
-//          // RoundNumberOfBytesToNearestWord(real size)
-//          if (precision > 18) variable_part_in_bytes += 16 * (num_elements - null_count);
-//        }
-//
-//        lengths_[j] += (header_in_bytes + fixed_part_in_bytes + variable_part_in_bytes);
-//      }
-//    }
-//  }
-//  // Calculated the offsets_  and total memory size based on lengths_
-//  int64_t total_memory_size = lengths_[0];
-//  for (auto i = 1; i < num_rows_; i++) {
-//    offsets_[i] = offsets_[i - 1] + lengths_[i - 1];
-//    total_memory_size += lengths_[i];
-//  }
-//
-//  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size, memory_pool_));
-//
-//  memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
-//
-//  buffer_address_ = buffer_->mutable_data();
-//  return arrow::Status::OK();
 }
-
-
-
-
 
 }  // namespace columnartorow
 }  // namespace sparkcolumnarplugin
