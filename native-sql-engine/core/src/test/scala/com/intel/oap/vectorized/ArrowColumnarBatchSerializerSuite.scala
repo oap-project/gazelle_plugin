@@ -41,6 +41,7 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
   override def sparkConf: SparkConf =
     super.sparkConf
       .set("spark.shuffle.compress", "false")
+      .set("spark.oap.sql.columnar.shuffle.writeSchema", "true")
 
   override def beforeEach() = {
     avgBatchNumRows = SQLMetrics.createAverageMetric(
@@ -50,8 +51,7 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
       SQLMetrics.createAverageMetric(spark.sparkContext, "test serializer number of output rows")
   }
 
-  // ignore: the binary ipc file is with schema written
-  ignore("deserialize all null") {
+  test("deserialize all null") {
     val input = getTestResourcePath("test-data/native-splitter-output-all-null")
     val serializer =
       new ArrowColumnarBatchSerializer(
@@ -84,8 +84,7 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
     deserializedStream.close()
   }
 
-  // ignore: the binary ipc file is with schema written
-  ignore("deserialize nullable string") {
+  test("deserialize nullable string") {
     val input = getTestResourcePath("test-data/native-splitter-output-nullable-string")
     val serializer =
       new ArrowColumnarBatchSerializer(

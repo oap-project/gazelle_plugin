@@ -41,6 +41,7 @@ struct SplitOptions {
   int32_t num_sub_dirs = kDefaultNumSubDirs;
   arrow::Compression::type compression_type = arrow::Compression::UNCOMPRESSED;
   bool prefer_spill = true;
+  bool write_schema = true;
 
   std::string data_file;
 

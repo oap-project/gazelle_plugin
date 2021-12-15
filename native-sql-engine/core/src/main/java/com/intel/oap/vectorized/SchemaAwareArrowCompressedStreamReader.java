@@ -51,12 +51,21 @@ public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
     this.originalSchema = originalSchema;
   }
 
+
+  public SchemaAwareArrowCompressedStreamReader(InputStream in,
+      BufferAllocator allocator) {
+    this(null, in, allocator);
+  }
+
   public String GetCompressType() {
     return compressType;
   }
 
   @Override
   protected Schema readSchema() throws IOException {
+    if (originalSchema == null) {
+      return super.readSchema();
+    }
     return originalSchema;
   }
 

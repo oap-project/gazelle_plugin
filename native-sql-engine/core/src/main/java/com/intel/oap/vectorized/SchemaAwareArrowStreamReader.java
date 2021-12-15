@@ -33,8 +33,16 @@ public class SchemaAwareArrowStreamReader extends ArrowStreamReader {
     this.originalSchema = originalSchema;
   }
 
+  public SchemaAwareArrowStreamReader(InputStream in,
+      BufferAllocator allocator) {
+    this(null, in, allocator);
+  }
+
   @Override
   protected Schema readSchema() throws IOException {
+    if (originalSchema == null) {
+      return super.readSchema();
+    }
     return originalSchema;
   }
 }

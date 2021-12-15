@@ -25,6 +25,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.ConverterUtils
 import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
 import org.apache.arrow.memory.ArrowBuf
@@ -69,6 +70,8 @@ private class ArrowColumnarBatchSerializerInstance(
 
   override def deserializeStream(in: InputStream): DeserializationStream = {
     new DeserializationStream {
+
+      private val readSchema = GazellePluginConfig.getConf.columnarShuffleWriteSchema
 
       private val compressionEnabled =
         SparkEnv.get.conf.getBoolean("spark.shuffle.compress", true)
@@ -155,10 +158,11 @@ private class ArrowColumnarBatchSerializerInstance(
             throw new EOFException
           }
         } else {
+          val suggestedSchema = if (readSchema) null else schema
           if (compressionEnabled) {
-            reader = new SchemaAwareArrowCompressedStreamReader(schema, in, allocator)
+            reader = new SchemaAwareArrowCompressedStreamReader(suggestedSchema, in, allocator)
           } else {
-            reader = new SchemaAwareArrowStreamReader(schema, in, allocator)
+            reader = new SchemaAwareArrowStreamReader(suggestedSchema, in, allocator)
           }
           try {
             root = reader.getVectorSchemaRoot
