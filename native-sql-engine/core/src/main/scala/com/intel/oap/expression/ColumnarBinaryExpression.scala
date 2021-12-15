@@ -30,11 +30,14 @@ import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.types._
+
 import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateDiff
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDateSub
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarFromUnixTime
+import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarGetTimestamp
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -74,6 +77,25 @@ class ColumnarDateAddInterval(start: Expression, interval: Expression, original:
   }
 }
 
+class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJsonObject)
+    extends GetJsonObject(original.json, original.path)
+    with ColumnarExpression
+    with Logging {
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    var (left_node, left_type): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    var (right_node, right_type): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode = TreeBuilder.makeFunction("get_json_object",
+      Lists.newArrayList(left_node, right_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
+
 object ColumnarBinaryExpression {
 
   def create(left: Expression, right: Expression, original: Expression): Expression =
@@ -84,8 +106,16 @@ object ColumnarBinaryExpression {
         new ColumnarDateDiff(left, right)
       case a: UnixTimestamp =>
         new ColumnarUnixTimestamp(left, right)
+      // To match GetTimestamp (a private class).
+      case _ if (original.isInstanceOf[ToTimestamp] && original.dataType == TimestampType) =>
+        // Convert a string to Timestamp. Default timezone is used.
+        new ColumnarGetTimestamp(left, right, None)
       case a: FromUnixTime =>
         new ColumnarFromUnixTime(left, right)
+      case d: DateSub =>
+        new ColumnarDateSub(left, right)
+      case g: GetJsonObject =>
+        new ColumnarGetJsonObject(left, right, g)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

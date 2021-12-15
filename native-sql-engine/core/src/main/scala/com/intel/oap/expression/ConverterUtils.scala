@@ -324,10 +324,14 @@ object ConverterUtils extends Logging {
       case a: AttributeReference =>
         a
       case a: Alias =>
-        if (skipAlias && a.child.isInstanceOf[AttributeReference]) {
-          getAttrFromExpr(a.child)
+        if (skipAlias) {
+          if (a.child.isInstanceOf[AttributeReference] || a.child.isInstanceOf[Coalesce]) {
+            getAttrFromExpr(a.child)
+          } else {
+            a.toAttribute.asInstanceOf[AttributeReference]
+          }
         } else {
-          a.toAttribute.asInstanceOf[AttributeReference]
+            a.toAttribute.asInstanceOf[AttributeReference]
         }
       case a: KnownFloatingPointNormalized =>
         logInfo(s"$a")
@@ -380,6 +384,9 @@ object ConverterUtils extends Logging {
         new AttributeReference(name, DoubleType, d.nullable)()
       case m: ColumnarMultiply =>
         new AttributeReference(name, m.dataType, m.nullable)()
+      // for situation like: case when x = y
+      case cet: ColumnarEqualTo =>
+        new AttributeReference(name, cet.dataType, cet.nullable)()
       case other =>
         val a = if (name != "None") {
           new Alias(other, name)()

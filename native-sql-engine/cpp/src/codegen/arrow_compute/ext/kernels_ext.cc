@@ -332,7 +332,7 @@ class CachedRelationKernel::Impl {
         std::cout << "[ERROR] CachedRelationKernel::Impl can't find key "
                   << field->ToString() << " from " << result_schema->ToString()
                   << std::endl;
-        throw;
+        throw JniPendingException("CachedRelationKernel::Impl can't find key");
       }
       key_index_list_.push_back(indices[0]);
     }

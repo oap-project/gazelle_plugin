@@ -56,10 +56,10 @@ class WindowSortKernel::Impl {
       : ctx_(ctx), nulls_first_(nulls_first), asc_(asc) {
     for (auto field : key_field_list) {
       auto indices = GetIndicesFromSchemaCaseInsensitive(result_schema, field->name());
-      if (indices.size() != 1) {
+      if (indices.size() < 1) {
         std::cout << "[ERROR] WindowSortKernel::Impl can't find key " << field->ToString()
                   << " from " << result_schema->ToString() << std::endl;
-        throw;
+        throw JniPendingException("WindowSortKernel::Impl can't find key");
       }
       key_index_list_.push_back(indices[0]);
     }
@@ -93,15 +93,18 @@ class WindowSortKernel::Impl {
     auto file_lock = FileSpinLock();
     auto status = LoadLibrary(signature_, ctx_, &sorter);
     if (!status.ok()) {
-      try {
-        // process
-        auto codes = ProduceCodes(result_schema);
-        // compile codes
-        auto s = CompileCodes(codes, signature_);
-        s = LoadLibrary(signature_, ctx_, &sorter);
-      } catch (const std::runtime_error& error) {
+      // process
+      auto codes = ProduceCodes(result_schema);
+      // compile codes
+      const arrow::Status& status1 = CompileCodes(codes, signature_);
+      if (!status1.ok()) {
         FileSpinUnLock(file_lock);
-        throw error;
+        return status1;
+      }
+      const arrow::Status& status2 = LoadLibrary(signature_, ctx_, &sorter);
+      if (!status2.ok()) {
+        FileSpinUnLock(file_lock);
+        return status2;
       }
     }
     FileSpinUnLock(file_lock);
@@ -709,7 +712,7 @@ WindowSortKernel::WindowSortKernel(
     auto status = impl_->LoadJITFunction(key_field_list, result_schema);
     if (!status.ok()) {
       std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-      throw;
+      throw JniPendingException("Window Sort LoadJITFunction failed");
     }
   }
   kernel_name_ = "WindowSortKernel";

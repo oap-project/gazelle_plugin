@@ -70,12 +70,12 @@ class ColumnarSorter(
   val resultSchema: StructType = StructType(
     outputAttributes
       .map(expr => {
-        val attr = ConverterUtils.getAttrFromExpr(expr)
+        val attr = ConverterUtils.getAttrFromExpr(expr, true)
         StructField(s"${attr.name.toLowerCase()}", attr.dataType, nullable = true)
       })
       .toArray)
   val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
-    val attr = ConverterUtils.getAttrFromExpr(expr)
+    val attr = ConverterUtils.getAttrFromExpr(expr, true)
     Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
         CodeGeneration.getResultType(attr.dataType))
   })
@@ -179,12 +179,12 @@ object ColumnarSorter extends Logging {
 
   def checkIfKeyFound(sortOrder: Seq[SortOrder], outputAttributes: Seq[Attribute]): Unit = {
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
-      val attr = ConverterUtils.getAttrFromExpr(expr)
+      val attr = ConverterUtils.getAttrFromExpr(expr, true)
       Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
         CodeGeneration.getResultType(attr.dataType))
     })
     sortOrder.toList.foreach(sort => {
-      val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      val attr = ConverterUtils.getAttrFromExpr(sort.child, true)
       val field = Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
         CodeGeneration.getResultType(attr.dataType))
       if (outputFieldList.indexOf(field) == -1) {
@@ -200,7 +200,7 @@ object ColumnarSorter extends Logging {
       outputAttributes: Seq[Attribute]): TreeNode = {
     checkIfKeyFound(sortOrder, outputAttributes)
     val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
-      val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      val attr = ConverterUtils.getAttrFromExpr(sort.child, true)
       Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
         CodeGeneration.getResultType(attr.dataType))
     })
@@ -237,7 +237,7 @@ object ColumnarSorter extends Logging {
     val codegen = GazellePluginConfig.getConf.enableColumnarCodegenSort
     /////////////// Prepare ColumnarSorter //////////////
     val keyFieldList: List[Field] = sortOrder.toList.map(sort => {
-      val attr = ConverterUtils.getAttrFromExpr(sort.child)
+      val attr = ConverterUtils.getAttrFromExpr(sort.child, true)
       Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
         CodeGeneration.getResultType(attr.dataType))
     })
@@ -345,7 +345,7 @@ object ColumnarSorter extends Logging {
       outputAttributes: Seq[Attribute],
       _sparkConf: SparkConf): (ExpressionTree, Schema) = {
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
-      val attr = ConverterUtils.getAttrFromExpr(expr)
+      val attr = ConverterUtils.getAttrFromExpr(expr, true)
       Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
           CodeGeneration.getResultType(attr.dataType))
     })

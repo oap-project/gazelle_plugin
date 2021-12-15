@@ -124,6 +124,7 @@ class ColumnarShuffleWriter[K, V](
       if (cb.numRows == 0 || cb.numCols == 0) {
         logInfo(s"Skip ColumnarBatch of ${cb.numRows} rows, ${cb.numCols} cols")
       } else {
+        val startTimeForPrepare = System.nanoTime()
         val bufAddrs = new ListBuffer[Long]()
         val bufSizes = new ListBuffer[Long]()
         val recordBatch = ConverterUtils.createArrowRecordBatch(cb)
@@ -164,6 +165,7 @@ class ColumnarShuffleWriter[K, V](
           }
         }
         firstRecordBatch = false
+        dep.prepareTime.add(System.nanoTime() - startTimeForPrepare)
 
         jniWrapper.split(nativeSplitter, cb.numRows, bufAddrs.toArray, bufSizes.toArray, firstRecordBatch)
         dep.splitTime.add(System.nanoTime() - startTime)

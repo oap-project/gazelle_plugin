@@ -202,17 +202,21 @@ class ConditionedJoinArraysKernel::Impl {
     auto status = LoadLibrary(signature_, ctx_, out);
     if (!status.ok()) {
       // process
-      try {
-        auto codes = ProduceCodes(
-            func_node, join_type, left_key_index_list, right_key_index_list,
-            left_shuffle_index_list, right_shuffle_index_list, left_field_list,
-            right_field_list, result_schema_index_list, exist_index);
-        // compile codes
-        RETURN_NOT_OK(CompileCodes(codes, signature_));
-        RETURN_NOT_OK(LoadLibrary(signature_, ctx_, out));
-      } catch (const std::runtime_error& error) {
+
+      auto codes =
+          ProduceCodes(func_node, join_type, left_key_index_list, right_key_index_list,
+                       left_shuffle_index_list, right_shuffle_index_list, left_field_list,
+                       right_field_list, result_schema_index_list, exist_index);
+      // compile codes
+      const arrow::Status& status1 = CompileCodes(codes, signature_);
+      if (!status1.ok()) {
         FileSpinUnLock(file_lock);
-        throw error;
+        return status1;
+      }
+      const arrow::Status& status2 = LoadLibrary(signature_, ctx_, out);
+      if (!status2.ok()) {
+        FileSpinUnLock(file_lock);
+        return status2;
       }
     }
     FileSpinUnLock(file_lock);
@@ -996,11 +1000,10 @@ class ConditionedJoinArraysKernel::Impl {
                                 right_shuffle_index_list, right_key_index_list);
       } break;
       default:
-        std::cout << "ConditionedProbeArraysTypedImpl only support join type: "
-                     "InnerJoin, "
-                     "RightJoin"
+        std::cout << "ConditionedProbeArraysTypedImpl does not support this join type"
                   << std::endl;
-        throw;
+        throw JniPendingException(
+            "ConditionedProbeArraysTypedImpl does not support join type");
     }
     return "";
   }

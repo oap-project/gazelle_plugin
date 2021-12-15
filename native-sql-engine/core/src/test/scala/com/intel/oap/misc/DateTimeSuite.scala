@@ -23,11 +23,11 @@ import java.util.Locale
 import java.util.TimeZone
 
 import com.intel.oap.execution.ColumnarConditionProjectExec
-
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.ColumnarProjectExec
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.test.SharedSparkSession
 
 class DateTimeSuite extends QueryTest with SharedSparkSession {
@@ -751,6 +751,7 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
     }
   }
 
+  // We already made a ColumnarGetTimestamp that extends the parent class of GetTimestamp.
   test("datetime function - to_date with format") { // todo GetTimestamp IS PRIVATE ?
     withTempView("dates") {
 
@@ -758,11 +759,13 @@ class DateTimeSuite extends QueryTest with SharedSparkSession {
           .map(s => Tuple1(s)).toDF("time")
       dates.createOrReplaceTempView("dates")
 
-      val frame = sql("SELECT to_date(time, 'yyyy-MM-dd') FROM dates")
-      frame.explain()
-      frame.show()
-      assert(frame.queryExecution.executedPlan.find(p => p
-          .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+      withSQLConf(SQLConf.LEGACY_TIME_PARSER_POLICY.key -> "corrected") {
+        val frame = sql("SELECT to_date(time, 'yyyy-MM-dd') FROM dates")
+        frame.explain()
+        frame.show()
+        assert(frame.queryExecution.executedPlan.find(p => p
+            .isInstanceOf[ColumnarConditionProjectExec]).isDefined)
+      }
     }
   }
 

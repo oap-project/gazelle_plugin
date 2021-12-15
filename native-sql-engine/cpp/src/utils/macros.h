@@ -21,6 +21,8 @@
 
 #include <chrono>
 
+#include "utils/exception.h"
+
 #define TIME_NANO_DIFF(finish, start) \
   (finish.tv_sec - start.tv_sec) * 1000000000 + (finish.tv_nsec - start.tv_nsec)
 
@@ -40,7 +42,7 @@
     auto start = std::chrono::steady_clock::now();                                      \
     auto __s = (expr);                                                                  \
     if (!__s.ok()) {                                                                    \
-      throw std::runtime_error(__s.message());                                          \
+      throw JniPendingException(__s.message());                                         \
     }                                                                                   \
     auto end = std::chrono::steady_clock::now();                                        \
     time += std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(); \
@@ -70,7 +72,7 @@
     auto start = std::chrono::steady_clock::now();                                     \
     auto __s = (expr);                                                                 \
     if (!__s.ok()) {                                                                   \
-      throw std::runtime_error(__s.message());                                         \
+      throw JniPendingException(__s.message());                                        \
     }                                                                                  \
     auto end = std::chrono::steady_clock::now();                                       \
     time += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count(); \
@@ -86,12 +88,12 @@
   }                                    \
   std::cout << std::endl;
 
-#define THROW_NOT_OK(expr)                     \
-  do {                                         \
-    auto __s = (expr);                         \
-    if (!__s.ok()) {                           \
-      throw std::runtime_error(__s.message()); \
-    }                                          \
+#define THROW_NOT_OK(expr)                      \
+  do {                                          \
+    auto __s = (expr);                          \
+    if (!__s.ok()) {                            \
+      throw JniPendingException(__s.message()); \
+    }                                           \
   } while (false);
 
 #define TIME_TO_STRING(time) \

@@ -111,5 +111,10 @@ TEST(TestArrowCompute, ArithmeticComparisonTest) {
   ASSERT_EQ(res, true);
 }
 
+TEST(TestArrowCompute, JsonTest) {
+  std::string data = get_json_object(R"({"hello": "3.5"})", "$.hello");
+  EXPECT_EQ(data, "3.5");
+}
+
 }  // namespace codegen
 }  // namespace sparkcolumnarplugin

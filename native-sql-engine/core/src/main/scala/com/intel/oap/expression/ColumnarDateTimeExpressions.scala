@@ -24,16 +24,19 @@ import com.intel.oap.expression.ColumnarDateTimeExpressions.castDateFromTimestam
 import com.intel.oap.expression.ColumnarDateTimeExpressions.unimplemented
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.gandiva.expression.TreeNode
-import org.apache.arrow.vector.types.DateUnit
+import org.apache.arrow.vector.types.{DateUnit, TimeUnit}
 import org.apache.arrow.vector.types.pojo.ArrowType
+
 import org.apache.spark.sql.catalyst.expressions.CheckOverflow
 import org.apache.spark.sql.catalyst.expressions.CurrentDate
 import org.apache.spark.sql.catalyst.expressions.CurrentTimestamp
 import org.apache.spark.sql.catalyst.expressions.DateDiff
+import org.apache.spark.sql.catalyst.expressions.DateSub
 import org.apache.spark.sql.catalyst.expressions.DayOfMonth
 import org.apache.spark.sql.catalyst.expressions.DayOfWeek
 import org.apache.spark.sql.catalyst.expressions.DayOfYear
 import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.FromUnixTime
 import org.apache.spark.sql.catalyst.expressions.Hour
 import org.apache.spark.sql.catalyst.expressions.MakeDate
 import org.apache.spark.sql.catalyst.expressions.MakeTimestamp
@@ -44,15 +47,16 @@ import org.apache.spark.sql.catalyst.expressions.Month
 import org.apache.spark.sql.catalyst.expressions.Now
 import org.apache.spark.sql.catalyst.expressions.Second
 import org.apache.spark.sql.catalyst.expressions.SecondsToTimestamp
+import org.apache.spark.sql.catalyst.expressions.TimeZoneAwareExpression
+import org.apache.spark.sql.catalyst.expressions.ToTimestamp
 import org.apache.spark.sql.catalyst.expressions.UnixDate
 import org.apache.spark.sql.catalyst.expressions.UnixMicros
 import org.apache.spark.sql.catalyst.expressions.UnixMillis
 import org.apache.spark.sql.catalyst.expressions.UnixSeconds
 import org.apache.spark.sql.catalyst.expressions.UnixTimestamp
-import org.apache.spark.sql.catalyst.expressions.FromUnixTime
 import org.apache.spark.sql.catalyst.expressions.Year
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.types.{DateType, IntegerType, LongType, StringType, TimestampType}
+import org.apache.spark.sql.types.{ByteType, DataType, DateType, IntegerType, LongType, ShortType, StringType, TimestampType}
 import org.apache.spark.sql.util.ArrowUtils
 
 object ColumnarDateTimeExpressions {
@@ -494,6 +498,75 @@ object ColumnarDateTimeExpressions {
     }
   }
 
+  // The datatype is TimestampType.
+  // Internally, a timestamp is stored as the number of microseconds from unix epoch.
+  case class ColumnarGetTimestamp(leftChild: Expression,
+                             rightChild: Expression,
+                             timeZoneId: Option[String] = None)
+      extends ToTimestamp with ColumnarExpression {
+
+    override def left: Expression = leftChild
+    override def right : Expression = rightChild
+    override def canEqual(that: Any): Boolean = true
+    // The below functions are consistent with spark GetTimestamp.
+    override val downScaleFactor = 1
+    override def dataType: DataType = TimestampType
+    override def withTimeZone(timeZoneId: String): TimeZoneAwareExpression =
+      copy(timeZoneId = Option(timeZoneId))
+    override def failOnError: Boolean = SQLConf.get.ansiEnabled
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val parserPolicy = SQLConf.get.getConf(SQLConf.LEGACY_TIME_PARSER_POLICY);
+      // TODO: support "exception" time parser policy.
+      if (!parserPolicy.equalsIgnoreCase("corrected")) {
+        throw new UnsupportedOperationException(
+          s"$parserPolicy is NOT a supported time parser policy");
+      }
+      
+      val supportedTypes = List(StringType)
+      if (supportedTypes.indexOf(left.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} is not supported in ColumnarUnixTimestamp.")
+      }
+      if (left.dataType == StringType) {
+        right match {
+          case literal: ColumnarLiteral =>
+            val format = literal.value.toString
+            // TODO: support other format.
+            if (!format.equals("yyyy-MM-dd")) {
+              throw new UnsupportedOperationException(
+                s"$format is not supported in ColumnarUnixTimestamp.")
+            }
+          case _ =>
+        }
+      }
+    }
+
+    override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+      // Use default timeZoneId. Give specific timeZoneId if needed in the future.
+      val outType = CodeGeneration.getResultType(TimestampType)
+      val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      // convert to milli, then convert to micro
+      val intermediateType = new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)
+
+      right match {
+        case literal: ColumnarLiteral =>
+          val format = literal.value.toString
+          if (format.equals("yyyy-MM-dd")) {
+            val funcNode = TreeBuilder.makeFunction("castTIMESTAMP_with_validation_check",
+              Lists.newArrayList(leftNode), intermediateType)
+            ConverterUtils.convertTimestampToMicro(funcNode, intermediateType)
+          } else {
+            // TODO: add other format support.
+            throw new UnsupportedOperationException(
+              s"$format is not supported in ColumnarUnixTimestamp.")
+          }
+      }
+    }
+  }
+
   class ColumnarFromUnixTime(left: Expression, right: Expression)
       extends FromUnixTime(left, right) with
       ColumnarExpression {
@@ -501,16 +574,16 @@ object ColumnarDateTimeExpressions {
     buildCheck()
 
     def buildCheck(): Unit = {
-      val supportedTypes = List(TimestampType)
+      val supportedTypes = List(LongType)
       if (supportedTypes.indexOf(left.dataType) == -1) {
         throw new UnsupportedOperationException(
           s"${left.dataType} is not supported in ColumnarFromUnixTime.")
       }
-      if (left.dataType == StringType) {
+      if (left.dataType == LongType) {
         right match {
           case literal: ColumnarLiteral =>
             val format = literal.value.toString
-            if (format.length > 10) {
+            if (!format.equals("yyyy-MM-dd") && !format.equals("yyyyMMdd")) {
               throw new UnsupportedOperationException(
                 s"$format is not supported in ColumnarFromUnixTime.")
             }
@@ -523,11 +596,56 @@ object ColumnarDateTimeExpressions {
       val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       //val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
       val outType = CodeGeneration.getResultType(dataType)
-
+      val date32LeftNode = if (left.dataType == LongType) {
+        // cast unix seconds to date64()
+        val milliNode = TreeBuilder.makeFunction("multiply", Lists.newArrayList(leftNode,
+          TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), new ArrowType.Int(8 * 8, true))
+        val date64Node = TreeBuilder.makeFunction("castDATE",
+          Lists.newArrayList(milliNode), new ArrowType.Date(DateUnit.MILLISECOND))
+        TreeBuilder.makeFunction("castDATE", Lists.newArrayList(date64Node), new ArrowType.Date(DateUnit.DAY))
+      } else {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} is not supported in ColumnarFromUnixTime.")
+      }
+      var formatLength = 0L
+      right match {
+        case literal: ColumnarLiteral =>
+          val format = literal.value.toString
+          if (format.equals("yyyy-MM-dd")) {
+            formatLength = 10L
+          } else if (format.equals("yyyyMMdd")) {
+            formatLength = 8L
+          }
+      }
       val dateNode = TreeBuilder.makeFunction(
-        "castVARCHAR", Lists.newArrayList(leftNode, TreeBuilder.makeLiteral(java.lang.Long.valueOf(10L))), outType)
-
+        "castVARCHAR", Lists.newArrayList(date32LeftNode,
+          TreeBuilder.makeLiteral(java.lang.Long.valueOf(formatLength))), outType)
       (dateNode, outType)
+    }
+  }
+
+  class ColumnarDateSub(left: Expression, right: Expression) extends
+      DateSub(left, right) with ColumnarExpression {
+
+    buildCheck()
+
+    def buildCheck(): Unit = {
+      val supportedLeftTypes = List(DateType)
+      val supportedRightTypes = List(IntegerType, ShortType, ByteType)
+      if (supportedLeftTypes.indexOf(left.dataType) == -1 ||
+          supportedRightTypes.indexOf(right.dataType) == -1) {
+        throw new UnsupportedOperationException(
+          s"${left.dataType} or ${right.dataType} is not supported in ColumnarDateDiff.")
+      }
+    }
+
+    override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+      val (leftNode, leftType) = left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val (rightNode, rightType) = right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+      val outType = CodeGeneration.getResultType(dataType)
+      val funcNode = TreeBuilder.makeFunction(
+        "date_sub", Lists.newArrayList(leftNode, rightNode), outType)
+      (funcNode, outType)
     }
   }
 
