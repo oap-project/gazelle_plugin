@@ -845,7 +845,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
   }
 }
 
-arrow::Status RowToColumnarConverter::Init() {
+arrow::Status RowToColumnarConverter::Init(std::shared_ptr<arrow::RecordBatch>* batch) {
 
   int64_t nullBitsetWidthInBytes = CalculateBitSetWidthInBytes(num_cols_);
   for (auto i = 0; i < num_rows_; i++) {
@@ -866,8 +866,8 @@ arrow::Status RowToColumnarConverter::Init() {
                                 &array_data, m_pool_));
     arrays.push_back(array_data);
   }
-  std::shared_ptr<arrow::RecordBatch> rb;
-  rb = arrow::RecordBatch::Make(schema_, num_rows_, arrays);
+  // std::shared_ptr<arrow::RecordBatch> rb;
+  *batch = arrow::RecordBatch::Make(schema_, num_rows_, arrays);
   return arrow::Status::OK();
 }
 

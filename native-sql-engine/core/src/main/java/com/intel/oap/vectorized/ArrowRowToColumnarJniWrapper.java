@@ -24,7 +24,7 @@ public class ArrowRowToColumnarJniWrapper {
         JniUtils.getInstance();
     }
 
-    public native ArrowRecordBatch nativeConvertRowToColumnar(
+    public native byte[] nativeConvertRowToColumnar(
             byte[] schema, long[] rowLength,
             long bufferAddress, long memoryPollID) throws RuntimeException;
 

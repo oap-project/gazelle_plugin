@@ -20,11 +20,14 @@ package com.intel.oap.execution
 import java.util.concurrent.TimeUnit._
 
 import scala.collection.mutable.ListBuffer
+
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.sql.execution.RowToColumnConverter
 import com.intel.oap.vectorized.{ArrowRowToColumnarJniWrapper, ArrowWritableColumnVector}
+import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
 import org.apache.arrow.memory.ArrowBuf
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.{RowToColumnarExec, SparkPlan}
@@ -33,7 +36,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.Unsa
 import org.apache.spark.sql.execution.vectorized.WritableColumnVector
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.unsafe.Platform
 
 
@@ -131,9 +134,13 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val timeZoneId = SparkSchemaUtils.getLocalTimezoneID()
               val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
               val schemaBytes: Array[Byte] = ConverterUtils.getSchemaBytesBuf(arrowSchema)
-              val rb: ArrowRecordBatch = jniWrapper.nativeConvertRowToColumnar(schemaBytes, rowLength.toArray,
+              val serializedRecordBatch = jniWrapper.nativeConvertRowToColumnar(schemaBytes, rowLength.toArray,
                 arrowBuf.memoryAddress(), SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
-//              last_cb = new ColumnarBatch(ArrowWritableColumnVector.loadColumns(rowCount, arrowSchema, rb), rowCount)
+              val rb = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedRecordBatch)
+              val output = ConverterUtils.fromArrowRecordBatch(arrowSchema, rb)
+              val outputNumRows = rb.getLength
+              ConverterUtils.releaseArrowRecordBatch(rb)
+              last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
               last_cb
             }
           }

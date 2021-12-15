@@ -38,8 +38,8 @@ class RowToColumnarConverter {
       : schema_(schema), num_cols_(num_cols), num_rows_(num_rows), row_length_(row_length), 
       memory_address_(memory_address), m_pool_(memory_pool) {}
 
-  arrow::Status Init();
-  arrow::Status Write();
+  arrow::Status Init(std::shared_ptr<arrow::RecordBatch>* batch);
+  // arrow::Status Write();
 
  protected:
   std::shared_ptr<arrow::Schema> schema_;

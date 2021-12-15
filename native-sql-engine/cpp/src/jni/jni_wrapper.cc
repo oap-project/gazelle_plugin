@@ -1414,13 +1414,16 @@ Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToCol
   auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   int num_rows = env->GetArrayLength(row_length);
   int num_columnars = schema->num_fields();
+  std::shared_ptr<arrow::RecordBatch> rb;
   std::shared_ptr<RowToColumnarConverter> row_to_columnar_converter =
       std::make_shared<RowToColumnarConverter>(schema, num_columnars, num_rows, 
                 in_row_length, address, pool);
-  JniAssertOkOrThrow(row_to_columnar_converter->Init(), "Native convert Row to Columnar Init "
+  JniAssertOkOrThrow(row_to_columnar_converter->Init(&rb), "Native convert Row to Columnar Init "
                      "RowToColumnarConverter failed");
 
-  return NULL;
+  jbyteArray serialized_record_batch =
+      JniGetOrThrow(ToBytes(env, rb), "Error deserializing message");
+  return serialized_record_batch;
 }
 
 JNIEXPORT void JNICALL Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env,
