@@ -27,8 +27,8 @@ import com.intel.oap.tpc.MallocUtils
 import com.intel.oap.tpc.h.TPCHSuite.RAMMonitor
 import com.intel.oap.tpc.util.TPCRunner
 import org.apache.commons.lang.StringUtils
-import org.apache.logging.log4j.{Level, LogManager}
-import org.apache.logging.log4j.core.config.Configurator
+//import org.apache.logging.log4j.{Level, LogManager}
+//import org.apache.logging.log4j.core.config.Configurator
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
@@ -73,7 +73,7 @@ class TPCHSuite extends QueryTest with SharedSparkSession {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    Configurator.setRootLevel(Level.WARN)
+    //Configurator.setRootLevel(Level.WARN)
     val tGen = new TPCHTableGen(spark, 0.1D, TPCH_WRITE_PATH)
     tGen.gen()
     tGen.createTables()

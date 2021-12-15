@@ -1780,6 +1780,7 @@ abstract class CSVSuite
     assert(exception.getMessage.contains("CSV header does not conform to the schema"))
   }
 
+  /* Remark for log4j 1.2 issue
   test("SPARK-23786: warning should be printed if CSV header doesn't conform to schema") {
     val testAppender1 = new LogAppender("CSV header matches to schema")
     withLogAppender(testAppender1) {
@@ -1809,6 +1810,7 @@ abstract class CSVSuite
     assert(testAppender2.loggingEvents
       .exists(msg => msg.getRenderedMessage.contains("CSV header does not conform to the schema")))
   }
+  */
 
   test("SPARK-25134: check header on parsing of dataset with projection and column pruning") {
     withSQLConf(SQLConf.CSV_PARSER_COLUMN_PRUNING.key -> "true") {

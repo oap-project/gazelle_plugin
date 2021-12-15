@@ -1,0 +1,485 @@
+[INFO] Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-arrow-datasource-common:jar:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 187, column 15
+[WARNING] 'build.plugins.plugin.version' for org.scala-tools:maven-scala-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 198, column 15
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-clean-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 177, column 15
+[WARNING] 'build.plugins.plugin.version' for org.codehaus.mojo:build-helper-maven-plugin is missing. @ line 80, column 15
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-source-plugin is missing. @ line 51, column 15
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-arrow-datasource-standard:jar:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 187, column 15
+[WARNING] 'build.plugins.plugin.version' for org.scala-tools:maven-scala-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 198, column 15
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-clean-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 177, column 15
+[WARNING] 'build.plugins.plugin.version' for org.codehaus.mojo:build-helper-maven-plugin is missing. @ line 44, column 21
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-source-plugin is missing. @ line 80, column 21
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-arrow-datasource-parquet:jar:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 187, column 15
+[WARNING] 'build.plugins.plugin.version' for org.scala-tools:maven-scala-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 198, column 15
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-clean-plugin is missing. @ com.intel.oap:spark-arrow-datasource:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/arrow-data-source/pom.xml, line 177, column 15
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-arrow-datasource:pom:1.2.0-snapshot
+[WARNING] 'dependencyManagement.dependencies.dependency.(groupId:artifactId:type:classifier)' must be unique: org.apache.spark:spark-sql_${scala.binary.version}:jar -> duplicate declaration of version ${spark.version} @ com.intel.oap:native-sql-engine-parent:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/pom.xml, line 177, column 19
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ line 187, column 15
+[WARNING] 'build.plugins.plugin.version' for org.scala-tools:maven-scala-plugin is missing. @ line 198, column 15
+[WARNING] 'build.plugins.plugin.version' for org.apache.maven.plugins:maven-clean-plugin is missing. @ line 177, column 15
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-columnar-core:jar:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ line 484, column 15
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-sql-columnar-shims-common:jar:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ com.intel.oap:spark-sql-columnar-shims:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/shims/pom.xml, line 108, column 17
+[WARNING] 'build.plugins.plugin.version' for org.scalastyle:scalastyle-maven-plugin is missing. @ line 33, column 19
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-sql-columnar-shims-spark311:jar:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ com.intel.oap:spark-sql-columnar-shims:1.2.0-snapshot, /root/src/developing/weiting/gazelle_plugin/shims/pom.xml, line 108, column 17
+[WARNING] 'build.plugins.plugin.version' for org.scalastyle:scalastyle-maven-plugin is missing. @ line 33, column 19
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:spark-sql-columnar-shims:pom:1.2.0-snapshot
+[WARNING] 'build.plugins.plugin.version' for org.scalatest:scalatest-maven-plugin is missing. @ line 108, column 17
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.intel.oap:native-sql-engine-parent:pom:1.2.0-snapshot
+[WARNING] 'dependencyManagement.dependencies.dependency.(groupId:artifactId:type:classifier)' must be unique: org.apache.spark:spark-sql_${scala.binary.version}:jar -> duplicate declaration of version ${spark.version} @ line 177, column 19
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Build Order:
+[INFO] 
+[INFO] Native SQL Engine Parent Pom                                       [pom]
+[INFO] OAP Project Spark Arrow Datasource                                 [pom]
+[INFO] spark-arrow-datasource-common                                      [jar]
+[INFO] spark-arrow-datasource-standard                                    [jar]
+[INFO] spark-arrow-datasource-parquet                                     [jar]
+[INFO] OAP Project Spark Columnar Plugin Shims                            [pom]
+[INFO] OAP Project Spark Columnar Plugin Shims Common                     [jar]
+[INFO] OAP Project Spark Columnar Plugin                                  [jar]
+[INFO] OAP Project Spark Columnar Plugin Shims for Spark 3.1.1            [jar]
+[INFO] 
+[INFO] ---------------< com.intel.oap:native-sql-engine-parent >---------------
+[INFO] Building Native SQL Engine Parent Pom 1.2.0-snapshot               [1/9]
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ native-sql-engine-parent ---
+[INFO] 
+[INFO] --- maven-dependency-plugin:2.8:tree (default-cli) @ native-sql-engine-parent ---
+[INFO] com.intel.oap:native-sql-engine-parent:pom:1.2.0-snapshot
+[INFO] 
+[INFO] ----------------< com.intel.oap:spark-arrow-datasource >----------------
+[INFO] Building OAP Project Spark Arrow Datasource 1.2.0-snapshot         [2/9]
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] 
+[INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ spark-arrow-datasource ---
+[INFO] Deleting /root/src/developing/weiting/gazelle_plugin/arrow-data-source/target
+[INFO] 
+[INFO] --- maven-dependency-plugin:2.8:tree (default-cli) @ spark-arrow-datasource ---
+[INFO] com.intel.oap:spark-arrow-datasource:pom:1.2.0-snapshot
+[INFO] +- javax.servlet:javax.servlet-api:jar:3.1.0:compile
+[INFO] +- org.apache.hadoop:hadoop-client:jar:2.7.4:provided
+[INFO] |  +- org.apache.hadoop:hadoop-common:jar:2.7.4:compile
+[INFO] |  |  +- com.google.guava:guava:jar:11.0.2:compile
+[INFO] |  |  +- commons-cli:commons-cli:jar:1.2:compile
+[INFO] |  |  +- xmlenc:xmlenc:jar:0.52:compile
+[INFO] |  |  +- commons-httpclient:commons-httpclient:jar:3.1:compile
+[INFO] |  |  +- commons-io:commons-io:jar:2.4:compile
+[INFO] |  |  +- commons-collections:commons-collections:jar:3.2.2:compile
+[INFO] |  |  +- org.mortbay.jetty:jetty-sslengine:jar:6.1.26:compile
+[INFO] |  |  +- javax.servlet.jsp:jsp-api:jar:2.1:runtime
+[INFO] |  |  +- commons-logging:commons-logging:jar:1.1.3:compile
+[INFO] |  |  +- commons-lang:commons-lang:jar:2.6:compile
+[INFO] |  |  +- commons-configuration:commons-configuration:jar:1.6:compile
+[INFO] |  |  |  +- commons-digester:commons-digester:jar:1.8:compile
+[INFO] |  |  |  |  \- commons-beanutils:commons-beanutils:jar:1.7.0:compile
+[INFO] |  |  |  \- commons-beanutils:commons-beanutils-core:jar:1.8.0:compile
+[INFO] |  |  +- org.codehaus.jackson:jackson-core-asl:jar:1.9.13:compile
+[INFO] |  |  +- org.codehaus.jackson:jackson-mapper-asl:jar:1.9.13:compile
+[INFO] |  |  +- com.google.protobuf:protobuf-java:jar:2.5.0:compile
+[INFO] |  |  +- com.google.code.gson:gson:jar:2.2.4:compile
+[INFO] |  |  +- org.apache.hadoop:hadoop-auth:jar:2.7.4:compile
+[INFO] |  |  |  +- org.apache.directory.server:apacheds-kerberos-codec:jar:2.0.0-M15:compile
+[INFO] |  |  |  |  +- org.apache.directory.server:apacheds-i18n:jar:2.0.0-M15:compile
+[INFO] |  |  |  |  +- org.apache.directory.api:api-asn1-api:jar:1.0.0-M20:compile
+[INFO] |  |  |  |  \- org.apache.directory.api:api-util:jar:1.0.0-M20:compile
+[INFO] |  |  |  \- org.apache.curator:curator-framework:jar:2.7.1:compile
+[INFO] |  |  +- org.apache.curator:curator-client:jar:2.7.1:compile
+[INFO] |  |  +- org.apache.curator:curator-recipes:jar:2.7.1:compile
+[INFO] |  |  +- org.apache.htrace:htrace-core:jar:3.1.0-incubating:compile
+[INFO] |  |  \- org.apache.commons:commons-compress:jar:1.4.1:compile
+[INFO] |  +- org.apache.hadoop:hadoop-hdfs:jar:2.7.4:provided
+[INFO] |  |  +- org.mortbay.jetty:jetty-util:jar:6.1.26:provided
+[INFO] |  |  +- xerces:xercesImpl:jar:2.9.1:provided
+[INFO] |  |  |  \- xml-apis:xml-apis:jar:1.3.04:provided
+[INFO] |  |  \- org.fusesource.leveldbjni:leveldbjni-all:jar:1.8:provided
+[INFO] |  +- org.apache.hadoop:hadoop-mapreduce-client-app:jar:2.7.4:provided
+[INFO] |  |  +- org.apache.hadoop:hadoop-mapreduce-client-common:jar:2.7.4:provided
+[INFO] |  |  |  +- org.apache.hadoop:hadoop-yarn-client:jar:2.7.4:provided
+[INFO] |  |  |  \- org.apache.hadoop:hadoop-yarn-server-common:jar:2.7.4:provided
+[INFO] |  |  \- org.apache.hadoop:hadoop-mapreduce-client-shuffle:jar:2.7.4:provided
+[INFO] |  +- org.apache.hadoop:hadoop-yarn-api:jar:2.7.4:provided
+[INFO] |  +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.7.4:provided
+[INFO] |  |  \- org.apache.hadoop:hadoop-yarn-common:jar:2.7.4:provided
+[INFO] |  |     +- javax.xml.bind:jaxb-api:jar:2.2.2:provided
+[INFO] |  |     |  \- javax.xml.stream:stax-api:jar:1.0-2:provided
+[INFO] |  |     +- javax.servlet:servlet-api:jar:2.5:provided
+[INFO] |  |     +- com.sun.jersey:jersey-core:jar:1.9:provided
+[INFO] |  |     +- com.sun.jersey:jersey-client:jar:1.9:provided
+[INFO] |  |     +- org.codehaus.jackson:jackson-jaxrs:jar:1.9.13:provided
+[INFO] |  |     \- org.codehaus.jackson:jackson-xc:jar:1.9.13:provided
+[INFO] |  +- org.apache.hadoop:hadoop-mapreduce-client-jobclient:jar:2.7.4:provided
+[INFO] |  \- org.apache.hadoop:hadoop-annotations:jar:2.7.4:compile
+[INFO] +- org.apache.hadoop:hadoop-aws:jar:2.7.4:compile
+[INFO] |  \- com.amazonaws:aws-java-sdk:jar:1.7.4:compile
+[INFO] |     +- org.apache.httpcomponents:httpclient:jar:4.2:compile
+[INFO] |     \- joda-time:joda-time:jar:2.10.13:compile (version selected from constraint [2.2,))
+[INFO] +- org.apache.httpcomponents:httpcore:jar:4.2:compile
+[INFO] +- org.scala-lang:scala-library:jar:2.12.10:provided
+[INFO] +- junit:junit:jar:4.4:test
+[INFO] +- org.apache.spark:spark-sql_2.12:jar:3.1.1:provided
+[INFO] |  +- com.univocity:univocity-parsers:jar:2.9.1:provided
+[INFO] |  +- org.apache.spark:spark-sketch_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-core_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-catalyst_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-tags_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.orc:orc-core:jar:1.5.12:provided
+[INFO] |  |  +- org.apache.orc:orc-shims:jar:1.5.12:provided
+[INFO] |  |  +- io.airlift:aircompressor:jar:0.10:provided
+[INFO] |  |  \- org.threeten:threeten-extra:jar:1.5.0:provided
+[INFO] |  +- org.apache.orc:orc-mapreduce:jar:1.5.12:provided
+[INFO] |  +- org.apache.hive:hive-storage-api:jar:2.7.2:provided
+[INFO] |  +- org.apache.parquet:parquet-column:jar:1.10.1:provided
+[INFO] |  |  +- org.apache.parquet:parquet-common:jar:1.10.1:provided
+[INFO] |  |  \- org.apache.parquet:parquet-encoding:jar:1.10.1:provided
+[INFO] |  +- org.apache.parquet:parquet-hadoop:jar:1.10.1:provided
+[INFO] |  |  +- org.apache.parquet:parquet-format:jar:2.4.0:provided
+[INFO] |  |  \- org.apache.parquet:parquet-jackson:jar:1.10.1:provided
+[INFO] |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.0:provided
+[INFO] |  |  +- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.0:provided
+[INFO] |  |  \- com.fasterxml.jackson.core:jackson-core:jar:2.10.0:provided
+[INFO] |  +- org.apache.xbean:xbean-asm7-shaded:jar:4.15:provided
+[INFO] |  \- org.spark-project.spark:unused:jar:1.0.0:provided
+[INFO] +- org.apache.spark:spark-core_2.12:test-jar:tests:3.1.1:test
+[INFO] |  +- com.thoughtworks.paranamer:paranamer:jar:2.8:compile
+[INFO] |  +- org.apache.avro:avro:jar:1.8.2:compile
+[INFO] |  |  \- org.tukaani:xz:jar:1.5:compile
+[INFO] |  +- org.apache.avro:avro-mapred:jar:hadoop2:1.8.2:provided
+[INFO] |  |  \- org.apache.avro:avro-ipc:jar:1.8.2:provided
+[INFO] |  +- com.twitter:chill_2.12:jar:0.9.5:provided
+[INFO] |  |  \- com.esotericsoftware:kryo-shaded:jar:4.0.2:provided
+[INFO] |  |     +- com.esotericsoftware:minlog:jar:1.3.0:provided
+[INFO] |  |     \- org.objenesis:objenesis:jar:2.5.1:provided
+[INFO] |  +- com.twitter:chill-java:jar:0.9.5:provided
+[INFO] |  +- org.apache.spark:spark-launcher_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-kvstore_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-network-common_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-network-shuffle_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-unsafe_2.12:jar:3.1.1:provided
+[INFO] |  +- javax.activation:activation:jar:1.1.1:provided
+[INFO] |  +- org.apache.zookeeper:zookeeper:jar:3.4.14:compile
+[INFO] |  |  \- org.apache.yetus:audience-annotations:jar:0.5.0:compile
+[INFO] |  +- jakarta.servlet:jakarta.servlet-api:jar:4.0.3:provided
+[INFO] |  +- org.apache.commons:commons-lang3:jar:3.10:provided
+[INFO] |  +- org.apache.commons:commons-math3:jar:3.4.1:compile
+[INFO] |  +- org.apache.commons:commons-text:jar:1.6:provided
+[INFO] |  +- com.google.code.findbugs:jsr305:jar:3.0.0:compile
+[INFO] |  +- org.slf4j:slf4j-api:jar:1.7.30:compile
+[INFO] |  +- org.slf4j:jul-to-slf4j:jar:1.7.30:provided
+[INFO] |  +- org.slf4j:jcl-over-slf4j:jar:1.7.30:provided
+[INFO] |  +- log4j:log4j:jar:1.2.17:compile
+[INFO] |  +- org.slf4j:slf4j-log4j12:jar:1.7.30:compile
+[INFO] |  +- com.ning:compress-lzf:jar:1.0.3:provided
+[INFO] |  +- org.xerial.snappy:snappy-java:jar:1.1.8.2:compile
+[INFO] |  +- org.lz4:lz4-java:jar:1.7.1:provided
+[INFO] |  +- com.github.luben:zstd-jni:jar:1.4.8-1:provided
+[INFO] |  +- org.roaringbitmap:RoaringBitmap:jar:0.9.0:provided
+[INFO] |  |  \- org.roaringbitmap:shims:jar:0.9.0:provided
+[INFO] |  +- commons-net:commons-net:jar:3.1:compile
+[INFO] |  +- org.scala-lang.modules:scala-xml_2.12:jar:1.2.0:provided
+[INFO] |  +- org.scala-lang:scala-reflect:jar:2.12.10:provided
+[INFO] |  +- org.json4s:json4s-jackson_2.12:jar:3.7.0-M5:provided
+[INFO] |  |  \- org.json4s:json4s-core_2.12:jar:3.7.0-M5:provided
+[INFO] |  |     +- org.json4s:json4s-ast_2.12:jar:3.7.0-M5:provided
+[INFO] |  |     \- org.json4s:json4s-scalap_2.12:jar:3.7.0-M5:provided
+[INFO] |  +- org.glassfish.jersey.core:jersey-client:jar:2.30:provided
+[INFO] |  |  +- jakarta.ws.rs:jakarta.ws.rs-api:jar:2.1.6:provided
+[INFO] |  |  \- org.glassfish.hk2.external:jakarta.inject:jar:2.6.1:provided
+[INFO] |  +- org.glassfish.jersey.core:jersey-common:jar:2.30:provided
+[INFO] |  |  +- jakarta.annotation:jakarta.annotation-api:jar:1.3.5:provided
+[INFO] |  |  \- org.glassfish.hk2:osgi-resource-locator:jar:1.0.3:provided
+[INFO] |  +- org.glassfish.jersey.core:jersey-server:jar:2.30:provided
+[INFO] |  |  +- org.glassfish.jersey.media:jersey-media-jaxb:jar:2.30:provided
+[INFO] |  |  \- jakarta.validation:jakarta.validation-api:jar:2.0.2:provided
+[INFO] |  +- org.glassfish.jersey.containers:jersey-container-servlet:jar:2.30:provided
+[INFO] |  +- org.glassfish.jersey.containers:jersey-container-servlet-core:jar:2.30:provided
+[INFO] |  +- org.glassfish.jersey.inject:jersey-hk2:jar:2.30:provided
+[INFO] |  |  +- org.glassfish.hk2:hk2-locator:jar:2.6.1:provided
+[INFO] |  |  |  +- org.glassfish.hk2.external:aopalliance-repackaged:jar:2.6.1:provided
+[INFO] |  |  |  +- org.glassfish.hk2:hk2-api:jar:2.6.1:provided
+[INFO] |  |  |  \- org.glassfish.hk2:hk2-utils:jar:2.6.1:provided
+[INFO] |  |  \- org.javassist:javassist:jar:3.25.0-GA:provided
+[INFO] |  +- io.netty:netty-all:jar:4.1.51.Final:provided
+[INFO] |  +- com.clearspring.analytics:stream:jar:2.9.6:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-core:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-jvm:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-json:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-graphite:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-jmx:jar:4.1.1:provided
+[INFO] |  +- com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:2.10.0:provided
+[INFO] |  |  \- com.fasterxml.jackson.module:jackson-module-paranamer:jar:2.10.0:provided
+[INFO] |  +- org.apache.ivy:ivy:jar:2.4.0:provided
+[INFO] |  +- oro:oro:jar:2.0.8:provided
+[INFO] |  +- net.razorvine:pyrolite:jar:4.30:provided
+[INFO] |  +- net.sf.py4j:py4j:jar:0.10.9:provided
+[INFO] |  \- org.apache.commons:commons-crypto:jar:1.1.0:provided
+[INFO] +- org.apache.spark:spark-catalyst_2.12:test-jar:tests:3.1.1:test
+[INFO] |  +- org.scala-lang.modules:scala-parser-combinators_2.12:jar:1.1.2:provided
+[INFO] |  +- org.codehaus.janino:janino:jar:3.0.16:provided
+[INFO] |  +- org.codehaus.janino:commons-compiler:jar:3.0.16:provided
+[INFO] |  +- org.antlr:antlr4-runtime:jar:4.8-1:provided
+[INFO] |  \- commons-codec:commons-codec:jar:1.10:compile
+[INFO] +- org.apache.spark:spark-sql_2.12:test-jar:tests:3.1.1:test
+[INFO] \- org.scalatest:scalatest_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-core_2.12:jar:3.2.3:test
+[INFO]    |  +- org.scalatest:scalatest-compatible:jar:3.2.3:test
+[INFO]    |  \- org.scalactic:scalactic_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-featurespec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-flatspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-freespec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-funsuite_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-funspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-propspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-refspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-wordspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-diagrams_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-matchers-core_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-shouldmatchers_2.12:jar:3.2.3:test
+[INFO]    \- org.scalatest:scalatest-mustmatchers_2.12:jar:3.2.3:test
+[INFO] 
+[INFO] ------------< com.intel.oap:spark-arrow-datasource-common >-------------
+[INFO] Building spark-arrow-datasource-common 1.2.0-snapshot              [3/9]
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ spark-arrow-datasource-common ---
+[INFO] Deleting /root/src/developing/weiting/gazelle_plugin/arrow-data-source/common/target
+[INFO] 
+[INFO] --- maven-dependency-plugin:2.8:tree (default-cli) @ spark-arrow-datasource-common ---
+[INFO] com.intel.oap:spark-arrow-datasource-common:jar:1.2.0-snapshot
+[INFO] +- org.apache.arrow:arrow-memory-unsafe:jar:4.0.0:runtime
+[INFO] |  \- org.apache.arrow:arrow-memory-core:jar:4.0.0:compile
+[INFO] +- org.apache.arrow:arrow-dataset:jar:4.0.0:compile
+[INFO] |  +- org.apache.arrow:arrow-vector:jar:4.0.0:compile
+[INFO] |  |  \- org.apache.commons:commons-compress:jar:1.20:compile
+[INFO] |  +- org.apache.arrow:arrow-format:jar:4.0.0:compile
+[INFO] |  +- commons-io:commons-io:jar:2.4:compile
+[INFO] |  +- com.google.flatbuffers:flatbuffers-java:jar:1.12.0:compile
+[INFO] |  \- com.google.protobuf:protobuf-java:jar:2.5.0:compile
+[INFO] +- javax.servlet:javax.servlet-api:jar:3.1.0:compile
+[INFO] +- org.apache.hadoop:hadoop-client:jar:2.7.4:provided
+[INFO] |  +- org.apache.hadoop:hadoop-common:jar:2.7.4:compile
+[INFO] |  |  +- com.google.guava:guava:jar:11.0.2:compile
+[INFO] |  |  +- commons-cli:commons-cli:jar:1.2:compile
+[INFO] |  |  +- xmlenc:xmlenc:jar:0.52:compile
+[INFO] |  |  +- commons-httpclient:commons-httpclient:jar:3.1:compile
+[INFO] |  |  +- commons-collections:commons-collections:jar:3.2.2:compile
+[INFO] |  |  +- org.mortbay.jetty:jetty-sslengine:jar:6.1.26:compile
+[INFO] |  |  +- javax.servlet.jsp:jsp-api:jar:2.1:runtime
+[INFO] |  |  +- commons-logging:commons-logging:jar:1.1.3:compile
+[INFO] |  |  +- commons-lang:commons-lang:jar:2.6:compile
+[INFO] |  |  +- commons-configuration:commons-configuration:jar:1.6:compile
+[INFO] |  |  |  +- commons-digester:commons-digester:jar:1.8:compile
+[INFO] |  |  |  |  \- commons-beanutils:commons-beanutils:jar:1.7.0:compile
+[INFO] |  |  |  \- commons-beanutils:commons-beanutils-core:jar:1.8.0:compile
+[INFO] |  |  +- org.codehaus.jackson:jackson-core-asl:jar:1.9.13:compile
+[INFO] |  |  +- org.codehaus.jackson:jackson-mapper-asl:jar:1.9.13:compile
+[INFO] |  |  +- com.google.code.gson:gson:jar:2.2.4:compile
+[INFO] |  |  +- org.apache.hadoop:hadoop-auth:jar:2.7.4:compile
+[INFO] |  |  |  +- org.apache.directory.server:apacheds-kerberos-codec:jar:2.0.0-M15:compile
+[INFO] |  |  |  |  +- org.apache.directory.server:apacheds-i18n:jar:2.0.0-M15:compile
+[INFO] |  |  |  |  +- org.apache.directory.api:api-asn1-api:jar:1.0.0-M20:compile
+[INFO] |  |  |  |  \- org.apache.directory.api:api-util:jar:1.0.0-M20:compile
+[INFO] |  |  |  \- org.apache.curator:curator-framework:jar:2.7.1:compile
+[INFO] |  |  +- org.apache.curator:curator-client:jar:2.7.1:compile
+[INFO] |  |  +- org.apache.curator:curator-recipes:jar:2.7.1:compile
+[INFO] |  |  \- org.apache.htrace:htrace-core:jar:3.1.0-incubating:compile
+[INFO] |  +- org.apache.hadoop:hadoop-hdfs:jar:2.7.4:provided
+[INFO] |  |  +- org.mortbay.jetty:jetty-util:jar:6.1.26:provided
+[INFO] |  |  +- xerces:xercesImpl:jar:2.9.1:provided
+[INFO] |  |  |  \- xml-apis:xml-apis:jar:1.3.04:provided
+[INFO] |  |  \- org.fusesource.leveldbjni:leveldbjni-all:jar:1.8:provided
+[INFO] |  +- org.apache.hadoop:hadoop-mapreduce-client-app:jar:2.7.4:provided
+[INFO] |  |  +- org.apache.hadoop:hadoop-mapreduce-client-common:jar:2.7.4:provided
+[INFO] |  |  |  +- org.apache.hadoop:hadoop-yarn-client:jar:2.7.4:provided
+[INFO] |  |  |  \- org.apache.hadoop:hadoop-yarn-server-common:jar:2.7.4:provided
+[INFO] |  |  \- org.apache.hadoop:hadoop-mapreduce-client-shuffle:jar:2.7.4:provided
+[INFO] |  +- org.apache.hadoop:hadoop-yarn-api:jar:2.7.4:provided
+[INFO] |  +- org.apache.hadoop:hadoop-mapreduce-client-core:jar:2.7.4:provided
+[INFO] |  |  \- org.apache.hadoop:hadoop-yarn-common:jar:2.7.4:provided
+[INFO] |  |     +- javax.xml.bind:jaxb-api:jar:2.2.2:provided
+[INFO] |  |     |  \- javax.xml.stream:stax-api:jar:1.0-2:provided
+[INFO] |  |     +- javax.servlet:servlet-api:jar:2.5:provided
+[INFO] |  |     +- com.sun.jersey:jersey-core:jar:1.9:provided
+[INFO] |  |     +- com.sun.jersey:jersey-client:jar:1.9:provided
+[INFO] |  |     +- org.codehaus.jackson:jackson-jaxrs:jar:1.9.13:provided
+[INFO] |  |     \- org.codehaus.jackson:jackson-xc:jar:1.9.13:provided
+[INFO] |  +- org.apache.hadoop:hadoop-mapreduce-client-jobclient:jar:2.7.4:provided
+[INFO] |  \- org.apache.hadoop:hadoop-annotations:jar:2.7.4:compile
+[INFO] +- org.apache.hadoop:hadoop-aws:jar:2.7.4:compile
+[INFO] |  \- com.amazonaws:aws-java-sdk:jar:1.7.4:compile
+[INFO] |     +- org.apache.httpcomponents:httpclient:jar:4.2:compile
+[INFO] |     \- joda-time:joda-time:jar:2.10.13:compile (version selected from constraint [2.2,))
+[INFO] +- org.apache.httpcomponents:httpcore:jar:4.2:compile
+[INFO] +- org.scala-lang:scala-library:jar:2.12.10:provided
+[INFO] +- junit:junit:jar:4.4:test
+[INFO] +- org.apache.spark:spark-sql_2.12:jar:3.1.1:provided
+[INFO] |  +- com.univocity:univocity-parsers:jar:2.9.1:provided
+[INFO] |  +- org.apache.spark:spark-sketch_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-core_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-catalyst_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-tags_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.orc:orc-core:jar:1.5.12:provided
+[INFO] |  |  +- org.apache.orc:orc-shims:jar:1.5.12:provided
+[INFO] |  |  +- io.airlift:aircompressor:jar:0.10:provided
+[INFO] |  |  \- org.threeten:threeten-extra:jar:1.5.0:provided
+[INFO] |  +- org.apache.orc:orc-mapreduce:jar:1.5.12:provided
+[INFO] |  +- org.apache.hive:hive-storage-api:jar:2.7.2:provided
+[INFO] |  +- org.apache.parquet:parquet-column:jar:1.10.1:provided
+[INFO] |  |  +- org.apache.parquet:parquet-common:jar:1.10.1:provided
+[INFO] |  |  \- org.apache.parquet:parquet-encoding:jar:1.10.1:provided
+[INFO] |  +- org.apache.parquet:parquet-hadoop:jar:1.10.1:provided
+[INFO] |  |  +- org.apache.parquet:parquet-format:jar:2.4.0:provided
+[INFO] |  |  \- org.apache.parquet:parquet-jackson:jar:1.10.1:provided
+[INFO] |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.10.0:compile
+[INFO] |  |  +- com.fasterxml.jackson.core:jackson-annotations:jar:2.10.0:compile
+[INFO] |  |  \- com.fasterxml.jackson.core:jackson-core:jar:2.10.0:compile
+[INFO] |  +- org.apache.xbean:xbean-asm7-shaded:jar:4.15:provided
+[INFO] |  \- org.spark-project.spark:unused:jar:1.0.0:provided
+[INFO] +- org.apache.spark:spark-core_2.12:test-jar:tests:3.1.1:test
+[INFO] |  +- com.thoughtworks.paranamer:paranamer:jar:2.8:compile
+[INFO] |  +- org.apache.avro:avro:jar:1.8.2:compile
+[INFO] |  |  \- org.tukaani:xz:jar:1.5:compile
+[INFO] |  +- org.apache.avro:avro-mapred:jar:hadoop2:1.8.2:provided
+[INFO] |  |  \- org.apache.avro:avro-ipc:jar:1.8.2:provided
+[INFO] |  +- com.twitter:chill_2.12:jar:0.9.5:provided
+[INFO] |  |  \- com.esotericsoftware:kryo-shaded:jar:4.0.2:provided
+[INFO] |  |     +- com.esotericsoftware:minlog:jar:1.3.0:provided
+[INFO] |  |     \- org.objenesis:objenesis:jar:2.5.1:provided
+[INFO] |  +- com.twitter:chill-java:jar:0.9.5:provided
+[INFO] |  +- org.apache.spark:spark-launcher_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-kvstore_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-network-common_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-network-shuffle_2.12:jar:3.1.1:provided
+[INFO] |  +- org.apache.spark:spark-unsafe_2.12:jar:3.1.1:provided
+[INFO] |  +- javax.activation:activation:jar:1.1.1:provided
+[INFO] |  +- org.apache.zookeeper:zookeeper:jar:3.4.14:compile
+[INFO] |  |  \- org.apache.yetus:audience-annotations:jar:0.5.0:compile
+[INFO] |  +- jakarta.servlet:jakarta.servlet-api:jar:4.0.3:provided
+[INFO] |  +- org.apache.commons:commons-lang3:jar:3.10:provided
+[INFO] |  +- org.apache.commons:commons-math3:jar:3.4.1:compile
+[INFO] |  +- org.apache.commons:commons-text:jar:1.6:provided
+[INFO] |  +- com.google.code.findbugs:jsr305:jar:3.0.0:compile
+[INFO] |  +- org.slf4j:slf4j-api:jar:1.7.30:compile
+[INFO] |  +- org.slf4j:jul-to-slf4j:jar:1.7.30:provided
+[INFO] |  +- org.slf4j:jcl-over-slf4j:jar:1.7.30:provided
+[INFO] |  +- log4j:log4j:jar:1.2.17:compile
+[INFO] |  +- org.slf4j:slf4j-log4j12:jar:1.7.30:compile
+[INFO] |  +- com.ning:compress-lzf:jar:1.0.3:provided
+[INFO] |  +- org.xerial.snappy:snappy-java:jar:1.1.8.2:compile
+[INFO] |  +- org.lz4:lz4-java:jar:1.7.1:provided
+[INFO] |  +- com.github.luben:zstd-jni:jar:1.4.8-1:provided
+[INFO] |  +- org.roaringbitmap:RoaringBitmap:jar:0.9.0:provided
+[INFO] |  |  \- org.roaringbitmap:shims:jar:0.9.0:provided
+[INFO] |  +- commons-net:commons-net:jar:3.1:compile
+[INFO] |  +- org.scala-lang.modules:scala-xml_2.12:jar:1.2.0:provided
+[INFO] |  +- org.scala-lang:scala-reflect:jar:2.12.10:provided
+[INFO] |  +- org.json4s:json4s-jackson_2.12:jar:3.7.0-M5:provided
+[INFO] |  |  \- org.json4s:json4s-core_2.12:jar:3.7.0-M5:provided
+[INFO] |  |     +- org.json4s:json4s-ast_2.12:jar:3.7.0-M5:provided
+[INFO] |  |     \- org.json4s:json4s-scalap_2.12:jar:3.7.0-M5:provided
+[INFO] |  +- org.glassfish.jersey.core:jersey-client:jar:2.30:provided
+[INFO] |  |  +- jakarta.ws.rs:jakarta.ws.rs-api:jar:2.1.6:provided
+[INFO] |  |  \- org.glassfish.hk2.external:jakarta.inject:jar:2.6.1:provided
+[INFO] |  +- org.glassfish.jersey.core:jersey-common:jar:2.30:provided
+[INFO] |  |  +- jakarta.annotation:jakarta.annotation-api:jar:1.3.5:provided
+[INFO] |  |  \- org.glassfish.hk2:osgi-resource-locator:jar:1.0.3:provided
+[INFO] |  +- org.glassfish.jersey.core:jersey-server:jar:2.30:provided
+[INFO] |  |  +- org.glassfish.jersey.media:jersey-media-jaxb:jar:2.30:provided
+[INFO] |  |  \- jakarta.validation:jakarta.validation-api:jar:2.0.2:provided
+[INFO] |  +- org.glassfish.jersey.containers:jersey-container-servlet:jar:2.30:provided
+[INFO] |  +- org.glassfish.jersey.containers:jersey-container-servlet-core:jar:2.30:provided
+[INFO] |  +- org.glassfish.jersey.inject:jersey-hk2:jar:2.30:provided
+[INFO] |  |  +- org.glassfish.hk2:hk2-locator:jar:2.6.1:provided
+[INFO] |  |  |  +- org.glassfish.hk2.external:aopalliance-repackaged:jar:2.6.1:provided
+[INFO] |  |  |  +- org.glassfish.hk2:hk2-api:jar:2.6.1:provided
+[INFO] |  |  |  \- org.glassfish.hk2:hk2-utils:jar:2.6.1:provided
+[INFO] |  |  \- org.javassist:javassist:jar:3.25.0-GA:provided
+[INFO] |  +- io.netty:netty-all:jar:4.1.51.Final:provided
+[INFO] |  +- com.clearspring.analytics:stream:jar:2.9.6:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-core:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-jvm:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-json:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-graphite:jar:4.1.1:provided
+[INFO] |  +- io.dropwizard.metrics:metrics-jmx:jar:4.1.1:provided
+[INFO] |  +- com.fasterxml.jackson.module:jackson-module-scala_2.12:jar:2.10.0:provided
+[INFO] |  |  \- com.fasterxml.jackson.module:jackson-module-paranamer:jar:2.10.0:provided
+[INFO] |  +- org.apache.ivy:ivy:jar:2.4.0:provided
+[INFO] |  +- oro:oro:jar:2.0.8:provided
+[INFO] |  +- net.razorvine:pyrolite:jar:4.30:provided
+[INFO] |  +- net.sf.py4j:py4j:jar:0.10.9:provided
+[INFO] |  \- org.apache.commons:commons-crypto:jar:1.1.0:provided
+[INFO] +- org.apache.spark:spark-catalyst_2.12:test-jar:tests:3.1.1:test
+[INFO] |  +- org.scala-lang.modules:scala-parser-combinators_2.12:jar:1.1.2:provided
+[INFO] |  +- org.codehaus.janino:janino:jar:3.0.16:provided
+[INFO] |  +- org.codehaus.janino:commons-compiler:jar:3.0.16:provided
+[INFO] |  +- org.antlr:antlr4-runtime:jar:4.8-1:provided
+[INFO] |  \- commons-codec:commons-codec:jar:1.10:compile
+[INFO] +- org.apache.spark:spark-sql_2.12:test-jar:tests:3.1.1:test
+[INFO] \- org.scalatest:scalatest_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-core_2.12:jar:3.2.3:test
+[INFO]    |  +- org.scalatest:scalatest-compatible:jar:3.2.3:test
+[INFO]    |  \- org.scalactic:scalactic_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-featurespec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-flatspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-freespec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-funsuite_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-funspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-propspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-refspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-wordspec_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-diagrams_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-matchers-core_2.12:jar:3.2.3:test
+[INFO]    +- org.scalatest:scalatest-shouldmatchers_2.12:jar:3.2.3:test
+[INFO]    \- org.scalatest:scalatest-mustmatchers_2.12:jar:3.2.3:test
+[INFO] 
+[INFO] -----------< com.intel.oap:spark-arrow-datasource-standard >------------
+[INFO] Building spark-arrow-datasource-standard 1.2.0-snapshot            [4/9]
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] Reactor Summary for Native SQL Engine Parent Pom 1.2.0-snapshot:
+[INFO] 
+[INFO] Native SQL Engine Parent Pom ....................... SUCCESS [  0.434 s]
+[INFO] OAP Project Spark Arrow Datasource ................. SUCCESS [  0.856 s]
+[INFO] spark-arrow-datasource-common ...................... SUCCESS [  0.120 s]
+[INFO] spark-arrow-datasource-standard .................... FAILURE [  0.034 s]
+[INFO] spark-arrow-datasource-parquet ..................... SKIPPED
+[INFO] OAP Project Spark Columnar Plugin Shims ............ SKIPPED
+[INFO] OAP Project Spark Columnar Plugin Shims Common ..... SKIPPED
+[INFO] OAP Project Spark Columnar Plugin .................. SKIPPED
+[INFO] OAP Project Spark Columnar Plugin Shims for Spark 3.1.1 SKIPPED
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.688 s
+[INFO] Finished at: 2021-12-15T09:40:36+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal on project spark-arrow-datasource-standard: Could not resolve dependencies for project com.intel.oap:spark-arrow-datasource-standard:jar:1.2.0-snapshot: Failure to find com.intel.oap:spark-arrow-datasource-common:jar:1.2.0-snapshot in https://maven.aliyun.com/repository/public was cached in the local repository, resolution will not be reattempted until the update interval of aliyunmaven has elapsed or updates are forced -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+[ERROR] 
+[ERROR] After correcting the problems, you can resume the build with the command
+[ERROR]   mvn <args> -rf :spark-arrow-datasource-standard
