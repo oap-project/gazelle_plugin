@@ -108,8 +108,7 @@ class ConditionedMergeJoinKernel::Impl {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
     bool use_relation_for_stream = input.empty();
 
-    codegen_ctx->header_codes.push_back(
-        R"(#include "codegen/arrow_compute/ext/array_item_index.h")");
+
 
     std::vector<std::string> prepare_list;
     bool cond_check = false;
@@ -119,7 +118,7 @@ class ConditionedMergeJoinKernel::Impl {
     std::stringstream sort_define_ss;
     std::vector<gandiva::FieldVector> field_list = {left_field_list_, right_field_list_};
 
-    codegen_ctx->header_codes.push_back(R"(#include "codegen/common/sort_relation.h")");
+
     int idx = 0;
     for (auto relation_id : relation_id_) {
       auto relation_list_name = "sort_relation_" + std::to_string(relation_id) + "_";

@@ -173,8 +173,7 @@ class ConditionedProbeKernel::Impl {
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
 
-    codegen_ctx->header_codes.push_back(
-        R"(#include "codegen/arrow_compute/ext/array_item_index.h")");
+
 
     std::vector<std::string> prepare_list;
     bool cond_check = false;
@@ -192,7 +191,7 @@ class ConditionedProbeKernel::Impl {
     hash_prepare_ss << "RETURN_NOT_OK(typed_dependent_iter_list_" << hash_relation_id_
                     << "->Next("
                     << "&" << relation_list_name << "));" << std::endl;
-    codegen_ctx->header_codes.push_back(R"(#include "codegen/common/hash_relation.h")");
+ 
 
     hash_define_ss << "std::shared_ptr<HashRelation> " << relation_list_name << ";"
                    << std::endl;

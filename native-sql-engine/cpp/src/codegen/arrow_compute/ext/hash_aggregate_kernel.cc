@@ -215,10 +215,7 @@ class HashAggregateKernel::Impl {
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
 
-    codegen_ctx->header_codes.push_back(
-        R"(#include "codegen/arrow_compute/ext/array_item_index.h")");
-    codegen_ctx->header_codes.push_back(
-        R"(#include "codegen/arrow_compute/ext/actions_impl.h")");
+
 
     std::vector<std::string> prepare_list;
     // 1.0 prepare aggregate input expressions
@@ -243,7 +240,7 @@ class HashAggregateKernel::Impl {
     // 1. Get action list and action_prepare_project_list
     if (key_node_list.size() > 0 &&
         key_node_list[0]->return_type()->id() == arrow::Type::DECIMAL128) {
-      codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
+
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(key_node_list[0]->return_type(), "")
                       << "HashMap>(ctx_->memory_pool());" << std::endl;
@@ -254,7 +251,7 @@ class HashAggregateKernel::Impl {
     } else if (key_node_list.size() > 1 ||
                (key_node_list.size() > 0 &&
                 key_node_list[0]->return_type()->id() == arrow::Type::STRING)) {
-      codegen_ctx->header_codes.push_back(R"(#include "precompile/hash_map.h")");
+
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(arrow::utf8(), "")
                       << "HashMap>(ctx_->memory_pool());" << std::endl;
@@ -263,7 +260,7 @@ class HashAggregateKernel::Impl {
 
     } else if (key_node_list.size() > 0) {
       auto type = key_node_list[0]->return_type();
-      codegen_ctx->header_codes.push_back(R"(#include "precompile/sparse_hash_map.h")");
+
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << "SparseHashMap<" << GetCTypeString(type)
                       << ">>(ctx_->memory_pool());" << std::endl;
@@ -308,8 +305,7 @@ class HashAggregateKernel::Impl {
         prepare_ss << "auto " << unsafe_row_name_validity << " = "
                    << project_output_list[i].first.first << "_validity;" << std::endl;
       } else {
-        codegen_ctx->header_codes.push_back(
-            R"(#include "third_party/row_wise_memory/unsafe_row.h")");
+
         std::stringstream unsafe_row_define_ss;
         unsafe_row_define_ss << "std::shared_ptr<UnsafeRow> " << unsafe_row_name
                              << "_unsafe_row = std::make_shared<UnsafeRow>("
@@ -562,7 +558,7 @@ class HashAggregateKernel::Impl {
     if (!result_expr_list_.empty()) {
       codegen_ctx->gandiva_projector = std::make_shared<GandivaProjector>(
           ctx_, arrow::schema(result_field_list_), GetGandivaKernel(result_expr_list_));
-      codegen_ctx->header_codes.push_back(R"(#include "precompile/gandiva_projector.h")");
+
       finish_ss << "RETURN_NOT_OK(gandiva_projector_list_[gp_idx++]->Evaluate(&"
                    "do_hash_"
                    "aggr_finish_"
