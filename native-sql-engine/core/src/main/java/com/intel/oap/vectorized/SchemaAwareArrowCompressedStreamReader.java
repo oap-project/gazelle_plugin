@@ -41,15 +41,32 @@ import java.util.*;
  * This class reads from an input stream containing compressed buffers and produces
  * ArrowRecordBatches.
  */
-public class ArrowCompressedStreamReader extends ArrowStreamReader {
+public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
+  private final Schema originalSchema;
   private String compressType;
 
-  public ArrowCompressedStreamReader(InputStream in, BufferAllocator allocator) {
+  public SchemaAwareArrowCompressedStreamReader(Schema originalSchema, InputStream in,
+      BufferAllocator allocator) {
     super(in, allocator);
+    this.originalSchema = originalSchema;
+  }
+
+
+  public SchemaAwareArrowCompressedStreamReader(InputStream in,
+      BufferAllocator allocator) {
+    this(null, in, allocator);
   }
 
   public String GetCompressType() {
     return compressType;
+  }
+
+  @Override
+  protected Schema readSchema() throws IOException {
+    if (originalSchema == null) {
+      return super.readSchema();
+    }
+    return originalSchema;
   }
 
   protected void initialize() throws IOException {

@@ -73,6 +73,8 @@ class ColumnarShuffleWriter[K, V](
   }
   private val preferSpill = GazellePluginConfig.getConf.columnarShufflePreferSpill
 
+  private val writeSchema = GazellePluginConfig.getConf.columnarShuffleWriteSchema
+
   private val jniWrapper = new ShuffleSplitterJniWrapper()
 
   private var nativeSplitter: Long = 0
@@ -116,7 +118,8 @@ class ColumnarShuffleWriter[K, V](
               // fixme pass true when being called by self
               return jniWrapper.nativeSpill(nativeSplitter, size, false)
             }
-          }).getNativeInstanceId)
+          }).getNativeInstanceId,
+        writeSchema)
     }
 
     while (records.hasNext) {

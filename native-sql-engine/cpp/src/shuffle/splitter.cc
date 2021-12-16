@@ -142,7 +142,9 @@ class Splitter::PartitionWriter {
     const auto& data_file_os = splitter_->data_file_os_;
     ARROW_ASSIGN_OR_RAISE(auto before_write, data_file_os->Tell());
 
-    RETURN_NOT_OK(WriteSchemaPayload(data_file_os.get()));
+    if (splitter_->options_.write_schema) {
+      RETURN_NOT_OK(WriteSchemaPayload(data_file_os.get()));
+    }
 
     if (spilled_file_opened_) {
       RETURN_NOT_OK(spilled_file_os_->Close());

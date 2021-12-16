@@ -47,7 +47,8 @@ public class ShuffleSplitterJniWrapper {
       int subDirsPerLocalDir,
       String localDirs,
       boolean preferSpill,
-      long memoryPoolId) {
+      long memoryPoolId,
+      boolean writeSchema) {
     return nativeMake(
         part.getShortName(),
         part.getNumPartitions(),
@@ -60,7 +61,8 @@ public class ShuffleSplitterJniWrapper {
         subDirsPerLocalDir,
         localDirs,
         preferSpill,
-        memoryPoolId);
+        memoryPoolId,
+        writeSchema);
   }
 
   public native long nativeMake(
@@ -75,7 +77,8 @@ public class ShuffleSplitterJniWrapper {
       int subDirsPerLocalDir,
       String localDirs,
       boolean preferSpill,
-      long memoryPoolId);
+      long memoryPoolId,
+      boolean writeSchema);
 
   /**
    *
