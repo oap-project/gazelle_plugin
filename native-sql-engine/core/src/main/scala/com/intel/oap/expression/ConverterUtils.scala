@@ -23,10 +23,12 @@ import java.nio.ByteBuffer
 import java.util.ArrayList
 
 import com.intel.oap.vectorized.ArrowWritableColumnVector
-import org.apache.arrow.memory.ArrowBuf
 import io.netty.buffer.{ByteBufAllocator, ByteBufOutputStream}
+import org.apache.arrow.memory.ArrowBuf
 import org.apache.arrow.flatbuf.MessageHeader
+import org.apache.arrow.gandiva.evaluator._
 import org.apache.arrow.gandiva.exceptions.GandivaException
+import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.gandiva.expression.ExpressionTree
 import org.apache.arrow.gandiva.ipc.GandivaTypes
 import org.apache.arrow.gandiva.ipc.GandivaTypes.ExpressionList
@@ -35,8 +37,6 @@ import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
 import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
-import org.apache.arrow.gandiva.expression._
-import org.apache.arrow.gandiva.evaluator._
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
@@ -46,6 +46,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
@@ -60,7 +61,6 @@ import org.apache.arrow.vector.types.TimeUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.arrow.vector.types.{DateUnit, FloatingPointPrecision}
-
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
 import org.apache.spark.sql.catalyst.util.DateTimeConstants.MICROS_PER_SECOND
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
@@ -387,6 +387,10 @@ object ConverterUtils extends Logging {
       // for situation like: case when x = y
       case cet: ColumnarEqualTo =>
         new AttributeReference(name, cet.dataType, cet.nullable)()
+      case cin: ColumnarIn =>
+        new AttributeReference(name, cin.dataType, cin.nullable)()
+      case cand: ColumnarAnd =>
+        new AttributeReference(name, cand.dataType, cand.nullable)()
       case other =>
         val a = if (name != "None") {
           new Alias(other, name)()
