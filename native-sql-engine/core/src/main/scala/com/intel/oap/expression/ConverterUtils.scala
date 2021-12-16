@@ -391,6 +391,8 @@ object ConverterUtils extends Logging {
         new AttributeReference(name, cin.dataType, cin.nullable)()
       case cand: ColumnarAnd =>
         new AttributeReference(name, cand.dataType, cand.nullable)()
+      case cor: ColumnarOr =>
+        new AttributeReference(name, cor.dataType, cor.nullable)()
       case other =>
         val a = if (name != "None") {
           new Alias(other, name)()
