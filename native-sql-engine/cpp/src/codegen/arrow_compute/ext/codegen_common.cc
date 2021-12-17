@@ -630,7 +630,8 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
 
   std::string libwscgfile = GetTempPath() + "/nativesql_include/precompile/wscgapi.hpp";
-  std::string libwscg_pch = GetTempPath() + "/nativesql_include/precompile/wscgapi.hpp.gch";
+  std::string libwscg_pch =
+      GetTempPath() + "/nativesql_include/precompile/wscgapi.hpp.gch";
   const char* env_arrow_dir = std::getenv("LIBARROW_DIR");
   std::string arrow_header;
   std::string arrow_lib, arrow_lib2;
@@ -651,23 +652,21 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   auto ret = stat(libwscg_pch.c_str(), &pch_stat);
   if (ret == -1) {
     cmd += env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
-                    arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2
-                    + " -c " +
-                     libwscgfile + env_codegen_option + " -fPIC && ";
-
+           arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 + " -c " +
+           libwscgfile + env_codegen_option + " -fPIC && ";
   }
 
   cmd += env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
-                    nativesql_header + nativesql_header_2 + " -c " +
-                     cppfile  + " -o "+ objfile + env_codegen_option + "-fPIC && ";
+         nativesql_header + nativesql_header_2 + " -c " + cppfile + " -o " + objfile +
+         env_codegen_option + "-fPIC && ";
   // linking
-  cmd += env_gcc + arrow_lib + arrow_lib2 + nativesql_lib +
-                     objfile + " -o " + libfile + " -lspark_columnar_jni -shared && ";
+  cmd += env_gcc + arrow_lib + arrow_lib2 + nativesql_lib + objfile + " -o " + libfile +
+         " -lspark_columnar_jni -shared && ";
 
   // package
   cmd += "cd " + outpath + " && jar -cf spark-columnar-plugin-codegen-precompile-" +
-        signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so 2>" + logfile;
-
+         signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so 2>" +
+         logfile;
 
 #ifdef DEBUG
   std::cout << cmd << std::endl;

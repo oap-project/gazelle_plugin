@@ -215,8 +215,6 @@ class HashAggregateKernel::Impl {
       std::shared_ptr<CodeGenContext>* codegen_ctx_out, int* var_id) {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
 
-
-
     std::vector<std::string> prepare_list;
     // 1.0 prepare aggregate input expressions
     std::stringstream prepare_ss;
@@ -240,7 +238,6 @@ class HashAggregateKernel::Impl {
     // 1. Get action list and action_prepare_project_list
     if (key_node_list.size() > 0 &&
         key_node_list[0]->return_type()->id() == arrow::Type::DECIMAL128) {
-
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(key_node_list[0]->return_type(), "")
                       << "HashMap>(ctx_->memory_pool());" << std::endl;
@@ -251,7 +248,6 @@ class HashAggregateKernel::Impl {
     } else if (key_node_list.size() > 1 ||
                (key_node_list.size() > 0 &&
                 key_node_list[0]->return_type()->id() == arrow::Type::STRING)) {
-
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
                       << GetTypeString(arrow::utf8(), "")
                       << "HashMap>(ctx_->memory_pool());" << std::endl;
@@ -305,7 +301,6 @@ class HashAggregateKernel::Impl {
         prepare_ss << "auto " << unsafe_row_name_validity << " = "
                    << project_output_list[i].first.first << "_validity;" << std::endl;
       } else {
-
         std::stringstream unsafe_row_define_ss;
         unsafe_row_define_ss << "std::shared_ptr<UnsafeRow> " << unsafe_row_name
                              << "_unsafe_row = std::make_shared<UnsafeRow>("

@@ -108,8 +108,6 @@ class ConditionedMergeJoinKernel::Impl {
     auto codegen_ctx = std::make_shared<CodeGenContext>();
     bool use_relation_for_stream = input.empty();
 
-
-
     std::vector<std::string> prepare_list;
     bool cond_check = false;
     if (condition_) cond_check = true;
@@ -117,7 +115,6 @@ class ConditionedMergeJoinKernel::Impl {
     std::stringstream sort_prepare_ss;
     std::stringstream sort_define_ss;
     std::vector<gandiva::FieldVector> field_list = {left_field_list_, right_field_list_};
-
 
     int idx = 0;
     for (auto relation_id : relation_id_) {
