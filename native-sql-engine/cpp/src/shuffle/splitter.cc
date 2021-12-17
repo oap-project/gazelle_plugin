@@ -202,8 +202,14 @@ class Splitter::PartitionWriter {
   arrow::Status WriteSchemaPayload(arrow::io::OutputStream* os) {
     ARROW_ASSIGN_OR_RAISE(auto payload, splitter_->GetSchemaPayload());
     int32_t metadata_length = 0;  // unused
-    RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-        *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
+
+    if (payload->body_length <= 16384) {
+      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+          *payload, splitter_->tiny_bach_write_options_, os, &metadata_length));
+    } else {
+      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+          *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
+    }
     return arrow::Status::OK();
   }
 
@@ -360,6 +366,11 @@ arrow::Status Splitter::Init() {
     ARROW_ASSIGN_OR_RAISE(ipc_write_options.codec, arrow::util::Codec::CreateInt32(
                                                        arrow::Compression::UNCOMPRESSED));
   }
+
+  // initialize tiny batch write options
+  tiny_bach_write_options_ = ipc_write_options;
+  ARROW_ASSIGN_OR_RAISE(tiny_bach_write_options_.codec, arrow::util::Codec::CreateInt32(
+      arrow::Compression::UNCOMPRESSED));
 
   return arrow::Status::OK();
 }
