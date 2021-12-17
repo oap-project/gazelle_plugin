@@ -368,8 +368,9 @@ arrow::Status Splitter::Init() {
 
   // initialize tiny batch write options
   tiny_bach_write_options_ = ipc_write_options;
-  ARROW_ASSIGN_OR_RAISE(tiny_bach_write_options_.codec, arrow::util::Codec::CreateInt32(
-      arrow::Compression::UNCOMPRESSED));
+  ARROW_ASSIGN_OR_RAISE(
+      tiny_bach_write_options_.codec,
+      arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
 
   return arrow::Status::OK();
 }
