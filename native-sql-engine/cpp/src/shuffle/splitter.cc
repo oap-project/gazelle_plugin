@@ -202,14 +202,8 @@ class Splitter::PartitionWriter {
   arrow::Status WriteSchemaPayload(arrow::io::OutputStream* os) {
     ARROW_ASSIGN_OR_RAISE(auto payload, splitter_->GetSchemaPayload());
     int32_t metadata_length = 0;  // unused
-
-    if (payload->body_length <= 16384) {
-      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-          *payload, splitter_->tiny_bach_write_options_, os, &metadata_length));
-    } else {
-      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-          *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
-    }
+    RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+        *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
     return arrow::Status::OK();
   }
 
@@ -217,8 +211,13 @@ class Splitter::PartitionWriter {
                                         int32_t partition_id) {
     int32_t metadata_length = 0;  // unused
     for (auto& payload : splitter_->partition_cached_recordbatch_[partition_id_]) {
-      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-          *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
+      if (payload->body_length <= 16384) {
+        RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+            *payload, splitter_->tiny_bach_write_options_, os, &metadata_length));
+      } else {
+        RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+            *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
+      }
       payload = nullptr;
     }
     return arrow::Status::OK();
