@@ -17,6 +17,7 @@
 #include "precompile/array.h"
 #include "precompile/builder.h"
 #include "precompile/gandiva.h"
+#include "precompile/gandiva_projector.h"
 #include "precompile/hash_map.h"
 #include "precompile/sparse_hash_map.h"
 #include "precompile/type.h"
