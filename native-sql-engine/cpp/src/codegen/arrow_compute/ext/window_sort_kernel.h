@@ -215,18 +215,7 @@ class WindowSortKernel::Impl {
     std::string typed_res_array_str = GetTypedResArray(shuffle_typed_codegen_list.size());
 
     return BaseCodes() + R"(
-#include <arrow/array.h>
-#include <arrow/buffer.h>
-#include <arrow/builder.h>
-
-#include <algorithm>
-
-#include "codegen/arrow_compute/ext/array_item_index.h"
-#include "precompile/builder.h"
-#include "precompile/type.h"
-#include "third_party/ska_sort.hpp"
-#include "third_party/timsort.hpp"
-using namespace sparkcolumnarplugin::precompile;
+#include "precompile/wscgapi.hpp"
 
 class TypedSorterImpl : public CodeGenBase {
  public:
