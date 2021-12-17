@@ -211,13 +211,8 @@ class Splitter::PartitionWriter {
                                         int32_t partition_id) {
     int32_t metadata_length = 0;  // unused
     for (auto& payload : splitter_->partition_cached_recordbatch_[partition_id_]) {
-      if (payload->body_length <= 16384) {
-        RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-            *payload, splitter_->tiny_bach_write_options_, os, &metadata_length));
-      } else {
-        RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
-            *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
-      }
+      RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
+          *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
       payload = nullptr;
     }
     return arrow::Status::OK();
@@ -560,12 +555,18 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
       }
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
-
+    int64_t raw_size = batch_nbytes(batch);
+    raw_partition_lengths_[partition_id] += raw_size;
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-    TIME_NANO_OR_RAISE(total_compress_time_,
-                       arrow::ipc::GetRecordBatchPayload(
-                           *batch, options_.ipc_write_options, payload.get()));
-    raw_partition_lengths_[partition_id] += batch_nbytes(batch);
+    if (raw_size <= 16384) {
+      TIME_NANO_OR_RAISE(total_compress_time_,
+                         arrow::ipc::GetRecordBatchPayload(
+                             *batch, tiny_bach_write_options_, payload.get()));
+    } else {
+      TIME_NANO_OR_RAISE(total_compress_time_,
+                         arrow::ipc::GetRecordBatchPayload(
+                             *batch, options_.ipc_write_options, payload.get()));
+    }
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
