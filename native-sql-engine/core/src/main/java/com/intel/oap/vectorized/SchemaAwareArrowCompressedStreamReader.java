@@ -150,9 +150,9 @@ public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
     try {
       CompressedVectorLoader loader = (CompressedVectorLoader) this.loader;
       if (isCurrentBatchCompressed()) {
-        loader.loadUncompressed(batch);
-      } else {
         loader.loadCompressed(batch);
+      } else {
+        loader.loadUncompressed(batch);
       }
     } finally {
       batch.close();
@@ -160,6 +160,6 @@ public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
   }
 
   public boolean isCurrentBatchCompressed() {
-    return Objects.equals(getCompressType(), COMPRESS_TYPE_NONE);
+    return !Objects.equals(getCompressType(), COMPRESS_TYPE_NONE);
   }
 }
