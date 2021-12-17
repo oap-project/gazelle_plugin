@@ -126,6 +126,8 @@ inline void PrefetchDstAddr(__m512i dst_addr_8x, int32_t scale) {
 }
 #endif
 
+#define TINY_BATCH_SIZE 16384
+
 class Splitter::PartitionWriter {
  public:
   explicit PartitionWriter(Splitter* splitter, int32_t partition_id)
@@ -370,12 +372,42 @@ arrow::Status Splitter::Init() {
   return arrow::Status::OK();
 }
 
+int64_t batch_nbytes(const arrow::RecordBatch& batch) {
+  int64_t accumulated = 0L;
+  for (const auto& array : batch.columns()) {
+    if (array == nullptr || array->data() == nullptr) {
+      continue;
+    }
+    for (const auto& buf : array->data()->buffers) {
+      if (buf == nullptr) {
+        continue;
+      }
+      accumulated += buf->capacity();
+    }
+  }
+  return accumulated;
+}
+
+int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
+  if (batch == nullptr) {
+    return 0;
+  }
+  return batch_nbytes(*batch);
+}
+
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
+  int64_t raw_size = batch_nbytes(rb);
   auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-  auto result =
-      arrow::ipc::GetRecordBatchPayload(rb, options_.ipc_write_options, payload.get());
+  arrow::Status result;
+  if (raw_size <= TINY_BATCH_SIZE) {
+    result =
+        arrow::ipc::GetRecordBatchPayload(rb, tiny_bach_write_options_, payload.get());
+  } else {
+    result =
+        arrow::ipc::GetRecordBatchPayload(rb, options_.ipc_write_options, payload.get());
+  }
   if (result.ok()) {
-    return payload.get()->body_length;
+    return payload->body_length;
   } else {
     result.UnknownError("Failed to get the compressed size.");
     return -1;
@@ -437,25 +469,6 @@ arrow::Status Splitter::Stop() {
 
   EVAL_END("write", options_.thread_id, options_.task_attempt_id)
   return arrow::Status::OK();
-}
-
-int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
-  int64_t accumulated = 0L;
-  if (batch == nullptr) {
-    return accumulated;
-  }
-  for (const auto& array : batch->columns()) {
-    if (array == nullptr || array->data() == nullptr) {
-      continue;
-    }
-    for (const auto& buf : array->data()->buffers) {
-      if (buf == nullptr) {
-        continue;
-      }
-      accumulated += buf->capacity();
-    }
-  }
-  return accumulated;
 }
 
 arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffers) {
@@ -558,7 +571,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     int64_t raw_size = batch_nbytes(batch);
     raw_partition_lengths_[partition_id] += raw_size;
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-    if (raw_size <= 16384) {
+    if (raw_size <= TINY_BATCH_SIZE) {
       TIME_NANO_OR_RAISE(total_compress_time_,
                          arrow::ipc::GetRecordBatchPayload(
                              *batch, tiny_bach_write_options_, payload.get()));
