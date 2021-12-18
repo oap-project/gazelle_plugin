@@ -477,8 +477,11 @@ file(COPY codegen/common/result_iterator.h DESTINATION ${root_directory}/release
 file(COPY codegen/common/relation_column.h DESTINATION ${root_directory}/releases/include/codegen/common/)
 file(COPY codegen/common/hash_relation.h DESTINATION ${root_directory}/releases/include/codegen/common/)
 file(COPY codegen/common/sort_relation.h DESTINATION ${root_directory}/releases/include/codegen/common/)
+file(CREATE_LINK ${root_directory}/releases/include ${root_directory}/releases/nativesql_include SYMBOLIC)
 file(COPY codegen/common/hash_relation_string.h DESTINATION ${root_directory}/releases/include/codegen/common/)
 file(COPY codegen/common/hash_relation_number.h DESTINATION ${root_directory}/releases/include/codegen/common/)
+
+
 
 add_definitions(-DNATIVESQL_SRC_PATH="${root_directory}/releases")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attributes")
