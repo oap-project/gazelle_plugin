@@ -16,7 +16,6 @@
  */
 
 #include "operators/row_to_columnar_converter.h"
-#include "codegen/arrow_compute/ext/array_taker.h"
 #include <iostream>
 
 namespace sparkcolumnarplugin {
@@ -726,7 +725,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
     }
     else if (child_type->id() == arrow::TimestampType::type_id)
     {
-      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::TimestampBuilder>(pool));
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::TimestampBuilder>(arrow::int64(), pool));
       // The following builder is owned by components_builder.
       arrow::TimestampBuilder& child_builder = *(static_cast<arrow::TimestampBuilder*>(parent_builder.value_builder()));
       for (int64_t position = 0; position < num_rows; position++) {
@@ -793,13 +792,13 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
     }
     else if (child_type->id() == arrow::Decimal128Type::type_id)
     {  
-      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::Decimal128Builder>(pool));
-      // The following builder is owned by components_builder.
-      arrow::Decimal128Builder& child_builder = *(static_cast<arrow::Decimal128Builder*>(parent_builder.value_builder()));
-      auto dtype = std::dynamic_pointer_cast<arrow::Decimal128Type>(child_type);
+      std::shared_ptr<arrow::Decimal128Type> dtype = std::dynamic_pointer_cast<arrow::Decimal128Type>(child_type);
       int32_t precision = dtype->precision();
       int32_t scale = dtype->scale();
-
+      arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::Decimal128Builder>(dtype, pool));
+      // The following builder is owned by components_builder.
+      arrow::Decimal128Builder& child_builder = *(static_cast<arrow::Decimal128Builder*>(parent_builder.value_builder()));
+      
       for (int64_t position = 0; position < num_rows; position++) {
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
