@@ -408,6 +408,7 @@ class ColumnarCast(
     if (datatype == StringType) {
       val supported =
         List(
+          BooleanType,
           ByteType,
           ShortType,
           IntegerType,
@@ -430,12 +431,14 @@ class ColumnarCast(
       }
     } else if (datatype == IntegerType) {
       val supported =
-        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType, DecimalType, StringType)
+        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType,
+          DecimalType, StringType)
       if (supported.indexOf(child.dataType) == -1 && !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castINT")
       }
     } else if (datatype == LongType) {
-      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType, TimestampType, StringType)
+      val supported = List(IntegerType, FloatType, DoubleType, DateType,
+        DecimalType, TimestampType, StringType, BooleanType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
@@ -494,21 +497,22 @@ class ColumnarCast(
     }
     if (dataType == StringType) {
       val limitLen: java.lang.Long = childType0 match {
-        case int: ArrowType.Int if int.getBitWidth == 8 => 4
-        case int: ArrowType.Int if int.getBitWidth == 16 => 6
-        case int: ArrowType.Int if int.getBitWidth == 32 => 11
-        case int: ArrowType.Int if int.getBitWidth == 64 => 20
+        case int: ArrowType.Int if int.getBitWidth == 8 => 4L
+        case int: ArrowType.Int if int.getBitWidth == 16 => 6L
+        case int: ArrowType.Int if int.getBitWidth == 32 => 11L
+        case int: ArrowType.Int if int.getBitWidth == 64 => 20L
         case float: ArrowType.FloatingPoint
             if float.getPrecision() == FloatingPointPrecision.SINGLE =>
-          12
+          12L
         case float: ArrowType.FloatingPoint
             if float.getPrecision() == FloatingPointPrecision.DOUBLE =>
-          21
-        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10
+          21L
+        case _: ArrowType.Bool => 10L
+        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10L
         case decimal: ArrowType.Decimal =>
           // Add two to precision for decimal point and negative sign
           (decimal.getPrecision() + 2)
-        case _: ArrowType.Timestamp => 24
+        case _: ArrowType.Timestamp => 24L
         case _ =>
           throw new UnsupportedOperationException(
             s"ColumnarCast to String doesn't support ${childType0}")
