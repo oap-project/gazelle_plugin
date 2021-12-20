@@ -126,8 +126,6 @@ inline void PrefetchDstAddr(__m512i dst_addr_8x, int32_t scale) {
 }
 #endif
 
-#define TINY_BATCH_SIZE 16384
-
 class Splitter::PartitionWriter {
  public:
   explicit PartitionWriter(Splitter* splitter, int32_t partition_id)
@@ -396,16 +394,10 @@ int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
 }
 
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
-  int64_t raw_size = batch_nbytes(rb);
   auto payload = std::make_shared<arrow::ipc::IpcPayload>();
   arrow::Status result;
-  if (raw_size <= TINY_BATCH_SIZE) {
-    result =
-        arrow::ipc::GetRecordBatchPayload(rb, tiny_bach_write_options_, payload.get());
-  } else {
-    result =
-        arrow::ipc::GetRecordBatchPayload(rb, options_.ipc_write_options, payload.get());
-  }
+  result =
+      arrow::ipc::GetRecordBatchPayload(rb, options_.ipc_write_options, payload.get());
   if (result.ok()) {
     return payload->body_length;
   } else {
@@ -571,7 +563,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     int64_t raw_size = batch_nbytes(batch);
     raw_partition_lengths_[partition_id] += raw_size;
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-    if (raw_size <= TINY_BATCH_SIZE) {
+    if (num_rows <= options_.batch_compress_threshold) {
       TIME_NANO_OR_RAISE(total_compress_time_,
                          arrow::ipc::GetRecordBatchPayload(
                              *batch, tiny_bach_write_options_, payload.get()));
