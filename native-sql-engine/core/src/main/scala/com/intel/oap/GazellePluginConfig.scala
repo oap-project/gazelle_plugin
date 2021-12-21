@@ -188,7 +188,7 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     conf.getConfString("spark.oap.sql.columnar.shuffle.customizedCompression.codec", "lz4")
 
   val columnarShuffleBatchCompressThreshold: Int =
-    conf.getConfString("spark.oap.sql.columnar.shuffle.batchCompressThreshold", "256").toInt
+    conf.getConfString("spark.oap.sql.columnar.shuffle.batchCompressThreshold", "100").toInt
 
   val shuffleSplitDefaultSize: Int =
     conf
