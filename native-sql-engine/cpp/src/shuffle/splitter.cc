@@ -436,8 +436,8 @@ arrow::Status Splitter::Stop() {
   std::shared_ptr<arrow::io::FileOutputStream> fout;
   ARROW_ASSIGN_OR_RAISE(fout,
                         arrow::io::FileOutputStream::Open(options_.data_file, true));
-  ARROW_ASSIGN_OR_RAISE(data_file_os_,
-                        arrow::io::BufferedOutputStream::Create(16384, options_.memory_pool, fout));
+  ARROW_ASSIGN_OR_RAISE(data_file_os_, arrow::io::BufferedOutputStream::Create(
+                                           16384, options_.memory_pool, fout));
 
   // stop PartitionWriter and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
