@@ -42,36 +42,12 @@ import org.apache.spark.unsafe.types.UTF8String
 
 class ArrowRowToColumnarExecSuite extends SharedSparkSession {
 
-  test("ArrowRowToColumnar") {
-    val row = InternalRow(3)
-    val converter = UnsafeProjection.create(Array[DataType](IntegerType))
-    val unsafeRow = converter.apply(row)
-    val sizeInBytes = unsafeRow.getSizeInBytes
-
-    val bufferSize = 1024  // 128M can estimator the buffer size based on the data type
-    val allocator = SparkMemoryUtils.contextAllocator()
-    val arrowBuf = allocator.buffer(bufferSize)
-
-    Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
-      null, arrowBuf.memoryAddress(), sizeInBytes)
-
-    val rowLength = new ListBuffer[Long]()
-
-    rowLength += sizeInBytes
-    val timeZoneId = SparkSchemaUtils.getLocalTimezoneID()
-    val schema1 = StructType(Seq(StructField("i", IntegerType)))
-    val arrowSchema = ArrowUtils.toArrowSchema(schema1, timeZoneId)
-    val schema = ConverterUtils.getSchemaBytesBuf(arrowSchema)
-    val jniWrapper = new ArrowRowToColumnarJniWrapper()
-
-    jniWrapper.nativeConvertRowToColumnar(schema, rowLength.toArray, arrowBuf.memoryAddress(),
-      SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
-  }
-
   test("ArrowRowToColumnarExec: Boolean type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(BooleanType)))
     val schema = StructType(Seq(StructField("boolean type with array", ArrayType(BooleanType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(true, false)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(true, false))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -88,9 +64,11 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Byte type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(ByteType)))
     val schema = StructType(Seq(StructField("boolean type with array", ArrayType(ByteType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(1.toByte, 2.toByte)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(1.toByte, 2.toByte))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -107,9 +85,11 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Short type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(ShortType)))
     val schema = StructType(Seq(StructField("short type with array", ArrayType(ShortType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(1.toShort, 2.toShort)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(1.toShort, 2.toShort))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -126,9 +106,11 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Int type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(IntegerType)))
     val schema = StructType(Seq(StructField("Int type with array", ArrayType(IntegerType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(1, 2)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(-10, -20))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -139,15 +121,17 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
       val row = convert_rowIterator.next()
       rowId += 1
       val array = row.getArray(0)
-      assert(1 == array.getInt(0))
-      assert(2 == array.getInt(1))
+      assert(-10 == array.getInt(0))
+      assert(-20 == array.getInt(1))
     }
   }
 
   test("ArrowRowToColumnarExec: Long type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(LongType)))
     val schema = StructType(Seq(StructField("Long type with array", ArrayType(LongType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(1.toLong, 2.toLong)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(1.toLong, 2.toLong))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -164,9 +148,11 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Float type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(FloatType)))
     val schema = StructType(Seq(StructField("Float type with array", ArrayType(FloatType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(1.toFloat, 2.toFloat)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(1.toFloat, 2.toFloat))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -183,9 +169,11 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Double type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(DoubleType)))
     val schema = StructType(Seq(StructField("Double type with array", ArrayType(DoubleType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(Seq(1.toDouble, 2.toDouble)))
+      converter.apply(InternalRow(new GenericArrayData(Seq(1.toDouble, 2.toDouble))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -202,10 +190,12 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: String type with array list") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(StringType)))
     val schema = StructType(Seq(StructField("String type with array", ArrayType(StringType))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(
-        Seq(UTF8String.fromString("abc"), UTF8String.fromString("def"))))
+      converter.apply(InternalRow(new GenericArrayData(
+        Seq(UTF8String.fromString("abc"), UTF8String.fromString("def")))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -222,11 +212,13 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Decimal type with array list precision <= 18") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(DecimalType(10, 4))))
     val schema = StructType(
-      Seq(StructField("Decimal type with array", ArrayType(DecimalType(10, 2)))))
+      Seq(StructField("Decimal type with array", ArrayType(DecimalType(10, 4)))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(
-        Seq(new Decimal().set(BigDecimal("1.00")), new Decimal().set(BigDecimal("1.00")))))
+      converter.apply(InternalRow(new GenericArrayData(
+        Seq(new Decimal().set(BigDecimal("-1.5645")), new Decimal().set(BigDecimal("-1.8645"))))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -237,17 +229,19 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
       val row = convert_rowIterator.next()
       rowId += 1
       val array = row.getArray(0)
-      assert(new Decimal().set(BigDecimal("1.00")) == array.getDecimal(0, 10, 2))
-      assert(new Decimal().set(BigDecimal("1.00")) == array.getDecimal(0, 10, 2))
+      assert(new Decimal().set(BigDecimal("-1.5645")) == array.getDecimal(0, 10, 4))
+      assert(new Decimal().set(BigDecimal("-1.8645")) == array.getDecimal(1, 10, 4))
     }
   }
 
   test("ArrowRowToColumnarExec: Decimal type with array list precision > 18") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(DecimalType(19, 4))))
     val schema = StructType(
-      Seq(StructField("Decimal type with array", ArrayType(DecimalType(19, 2)))))
+      Seq(StructField("Decimal type with array", ArrayType(DecimalType(19, 4)))))
     val rowIterator = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(
-        Seq(new Decimal().set(BigDecimal("1.00")), new Decimal().set(BigDecimal("1.00")))))
+      converter.apply(InternalRow(new GenericArrayData(
+        Seq(new Decimal().set(BigDecimal("1.2457")), new Decimal().set(BigDecimal("1.2457"))))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -258,21 +252,23 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
       val row = convert_rowIterator.next()
       rowId += 1
       val array = row.getArray(0)
-      assert(new Decimal().set(BigDecimal("1.00")) == array.getDecimal(0, 19, 2))
-      assert(new Decimal().set(BigDecimal("1.00")) == array.getDecimal(0, 19, 2))
+      assert(new Decimal().set(BigDecimal("1.2457")) == array.getDecimal(0, 19, 4))
+      assert(new Decimal().set(BigDecimal("1.2457")) == array.getDecimal(1, 19, 4))
     }
   }
 
   test("ArrowRowToColumnarExec: Timestamp type with array list ") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(TimestampType)))
     val defaultZoneId = ZoneId.systemDefault()
     val schema = StructType(
       Seq(StructField("Timestamp type with array", ArrayType(TimestampType))))
     val rowIterator: Iterator[InternalRow] = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(
+      converter.apply(InternalRow(new GenericArrayData(
         Seq(DateTimeUtils.stringToTimestamp(
           UTF8String.fromString("1970-1-1 00:00:00"), defaultZoneId).get,
           DateTimeUtils.stringToTimestamp(
-          UTF8String.fromString("1970-1-1 00:00:00"), defaultZoneId).get)))
+          UTF8String.fromString("1970-1-1 00:00:00"), defaultZoneId).get))))
     }.toIterator
 
     val cb = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -293,13 +289,15 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
   }
 
   test("ArrowRowToColumnarExec: Date32 type with array list ") {
+    val converter: UnsafeProjection =
+      UnsafeProjection.create(Array[DataType](ArrayType(DateType)))
     val defaultZoneId = ZoneId.systemDefault()
     val schema: StructType = StructType(
       Seq(StructField("Date type with array", ArrayType(DateType))))
     val rowIterator: Iterator[InternalRow] = (0 until 2).map { i =>
-      InternalRow(new GenericArrayData(
+      converter.apply(InternalRow(new GenericArrayData(
         Seq(DateTimeUtils.stringToDate(UTF8String.fromString("1970-1-1"), defaultZoneId).get,
-          DateTimeUtils.stringToDate(UTF8String.fromString("1970-1-1"), defaultZoneId).get)))
+          DateTimeUtils.stringToDate(UTF8String.fromString("1970-1-1"), defaultZoneId).get))))
     }.toIterator
 
     val cb: ColumnarBatch = ArrowRowToColumnarExecSuite.nativeOp(schema, rowIterator)
@@ -316,7 +314,6 @@ class ArrowRowToColumnarExecSuite extends SharedSparkSession {
         array.get(1, DateType).asInstanceOf[Int])
     }
   }
-
 }
 
 object ArrowRowToColumnarExecSuite {
@@ -334,8 +331,7 @@ object ArrowRowToColumnarExecSuite {
     val rowLength = new ListBuffer[Long]()
     var rowCount = 0
     var offset = 0
-
-    while (rowCount < rowIterator.size && rowIterator.hasNext) {
+    while (rowIterator.hasNext) {
       val row = rowIterator.next() // UnsafeRow
       assert(row.isInstanceOf[UnsafeRow])
       val unsafeRow = row.asInstanceOf[UnsafeRow]
