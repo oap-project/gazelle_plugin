@@ -175,7 +175,7 @@ class WindowAggregateFunctionKernel : public KernalBase {
 
   template <typename ValueType, typename BuilderType>
   typename arrow::enable_if_string_like<ValueType,
-                                      arrow::Result<std::shared_ptr<BuilderType>>>
+                                        arrow::Result<std::shared_ptr<BuilderType>>>
   createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
   arrow::compute::ExecContext* ctx_ = nullptr;
