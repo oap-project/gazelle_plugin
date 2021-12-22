@@ -173,6 +173,11 @@ class WindowAggregateFunctionKernel : public KernalBase {
                                       arrow::Result<std::shared_ptr<BuilderType>>>
   createBuilder(std::shared_ptr<arrow::DataType> data_type);
 
+  template <typename ValueType, typename BuilderType>
+  typename arrow::enable_if_string_like<ValueType,
+                                      arrow::Result<std::shared_ptr<BuilderType>>>
+  createBuilder(std::shared_ptr<arrow::DataType> data_type);
+
   arrow::compute::ExecContext* ctx_ = nullptr;
   std::shared_ptr<ActionFactory> action_;
   std::vector<std::shared_ptr<arrow::Int32Array>> accumulated_group_ids_;
