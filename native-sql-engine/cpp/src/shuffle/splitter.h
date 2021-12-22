@@ -209,6 +209,9 @@ class Splitter {
   std::shared_ptr<arrow::Schema> schema_;
   SplitOptions options_;
 
+  // write options for tiny batches
+  arrow::ipc::IpcWriteOptions tiny_bach_write_options_;
+
   int64_t total_bytes_written_ = 0;
   int64_t total_bytes_spilled_ = 0;
   int64_t total_write_time_ = 0;
