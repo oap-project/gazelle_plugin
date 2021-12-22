@@ -1027,8 +1027,8 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
     JNIEnv* env, jobject, jstring partitioning_name_jstr, jint num_partitions,
     jbyteArray schema_arr, jbyteArray expr_arr, jlong offheap_per_task, jint buffer_size,
     jstring compression_type_jstr, jint batch_compress_threshold, jstring data_file_jstr,
-    jint num_sub_dirs, jstring local_dirs_jstr, jboolean prefer_spill, jlong memory_pool_id,
-    jboolean write_schema) {
+    jint num_sub_dirs, jstring local_dirs_jstr, jboolean prefer_spill,
+    jlong memory_pool_id, jboolean write_schema) {
   JNI_METHOD_START
   if (partitioning_name_jstr == NULL) {
     JniThrow(std::string("Short partitioning name can't be null"));
