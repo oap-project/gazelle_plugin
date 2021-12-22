@@ -261,14 +261,6 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto res_index = dict_parsed->GetValueIndex(0);
   // TODO(): check null results
   auto utf8_array = std::dynamic_pointer_cast<arrow::BinaryArray>(dict_array);
-
-  int* out_len;
-  utf8_array->GetValue(res_index, out_len);
-    // empty string case.
-  if (*out_len == 0) {
-    *validity = true;
-    return "";
-  }
   auto res = utf8_array->GetString(res_index);
   *validity = true;
   return res;
