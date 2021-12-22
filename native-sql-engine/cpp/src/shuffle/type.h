@@ -44,6 +44,7 @@ struct SplitOptions {
   arrow::Compression::type compression_type = arrow::Compression::UNCOMPRESSED;
   bool prefer_spill = true;
   bool write_schema = true;
+  bool buffered_write = false;
 
   std::string data_file;
 
