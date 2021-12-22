@@ -255,11 +255,17 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     real_codes_str_ = codes_str_;
     real_validity_str_ = check_str_;
     std::stringstream prepare_ss;
-    prepare_ss << "bool " << check_str_ << " = true;" << std::endl;
-    prepare_ss << "std::string " << codes_str_ << " = get_json_object("
+    auto validity = codes_str_ + "_validity";
+    prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
+    prepare_ss << "if (" << validity << ") {" << std::endl;
+    prepare_ss << codes_str_ << " = get_json_object("
                << child_visitor_list[0]->GetResult() << ", "
-               << child_visitor_list[1]->GetResult() << ");\n";
+               << child_visitor_list[1]->GetResult() << ", "
+               << "&" << validity << ");\n";
+    prepare_ss << "}" << std::endl;
     prepare_str_ += prepare_ss.str();
+    check_str_ = validity;
     header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("substr") == 0) {
     ss << child_visitor_list[0]->GetResult() << ".substr("
