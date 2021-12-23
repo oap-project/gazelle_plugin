@@ -257,7 +257,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     std::stringstream prepare_ss;
     auto validity = codes_str_ + "_validity";
     prepare_ss << "std::string " << codes_str_ << ";" << std::endl;
-    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck() << ";" << std::endl;
+    prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
+               << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
     prepare_ss << codes_str_ << " = get_json_object("
                << child_visitor_list[0]->GetResult() << ", "

@@ -230,7 +230,8 @@ arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,
   return arrow::Decimal128(out);
 }
 
-std::string get_json_object(const std::string& json_str, const std::string& json_path, bool* validity) {
+std::string get_json_object(const std::string& json_str, const std::string& json_path,
+                            bool* validity) {
   std::unique_ptr<arrow::json::BlockParser> parser;
   (arrow::json::BlockParser::Make(arrow::json::ParseOptions::Defaults(), &parser));
   (parser->Parse(std::make_shared<arrow::Buffer>(json_str)));
