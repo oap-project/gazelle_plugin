@@ -33,10 +33,14 @@ namespace rowtocolumnar {
 class RowToColumnarConverter {
  public:
   RowToColumnarConverter(std::shared_ptr<arrow::Schema> schema, int64_t num_cols,
-                         int64_t num_rows, int64_t* row_length, uint8_t* memory_address, 
+                         int64_t num_rows, int64_t* row_length, uint8_t* memory_address,
                          arrow::MemoryPool* memory_pool)
-      : schema_(schema), num_cols_(num_cols), num_rows_(num_rows), row_length_(row_length), 
-      memory_address_(memory_address), m_pool_(memory_pool) {}
+      : schema_(schema),
+        num_cols_(num_cols),
+        num_rows_(num_rows),
+        row_length_(row_length),
+        memory_address_(memory_address),
+        m_pool_(memory_pool) {}
 
   arrow::Status Init(std::shared_ptr<arrow::RecordBatch>* batch);
 
@@ -50,5 +54,5 @@ class RowToColumnarConverter {
   arrow::MemoryPool* m_pool_ = arrow::default_memory_pool();
 };
 
-}  // namespace columnartorow
+}  // namespace rowtocolumnar
 }  // namespace sparkcolumnarplugin

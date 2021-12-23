@@ -1389,9 +1389,10 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeClose(
 
 JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToColumnar(
-    JNIEnv* env, jobject, jbyteArray schema_arr,  jlongArray row_length, jlong memory_address, 
-      jlong memory_pool_id) {
-      std::cout << "Calling the nativeConvertRowToColumnar method" << "\n";
+    JNIEnv* env, jobject, jbyteArray schema_arr, jlongArray row_length,
+    jlong memory_address, jlong memory_pool_id) {
+  std::cout << "Calling the nativeConvertRowToColumnar method"
+            << "\n";
 
   if (schema_arr == NULL) {
     env->ThrowNew(
@@ -1416,9 +1417,10 @@ Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToCol
   int num_columnars = schema->num_fields();
   std::shared_ptr<arrow::RecordBatch> rb;
   std::shared_ptr<RowToColumnarConverter> row_to_columnar_converter =
-      std::make_shared<RowToColumnarConverter>(schema, num_columnars, num_rows, 
-                in_row_length, address, pool);
-  JniAssertOkOrThrow(row_to_columnar_converter->Init(&rb), "Native convert Row to Columnar Init "
+      std::make_shared<RowToColumnarConverter>(schema, num_columnars, num_rows,
+                                               in_row_length, address, pool);
+  JniAssertOkOrThrow(row_to_columnar_converter->Init(&rb),
+                     "Native convert Row to Columnar Init "
                      "RowToColumnarConverter failed");
 
   jbyteArray serialized_record_batch =
