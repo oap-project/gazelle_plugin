@@ -23,7 +23,7 @@ import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.sql.execution.RowToColumnConverter
-import com.intel.oap.vectorized.{ArrowRowToColumnarJniWrapper, ArrowWritableColumnVector}
+import com.intel.oap.vectorized.{ArrowRowToColumnarJniWrapper, ArrowWritableColumnVector, CloseableColumnBatchIterator}
 import org.apache.arrow.dataset.jni.UnsafeRecordBatchSerializer
 import org.apache.arrow.memory.ArrowBuf
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
@@ -143,6 +143,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val schemaBytes: Array[Byte] = ConverterUtils.getSchemaBytesBuf(arrowSchema)
               val serializedRecordBatch = jniWrapper.nativeConvertRowToColumnar(schemaBytes, rowLength.toArray,
                 arrowBuf.memoryAddress(), SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
+              arrowBuf.close()
               processTime.set(NANOSECONDS.toMillis(elapse))
               numInputRows += rowCount
               numOutputBatches += 1
@@ -155,7 +156,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
             }
           }
         }
-        new UnsafeItr(res)
+        new CloseableColumnBatchIterator(res)
       } else {
         Iterator.empty
       }
