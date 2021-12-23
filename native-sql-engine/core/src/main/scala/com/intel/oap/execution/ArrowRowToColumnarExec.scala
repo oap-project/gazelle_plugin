@@ -127,6 +127,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val rowLength = new ListBuffer[Long]()
               var rowCount = 0
               var offset = 0
+              val start = System.nanoTime()
               while (rowCount < numRows && rowIterator.hasNext) {
                 val row = rowIterator.next() // UnsafeRow
                 assert(row.isInstanceOf[UnsafeRow])
@@ -143,6 +144,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val schemaBytes: Array[Byte] = ConverterUtils.getSchemaBytesBuf(arrowSchema)
               val serializedRecordBatch = jniWrapper.nativeConvertRowToColumnar(schemaBytes, rowLength.toArray,
                 arrowBuf.memoryAddress(), SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
+              elapse = System.nanoTime() - start
               arrowBuf.close()
               processTime.set(NANOSECONDS.toMillis(elapse))
               numInputRows += rowCount
