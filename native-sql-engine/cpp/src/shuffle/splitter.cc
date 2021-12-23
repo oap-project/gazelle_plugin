@@ -361,45 +361,15 @@ arrow::Status Splitter::Init() {
                                                        arrow::Compression::UNCOMPRESSED));
   }
 
-  // initialize tiny batch write options
-  tiny_bach_write_options_ = ipc_write_options;
-  ARROW_ASSIGN_OR_RAISE(
-      tiny_bach_write_options_.codec,
-      arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
-
   return arrow::Status::OK();
-}
-
-int64_t batch_nbytes(const arrow::RecordBatch& batch) {
-  int64_t accumulated = 0L;
-  for (const auto& array : batch.columns()) {
-    if (array == nullptr || array->data() == nullptr) {
-      continue;
-    }
-    for (const auto& buf : array->data()->buffers) {
-      if (buf == nullptr) {
-        continue;
-      }
-      accumulated += buf->capacity();
-    }
-  }
-  return accumulated;
-}
-
-int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
-  if (batch == nullptr) {
-    return 0;
-  }
-  return batch_nbytes(*batch);
 }
 
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
   auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-  arrow::Status result;
-  result =
+  auto result =
       arrow::ipc::GetRecordBatchPayload(rb, options_.ipc_write_options, payload.get());
   if (result.ok()) {
-    return payload->body_length;
+    return payload.get()->body_length;
   } else {
     result.UnknownError("Failed to get the compressed size.");
     return -1;
@@ -461,6 +431,25 @@ arrow::Status Splitter::Stop() {
 
   EVAL_END("write", options_.thread_id, options_.task_attempt_id)
   return arrow::Status::OK();
+}
+
+int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
+  int64_t accumulated = 0L;
+  if (batch == nullptr) {
+    return accumulated;
+  }
+  for (const auto& array : batch->columns()) {
+    if (array == nullptr || array->data() == nullptr) {
+      continue;
+    }
+    for (const auto& buf : array->data()->buffers) {
+      if (buf == nullptr) {
+        continue;
+      }
+      accumulated += buf->capacity();
+    }
+  }
+  return accumulated;
 }
 
 arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffers) {
@@ -560,18 +549,12 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
       }
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
-    int64_t raw_size = batch_nbytes(batch);
-    raw_partition_lengths_[partition_id] += raw_size;
+
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
-    if (num_rows <= options_.batch_compress_threshold) {
-      TIME_NANO_OR_RAISE(total_compress_time_,
-                         arrow::ipc::GetRecordBatchPayload(
-                             *batch, tiny_bach_write_options_, payload.get()));
-    } else {
-      TIME_NANO_OR_RAISE(total_compress_time_,
-                         arrow::ipc::GetRecordBatchPayload(
-                             *batch, options_.ipc_write_options, payload.get()));
-    }
+    TIME_NANO_OR_RAISE(total_compress_time_,
+                       arrow::ipc::GetRecordBatchPayload(
+                           *batch, options_.ipc_write_options, payload.get()));
+    raw_partition_lengths_[partition_id] += batch_nbytes(batch);
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;

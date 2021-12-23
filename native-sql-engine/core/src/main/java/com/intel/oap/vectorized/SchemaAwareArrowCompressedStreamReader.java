@@ -23,7 +23,6 @@ import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -43,11 +42,7 @@ import java.util.*;
  * ArrowRecordBatches.
  */
 public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
-  public static final String COMPRESS_TYPE_NONE = "none";
-
   private final Schema originalSchema;
-
-  // fixme: the design can be improved to avoid relying on this stateful field
   private String compressType;
 
   public SchemaAwareArrowCompressedStreamReader(Schema originalSchema, InputStream in,
@@ -62,7 +57,7 @@ public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
     this(null, in, allocator);
   }
 
-  public String getCompressType() {
+  public String GetCompressType() {
     return compressType;
   }
 
@@ -117,17 +112,12 @@ public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
       }
 
       ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
-      byte codec = batch.getBodyCompression().getCodec();
-      final String codecName;
-      if (codec == NoCompressionCodec.COMPRESSION_TYPE) {
-        compressType = COMPRESS_TYPE_NONE;
+      String codecName = CompressionType.name(batch.getBodyCompression().getCodec());
+
+      if (codecName.equals("LZ4_FRAME")) {
+        compressType = "lz4";
       } else {
-        codecName = CompressionType.name(codec);
-        if (codecName.equals("LZ4_FRAME")) {
-          compressType = "lz4";
-        } else {
-          compressType = codecName;
-        }
+        compressType = codecName;
       }
 
       loadRecordBatch(batch);
@@ -148,18 +138,9 @@ public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
   @Override
   protected void loadRecordBatch(ArrowRecordBatch batch) {
     try {
-      CompressedVectorLoader loader = (CompressedVectorLoader) this.loader;
-      if (isCurrentBatchCompressed()) {
-        loader.loadCompressed(batch);
-      } else {
-        loader.loadUncompressed(batch);
-      }
+      ((CompressedVectorLoader) loader).loadCompressed(batch);
     } finally {
       batch.close();
     }
-  }
-
-  public boolean isCurrentBatchCompressed() {
-    return !Objects.equals(getCompressType(), COMPRESS_TYPE_NONE);
   }
 }
