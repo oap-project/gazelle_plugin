@@ -44,8 +44,6 @@ import org.apache.spark.unsafe.Platform
 class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child = child) {
   override def nodeName: String = "ArrowRowToColumnarExec"
 
-  override def supportCodegen: Boolean = false
-
   buildCheck()
 
   def buildCheck(): Unit = {
