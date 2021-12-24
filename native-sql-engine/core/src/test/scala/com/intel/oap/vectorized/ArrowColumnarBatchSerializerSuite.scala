@@ -40,8 +40,8 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
 
   override def sparkConf: SparkConf =
     super.sparkConf
-      .set("spark.shuffle.compress", "false")
-      .set("spark.oap.sql.columnar.shuffle.writeSchema", "true")
+        .set("spark.shuffle.compress", "false")
+        .set("spark.oap.sql.columnar.shuffle.writeSchema", "true")
 
   override def beforeEach() = {
     avgBatchNumRows = SQLMetrics.createAverageMetric(
@@ -52,66 +52,70 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
   }
 
   test("deserialize all null") {
-    val input = getTestResourcePath("test-data/native-splitter-output-all-null")
-    val serializer =
-      new ArrowColumnarBatchSerializer(
-        new StructType(
-          Array(StructField("f1", BooleanType), StructField("f2", IntegerType),
-            StructField("f3", StringType))),
-        avgBatchNumRows,
-        outputNumRows).newInstance()
-    val deserializedStream =
-      serializer.deserializeStream(new FileInputStream(input))
+    withSQLConf("spark.oap.sql.columnar.shuffle.writeSchema" -> "true") {
+      val input = getTestResourcePath("test-data/native-splitter-output-all-null")
+      val serializer =
+        new ArrowColumnarBatchSerializer(
+          new StructType(
+            Array(StructField("f1", BooleanType), StructField("f2", IntegerType),
+              StructField("f3", StringType))),
+          avgBatchNumRows,
+          outputNumRows).newInstance()
+      val deserializedStream =
+        serializer.deserializeStream(new FileInputStream(input))
 
-    val kv = deserializedStream.asKeyValueIterator
-    var length = 0
-    kv.foreach {
-      case (_, batch: ColumnarBatch) =>
-        length += 1
-        assert(batch.numRows == 4)
-        assert(batch.numCols == 3)
-        (0 until batch.numCols).foreach { i =>
-          val valueVector =
-            batch
-              .column(i)
-              .asInstanceOf[ArrowWritableColumnVector]
-              .getValueVector
-          assert(valueVector.getValueCount == batch.numRows)
-          assert(valueVector.getNullCount === batch.numRows)
-        }
+      val kv = deserializedStream.asKeyValueIterator
+      var length = 0
+      kv.foreach {
+        case (_, batch: ColumnarBatch) =>
+          length += 1
+          assert(batch.numRows == 4)
+          assert(batch.numCols == 3)
+          (0 until batch.numCols).foreach { i =>
+            val valueVector =
+              batch
+                  .column(i)
+                  .asInstanceOf[ArrowWritableColumnVector]
+                  .getValueVector
+            assert(valueVector.getValueCount == batch.numRows)
+            assert(valueVector.getNullCount === batch.numRows)
+          }
+      }
+      assert(length == 2)
+      deserializedStream.close()
     }
-    assert(length == 2)
-    deserializedStream.close()
   }
 
   test("deserialize nullable string") {
-    val input = getTestResourcePath("test-data/native-splitter-output-nullable-string")
-    val serializer =
-      new ArrowColumnarBatchSerializer(
+    withSQLConf("spark.oap.sql.columnar.shuffle.writeSchema" -> "true") {
+      val input = getTestResourcePath("test-data/native-splitter-output-nullable-string")
+      val serializer =
+        new ArrowColumnarBatchSerializer(
           new StructType(
             Array(StructField("f1", BooleanType), StructField("f2", StringType),
               StructField("f3", StringType))), avgBatchNumRows,
-        outputNumRows).newInstance()
-    val deserializedStream =
-      serializer.deserializeStream(new FileInputStream(input))
+          outputNumRows).newInstance()
+      val deserializedStream =
+        serializer.deserializeStream(new FileInputStream(input))
 
-    val kv = deserializedStream.asKeyValueIterator
-    var length = 0
-    kv.foreach {
-      case (_, batch: ColumnarBatch) =>
-        length += 1
-        assert(batch.numRows == 8)
-        assert(batch.numCols == 3)
-        (0 until batch.numCols).foreach { i =>
-          val valueVector =
-            batch
-              .column(i)
-              .asInstanceOf[ArrowWritableColumnVector]
-              .getValueVector
-          assert(valueVector.getValueCount == batch.numRows)
-        }
+      val kv = deserializedStream.asKeyValueIterator
+      var length = 0
+      kv.foreach {
+        case (_, batch: ColumnarBatch) =>
+          length += 1
+          assert(batch.numRows == 8)
+          assert(batch.numCols == 3)
+          (0 until batch.numCols).foreach { i =>
+            val valueVector =
+              batch
+                  .column(i)
+                  .asInstanceOf[ArrowWritableColumnVector]
+                  .getValueVector
+            assert(valueVector.getValueCount == batch.numRows)
+          }
+      }
+      assert(length == 2)
+      deserializedStream.close()
     }
-    assert(length == 2)
-    deserializedStream.close()
   }
 }
