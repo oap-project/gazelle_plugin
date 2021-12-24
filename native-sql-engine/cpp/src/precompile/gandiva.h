@@ -230,7 +230,8 @@ arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,
   return arrow::Decimal128(out);
 }
 
-std::string get_json_object(const std::string& json_str, const std::string& json_path) {
+std::string get_json_object(const std::string& json_str, const std::string& json_path,
+                            bool* validity) {
   std::unique_ptr<arrow::json::BlockParser> parser;
   (arrow::json::BlockParser::Make(arrow::json::ParseOptions::Defaults(), &parser));
   (parser->Parse(std::make_shared<arrow::Buffer>(json_str)));
@@ -239,18 +240,21 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto struct_parsed = std::dynamic_pointer_cast<arrow::StructArray>(parsed);
   // json_path example: $.col_14, will extract col_14 here
   if (json_path.length() < 3) {
-    return nullptr;
+    *validity = false;
+    return "";
   }
   auto col_name = json_path.substr(2);
   // illegal json string.
   if (struct_parsed == nullptr) {
-    return nullptr;
+    *validity = false;
+    return "";
   }
   auto dict_parsed = std::dynamic_pointer_cast<arrow::DictionaryArray>(
       struct_parsed->GetFieldByName(col_name));
   // no data contained for given field.
   if (dict_parsed == nullptr) {
-    return nullptr;
+    *validity = false;
+    return "";
   }
 
   auto dict_array = dict_parsed->dictionary();
@@ -258,8 +262,7 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto res_index = dict_parsed->GetValueIndex(0);
   // TODO(): check null results
   auto utf8_array = std::dynamic_pointer_cast<arrow::BinaryArray>(dict_array);
-
   auto res = utf8_array->GetString(res_index);
-
+  *validity = true;
   return res;
 }

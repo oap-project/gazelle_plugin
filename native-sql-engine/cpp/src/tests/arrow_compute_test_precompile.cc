@@ -112,8 +112,17 @@ TEST(TestArrowCompute, ArithmeticComparisonTest) {
 }
 
 TEST(TestArrowCompute, JsonTest) {
-  std::string data = get_json_object(R"({"hello": "3.5"})", "$.hello");
+  bool validity;
+  std::string data = get_json_object(R"({"hello": "3.5"})", "$.hello", &validity);
   EXPECT_EQ(data, "3.5");
+  EXPECT_EQ(validity, true);
+
+  data = get_json_object(R"({"hello": ""})", "$.hello", &validity);
+  EXPECT_EQ(data, "");
+  EXPECT_EQ(validity, true);
+
+  data = get_json_object(R"({"hello": "3.5"})", "$.hi", &validity);
+  EXPECT_EQ(validity, false);
 }
 
 }  // namespace codegen
