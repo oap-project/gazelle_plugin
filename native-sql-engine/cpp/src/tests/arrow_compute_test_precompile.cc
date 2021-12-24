@@ -111,6 +111,21 @@ TEST(TestArrowCompute, ArithmeticComparisonTest) {
   ASSERT_EQ(res, true);
 }
 
+TEST(TestArrowCompute, LikeTest) {
+  std::string sql_pattern = "ab%";
+  EXPECT_TRUE(like("ab", sql_pattern));
+  EXPECT_TRUE(like("abc", sql_pattern));
+  EXPECT_TRUE(like("abcd", sql_pattern));
+  EXPECT_FALSE(like("a", sql_pattern));
+  EXPECT_FALSE(like("cab", sql_pattern));
+
+  sql_pattern = "%ab%";
+  EXPECT_TRUE(like("ab", sql_pattern));
+  EXPECT_TRUE(like("abcd", sql_pattern));
+  EXPECT_TRUE(like("cdab", sql_pattern));
+  EXPECT_TRUE(like("xxabxx", sql_pattern));
+}
+
 TEST(TestArrowCompute, JsonTest) {
   bool validity;
   std::string data = get_json_object(R"({"hello": "3.5"})", "$.hello", &validity);
