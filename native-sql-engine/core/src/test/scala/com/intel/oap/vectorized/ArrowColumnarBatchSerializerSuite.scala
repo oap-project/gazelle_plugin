@@ -51,7 +51,7 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
       SQLMetrics.createAverageMetric(spark.sparkContext, "test serializer number of output rows")
   }
 
-  test("deserialize all null") {
+  ignore("deserialize all null") {
     withSQLConf("spark.oap.sql.columnar.shuffle.writeSchema" -> "true") {
       val input = getTestResourcePath("test-data/native-splitter-output-all-null")
       val serializer =
@@ -86,7 +86,7 @@ class ArrowColumnarBatchSerializerSuite extends SparkFunSuite with SharedSparkSe
     }
   }
 
-  test("deserialize nullable string") {
+  ignore("deserialize nullable string") {
     withSQLConf("spark.oap.sql.columnar.shuffle.writeSchema" -> "true") {
       val input = getTestResourcePath("test-data/native-splitter-output-nullable-string")
       val serializer =
