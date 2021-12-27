@@ -22,9 +22,9 @@
 #include <arrow/util/decimal.h>
 #include <math.h>
 #include <re2/re2.h>
-#include <set>
 
 #include <cstdint>
+#include <set>
 #include <type_traits>
 
 #include "third_party/gandiva/decimal_ops.h"
@@ -271,8 +271,8 @@ std::string get_json_object(const std::string& json_str, const std::string& json
 
 // Reused the code in gandiva LikeHolder.cc
 std::string SqlLikePatternToPcre(const std::string& sql_pattern, char escape_char) {
-  const std::set<char> pcre_regex_specials_ = {
-    '[', ']', '(', ')', '|', '^', '-', '+', '*', '?', '{', '}', '$', '\\', '.'};
+  const std::set<char> pcre_regex_specials_ = {'[', ']', '(', ')', '|', '^',  '-', '+',
+                                               '*', '?', '{', '}', '$', '\\', '.'};
   /// Characters that are considered special by pcre regex. These needs to be
   /// escaped with '\\'.
   std::string pcre_pattern;
@@ -288,7 +288,8 @@ std::string SqlLikePatternToPcre(const std::string& sql_pattern, char escape_cha
       // escape char must be followed by '_', '%' or the escape char itself.
       ++idx;
       if (idx == sql_pattern.size()) {
-        throw std::runtime_error("Unexpected escape char at the end of pattern " + sql_pattern);
+        throw std::runtime_error("Unexpected escape char at the end of pattern " +
+                                 sql_pattern);
       }
 
       cur = sql_pattern.at(idx);
