@@ -300,7 +300,7 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "bool " << validity << " = " << child_visitor_list[0]->GetPreCheck()
                << ";" << std::endl;
     prepare_ss << "if (" << validity << ") {" << std::endl;
-    prepare_ss << "std::string arg = " << child_visitor_list[0] << ";";
+    prepare_ss << "std::string arg = " << child_visitor_list[0]->GetResult() << ";" << std::endl;
     prepare_ss << "int start_index = 0, end_index = arg.length() - 1;" << std::endl;
     prepare_ss << "while (start_index <= end_index && arg[start_index] == ' ') {" << std::endl;
     prepare_ss << "start_index++;" << std::endl;
