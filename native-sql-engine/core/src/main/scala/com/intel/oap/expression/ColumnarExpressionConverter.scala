@@ -275,6 +275,17 @@ object ColumnarExpressionConverter extends Logging {
             ss.len,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case st: StringTranslate =>
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(
+            st.srcExpr, attributeSeq, convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(st.matchingExpr,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(st.replaceExpr,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
       case u: UnaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         if (!u.isInstanceOf[CheckOverflow] || !u.child.isInstanceOf[Divide]) {
