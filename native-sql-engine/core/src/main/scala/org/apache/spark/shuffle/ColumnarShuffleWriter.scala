@@ -71,6 +71,9 @@ class ColumnarShuffleWriter[K, V](
   } else {
     "uncompressed"
   }
+  private val batchCompressThreshold =
+    GazellePluginConfig.getConf.columnarShuffleBatchCompressThreshold;
+
   private val preferSpill = GazellePluginConfig.getConf.columnarShufflePreferSpill
 
   private val writeSchema = GazellePluginConfig.getConf.columnarShuffleWriteSchema
@@ -103,6 +106,7 @@ class ColumnarShuffleWriter[K, V](
         offheapPerTask,
         nativeBufferSize,
         defaultCompressionCodec,
+        batchCompressThreshold,
         dataTmp.getAbsolutePath,
         blockManager.subDirsPerLocalDir,
         localDirs,

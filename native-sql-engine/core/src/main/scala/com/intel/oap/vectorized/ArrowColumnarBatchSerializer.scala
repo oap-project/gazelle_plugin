@@ -131,7 +131,9 @@ private class ArrowColumnarBatchSerializerInstance(
             numRowsTotal += numRows
 
             // jni call to decompress buffers
-            if (compressionEnabled) {
+            if (compressionEnabled &&
+                reader.asInstanceOf[SchemaAwareArrowCompressedStreamReader]
+                    .isCurrentBatchCompressed) {
               try {
                 decompressVectors()
               } catch {
@@ -231,7 +233,7 @@ private class ArrowColumnarBatchSerializerInstance(
 
         val serializedBatch = jniWrapper.decompress(
           schemaHolderId,
-          reader.asInstanceOf[SchemaAwareArrowCompressedStreamReader].GetCompressType(),
+          reader.asInstanceOf[SchemaAwareArrowCompressedStreamReader].getCompressType,
           root.getRowCount,
           bufAddrs.toArray,
           bufSizes.toArray,

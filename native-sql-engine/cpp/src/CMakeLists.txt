@@ -140,7 +140,7 @@ macro(build_arrow STATIC_ARROW)
   ExternalProject_Add(arrow_ep
                       GIT_REPOSITORY https://github.com/oap-project/arrow.git
                       SOURCE_DIR ${ARROW_SOURCE_DIR}
-                      GIT_TAG arrow-4.0.0-oap
+                      GIT_TAG arrow-4.0.0-oap-1.3
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${ARROW_PREFIX}
                       INSTALL_COMMAND make install
@@ -304,11 +304,13 @@ macro(find_arrow)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/arrow DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/gandiva DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/parquet DESTINATION ${root_directory}/releases/include)
+    file(COPY ${ARROW_BFS_INCLUDE_DIR}/re2 DESTINATION ${root_directory}/releases/include)
   else()
     message(STATUS "COPY and Set Arrow Header to: ${ARROW_INCLUDE_DIR}")
     file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_INCLUDE_DIR}/gandiva DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_INCLUDE_DIR}/parquet DESTINATION ${root_directory}/releases/include)
+    file(COPY ${ARROW_INCLUDE_DIR}/re2 DESTINATION ${root_directory}/releases/include)
   endif()
 
   # Set up Arrow Shared Library Directory

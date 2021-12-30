@@ -21,8 +21,10 @@
 #include <arrow/json/parser.h>
 #include <arrow/util/decimal.h>
 #include <math.h>
+#include <re2/re2.h>
 
 #include <cstdint>
+#include <set>
 #include <type_traits>
 
 #include "third_party/gandiva/decimal_ops.h"
@@ -230,7 +232,8 @@ arrow::Decimal128 round(arrow::Decimal128 in, int32_t original_precision,
   return arrow::Decimal128(out);
 }
 
-std::string get_json_object(const std::string& json_str, const std::string& json_path) {
+std::string get_json_object(const std::string& json_str, const std::string& json_path,
+                            bool* validity) {
   std::unique_ptr<arrow::json::BlockParser> parser;
   (arrow::json::BlockParser::Make(arrow::json::ParseOptions::Defaults(), &parser));
   (parser->Parse(std::make_shared<arrow::Buffer>(json_str)));
@@ -239,18 +242,21 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto struct_parsed = std::dynamic_pointer_cast<arrow::StructArray>(parsed);
   // json_path example: $.col_14, will extract col_14 here
   if (json_path.length() < 3) {
-    return nullptr;
+    *validity = false;
+    return "";
   }
   auto col_name = json_path.substr(2);
   // illegal json string.
   if (struct_parsed == nullptr) {
-    return nullptr;
+    *validity = false;
+    return "";
   }
   auto dict_parsed = std::dynamic_pointer_cast<arrow::DictionaryArray>(
       struct_parsed->GetFieldByName(col_name));
   // no data contained for given field.
   if (dict_parsed == nullptr) {
-    return nullptr;
+    *validity = false;
+    return "";
   }
 
   auto dict_array = dict_parsed->dictionary();
@@ -258,8 +264,54 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto res_index = dict_parsed->GetValueIndex(0);
   // TODO(): check null results
   auto utf8_array = std::dynamic_pointer_cast<arrow::BinaryArray>(dict_array);
-
   auto res = utf8_array->GetString(res_index);
-
+  *validity = true;
   return res;
+}
+
+// Reused the code in gandiva LikeHolder.cc
+std::string SqlLikePatternToPcre(const std::string& sql_pattern, char escape_char) {
+  const std::set<char> pcre_regex_specials_ = {'[', ']', '(', ')', '|', '^',  '-', '+',
+                                               '*', '?', '{', '}', '$', '\\', '.'};
+  /// Characters that are considered special by pcre regex. These needs to be
+  /// escaped with '\\'.
+  std::string pcre_pattern;
+  for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
+    auto cur = sql_pattern.at(idx);
+
+    // Escape any char that is special for pcre regex
+    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()) {
+      pcre_pattern += "\\";
+    }
+
+    if (cur == escape_char) {
+      // escape char must be followed by '_', '%' or the escape char itself.
+      ++idx;
+      if (idx == sql_pattern.size()) {
+        throw std::runtime_error("Unexpected escape char at the end of pattern " +
+                                 sql_pattern);
+      }
+
+      cur = sql_pattern.at(idx);
+      if (cur == '_' || cur == '%' || cur == escape_char) {
+        pcre_pattern += cur;
+      } else {
+        throw std::runtime_error("Invalid escape sequence in pattern " + sql_pattern);
+      }
+    } else if (cur == '_') {
+      pcre_pattern += '.';
+    } else if (cur == '%') {
+      pcre_pattern += ".*";
+    } else {
+      pcre_pattern += cur;
+    }
+  }
+  return pcre_pattern;
+}
+
+// Currently, escape char is not supported.
+bool like(const std::string& data, const std::string& pattern) {
+  std::string pcre_pattern = SqlLikePatternToPcre(pattern, 0);
+  RE2 regex(pcre_pattern);
+  return RE2::FullMatch(data, regex);
 }
