@@ -21,8 +21,10 @@
 #include <arrow/json/parser.h>
 #include <arrow/util/decimal.h>
 #include <math.h>
+#include <re2/re2.h>
 
 #include <cstdint>
+#include <set>
 #include <type_traits>
 
 #include "third_party/gandiva/decimal_ops.h"
@@ -265,4 +267,51 @@ std::string get_json_object(const std::string& json_str, const std::string& json
   auto res = utf8_array->GetString(res_index);
   *validity = true;
   return res;
+}
+
+// Reused the code in gandiva LikeHolder.cc
+std::string SqlLikePatternToPcre(const std::string& sql_pattern, char escape_char) {
+  const std::set<char> pcre_regex_specials_ = {'[', ']', '(', ')', '|', '^',  '-', '+',
+                                               '*', '?', '{', '}', '$', '\\', '.'};
+  /// Characters that are considered special by pcre regex. These needs to be
+  /// escaped with '\\'.
+  std::string pcre_pattern;
+  for (size_t idx = 0; idx < sql_pattern.size(); ++idx) {
+    auto cur = sql_pattern.at(idx);
+
+    // Escape any char that is special for pcre regex
+    if (pcre_regex_specials_.find(cur) != pcre_regex_specials_.end()) {
+      pcre_pattern += "\\";
+    }
+
+    if (cur == escape_char) {
+      // escape char must be followed by '_', '%' or the escape char itself.
+      ++idx;
+      if (idx == sql_pattern.size()) {
+        throw std::runtime_error("Unexpected escape char at the end of pattern " +
+                                 sql_pattern);
+      }
+
+      cur = sql_pattern.at(idx);
+      if (cur == '_' || cur == '%' || cur == escape_char) {
+        pcre_pattern += cur;
+      } else {
+        throw std::runtime_error("Invalid escape sequence in pattern " + sql_pattern);
+      }
+    } else if (cur == '_') {
+      pcre_pattern += '.';
+    } else if (cur == '%') {
+      pcre_pattern += ".*";
+    } else {
+      pcre_pattern += cur;
+    }
+  }
+  return pcre_pattern;
+}
+
+// Currently, escape char is not supported.
+bool like(const std::string& data, const std::string& pattern) {
+  std::string pcre_pattern = SqlLikePatternToPcre(pattern, 0);
+  RE2 regex(pcre_pattern);
+  return RE2::FullMatch(data, regex);
 }
