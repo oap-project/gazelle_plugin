@@ -100,7 +100,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("greater_than") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() + " > " +
                       child_visitor_list[1]->GetResult() + ")";
@@ -123,7 +122,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("less_than_or_equal_to") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " <= " + child_visitor_list[1]->GetResult() + ")";
@@ -147,7 +145,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("greater_than_or_equal_to") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " >= " + child_visitor_list[1]->GetResult() + ")";
@@ -171,7 +168,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("equal") == 0) {
     real_codes_str_ = "(" + child_visitor_list[0]->GetResult() +
                       " == " + child_visitor_list[1]->GetResult() + ")";
@@ -194,7 +190,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
       prepare_str_ += child_visitor_list[i]->GetPrepare();
     }
     codes_str_ = ss.str();
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("not") == 0) {
     std::string check_validity;
     if (child_visitor_list[0]->GetPreCheck() != "") {
@@ -266,7 +261,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("get_json_object") == 0) {
     for (int i = 0; i < 2; i++) {
       prepare_str_ += child_visitor_list[i]->GetPrepare();
@@ -288,7 +282,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     prepare_ss << "}" << std::endl;
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("substr") == 0) {
     ss << child_visitor_list[0]->GetResult() << ".substr("
        << "((" << child_visitor_list[1]->GetResult() << " - 1) < 0 ? 0 : ("
@@ -405,7 +398,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                    << child_visitor_list[0]->GetResult() << ", " << decimal_type->scale()
                    << "));" << std::endl;
       }
-      header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     prepare_ss << "}" << std::endl;
 
@@ -467,7 +459,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("castDECIMAL") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
@@ -502,7 +493,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("castDECIMALNullOnOverflow") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
@@ -534,7 +524,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("castINTOrNull") == 0 ||
              func_name.compare("castBIGINTOrNull") == 0 ||
              func_name.compare("castFLOAT4OrNull") == 0 ||
@@ -601,7 +590,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("extractYear") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
@@ -622,7 +610,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("round") == 0) {
     codes_str_ = func_name + "_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
@@ -661,7 +648,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
 
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("abs") == 0) {
     codes_str_ = "abs_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
@@ -709,7 +695,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
              << ", " << rightType->scale() << ", " << resType->precision() << ", "
              << resType->scale() << ")";
-      header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
@@ -749,7 +734,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
              << ", " << rightType->scale() << ", " << resType->precision() << ", "
              << resType->scale() << ")";
-      header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
@@ -789,7 +773,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
              << ", " << rightType->scale() << ", " << resType->precision() << ", "
              << resType->scale() << ", &overflow)";
-      header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
@@ -835,7 +818,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
              << child_visitor_list[1]->GetResult() << ", " << rightType->precision()
              << ", " << rightType->scale() << ", " << resType->precision() << ", "
              << resType->scale() << ", &overflow)";
-      header_list_.push_back(R"(#include "precompile/gandiva.h")");
     }
     std::stringstream prepare_ss;
     prepare_ss << GetCTypeString(node.return_type()) << " " << codes_str_ << ";"
@@ -969,7 +951,6 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     }
     prepare_str_ += prepare_ss.str();
     check_str_ = validity;
-    header_list_.push_back(R"(#include "precompile/gandiva.h")");
   } else if (func_name.compare("convertTimestampUnit") == 0) {
     codes_str_ = "convertTimestampUnit_" + std::to_string(cur_func_id);
     auto validity = codes_str_ + "_validity";
