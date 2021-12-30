@@ -330,7 +330,7 @@ class WholeStageCodeGenKernel::Impl {
     }
 
     codes_ss << R"(
-using namespace sparkcolumnarplugin::precompile;
+
 class TypedWholeStageCodeGenImpl : public CodeGenBase {
  public:
   TypedWholeStageCodeGenImpl(arrow::compute::ExecContext *ctx) : ctx_(ctx) {}
