@@ -10,6 +10,9 @@
 *.iml
 *.class
 
+# vscode config
+.vscode
+
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 

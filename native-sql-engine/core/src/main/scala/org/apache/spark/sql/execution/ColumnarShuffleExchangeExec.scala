@@ -18,19 +18,11 @@
 package org.apache.spark.sql.execution
 
 import com.google.common.collect.Lists
-import com.intel.oap.expression.{
-  CodeGeneration,
-  ColumnarExpression,
-  ColumnarExpressionConverter,
-  ConverterUtils
-}
-import com.intel.oap.vectorized.{
-  ArrowColumnarBatchSerializer,
-  ArrowWritableColumnVector,
-  NativePartitioning
-}
+import com.intel.oap.expression.{CodeGeneration, ColumnarExpression, ColumnarExpressionConverter, ConverterUtils}
+import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector, NativePartitioning}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
+
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
@@ -46,19 +38,15 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec.createShuffleWriteProcessor
 import org.apache.spark.sql.execution.exchange._
-import org.apache.spark.sql.execution.metric.{
-  SQLMetric,
-  SQLMetrics,
-  SQLShuffleReadMetricsReporter,
-  SQLShuffleWriteMetricsReporter
-}
+import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics, SQLShuffleReadMetricsReporter, SQLShuffleWriteMetricsReporter}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.{MutablePair, Utils}
-
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+
+import org.apache.spark.sql.util.ArrowUtils
 
 case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
@@ -77,6 +65,7 @@ case class ColumnarShuffleExchangeExec(
     "splitTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_split"),
     "spillTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "shuffle spill time"),
     "compressTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_compress"),
+    "prepareTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_prepare"),
     "avgReadBatchNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg read batch num rows"),
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
@@ -97,16 +86,17 @@ case class ColumnarShuffleExchangeExec(
     // check input datatype
     for (attr <- child.output) {
       try {
-        ConverterUtils.createArrowField(attr)
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarShuffleExchange")
+            s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec.")
       }
     }
   }
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
+    schema,
     longMetric("avgReadBatchNumRows"),
     longMetric("numOutputRows"))
 
@@ -140,7 +130,8 @@ case class ColumnarShuffleExchangeExec(
       longMetric("computePidTime"),
       longMetric("splitTime"),
       longMetric("spillTime"),
-      longMetric("compressTime"))
+      longMetric("compressTime"),
+      longMetric("prepareTime"))
   }
 
   var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
@@ -187,6 +178,7 @@ class ColumnarShuffleExchangeAdaptor(
     "splitTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_split"),
     "spillTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "shuffle spill time"),
     "compressTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_compress"),
+    "prepareTime" -> SQLMetrics.createNanoTimingMetric(sparkContext, "totaltime_prepare"),
     "avgReadBatchNumRows" -> SQLMetrics
       .createAverageMetric(sparkContext, "avg read batch num rows"),
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
@@ -203,6 +195,7 @@ class ColumnarShuffleExchangeAdaptor(
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
+    schema,
     longMetric("avgReadBatchNumRows"),
     longMetric("numOutputRows"))
 
@@ -236,7 +229,8 @@ class ColumnarShuffleExchangeAdaptor(
       longMetric("computePidTime"),
       longMetric("splitTime"),
       longMetric("spillTime"),
-      longMetric("compressTime"))
+      longMetric("compressTime"),
+      longMetric("prepareTime"))
   }
 
   var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
@@ -301,7 +295,8 @@ object ColumnarShuffleExchangeExec extends Logging {
       computePidTime: SQLMetric,
       splitTime: SQLMetric,
       spillTime: SQLMetric,
-      compressTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
+      compressTime: SQLMetric,
+      prepareTime: SQLMetric): ShuffleDependency[Int, ColumnarBatch, ColumnarBatch] = {
     val arrowFields = outputAttributes.map(attr => ConverterUtils.createArrowField(attr))
     def serializeSchema(fields: Seq[Field]): Array[Byte] = {
       val schema = new Schema(fields.asJava)
@@ -447,7 +442,8 @@ object ColumnarShuffleExchangeExec extends Logging {
         computePidTime = computePidTime,
         splitTime = splitTime,
         spillTime = spillTime,
-        compressTime = compressTime)
+        compressTime = compressTime,
+        prepareTime = prepareTime)
 
     dependency
   }

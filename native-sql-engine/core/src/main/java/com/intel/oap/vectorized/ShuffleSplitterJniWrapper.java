@@ -40,25 +40,31 @@ public class ShuffleSplitterJniWrapper {
    */
   public long make(
       NativePartitioning part,
+      long offheapPerTask,
       int bufferSize,
       String codec,
+      int batchCompressThreshold,
       String dataFile,
       int subDirsPerLocalDir,
       String localDirs,
       boolean preferSpill,
-      long memoryPoolId) {
+      long memoryPoolId,
+      boolean writeSchema) {
     return nativeMake(
         part.getShortName(),
         part.getNumPartitions(),
         part.getSchema(),
         part.getExprList(),
+        offheapPerTask,
         bufferSize,
         codec,
+        batchCompressThreshold,
         dataFile,
         subDirsPerLocalDir,
         localDirs,
         preferSpill,
-        memoryPoolId);
+        memoryPoolId,
+        writeSchema);
   }
 
   public native long nativeMake(
@@ -66,13 +72,16 @@ public class ShuffleSplitterJniWrapper {
       int numPartitions,
       byte[] schema,
       byte[] exprList,
+      long offheapPerTask,
       int bufferSize,
       String codec,
+      int batchCompressThreshold,
       String dataFile,
       int subDirsPerLocalDir,
       String localDirs,
       boolean preferSpill,
-      long memoryPoolId);
+      long memoryPoolId,
+      boolean writeSchema);
 
   /**
    *

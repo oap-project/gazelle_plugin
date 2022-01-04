@@ -25,7 +25,6 @@ import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.FloatingPointPrecision
 import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.DateUnit
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.optimizer._
@@ -48,9 +47,9 @@ import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixMillis
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixSeconds
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarUnixTimestamp
 import org.apache.arrow.vector.types.TimeUnit
-
 import org.apache.spark.sql.catalyst.util.DateTimeConstants
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+import org.apache.spark.sql.internal.SQLConf
 
 /**
  * A version of add that supports columnar processing for longs.
@@ -409,6 +408,7 @@ class ColumnarCast(
     if (datatype == StringType) {
       val supported =
         List(
+          BooleanType,
           ByteType,
           ShortType,
           IntegerType,
@@ -431,25 +431,27 @@ class ColumnarCast(
       }
     } else if (datatype == IntegerType) {
       val supported =
-        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType, DecimalType)
+        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType,
+          DecimalType, StringType)
       if (supported.indexOf(child.dataType) == -1 && !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castINT")
       }
     } else if (datatype == LongType) {
-      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType, TimestampType)
+      val supported = List(IntegerType, FloatType, DoubleType, DateType,
+        DecimalType, TimestampType, StringType, BooleanType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castBIGINT")
       }
     } else if (datatype == FloatType) {
-      val supported = List(IntegerType, LongType, DoubleType, DecimalType)
+      val supported = List(IntegerType, LongType, DoubleType, DecimalType, StringType)
       if (supported.indexOf(child.dataType) == -1 && !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
           s"${child.dataType} is not supported in castFLOAT4")
       }
     } else if (datatype == DoubleType) {
-      val supported = List(IntegerType, LongType, FloatType, DecimalType)
+      val supported = List(IntegerType, LongType, FloatType, DecimalType, StringType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
@@ -479,6 +481,10 @@ class ColumnarCast(
   }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+
+    // To compatible with Spark SQL ansi
+    val ansiEnabled = SQLConf.get.ansiEnabled
+
     val (child_node, childType): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
@@ -491,21 +497,22 @@ class ColumnarCast(
     }
     if (dataType == StringType) {
       val limitLen: java.lang.Long = childType0 match {
-        case int: ArrowType.Int if int.getBitWidth == 8 => 4
-        case int: ArrowType.Int if int.getBitWidth == 16 => 6
-        case int: ArrowType.Int if int.getBitWidth == 32 => 11
-        case int: ArrowType.Int if int.getBitWidth == 64 => 20
+        case int: ArrowType.Int if int.getBitWidth == 8 => 4L
+        case int: ArrowType.Int if int.getBitWidth == 16 => 6L
+        case int: ArrowType.Int if int.getBitWidth == 32 => 11L
+        case int: ArrowType.Int if int.getBitWidth == 64 => 20L
         case float: ArrowType.FloatingPoint
             if float.getPrecision() == FloatingPointPrecision.SINGLE =>
-          12
+          12L
         case float: ArrowType.FloatingPoint
             if float.getPrecision() == FloatingPointPrecision.DOUBLE =>
-          21
-        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10
+          21L
+        case _: ArrowType.Bool => 10L
+        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10L
         case decimal: ArrowType.Decimal =>
           // Add two to precision for decimal point and negative sign
           (decimal.getPrecision() + 2)
-        case _: ArrowType.Timestamp => 24
+        case _: ArrowType.Timestamp => 24L
         case _ =>
           throw new UnsupportedOperationException(
             s"ColumnarCast to String doesn't support ${childType0}")
@@ -534,6 +541,13 @@ class ColumnarCast(
             Lists.newArrayList(round_down_node),
             new ArrowType.Int(64, true))
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(long_node), toType)
+        case _: StringType =>
+          // Compatible with spark ANSI
+          if (ansiEnabled) {
+            TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castINTOrNull", Lists.newArrayList(child_node0), toType)
+          }
         case other =>
           TreeBuilder.makeFunction("castINT", Lists.newArrayList(child_node0), toType)
       }
@@ -547,6 +561,13 @@ class ColumnarCast(
                 TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0),
                   toType),
                 TreeBuilder.makeLiteral(java.lang.Long.valueOf(1000L))), toType), toType)
+        case _: StringType =>
+          // Compatible with spark ANSI
+          if (ansiEnabled) {
+            (TreeBuilder.makeFunction("castBIGINT", Lists.newArrayList(child_node0), toType), toType)
+          } else {
+            (TreeBuilder.makeFunction("castBIGINTOrNull", Lists.newArrayList(child_node0), toType), toType)
+          }
         case _ => (TreeBuilder.makeFunction("castBIGINT",
           Lists.newArrayList(child_node0), toType), toType)
       }
@@ -558,13 +579,29 @@ class ColumnarCast(
             Lists.newArrayList(child_node0),
             new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE))
           TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(double_node), toType)
+        case _: StringType =>
+          // Compatible with spark ANSI
+          if (ansiEnabled) {
+            TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castFLOAT4OrNull", Lists.newArrayList(child_node0), toType)
+          }
         case other =>
           TreeBuilder.makeFunction("castFLOAT4", Lists.newArrayList(child_node0), toType)
       }
       (funcNode, toType)
     } else if (dataType == DoubleType) {
-      val funcNode =
-        TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+      val funcNode = child.dataType match {
+        case _: StringType =>
+          // Compatible with spark ANSI
+          if (ansiEnabled) {
+            TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+          } else {
+            TreeBuilder.makeFunction("castFLOAT8OrNull", Lists.newArrayList(child_node0), toType)
+          }
+        case other =>
+          TreeBuilder.makeFunction("castFLOAT8", Lists.newArrayList(child_node0), toType)
+      }
       (funcNode, toType)
     } else if (dataType == DateType) {
       val funcNode = child.dataType match {

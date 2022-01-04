@@ -33,6 +33,7 @@ With [Spark 27396](https://issues.apache.org/jira/browse/SPARK-27396) its possib
 ![Overview](./docs/image/dataset.png)
 
 A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check [Arrow Data Source](https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source)
+Note both data source V1 and V2 are supported. Please check the [example section](arrow-data-source/#run-a-query-with-arrowdatasource-scala) for arrow data source
 
 ### Apache Arrow Compute/Gandiva based operators
 
@@ -104,13 +105,16 @@ ${SPARK_HOME}/bin/spark-shell \
         --verbose \
         --master yarn \
         --driver-memory 10G \
+        --conf spark.plugins=com.intel.oap.GazellePlugin \
         --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
         --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
+        --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
         --conf spark.executor.memory=20G \
-        --conf spark.memory.offHeap.size=80G \
+        --conf spark.memory.offHeap.enabled=true \
+        --conf spark.memory.offHeap.size=20G \
         --conf spark.task.cpus=1 \
         --conf spark.locality.wait=0s \
         --conf spark.sql.shuffle.partitions=72 \
@@ -130,9 +134,9 @@ The result should showup on Spark console and you can check the DAG diagram with
 
 ## Could/K8s Integration
 
-### Amazone EMR
+### Amazon EMR
 
-Please refer to [Gazelle_on_Dataproc](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/emr) to find details about how to use OAP Gazelle on Amazon EMR Cloud.
+Please refer to [Gazelle_on_EMR](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/emr) to find details about how to use OAP Gazelle on Amazon EMR Cloud.
 
 ###  Google Cloud Dataproc
 
@@ -167,7 +171,7 @@ We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin an
 
 ![Performance](./docs/image/decision_support_bench2_result_in_total_v1.1.png)
 
-Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.
+Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin. Please check the [detailed page](./docs/performance.md) on performance tuning for TPC-H and TPC-DS workloads.
 
 ## Memory allocation
 The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings [here](./docs/memory.md), the memroy footprint is stable during a TPC-DS power run.
@@ -183,5 +187,5 @@ The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1
 
 ## Contact
 
-chendi.xue@intel.com
+weiting.chen@intel.com
 binwei.yang@intel.com

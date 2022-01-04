@@ -61,6 +61,8 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
   val enableColumnarBroadcastExchange = columnarConf.enableColumnarBroadcastExchange
   val enableColumnarBroadcastJoin = columnarConf.enableColumnarBroadcastJoin
   val enableColumnarArrowUDF = columnarConf.enableColumnarArrowUDF
+  val enableColumnarLocalLimit = columnarConf.enableColumnarLocalLimit
+  val enableColumnarGlobalLimit = columnarConf.enableColumnarGlobalLimit
 
   private def tryConvertToColumnar(plan: SparkPlan): Boolean = {
     try {
@@ -101,6 +103,12 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
         case plan: UnionExec =>
           if (!enableColumnarUnion) return false
           new ColumnarUnionExec(plan.children)
+        case plan: LocalLimitExec =>
+          if (!enableColumnarLocalLimit) return false
+          new ColumnarLocalLimitExec(plan.limit, plan.child)
+        case plan: GlobalLimitExec =>
+          if (!enableColumnarGlobalLimit) return false
+          new ColumnarGlobalLimitExec(plan.limit, plan.child)
         case plan: ExpandExec =>
           if (!enableColumnarExpand) return false
           new ColumnarExpandExec(plan.projections, plan.output, plan.child)

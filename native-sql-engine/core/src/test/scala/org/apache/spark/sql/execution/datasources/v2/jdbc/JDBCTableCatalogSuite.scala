@@ -19,7 +19,7 @@ package org.apache.spark.sql.execution.datasources.v2.jdbc
 import java.sql.{Connection, DriverManager}
 import java.util.Properties
 
-import org.apache.log4j.Level
+//import org.apache.log4j.Level
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{AnalysisException, QueryTest, Row}
@@ -391,6 +391,7 @@ class JDBCTableCatalogSuite extends QueryTest with SharedSparkSession {
     }
   }
 
+  /* Remark log4j1 unit test
   test("CREATE TABLE with table comment") {
     withTable("h2.test.new_table") {
       val logAppender = new LogAppender("table comment")
@@ -404,6 +405,7 @@ class JDBCTableCatalogSuite extends QueryTest with SharedSparkSession {
       assert(createCommentWarning === false)
     }
   }
+  */
 
   test("CREATE TABLE with table property") {
     withTable("h2.test.new_table") {

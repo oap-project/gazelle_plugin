@@ -16,7 +16,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.intel.oap</groupId>
   <artifactId>native-sql-engine-parent</artifactId>
-  <version>1.2.0-snapshot</version>
+  <version>1.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Native SQL Engine Parent Pom</name>
@@ -53,17 +53,17 @@
     </profile>
     <profile>
       <id>hadoop-2.7.4</id>
-      <activation>
-        <property>
-          <name>!hadoop.version</name>
-        </property>
-      </activation>
       <properties>
         <hadoop.version>2.7.4</hadoop.version>
       </properties>
     </profile>
     <profile>
       <id>hadoop-3.2</id>
+      <activation>
+        <property>
+          <name>!hadoop.version</name>
+        </property>
+      </activation>
       <properties>
         <hadoop.version>3.2.0</hadoop.version>
       </properties>

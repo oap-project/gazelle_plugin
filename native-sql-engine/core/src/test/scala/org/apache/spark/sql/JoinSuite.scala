@@ -19,7 +19,7 @@ package org.apache.spark.sql
 
 import java.util.Locale
 
-import com.intel.oap.execution.{ColumnarSortExec, ColumnarSortMergeJoinExec}
+import com.intel.oap.execution.{ColumnarBroadcastHashJoinExec, ColumnarSortExec, ColumnarSortMergeJoinExec}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
@@ -1049,7 +1049,8 @@ class JoinSuite extends QueryTest with SharedSparkSession with AdaptiveSparkPlan
     val right = Seq((1, 2), (3, 4)).toDF("c", "d")
     val df = left.join(right, pythonTestUDF(left("a")) === pythonTestUDF(right.col("c")))
 
-    val joinNode = find(df.queryExecution.executedPlan)(_.isInstanceOf[BroadcastHashJoinExec])
+    val joinNode = find(df.queryExecution.executedPlan)(
+      _.isInstanceOf[ColumnarBroadcastHashJoinExec])
     assert(joinNode.isDefined)
 
     // There are two PythonUDFs which use attribute from left and right of join, individually.

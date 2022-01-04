@@ -98,6 +98,10 @@ class Splitter {
 
   const std::vector<int64_t>& PartitionLengths() const { return partition_lengths_; }
 
+  const std::vector<int64_t>& RawPartitionLengths() const {
+    return raw_partition_lengths_;
+  }
+
   // for testing
   const std::string& DataFile() const { return options_.data_file; }
 
@@ -205,13 +209,19 @@ class Splitter {
   std::shared_ptr<arrow::Schema> schema_;
   SplitOptions options_;
 
+  // write options for tiny batches
+  arrow::ipc::IpcWriteOptions tiny_bach_write_options_;
+
   int64_t total_bytes_written_ = 0;
   int64_t total_bytes_spilled_ = 0;
   int64_t total_write_time_ = 0;
   int64_t total_spill_time_ = 0;
   int64_t total_compress_time_ = 0;
   int64_t total_compute_pid_time_ = 0;
+  int64_t peak_memory_allocated_ = 0;
+
   std::vector<int64_t> partition_lengths_;
+  std::vector<int64_t> raw_partition_lengths_;
 
   std::vector<std::shared_ptr<arrow::DataType>> column_type_id_;
 

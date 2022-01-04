@@ -80,7 +80,7 @@ class ColumnarFilter (
   val projectionNodeList = projectFieldList.map(field => {
     TreeBuilder.makeExpression(TreeBuilder.makeField(field), field)
   })
-  val projector = Projector.make(projectArrowSchema, projectionNodeList.asJava, SelectionVectorType.SV_INT16)
+  val projector = Projector.make(projectArrowSchema, projectionNodeList.asJava, SelectionVectorType.SV_INT32)
 
   def getOrdinalList(): List[Int] = {
     conditionOrdinalList 
@@ -88,18 +88,18 @@ class ColumnarFilter (
 
   def getResultNumRows = resultNumRows
 
-  private def evaluate(inputRecordBatch: ArrowRecordBatch): SelectionVectorInt16 = {
+  private def evaluate(inputRecordBatch: ArrowRecordBatch): SelectionVectorInt32 = {
     if (selectionBuffer != null) {
       selectionBuffer.close()
       selectionBuffer = null
     }
-    selectionBuffer = allocator.buffer(inputRecordBatch.getLength * 2)
-    val selectionVector = new SelectionVectorInt16(selectionBuffer)
+    selectionBuffer = allocator.buffer(inputRecordBatch.getLength * 4)
+    val selectionVector = new SelectionVectorInt32(selectionBuffer)
     filter.evaluate(inputRecordBatch, selectionVector)
     selectionVector
   }
 
-  def evaluate(numRows: Int, inputColumnVector: List[ValueVector]): SelectionVectorInt16 = {
+  def evaluate(numRows: Int, inputColumnVector: List[ValueVector]): SelectionVectorInt32 = {
     val inputRecordBatch: ArrowRecordBatch = ConverterUtils.createArrowRecordBatch(numRows, inputColumnVector)
     val selectionVector = evaluate(inputRecordBatch)
     ConverterUtils.releaseArrowRecordBatch(inputRecordBatch)

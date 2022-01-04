@@ -18,14 +18,17 @@
 package com.intel.oap.tpc.ds
 
 import com.intel.oap.tpc.util.TPCRunner
-import org.apache.log4j.{Level, LogManager}
+//import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.functions.{col, exp, expr}
 import org.apache.spark.sql.test.SharedSparkSession
+
+import java.nio.file.Files
 
 class TPCDSSuite extends QueryTest with SharedSparkSession {
 
-  private val MAX_DIRECT_MEMORY = "6g"
+  private val MAX_DIRECT_MEMORY = "20g"
   private val TPCDS_QUERIES_RESOURCE = "tpcds"
   private val TPCDS_WRITE_PATH = "/tmp/tpcds-generated"
 
@@ -38,7 +41,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
         .set("spark.sql.codegen.wholeStage", "true")
         .set("spark.sql.sources.useV1SourceList", "")
         .set("spark.oap.sql.columnar.tmp_dir", "/tmp/")
-        .set("spark.sql.adaptive.enabled", "false")
+        .set("spark.sql.adaptive.enabled", "true")
         .set("spark.sql.columnar.sort.broadcastJoin", "true")
         .set("spark.storage.blockManagerSlaveTimeoutMs", "3600000")
         .set("spark.executor.heartbeatInterval", "3600000")
@@ -61,7 +64,7 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    LogManager.getRootLogger.setLevel(Level.WARN)
+    //LogManager.getRootLogger.setLevel(Level.WARN)
     val tGen = new TPCDSTableGen(spark, 0.1D, TPCDS_WRITE_PATH)
     tGen.gen()
     tGen.createTables()
@@ -121,6 +124,47 @@ class TPCDSSuite extends QueryTest with SharedSparkSession {
       runner.runTPCQuery("q95", 1, true)
     }
   }
+
+  test("simple shj query") {
+    withSQLConf(("spark.oap.sql.columnar.forceshuffledhashjoin", "true"),
+      ("spark.oap.sql.columnar.shuffledhashjoin.resizeinputpartitions", "true")) {
+      val df = spark.sql("SELECT ws_item_sk, i_item_sk, i_class FROM web_sales, item WHERE " +
+          "ws_item_sk = i_item_sk LIMIT 10")
+      df.explain(true)
+      df.show()
+    }
+  }
+
+  test("simple shj query - left semi") {
+    withSQLConf(("spark.oap.sql.columnar.forceshuffledhashjoin", "true")) {
+      val df = spark.sql("SELECT i_item_sk FROM item WHERE i_item_sk IN (SELECT ws_item_sk FROM " +
+          "web_sales) LIMIT 10")
+      df.explain()
+      df.show()
+    }
+  }
+
+  //test("simple shj query - memory consuming 2") {
+  //  withSQLConf(("spark.oap.sql.columnar.forceshuffledhashjoin", "true"),
+  //    ("spark.oap.sql.columnar.shuffledhashjoin.resizeinputpartitions", "true")) {
+  //    val df = spark.sql("WITH big as (SELECT " +
+  //        "(a.i_item_sk + b.i_item_sk + c.i_item_sk + d.i_item_sk + e.i_item_sk + " +
+  //        "f.i_item_sk + g.i_item_sk + h.i_item_sk + i.i_item_sk) as unq " +
+  //        "FROM item a, item b, item c, item d, item e, item f, item g, item h, item i " +
+  //        "WHERE a.i_item_id = b.i_item_id AND a.i_item_id = c.i_item_id " +
+  //        "AND a.i_item_id = d.i_item_id AND a.i_item_id = e.i_item_id " +
+  //        "AND a.i_item_id = f.i_item_id AND a.i_item_id = g.i_item_id " +
+  //        "AND a.i_item_id = h.i_item_id AND a.i_item_id = i.i_item_id) " +
+  //        ", big2 as" +
+  //        "(SELECT q.unq as unq FROM big q, big p WHERE q.unq = p.unq)" +
+  //        ", big3 as" +
+  //        "(SELECT q.unq as unq FROM big2 q, big2 p WHERE q.unq = p.unq)" +
+  //        "SELECT COUNT(*) FROM big3 q, big3 p WHERE q.unq = p.unq"
+  //    )
+  //    df.explain(true)
+  //    df.show()
+  //  }
+  //}
 
   test("q47") {
     runner.runTPCQuery("q47", 1, true)

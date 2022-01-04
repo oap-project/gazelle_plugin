@@ -282,13 +282,15 @@ class WholeStageCodeGenKernel::Impl {
 
     if (!status.ok()) {
       // process
-      try {
-        // compile codes
-        arrow::Status s = CompileCodes(codes, signature_);
-        s = LoadLibrary(signature_, ctx_, out);
-      } catch (const std::runtime_error& error) {
+      const arrow::Status& status1 = CompileCodes(codes, signature_);
+      if (!status1.ok()) {
         FileSpinUnLock(file_lock);
-        throw error;
+        return status1;
+      }
+      const arrow::Status& status2 = LoadLibrary(signature_, ctx_, out);
+      if (!status2.ok()) {
+        FileSpinUnLock(file_lock);
+        return status2;
       }
     }
     FileSpinUnLock(file_lock);
@@ -304,8 +306,7 @@ class WholeStageCodeGenKernel::Impl {
     std::string out_list;
     std::stringstream define_ss;
     codes_ss << BaseCodes() << std::endl;
-    codes_ss << R"(#include "precompile/builder.h")" << std::endl;
-    codes_ss << R"(#include "utils/macros.h")" << std::endl;
+    codes_ss << R"(#include "precompile/wscgapi.hpp")" << std::endl;
     std::vector<std::string> headers;
     for (auto codegen_ctx : codegen_ctx_list) {
       for (auto header : codegen_ctx->header_codes) {
@@ -329,7 +330,7 @@ class WholeStageCodeGenKernel::Impl {
     }
 
     codes_ss << R"(
-using namespace sparkcolumnarplugin::precompile;
+
 class TypedWholeStageCodeGenImpl : public CodeGenBase {
  public:
   TypedWholeStageCodeGenImpl(arrow::compute::ExecContext *ctx) : ctx_(ctx) {}

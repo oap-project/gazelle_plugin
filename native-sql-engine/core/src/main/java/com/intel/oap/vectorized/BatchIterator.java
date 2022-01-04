@@ -27,7 +27,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import java.io.ByteArrayOutputStream;
 import java.nio.channels.Channels;
-import org.apache.arrow.gandiva.evaluator.SelectionVectorInt16;
+import org.apache.arrow.gandiva.evaluator.SelectionVectorInt32;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowBuffer;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
@@ -68,7 +68,7 @@ public class BatchIterator implements AutoCloseable {
   }
 
   public ArrowRecordBatch next() throws IOException {
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
     if (nativeHandler == 0) {
       return null;
     }
@@ -111,7 +111,7 @@ public class BatchIterator implements AutoCloseable {
   }
 
   public ArrowRecordBatch process(Schema schema, ArrowRecordBatch recordBatch,
-      SelectionVectorInt16 selectionVector) throws IOException {
+      SelectionVectorInt32 selectionVector) throws IOException {
     int num_rows = recordBatch.getLength();
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();
@@ -132,7 +132,7 @@ public class BatchIterator implements AutoCloseable {
     if (nativeHandler == 0) {
       return null;
     }
-    BufferAllocator allocator = SparkMemoryUtils.contextAllocator();
+    BufferAllocator allocator = SparkMemoryUtils.contextAllocatorForBufferImport();
     byte[] serializedRecordBatch;
     if (selectionVector != null) {
       int selectionVectorRecordCount = selectionVector.getRecordCount();
@@ -158,7 +158,7 @@ public class BatchIterator implements AutoCloseable {
   }
 
   public void processAndCacheOne(Schema schema, ArrowRecordBatch recordBatch,
-      SelectionVectorInt16 selectionVector) throws IOException {
+      SelectionVectorInt32 selectionVector) throws IOException {
     int num_rows = recordBatch.getLength();
     List<ArrowBuf> buffers = recordBatch.getBuffers();
     List<ArrowBuffer> buffersLayout = recordBatch.getBuffersLayout();

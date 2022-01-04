@@ -154,6 +154,7 @@ arrow::Status WindowAggregateFunctionKernel::Evaluate(ArrayList& in) {
   PROC(arrow::FloatType, arrow::FloatBuilder, arrow::FloatArray)             \
   PROC(arrow::DoubleType, arrow::DoubleBuilder, arrow::DoubleArray)          \
   PROC(arrow::Date32Type, arrow::Date32Builder, arrow::Date32Array)          \
+  PROC(arrow::StringType, arrow::StringBuilder, arrow::StringArray)          \
   PROC(arrow::TimestampType, arrow::TimestampBuilder, arrow::TimestampArray) \
   PROC(arrow::Decimal128Type, arrow::Decimal128Builder, arrow::Decimal128Array)
 
@@ -232,6 +233,13 @@ WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> da
   return std::make_shared<BuilderType>(data_type, ctx_->memory_pool());
 }
 
+template <typename ValueType, typename BuilderType>
+typename arrow::enable_if_string_like<ValueType,
+                                      arrow::Result<std::shared_ptr<BuilderType>>>
+WindowAggregateFunctionKernel::createBuilder(std::shared_ptr<arrow::DataType> data_type) {
+  return std::make_shared<BuilderType>(data_type, ctx_->memory_pool());
+}
+
 WindowRankKernel::WindowRankKernel(
     arrow::compute::ExecContext* ctx,
     std::vector<std::shared_ptr<arrow::DataType>> type_list,
@@ -285,7 +293,7 @@ arrow::Status WindowRankKernel::Make(
     auto status = sorter->LoadJITFunction(key_fields, result_schema);
     if (!status.ok()) {
       std::cout << "LoadJITFunction failed, msg is " << status.message() << std::endl;
-      throw;
+      throw JniPendingException("Window Sort codegen failed");
     }
   }
   *out = std::make_shared<WindowRankKernel>(ctx, type_list, sorter, desc);

@@ -23,6 +23,7 @@ import com.intel.oap.vectorized._
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
+import org.apache.spark.sql.catalyst.plans.physical._
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution._
@@ -303,6 +304,149 @@ case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
       }
     }
   }
+  protected override def doExecute()
+      : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
+    throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
+  }
+}
+
+//TODO(): consolidate locallimit and globallimit
+case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
+  // updating nullability to make all the children consistent
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    for (child <- children) {
+      for (schema <- child.schema) {
+        try {
+          ConverterUtils.checkIfTypeSupported(schema.dataType)
+        } catch {
+          case e: UnsupportedOperationException =>
+            throw new UnsupportedOperationException(
+              s"${schema.dataType} is not supported in ColumnarLocalLimitExec")
+        }
+      }
+    }
+  }
+
+  
+  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
+
+  override def outputPartitioning: Partitioning = child.outputPartitioning
+
+  override def supportsColumnar = true
+  override def output: Seq[Attribute] = child.output
+  protected override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+    child.executeColumnar().mapPartitions { iter =>
+    val hasInput = iter.hasNext
+      val res = if (hasInput) {
+        new Iterator[ColumnarBatch] {
+          var rowCount = 0
+          override def hasNext: Boolean = {
+            val hasNext = iter.hasNext
+            hasNext && (rowCount < limit)
+          }
+
+          override def next(): ColumnarBatch = {
+
+            if (!hasNext) {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+
+            if (rowCount < limit) {
+              val delta = iter.next()
+              val preRowCount = rowCount
+              rowCount += delta.numRows
+              if (rowCount > limit) {
+                val newSize = limit - preRowCount
+                delta.setNumRows(newSize)
+              }
+              delta
+            } else {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+          }
+        }
+      } else {
+        Iterator.empty
+      }
+      new CloseableColumnBatchIterator(res)
+    }
+  }
+  
+  protected override def doExecute()
+      : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
+    throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
+  }
+
+}
+
+case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
+  // updating nullability to make all the children consistent
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    for (child <- children) {
+      for (schema <- child.schema) {
+        try {
+          ConverterUtils.checkIfTypeSupported(schema.dataType)
+        } catch {
+          case e: UnsupportedOperationException =>
+            throw new UnsupportedOperationException(
+              s"${schema.dataType} is not supported in ColumnarGlobalLimitExec")
+        }
+      }
+    }
+  }
+
+  
+  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
+
+  override def outputPartitioning: Partitioning = child.outputPartitioning
+  override def requiredChildDistribution: List[Distribution] = AllTuples :: Nil
+
+  override def supportsColumnar = true
+  override def output: Seq[Attribute] = child.output
+  protected override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+    child.executeColumnar().mapPartitions { iter =>
+      val hasInput = iter.hasNext
+      val res = if (hasInput) {
+        new Iterator[ColumnarBatch] {
+          var rowCount = 0
+          override def hasNext: Boolean = {
+            val hasNext = iter.hasNext
+            hasNext && (rowCount < limit)
+          }
+
+          override def next(): ColumnarBatch = {
+
+            if (!hasNext) {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+
+            if (rowCount < limit) {
+              val delta = iter.next()
+              val preRowCount = rowCount
+              rowCount += delta.numRows
+              if (rowCount > limit) {
+                val newSize = limit - preRowCount
+                delta.setNumRows(newSize)
+              }
+              delta
+            } else {
+              throw new NoSuchElementException("End of ColumnarBatch iterator")
+            }
+          }
+        }
+      } else {
+        Iterator.empty
+      }
+      new CloseableColumnBatchIterator(res)
+    }
+  }
+  
   protected override def doExecute()
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
