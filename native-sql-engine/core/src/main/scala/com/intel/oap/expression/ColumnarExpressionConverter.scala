@@ -278,11 +278,11 @@ object ColumnarExpressionConverter extends Logging {
       case st: StringTranslate =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         ColumnarTernaryOperator.create(
-          replaceWithColumnarExpression(
-            st.srcExpr, attributeSeq, convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-          replaceWithColumnarExpression(st.matchingExpr,
+          replaceWithColumnarExpression(st.srcExpr, attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-          replaceWithColumnarExpression(st.replaceExpr,
+          replaceWithColumnarExpression(st.matchingExpr, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(st.replaceExpr, attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr
         )
