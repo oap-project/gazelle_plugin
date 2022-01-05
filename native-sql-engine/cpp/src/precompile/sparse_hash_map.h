@@ -17,9 +17,9 @@
 #pragma once
 #include "third_party/sparsehash/sparse_hash_map.h"
 
-extern template class SparseHashMap<int32_t>;
-extern template class SparseHashMap<int64_t>;
-extern template class SparseHashMap<uint32_t>;
-extern template class SparseHashMap<uint64_t>;
-extern template class SparseHashMap<float>;
-extern template class SparseHashMap<double>;
+extern template class PHMap<int32_t>;
+extern template class PHMap<int64_t>;
+extern template class PHMap<uint32_t>;
+extern template class PHMap<uint64_t>;
+extern template class PHMap<float>;
+extern template class PHMap<double>;

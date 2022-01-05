@@ -16,9 +16,9 @@
  */
 #include "precompile/sparse_hash_map.h"
 
-template class SparseHashMap<int32_t>;
-template class SparseHashMap<int64_t>;
-template class SparseHashMap<uint32_t>;
-template class SparseHashMap<uint64_t>;
-template class SparseHashMap<float>;
-template class SparseHashMap<double>;
+template class PHMap<int32_t>;
+template class PHMap<int64_t>;
+template class PHMap<uint32_t>;
+template class PHMap<uint64_t>;
+template class PHMap<float>;
+template class PHMap<double>;

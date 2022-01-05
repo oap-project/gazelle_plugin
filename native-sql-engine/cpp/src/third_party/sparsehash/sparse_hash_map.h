@@ -21,22 +21,20 @@
 
 #include <cmath>
 
-#include "sparsehash/dense_hash_map"
-
-using google::dense_hash_map;
+#include <unordered_map>
 
 #define NOTFOUND -1
 
 template <typename T, typename Enable = void>
-class SparseHashMap {};
+class PHMap {};
 
 template <typename Scalar>
-class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
+class PHMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
                                              !std::is_same<Scalar, bool>::value>> {
  public:
-  SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) {
-    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
+
+  PHMap(arrow::MemoryPool* pool) {
+    //dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
   }
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
@@ -82,18 +80,18 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
   }
 
  private:
-  dense_hash_map<Scalar, int32_t> dense_map_;
+  std::unordered_map<Scalar, int32_t> dense_map_;
   int32_t size_ = 0;
   bool null_index_set_ = false;
   int32_t null_index_;
 };
 
 template <typename Scalar>
-class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::value>> {
+class PHMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::value>> {
  public:
-  SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) {
-    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
+
+  PHMap(arrow::MemoryPool* pool) {
+    //dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
   }
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
@@ -155,7 +153,7 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
   }
 
  private:
-  dense_hash_map<Scalar, int32_t> dense_map_;
+  std::unordered_map<Scalar, int32_t> dense_map_;
   int32_t size_ = 0;
   bool null_index_set_ = false;
   int32_t null_index_;
@@ -164,10 +162,10 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
 };
 
 template <typename Scalar>
-class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>> {
+class PHMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>> {
  public:
-  SparseHashMap() {}
-  SparseHashMap(arrow::MemoryPool* pool) {}
+  PHMap() {}
+  PHMap(arrow::MemoryPool* pool) {}
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {

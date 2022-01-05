@@ -258,9 +258,9 @@ class HashAggregateKernel::Impl {
       auto type = key_node_list[0]->return_type();
 
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
-                      << "SparseHashMap<" << GetCTypeString(type)
+                      << "PHMap<" << GetCTypeString(type)
                       << ">>(ctx_->memory_pool());" << std::endl;
-      define_ss << "std::shared_ptr<SparseHashMap<" << GetCTypeString(type)
+      define_ss << "std::shared_ptr<PHMap<" << GetCTypeString(type)
                 << ">> aggr_hash_table_" << level << ";" << std::endl;
     }
     // 2. create key_hash_project_node and prepare_gandiva_project_node_list
@@ -720,7 +720,7 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       batch_size_ = GetBatchSize();
-      aggr_hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());
+      aggr_hash_table_ = std::make_shared<PHMap<T>>(ctx->memory_pool());
     }
 
     arrow::Status ProcessAndCacheOne(
@@ -840,7 +840,7 @@ class HashAggregateKernel::Impl {
    private:
     arrow::compute::ExecContext* ctx_;
     std::vector<std::shared_ptr<ActionBase>> action_impl_list_;
-    std::shared_ptr<SparseHashMap<T>> aggr_hash_table_;
+    std::shared_ptr<PHMap<T>> aggr_hash_table_;
     const std::vector<int>& key_index_list_;
     const std::vector<std::vector<int>>& action_prepare_index_list_;
     std::shared_ptr<GandivaProjector> pre_process_projector_;

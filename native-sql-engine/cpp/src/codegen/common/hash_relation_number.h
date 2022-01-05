@@ -33,7 +33,7 @@ class TypedHashRelation<DataType, enable_if_number<DataType>> : public HashRelat
       arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
       : HashRelation(hash_relation_column) {
-    hash_table_ = std::make_shared<SparseHashMap<T>>(ctx->memory_pool());
+    hash_table_ = std::make_shared<PHMap<T>>(ctx->memory_pool());
   }
 
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in) override {
@@ -89,7 +89,7 @@ class TypedHashRelation<DataType, enable_if_number<DataType>> : public HashRelat
   }
 
   int num_items_ = 0;
-  std::shared_ptr<SparseHashMap<T>> hash_table_;
+  std::shared_ptr<PHMap<T>> hash_table_;
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
   std::vector<std::vector<ArrayItemIndex>> memo_index_to_arrayid_;
 };
