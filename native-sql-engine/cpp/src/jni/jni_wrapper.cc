@@ -1399,8 +1399,6 @@ JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToColumnar(
     JNIEnv* env, jobject, jbyteArray schema_arr, jlongArray row_length,
     jlong memory_address, jlong memory_pool_id) {
-  std::cout << "Calling the nativeConvertRowToColumnar method"
-            << "\n";
 
   if (schema_arr == NULL) {
     env->ThrowNew(

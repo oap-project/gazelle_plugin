@@ -96,16 +96,16 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
       val timeZoneId = SparkSchemaUtils.getLocalTimezoneID()
       val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
       var schemaBytes: Array[Byte] = null
-      // Allocate large buffer to store the numRows rows
-      val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
-      val allocator = SparkMemoryUtils.contextAllocator()
-      val arrowBuf: ArrowBuf = allocator.buffer(bufferSize)
 
       if (rowIterator.hasNext) {
         val res = new Iterator[ColumnarBatch] {
           private val converters = new RowToColumnConverter(localSchema)
           private var last_cb: ColumnarBatch = null
           private var elapse: Long = 0
+          // Allocate large buffer to store the numRows rows
+          val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
+          val allocator = SparkMemoryUtils.contextAllocator()
+          val arrowBuf: ArrowBuf = allocator.buffer(bufferSize)
           override def hasNext: Boolean = {
             rowIterator.hasNext
           }
@@ -142,9 +142,9 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val deserializeProcessStart =  System.nanoTime()
               val rb = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedRecordBatch)
               val output = ConverterUtils.fromArrowRecordBatch(arrowSchema, rb)
-              deserializeProcessTime.set(NANOSECONDS.toMillis(System.nanoTime() - deserializeProcessStart))
               val outputNumRows = rb.getLength
               ConverterUtils.releaseArrowRecordBatch(rb)
+              deserializeProcessTime.set(NANOSECONDS.toMillis(System.nanoTime() - deserializeProcessStart))
               last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
               elapse = System.nanoTime() - start
               processTime.set(NANOSECONDS.toMillis(elapse))
@@ -170,7 +170,6 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
             }
           }
         }
-        arrowBuf.close()
         new CloseableColumnBatchIterator(res)
       } else {
         Iterator.empty

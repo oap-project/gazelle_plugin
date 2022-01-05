@@ -177,9 +177,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       out_data.type = arrow::TypeTraits<arrow::BooleanType>::type_singleton();
 
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[1], AllocateBitmap(num_rows, pool));
-      // if (has_null_) {
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
-      // }
       auto array_data = out_data.buffers[1]->mutable_data();
       int64_t position = 0;
       int64_t null_count = 0;
@@ -193,7 +191,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           bool value = *(bool*)(memory_address_ + offsets[position] + fieldOffset);
           arrow::BitUtil::SetBitTo(array_data, position, value);
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -228,7 +225,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(int8_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -263,7 +259,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(int16_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -298,7 +293,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(int32_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -332,7 +326,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -366,7 +359,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(float*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -400,7 +392,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(double*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -535,7 +526,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(int32_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
@@ -569,7 +559,6 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           auto value = *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          // arrow::BitUtil::SetBitTo(array_data, position, false);
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
