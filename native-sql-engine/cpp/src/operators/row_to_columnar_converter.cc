@@ -135,9 +135,6 @@ arrow::Decimal128 BytesToDecimal(int8_t bytesValue[], int32_t size) {
     mag = stripLeadingZeroBytes(bytesValue, size);
     sig = (mag.size() == 0 ? 0 : 1);
   }
-  for (int32_t j = 0; j < mag.size(); j++) {
-    std::cout << mag[j] << std::endl;
-  }
   // add the front 0
   std::vector<uint32_t> new_mag;
   int32_t front_zero_length = 4 - mag.size();
