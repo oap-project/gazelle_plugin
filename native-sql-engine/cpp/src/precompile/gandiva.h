@@ -317,7 +317,8 @@ bool like(const std::string& data, const std::string& pattern) {
   return RE2::FullMatch(data, regex);
 }
 
-const std::string translate(const std::string text, const std::string matching_str, const std::string replace_str) {
+const std::string translate(const std::string text, const std::string matching_str,
+                            const std::string replace_str) {
   char res[text.length()];
   std::unordered_map<char, char> replace_map;
   for (int i = 0; i < matching_str.length(); i++) {
