@@ -514,7 +514,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         shuffle/splitter.cc
         operators/columnar_to_row_converter.cc
         precompile/hash_map.cc
-        precompile/sparse_hash_map.cc
         precompile/builder.cc
         precompile/array.cc
         precompile/type.cc

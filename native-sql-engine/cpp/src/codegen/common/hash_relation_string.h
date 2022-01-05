@@ -20,11 +20,11 @@
 #include <arrow/util/string_view.h>
 
 #include "codegen/common/hash_relation.h"
-#include "precompile/hash_map.h"
+#include "precompile/sparse_hash_map.h"
+
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
 using sparkcolumnarplugin::precompile::enable_if_string_like;
 using sparkcolumnarplugin::precompile::StringArray;
-using sparkcolumnarplugin::precompile::StringHashMap;
 using sparkcolumnarplugin::precompile::TypeTraits;
 
 /////////////////////////////////////////////////////////////////////////
@@ -37,7 +37,7 @@ class TypedHashRelation<DataType, enable_if_string_like<DataType>> : public Hash
       arrow::compute::ExecContext* ctx,
       const std::vector<std::shared_ptr<HashRelationColumn>>& hash_relation_column)
       : HashRelation(hash_relation_column) {
-    hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+    hash_table_ = std::make_shared<PHMap<arrow::util::string_view>>(ctx->memory_pool());
   }
   arrow::Status AppendKeyColumn(std::shared_ptr<arrow::Array> in) override {
     auto typed_array = std::make_shared<ArrayType>(in);
@@ -95,7 +95,7 @@ class TypedHashRelation<DataType, enable_if_string_like<DataType>> : public Hash
   }
 
   int num_items_ = 0;
-  std::shared_ptr<StringHashMap> hash_table_;
+  std::shared_ptr<PHMap<arrow::util::string_view>> hash_table_;
   using ArrayType = sparkcolumnarplugin::precompile::StringArray;
   std::vector<std::vector<ArrayItemIndex>> memo_index_to_arrayid_;
 };

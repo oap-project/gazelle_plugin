@@ -15,6 +15,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#include <arrow/util/string_view.h>
+
 #include "third_party/sparsehash/sparse_hash_map.h"
 
 extern template class PHMap<int32_t>;
@@ -23,3 +26,4 @@ extern template class PHMap<uint32_t>;
 extern template class PHMap<uint64_t>;
 extern template class PHMap<float>;
 extern template class PHMap<double>;
+extern template class PHMap<arrow::util::string_view>;
