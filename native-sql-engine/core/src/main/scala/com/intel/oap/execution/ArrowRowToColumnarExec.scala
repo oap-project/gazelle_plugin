@@ -71,13 +71,19 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
   override lazy val metrics: Map[String, SQLMetric] = Map(
     "numInputRows" -> SQLMetrics.createMetric(sparkContext, "number of input rows"),
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
-    "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert")
+    "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert"),
+    "writeUnsafeRowProcessTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to write unsafeRow into buffer"),
+    "nativeProcessTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert on native side"),
+    "deserializeProcessTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to deserialize recordBatch")
   )
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     val numInputRows = longMetric("numInputRows")
     val numOutputBatches = longMetric("numOutputBatches")
     val processTime = longMetric("processTime")
+    val writeUnsafeRowProcessTime = longMetric("writeUnsafeRowProcessTime")
+    val nativeProcessTime = longMetric("nativeProcessTime")
+    val deserializeProcessTime = longMetric("deserializeProcessTime")
     // Instead of creating a new config we are reusing columnBatchSize. In the future if we do
     // combine with some of the Arrow conversion tools we will need to unify some of the configs.
     val numRows = conf.columnBatchSize
@@ -90,17 +96,16 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
       val timeZoneId = SparkSchemaUtils.getLocalTimezoneID()
       val arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId)
       var schemaBytes: Array[Byte] = null
+      // Allocate large buffer to store the numRows rows
+      val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
+      val allocator = SparkMemoryUtils.contextAllocator()
+      val arrowBuf: ArrowBuf = allocator.buffer(bufferSize)
 
       if (rowIterator.hasNext) {
         val res = new Iterator[ColumnarBatch] {
           private val converters = new RowToColumnConverter(localSchema)
           private var last_cb: ColumnarBatch = null
           private var elapse: Long = 0
-          // Allocate large buffer to store the numRows rows
-          val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
-          val allocator = SparkMemoryUtils.contextAllocator()
-          val arrowBuf: ArrowBuf = allocator.buffer(bufferSize)
-
           override def hasNext: Boolean = {
             rowIterator.hasNext
           }
@@ -122,21 +127,27 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
                 rowLength += sizeInBytes.toLong
                 rowCount += 1
               }
+              writeUnsafeRowProcessTime.set(NANOSECONDS.toMillis(System.nanoTime() - start))
               if (schemaBytes == null) {
                 schemaBytes = ConverterUtils.getSchemaBytesBuf(arrowSchema)
               }
+              val nativeProcessStart =  System.nanoTime()
               val serializedRecordBatch = jniWrapper.nativeConvertRowToColumnar(schemaBytes, rowLength.toArray,
                 arrowBuf.memoryAddress(), SparkMemoryUtils.contextMemoryPool().getNativeInstanceId)
-              elapse = System.nanoTime() - start
+              nativeProcessTime.set(NANOSECONDS.toMillis(System.nanoTime() - nativeProcessStart))
 //              arrowBuf.close()
-              processTime.set(NANOSECONDS.toMillis(elapse))
+
               numInputRows += rowCount
               numOutputBatches += 1
+              val deserializeProcessStart =  System.nanoTime()
               val rb = UnsafeRecordBatchSerializer.deserializeUnsafe(allocator, serializedRecordBatch)
               val output = ConverterUtils.fromArrowRecordBatch(arrowSchema, rb)
+              deserializeProcessTime.set(NANOSECONDS.toMillis(System.nanoTime() - deserializeProcessStart))
               val outputNumRows = rb.getLength
               ConverterUtils.releaseArrowRecordBatch(rb)
               last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
+              elapse = System.nanoTime() - start
+              processTime.set(NANOSECONDS.toMillis(elapse))
               last_cb
             } else {
               logInfo("the buffer allocated failed and will fall back to non arrow optimization")
@@ -159,6 +170,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
             }
           }
         }
+        arrowBuf.close()
         new CloseableColumnBatchIterator(res)
       } else {
         Iterator.empty
