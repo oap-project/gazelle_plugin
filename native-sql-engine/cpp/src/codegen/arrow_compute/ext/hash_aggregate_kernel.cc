@@ -45,6 +45,7 @@ namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
 using precompile::StringHashMap;
+using precompile::Decimal128HashMap;
 
 ///////////////  HashAgg Kernel  ////////////////
 class HashAggregateKernel::Impl {
@@ -1033,7 +1034,7 @@ class HashAggregateKernel::Impl {
           action_impl_list_(action_impl_list) {
       batch_size_ = GetBatchSize();
       aggr_hash_table_ =
-          std::make_shared<precompile::Decimal128HashMap>(ctx->memory_pool());
+          std::make_shared<Decimal128HashMap>(ctx->memory_pool());
     }
 
     arrow::Status ProcessAndCacheOne(
@@ -1155,7 +1156,7 @@ class HashAggregateKernel::Impl {
    private:
     arrow::compute::ExecContext* ctx_;
     std::vector<std::shared_ptr<ActionBase>> action_impl_list_;
-    std::shared_ptr<precompile::Decimal128HashMap> aggr_hash_table_;
+    std::shared_ptr<Decimal128HashMap> aggr_hash_table_;
     const std::vector<int>& key_index_list_;
     const std::vector<std::vector<int>>& action_prepare_index_list_;
     std::shared_ptr<GandivaProjector> pre_process_projector_;
