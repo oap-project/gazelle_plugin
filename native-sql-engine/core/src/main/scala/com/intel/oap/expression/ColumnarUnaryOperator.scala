@@ -321,6 +321,34 @@ class ColumnarFloor(child: Expression, original: Expression)
   }
 }
 
+class ColumnarCeil(child: Expression, original: Expression)
+    extends Ceil(child: Expression)
+        with ColumnarExpression
+        with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    // Currently, decimal type is not supported.
+    val supportedTypes = List(DoubleType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarCeil")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode =
+      TreeBuilder.makeFunction("ceil", Lists.newArrayList(child_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
 class ColumnarUpper(child: Expression, original: Expression)
     extends Upper(child: Expression)
     with ColumnarExpression
@@ -852,6 +880,8 @@ object ColumnarUnaryOperator {
       new ColumnarAbs(child, a)
     case f: Floor =>
       new ColumnarFloor(child, f)
+    case c: Ceil =>
+      new ColumnarCeil(child, c)
     case u: Upper =>
       new ColumnarUpper(child, u)
     case c: Cast =>
