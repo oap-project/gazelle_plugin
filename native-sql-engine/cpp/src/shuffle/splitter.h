@@ -230,7 +230,7 @@ class Splitter {
   std::vector<int32_t> sub_dir_selection_;
   std::vector<std::string> configured_dirs_;
 
-  std::shared_ptr<arrow::io::FileOutputStream> data_file_os_;
+  std::shared_ptr<arrow::io::OutputStream> data_file_os_;
 
   // shared by all partition writers
   std::shared_ptr<arrow::ipc::IpcPayload> schema_payload_;

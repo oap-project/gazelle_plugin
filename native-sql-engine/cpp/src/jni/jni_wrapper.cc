@@ -1051,6 +1051,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   auto splitOptions = SplitOptions::Defaults();
   splitOptions.write_schema = write_schema;
   splitOptions.prefer_spill = prefer_spill;
+  splitOptions.buffered_write = true;
   if (buffer_size > 0) {
     splitOptions.buffer_size = buffer_size;
   }
