@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <set>
 #include <type_traits>
+#include <unordered_map>
 
 #include "third_party/gandiva/decimal_ops.h"
 #include "third_party/gandiva/types.h"
@@ -314,4 +315,30 @@ bool like(const std::string& data, const std::string& pattern) {
   std::string pcre_pattern = SqlLikePatternToPcre(pattern, 0);
   RE2 regex(pcre_pattern);
   return RE2::FullMatch(data, regex);
+}
+
+const std::string translate(const std::string text, const std::string matching_str,
+                            const std::string replace_str) {
+  char res[text.length()];
+  std::unordered_map<char, char> replace_map;
+  for (int i = 0; i < matching_str.length(); i++) {
+    if (i >= replace_str.length()) {
+      replace_map[matching_str[i]] = '\0';
+    } else {
+      replace_map[matching_str[i]] = replace_str[i];
+    }
+  }
+  int j = 0;
+  for (int i = 0; i < text.length(); i++) {
+    if (replace_map.find(text[i]) == replace_map.end()) {
+      res[j++] = text[i];
+      continue;
+    }
+    char replace_char = replace_map[text[i]];
+    if (replace_char != '\0') {
+      res[j++] = replace_char;
+    }
+  }
+  int out_len = j;
+  return std::string((char*)res, out_len);
 }
