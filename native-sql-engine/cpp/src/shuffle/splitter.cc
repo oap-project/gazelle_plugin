@@ -146,6 +146,7 @@ class Splitter::PartitionWriter {
       RETURN_NOT_OK(WriteSchemaPayload(data_file_os.get()));
     }
 
+    bool data_spilled = spilled_file_opened_;
     if (spilled_file_opened_) {
       RETURN_NOT_OK(spilled_file_os_->Close());
       RETURN_NOT_OK(MergeSpilled());
@@ -161,6 +162,14 @@ class Splitter::PartitionWriter {
 
     ARROW_ASSIGN_OR_RAISE(auto after_write, data_file_os->Tell());
     partition_length = after_write - before_write;
+
+    std::cout << "[SHUFFLE DEBUG] Wrote batch within length "
+              << splitter_->partition_cached_recordbatch_size_[partition_id_]
+              << ", produced partition length "
+              << partition_length
+              << ", data spilled: "
+              << data_spilled
+              << std::endl;
 
     return arrow::Status::OK();
   }
