@@ -199,12 +199,8 @@ class Splitter::PartitionWriter {
     // copy spilled data blocks
     ARROW_ASSIGN_OR_RAISE(auto nbytes, spilled_file_is_->GetSize());
     ARROW_ASSIGN_OR_RAISE(auto buffer, spilled_file_is_->Read(nbytes));
-    ARROW_ASSIGN_OR_RAISE(int64_t size_before_merge_spilled, splitter_->data_file_os_->Tell())
     RETURN_NOT_OK(splitter_->data_file_os_->Write(buffer));
-    ARROW_ASSIGN_OR_RAISE(int64_t size_after_merge_spilled, splitter_->data_file_os_->Tell())
 
-    std::cout << "[SHUFFLE DEBUG] Size before merging spilled: " << size_before_merge_spilled << ", size after: " << size_after_merge_spilled
-    << ", spilled file size: " << nbytes << std::endl;
     // close spilled file streams and delete the file
     RETURN_NOT_OK(spilled_file_is_->Close());
     auto fs = std::make_shared<arrow::fs::LocalFileSystem>();
