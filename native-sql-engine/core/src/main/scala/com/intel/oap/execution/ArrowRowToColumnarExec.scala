@@ -28,6 +28,7 @@ import org.apache.arrow.memory.ArrowBuf
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.UnsafeRow
 import org.apache.spark.sql.execution.{RowToColumnarExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
@@ -105,11 +106,32 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
           }
 
           override def next(): ColumnarBatch = {
-            if (arrowBuf != null) {
+            var isUnsafeRow = true
+            var firstRow = InternalRow.apply()
+            var hasNextRow = false
+            if (rowIterator.hasNext) {
+              firstRow = rowIterator.next()
+              hasNextRow = true
+            }
+            if (!firstRow.isInstanceOf[UnsafeRow]) {
+              isUnsafeRow = false
+            }
+
+            if (arrowBuf != null && isUnsafeRow) {
               val rowLength = new ListBuffer[Long]()
               var rowCount = 0
               var offset = 0
               val start = System.nanoTime()
+
+              assert(firstRow.isInstanceOf[UnsafeRow])
+              val unsafeRow = firstRow.asInstanceOf[UnsafeRow]
+              val sizeInBytes = unsafeRow.getSizeInBytes
+              Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
+                null, arrowBuf.memoryAddress() + offset, sizeInBytes)
+              offset += sizeInBytes
+              rowLength += sizeInBytes.toLong
+              rowCount += 1
+
               while (rowCount < numRows && rowIterator.hasNext) {
                 val row = rowIterator.next() // UnsafeRow
                 assert(row.isInstanceOf[UnsafeRow])
@@ -141,6 +163,12 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val vectors: Seq[WritableColumnVector] =
                 ArrowWritableColumnVector.allocateColumns(numRows, schema)
               var rowCount = 0
+
+              val start = System.nanoTime()
+              converters.convert(firstRow, vectors.toArray)
+              elapse += System.nanoTime() - start
+              rowCount += 1
+
               while (rowCount < numRows && rowIterator.hasNext) {
                 val row = rowIterator.next()
                 val start = System.nanoTime()
