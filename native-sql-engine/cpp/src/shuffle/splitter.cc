@@ -158,13 +158,14 @@ class Splitter::PartitionWriter {
 
     RETURN_NOT_OK(WriteRecordBatchPayload(data_file_os.get(), partition_id_));
     RETURN_NOT_OK(WriteEOS(data_file_os.get()));
+    int64_t cached_length = splitter_->partition_cached_recordbatch_size_[partition_id_];
     ClearCache();
 
     ARROW_ASSIGN_OR_RAISE(auto after_write, data_file_os->Tell());
     partition_length = after_write - before_write;
 
     std::cout << "[SHUFFLE DEBUG] Wrote batch within length "
-              << splitter_->partition_cached_recordbatch_size_[partition_id_]
+              << cached_length
               << ", produced partition length "
               << partition_length
               << ", data spilled: "
