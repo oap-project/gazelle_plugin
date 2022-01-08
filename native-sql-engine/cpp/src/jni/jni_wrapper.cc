@@ -1399,7 +1399,6 @@ JNIEXPORT jobject JNICALL
 Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToColumnar(
     JNIEnv* env, jobject, jbyteArray schema_arr, jlongArray row_length,
     jlong memory_address, jlong memory_pool_id) {
-
   if (schema_arr == NULL) {
     env->ThrowNew(
         illegal_argument_exception_class,

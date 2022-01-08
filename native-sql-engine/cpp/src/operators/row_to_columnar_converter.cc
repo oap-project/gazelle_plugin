@@ -16,6 +16,7 @@
  */
 
 #include "operators/row_to_columnar_converter.h"
+
 #include <algorithm>
 #include <iostream>
 
@@ -104,7 +105,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int8Type>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -138,7 +139,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int16Type>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -172,7 +173,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int32Type>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -205,7 +206,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Int64Type>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -238,7 +239,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::FloatType>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -271,7 +272,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::DoubleType>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -300,10 +301,10 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       std::unique_ptr<arrow::TypeTraits<arrow::BinaryType>::BuilderType> builder_;
       std::unique_ptr<arrow::ArrayBuilder> array_builder;
       arrow::MakeBuilder(pool, arrow::TypeTraits<arrow::BinaryType>::type_singleton(),
-                        &array_builder);
-      builder_.reset(
-          arrow::internal::checked_cast<arrow::TypeTraits<arrow::BinaryType>::BuilderType*>(
-              array_builder.release()));
+                         &array_builder);
+      builder_.reset(arrow::internal::checked_cast<
+                     arrow::TypeTraits<arrow::BinaryType>::BuilderType*>(
+          array_builder.release()));
 
       using offset_type = typename arrow::BinaryType::offset_type;
       for (int64_t position = 0; position < num_rows; position++) {
@@ -313,7 +314,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           int64_t offsetAndSize;
           memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                sizeof(int64_t));
+                 sizeof(int64_t));
           offset_type length = int32_t(offsetAndSize);
           int32_t wordoffset = int32_t(offsetAndSize >> 32);
           RETURN_NOT_OK(
@@ -327,10 +328,10 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       std::unique_ptr<arrow::TypeTraits<arrow::StringType>::BuilderType> builder_;
       std::unique_ptr<arrow::ArrayBuilder> array_builder;
       arrow::MakeBuilder(pool, arrow::TypeTraits<arrow::StringType>::type_singleton(),
-                        &array_builder);
-      builder_.reset(
-          arrow::internal::checked_cast<arrow::TypeTraits<arrow::StringType>::BuilderType*>(
-              array_builder.release()));
+                         &array_builder);
+      builder_.reset(arrow::internal::checked_cast<
+                     arrow::TypeTraits<arrow::StringType>::BuilderType*>(
+          array_builder.release()));
 
       using offset_type = typename arrow::StringType::offset_type;
       for (int64_t position = 0; position < num_rows; position++) {
@@ -340,7 +341,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         } else {
           int64_t offsetAndSize;
           memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                sizeof(int64_t));
+                 sizeof(int64_t));
           offset_type length = int32_t(offsetAndSize);
           int32_t wordoffset = int32_t(offsetAndSize >> 32);
           RETURN_NOT_OK(
@@ -377,21 +378,23 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
           if (precision <= 18) {
             int64_t low_value;
             memcpy(&low_value, memory_address_ + offsets[position] + fieldOffset, 8);
-            arrow::Decimal128 value = arrow::Decimal128(arrow::BasicDecimal128(low_value));
+            arrow::Decimal128 value =
+                arrow::Decimal128(arrow::BasicDecimal128(low_value));
             array_data[position] = value;
           } else {
             int64_t offsetAndSize;
             memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                  sizeof(int64_t));
+                   sizeof(int64_t));
             int32_t length = int32_t(offsetAndSize);
             int32_t wordoffset = int32_t(offsetAndSize >> 32);
             uint8_t bytesValue[length];
             memcpy(bytesValue, memory_address_ + offsets[position] + wordoffset, length);
             uint8_t bytesValue2[16]{};
-            for (int k = length - 1; k >= 0; k--){
+            for (int k = length - 1; k >= 0; k--) {
               bytesValue2[length - 1 - k] = bytesValue[k];
             }
-            arrow::Decimal128 value = arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
+            arrow::Decimal128 value =
+                arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
             array_data[position] = value;
           }
         }
@@ -409,7 +412,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
           AllocateBuffer(sizeof(arrow::TypeTraits<arrow::Date32Type>::CType) * num_rows,
-                        pool));
+                         pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -441,8 +444,8 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       out_data.type = arrow::int64();
       ARROW_ASSIGN_OR_RAISE(
           out_data.buffers[1],
-          AllocateBuffer(sizeof(arrow::TypeTraits<arrow::TimestampType>::CType) * num_rows,
-                        pool));
+          AllocateBuffer(
+              sizeof(arrow::TypeTraits<arrow::TimestampType>::CType) * num_rows, pool));
       ARROW_ASSIGN_OR_RAISE(out_data.buffers[0], AllocateBitmap(num_rows, pool));
       // auto array_data = out_data.buffers[1]->mutable_data();
       auto array_data =
@@ -472,8 +475,8 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
       auto child_type = list_type->value_type();
       switch (child_type->id()) {
         case arrow::BooleanType::type_id: {
-          arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::BooleanBuilder>(pool));
+          arrow::ListBuilder parent_builder(
+              pool, std::make_shared<arrow::BooleanBuilder>(pool));
           // The following builder is owned by components_builder.
           arrow::BooleanBuilder& child_builder =
               *(static_cast<arrow::BooleanBuilder*>(parent_builder.value_builder()));
@@ -485,7 +488,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -508,7 +511,8 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
           break;
         }
         case arrow::Int8Type::type_id: {
-          arrow::ListBuilder parent_builder(pool, std::make_shared<arrow::Int8Builder>(pool));
+          arrow::ListBuilder parent_builder(pool,
+                                            std::make_shared<arrow::Int8Builder>(pool));
           // The following builder is owned by components_builder.
           arrow::Int8Builder& child_builder =
               *(static_cast<arrow::Int8Builder*>(parent_builder.value_builder()));
@@ -520,7 +524,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -532,8 +536,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(int8_t*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(int8_t));
+                  auto value =
+                      *(int8_t*)(memory_address_ + offsets[position] + wordoffset +
+                                 header_in_bytes + j * sizeof(int8_t));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -544,7 +549,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::Int16Type::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::Int16Builder>(pool));
+                                            std::make_shared<arrow::Int16Builder>(pool));
           // The following builder is owned by components_builder.
           arrow::Int16Builder& child_builder =
               *(static_cast<arrow::Int16Builder*>(parent_builder.value_builder()));
@@ -556,7 +561,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -568,8 +573,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(int16_t*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(int16_t));
+                  auto value =
+                      *(int16_t*)(memory_address_ + offsets[position] + wordoffset +
+                                  header_in_bytes + j * sizeof(int16_t));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -580,7 +586,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::Int32Type::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::Int32Builder>(pool));
+                                            std::make_shared<arrow::Int32Builder>(pool));
           // The following builder is owned by components_builder.
           arrow::Int32Builder& child_builder =
               *(static_cast<arrow::Int32Builder*>(parent_builder.value_builder()));
@@ -592,7 +598,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -604,8 +610,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   RETURN_NOT_OK(child_builder.AppendNull());
                 } else {
-                  auto value = *(int32_t*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(int32_t));
+                  auto value =
+                      *(int32_t*)(memory_address_ + offsets[position] + wordoffset +
+                                  header_in_bytes + j * sizeof(int32_t));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -616,7 +623,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::Int64Type::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::Int64Builder>(pool));
+                                            std::make_shared<arrow::Int64Builder>(pool));
           // The following builder is owned by components_builder.
           arrow::Int64Builder& child_builder =
               *(static_cast<arrow::Int64Builder*>(parent_builder.value_builder()));
@@ -628,7 +635,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -640,8 +647,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(int64_t*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(int64_t));
+                  auto value =
+                      *(int64_t*)(memory_address_ + offsets[position] + wordoffset +
+                                  header_in_bytes + j * sizeof(int64_t));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -652,7 +660,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::FloatType::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::FloatBuilder>(pool));
+                                            std::make_shared<arrow::FloatBuilder>(pool));
           // The following builder is owned by components_builder.
           arrow::FloatBuilder& child_builder =
               *(static_cast<arrow::FloatBuilder*>(parent_builder.value_builder()));
@@ -664,7 +672,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -676,8 +684,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(float*)(memory_address_ + offsets[position] + wordoffset +
-                                        header_in_bytes + j * sizeof(float));
+                  auto value =
+                      *(float*)(memory_address_ + offsets[position] + wordoffset +
+                                header_in_bytes + j * sizeof(float));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -688,7 +697,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::DoubleType::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::DoubleBuilder>(pool));
+                                            std::make_shared<arrow::DoubleBuilder>(pool));
           // The following builder is owned by components_builder.
           arrow::DoubleBuilder& child_builder =
               *(static_cast<arrow::DoubleBuilder*>(parent_builder.value_builder()));
@@ -700,7 +709,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -712,8 +721,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(double*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(double));
+                  auto value =
+                      *(double*)(memory_address_ + offsets[position] + wordoffset +
+                                 header_in_bytes + j * sizeof(double));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -724,7 +734,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::Date32Type::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::Date32Builder>(pool));
+                                            std::make_shared<arrow::Date32Builder>(pool));
           // The following builder is owned by components_builder.
           arrow::Date32Builder& child_builder =
               *(static_cast<arrow::Date32Builder*>(parent_builder.value_builder()));
@@ -736,7 +746,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -748,8 +758,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(int32_t*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(int32_t));
+                  auto value =
+                      *(int32_t*)(memory_address_ + offsets[position] + wordoffset +
+                                  header_in_bytes + j * sizeof(int32_t));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -760,7 +771,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::TimestampType::type_id: {
           arrow::ListBuilder parent_builder(
-            pool, std::make_shared<arrow::TimestampBuilder>(arrow::int64(), pool));
+              pool, std::make_shared<arrow::TimestampBuilder>(arrow::int64(), pool));
           // The following builder is owned by components_builder.
           arrow::TimestampBuilder& child_builder =
               *(static_cast<arrow::TimestampBuilder*>(parent_builder.value_builder()));
@@ -772,7 +783,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -784,8 +795,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 if (is_null) {
                   child_builder.AppendNull();
                 } else {
-                  auto value = *(int64_t*)(memory_address_ + offsets[position] + wordoffset +
-                                          header_in_bytes + j * sizeof(int64_t));
+                  auto value =
+                      *(int64_t*)(memory_address_ + offsets[position] + wordoffset +
+                                  header_in_bytes + j * sizeof(int64_t));
                   RETURN_NOT_OK(child_builder.Append(value));
                 }
               }
@@ -796,7 +808,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::BinaryType::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::BinaryBuilder>(pool));
+                                            std::make_shared<arrow::BinaryBuilder>(pool));
           // The following builder is owned by components_builder.
           arrow::BinaryBuilder& child_builder =
               *(static_cast<arrow::BinaryBuilder*>(parent_builder.value_builder()));
@@ -808,7 +820,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -823,9 +835,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 } else {
                   int64_t elementOffsetAndSize;
                   memcpy(&elementOffsetAndSize,
-                        memory_address_ + offsets[position] + wordoffset + header_in_bytes +
-                            8 * j,
-                        sizeof(int64_t));
+                         memory_address_ + offsets[position] + wordoffset +
+                             header_in_bytes + 8 * j,
+                         sizeof(int64_t));
                   offset_type elementLength = int32_t(elementOffsetAndSize);
                   int32_t elementOffset = int32_t(elementOffsetAndSize >> 32);
                   RETURN_NOT_OK(child_builder.Append(
@@ -840,7 +852,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::StringType::type_id: {
           arrow::ListBuilder parent_builder(pool,
-                                          std::make_shared<arrow::StringBuilder>(pool));
+                                            std::make_shared<arrow::StringBuilder>(pool));
           // The following builder is owned by components_builder.
           arrow::StringBuilder& child_builder =
               *(static_cast<arrow::StringBuilder*>(parent_builder.value_builder()));
@@ -852,7 +864,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -867,9 +879,9 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                 } else {
                   int64_t elementOffsetAndSize;
                   memcpy(&elementOffsetAndSize,
-                        memory_address_ + offsets[position] + wordoffset + header_in_bytes +
-                            8 * j,
-                        sizeof(int64_t));
+                         memory_address_ + offsets[position] + wordoffset +
+                             header_in_bytes + 8 * j,
+                         sizeof(int64_t));
                   offset_type elementLength = int32_t(elementOffsetAndSize);
                   int32_t elementOffset = int32_t(elementOffsetAndSize >> 32);
                   RETURN_NOT_OK(child_builder.Append(
@@ -884,7 +896,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         }
         case arrow::Decimal128Type::type_id: {
           std::shared_ptr<arrow::Decimal128Type> dtype =
-            std::dynamic_pointer_cast<arrow::Decimal128Type>(child_type);
+              std::dynamic_pointer_cast<arrow::Decimal128Type>(child_type);
           int32_t precision = dtype->precision();
           int32_t scale = dtype->scale();
           arrow::ListBuilder parent_builder(
@@ -901,7 +913,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               RETURN_NOT_OK(parent_builder.Append());
               int64_t offsetAndSize;
               memcpy(&offsetAndSize, memory_address_ + offsets[position] + fieldOffset,
-                    sizeof(int64_t));
+                     sizeof(int64_t));
               int32_t length = int32_t(offsetAndSize);
               int32_t wordoffset = int32_t(offsetAndSize >> 32);
               int64_t num_elements =
@@ -916,28 +928,30 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                   if (precision <= 18) {
                     int64_t low_value;
                     memcpy(&low_value,
-                          memory_address_ + offsets[position] + wordoffset +
-                              header_in_bytes + 8 * j,
-                          sizeof(int64_t));
+                           memory_address_ + offsets[position] + wordoffset +
+                               header_in_bytes + 8 * j,
+                           sizeof(int64_t));
                     auto value = arrow::Decimal128(arrow::BasicDecimal128(low_value));
                     RETURN_NOT_OK(child_builder.Append(value));
                   } else {
                     int64_t elementOffsetAndSize;
                     memcpy(&elementOffsetAndSize,
-                          memory_address_ + offsets[position] + wordoffset +
-                              header_in_bytes + 8 * j,
-                          sizeof(int64_t));
+                           memory_address_ + offsets[position] + wordoffset +
+                               header_in_bytes + 8 * j,
+                           sizeof(int64_t));
                     int32_t elementLength = int32_t(elementOffsetAndSize);
                     int32_t elementOffset = int32_t(elementOffsetAndSize >> 32);
                     uint8_t bytesValue[elementLength];
-                    memcpy(bytesValue,
-                          memory_address_ + offsets[position] + wordoffset + elementOffset,
-                          elementLength);
+                    memcpy(
+                        bytesValue,
+                        memory_address_ + offsets[position] + wordoffset + elementOffset,
+                        elementLength);
                     uint8_t bytesValue2[16]{};
-                    for (int k = elementLength - 1; k >= 0; k--){
+                    for (int k = elementLength - 1; k >= 0; k--) {
                       bytesValue2[elementLength - 1 - k] = bytesValue[k];
                     }
-                    arrow::Decimal128 value = arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
+                    arrow::Decimal128 value =
+                        arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
                     RETURN_NOT_OK(child_builder.Append(value));
                   }
                 }

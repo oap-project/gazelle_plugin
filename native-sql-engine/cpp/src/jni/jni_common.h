@@ -132,7 +132,9 @@ arrow::Status AppendNodes(std::shared_ptr<arrow::Array> column,
       auto list_array = std::dynamic_pointer_cast<arrow::ListArray>(column);
       RETURN_NOT_OK(AppendNodes(list_array->values(), nodes));
     } break;
-    default: { } break; }
+    default: {
+    } break;
+  }
   return arrow::Status::OK();
 }
 
