@@ -95,6 +95,22 @@ class ColumnarGetJsonObject(left: Expression, right: Expression, original: GetJs
   }
 }
 
+class ColumnarStringInstr(left: Expression, right: Expression, original: StringInstr)
+    extends StringInstr(original.str, original.substr) with ColumnarExpression with Logging {
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (left_node, _): (TreeNode, ArrowType) =
+      left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (right_node, _): (TreeNode, ArrowType) =
+      right.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = CodeGeneration.getResultType(dataType)
+    // Be careful about the argument order.
+    val funcNode = TreeBuilder.makeFunction("locate",
+      Lists.newArrayList(right_node, left_node,
+        TreeBuilder.makeLiteral(1.asInstanceOf[java.lang.Integer])), resultType)
+    (funcNode, resultType)
+  }
+}
 
 object ColumnarBinaryExpression {
 
@@ -116,6 +132,8 @@ object ColumnarBinaryExpression {
         new ColumnarDateSub(left, right)
       case g: GetJsonObject =>
         new ColumnarGetJsonObject(left, right, g)
+      case instr: StringInstr =>
+        new ColumnarStringInstr(left, right, instr)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

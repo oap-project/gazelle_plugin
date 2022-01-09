@@ -41,6 +41,7 @@
 #include "jni/concurrent_map.h"
 #include "jni/jni_common.h"
 #include "operators/columnar_to_row_converter.h"
+#include "operators/row_to_columnar_converter.h"
 #include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
 #include "utils/exception.h"
@@ -122,6 +123,7 @@ static jint JNI_VERSION = JNI_VERSION_1_8;
 
 using CodeGenerator = sparkcolumnarplugin::codegen::CodeGenerator;
 using ColumnarToRowConverter = sparkcolumnarplugin::columnartorow::ColumnarToRowConverter;
+using RowToColumnarConverter = sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter;
 static arrow::jni::ConcurrentMap<std::shared_ptr<CodeGenerator>> handler_holder_;
 static arrow::jni::ConcurrentMap<std::shared_ptr<ResultIteratorBase>>
     batch_iterator_holder_;
@@ -1051,6 +1053,7 @@ Java_com_intel_oap_vectorized_ShuffleSplitterJniWrapper_nativeMake(
   auto splitOptions = SplitOptions::Defaults();
   splitOptions.write_schema = write_schema;
   splitOptions.prefer_spill = prefer_spill;
+  splitOptions.buffered_write = true;
   if (buffer_size > 0) {
     splitOptions.buffer_size = buffer_size;
   }
@@ -1391,6 +1394,44 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeClose(
   JNI_METHOD_START
   columnar_to_row_converter_holder_.Erase(instance_id);
   JNI_METHOD_END()
+}
+
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_ArrowRowToColumnarJniWrapper_nativeConvertRowToColumnar(
+    JNIEnv* env, jobject, jbyteArray schema_arr, jlongArray row_length,
+    jlong memory_address, jlong memory_pool_id) {
+  if (schema_arr == NULL) {
+    env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Native convert row to columnar schema can't be null").c_str());
+    return NULL;
+  }
+  if (row_length == NULL) {
+    env->ThrowNew(
+        illegal_argument_exception_class,
+        std::string("Native convert row to columnar: buf_addrs can't be null").c_str());
+    return NULL;
+  }
+
+  std::shared_ptr<arrow::Schema> schema;
+  // ValueOrDie in MakeSchema
+  MakeSchema(env, schema_arr, &schema);
+  jlong* in_row_length = env->GetLongArrayElements(row_length, JNI_FALSE);
+  uint8_t* address = reinterpret_cast<uint8_t*>(memory_address);
+  auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+  int num_rows = env->GetArrayLength(row_length);
+  int num_columnars = schema->num_fields();
+  std::shared_ptr<arrow::RecordBatch> rb;
+  std::shared_ptr<RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<RowToColumnarConverter>(schema, num_columnars, num_rows,
+                                               in_row_length, address, pool);
+  JniAssertOkOrThrow(row_to_columnar_converter->Init(&rb),
+                     "Native convert Row to Columnar Init "
+                     "RowToColumnarConverter failed");
+
+  jbyteArray serialized_record_batch =
+      JniGetOrThrow(ToBytes(env, rb), "Error deserializing message");
+  return serialized_record_batch;
 }
 
 JNIEXPORT void JNICALL Java_com_intel_oap_tpc_MallocUtils_mallocTrim(JNIEnv* env,

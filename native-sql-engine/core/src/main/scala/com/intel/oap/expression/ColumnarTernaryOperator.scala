@@ -110,15 +110,43 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
   }
 }
 
+class ColumnarStringTranslate(src: Expression, matchingExpr: Expression,
+                              replaceExpr: Expression, original: Expression)
+    extends StringTranslate(src, matchingExpr, replaceExpr) with ColumnarExpression{
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(src.dataType) == -1) {
+      throw new UnsupportedOperationException(s"${src.dataType}" +
+          s" is not supported in ColumnarStringTranslate!")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object) : (TreeNode, ArrowType) = {
+    val (str_node, _): (TreeNode, ArrowType) =
+      src.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (matchingExpr_node, _): (TreeNode, ArrowType) =
+      matchingExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (replaceExpr_node, _): (TreeNode, ArrowType) =
+      replaceExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("translate",
+      Lists.newArrayList(str_node, matchingExpr_node, replaceExpr_node), resultType), resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
-  def create(str: Expression, pos: Expression, len: Expression,
+  def create(src: Expression, arg1: Expression, arg2: Expression,
              original: Expression): Expression = original match {
     case ss: Substring =>
-      new ColumnarSubString(str, pos, len, ss)
+      new ColumnarSubString(src, arg1, arg2, ss)
       // Currently not supported.
 //    case a: StringSplit =>
 //      new ColumnarStringSplit(str, a.regex, a.limit, a)
+    case st: StringTranslate =>
+      new ColumnarStringTranslate(src, arg1, arg2, st)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
