@@ -393,7 +393,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
             for (int k = length - 1; k >= 0; k--) {
               bytesValue2[length - 1 - k] = bytesValue[k];
             }
-            if (int8_t(bytesValue[0]) < 0){
+            if (int8_t(bytesValue[0]) < 0) {
               for (int k = length; k < 16; k++) {
                 bytesValue2[k] = 255;
               }
@@ -955,7 +955,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                     for (int k = elementLength - 1; k >= 0; k--) {
                       bytesValue2[elementLength - 1 - k] = bytesValue[k];
                     }
-                    if (int8_t(bytesValue[0]) < 0){
+                    if (int8_t(bytesValue[0]) < 0) {
                       for (int k = elementLength; k < 16; k++) {
                         bytesValue2[k] = 255;
                       }
