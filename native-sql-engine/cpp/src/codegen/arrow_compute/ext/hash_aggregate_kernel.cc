@@ -44,8 +44,8 @@ namespace codegen {
 namespace arrowcompute {
 namespace extra {
 using ArrayList = std::vector<std::shared_ptr<arrow::Array>>;
-using precompile::StringHashMap;
 using precompile::Decimal128HashMap;
+using precompile::StringHashMap;
 
 ///////////////  HashAgg Kernel  ////////////////
 class HashAggregateKernel::Impl {
@@ -259,8 +259,8 @@ class HashAggregateKernel::Impl {
       auto type = key_node_list[0]->return_type();
 
       aggr_prepare_ss << "aggr_hash_table_" << level << " = std::make_shared<"
-                      << "PHMap<" << GetCTypeString(type)
-                      << ">>(ctx_->memory_pool());" << std::endl;
+                      << "PHMap<" << GetCTypeString(type) << ">>(ctx_->memory_pool());"
+                      << std::endl;
       define_ss << "std::shared_ptr<PHMap<" << GetCTypeString(type)
                 << ">> aggr_hash_table_" << level << ";" << std::endl;
     }
@@ -1033,8 +1033,7 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       batch_size_ = GetBatchSize();
-      aggr_hash_table_ =
-          std::make_shared<Decimal128HashMap>(ctx->memory_pool());
+      aggr_hash_table_ = std::make_shared<Decimal128HashMap>(ctx->memory_pool());
     }
 
     arrow::Status ProcessAndCacheOne(

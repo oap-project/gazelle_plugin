@@ -20,7 +20,6 @@
 #include <arrow/status.h>
 
 #include <cmath>
-
 #include <unordered_map>
 
 #define NOTFOUND -1
@@ -29,13 +28,13 @@ template <typename T, typename Enable = void>
 class PHMap {};
 
 template <typename Scalar>
-class PHMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
-                                             !std::is_same<Scalar, bool>::value  &&
-                                             !std::is_same<Scalar, arrow::util::string_view>::value>> {
+class PHMap<Scalar,
+            std::enable_if_t<!std::is_floating_point<Scalar>::value &&
+                             !std::is_same<Scalar, bool>::value &&
+                             !std::is_same<Scalar, arrow::util::string_view>::value>> {
  public:
-
   PHMap(arrow::MemoryPool* pool) {
-    //dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
+    // dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
   }
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
@@ -88,13 +87,13 @@ class PHMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
 };
 
 template <typename Scalar>
-class PHMap<Scalar, std::enable_if_t<std::is_same<Scalar, arrow::util::string_view>::value>> {
+class PHMap<Scalar,
+            std::enable_if_t<std::is_same<Scalar, arrow::util::string_view>::value>> {
  public:
-
   PHMap(arrow::MemoryPool* pool) {
-    //dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
+    // dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
   }
-template <typename Func1, typename Func2>
+  template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {
     if (dense_map_.find(value) == dense_map_.end()) {
@@ -149,9 +148,8 @@ template <typename Func1, typename Func2>
 template <typename Scalar>
 class PHMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::value>> {
  public:
-
   PHMap(arrow::MemoryPool* pool) {
-    //dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
+    // dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
   }
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,

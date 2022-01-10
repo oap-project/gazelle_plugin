@@ -997,8 +997,7 @@ class ConditionedProbeArraysKernel::Impl {
     bool cond_check = false;
     bool multiple_cols = (left_key_index_list.size() > 1);
     std::string hash_map_include_str = R"(#include "precompile/sparse_hash_map.h")";
-    std::string hash_map_type_str =
-        "PHMap<" + GetCTypeString(arrow::int64()) + ">";
+    std::string hash_map_type_str = "PHMap<" + GetCTypeString(arrow::int64()) + ">";
     std::string hash_map_define_str =
         "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
     if (!multiple_cols) {
@@ -1009,8 +1008,8 @@ class ConditionedProbeArraysKernel::Impl {
         hash_map_include_str = R"(#include "precompile/hash_map.h")";
       } else {
         hash_map_type_str =
-            "PHMap<" +
-            GetCTypeString(left_field_list[left_key_index_list[0]]->type()) + ">";
+            "PHMap<" + GetCTypeString(left_field_list[left_key_index_list[0]]->type()) +
+            ">";
       }
       hash_map_define_str =
           "std::make_shared<" + hash_map_type_str + ">(ctx_->memory_pool());";
