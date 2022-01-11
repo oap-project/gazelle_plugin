@@ -211,7 +211,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmark) {
   num_batches = 0;
   uint64_t num_output_batches = 0;
   std::shared_ptr<arrow::RecordBatch> out;
-  while(true) {
+  while (true) {
     TIME_MICRO_OR_THROW(elapse_right_read,
                         right_record_batch_reader->ReadNext(&right_record_batch));
     if (!right_record_batch) {
@@ -308,7 +308,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
       elapse_gen, CreateCodeGenerator(ctx.memory_pool(), left_schema, {probeArrays_expr},
                                       field_list, &expr_probe, true));
 
-  while(true) {
+  while (true) {
     TIME_MICRO_OR_THROW(elapse_left_read,
                         left_record_batch_reader->ReadNext(&left_record_batch));
     if (!left_record_batch) {
@@ -328,7 +328,7 @@ TEST_F(BenchmarkArrowComputeJoin, JoinBenchmarkWithCondition) {
   num_batches = 0;
   uint64_t num_output_batches = 0;
   std::shared_ptr<arrow::RecordBatch> out;
-  while(true) {
+  while (true) {
     TIME_MICRO_OR_THROW(elapse_right_read,
                         right_record_batch_reader->ReadNext(&right_record_batch));
     if (!right_record_batch) {
