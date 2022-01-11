@@ -51,27 +51,27 @@ struct FindAccumulatorType<I, arrow::enable_if_floating_point<I>> {
 };
 
 arrow::Status ActionBase::Submit(ArrayList in, int max_group_id,
-                                 std::function<arrow::Status(int)>* on_valid,
-                                 std::function<arrow::Status()>* on_null) {
+                                 func::function<arrow::Status(int)>* on_valid,
+                                 func::function<arrow::Status()>* on_null) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
 arrow::Status ActionBase::Submit(
     std::vector<std::shared_ptr<arrow::Array>> in,
-    std::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
-    std::function<arrow::Status()>* on_null) {
+    func::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
+    func::function<arrow::Status()>* on_null) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
 arrow::Status ActionBase::Submit(const std::shared_ptr<arrow::Array>& in,
                                  std::stringstream* ss,
-                                 std::function<arrow::Status(int)>* out) {
+                                 func::function<arrow::Status(int)>* out) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
 arrow::Status ActionBase::Submit(const std::shared_ptr<arrow::Array>& in,
-                                 std::function<arrow::Status(uint32_t)>* on_valid,
-                                 std::function<arrow::Status()>* on_null) {
+                                 func::function<arrow::Status(uint32_t)>* on_valid,
+                                 func::function<arrow::Status()>* on_null) {
   return arrow::Status::NotImplemented("ActionBase Submit is abstract.");
 }
 
@@ -138,8 +138,8 @@ class UniqueAction : public ActionBase {
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -287,8 +287,8 @@ class CountAction : public ActionBase {
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_.size() <= max_group_id) {
       cache_.resize(max_group_id + 1, 0);
@@ -449,8 +449,8 @@ class CountLiteralAction : public ActionBase {
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_.size() <= max_group_id) {
       cache_.resize(max_group_id + 1, 0);
@@ -573,8 +573,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -688,8 +688,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   template <typename CTYPE>
   auto GetFunction(const ArrayList& in_list, int max_group_id,
-                   std::function<arrow::Status(int)>* on_valid,
-                   std::function<arrow::Status()>* on_null) ->
+                   func::function<arrow::Status(int)>* on_valid,
+                   func::function<arrow::Status()>* on_null) ->
       typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
     in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
@@ -737,8 +737,8 @@ class MinAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   template <typename CTYPE>
   auto GetFunction(const ArrayList& in_list, int max_group_id,
-                   std::function<arrow::Status(int)>* on_valid,
-                   std::function<arrow::Status()>* on_null) ->
+                   func::function<arrow::Status(int)>* on_valid,
+                   func::function<arrow::Status()>* on_null) ->
       typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
     in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
@@ -855,8 +855,8 @@ class MinAction<DataType, CType, precompile::enable_if_decimal<DataType>>
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -1012,8 +1012,8 @@ class MinAction<DataType, CType, precompile::enable_if_string_like<DataType>>
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -1183,8 +1183,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -1282,8 +1282,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   template <typename CTYPE>
   auto GetFunction(const ArrayList& in_list, int max_group_id,
-                   std::function<arrow::Status(int)>* on_valid,
-                   std::function<arrow::Status()>* on_null) ->
+                   func::function<arrow::Status(int)>* on_valid,
+                   func::function<arrow::Status()>* on_null) ->
       typename std::enable_if_t<std::is_floating_point<CTYPE>::value> {
     in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
@@ -1336,8 +1336,8 @@ class MaxAction<DataType, CType, precompile::enable_if_number<DataType>>
 
   template <typename CTYPE>
   auto GetFunction(const ArrayList& in_list, int max_group_id,
-                   std::function<arrow::Status(int)>* on_valid,
-                   std::function<arrow::Status()>* on_null) ->
+                   func::function<arrow::Status(int)>* on_valid,
+                   func::function<arrow::Status()>* on_null) ->
       typename std::enable_if_t<!std::is_floating_point<CTYPE>::value> {
     in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
@@ -1460,8 +1460,8 @@ class MaxAction<DataType, CType, precompile::enable_if_decimal<DataType>>
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -1616,8 +1616,8 @@ class MaxAction<DataType, CType, precompile::enable_if_string_like<DataType>>
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -1789,8 +1789,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -1940,8 +1940,8 @@ class SumAction<DataType, CType, ResDataType, ResCType,
   int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -2098,8 +2098,8 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
   int RequiredColNum() { return 1; }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -2253,8 +2253,8 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -2413,8 +2413,8 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -2584,8 +2584,8 @@ class AvgAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -2771,8 +2771,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_sum_.size() <= max_group_id) {
       cache_sum_.resize(max_group_id + 1, 0);
@@ -2950,8 +2950,8 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_sum_.size() <= max_group_id) {
       cache_sum_.resize(max_group_id + 1, 0);
@@ -3124,8 +3124,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_sum_.size() <= max_group_id) {
       cache_sum_.resize(max_group_id + 1, 0);
@@ -3305,8 +3305,8 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_sum_.size() <= max_group_id) {
       cache_sum_.resize(max_group_id + 1, 0);
@@ -3475,8 +3475,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -3655,8 +3655,8 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -3850,8 +3850,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -4084,8 +4084,8 @@ class StddevSampPartialAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -4311,8 +4311,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
@@ -4518,8 +4518,8 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   }
 
   arrow::Status Submit(ArrayList in_list, int max_group_id,
-                       std::function<arrow::Status(int)>* on_valid,
-                       std::function<arrow::Status()>* on_null) override {
+                       func::function<arrow::Status(int)>* on_valid,
+                       func::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
