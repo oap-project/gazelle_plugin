@@ -1312,12 +1312,7 @@ typedef )" + item_content_str +
         GetListContentStr(multiple_cols, left_key_index_list.size());
 
     return BaseCodes() + R"(
-#include <numeric>
-
-#include "codegen/arrow_compute/ext/array_item_index.h"
-#include "precompile/builder.h"
-#include "precompile/gandiva.h"
-using namespace sparkcolumnarplugin::precompile;
+#include "precompile/wscgapi.hpp"
 )" + hash_map_include_str +
            R"(
 class FVector {

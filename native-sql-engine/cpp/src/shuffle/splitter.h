@@ -209,6 +209,9 @@ class Splitter {
   std::shared_ptr<arrow::Schema> schema_;
   SplitOptions options_;
 
+  // write options for tiny batches
+  arrow::ipc::IpcWriteOptions tiny_bach_write_options_;
+
   int64_t total_bytes_written_ = 0;
   int64_t total_bytes_spilled_ = 0;
   int64_t total_write_time_ = 0;
@@ -227,7 +230,7 @@ class Splitter {
   std::vector<int32_t> sub_dir_selection_;
   std::vector<std::string> configured_dirs_;
 
-  std::shared_ptr<arrow::io::FileOutputStream> data_file_os_;
+  std::shared_ptr<arrow::io::OutputStream> data_file_os_;
 
   // shared by all partition writers
   std::shared_ptr<arrow::ipc::IpcPayload> schema_payload_;

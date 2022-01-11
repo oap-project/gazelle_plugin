@@ -20,7 +20,7 @@ package org.apache.spark.sql.internal
 import java.util.TimeZone
 
 import org.apache.hadoop.fs.Path
-import org.apache.log4j.Level
+//import org.apache.log4j.Level
 
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.parser.ParseException
@@ -387,6 +387,7 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
     assert(e.getMessage.contains(config))
   }
 
+  /* Remark log4j1 unit test
   test("log deprecation warnings") {
     val logAppender = new LogAppender("deprecated SQL configs")
     def check(config: String): Unit = {
@@ -407,6 +408,7 @@ class SQLConfSuite extends QueryTest with SharedSparkSession {
     }
     check(config2)
   }
+  */
 
   test("spark.sql.session.timeZone should only accept valid zone id") {
     spark.conf.set(SQLConf.SESSION_LOCAL_TIMEZONE.key, MIT.getId)

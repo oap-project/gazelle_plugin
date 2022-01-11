@@ -71,7 +71,12 @@ class ColumnarShuffleWriter[K, V](
   } else {
     "uncompressed"
   }
+  private val batchCompressThreshold =
+    GazellePluginConfig.getConf.columnarShuffleBatchCompressThreshold;
+
   private val preferSpill = GazellePluginConfig.getConf.columnarShufflePreferSpill
+
+  private val writeSchema = GazellePluginConfig.getConf.columnarShuffleWriteSchema
 
   private val jniWrapper = new ShuffleSplitterJniWrapper()
 
@@ -101,6 +106,7 @@ class ColumnarShuffleWriter[K, V](
         offheapPerTask,
         nativeBufferSize,
         defaultCompressionCodec,
+        batchCompressThreshold,
         dataTmp.getAbsolutePath,
         blockManager.subDirsPerLocalDir,
         localDirs,
@@ -116,7 +122,8 @@ class ColumnarShuffleWriter[K, V](
               // fixme pass true when being called by self
               return jniWrapper.nativeSpill(nativeSplitter, size, false)
             }
-          }).getNativeInstanceId)
+          }).getNativeInstanceId,
+        writeSchema)
     }
 
     while (records.hasNext) {

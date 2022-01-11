@@ -18,19 +18,11 @@
 package org.apache.spark.sql.execution
 
 import com.google.common.collect.Lists
-import com.intel.oap.expression.{
-  CodeGeneration,
-  ColumnarExpression,
-  ColumnarExpressionConverter,
-  ConverterUtils
-}
-import com.intel.oap.vectorized.{
-  ArrowColumnarBatchSerializer,
-  ArrowWritableColumnVector,
-  NativePartitioning
-}
+import com.intel.oap.expression.{CodeGeneration, ColumnarExpression, ColumnarExpressionConverter, ConverterUtils}
+import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector, NativePartitioning}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
+
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
@@ -46,19 +38,15 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec.createShuffleWriteProcessor
 import org.apache.spark.sql.execution.exchange._
-import org.apache.spark.sql.execution.metric.{
-  SQLMetric,
-  SQLMetrics,
-  SQLShuffleReadMetricsReporter,
-  SQLShuffleWriteMetricsReporter
-}
+import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics, SQLShuffleReadMetricsReporter, SQLShuffleWriteMetricsReporter}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.ColumnarBatch
 import org.apache.spark.util.{MutablePair, Utils}
-
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
+
+import org.apache.spark.sql.util.ArrowUtils
 
 case class ColumnarShuffleExchangeExec(
     override val outputPartitioning: Partitioning,
@@ -108,6 +96,7 @@ case class ColumnarShuffleExchangeExec(
   }
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
+    schema,
     longMetric("avgReadBatchNumRows"),
     longMetric("numOutputRows"))
 
@@ -206,6 +195,7 @@ class ColumnarShuffleExchangeAdaptor(
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
+    schema,
     longMetric("avgReadBatchNumRows"),
     longMetric("numOutputRows"))
 

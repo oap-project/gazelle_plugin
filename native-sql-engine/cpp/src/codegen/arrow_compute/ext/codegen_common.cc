@@ -39,12 +39,7 @@ namespace extra {
 
 std::string BaseCodes() {
   return R"(
-#include <arrow/compute/api.h>
-#include <arrow/record_batch.h>
 
-#include "codegen/arrow_compute/ext/code_generator_base.h"
-#include "precompile/array.h"
-using namespace sparkcolumnarplugin::codegen::arrowcompute::extra;
 )";
 }
 
@@ -601,6 +596,7 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   mkdir(outpath.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
   std::string prefix = "/spark-columnar-plugin-codegen-";
   std::string cppfile = outpath + prefix + signature + ".cc";
+  std::string objfile = outpath + prefix + signature + ".o";
   std::string libfile = outpath + prefix + signature + ".so";
   std::string jarfile = outpath + prefix + signature + ".jar";
   std::string logfile = outpath + prefix + signature + ".log";
@@ -626,13 +622,16 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
   std::string env_gcc = std::string(env_gcc_);
 
+  std::string env_codegen_option = " -O3 -march=native ";
   char* env_codegen_option_ = std::getenv("CODEGEN_OPTION");
 
-  if (env_codegen_option_ == nullptr) {
-    env_codegen_option_ = " -O3 -march=native ";
+  if (env_codegen_option_ != nullptr) {
+    env_codegen_option = std::string(env_codegen_option_);
   }
-  std::string env_codegen_option = std::string(env_codegen_option_);
 
+  std::string libwscgfile = GetTempPath() + "/nativesql_include/precompile/wscgapi.hpp";
+  std::string libwscg_pch =
+      GetTempPath() + "/nativesql_include/precompile/wscgapi.hpp.gch";
   const char* env_arrow_dir = std::getenv("LIBARROW_DIR");
   std::string arrow_header;
   std::string arrow_lib, arrow_lib2;
@@ -646,14 +645,33 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     arrow_lib2 = " -L" + std::string(env_arrow_dir) + "/lib ";
   }
   // compile the code
-  std::string cmd = env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
-                    arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 +
-                    nativesql_lib + cppfile + " -o " + libfile + env_codegen_option +
-                    " -shared -fPIC -lspark_columnar_jni 2> " + logfile;
+  std::string base_dir = GetTempPath();
+  chdir(base_dir.c_str());
+  std::string cmd = "";
+  struct stat pch_stat;
+  auto ret = stat(libwscg_pch.c_str(), &pch_stat);
+  if (ret == -1) {
+    cmd += env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
+           arrow_lib + arrow_lib2 + nativesql_header + nativesql_header_2 + " -c " +
+           libwscgfile + env_codegen_option + " -fPIC && ";
+  }
+
+  cmd += env_gcc + " -std=c++14 -Wno-deprecated-declarations " + arrow_header +
+         nativesql_header + nativesql_header_2 + " -c " + cppfile + " -o " + objfile +
+         env_codegen_option + "-fPIC && ";
+  // linking
+  cmd += env_gcc + arrow_lib + arrow_lib2 + nativesql_lib + objfile + " -o " + libfile +
+         " -lspark_columnar_jni -shared && ";
+
+  // package
+  cmd += "cd " + outpath + " && jar -cf spark-columnar-plugin-codegen-precompile-" +
+         signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so 2>" +
+         logfile;
+
 #ifdef DEBUG
   std::cout << cmd << std::endl;
 #endif
-  int ret;
+
   int elapse_time = 0;
   TIME_MICRO(elapse_time, ret, system(cmd.c_str()));
 #ifdef DEBUG
@@ -663,15 +681,6 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
     std::cout << "compilation failed, see " << logfile << std::endl;
     std::cout << cmd << std::endl;
     return arrow::Status::Invalid("compilation failed, see ", logfile);
-  }
-  cmd = "cd " + outpath + "; jar -cf spark-columnar-plugin-codegen-precompile-" +
-        signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so";
-#ifdef DEBUG
-  std::cout << cmd << std::endl;
-#endif
-  ret = system(cmd.c_str());
-  if (WEXITSTATUS(ret) != EXIT_SUCCESS) {
-    return arrow::Status::Invalid("package jar failed");
   }
 
 #ifdef DEBUG

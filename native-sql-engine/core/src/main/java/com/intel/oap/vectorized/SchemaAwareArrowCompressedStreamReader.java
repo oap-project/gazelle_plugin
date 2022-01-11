@@ -23,6 +23,7 @@ import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -41,15 +42,36 @@ import java.util.*;
  * This class reads from an input stream containing compressed buffers and produces
  * ArrowRecordBatches.
  */
-public class ArrowCompressedStreamReader extends ArrowStreamReader {
+public class SchemaAwareArrowCompressedStreamReader extends ArrowStreamReader {
+  public static final String COMPRESS_TYPE_NONE = "none";
+
+  private final Schema originalSchema;
+
+  // fixme: the design can be improved to avoid relying on this stateful field
   private String compressType;
 
-  public ArrowCompressedStreamReader(InputStream in, BufferAllocator allocator) {
+  public SchemaAwareArrowCompressedStreamReader(Schema originalSchema, InputStream in,
+      BufferAllocator allocator) {
     super(in, allocator);
+    this.originalSchema = originalSchema;
   }
 
-  public String GetCompressType() {
+
+  public SchemaAwareArrowCompressedStreamReader(InputStream in,
+      BufferAllocator allocator) {
+    this(null, in, allocator);
+  }
+
+  public String getCompressType() {
     return compressType;
+  }
+
+  @Override
+  protected Schema readSchema() throws IOException {
+    if (originalSchema == null) {
+      return super.readSchema();
+    }
+    return originalSchema;
   }
 
   protected void initialize() throws IOException {
@@ -95,12 +117,17 @@ public class ArrowCompressedStreamReader extends ArrowStreamReader {
       }
 
       ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
-      String codecName = CompressionType.name(batch.getBodyCompression().getCodec());
-
-      if (codecName.equals("LZ4_FRAME")) {
-        compressType = "lz4";
+      byte codec = batch.getBodyCompression().getCodec();
+      final String codecName;
+      if (codec == NoCompressionCodec.COMPRESSION_TYPE) {
+        compressType = COMPRESS_TYPE_NONE;
       } else {
-        compressType = codecName;
+        codecName = CompressionType.name(codec);
+        if (codecName.equals("LZ4_FRAME")) {
+          compressType = "lz4";
+        } else {
+          compressType = codecName;
+        }
       }
 
       loadRecordBatch(batch);
@@ -121,9 +148,18 @@ public class ArrowCompressedStreamReader extends ArrowStreamReader {
   @Override
   protected void loadRecordBatch(ArrowRecordBatch batch) {
     try {
-      ((CompressedVectorLoader) loader).loadCompressed(batch);
+      CompressedVectorLoader loader = (CompressedVectorLoader) this.loader;
+      if (isCurrentBatchCompressed()) {
+        loader.loadCompressed(batch);
+      } else {
+        loader.loadUncompressed(batch);
+      }
     } finally {
       batch.close();
     }
+  }
+
+  public boolean isCurrentBatchCompressed() {
+    return !Objects.equals(getCompressType(), COMPRESS_TYPE_NONE);
   }
 }
