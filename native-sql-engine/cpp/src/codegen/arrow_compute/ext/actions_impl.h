@@ -22,13 +22,14 @@
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/util/checked_cast.h>
-#include "third_party/function_view.hpp"
 #include <math.h>
 
 #include <iostream>
 #include <limits>
 #include <memory>
 #include <sstream>
+
+#include "third_party/function_view.hpp"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -44,9 +45,10 @@ class ActionBase {
   virtual arrow::Status Submit(ArrayList in, int max_group_id,
                                func::function<arrow::Status(int)>* on_valid,
                                func::function<arrow::Status()>* on_null);
-  virtual arrow::Status Submit(std::vector<std::shared_ptr<arrow::Array>> in,
-                               func::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
-                               func::function<arrow::Status()>* on_null);
+  virtual arrow::Status Submit(
+      std::vector<std::shared_ptr<arrow::Array>> in,
+      func::function<arrow::Status(uint64_t, uint64_t)>* on_valid,
+      func::function<arrow::Status()>* on_null);
   virtual arrow::Status Submit(const std::shared_ptr<arrow::Array>& in,
                                std::stringstream* ss,
                                func::function<arrow::Status(int)>* out);
