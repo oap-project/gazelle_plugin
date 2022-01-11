@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql
 
-//import org.apache.log4j.Level
+import org.apache.log4j.Level
 
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide, EliminateResolvedHint}
 import org.apache.spark.sql.catalyst.plans.PlanTest
@@ -45,7 +45,6 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
   def msgJoinHintOverridden(strategy: String): String =
     s"Hint (strategy=$strategy) is overridden by another hint and will not take effect."
 
-  /* Remark log4j1 unit test
   def verifyJoinHintWithWarnings(
       df: => DataFrame,
       expectedHints: Seq[JoinHint],
@@ -63,7 +62,6 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
       assert(warningMessages.contains(w))
     }
   }
-  */
 
   def verifyJoinHint(df: DataFrame, expectedHints: Seq[JoinHint]): Unit = {
     val optimized = df.queryExecution.optimizedPlan
@@ -212,7 +210,6 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
     )
   }
 
-  /* Remark log4j1 unit test
   test("hint merge") {
     verifyJoinHintWithWarnings(
       df.hint("broadcast").filter($"id" > 2).hint("broadcast").join(df, "id"),
@@ -251,9 +248,7 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
         msgJoinHintOverridden("shuffle_hash") :: Nil
     )
   }
-  */
 
-  /* Remark log4j1 unit test
   test("hint merge - SQL") {
     withTempView("a", "b", "c") {
       df1.createOrReplaceTempView("a")
@@ -304,7 +299,6 @@ class JoinHintSuite extends PlanTest with SharedSparkSession with AdaptiveSparkP
       )
     }
   }
-  */
 
   test("nested hint") {
     verifyJoinHint(
