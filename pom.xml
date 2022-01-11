@@ -274,7 +274,6 @@
         <version>3.2.3</version>
         <scope>test</scope>
       </dependency>
-
       <dependency>
         <groupId>org.apache.logging.log4j</groupId>
         <artifactId>log4j-1.2-api</artifactId>
