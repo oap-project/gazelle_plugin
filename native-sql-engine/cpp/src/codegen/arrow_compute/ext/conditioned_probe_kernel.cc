@@ -41,6 +41,7 @@
 #include "codegen/common/hash_relation_number.h"
 #include "codegen/common/hash_relation_string.h"
 #include "precompile/unsafe_array.h"
+#include "third_party/function_view.hpp"
 #include "utils/macros.h"
 
 namespace sparkcolumnarplugin {
@@ -556,7 +557,7 @@ class ConditionedProbeKernel::Impl {
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
-        std::function<int(int i)> fast_probe;
+        func::function<int(int i)> fast_probe;
         /* for single key case, we don't need to create unsafeRow */
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
@@ -676,7 +677,7 @@ class ConditionedProbeKernel::Impl {
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
-        std::function<int(int i)> fast_probe;
+        func::function<int(int i)> fast_probe;
         /* for single key case, we don't need to create unsafeRow */
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
@@ -838,7 +839,7 @@ class ConditionedProbeKernel::Impl {
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
-        std::function<int(int i)> fast_probe;
+        func::function<int(int i)> fast_probe;
         /* for single key case, we don't need to create unsafeRow */
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
@@ -966,7 +967,7 @@ class ConditionedProbeKernel::Impl {
       std::shared_ptr<HashRelation> hash_relation_;
       std::vector<std::shared_ptr<AppenderBase>> appender_list_;
 
-      int getSingleKeyIndex(std::function<int(int i)>& fast_probe, int i) {
+      int getSingleKeyIndex(func::function<int(int i)>& fast_probe, int i) {
         if (!is_null_aware_anti_join_) {
           return fast_probe(i);
         } else {
@@ -1012,7 +1013,7 @@ class ConditionedProbeKernel::Impl {
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
-        std::function<int(int i)> fast_probe;
+        func::function<int(int i)> fast_probe;
         /* for single key case, we don't need to create unsafeRow */
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
@@ -1136,7 +1137,7 @@ class ConditionedProbeKernel::Impl {
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
         bool do_unsafe_row = true;
-        std::function<int(int i)> fast_probe;
+        func::function<int(int i)> fast_probe;
         /* for single key case, we don't need to create unsafeRow */
         if (key_payloads.size() == 1) {
           do_unsafe_row = false;
