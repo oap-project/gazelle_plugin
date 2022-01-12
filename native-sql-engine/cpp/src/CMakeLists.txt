@@ -17,6 +17,7 @@ set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow Root dir")
 set(ARROW_BFS_INSTALL_DIR "/usr/local" CACHE PATH "Arrow Build from Source dir")
 set(ARROW_LIB_NAME arrow)
 set(GANDIVA_LIB_NAME gandiva)
+set(PARQUET_LIB_NAME parquet)
 set(ARROW_SHARED_LIBRARY_SUFFIX ".so.400")
 
 option(BUILD_ARROW "Build Arrow from Source" ON)
@@ -296,6 +297,14 @@ macro(find_arrow)
     message(STATUS "Gandiva Library Can Be Found in ${GANDIVA_LIB}")
   endif()
 
+  find_library(PARQUET_LIB NAMES ${CMAKE_SHARED_LIBRARY_PREFIX}${PARQUET_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} PATHS ${ARROW_BFS_LIB_DIR} ${ARROW_LIB_DIR} ${ARROW_LIB64_DIR} NO_DEFAULT_PATH)
+  if(NOT PARQUET_LIB)
+    message(FATAL_ERROR "Parquet Library Not Found")
+  else()
+    message(STATUS "Parquet Library Can Be Found in ${PARQUET_LIB}")
+  endif()
+
+
   file(COPY ${ARROW_LIB} DESTINATION ${root_directory}/releases/ FOLLOW_SYMLINK_CHAIN)
   file(COPY ${GANDIVA_LIB} DESTINATION ${root_directory}/releases/ FOLLOW_SYMLINK_CHAIN)
 
@@ -442,7 +451,7 @@ if(BENCHMARKS)
   add_definitions(-DBENCHMARK_FILE_PATH="file://${CMAKE_CURRENT_SOURCE_DIR}/benchmarks/source_files/")
 macro(package_add_benchmark TESTNAME)
   add_executable(${TESTNAME} ${ARGN})
-  target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni parquet ${CMAKE_THREAD_LIBS_INIT})
+  target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni ${PARQUET_LIB} ${CMAKE_THREAD_LIBS_INIT})
   target_include_directories(${TESTNAME} PUBLIC ${source_root_directory})
   gtest_discover_tests(${TESTNAME}
     WORKING_DIRECTORY ${PROJECT_DIR}
