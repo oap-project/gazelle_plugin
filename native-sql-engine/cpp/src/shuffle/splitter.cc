@@ -1315,9 +1315,11 @@ arrow::Status Splitter::AppendList(
   using ValueBuilderType = typename arrow::TypeTraits<ValueType>::BuilderType;
   using ValueArrayType = typename arrow::TypeTraits<ValueType>::ArrayType;
   std::vector<ValueBuilderType*> dst_values_builders;
-  for (auto builder : dst_builders) {
-    dst_values_builders.push_back(
-        checked_cast<ValueBuilderType*>(builder->value_builder()));
+  dst_values_builders.resize(dst_builders.size());
+  for (auto i = 0; i < dst_builders.size(); ++i) {
+    if (dst_builders[i] != nullptr)
+      dst_values_builders[i] =
+          checked_cast<ValueBuilderType*>(dst_builders[i]->value_builder());
   }
   auto src_arr_values = std::dynamic_pointer_cast<ValueArrayType>(src_arr->values());
 
