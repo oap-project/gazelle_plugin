@@ -81,35 +81,7 @@ class HashRelationKernel::Impl {
       semi_ = true;
       builder_type_ = 1;
     }
-    if (builder_type_ == 0) {
-      // builder_type_ == 0 will be abandoned in near future, won't support
-      // decimal here.
-      if (key_nodes.size() == 1) {
-        auto key_node = key_nodes[0];
-        std::shared_ptr<TypedNodeVisitor> node_visitor;
-        THROW_NOT_OK(MakeTypedNodeVisitor(key_node, &node_visitor));
-        if (node_visitor->GetResultType() == TypedNodeVisitor::FieldNode) {
-          std::shared_ptr<gandiva::FieldNode> field_node;
-          node_visitor->GetTypedNode(&field_node);
-          key_fields.push_back(field_node->field());
-          need_project = false;
-        }
-      }
-      if (!need_project) {
-        THROW_NOT_OK(GetIndexList(key_fields, input_field_list, &key_indices_));
-        THROW_NOT_OK(MakeHashRelation(key_fields[0]->type()->id(), ctx_,
-                                      hash_relation_list, &hash_relation_));
-      } else {
-        gandiva::ExpressionPtr project_expr;
-        project_expr = GetConcatedKernel(key_nodes);
-        auto schema = arrow::schema(input_field_list);
-        auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-        THROW_NOT_OK(gandiva::Projector::Make(schema, {project_expr}, configuration,
-                                              &key_projector_));
-        THROW_NOT_OK(MakeHashRelation(project_expr->result()->type()->id(), ctx_,
-                                      hash_relation_list, &hash_relation_));
-      }
-    } else if (builder_type_ == 1) {
+    if (builder_type_ == 1) {
       // we will use unsafe_row and new unsafe_hash_map
       gandiva::ExpressionVector key_project_expr = GetGandivaKernel(key_nodes);
       gandiva::ExpressionPtr key_hash_expr = GetHash32Kernel(key_nodes);
@@ -205,7 +177,7 @@ class HashRelationKernel::Impl {
       }
       long tmp_capacity = init_key_capacity;
       if (key_size_ != -1) {
-        tmp_capacity *= 12;
+        tmp_capacity *= 6;
       } else {
         tmp_capacity *= 128;
       }
