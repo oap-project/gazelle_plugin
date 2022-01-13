@@ -125,14 +125,14 @@ ${SPARK_HOME}/bin/spark-shell \
 
 Here is one example to verify if Gazelle Plugin works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to [Solution Guide](https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql).
 ```
-val orders = spark.read.format("arrow").load("hdfs:////user/root/date_tpch_10/orders")
+val orders = spark.read.format("arrow").load("hdfs:////user/root/data_tpch_10/orders")
 orders.createOrReplaceTempView("orders")
 spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(20000, false)
 ```
 
 The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the [limitations](./docs/limitations.md).
 
-## Could/K8s Integration
+## Cloud/K8s Integration
 
 ### Amazon EMR
 
@@ -152,6 +152,14 @@ Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by C
 3. Run TPC-DS with notebooks or scripts.
 
 You can also find more information about how to use [OAP on Google Dataproc](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/dataproc).
+
+### Docker Image and Kubernetes Support
+
+For Kubernetes Support, please refer to [OAP on Kubernetes](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes)
+
+For how to build the Docker Image, please refer to [OAP Dockerfiles](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes/docker)
+
+For using an existing Docker Image, please check the repository [OAP Docker Image](https://hub.docker.com/r/cwt95m/oap) and [Gazelle Docker Image](https://hub.docker.com/r/cwt95m/gazelle)
 
 ## Performance data
 
