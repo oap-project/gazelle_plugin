@@ -153,6 +153,14 @@ Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by C
 
 You can also find more information about how to use [OAP on Google Dataproc](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/dataproc).
 
+### Docker Image and Kubernetes Support
+
+For Kubernetes Support, please refer to [OAP on Kubernetes](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes)
+
+For how to build the Docker Image, please refer to [OAP Dockerfiles](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes/docker)
+
+For using an existing Docker Image, please check the repository [OAP Docker Image](https://hub.docker.com/r/cwt95m/oap) and [Gazelle Docker Image](https://hub.docker.com/r/cwt95m/gazelle)
+
 ## Performance data
 
 For advanced performance testing, below charts show the results by using two benchmarks with Gazelle v1.1: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
