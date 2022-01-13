@@ -125,14 +125,14 @@ ${SPARK_HOME}/bin/spark-shell \
 
 Here is one example to verify if Gazelle Plugin works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to [Solution Guide](https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql).
 ```
-val orders = spark.read.format("arrow").load("hdfs:////user/root/date_tpch_10/orders")
+val orders = spark.read.format("arrow").load("hdfs:////user/root/data_tpch_10/orders")
 orders.createOrReplaceTempView("orders")
 spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(20000, false)
 ```
 
 The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the [limitations](./docs/limitations.md).
 
-## Could/K8s Integration
+## Cloud/K8s Integration
 
 ### Amazon EMR
 
