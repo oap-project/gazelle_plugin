@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  
+  <link rel="shortcut icon" href="../img/favicon.ico">
+  <title>Configuration - Gazelle Plugin - 1.3.0</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="../css/theme.css" />
+  <link rel="stylesheet" href="../css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Configuration";
+    var mkdocs_page_input_path = "Configuration.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href=".." class="icon icon-home"> Gazelle Plugin - 1.3.0</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Prerequisite/">Prerequisite</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../Installation/">Installation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../InstallationNotes/">InstallationNotes</a>
+                    </li>
+                </ul>
+                <ul class="current">
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">Configuration</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#example-thrift-server-configuration">Example thrift-server configuration</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#example-spark-defaultsconf">Example spark-defaults.conf</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#notes-on-driver">Notes on driver</a>
+    </li>
+    </ul>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../SparkInstallation/">SparkInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../OAP-Installation-Guide/">OAP Installation Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../OAP-Developer-Guide/">OAP Developer Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="" href="../../">Version Selector</a>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="..">Gazelle Plugin - 1.3.0</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="..">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Configuration</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="spark-configurations-for-gazelle-plugin">Spark Configurations for Gazelle Plugin</h1>
+<p>There are many configuration could impact the Gazelle Plugin performance and can be fine tune in Spark.
+You can add these configuration into spark-defaults.conf to enable or disable the setting.</p>
+<table>
+<thead>
+<tr>
+<th>Parameters</th>
+<th>Description</th>
+<th>Recommend Setting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>spark.driver.extraClassPath</td>
+<td>To add Arrow Data Source and Gazelle Plugin jar file in Spark Driver</td>
+<td>/path/to/jar_file1:/path/to/jar_file2</td>
+</tr>
+<tr>
+<td>spark.executor.extraClassPath</td>
+<td>To add Arrow Data Source and Gazelle Plugin jar file in Spark Executor</td>
+<td>/path/to/jar_file1:/path/to/jar_file2</td>
+</tr>
+<tr>
+<td>spark.executorEnv.LIBARROW_DIR</td>
+<td>To set up the location of Arrow library, by default it will search the loation of jar to be uncompressed</td>
+<td>/path/to/arrow_library/</td>
+</tr>
+<tr>
+<td>spark.executorEnv.CC</td>
+<td>To set up the location of gcc</td>
+<td>/path/to/gcc/</td>
+</tr>
+<tr>
+<td>spark.executor.memory</td>
+<td>To set up how much memory to be used for Spark Executor.</td>
+<td></td>
+</tr>
+<tr>
+<td>spark.memory.offHeap.size</td>
+<td>To set up how much memory to be used for Java OffHeap.<br /> Please notice Gazelle Plugin will leverage this setting to allocate memory space for native usage even offHeap is disabled. <br /> The value is based on your system and it is recommended to set it larger if you are facing Out of Memory issue in Gazelle Plugin</td>
+<td>30G</td>
+</tr>
+<tr>
+<td>spark.sql.sources.useV1SourceList</td>
+<td>Choose to use V1 source</td>
+<td>avro</td>
+</tr>
+<tr>
+<td>spark.sql.join.preferSortMergeJoin</td>
+<td>To turn on/off preferSortMergeJoin in Spark. In gazelle we recomend to turn off this to get better performance</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.plugins</td>
+<td>To turn on Gazelle Plugin</td>
+<td>com.intel.oap.GazellePlugin</td>
+</tr>
+<tr>
+<td>spark.shuffle.manager</td>
+<td>To turn on Gazelle Columnar Shuffle Plugin</td>
+<td>org.apache.spark.shuffle.sort.ColumnarShuffleManager</td>
+</tr>
+<tr>
+<td>spark.sql.shuffle.partitions</td>
+<td>shuffle partition size, it's recomended to use the same number of your total cores</td>
+<td>200</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.batchscan</td>
+<td>Enable or Disable Columnar Batchscan, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.hashagg</td>
+<td>Enable or Disable Columnar Hash Aggregate, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.projfilter</td>
+<td>Enable or Disable Columnar Project and Filter, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.codegen.sort</td>
+<td>Enable or Disable Columnar Sort, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.window</td>
+<td>Enable or Disable Columnar Window, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.shuffledhashjoin</td>
+<td>Enable or Disable ShffuledHashJoin, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.sortmergejoin</td>
+<td>Enable or Disable Columnar Sort Merge Join, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.union</td>
+<td>Enable or Disable Columnar Union, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.expand</td>
+<td>Enable or Disable Columnar Expand, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.broadcastexchange</td>
+<td>Enable or Disable Columnar Broadcast Exchange, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.nanCheck</td>
+<td>Enable or Disable Nan Check, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.hashCompare</td>
+<td>Enable or Disable Hash Compare in HashJoins or HashAgg, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.broadcastJoin</td>
+<td>Enable or Disable Columnar BradcastHashJoin, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.sortmergejoin.lazyread</td>
+<td>Enable or Disable lazy reading on Sort result. On disable, whole partition will be cached before doing SortMergeJoin</td>
+<td>false</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.wholestagecodegen</td>
+<td>Enable or Disable Columnar WholeStageCodeGen, default is true</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.preferColumnar</td>
+<td>Enable or Disable Columnar Operators, default is false.<br /> This parameter could impact the performance in different case. In some cases, to set false can get some performance boost.</td>
+<td>false</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.joinOptimizationLevel</td>
+<td>Fallback to row operators if there are several continous joins</td>
+<td>18</td>
+</tr>
+<tr>
+<td>spark.sql.execution.arrow.maxRecordsPerBatch</td>
+<td>Set up the Max Records per Batch</td>
+<td>10000</td>
+</tr>
+<tr>
+<td>spark.sql.execution.sort.spillThreshold</td>
+<td>Set up the Max sort in memory threshold in bytes, default is disabled</td>
+<td>-1</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.wholestagecodegen.breakdownTime</td>
+<td>Enable or Disable metrics in Columnar WholeStageCodeGen</td>
+<td>false</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.tmp_dir</td>
+<td>Set up a folder to store the codegen files, default is disabled</td>
+<td>""</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.shuffle.customizedCompression.codec</td>
+<td>Set up the codec to be used for Columnar Shuffle, default is lz4. The other option is fastpfor which can bring better perf on compressing fixed-size based contents like int</td>
+<td>lz4</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.numaBinding</td>
+<td>Set up NUMABinding, default is false</td>
+<td>true</td>
+</tr>
+<tr>
+<td>spark.oap.sql.columnar.coreRange</td>
+<td>Set up the core range for NUMABinding, only works when numaBinding set to true. <br /> The setting is based on the number of cores in your system(lscpu</td>
+<td>grep node[0-4]). Use 72 cores as an example.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="example-thrift-server-configuration">Example thrift-server configuration</h2>
+<p>Here's one example of the thrift-server configuration</p>
+<pre><code>THRIFTSERVER_CONFIG=&quot;--name ${runname}
+--num-executors 72
+--driver-memory 20g
+--executor-memory 6g
+--executor-cores 6
+--master yarn
+--deploy-mode client
+--conf spark.executor.memoryOverhead=384
+--conf spark.executorEnv.CC=/home/sparkuser/miniconda3/envs/arrow-new/bin/gcc
+--conf spark.plugins=com.intel.oap.GazellePlugin
+--conf spark.executorEnv.LD_LIBRARY_PATH=/home/sparkuser/miniconda3/envs/arrow-new/lib/:/home/sparkuser/miniconda3/envs/arrow-new/lib64/
+--conf spark.executorEnv.LIBARROW_DIR=/home/sparkuser/miniconda3/envs/arrow-new
+--conf spark.driver.extraClassPath=${nativesql_jars}
+--conf spark.executor.extraClassPath=${nativesql_jars}
+--conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager
+--conf spark.sql.join.preferSortMergeJoin=false
+--conf spark.sql.inMemoryColumnarStorage.batchSize=${batchsize}
+--conf spark.sql.execution.arrow.maxRecordsPerBatch=${batchsize}
+--conf spark.sql.parquet.columnarReaderBatchSize=${batchsize}
+--conf spark.sql.autoBroadcastJoinThreshold=10M
+--conf spark.sql.broadcastTimeout=600
+--conf spark.sql.crossJoin.enabled=true
+--conf spark.driver.maxResultSize=20g
+--hiveconf hive.server2.thrift.port=10001
+--hiveconf hive.server2.thrift.bind.host=sr270
+--conf spark.sql.codegen.wholeStage=true
+--conf spark.sql.shuffle.partitions=432
+--conf spark.memory.offHeap.enabled=true
+--conf spark.memory.offHeap.size=15g
+--conf spark.kryoserializer.buffer.max=128m
+--conf spark.kryoserializer.buffer=32m
+--conf spark.oap.sql.columnar.preferColumnar=false
+--conf spark.oap.sql.columnar.sortmergejoin.lazyread=true
+--conf spark.sql.execution.sort.spillThreshold=2147483648
+--conf spark.executorEnv.LD_PRELOAD=/home/sparkuser/miniconda3/envs/arrow-new/lib/libjemalloc.so
+--conf spark.executorEnv.MALLOC_CONF=background_thread:true,dirty_decay_ms:0,muzzy_decay_ms:0,narenas:2
+--conf spark.executorEnv.MALLOC_ARENA_MAX=2
+--conf spark.oap.sql.columnar.numaBinding=true
+--conf spark.oap.sql.columnar.coreRange=0-35,72-107|36-71,108-143
+--conf spark.oap.sql.columnar.joinOptimizationLevel=18
+--conf spark.oap.sql.columnar.shuffle.customizedCompression.codec=lz4
+--conf spark.yarn.appMasterEnv.LD_PRELOAD=/home/sparkuser/miniconda3/envs/arrow-new/lib/libjemalloc.so&quot;
+</code></pre>
+
+<p>Below is an example for spark-default.conf, if you are using conda to install OAP project.</p>
+<h2 id="example-spark-defaultsconf">Example spark-defaults.conf</h2>
+<pre><code>spark.sql.sources.useV1SourceList avro
+spark.sql.join.preferSortMergeJoin false
+spark.plugins com.intel.oap.GazellePlugin
+spark.shuffle.manager org.apache.spark.shuffle.sort.ColumnarShuffleManager
+
+# note Gazelle Plugin depends on arrow data source
+spark.driver.extraClassPath $HOME/miniconda2/envs/oapenv/oap_jars/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar:$HOME/miniconda2/envs/oapenv/oap_jars/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar
+spark.executor.extraClassPath $HOME/miniconda2/envs/oapenv/oap_jars/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar:$HOME/miniconda2/envs/oapenv/oap_jars/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar
+
+spark.executorEnv.LIBARROW_DIR      $HOME/miniconda2/envs/oapenv
+spark.executorEnv.CC                $HOME/miniconda2/envs/oapenv/bin/gcc
+######
+</code></pre>
+
+<p>Before you start spark, you must use below command to add some environment variables.</p>
+<pre><code>export CC=$HOME/miniconda2/envs/oapenv/bin/gcc
+export LIBARROW_DIR=$HOME/miniconda2/envs/oapenv/
+</code></pre>
+
+<h2 id="notes-on-driver">Notes on driver</h2>
+<p>In gazelle spark driver is used to C++ code generation for different operators. This means driver takes more tasks than vanilla Spark, so it's better to consider allocate more resource to driver. By default, driver will compile C++ codes with best optimizations targeting for local CPU architecture:</p>
+<pre><code>-O3 -march=native
+</code></pre>
+
+<p>This could be override by a local environment variable before starting driver:</p>
+<pre><code>export CODEGEN_OPTION=&quot; -O1 -mavx2 -fno-semantic-interposition &quot;
+</code></pre>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="../SparkInstallation/" class="btn btn-neutral float-right" title="SparkInstallation">Next <span class="icon icon-circle-arrow-right"></span></a>
+      
+      
+        <a href="../InstallationNotes/" class="btn btn-neutral" title="InstallationNotes"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+        <span><a href="../InstallationNotes/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+        <span style="margin-left: 15px"><a href="../SparkInstallation/" style="color: #fcfcfc">Next &raquo;</a></span>
+      
+    </span>
+</div>
+    <script>var base_url = '..';</script>
+    <script src="../js/theme.js" defer></script>
+      <script src="../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>

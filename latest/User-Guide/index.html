@@ -9,7 +9,7 @@
   
   
   <link rel="shortcut icon" href="../img/favicon.ico">
-  <title>User Guide - Gazelle Plugin - latest</title>
+  <title>Gazelle Plugin - Gazelle Plugin - latest</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
   <link rel="stylesheet" href="../css/theme.css" />
@@ -18,7 +18,7 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "User Guide";
+    var mkdocs_page_name = "Gazelle Plugin";
     var mkdocs_page_input_path = "User-Guide.md";
     var mkdocs_page_url = null;
   </script>
@@ -47,48 +47,8 @@
       </div>
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-                <ul class="current">
-                    <li class="toctree-l1 current"><a class="reference internal current" href="./">User Guide</a>
-    <ul class="current">
-    <li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#key-features">Key Features</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#apache-arrow-formatted-intermediate-data-among-spark-operator">Apache Arrow formatted intermediate data among Spark operator</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#native-columnar-shuffle-operator-with-efficient-compression-support">Native Columnar Shuffle Operator with efficient compression support</a>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#how-to-use-oap-gazelle-plugin">How to use OAP: Gazelle Plugin</a>
-        <ul>
-    <li class="toctree-l3"><a class="reference internal" href="#use-precompiled-jars">Use precompiled jars</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#building-by-conda">Building by Conda</a>
-    </li>
-    <li class="toctree-l3"><a class="reference internal" href="#building-by-yourself">Building by yourself</a>
-        <ul>
-    <li class="toctree-l4"><a class="reference internal" href="#prerequisite">Prerequisite</a>
-    </li>
-    <li class="toctree-l4"><a class="reference internal" href="#installation">Installation</a>
-    </li>
-        </ul>
-    </li>
-        </ul>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#get-started">Get started</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#performance-data">Performance data</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#coding-style">Coding Style</a>
-    </li>
-    <li class="toctree-l2"><a class="reference internal" href="#contact">Contact</a>
-    </li>
-    </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
                     </li>
                 </ul>
                 <ul>
@@ -148,7 +108,7 @@
     
       
     
-    <li>User Guide</li>
+    <li>Gazelle Plugin</li>
     <li class="wy-breadcrumbs-aside">
       
     </li>
@@ -172,7 +132,8 @@ and leverages Arrow's CPU-cache friendly columnar in-memory layout, SIMD-optimiz
 <p>With <a href="https://issues.apache.org/jira/browse/SPARK-27396">Spark 27396</a> its possible to pass a RDD of Columnarbatch to operators. We implemented this API with Arrow columnar format.</p>
 <h3 id="apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</h3>
 <p><img alt="Overview" src="../image/dataset.png" /></p>
-<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source">Arrow Data Source</a></p>
+<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source">Arrow Data Source</a>
+Note both data source V1 and V2 are supported. Please check the <a href="../arrow-data-source/#run-a-query-with-arrowdatasource-scala">example section</a> for arrow data source</p>
 <h3 id="apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</h3>
 <p><img alt="Overview" src="../image/kernel.png" /></p>
 <p>We implemented common operators based on Apache Arrow Compute and Gandiva. The SQL expression was compiled to one expression tree with protobuf and passed to native kernels. The native kernels will then evaluate the these expressions based on the input columnar batch.</p>
@@ -203,7 +164,7 @@ If you are running a SPARK Cluster, please make sure all the software are instal
 <h4 id="installation">Installation</h4>
 <p>Please check the document <a href="../Installation/">Installation Guide</a> </p>
 <h2 id="get-started">Get started</h2>
-<p>To enable OAP NativeSQL Engine, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
+<p>To enable Gazelle Plugin, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
 SPARK related options are:</p>
 <ul>
 <li><code>spark.driver.extraClassPath</code> : Set to load jar file to driver.</li>
@@ -220,13 +181,16 @@ For Spark Yarn Cluster Mode, please set the above value as absolute path to the 
         --verbose \
         --master yarn \
         --driver-memory 10G \
+        --conf spark.plugins=com.intel.oap.GazellePlugin \
         --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
         --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
+        --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
         --conf spark.executor.memory=20G \
-        --conf spark.memory.offHeap.size=80G \
+        --conf spark.memory.offHeap.enabled=true \
+        --conf spark.memory.offHeap.size=20G \
         --conf spark.task.cpus=1 \
         --conf spark.locality.wait=0s \
         --conf spark.sql.shuffle.partitions=72 \
@@ -236,27 +200,51 @@ For Spark Yarn Cluster Mode, please set the above value as absolute path to the 
 </code></pre>
 
 <p>Here is one example to verify if Gazelle Plugin works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to <a href="https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql">Solution Guide</a>.</p>
-<pre><code>val orders = spark.read.format(&quot;arrow&quot;).load(&quot;hdfs:////user/root/date_tpch_10/orders&quot;)
+<pre><code>val orders = spark.read.format(&quot;arrow&quot;).load(&quot;hdfs:////user/root/data_tpch_10/orders&quot;)
 orders.createOrReplaceTempView(&quot;orders&quot;)
 spark.sql(&quot;select * from orders where o_orderdate &gt; date '1998-07-26'&quot;).show(20000, false)
 </code></pre>
 
 <p>The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the <a href="../limitations/">limitations</a>.</p>
+<h2 id="cloudk8s-integration">Cloud/K8s Integration</h2>
+<h3 id="amazon-emr">Amazon EMR</h3>
+<p>Please refer to <a href="https://github.com/oap-project/oap-tools/tree/master/integrations/oap/emr">Gazelle_on_EMR</a> to find details about how to use OAP Gazelle on Amazon EMR Cloud.</p>
+<h3 id="google-cloud-dataproc">Google Cloud Dataproc</h3>
+<p>Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.</p>
+<p>Please refer to <a href="https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md">Gazelle_on_Dataproc</a> to find details about:</p>
+<ol>
+<li>
+<p>Create a cluster on Dataproc 2.0 with initialization actions. 
+Gazelle Plugin jars compiled with <code>-Pdataproc-2.0</code> parameter will installed by Conda in all cluster nodes.</p>
+</li>
+<li>
+<p>Config for enabling Gazelle Plugin.</p>
+</li>
+<li>
+<p>Run TPC-DS with notebooks or scripts.</p>
+</li>
+</ol>
+<p>You can also find more information about how to use <a href="https://github.com/oap-project/oap-tools/tree/master/integrations/oap/dataproc">OAP on Google Dataproc</a>.</p>
+<h3 id="docker-image-and-kubernetes-support">Docker Image and Kubernetes Support</h3>
+<p>For Kubernetes Support, please refer to <a href="https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes">OAP on Kubernetes</a></p>
+<p>For how to build the Docker Image, please refer to <a href="https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes/docker">OAP Dockerfiles</a></p>
+<p>For using an existing Docker Image, please check the repository <a href="https://hub.docker.com/r/cwt95m/oap">OAP Docker Image</a> and <a href="https://hub.docker.com/r/cwt95m/gazelle">Gazelle Docker Image</a></p>
 <h2 id="performance-data">Performance data</h2>
-<p>For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
-All the testing environment for Decision Support Benchmark1&amp;2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
+<p>For advanced performance testing, below charts show the results by using two benchmarks with Gazelle v1.1: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
+The testing environment for Decision Support Benchmark1 is using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset and parquet format.
 * Decision Support Benchmark1 is a query set modified from <a href="http://tpc.org/tpch/default5.asp">TPC-H benchmark</a>. We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
 Overall, the result shows a 1.49X performance speed up from OAP v1.0-Gazelle Plugin comparing to Vanilla SPARK 3.0.0.
 We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Gazelle Plugin. The performance boost ratio may depend on the individual query.</p>
-<p><img alt="Performance" src="../image/decision_support_bench1_result_in_total.png" /></p>
-<p><img alt="Performance" src="../image/decision_support_bench1_result_by_query.png" /></p>
-<ul>
-<li>Decision Support Benchmark2 is a query set modified from <a href="http://tpc.org/tpcds/default5.asp">TPC-DS benchmark</a>. We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
-We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.</li>
-</ul>
-<p><img alt="Performance" src="../image/decision_support_bench2_result_in_total.png" /></p>
-<p><img alt="Performance" src="../image/decision_support_bench2_result_by_query.png" /></p>
-<p>Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.</p>
+<p><img alt="Performance" src="../image/decision_support_bench1_result_in_total_v1.1.png" /></p>
+<p><img alt="Performance" src="../image/decision_support_bench1_result_by_query_v1.1.png" /></p>
+<p>The testing environment for Decision Support Benchmark2 is using 1 master + 3 workers and Intel(r) Xeon(r) Platinum 8360Y CPU|1440GB memory|NVMe SSD x4 per single node with 3TB dataset and parquet format.
+* Decision Support Benchmark2 is a query set modified from <a href="http://tpc.org/tpcds/default5.asp">TPC-DS benchmark</a>. We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
+We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.</p>
+<p><img alt="Performance" src="../image/decision_support_bench2_result_in_total_v1.1.png" /></p>
+<p>Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin. Please check the <a href="../performance/">detailed page</a> on performance tuning for TPC-H and TPC-DS workloads.</p>
+<h2 id="memory-allocation">Memory allocation</h2>
+<p>The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings <a href="../memory/">here</a>, the memroy footprint is stable during a TPC-DS power run.
+<img alt="Memory" src="../image/rssmem.png" /></p>
 <h2 id="coding-style">Coding Style</h2>
 <ul>
 <li>For Java code, we used <a href="https://github.com/google/google-java-format">google-java-format</a></li>
@@ -264,19 +252,12 @@ We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin an
 <li>For Cpp codes, we used Clang-Format, check on this link <a href="https://github.com/google/vim-codefmt">google-vim-codefmt</a> for details.</li>
 </ul>
 <h2 id="contact">Contact</h2>
-<p>chendi.xue@intel.com
+<p>weiting.chen@intel.com
 binwei.yang@intel.com</p>
               
             </div>
           </div>
           <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="../Prerequisite/" class="btn btn-neutral float-right" title="Prerequisite">Next <span class="icon icon-circle-arrow-right"></span></a>
-      
-      
-    </div>
   
 
   <hr/>
@@ -300,8 +281,6 @@ binwei.yang@intel.com</p>
     <span class="rst-current-version" data-toggle="rst-current-version">
       
       
-      
-        <span style="margin-left: 15px"><a href="../Prerequisite/" style="color: #fcfcfc">Next &raquo;</a></span>
       
     </span>
 </div>
