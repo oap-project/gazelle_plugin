@@ -25,6 +25,7 @@ With [Spark 27396](https://issues.apache.org/jira/browse/SPARK-27396) its possib
 ![Overview](./image/dataset.png)
 
 A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check [Arrow Data Source](https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source)
+Note both data source V1 and V2 are supported. Please check the [example section](../arrow-data-source/#run-a-query-with-arrowdatasource-scala) for arrow data source
 
 ### Apache Arrow Compute/Gandiva based operators
 
@@ -76,7 +77,7 @@ Please check the document [Installation Guide](./Installation.md)
 
 ## Get started
 
-To enable OAP NativeSQL Engine, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
+To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
 SPARK related options are:
 
 * `spark.driver.extraClassPath` : Set to load jar file to driver.
@@ -96,13 +97,16 @@ ${SPARK_HOME}/bin/spark-shell \
         --verbose \
         --master yarn \
         --driver-memory 10G \
+        --conf spark.plugins=com.intel.oap.GazellePlugin \
         --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
         --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
+        --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
         --conf spark.executor.cores=6 \
         --conf spark.executor.memory=20G \
-        --conf spark.memory.offHeap.size=80G \
+        --conf spark.memory.offHeap.enabled=true \
+        --conf spark.memory.offHeap.size=20G \
         --conf spark.task.cpus=1 \
         --conf spark.locality.wait=0s \
         --conf spark.sql.shuffle.partitions=72 \
@@ -113,34 +117,66 @@ ${SPARK_HOME}/bin/spark-shell \
 
 Here is one example to verify if Gazelle Plugin works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to [Solution Guide](https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql).
 ```
-val orders = spark.read.format("arrow").load("hdfs:////user/root/date_tpch_10/orders")
+val orders = spark.read.format("arrow").load("hdfs:////user/root/data_tpch_10/orders")
 orders.createOrReplaceTempView("orders")
 spark.sql("select * from orders where o_orderdate > date '1998-07-26'").show(20000, false)
 ```
 
 The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the [limitations](./limitations.md).
 
+## Cloud/K8s Integration
+
+### Amazon EMR
+
+Please refer to [Gazelle_on_EMR](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/emr) to find details about how to use OAP Gazelle on Amazon EMR Cloud.
+
+###  Google Cloud Dataproc
+
+Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.
+
+Please refer to [Gazelle_on_Dataproc](https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md) to find details about:
+
+1. Create a cluster on Dataproc 2.0 with initialization actions. 
+Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by Conda in all cluster nodes.
+   
+2. Config for enabling Gazelle Plugin.
+
+3. Run TPC-DS with notebooks or scripts.
+
+You can also find more information about how to use [OAP on Google Dataproc](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/dataproc).
+
+### Docker Image and Kubernetes Support
+
+For Kubernetes Support, please refer to [OAP on Kubernetes](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes)
+
+For how to build the Docker Image, please refer to [OAP Dockerfiles](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/kubernetes/docker)
+
+For using an existing Docker Image, please check the repository [OAP Docker Image](https://hub.docker.com/r/cwt95m/oap) and [Gazelle Docker Image](https://hub.docker.com/r/cwt95m/gazelle)
 
 ## Performance data
 
-For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
-All the testing environment for Decision Support Benchmark1&2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
+For advanced performance testing, below charts show the results by using two benchmarks with Gazelle v1.1: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
+The testing environment for Decision Support Benchmark1 is using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset and parquet format.
 * Decision Support Benchmark1 is a query set modified from [TPC-H benchmark](http://tpc.org/tpch/default5.asp). We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
 Overall, the result shows a 1.49X performance speed up from OAP v1.0-Gazelle Plugin comparing to Vanilla SPARK 3.0.0.
 We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Gazelle Plugin. The performance boost ratio may depend on the individual query.
 
-![Performance](./image/decision_support_bench1_result_in_total.png)
+![Performance](./image/decision_support_bench1_result_in_total_v1.1.png)
 
-![Performance](./image/decision_support_bench1_result_by_query.png)
+![Performance](./image/decision_support_bench1_result_by_query_v1.1.png)
 
+The testing environment for Decision Support Benchmark2 is using 1 master + 3 workers and Intel(r) Xeon(r) Platinum 8360Y CPU|1440GB memory|NVMe SSD x4 per single node with 3TB dataset and parquet format.
 * Decision Support Benchmark2 is a query set modified from [TPC-DS benchmark](http://tpc.org/tpcds/default5.asp). We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
 We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.
 
-![Performance](./image/decision_support_bench2_result_in_total.png)
+![Performance](./image/decision_support_bench2_result_in_total_v1.1.png)
 
-![Performance](./image/decision_support_bench2_result_by_query.png)
+Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin. Please check the [detailed page](./performance.md) on performance tuning for TPC-H and TPC-DS workloads.
 
-Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.
+## Memory allocation
+The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings [here](./memory.md), the memroy footprint is stable during a TPC-DS power run.
+![Memory](./image/rssmem.png)
+
 
 
 ## Coding Style
@@ -151,5 +187,5 @@ Please notes the performance data is not an official from TPC-H and TPC-DS. The 
 
 ## Contact
 
-chendi.xue@intel.com
+weiting.chen@intel.com
 binwei.yang@intel.com
