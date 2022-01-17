@@ -134,6 +134,17 @@ case class ColumnarShuffleExchangeExec(
       longMetric("prepareTime"))
   }
 
+  override def verboseString(maxFields: Int): String = toString(super.verboseString(maxFields))
+
+  override def simpleString(maxFields: Int): String = toString(super.simpleString(maxFields))
+
+  private def toString(original: String): String = {
+    original + ", [OUTPUT] " + output.map {
+      attr =>
+        attr.name + ":" + attr.dataType
+    }.toString()
+  }
+
   var cachedShuffleRDD: ShuffledColumnarBatchRDD = _
   override def doExecute(): RDD[InternalRow] = {
     throw new UnsupportedOperationException()
