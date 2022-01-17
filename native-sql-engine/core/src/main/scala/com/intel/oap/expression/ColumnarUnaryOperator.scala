@@ -857,11 +857,11 @@ class ColumnarRand(child: Expression)
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     if (child == null) {
-      (TreeBuilder.makeFunction("rand", null, null), resultType)
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(), resultType), resultType)
     } else {
       val (child_node, child_type): (TreeNode, ArrowType) =
         child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node), child_type), resultType)
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node), resultType), resultType)
     }
   }
 }
