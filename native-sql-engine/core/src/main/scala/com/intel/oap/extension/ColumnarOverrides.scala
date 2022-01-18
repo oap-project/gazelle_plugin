@@ -338,12 +338,17 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case plan: RowToColumnarExec =>
+      val child = replaceWithColumnarPlan(plan.child)
       if (columnarConf.enableArrowRowToColumnar) {
-        val child = replaceWithColumnarPlan(plan.child)
         logDebug(s"ColumnarPostOverrides ArrowRowToColumnarExec(${child.getClass})")
-        new ArrowRowToColumnarExec(child)
+        try {
+          new ArrowRowToColumnarExec(child)
+        } catch {
+          case _: Throwable =>
+            logInfo("ArrowRowToColumnar: Falling back to RowToColumnar...")
+            RowToArrowColumnarExec(child)
+        }
       } else {
-        val child = replaceWithColumnarPlan(plan.child)
         logDebug(s"ColumnarPostOverrides RowToArrowColumnarExec(${child.getClass})")
         RowToArrowColumnarExec(child)
       }
@@ -365,25 +370,25 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
     case r: SparkPlan
         if !r.isInstanceOf[QueryStageExec] && !r.supportsColumnar && r.children.exists(c =>
           c.isInstanceOf[ColumnarToRowExec]) =>
-      // This is a fix for when DPP and AQE both enabled, ColumnarExchange maybe child as a Row SparkPlan
-      val children = r.children.map(c =>
-        c match {
-          case c: ColumnarToRowExec =>
-            if (columnarConf.enableArrowColumnarToRow) {
-              try {
-                val child = replaceWithColumnarPlan(c.child)
-                new ArrowColumnarToRowExec(child)
-              } catch {
-                case _: Throwable =>
-                  logInfo("ArrowColumnarToRow : Falling back to ColumnarToRow...")
-                  c.withNewChildren(c.children.map(replaceWithColumnarPlan))
-              }
-            } else {
-              c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+      // This is a fix for when DPP and AQE both enabled,
+      // ColumnarExchange maybe child as a Row SparkPlan.
+      val children = r.children.map {
+        case c: ColumnarToRowExec =>
+          if (columnarConf.enableArrowColumnarToRow) {
+            try {
+              val child = replaceWithColumnarPlan(c.child)
+              new ArrowColumnarToRowExec(child)
+            } catch {
+              case _: Throwable =>
+                logInfo("ArrowColumnarToRow : Falling back to ColumnarToRow...")
+                c.withNewChildren(c.children.map(replaceWithColumnarPlan))
             }
-          case other =>
-            replaceWithColumnarPlan(other)
-        })
+          } else {
+            c.withNewChildren(c.children.map(replaceWithColumnarPlan))
+          }
+        case other =>
+          replaceWithColumnarPlan(other)
+      }
       r.withNewChildren(children)
     case p =>
       val children = p.children.map(replaceWithColumnarPlan)
