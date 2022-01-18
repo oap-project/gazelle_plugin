@@ -65,7 +65,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
         case d: BinaryType =>
         case _ =>
           throw new UnsupportedOperationException(s"${field.dataType} " +
-            s"is not supported in ArrowColumnarToRowExec.")
+            s"is not supported in ArrowRowToColumnarExec.")
       }
     }
   }
