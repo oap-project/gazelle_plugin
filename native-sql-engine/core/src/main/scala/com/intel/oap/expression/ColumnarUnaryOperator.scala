@@ -856,13 +856,9 @@ class ColumnarRand(child: Expression)
   val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
-    if (child == null) {
-      (TreeBuilder.makeFunction("rand", Lists.newArrayList(), resultType), resultType)
-    } else {
-      val (child_node, child_type): (TreeNode, ArrowType) =
-        child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node), resultType), resultType)
-    }
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node), resultType), resultType)
   }
 }
 
