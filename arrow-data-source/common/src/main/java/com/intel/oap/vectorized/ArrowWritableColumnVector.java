@@ -287,7 +287,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       return new TimestampMicroWriter((TimeStampVector) vector);
     } else if (vector instanceof MapVector) {
       MapVector mapVector = (MapVector) vector;
-      return new MapWriter(mapVector);
+      final StructVector structVector = (StructVector) mapVector.getDataVector();
+      final FieldVector keyChild = structVector.getChild(MapVector.KEY_NAME);
+      final FieldVector valueChild = structVector.getChild(MapVector.VALUE_NAME);
+      return new MapWriter(mapVector, createVectorWriter(keyChild),
+          createVectorWriter(valueChild));
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       ArrowVectorWriter elementVector = createVectorWriter(listVector.getDataVector());
@@ -1936,8 +1940,36 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   private static class MapWriter extends ArrowVectorWriter {
-    MapWriter(ValueVector vector) {
+    private final MapVector mapVector;
+    private final ArrowVectorWriter keyWriter;
+    private final ArrowVectorWriter valueWriter;
+
+    MapWriter(MapVector vector, ArrowVectorWriter keyWriter, ArrowVectorWriter valueWriter) {
       super(vector);
+      this.mapVector = vector;
+      this.keyWriter = keyWriter;
+      this.valueWriter = valueWriter;
+    }
+
+    public ArrowVectorWriter getKeyWriter() {
+      return keyWriter;
+    }
+
+    public ArrowVectorWriter getValueWriter() {
+      return valueWriter;
+    }
+
+    @Override
+    void setArray(int rowId, int offset, int length) {
+      int index = rowId * ListVector.OFFSET_WIDTH;
+      mapVector.getOffsetBuffer().setInt(index, offset);
+      mapVector.getOffsetBuffer().setInt(index + ListVector.OFFSET_WIDTH, offset + length);
+      mapVector.setNotNull(rowId);
+    }
+
+    @Override
+    final void setNull(int rowId) {
+      mapVector.setNull(rowId);
     }
   }
 }
