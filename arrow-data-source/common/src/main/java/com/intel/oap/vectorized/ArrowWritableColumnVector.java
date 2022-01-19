@@ -1934,8 +1934,21 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   private static class StructWriter extends ArrowVectorWriter {
+    private final StructVector vector;
+
     StructWriter(StructVector vector, ArrowVectorWriter[] children) {
       super(vector);
+      this.vector = vector;
+    }
+
+    @Override
+    void setNotNull(int rowId) {
+      vector.setIndexDefined(rowId);
+    }
+
+    @Override
+    void setNull(int rowId) {
+      vector.setNull(rowId);
     }
   }
 
