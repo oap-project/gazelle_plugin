@@ -173,6 +173,83 @@ arrow::Status ColumnarToRowConverter::Init() {
         lengths_[j] += (header_in_bytes + fixed_part_in_bytes + variable_part_in_bytes);
       }
     }
+
+    if (array->type_id() == arrow::MapType::type_id) {
+      auto map_array = std::static_pointer_cast<arrow::MapArray>(array);
+      int32_t key_element_size_in_bytes = -1;
+      int32_t item_element_size_in_bytes = -1;
+      // header_in_bytes:  [numElements][null bits]
+      // [unsafe key array numBytes] [unsafe key array] [unsafe value array]
+      int32_t num_elements = 0, header_in_bytes = 0, key_fixed_part_in_bytes = 0, 
+              item_fixed_part_in_bytes = 0, key_variable_part_in_bytes = 0,
+              item_variable_part_in_bytes = 0;
+      auto keys_array = std::static_pointer_cast<arrow::ListArray>(map_array->keys());
+      auto items_array = std::static_pointer_cast<arrow::ListArray>(map_array->items());
+      for (auto j = 0; j < num_rows_; j++) {
+        // Calculated the size of per row in map array
+        auto key_array = keys_array->value_slice(j);
+        auto item_array = items_array->value_slice(j);
+
+        num_elements = key_array->length();
+        header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+
+        if (key_element_size_in_bytes == -1) {
+          // only calculated once
+          CalculatedElementSize(key_array->type_id(), &key_element_size_in_bytes);
+        }
+        if (item_element_size_in_bytes == -1) {
+          // only calculated once
+          CalculatedElementSize(item_array->type_id(), &item_element_size_in_bytes);
+        }
+
+        key_fixed_part_in_bytes =
+            RoundNumberOfBytesToNearestWord(num_elements * key_element_size_in_bytes);
+        item_fixed_part_in_bytes =
+            RoundNumberOfBytesToNearestWord(num_elements * item_element_size_in_bytes);
+
+        // If the type is binary like or decimal precision > 18, need to calculated the
+        // variable part size
+        if (arrow::is_binary_like(key_array->type_id())) {
+          auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(key_array);
+          using offset_type = typename arrow::BinaryType::offset_type;
+          offset_type length;
+          for (auto k = 0; k < num_elements; k++) {
+            auto value = binary_array->GetValue(k, &length);
+            key_variable_part_in_bytes += RoundNumberOfBytesToNearestWord(length);           
+          }
+        }
+        if (arrow::is_binary_like(item_array->type_id())) {
+          auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(item_array);
+          using offset_type = typename arrow::BinaryType::offset_type;
+          offset_type length;
+          for (auto k = 0; k < num_elements; k++) {
+            auto value = binary_array->GetValue(k, &length);
+            item_variable_part_in_bytes += RoundNumberOfBytesToNearestWord(length);           
+          }
+        }
+
+        if (key_array->type_id() == arrow::Decimal128Type::type_id) {
+          auto dtype = dynamic_cast<arrow::Decimal128Type*>(key_array->type().get());
+          int32_t precision = dtype->precision();
+          int32_t null_count = key_array->null_count();
+          // TODO: the size in UnsafeArrayData is not 16 and is the
+          // RoundNumberOfBytesToNearestWord(real size)
+          if (precision > 18) key_variable_part_in_bytes += 16 * (num_elements - null_count);
+        }
+        if (item_array->type_id() == arrow::Decimal128Type::type_id) {
+          auto dtype = dynamic_cast<arrow::Decimal128Type*>(item_array->type().get());
+          int32_t precision = dtype->precision();
+          int32_t null_count = item_array->null_count();
+          // TODO: the size in UnsafeArrayData is not 16 and is the
+          // RoundNumberOfBytesToNearestWord(real size)
+          if (precision > 18) key_variable_part_in_bytes += 16 * (num_elements - null_count);
+        }
+
+        lengths_[j] += (8 + 2 * header_in_bytes + key_fixed_part_in_bytes + item_fixed_part_in_bytes 
+          + key_variable_part_in_bytes + item_variable_part_in_bytes);
+      }
+    }
+
   }
   // Calculated the offsets_  and total memory size based on lengths_
   int64_t total_memory_size = lengths_[0];
@@ -823,6 +900,552 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       }
       break;
     }
+    case arrow::MapType::type_id: {
+      auto map_array = std::static_pointer_cast<arrow::MapArray>(array);
+      
+      // header_in_bytes:  [numElements][null bits]
+      // [unsafe key array numBytes] [unsafe key array] [unsafe value array]
+      auto keys_array = std::static_pointer_cast<arrow::ListArray>(map_array->keys());
+      auto items_array = std::static_pointer_cast<arrow::ListArray>(map_array->items());
+      for (auto i = 0; i < num_rows; i++) {
+        auto key_array = keys_array->value_slice(i);
+        auto item_array = items_array->value_slice(i);
+        bool is_null = item_array->IsNull(i);
+        // Write the variable value:
+
+        //[numElements][null bits][values or offset&length][variable length portion]
+        // [unsafe key array numBytes] [unsafe key array] [unsafe value array]
+        int64_t num_elements = key_array->length();
+        int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
+        auto key_type_id = key_array->type_id();
+        auto item_type_id = item_array->type_id();  
+        // 1. Write the [numElements] long of key array
+        memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8, &num_elements,
+               sizeof(int64_t));
+
+        int64_t key_total_size, item_total_size = header_in_bytes;
+        // 2. Write key array: [null bits][values or offset&length][variable length portion]
+        if (key_type_id == arrow::BooleanType::type_id) {
+          auto bool_key_array =
+              std::static_pointer_cast<arrow::BooleanArray>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (bool_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = bool_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(bool),
+                     &value, sizeof(bool));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(bool));
+        }
+        else if (key_type_id == arrow::Int8Type::type_id) {
+          auto int8_key_array =
+              std::static_pointer_cast<arrow::Int8Array>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int8_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int8_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(int8_t),
+                     &value, sizeof(int8_t));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int8_t));
+        } 
+        else if (key_type_id == arrow::Int16Type::type_id) {
+          auto int16_key_array =
+              std::static_pointer_cast<arrow::Int16Array>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int16_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int16_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(int16_t),
+                     &value, sizeof(int16_t));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int16_t));
+        }
+        else if (key_type_id == arrow::Int32Type::type_id) {
+          auto int32_key_array =
+              std::static_pointer_cast<arrow::Int32Array>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int32_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int32_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(int32_t),
+                     &value, sizeof(int32_t));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int32_t));
+        }
+        else if (key_type_id == arrow::Int64Type::type_id) {
+          auto int64_key_array =
+              std::static_pointer_cast<arrow::Int64Array>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int64_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int64_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(int64_t),
+                     &value, sizeof(int64_t));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
+        }
+        else if (key_type_id == arrow::FloatType::type_id) {
+          auto float_key_array =
+              std::static_pointer_cast<arrow::FloatType>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (float_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = float_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(float),
+                     &value, sizeof(float));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(float));
+        }
+        else if (key_type_id == arrow::DoubleType::type_id) {
+          auto double_key_array =
+              std::static_pointer_cast<arrow::DoubleType>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (double_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = double_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                         j * sizeof(double),
+                     &value, sizeof(double));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(double));
+        }
+        else if (key_type_id == arrow::Date32Type::type_id) {
+          auto date32_key_array =
+              std::static_pointer_cast<arrow::Date32Array>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (date32_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                      j);
+            } else {
+              auto value = date32_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                          j * sizeof(int32_t),
+                      &value, sizeof(int32_t));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int32_t));
+        } 
+        else if (key_type_id == arrow::TimestampType::type_id) {
+          auto timestamp_key_array =
+              std::static_pointer_cast<arrow::TimestampArray>(key_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (timestamp_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                      j);
+            } else {
+              auto value = timestamp_key_array->Value(j);
+              // [header_in_bytes] = [numElements][null bits]
+              // [unsafe key array numBytes][numElements][null bits][values or offset&length]
+               memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + header_in_bytes +
+                          j * sizeof(int64_t),
+                      &value, sizeof(int64_t));
+            }
+          }
+          key_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
+        }
+        else if (arrow::is_binary_like(key_type_id)) {
+          auto binary_key_array =
+              std::static_pointer_cast<arrow::BinaryArray>(key_array);
+          using offset_type = typename arrow::BinaryType::offset_type;
+
+          offset_type length = 0;
+          offset_type cur_variable_offset = 0;
+          int64_t variable_size = 0;
+          for (auto j = 0; j < num_elements; j++) {
+            if (binary_key_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                     j);
+            } else {
+              cur_variable_offset += RoundNumberOfBytesToNearestWord(length);
+              auto value = binary_key_array->GetValue(j, &length);
+              // write the variable value
+              memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + header_in_bytes +
+                         num_elements * 8 + cur_variable_offset,
+                     value, length);
+
+              // write the offset (in UnsafeArrayData) and size
+              int64_t offsetAndSize =
+                  ((header_in_bytes + num_elements * 8 + cur_variable_offset) << 32) |
+                  length;
+              memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + header_in_bytes +
+                         j * 8,
+                     &offsetAndSize, sizeof(int64_t));
+
+              variable_size += RoundNumberOfBytesToNearestWord(length);
+            }
+          }
+          key_total_size += (num_elements * 8 + variable_size);
+        }
+        else if (key_type_id == arrow::Decimal128Type::type_id) {
+          auto out_array = dynamic_cast<arrow::Decimal128Array*>(key_array.get());
+          auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
+
+          int32_t precision = dtype->precision();
+          int32_t scale = dtype->scale();
+          int32_t size = 0;
+          int32_t cur_cursor = 0;
+          for (auto j = 0; j < num_elements; j++) {
+            const arrow::Decimal128 out_value(out_array->GetValue(j));
+            bool flag = out_array->IsNull(j);
+
+            if (precision <= 18) {
+              if (!flag) {
+                // Get the long value and write the long value
+                // Refer to the int64_t() method of Decimal128
+                int64_t long_value = static_cast<int64_t>(out_value.low_bits());
+                memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + 
+                           header_in_bytes + j * sizeof(int64_t),
+                       &long_value, sizeof(long));
+              } else {
+                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                       j);
+              }
+            } else {
+              if (flag) {
+                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + sizeof(int64_t),
+                       j);
+              } else {
+                cur_cursor += RoundNumberOfBytesToNearestWord(size);
+                auto out = ToByteArray(out_value, &size);
+                assert(size <= 16);
+
+                // write the variable value
+                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + 
+                           header_in_bytes + num_elements * sizeof(int64_t) +
+                           cur_cursor,
+                       &out[0], size);
+                // write the offset and size
+                int64_t offsetAndSize =
+                    ((header_in_bytes + num_elements * sizeof(int64_t) + cur_cursor)
+                     << 32) |
+                    size;
+                memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + 
+                           header_in_bytes + j * sizeof(int64_t),
+                       &offsetAndSize, sizeof(int64_t));
+                key_total_size += RoundNumberOfBytesToNearestWord(size);
+              }
+            }
+          }
+          key_total_size += num_elements * 8;
+        }
+
+
+        // 3. Write [unsafe key array numBytes]
+        memcpy(buffer_address + buffer_cursor[i] + offsets[i], &key_total_size,
+               sizeof(int64_t));
+        // 4. Write item array: [null bits][values or offset&length][variable length portion]
+        if (item_type_id == arrow::BooleanType::type_id) {
+          auto bool_item_array =
+              std::static_pointer_cast<arrow::BooleanArray>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (bool_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = bool_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(bool),
+                     &value, sizeof(bool));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(bool));
+        } 
+        else if (item_type_id == arrow::Int8Type::type_id) {
+          auto int8_item_array =
+              std::static_pointer_cast<arrow::Int8Type>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int8_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int8_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int8_t),
+                     &value, sizeof(int8_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int8_t));
+        }
+        else if (item_type_id == arrow::Int16Type::type_id) {
+          auto int16_item_array =
+              std::static_pointer_cast<arrow::Int16Type>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int16_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int16_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int16_t),
+                     &value, sizeof(int16_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int16_t));
+        }
+        else if (item_type_id == arrow::Int32Type::type_id) {
+          auto int32_item_array =
+              std::static_pointer_cast<arrow::Int32Array>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int32_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int32_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int32_t),
+                     &value, sizeof(int32_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int32_t));
+        }
+        else if (item_type_id == arrow::Int64Type::type_id) {
+          auto int64_item_array =
+              std::static_pointer_cast<arrow::Int64Array>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int64_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int64_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int64_t),
+                     &value, sizeof(int64_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
+        }
+        else if (item_type_id == arrow::Int64Type::type_id) {
+          auto int64_item_array =
+              std::static_pointer_cast<arrow::Int64Array>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (int64_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = int64_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int64_t),
+                     &value, sizeof(int64_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
+        }
+        else if (item_type_id == arrow::FloatType::type_id) {
+          auto float_item_array =
+              std::static_pointer_cast<arrow::FloatArray>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (float_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = float_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(float),
+                     &value, sizeof(float));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(float));
+        }
+        else if (item_type_id == arrow::DoubleType::type_id) {
+          auto double_item_array =
+              std::static_pointer_cast<arrow::DoubleArray>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (double_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = double_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(double),
+                     &value, sizeof(double));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(double));
+        }
+        else if (item_type_id == arrow::Date32Type::type_id) {
+          auto date32_item_array =
+              std::static_pointer_cast<arrow::Date32Array>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (date32_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = date32_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int32_t),
+                     &value, sizeof(int32_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int32_t));
+        }
+        else if (item_type_id == arrow::TimestampType::type_id) {
+          auto timestamp_item_array =
+              std::static_pointer_cast<arrow::TimestampArray>(item_array);
+          for (auto j = 0; j < num_elements; j++) {
+            if (timestamp_item_array->IsNull(j)) {
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              auto value = timestamp_item_array->Value(j);
+              memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + header_in_bytes +
+                         j * sizeof(int64_t),
+                     &value, sizeof(int64_t));
+            }
+          }
+          item_total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
+        }
+        else if (arrow::is_binary_like(item_type_id)) {
+          auto binary_item_array =
+              std::static_pointer_cast<arrow::BinaryArray>(item_array);
+          using offset_type = typename arrow::BinaryType::offset_type;
+
+          offset_type length = 0;
+          offset_type cur_variable_offset = 0;
+          int64_t variable_size = 0;
+          for (auto j = 0; j < num_elements; j++) {
+            if (binary_item_array->IsNull(j)) {
+              // [unsafe key array numBytes][numElements][null bits]
+              BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                     j);
+            } else {
+              cur_variable_offset += RoundNumberOfBytesToNearestWord(length);
+              auto value = binary_item_array->GetValue(j, &length);
+              // write the variable value
+              memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + key_total_size + header_in_bytes +
+                         num_elements * 8 + cur_variable_offset,
+                     value, length);
+
+              // write the offset (in UnsafeArrayData) and size
+              int64_t offsetAndSize =
+                  ((header_in_bytes + num_elements * 8 + cur_variable_offset) << 32) |
+                  length;
+              memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + key_total_size + header_in_bytes +
+                         j * 8,
+                     &offsetAndSize, sizeof(int64_t));
+
+              variable_size += RoundNumberOfBytesToNearestWord(length);
+            }
+          }
+          item_total_size += (num_elements * 8 + variable_size);
+        }
+        else if (item_type_id == arrow::Decimal128Type::type_id) {
+          auto out_array = dynamic_cast<arrow::Decimal128Array*>(item_array.get());
+          auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
+
+          int32_t precision = dtype->precision();
+          int32_t scale = dtype->scale();
+          int32_t size = 0;
+          int32_t cur_cursor = 0;
+          for (auto j = 0; j < num_elements; j++) {
+            const arrow::Decimal128 out_value(out_array->GetValue(j));
+            bool flag = out_array->IsNull(j);
+
+            if (precision <= 18) {
+              if (!flag) {
+                // Get the long value and write the long value
+                // Refer to the int64_t() method of Decimal128
+                int64_t long_value = static_cast<int64_t>(out_value.low_bits());
+                memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + key_total_size +   
+                           header_in_bytes + j * sizeof(int64_t),
+                       &long_value, sizeof(long));
+              } else {
+                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                       j);
+              }
+            } else {
+              if (flag) {
+                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
+                       j);
+              } else {
+                cur_cursor += RoundNumberOfBytesToNearestWord(size);
+                auto out = ToByteArray(out_value, &size);
+                assert(size <= 16);
+
+                // write the variable value
+                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + 
+                           header_in_bytes + num_elements * sizeof(int64_t) +
+                           cur_cursor,
+                       &out[0], size);
+                // write the offset and size
+                int64_t offsetAndSize =
+                    ((header_in_bytes + num_elements * sizeof(int64_t) + cur_cursor)
+                     << 32) |
+                    size;
+                memcpy(buffer_address + offsets[i] + buffer_cursor[i] + 8 + key_total_size + 
+                           header_in_bytes + j * sizeof(int64_t),
+                       &offsetAndSize, sizeof(int64_t));
+                item_total_size += RoundNumberOfBytesToNearestWord(size);
+              }
+            }
+          }
+          item_total_size += num_elements * 8;
+        }
+        
+        
+        int64_t total_size = 8 + key_total_size + item_total_size;
+        
+        // write the offset and size for per row
+        int64_t offsetAndSize = (buffer_cursor[i] << 32) | total_size;
+        memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
+                 sizeof(int64_t));
+        buffer_cursor[i] += total_size;   
+      }   
+    }
+
     default:
       return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
   }

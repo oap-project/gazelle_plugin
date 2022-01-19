@@ -24,19 +24,67 @@ import com.intel.oap.sql.execution.RowToColumnConverter
 import com.intel.oap.vectorized.{ArrowColumnarToRowInfo, ArrowColumnarToRowJniWrapper, ArrowWritableColumnVector}
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.UnsafeRow
-import org.apache.spark.sql.catalyst.util.{DateTimeUtils, GenericArrayData}
+import org.apache.spark.sql.catalyst.expressions.{GenericInternalRow, UnsafeArrayData, UnsafeMapData, UnsafeRow}
+import org.apache.spark.sql.catalyst.util.{ArrayBasedMapData, DateTimeUtils, GenericArrayData}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.vectorized.WritableColumnVector
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.unsafe.array.ByteArrayMethods
 import org.apache.spark.unsafe.types.UTF8String
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 class ArrowColumnarToRowExecSuite extends SharedSparkSession {
+  def roundedSize(size: Int) = ByteArrayMethods.roundNumberOfBytesToNearestWord(size)
+
+  def testArrayInt(array: UnsafeArrayData, values: Seq[Int]): Unit = {
+    assert(array.numElements == values.length)
+    assert(array.getSizeInBytes ==
+      8 + scala.math.ceil(values.length / 64.toDouble) * 8 + roundedSize(4 * values.length))
+    values.zipWithIndex.foreach {
+      case (value, index) => assert(array.getInt(index) == value)
+    }
+  }
+
+  def testMapInt(map: UnsafeMapData, keys: Seq[Int], values: Seq[Int]): Unit = {
+    assert(keys.length == values.length)
+    assert(map.numElements == keys.length)
+
+    testArrayInt(map.keyArray, keys)
+    testArrayInt(map.valueArray, values)
+
+    assert(map.getSizeInBytes == 8 + map.keyArray.getSizeInBytes + map.valueArray.getSizeInBytes)
+  }
+
+
+  test("ArrowColumnarToRowExec: Int type with Map list") {
+    val schema = StructType(Seq(StructField("Int type with Map", MapType(IntegerType, IntegerType))))
+    val key_array = Seq(1, 2, 3, 4)
+    val item_array = Seq(5, 6, 7, 8)
+    val map = new ArrayBasedMapData(new GenericArrayData(key_array), new GenericArrayData(item_array))
+
+    val rowIterator = (0 until 2).map { i =>
+      InternalRow(map)
+    }.toIterator
+
+    val cb: ColumnarBatch = ArrowColumnarToRowExecSuite.createColumnarBatch(schema, rowIterator)
+    val info = ArrowColumnarToRowExecSuite.nativeOp(cb)
+
+    var rowId = 0
+    val row = new UnsafeRow(cb.numCols())
+    while (rowId < cb.numRows()) {
+      val (offset, length) = (info.offsets(rowId), info.lengths(rowId))
+      row.pointTo(null, info.memoryAddress + offset, length.toInt)
+      rowId += 1
+      val unsafeMap = row.getMap(0)
+      assert(row.numFields == 1)
+      testMapInt(unsafeMap, key_array, item_array)
+      assert(row.getSizeInBytes == 8 + 8 * 1 + roundedSize(unsafeMap.getSizeInBytes))
+    }
+  }
 
   test("ArrowColumnarToRowExec: Boolean type with array list") {
     val schema = StructType(Seq(StructField("boolean type with array", ArrayType(BooleanType))))
