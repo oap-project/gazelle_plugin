@@ -1,5 +1,206 @@
 # Change log
-Generated on 2021-09-02
+Generated on 2022-01-12
+
+## Release 1.3.0
+
+### Gazelle Plugin
+
+#### Features
+|||
+|:---|:---|
+|[#550](https://github.com/oap-project/gazelle_plugin/issues/550)|[ORC] Support ORC Format  Reading|
+|[#188](https://github.com/oap-project/gazelle_plugin/issues/188)|Support Dockerfile|
+|[#574](https://github.com/oap-project/gazelle_plugin/issues/574)|implement native LocalLimit/GlobalLimit|
+|[#684](https://github.com/oap-project/gazelle_plugin/issues/684)|BufferedOutputStream causes massive futex system calls|
+|[#465](https://github.com/oap-project/gazelle_plugin/issues/465)|Provide option to rely on JVM GC to release Arrow buffers in Java|
+|[#681](https://github.com/oap-project/gazelle_plugin/issues/681)|Enable gazelle to support two math expressions: ceil & floor|
+|[#651](https://github.com/oap-project/gazelle_plugin/issues/651)|Set Hadoop 3.2 as default in pom.xml|
+|[#126](https://github.com/oap-project/gazelle_plugin/issues/126)|speed up codegen|
+|[#596](https://github.com/oap-project/gazelle_plugin/issues/596)|[ORC] Verify whether ORC file format supported complex data types in gazelle|
+|[#581](https://github.com/oap-project/gazelle_plugin/issues/581)|implement regex/trim/split expr|
+|[#473](https://github.com/oap-project/gazelle_plugin/issues/473)|Optimize the ArrowColumnarToRow performance|
+|[#647](https://github.com/oap-project/gazelle_plugin/issues/647)|Leverage buffered write in shuffle|
+|[#674](https://github.com/oap-project/gazelle_plugin/issues/674)|Add translate expression support|
+|[#675](https://github.com/oap-project/gazelle_plugin/issues/675)|Add instr expression support|
+|[#645](https://github.com/oap-project/gazelle_plugin/issues/645)|Add support to cast data in bool type to bigint type or string type|
+|[#463](https://github.com/oap-project/gazelle_plugin/issues/463)|version bump on 1.3|
+|[#583](https://github.com/oap-project/gazelle_plugin/issues/583)|implement get_json_object|
+|[#640](https://github.com/oap-project/gazelle_plugin/issues/640)|Disable compression for tiny payloads in shuffle|
+|[#631](https://github.com/oap-project/gazelle_plugin/issues/631)|Do not write schema in shuffle writting|
+|[#609](https://github.com/oap-project/gazelle_plugin/issues/609)|Implement date related expression like to_date, date_sub|
+|[#629](https://github.com/oap-project/gazelle_plugin/issues/629)|Improve codegen failure handling|
+|[#612](https://github.com/oap-project/gazelle_plugin/issues/612)|Add metric "prepare time" for shuffle writer|
+|[#576](https://github.com/oap-project/gazelle_plugin/issues/576)|columnar FROM_UNIXTIME|
+|[#589](https://github.com/oap-project/gazelle_plugin/issues/589)|[ORC] Add TPCDS and TPCH UTs  for ORC Format Reading|
+|[#537](https://github.com/oap-project/gazelle_plugin/issues/537)|Increase partition number adaptively for large SHJ stages|
+|[#580](https://github.com/oap-project/gazelle_plugin/issues/580)|document how to create metadata for data source V1 based testing|
+|[#555](https://github.com/oap-project/gazelle_plugin/issues/555)|support batch size > 32k|
+|[#561](https://github.com/oap-project/gazelle_plugin/issues/561)|document the code generation behavior on driver, suggest to deploy driver on powerful server|
+|[#523](https://github.com/oap-project/gazelle_plugin/issues/523)|Support ArrayType in ArrowColumnarToRow operator|
+|[#542](https://github.com/oap-project/gazelle_plugin/issues/542)|Add rule to propagate local window for rank + filter pattern|
+|[#21](https://github.com/oap-project/gazelle_plugin/issues/21)|JNI: Unexpected behavior when executing codes after calling JNIEnv::ThrowNew|
+|[#512](https://github.com/oap-project/gazelle_plugin/issues/512)|Add strategy to force use of SHJ|
+|[#518](https://github.com/oap-project/gazelle_plugin/issues/518)|Arrow buffer cleanup: Support both manual release and auto release as a hybrid mode|
+|[#525](https://github.com/oap-project/gazelle_plugin/issues/525)|Support AQE in columnWriter|
+|[#516](https://github.com/oap-project/gazelle_plugin/issues/516)|Support External Sort in sort kernel|
+|[#503](https://github.com/oap-project/gazelle_plugin/issues/503)|能提供下官网性能测试的详细配置吗？|
+|[#501](https://github.com/oap-project/gazelle_plugin/issues/501)|Remove ArrowRecordBatchBuilder and its usages|
+|[#461](https://github.com/oap-project/gazelle_plugin/issues/461)|Support ArrayType in Gazelle|
+|[#479](https://github.com/oap-project/gazelle_plugin/issues/479)|Optimize sort materialization|
+|[#449](https://github.com/oap-project/gazelle_plugin/issues/449)|Refactor sort codegen kernel|
+|[#667](https://github.com/oap-project/gazelle_plugin/issues/667)|1.3 RC release|
+|[#352](https://github.com/oap-project/gazelle_plugin/issues/352)|Map/Array/Struct type support for Parquet reading in Arrow Data Source|
+
+
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#660](https://github.com/oap-project/gazelle_plugin/issues/660)|support string builder in window output|
+|[#636](https://github.com/oap-project/gazelle_plugin/issues/636)|Remove log4j 1.2 Support for security issue|
+|[#540](https://github.com/oap-project/gazelle_plugin/issues/540)|reuse subquery in TPC-DS Q14a|
+|[#687](https://github.com/oap-project/gazelle_plugin/issues/687)|log4j 1.2.17 in spark-core|
+|[#617](https://github.com/oap-project/gazelle_plugin/issues/617)|Exceptions handling for stoi, stol, stof, stod in whole stage code gen|
+|[#653](https://github.com/oap-project/gazelle_plugin/issues/653)|Handle special cases for get_json_object in WSCG |
+|[#650](https://github.com/oap-project/gazelle_plugin/issues/650)|Scala test ArrowColumnarBatchSerializerSuite is failing|
+|[#642](https://github.com/oap-project/gazelle_plugin/issues/642)|Fail to cast unresolved reference to attribute reference|
+|[#599](https://github.com/oap-project/gazelle_plugin/issues/599)|data source unit tests are broken|
+|[#604](https://github.com/oap-project/gazelle_plugin/issues/604)|Sort with special projection key broken|
+|[#627](https://github.com/oap-project/gazelle_plugin/issues/627)|adding security instructions|
+|[#615](https://github.com/oap-project/gazelle_plugin/issues/615)|An excpetion in trying to cast attribute in getResultAttrFromExpr of ConverterUtils|
+|[#588](https://github.com/oap-project/gazelle_plugin/issues/588)|preallocated memory for shuffle split|
+|[#606](https://github.com/oap-project/gazelle_plugin/issues/606)|NullpointerException getting map values from ArrowWritableColumnVector|
+|[#569](https://github.com/oap-project/gazelle_plugin/issues/569)|CPU overhead on fine grain / concurrent off-heap acquire operations|
+|[#553](https://github.com/oap-project/gazelle_plugin/issues/553)|Support casting string type to types like int, bigint, float, double|
+|[#514](https://github.com/oap-project/gazelle_plugin/issues/514)|Fix the core dump issue in Q93 when enable columnar2row |
+|[#532](https://github.com/oap-project/gazelle_plugin/issues/532)|Fix the failed UTs in ArrowEvalPythonExecSuite when enable ArrowColumnarToRow|
+|[#534](https://github.com/oap-project/gazelle_plugin/issues/534)|Columnar SHJ: Error if probing with empty record batch|
+|[#529](https://github.com/oap-project/gazelle_plugin/issues/529)|Wrong build side may be chosen for SemiJoin when forcing use of SHJ|
+|[#504](https://github.com/oap-project/gazelle_plugin/issues/504)|Fix non-decimal window function unit test failures|
+|[#493](https://github.com/oap-project/gazelle_plugin/issues/493)|Three unit tests newly failed on master branch|
+
+#### PRs
+|||
+|:---|:---|
+|[#690](https://github.com/oap-project/gazelle_plugin/pull/690)|[NSE-667] backport patches to 1.3 branch|
+|[#688](https://github.com/oap-project/gazelle_plugin/pull/688)|[NSE-687]remove exclude log4j when running ut|
+|[#686](https://github.com/oap-project/gazelle_plugin/pull/686)|[NSE-400] Fix the bug for negative decimal data|
+|[#685](https://github.com/oap-project/gazelle_plugin/pull/685)|[NSE-684] BufferedOutputStream causes massive futex system calls|
+|[#680](https://github.com/oap-project/gazelle_plugin/pull/680)|[NSE-667] backport patches to 1.3 branch|
+|[#683](https://github.com/oap-project/gazelle_plugin/pull/683)|[NSE-400] fix leakage in row to column operator|
+|[#637](https://github.com/oap-project/gazelle_plugin/pull/637)|[NSE-400] Native Arrow Row to columnar support|
+|[#648](https://github.com/oap-project/gazelle_plugin/pull/648)|[NSE-647] Leverage buffered write in shuffle |
+|[#682](https://github.com/oap-project/gazelle_plugin/pull/682)|[NSE-681] Add floor & ceil expression support|
+|[#672](https://github.com/oap-project/gazelle_plugin/pull/672)|[NSE-674] Add translate expression support|
+|[#676](https://github.com/oap-project/gazelle_plugin/pull/676)|[NSE-675] Add instr expression support|
+|[#652](https://github.com/oap-project/gazelle_plugin/pull/652)|[NSE-651]Use Hadoop 3.2 as default hadoop.version|
+|[#666](https://github.com/oap-project/gazelle_plugin/pull/666)|[NSE-667] backport patches to 1.3 branch|
+|[#644](https://github.com/oap-project/gazelle_plugin/pull/644)|[NSE-645] Add support to cast bool type to bigint type & string type|
+|[#659](https://github.com/oap-project/gazelle_plugin/pull/659)|[NSE-650] Scala test ArrowColumnarBatchSerializerSuite is failing |
+|[#649](https://github.com/oap-project/gazelle_plugin/pull/649)|[NSE-660] fix window builder with string|
+|[#655](https://github.com/oap-project/gazelle_plugin/pull/655)|[NSE-617] Handle exception in cast expression from string to numeric types in WSCG|
+|[#654](https://github.com/oap-project/gazelle_plugin/pull/654)|[NSE-653] Add validity checking for get_json_object in WSCG|
+|[#641](https://github.com/oap-project/gazelle_plugin/pull/641)|[NSE-640] Disable compression for tiny payloads in shuffle|
+|[#646](https://github.com/oap-project/gazelle_plugin/pull/646)|[NSE-636]Remove log4j1 related unit tests|
+|[#488](https://github.com/oap-project/gazelle_plugin/pull/488)|[NSE-463] version bump to 1.3.0-SNAPSHOT|
+|[#639](https://github.com/oap-project/gazelle_plugin/pull/639)|[NSE-126] improve codegen with pre-compiled header|
+|[#638](https://github.com/oap-project/gazelle_plugin/pull/638)|[NSE-642] Correctly get ResultAttrFromExpr for sql with 'case when IN/AND/OR'|
+|[#632](https://github.com/oap-project/gazelle_plugin/pull/632)|[NSE-631] Do not write schema in shuffle writting|
+|[#633](https://github.com/oap-project/gazelle_plugin/pull/633)|[NSE-601] Fix an issue in the case of group by coalesce|
+|[#630](https://github.com/oap-project/gazelle_plugin/pull/630)|[NSE-629] improve codegen failure handling|
+|[#622](https://github.com/oap-project/gazelle_plugin/pull/622)|[NSE-609] Complete to_date expression support|
+|[#628](https://github.com/oap-project/gazelle_plugin/pull/628)|[NSE-627] Doc: adding security readme|
+|[#624](https://github.com/oap-project/gazelle_plugin/pull/624)|[NSE-609] Add support for date_sub expression|
+|[#619](https://github.com/oap-project/gazelle_plugin/pull/619)|[NSE-583] impl get_json_object in wscg|
+|[#614](https://github.com/oap-project/gazelle_plugin/pull/614)|[NSE-576] Support from_unixtime expression in the case that 'yyyyMMdd' format is required|
+|[#616](https://github.com/oap-project/gazelle_plugin/pull/616)|[NSE-615] Add tackling for ColumnarEqualTo type in getResultAttrFromExpr of ConverterUtils|
+|[#613](https://github.com/oap-project/gazelle_plugin/pull/613)|[NSE-612] Add metric "prepare time" for shuffle writer|
+|[#608](https://github.com/oap-project/gazelle_plugin/pull/608)|[NSE-602] don't enable columnar shuffle on unsupported data types|
+|[#601](https://github.com/oap-project/gazelle_plugin/pull/601)|[NSE-604] fix sort w/ proj keys|
+|[#607](https://github.com/oap-project/gazelle_plugin/pull/607)|[NSE-606] NullpointerException getting map values from ArrowWritableC…|
+|[#584](https://github.com/oap-project/gazelle_plugin/pull/584)|[NSE-583] implement get_json_object|
+|[#595](https://github.com/oap-project/gazelle_plugin/pull/595)|[NSE-576] fix from_unixtime|
+|[#582](https://github.com/oap-project/gazelle_plugin/pull/582)|[NSE-581]impl regexp_replace|
+|[#594](https://github.com/oap-project/gazelle_plugin/pull/594)|[NSE-588] config the pre-allocated memory for shuffle's splitter|
+|[#600](https://github.com/oap-project/gazelle_plugin/pull/600)|[NSE-599] fix datasource unit tests|
+|[#597](https://github.com/oap-project/gazelle_plugin/pull/597)|[NSE-596] Add complex data types validation for ORC file format in gazelle |
+|[#590](https://github.com/oap-project/gazelle_plugin/pull/590)|[NSE-569] CPU overhead on fine grain / concurrent off-heap acquire operations|
+|[#586](https://github.com/oap-project/gazelle_plugin/pull/586)|[NSE-581] Add trim, left trim, right trim support in expression|
+|[#578](https://github.com/oap-project/gazelle_plugin/pull/578)|[NSE-589] Add TPCDS and TPCH suite for Orc fileformat|
+|[#538](https://github.com/oap-project/gazelle_plugin/pull/538)|[NSE-537] Increase partition number adaptively for large SHJ stages |
+|[#587](https://github.com/oap-project/gazelle_plugin/pull/587)|[NSE-580] update doc on data source(DS V1/V2 usage)|
+|[#575](https://github.com/oap-project/gazelle_plugin/pull/575)|[NSE-574]implement columnar limit|
+|[#556](https://github.com/oap-project/gazelle_plugin/pull/556)|[NSE-555] using 32bit selection vector|
+|[#577](https://github.com/oap-project/gazelle_plugin/pull/577)|[NSE-576] implement columnar from_unixtime|
+|[#572](https://github.com/oap-project/gazelle_plugin/pull/572)|[NSE-561] refine docs on sample configurations and code generation behavior|
+|[#552](https://github.com/oap-project/gazelle_plugin/pull/552)|[NSE-553] Complete the support to cast string type to types like int, bigint, float, double |
+|[#543](https://github.com/oap-project/gazelle_plugin/pull/543)|[NSE-540] enable reuse subquery|
+|[#554](https://github.com/oap-project/gazelle_plugin/pull/554)|[NSE-207] change the fallback condition for Columnar Like|
+|[#559](https://github.com/oap-project/gazelle_plugin/pull/559)|[NSE-352] Map/Array/Struct type support for Parquet reading in ArrowData Source|
+|[#551](https://github.com/oap-project/gazelle_plugin/pull/551)|[NSE-550] Support ORC Format Reading in Gazelle|
+|[#545](https://github.com/oap-project/gazelle_plugin/pull/545)|[NSE-542] Add rule to propagate local window for rank + filter pattern|
+|[#541](https://github.com/oap-project/gazelle_plugin/pull/541)|[NSE-207] improve the fix for join optimization|
+|[#495](https://github.com/oap-project/gazelle_plugin/pull/495)|[NSE-207] Fix NaN in Max and Min|
+|[#533](https://github.com/oap-project/gazelle_plugin/pull/533)|[NSE-532] Fix the failed UTs in ArrowEvalPythonExecSuite when enable ArrowColumnarToRow|
+|[#536](https://github.com/oap-project/gazelle_plugin/pull/536)|[NSE-207] Ignore tests causing test stop|
+|[#535](https://github.com/oap-project/gazelle_plugin/pull/535)|[NSE-534] Columnar SHJ: Error if probing with empty record batch|
+|[#531](https://github.com/oap-project/gazelle_plugin/pull/531)|[NSE-21] JNI: Unexpected behavior when executing codes after calling JNIEnv::ThrowNew|
+|[#530](https://github.com/oap-project/gazelle_plugin/pull/530)|[NSE-529] Wrong build side may be chosen for SemiJoin when forcing use of SHJ|
+|[#524](https://github.com/oap-project/gazelle_plugin/pull/524)|[NSE-523] Support ArrayType in ArrowColumnarToRow optimization|
+|[#513](https://github.com/oap-project/gazelle_plugin/pull/513)|[NSE-512] Add strategy to force use of SHJ|
+|[#519](https://github.com/oap-project/gazelle_plugin/pull/519)|[NSE-518] Arrow buffer cleanup: Support both manual release and auto …|
+|[#526](https://github.com/oap-project/gazelle_plugin/pull/526)|[NSE-525]Support AQE for ColumnarWriter|
+|[#517](https://github.com/oap-project/gazelle_plugin/pull/517)|[NSE-516]Support ExternalSorter to control memory footage|
+|[#515](https://github.com/oap-project/gazelle_plugin/pull/515)|[NSE-514] Fix the core dump issue in Q93 with V2 test|
+|[#509](https://github.com/oap-project/gazelle_plugin/pull/509)|Update README.md for performance result.|
+|[#511](https://github.com/oap-project/gazelle_plugin/pull/511)|[NSE-207] fix full UT test|
+|[#502](https://github.com/oap-project/gazelle_plugin/pull/502)|[NSE-501] Remove ArrowRecordBatchBuilder and its usages|
+|[#507](https://github.com/oap-project/gazelle_plugin/pull/507)|Previous PR removed this UT, fix here|
+|[#496](https://github.com/oap-project/gazelle_plugin/pull/496)|[NSE-461]columnar shuffle support for ArrayType|
+|[#480](https://github.com/oap-project/gazelle_plugin/pull/480)|[NSE-479] optimize sort materialization|
+|[#474](https://github.com/oap-project/gazelle_plugin/pull/474)|[NSE-473]Optimize ArrowColumnarToRow performance|
+|[#505](https://github.com/oap-project/gazelle_plugin/pull/505)|[NSE-504] Fix non-decimal window function unit test|
+|[#497](https://github.com/oap-project/gazelle_plugin/pull/497)| [NSE-493] Three unit tests newly failed on master branch (Python UDF Unit Tests)|
+|[#466](https://github.com/oap-project/gazelle_plugin/pull/466)|[NSE-465] POC release memory using GC|
+|[#462](https://github.com/oap-project/gazelle_plugin/pull/462)|[NSE-461][WIP] Support ArrayType in ArrowWritableColumnVector and ColumarPandasUDF|
+|[#450](https://github.com/oap-project/gazelle_plugin/pull/450)|[NSE-449] Refactor codegen sort kernel|
+|[#471](https://github.com/oap-project/gazelle_plugin/pull/471)|[NSE-207] Enabling UT report|
+|[#445](https://github.com/oap-project/gazelle_plugin/pull/445)|[NSE-444]Support ArrowColumnarToRowExec when the root plan is ColumnarToRowExec|
+|[#447](https://github.com/oap-project/gazelle_plugin/pull/447)|[NSE-207] Fix date and timestamp functions|
+
+
+### OAP MLlib
+
+#### Features
+|||
+|:---|:---|
+|[#158](https://github.com/oap-project/oap-mllib/issues/158)|[GPU] Add convertToSyclHomogen for row merged table for kmeans and pca|
+|[#149](https://github.com/oap-project/oap-mllib/issues/149)|[GPU] Add check-gpu utility|
+|[#140](https://github.com/oap-project/oap-mllib/issues/140)|[Core] Refactor and support multiple Spark versions in single JAR|
+|[#137](https://github.com/oap-project/oap-mllib/issues/137)|[Core] Multiple improvements for build & deploy and integrate oneAPI 2021.4|
+|[#133](https://github.com/oap-project/oap-mllib/issues/133)|[Correlation] Add Correlation algorithm|
+|[#125](https://github.com/oap-project/oap-mllib/issues/125)|[GPU] Update for Kmeans and PCA|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#161](https://github.com/oap-project/oap-mllib/issues/161)|[SDLe][Snyk] Log4j 1.2.* issues brought from Spark when scanning 3rd-party components for vulnerabilities|
+|[#155](https://github.com/oap-project/oap-mllib/issues/155)|[POM] Update scala version to 2.12.15|
+|[#135](https://github.com/oap-project/oap-mllib/issues/135)|[Core] Fix ccl::gather and Add ccl::gatherv|
+
+#### PRs
+|||
+|:---|:---|
+|[#162](https://github.com/oap-project/oap-mllib/pull/162)|[ML-161] Excluding log4j 1.x dependency from Spark core to avoid log4…|
+|[#159](https://github.com/oap-project/oap-mllib/pull/159)|[GPU] Add convertToSyclHomogen for row merged table for kmeans and pca|
+|[#157](https://github.com/oap-project/oap-mllib/pull/157)|[ML-155] [POM] Update scala version to 2.12.15|
+|[#150](https://github.com/oap-project/oap-mllib/pull/150)|[ML-149][GPU] Add check-gpu utility|
+|[#144](https://github.com/oap-project/oap-mllib/pull/144)|[ML-151] enable Summarizer with OAP|
+|[#141](https://github.com/oap-project/oap-mllib/pull/141)|[Core] Refactor and support multiple Spark versions in single JAR|
+|[#139](https://github.com/oap-project/oap-mllib/pull/139)|[ML-137] [Core] Multiple improvements for build & deploy and integrate oneAPI 2021.4|
+|[#127](https://github.com/oap-project/oap-mllib/pull/127)|[ML-133][Correlation] Add Correlation algorithm|
+|[#126](https://github.com/oap-project/oap-mllib/pull/126)|[ML-125][GPU] Update for Kmeans and PCA|
+
 
 ## Release 1.2.0
 
