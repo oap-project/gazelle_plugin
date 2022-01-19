@@ -140,11 +140,11 @@ class Splitter {
       const std::shared_ptr<ArrayType>& src_arr,
       const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
 
-  template <typename T, typename ValueType,
-            typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
-            typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
-  arrow::Status AppendList(const std::shared_ptr<ArrayType>& src_arr,
-                           const std::vector<std::shared_ptr<BuilderType>>& dst_builders,
+  // template <typename T, typename ValueType,
+  //           typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
+  //           typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
+  arrow::Status AppendList(const std::shared_ptr<arrow::Array>& src_arr,
+                           const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders,
                            int64_t num_rows);
 
   // Cache the partition buffer/builder as compressed record batch. If reset
@@ -182,7 +182,7 @@ class Splitter {
       partition_binary_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
       partition_large_binary_builders_;
-  std::vector<std::vector<std::shared_ptr<arrow::ListBuilder>>> partition_list_builders_;
+  std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::LargeListBuilder>>>
       partition_large_list_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
