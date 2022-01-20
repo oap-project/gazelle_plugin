@@ -802,15 +802,9 @@ class HashAggregateKernel::Impl {
         eval_null_func_list.push_back(null_func);
       }
 
-      for (auto memo_index : indices) {
-        if (memo_index == -1) {
-          for (auto eval_func : eval_null_func_list) {
-            RETURN_NOT_OK(eval_func());
-          }
-        } else {
-          for (auto eval_func : eval_func_list) {
-            RETURN_NOT_OK(eval_func(memo_index));
-          }
+      for (auto eval_func : eval_func_list) {
+        for (auto memo_index : indices) {
+          RETURN_NOT_OK(eval_func(memo_index));
         }
       }
 
@@ -961,15 +955,9 @@ class HashAggregateKernel::Impl {
         eval_null_func_list.push_back(null_func);
       }
 
-      for (auto memo_index : indices) {
-        if (memo_index == -1) {
-          for (auto eval_func : eval_null_func_list) {
-            RETURN_NOT_OK(eval_func());
-          }
-        } else {
-          for (auto eval_func : eval_func_list) {
-            RETURN_NOT_OK(eval_func(memo_index));
-          }
+      for (auto eval_func : eval_func_list) {
+        for (auto memo_index : indices) {
+          RETURN_NOT_OK(eval_func(memo_index));
         }
       }
       return arrow::Status::OK();
@@ -1115,15 +1103,9 @@ class HashAggregateKernel::Impl {
         eval_null_func_list.push_back(null_func);
       }
 
-      for (auto memo_index : indices) {
-        if (memo_index == -1) {
-          for (auto eval_func : eval_null_func_list) {
-            RETURN_NOT_OK(eval_func());
-          }
-        } else {
-          for (auto eval_func : eval_func_list) {
-            RETURN_NOT_OK(eval_func(memo_index));
-          }
+      for (auto eval_func : eval_func_list) {
+        for (auto memo_index : indices) {
+          RETURN_NOT_OK(eval_func(memo_index));
         }
       }
 
