@@ -18,7 +18,7 @@
 package com.intel.oap.tpc.ds
 
 import com.intel.oap.tpc.util.TPCRunner
-//import org.apache.log4j.{Level, LogManager}
+import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
@@ -60,7 +60,7 @@ class Orc_TPCDSSuite extends QueryTest with SharedSparkSession {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    //LogManager.getRootLogger.setLevel(Level.WARN)
+    LogManager.getRootLogger.setLevel(Level.WARN)
     val tGen = new Orc_TPCDSTableGen(spark, 0.1D, TPCDS_WRITE_PATH)
     tGen.gen()
     tGen.createTables()

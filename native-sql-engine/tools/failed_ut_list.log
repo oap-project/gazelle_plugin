@@ -109,3 +109,12 @@
 - union by name - type coercion *** FAILED ***
 - SPARK-22520: support code generation for large CaseWhen *** FAILED ***
 - SPARK-29894 test Codegen Stage Id in SparkPlanInfo *** FAILED ***
+- hint merge *** FAILED ***
+- hint merge - SQL *** FAILED ***
+- log deprecation warnings *** FAILED ***
+- Resolve join hint in CTE *** FAILED ***
+- SPARK-23786: warning should be printed if CSV header doesn't conform to schema *** FAILED ***
+- SPARK-23786: warning should be printed if CSV header doesn't conform to schema *** FAILED ***
+- SPARK-23786: warning should be printed if CSV header doesn't conform to schema *** FAILED ***
+- SPARK-30886 Deprecate two-parameter TRIM/LTRIM/RTRIM *** FAILED ***
+- test log level *** FAILED ***
