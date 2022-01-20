@@ -1022,7 +1022,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         }
         else if (key_type_id == arrow::FloatType::type_id) {
           auto float_key_array =
-              std::static_pointer_cast<arrow::FloatType>(key_array);
+              std::static_pointer_cast<arrow::FloatArray>(key_array);
           for (auto j = 0; j < num_elements; j++) {
             if (float_key_array->IsNull(j)) {
               // [unsafe key array numBytes][numElements][null bits]
@@ -1041,7 +1041,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         }
         else if (key_type_id == arrow::DoubleType::type_id) {
           auto double_key_array =
-              std::static_pointer_cast<arrow::DoubleType>(key_array);
+              std::static_pointer_cast<arrow::DoubleArray>(key_array);
           for (auto j = 0; j < num_elements; j++) {
             if (double_key_array->IsNull(j)) {
               // [unsafe key array numBytes][numElements][null bits]
@@ -1206,7 +1206,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         } 
         else if (item_type_id == arrow::Int8Type::type_id) {
           auto int8_item_array =
-              std::static_pointer_cast<arrow::Int8Type>(item_array);
+              std::static_pointer_cast<arrow::Int8Array>(item_array);
           for (auto j = 0; j < num_elements; j++) {
             if (int8_item_array->IsNull(j)) {
               BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
@@ -1222,7 +1222,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         }
         else if (item_type_id == arrow::Int16Type::type_id) {
           auto int16_item_array =
-              std::static_pointer_cast<arrow::Int16Type>(item_array);
+              std::static_pointer_cast<arrow::Int16Array>(item_array);
           for (auto j = 0; j < num_elements; j++) {
             if (int16_item_array->IsNull(j)) {
               BitSet(buffer_address + buffer_cursor[i] + offsets[i] + 8 + key_total_size + sizeof(int64_t),
