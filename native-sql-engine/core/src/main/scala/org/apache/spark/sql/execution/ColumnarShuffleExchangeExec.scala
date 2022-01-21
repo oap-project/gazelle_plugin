@@ -277,6 +277,17 @@ class ColumnarShuffleExchangeAdaptor(
     case _ => false
   }
 
+  override def verboseString(maxFields: Int): String = toString(super.verboseString(maxFields))
+
+  override def simpleString(maxFields: Int): String = toString(super.simpleString(maxFields))
+
+  private def toString(original: String): String = {
+    original + ", [OUTPUT] " + output.map {
+      attr =>
+        attr.name + ":" + attr.dataType
+    }.toString()
+  }
+
 }
 
 object ColumnarShuffleExchangeExec extends Logging {
