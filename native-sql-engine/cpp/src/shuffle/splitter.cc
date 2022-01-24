@@ -896,7 +896,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   RETURN_NOT_OK(SplitBinaryArray(rb));
   RETURN_NOT_OK(SplitLargeBinaryArray(rb));
   RETURN_NOT_OK(SplitListArray(rb));
-  RETURN_NOT_OK(SplitLargeListArray(rb));
+  // RETURN_NOT_OK(SplitLargeListArray(rb));
 
   // update partition buffer base
   for (auto pid = 0; pid < num_partitions_; ++pid) {
@@ -1236,6 +1236,7 @@ arrow::Status Splitter::SplitListArray(const arrow::RecordBatch& rb) {
         std::static_pointer_cast<arrow::ListArray>(rb.column(list_array_idx_[i]));
     auto status = AppendList(
         rb.column(list_array_idx_[i]), partition_list_builders_[i], rb.num_rows());
+    if (!status.ok()) return status;
 //     switch (src_arr->value_type()->id()) {
 // #define PROCESS(InType)                                       \
 //   case InType::type_id: {                                     \
@@ -1255,27 +1256,27 @@ arrow::Status Splitter::SplitListArray(const arrow::RecordBatch& rb) {
   return arrow::Status::OK();
 }
 
-arrow::Status Splitter::SplitLargeListArray(const arrow::RecordBatch& rb) {
-  for (int i = 0; i < large_list_array_idx_.size(); ++i) {
-    auto src_arr = std::static_pointer_cast<arrow::LargeListArray>(
-        rb.column(large_list_array_idx_[i]));
-    switch (src_arr->value_type()->id()) {
-#define PROCESS(InType)                                       \
-  case InType::type_id: {                                     \
-    return AppendList<arrow::LargeListType, InType>(          \
-        src_arr, partition_list_builders_[i], rb.num_rows()); \
-  } break;
-      PROCESS_SUPPORTED_TYPES(PROCESS)
-#undef PROCESS
-      default: {
-        return arrow::Status::NotImplemented(
-            "AppendList internal type not supported, type is ",
-            src_arr->value_type()->ToString());
-      } break;
-    }
-  }
-  return arrow::Status::OK();
-}
+// arrow::Status Splitter::SplitLargeListArray(const arrow::RecordBatch& rb) {
+//   for (int i = 0; i < large_list_array_idx_.size(); ++i) {
+//     auto src_arr = std::static_pointer_cast<arrow::LargeListArray>(
+//         rb.column(large_list_array_idx_[i]));
+//     switch (src_arr->value_type()->id()) {
+// #define PROCESS(InType)                                       \
+//   case InType::type_id: {                                     \
+//     return AppendList<arrow::LargeListType, InType>(          \
+//         src_arr, partition_list_builders_[i], rb.num_rows()); \
+//   } break;
+//       PROCESS_SUPPORTED_TYPES(PROCESS)
+// #undef PROCESS
+//       default: {
+//         return arrow::Status::NotImplemented(
+//             "AppendList internal type not supported, type is ",
+//             src_arr->value_type()->ToString());
+//       } break;
+//     }
+//   }
+//   return arrow::Status::OK();
+// }
 #undef PROCESS_SUPPORTED_TYPES
 
 template <typename T, typename ArrayType, typename BuilderType>
@@ -1313,7 +1314,7 @@ arrow::Status Splitter::AppendList(
     const std::shared_ptr<arrow::Array>& src_arr,
     const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders, int64_t num_rows) {
       for (auto row = 0; row < num_rows; ++row) {
-        RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(*(src_arr->data().get()), row, 1);
+        RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(*(src_arr->data().get()), row, 1));
       }
       return arrow::Status::OK();
     }

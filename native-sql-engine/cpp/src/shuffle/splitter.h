@@ -132,7 +132,7 @@ class Splitter {
 
   arrow::Status SplitListArray(const arrow::RecordBatch& rb);
 
-  arrow::Status SplitLargeListArray(const arrow::RecordBatch& rb);
+  // arrow::Status SplitLargeListArray(const arrow::RecordBatch& rb);
 
   template <typename T, typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
             typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
