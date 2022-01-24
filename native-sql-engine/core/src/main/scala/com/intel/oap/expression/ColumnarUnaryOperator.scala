@@ -30,7 +30,6 @@ import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.Rand
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.types._
-import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfMonth
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfWeek
@@ -853,12 +852,37 @@ class ColumnarNormalizeNaNAndZero(child: Expression, original: NormalizeNaNAndZe
 class ColumnarRand(child: Expression)
     extends Rand(child: Expression) with ColumnarExpression with Logging {
 
-  val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)
+  val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+  var offset: Integer = _;
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(IntegerType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 || !child.foldable) {
+      // Align with Spark's exception message and to pass the below unit test:
+      // test("SPARK-33945: handles a random seed consisting of an expr tree")
+      throw new Exception(
+        "Input argument to rand/random must be an integer, long, or null constant")
+    }
+  }
+
+  // Aligned with Spark, seed + partitionIndex will be the actual seed.
+  override def initializeInternal(partitionIndex: Int): Unit = {
+    offset = partitionIndex;
+  }
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, _): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node), resultType), resultType)
+    if (offset != null) {
+      val offsetNode = TreeBuilder.makeLiteral(offset)
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node, offsetNode),
+        resultType), resultType)
+    } else {
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node),
+        resultType), resultType)
+    }
   }
 }
 
