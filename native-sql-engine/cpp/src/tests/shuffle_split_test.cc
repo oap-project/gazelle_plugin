@@ -525,6 +525,224 @@ TEST_F(SplitterTest, TestRoundRobinListArraySplitter) {
   }
 }
 
+TEST_F(SplitterTest, TestRoundRobinNestListArraySplitter) {
+  auto f_arr_str = field("f_str", arrow::list(arrow::list(arrow::utf8())));
+  auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
+
+  auto rb_schema =
+      arrow::schema({f_arr_str, f_arr_int32});
+
+  const std::vector<std::string> input_data_arr = {
+      R"([[["alice0", "bob1"]], [["alice2"], ["bob3"]], [["Alice4", "Bob5", "AlicE6"]], [["boB7"], ["ALICE8", "BOB9"]]])",
+      R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])"};
+
+  std::shared_ptr<arrow::RecordBatch> input_batch_arr;
+  MakeInputBatch(input_data_arr, rb_schema, &input_batch_arr);
+
+  int32_t num_partitions = 2;
+  split_options_.buffer_size = 4;
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", rb_schema, num_partitions, split_options_));
+
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_arr));
+  ASSERT_NOT_OK(splitter_->Stop());
+
+  std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+
+  // verify partition lengths
+  const auto& lengths = splitter_->PartitionLengths();
+  ASSERT_EQ(lengths.size(), 2);
+  ASSERT_EQ(*file_->GetSize(), lengths[0] + lengths[1]);
+
+  // verify schema
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+
+  // prepare first block expected result
+  std::shared_ptr<arrow::RecordBatch> res_batch_0;
+  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_arr, "[0, 2]"))
+  std::vector<arrow::RecordBatch*> expected = {res_batch_0.get()};
+
+  // verify first block
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  for (auto i = 0; i < batches.size(); ++i) {
+    const auto& rb = batches[i];
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto j = 0; j < rb->num_columns(); ++j) {
+      ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+    }
+    ASSERT_TRUE(rb->Equals(*expected[i]));
+  }
+
+  // prepare second block expected result
+  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_arr, "[1, 3]"))
+  expected = {res_batch_0.get()};
+
+  // verify second block
+  batches.clear();
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+  ASSERT_NOT_OK(file_->Advance(lengths[0]));
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  for (auto i = 0; i < batches.size(); ++i) {
+    const auto& rb = batches[i];
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto j = 0; j < rb->num_columns(); ++j) {
+      ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+    }
+    ASSERT_TRUE(rb->Equals(*expected[i]));
+  }
+}
+
+TEST_F(SplitterTest, TestRoundRobinListStructArraySplitter) {
+  auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
+  auto f_arr_list_struct = field("f_list_struct", list(struct_({field("a", int32()), field("b", utf8())})));
+
+
+  auto rb_schema =
+      arrow::schema({f_arr_int32, f_arr_list_struct});
+
+  const std::vector<std::string> input_data_arr = {
+      R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",
+      R"([[{"a": 4, "b": null}], [{"a": 42, "b": null}, {"a": null, "b": "foo2"}], [{"a": 43, "b": "foo3"}], [{"a": 44, "b": "foo4"}]])"};
+
+  std::shared_ptr<arrow::RecordBatch> input_batch_arr;
+  MakeInputBatch(input_data_arr, rb_schema, &input_batch_arr);
+
+  int32_t num_partitions = 2;
+  split_options_.buffer_size = 4;
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", rb_schema, num_partitions, split_options_));
+
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_arr));
+  ASSERT_NOT_OK(splitter_->Stop());
+
+  std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+
+  // verify partition lengths
+  const auto& lengths = splitter_->PartitionLengths();
+  ASSERT_EQ(lengths.size(), 2);
+  ASSERT_EQ(*file_->GetSize(), lengths[0] + lengths[1]);
+
+  // verify schema
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+
+  // prepare first block expected result
+  std::shared_ptr<arrow::RecordBatch> res_batch_0;
+  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_arr, "[0, 2]"))
+  std::vector<arrow::RecordBatch*> expected = {res_batch_0.get()};
+
+  // verify first block
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  for (auto i = 0; i < batches.size(); ++i) {
+    const auto& rb = batches[i];
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto j = 0; j < rb->num_columns(); ++j) {
+      ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+    }
+    ASSERT_TRUE(rb->Equals(*expected[i]));
+  }
+
+  // prepare second block expected result
+  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_arr, "[1, 3]"))
+  expected = {res_batch_0.get()};
+
+  // verify second block
+  batches.clear();
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+  ASSERT_NOT_OK(file_->Advance(lengths[0]));
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  for (auto i = 0; i < batches.size(); ++i) {
+    const auto& rb = batches[i];
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto j = 0; j < rb->num_columns(); ++j) {
+      ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+    }
+    ASSERT_TRUE(rb->Equals(*expected[i]));
+  }
+}
+
+TEST_F(SplitterTest, TestRoundRobinListMapArraySplitter) {
+  auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
+  auto f_arr_list_map = field("f_list_map", list(map(utf8(), utf8())));
+
+
+  auto rb_schema =
+      arrow::schema({f_arr_int32, f_arr_list_map});
+
+  const std::vector<std::string> input_data_arr = {
+      R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",
+      R"([[[["key1", "val_aa1"]]], [[["key1", "val_bb1"]], [["key2", "val_bb2"]]], [[["key1", "val_cc1"]]], [[["key1", "val_dd1"]]]])"};
+
+  std::shared_ptr<arrow::RecordBatch> input_batch_arr;
+  MakeInputBatch(input_data_arr, rb_schema, &input_batch_arr);
+
+  int32_t num_partitions = 2;
+  split_options_.buffer_size = 4;
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", rb_schema, num_partitions, split_options_));
+
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_arr));
+  ASSERT_NOT_OK(splitter_->Stop());
+
+  std::shared_ptr<arrow::ipc::RecordBatchReader> file_reader;
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+
+  // verify partition lengths
+  const auto& lengths = splitter_->PartitionLengths();
+  ASSERT_EQ(lengths.size(), 2);
+  ASSERT_EQ(*file_->GetSize(), lengths[0] + lengths[1]);
+
+  // verify schema
+  std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+
+  // prepare first block expected result
+  std::shared_ptr<arrow::RecordBatch> res_batch_0;
+  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_arr, "[0, 2]"))
+  std::vector<arrow::RecordBatch*> expected = {res_batch_0.get()};
+
+  // verify first block
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  for (auto i = 0; i < batches.size(); ++i) {
+    const auto& rb = batches[i];
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto j = 0; j < rb->num_columns(); ++j) {
+      ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+    }
+    ASSERT_TRUE(rb->Equals(*expected[i]));
+  }
+
+  // prepare second block expected result
+  ARROW_ASSIGN_OR_THROW(res_batch_0, TakeRows(input_batch_arr, "[1, 3]"))
+  expected = {res_batch_0.get()};
+
+  // verify second block
+  batches.clear();
+  ARROW_ASSIGN_OR_THROW(file_reader, GetRecordBatchStreamReader(splitter_->DataFile()));
+  ASSERT_EQ(*file_reader->schema(), *rb_schema);
+  ASSERT_NOT_OK(file_->Advance(lengths[0]));
+  ASSERT_NOT_OK(file_reader->ReadAll(&batches));
+  ASSERT_EQ(batches.size(), 1);
+  for (auto i = 0; i < batches.size(); ++i) {
+    const auto& rb = batches[i];
+    ASSERT_EQ(rb->num_columns(), rb_schema->num_fields());
+    for (auto j = 0; j < rb->num_columns(); ++j) {
+      ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+    }
+    ASSERT_TRUE(rb->Equals(*expected[i]));
+  }
+}
+
 TEST_F(SplitterTest, TestHashListArraySplitterWithMorePartitions) {
   int32_t num_partitions = 5;
   split_options_.buffer_size = 4;
