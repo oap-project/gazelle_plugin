@@ -132,17 +132,12 @@ class Splitter {
 
   arrow::Status SplitListArray(const arrow::RecordBatch& rb);
 
-  // arrow::Status SplitLargeListArray(const arrow::RecordBatch& rb);
-
   template <typename T, typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
             typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
   arrow::Status AppendBinary(
       const std::shared_ptr<ArrayType>& src_arr,
       const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
 
-  // template <typename T, typename ValueType,
-  //           typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
-  //           typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
   arrow::Status AppendList(const std::shared_ptr<arrow::Array>& src_arr,
                            const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders,
                            int64_t num_rows);
@@ -183,8 +178,6 @@ class Splitter {
   std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
       partition_large_binary_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
-  std::vector<std::vector<std::shared_ptr<arrow::LargeListBuilder>>>
-      partition_large_list_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
       partition_cached_recordbatch_;
   std::vector<int64_t> partition_cached_recordbatch_size_;  // in bytes
@@ -193,7 +186,6 @@ class Splitter {
   std::vector<int32_t> binary_array_idx_;
   std::vector<int32_t> large_binary_array_idx_;
   std::vector<int32_t> list_array_idx_;
-  std::vector<int32_t> large_list_array_idx_;
 
   bool empirical_size_calculated_ = false;
   std::vector<int32_t> binary_array_empirical_size_;
