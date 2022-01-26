@@ -1219,21 +1219,6 @@ arrow::Status Splitter::SplitListArray(const arrow::RecordBatch& rb) {
     auto status = AppendList(
         rb.column(list_array_idx_[i]), partition_list_builders_[i], rb.num_rows());
     if (!status.ok()) return status;
-//     switch (src_arr->value_type()->id()) {
-// #define PROCESS(InType)                                       \
-//   case InType::type_id: {                                     \
-//     auto status = AppendList<arrow::ListType, InType>(        \
-//         src_arr, partition_list_builders_[i], rb.num_rows()); \
-//     if (!status.ok()) return status;                          \
-//   } break;
-//       PROCESS_SUPPORTED_TYPES(PROCESS)
-// #undef PROCESS
-//       default: {
-//         return arrow::Status::NotImplemented(
-//             "AppendList internal type not supported, type is ",
-//             src_arr->value_type()->ToString());
-//       } break;
-//     }
   }
   return arrow::Status::OK();
 }
@@ -1272,62 +1257,13 @@ arrow::Status Splitter::AppendBinary(
 }
 
 arrow::Status Splitter::AppendList(
-    const std::shared_ptr<arrow::Array>& src_arr,
-    const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders, int64_t num_rows) {
-      for (auto row = 0; row < num_rows; ++row) {
-        RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(*(src_arr->data().get()), row, 1));
-      }
-      return arrow::Status::OK();
+  const std::shared_ptr<arrow::Array>& src_arr,
+  const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders, int64_t num_rows) {
+    for (auto row = 0; row < num_rows; ++row) {
+      RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(*(src_arr->data().get()), row, 1));
     }
-
-// template <typename T, typename ValueType, typename ArrayType, typename BuilderType>
-// arrow::Status Splitter::AppendList(
-//     const std::shared_ptr<ArrayType>& src_arr,
-//     const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows) {
-//   using offset_type = typename T::offset_type;
-//   using ValueBuilderType = typename arrow::TypeTraits<ValueType>::BuilderType;
-//   using ValueArrayType = typename arrow::TypeTraits<ValueType>::ArrayType;
-//   std::vector<ValueBuilderType*> dst_values_builders;
-//   dst_values_builders.resize(dst_builders.size());
-//   for (auto i = 0; i < dst_builders.size(); ++i) {
-//     if (dst_builders[i] != nullptr)
-//       dst_values_builders[i] =
-//           checked_cast<ValueBuilderType*>(dst_builders[i]->value_builder());
-//   }
-//   auto src_arr_values = std::dynamic_pointer_cast<ValueArrayType>(src_arr->values());
-
-//   if (src_arr->values()->null_count() == 0) {
-//     for (auto row = 0; row < num_rows; ++row) {
-//       auto src_arr_values_offset = src_arr->value_offset(row);
-//       auto src_arr_values_length = src_arr->value_offset(row + 1) - src_arr_values_offset;
-//       RETURN_NOT_OK(dst_builders[partition_id_[row]]->Append());
-//       for (auto i = 0; i < src_arr_values_length; i++) {
-//         RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->Append(
-//             src_arr_values->GetView(src_arr_values_offset + i)));
-//       }
-//     }
-//   } else {
-//     for (auto row = 0; row < num_rows; ++row) {
-//       if (src_arr->IsValid(row)) {
-//         auto src_arr_values_offset = src_arr->value_offset(row);
-//         auto src_arr_values_length =
-//             src_arr->value_offset(row + 1) - src_arr_values_offset;
-//         RETURN_NOT_OK(dst_builders[partition_id_[row]]->Append());
-//         for (auto i = 0; i < src_arr_values_length; i++) {
-//           if (src_arr_values->IsValid(src_arr_values_offset + i)) {
-//             RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->Append(
-//                 src_arr_values->GetView(src_arr_values_offset + i)));
-//           } else {
-//             RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->AppendNull());
-//           }
-//         }
-//       } else {
-//         RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendNull());
-//       }
-//     }
-//   }
-//   return arrow::Status::OK();
-// }
+    return arrow::Status::OK();
+}
 
 std::string Splitter::NextSpilledFileDir() {
   auto spilled_file_dir = GetSpilledShuffleFileDir(configured_dirs_[dir_selection_],
