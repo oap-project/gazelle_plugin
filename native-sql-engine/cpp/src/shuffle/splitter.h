@@ -138,9 +138,10 @@ class Splitter {
       const std::shared_ptr<ArrayType>& src_arr,
       const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows);
 
-  arrow::Status AppendList(const std::shared_ptr<arrow::Array>& src_arr,
-                           const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders,
-                           int64_t num_rows);
+  arrow::Status AppendList(
+      const std::shared_ptr<arrow::Array>& src_arr,
+      const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders,
+      int64_t num_rows);
 
   // Cache the partition buffer/builder as compressed record batch. If reset
   // buffers, the partition buffer/builder will be set to nullptr. Two cases for
