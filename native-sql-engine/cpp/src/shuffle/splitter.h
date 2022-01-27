@@ -168,6 +168,7 @@ class Splitter {
   std::vector<int32_t> partition_buffer_size_;
   std::vector<int32_t> partition_buffer_idx_base_;
   std::vector<int32_t> partition_buffer_idx_offset_;
+
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
   std::vector<std::vector<uint8_t*>> partition_fixed_width_validity_addrs_;
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
