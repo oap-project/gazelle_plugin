@@ -210,11 +210,13 @@ class Splitter::PartitionWriter {
   arrow::Status WriteRecordBatchPayload(arrow::io::OutputStream* os,
                                         int32_t partition_id) {
     int32_t metadata_length = 0;  // unused
+#ifndef SKIPWRITE
     for (auto& payload : splitter_->partition_cached_recordbatch_[partition_id_]) {
       RETURN_NOT_OK(arrow::ipc::WriteIpcPayload(
           *payload, splitter_->options_.ipc_write_options, os, &metadata_length));
       payload = nullptr;
     }
+#endif
     return arrow::Status::OK();
   }
 
@@ -570,6 +572,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     int64_t raw_size = batch_nbytes(batch);
     raw_partition_lengths_[partition_id] += raw_size;
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
+#ifndef SKIPCOMPRESS
     if (num_rows <= options_.batch_compress_threshold) {
       TIME_NANO_OR_RAISE(total_compress_time_,
                          arrow::ipc::GetRecordBatchPayload(
@@ -579,6 +582,11 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                          arrow::ipc::GetRecordBatchPayload(
                              *batch, options_.ipc_write_options, payload.get()));
     }
+#else
+    TIME_NANO_OR_RAISE(total_compress_time_,
+                        arrow::ipc::GetRecordBatchPayload(
+                            *batch, tiny_bach_write_options_, payload.get()));
+#endif
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
@@ -720,6 +728,7 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         if (input_fixed_width_has_null_[fixed_width_idx]) {
           partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] =
               const_cast<uint8_t*>(new_validity_buffers[fixed_width_idx]->data());
+          std::cout << "validate buffer assigned "<< std::endl;
         } else {
           partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] = nullptr;
         }

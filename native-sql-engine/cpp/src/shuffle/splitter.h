@@ -170,39 +170,62 @@ class Splitter {
 
   class PartitionWriter;
 
+  // partid
   std::vector<int32_t> partition_buffer_size_;
-  std::vector<int32_t> partition_buffer_idx_base_;
-  std::vector<int32_t> partition_buffer_idx_offset_;
+  // partid
+  std::vector<int16_t> partition_buffer_idx_base_;
+  // partid
+  std::vector<int16_t> partition_buffer_idx_offset_;
+  // partid
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
+  // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_validity_addrs_;
+  // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
+  // col partid
   std::vector<std::vector<std::vector<std::shared_ptr<arrow::ResizableBuffer>>>>
       partition_fixed_width_buffers_;
+  // col partid
   std::vector<std::vector<std::shared_ptr<arrow::BinaryBuilder>>>
       partition_binary_builders_;
+  // col partid
   std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
       partition_large_binary_builders_;
+  // col partid
   std::vector<std::vector<std::shared_ptr<arrow::ListBuilder>>> partition_list_builders_;
+  // col partid
   std::vector<std::vector<std::shared_ptr<arrow::LargeListBuilder>>>
       partition_large_list_builders_;
+  // partid
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
       partition_cached_recordbatch_;
+  // partid
   std::vector<int64_t> partition_cached_recordbatch_size_;  // in bytes
 
+  // col
   std::vector<int32_t> fixed_width_array_idx_;
+  // col
   std::vector<int32_t> binary_array_idx_;
+  // col
   std::vector<int32_t> large_binary_array_idx_;
+  // col
   std::vector<int32_t> list_array_idx_;
+  // col
   std::vector<int32_t> large_list_array_idx_;
 
   bool empirical_size_calculated_ = false;
+  // col
   std::vector<int32_t> binary_array_empirical_size_;
+  // col
   std::vector<int32_t> large_binary_array_empirical_size_;
 
+  // col
   std::vector<bool> input_fixed_width_has_null_;
 
   // updated for each input record batch
+  // col
   std::vector<int32_t> partition_id_;
+  // col
   std::vector<int32_t> partition_id_cnt_;
 
   int32_t num_partitions_;

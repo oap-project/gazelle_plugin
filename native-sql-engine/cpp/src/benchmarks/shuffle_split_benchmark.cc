@@ -175,15 +175,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     } while (record_batch); 
     
     std::cout << "parse parquet done elapsed time = " << TIME_NANO_TO_STRING(elapse_read) << std::endl;
-
-    for_each(batches.begin(),batches.end(), [this, &split_time](std::shared_ptr<arrow::RecordBatch> &record_batch){
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
+    while(1)
+      for_each(batches.begin(),batches.end(), [this, &split_time](std::shared_ptr<arrow::RecordBatch> &record_batch){
         TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
         });
 /*    do {
