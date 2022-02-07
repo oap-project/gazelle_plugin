@@ -53,7 +53,7 @@ namespace precompile {
       typename arrow::internal::HashTraits<arrow::TYPENAME>::MemoTableType;            \
   class HASHMAPNAME::Impl : public MEMOTABLETYPE {                                     \
    public:                                                                             \
-    Impl(arrow::MemoryPool* pool) : MEMOTABLETYPE(pool, 128) {}                             \
+    Impl(arrow::MemoryPool* pool) : MEMOTABLETYPE(pool, 128) {}                        \
   };                                                                                   \
                                                                                        \
   HASHMAPNAME::HASHMAPNAME(arrow::MemoryPool* pool) {                                  \

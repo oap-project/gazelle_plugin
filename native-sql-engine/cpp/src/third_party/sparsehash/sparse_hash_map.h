@@ -21,9 +21,9 @@
 
 #include <cmath>
 
-#include "sparsehash/dense_hash_map"
+#include "third_party/parallel_hashmap/phmap.h"
+using phmap::flat_hash_map;
 
-using google::dense_hash_map;
 
 #define NOTFOUND -1
 
@@ -34,10 +34,8 @@ template <typename Scalar>
 class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
                                              !std::is_same<Scalar, bool>::value>> {
  public:
-  SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) {
-    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
-  }
+  SparseHashMap() {}
+  SparseHashMap(arrow::MemoryPool* pool) {}
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {
@@ -82,7 +80,7 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
   }
 
  private:
-  dense_hash_map<Scalar, int32_t> dense_map_;
+  flat_hash_map<Scalar, int32_t> dense_map_;
   int32_t size_ = 0;
   bool null_index_set_ = false;
   int32_t null_index_;
@@ -91,10 +89,8 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
 template <typename Scalar>
 class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::value>> {
  public:
-  SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) {
-    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
-  }
+  SparseHashMap() {}
+  SparseHashMap(arrow::MemoryPool* pool) {}
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {
@@ -155,7 +151,7 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
   }
 
  private:
-  dense_hash_map<Scalar, int32_t> dense_map_;
+  flat_hash_map<Scalar, int32_t> dense_map_;
   int32_t size_ = 0;
   bool null_index_set_ = false;
   int32_t null_index_;

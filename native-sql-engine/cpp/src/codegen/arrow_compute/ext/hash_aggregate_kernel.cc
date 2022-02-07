@@ -808,6 +808,7 @@ class HashAggregateKernel::Impl {
         }
       }
 
+
       return arrow::Status::OK();
     }
 
