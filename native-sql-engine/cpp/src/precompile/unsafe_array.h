@@ -89,7 +89,7 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
     if (!skip_null_check_ && typed_array_->IsNull(i)) {
       setNullAt((*unsafe_row).get(), idx_);
     } else {
-      auto v = typed_array_->GetString(i);
+      auto v = typed_array_->GetView(i);
       appendToUnsafeRow((*unsafe_row).get(), idx_, v);
     }
     return arrow::Status::OK();

@@ -763,28 +763,29 @@ class HashAggregateKernel::Impl {
 
       std::vector<int> indices;
       indices.resize(length, -1);
+      if (typed_key_in->null_count() > 0) {
+        for (int i = 0; i < length; i++) {
+          auto aggr_key = typed_key_in->GetView(i);
+          auto aggr_key_validity = !typed_key_in->IsNull(i);
 
-      for (int i = 0; i < length; i++) {
-        auto aggr_key = typed_key_in->GetView(i);
-        auto aggr_key_validity =
-            typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
-
-        // 3. get key from hash_table
-        int memo_index = 0;
-        if (!aggr_key_validity) {
-          memo_index = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
-        } else {
+          if (aggr_key_validity) {
+            aggr_hash_table_->GetOrInsert(
+                aggr_key, [](int) {}, [](int) {}, &(indices[i]));
+          } else {
+            indices[i] = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
+          }
+        }
+      } else {
+        for (int i = 0; i < length; i++) {
+          auto aggr_key = typed_key_in->GetView(i);
           aggr_hash_table_->GetOrInsert(
-              aggr_key, [](int) {}, [](int) {}, &memo_index);
+              aggr_key, [](int) {}, [](int) {}, &(indices[i]));
         }
-
-        if (memo_index > max_group_id_) {
-          max_group_id_ = memo_index;
-        }
-        indices[i] = memo_index;
       }
 
+      max_group_id_ = aggr_hash_table_->size_ - 1;
       total_out_length_ = max_group_id_ + 1;
+
       // 4. prepare action func and evaluate
       std::vector<std::function<arrow::Status(int)>> eval_func_list;
       std::vector<std::function<arrow::Status()>> eval_null_func_list;
@@ -802,15 +803,9 @@ class HashAggregateKernel::Impl {
         eval_null_func_list.push_back(null_func);
       }
 
-      for (auto memo_index : indices) {
-        if (memo_index == -1) {
-          for (auto eval_func : eval_null_func_list) {
-            RETURN_NOT_OK(eval_func());
-          }
-        } else {
-          for (auto eval_func : eval_func_list) {
-            RETURN_NOT_OK(eval_func(memo_index));
-          }
+      for (auto eval_func : eval_func_list) {
+        for (auto memo_index : indices) {
+          RETURN_NOT_OK(eval_func(memo_index));
         }
       }
 
@@ -961,15 +956,9 @@ class HashAggregateKernel::Impl {
         eval_null_func_list.push_back(null_func);
       }
 
-      for (auto memo_index : indices) {
-        if (memo_index == -1) {
-          for (auto eval_func : eval_null_func_list) {
-            RETURN_NOT_OK(eval_func());
-          }
-        } else {
-          for (auto eval_func : eval_func_list) {
-            RETURN_NOT_OK(eval_func(memo_index));
-          }
+      for (auto eval_func : eval_func_list) {
+        for (auto memo_index : indices) {
+          RETURN_NOT_OK(eval_func(memo_index));
         }
       }
       return arrow::Status::OK();
@@ -1115,15 +1104,9 @@ class HashAggregateKernel::Impl {
         eval_null_func_list.push_back(null_func);
       }
 
-      for (auto memo_index : indices) {
-        if (memo_index == -1) {
-          for (auto eval_func : eval_null_func_list) {
-            RETURN_NOT_OK(eval_func());
-          }
-        } else {
-          for (auto eval_func : eval_func_list) {
-            RETURN_NOT_OK(eval_func(memo_index));
-          }
+      for (auto eval_func : eval_func_list) {
+        for (auto memo_index : indices) {
+          RETURN_NOT_OK(eval_func(memo_index));
         }
       }
 
