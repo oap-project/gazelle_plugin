@@ -24,7 +24,6 @@
 #include "third_party/parallel_hashmap/phmap.h"
 using phmap::flat_hash_map;
 
-
 #define NOTFOUND -1
 
 template <typename T, typename Enable = void>
@@ -79,9 +78,12 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
     }
   }
 
+ public:
+  int32_t size_ = 0;
+
  private:
   flat_hash_map<Scalar, int32_t> dense_map_;
-  int32_t size_ = 0;
+
   bool null_index_set_ = false;
   int32_t null_index_;
 };
@@ -150,9 +152,12 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
     }
   }
 
+ public:
+  int32_t size_ = 0;
+
  private:
   flat_hash_map<Scalar, int32_t> dense_map_;
-  int32_t size_ = 0;
+
   bool null_index_set_ = false;
   int32_t null_index_;
   bool nan_index_set_ = false;
@@ -171,8 +176,10 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>>
       if (!true_index_set_) {
         true_index_set_ = true;
         true_index_ = size_++;
+        *out_memo_index = 0;
         on_not_found(true_index_);
       } else {
+        *out_memo_index = 0;
         on_found(true_index_);
       }
     } else if (value == false) {
@@ -221,8 +228,10 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>>
     }
   }
 
- private:
+ public:
   int32_t size_ = 0;
+
+ private:
   bool null_index_set_ = false;
   bool true_index_set_ = false;
   bool false_index_set_ = false;
