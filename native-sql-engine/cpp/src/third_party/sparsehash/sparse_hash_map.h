@@ -186,8 +186,10 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>>
       if (!false_index_set_) {
         false_index_set_ = true;
         false_index_ = size_++;
+        *out_memo_index = 0;
         on_not_found(false_index_);
       } else {
+        *out_memo_index = 0;
         on_found(false_index_);
       }
     }
