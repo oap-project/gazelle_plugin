@@ -529,8 +529,7 @@ TEST_F(SplitterTest, TestRoundRobinNestListArraySplitter) {
   auto f_arr_str = field("f_str", arrow::list(arrow::list(arrow::utf8())));
   auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
 
-  auto rb_schema =
-      arrow::schema({f_arr_str, f_arr_int32});
+  auto rb_schema = arrow::schema({f_arr_str, f_arr_int32});
 
   const std::vector<std::string> input_data_arr = {
       R"([[["alice0", "bob1"]], [["alice2"], ["bob3"]], [["Alice4", "Bob5", "AlicE6"]], [["boB7"], ["ALICE8", "BOB9"]]])",
@@ -601,8 +600,7 @@ TEST_F(SplitterTest, TestRoundRobinNestLargeListArraySplitter) {
   auto f_arr_str = field("f_str", arrow::large_list(arrow::list(arrow::utf8())));
   auto f_arr_int32 = field("f_int32", arrow::large_list(arrow::list(arrow::int32())));
 
-  auto rb_schema =
-      arrow::schema({f_arr_str, f_arr_int32});
+  auto rb_schema = arrow::schema({f_arr_str, f_arr_int32});
 
   const std::vector<std::string> input_data_arr = {
       R"([[["alice0", "bob1"]], [["alice2"], ["bob3"]], [["Alice4", "Bob5", "AlicE6"]], [["boB7"], ["ALICE8", "BOB9"]]])",
@@ -671,11 +669,10 @@ TEST_F(SplitterTest, TestRoundRobinNestLargeListArraySplitter) {
 
 TEST_F(SplitterTest, TestRoundRobinListStructArraySplitter) {
   auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
-  auto f_arr_list_struct = field("f_list_struct", list(struct_({field("a", int32()), field("b", utf8())})));
+  auto f_arr_list_struct =
+      field("f_list_struct", list(struct_({field("a", int32()), field("b", utf8())})));
 
-
-  auto rb_schema =
-      arrow::schema({f_arr_int32, f_arr_list_struct});
+  auto rb_schema = arrow::schema({f_arr_int32, f_arr_list_struct});
 
   const std::vector<std::string> input_data_arr = {
       R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",
@@ -746,9 +743,7 @@ TEST_F(SplitterTest, TestRoundRobinListMapArraySplitter) {
   auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
   auto f_arr_list_map = field("f_list_map", list(map(utf8(), utf8())));
 
-
-  auto rb_schema =
-      arrow::schema({f_arr_int32, f_arr_list_map});
+  auto rb_schema = arrow::schema({f_arr_int32, f_arr_list_map});
 
   const std::vector<std::string> input_data_arr = {
       R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",
@@ -817,11 +812,10 @@ TEST_F(SplitterTest, TestRoundRobinListMapArraySplitter) {
 
 TEST_F(SplitterTest, TestRoundRobinStructArraySplitter) {
   auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
-  auto f_arr_struct_list = field("f_struct_list", struct_({field("a", list(int32())), field("b", utf8())}));
+  auto f_arr_struct_list =
+      field("f_struct_list", struct_({field("a", list(int32())), field("b", utf8())}));
 
-
-  auto rb_schema =
-      arrow::schema({f_arr_int32, f_arr_struct_list});
+  auto rb_schema = arrow::schema({f_arr_int32, f_arr_struct_list});
 
   const std::vector<std::string> input_data_arr = {
       R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",
@@ -892,9 +886,7 @@ TEST_F(SplitterTest, TestRoundRobinMapArraySplitter) {
   auto f_arr_int32 = field("f_int32", arrow::list(arrow::list(arrow::int32())));
   auto f_arr_map = field("f_map", map(utf8(), utf8()));
 
-
-  auto rb_schema =
-      arrow::schema({f_arr_int32, f_arr_map});
+  auto rb_schema = arrow::schema({f_arr_int32, f_arr_map});
 
   const std::vector<std::string> input_data_arr = {
       R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",

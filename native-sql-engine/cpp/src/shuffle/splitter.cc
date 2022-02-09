@@ -613,7 +613,8 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
       case arrow::LargeListType::type_id:
       case arrow::ListType::type_id: {
         std::unique_ptr<arrow::ArrayBuilder> array_builder;
-        RETURN_NOT_OK(MakeBuilder(options_.memory_pool, column_type_id_[i], &array_builder));
+        RETURN_NOT_OK(
+            MakeBuilder(options_.memory_pool, column_type_id_[i], &array_builder));
         assert(array_builder != nullptr);
         RETURN_NOT_OK(array_builder->Reserve(new_size));
         new_list_builders.push_back(std::move(array_builder));
@@ -1198,8 +1199,8 @@ arrow::Status Splitter::SplitListArray(const arrow::RecordBatch& rb) {
   for (int i = 0; i < list_array_idx_.size(); ++i) {
     auto src_arr =
         std::static_pointer_cast<arrow::ListArray>(rb.column(list_array_idx_[i]));
-    auto status = AppendList(
-        rb.column(list_array_idx_[i]), partition_list_builders_[i], rb.num_rows());
+    auto status = AppendList(rb.column(list_array_idx_[i]), partition_list_builders_[i],
+                             rb.num_rows());
     if (!status.ok()) return status;
   }
   return arrow::Status::OK();
@@ -1239,12 +1240,14 @@ arrow::Status Splitter::AppendBinary(
 }
 
 arrow::Status Splitter::AppendList(
-  const std::shared_ptr<arrow::Array>& src_arr,
-  const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders, int64_t num_rows) {
-    for (auto row = 0; row < num_rows; ++row) {
-      RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(*(src_arr->data().get()), row, 1));
-    }
-    return arrow::Status::OK();
+    const std::shared_ptr<arrow::Array>& src_arr,
+    const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders,
+    int64_t num_rows) {
+  for (auto row = 0; row < num_rows; ++row) {
+    RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(
+        *(src_arr->data().get()), row, 1));
+  }
+  return arrow::Status::OK();
 }
 
 std::string Splitter::NextSpilledFileDir() {
