@@ -85,7 +85,7 @@ case class ColumnarShuffleExchangeExec(
   def buildCheck(): Unit = {
     // check input datatype
     for (attr <- child.output) {
-      attr match {
+      attr.dataType match {
         case d: BooleanType =>
         case d: ByteType =>
         case d: ShortType =>
