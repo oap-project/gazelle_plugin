@@ -68,6 +68,7 @@ namespace precompile {
                                        void (*on_not_found)(int32_t)) {                \
     return impl_->GetOrInsertNull(on_found, on_not_found);                             \
   }                                                                                    \
+  int32_t HASHMAPNAME::Size() { return impl_->size(); }                                \
   int32_t HASHMAPNAME::Get(const TYPE& value) { return impl_->Get(value); }            \
   int32_t HASHMAPNAME::GetNull() { return impl_->GetNull(); }
 
