@@ -124,7 +124,7 @@ object ArrowUtils {
   }
 
   private def rewriteUri(encodeUri: String): String = {
-    val decodedUri = java.net.URLDecoder.decode(encodeUri, StandardCharsets.UTF_8.name())
+    val decodedUri = encodeUri
     val uri = URI.create(decodedUri)
     if (uri.getScheme == "s3" || uri.getScheme == "s3a") {
       val s3Rewritten = new URI("s3", uri.getAuthority,
@@ -136,8 +136,8 @@ object ArrowUtils {
       case "file" => "file"
     }
     val ssp = uri.getScheme match {
-      case "hdfs" => uri.getRawSchemeSpecificPart
-      case "file" => "//" + uri.getRawSchemeSpecificPart
+      case "hdfs" => uri.getSchemeSpecificPart
+      case "file" => "//" + uri.getSchemeSpecificPart
     }
     val rewritten = new URI(sch, ssp, uri.getFragment)
     rewritten.toString
