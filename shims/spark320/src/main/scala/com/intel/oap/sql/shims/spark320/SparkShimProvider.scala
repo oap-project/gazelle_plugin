@@ -16,14 +16,19 @@
 
 package com.intel.oap.sql.shims.spark311
 
-import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
-import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import com.intel.oap.sql.shims.{SparkShims, SparkShimDescriptor}
 
-class Spark311Shims extends SparkShims {
+object SparkShimProvider {
+  val DESCRIPTOR = SparkShimDescriptor(3, 2, 0)
+  val DESCRIPTOR_STRINGS = Seq(s"$DESCRIPTOR")
+}
 
-  override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
+class SparkShimProvider extends com.intel.oap.sql.shims.SparkShimProvider {
+  def createShim: SparkShims = {
+    new Spark320Shims()
+  }
 
-  override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
-                                                  shuffleID: int, mapID: long, partitionLengths: Array[Long], dataTmp: File) =
-  shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, dataTmp)
+  def matches(version: String): Boolean = {
+    SparkShimProvider.DESCRIPTOR_STRINGS.contains(version)
+  }
 }

@@ -83,6 +83,15 @@
           <module>spark311</module>
         </modules>
     </profile>
+    <profile>
+      <id>spark-3.2.0</id>
+      <properties>
+      </properties>
+      <modules>
+        <module>common</module>
+        <module>spark320</module>
+      </modules>
+    </profile>
   </profiles>
 
   <build>

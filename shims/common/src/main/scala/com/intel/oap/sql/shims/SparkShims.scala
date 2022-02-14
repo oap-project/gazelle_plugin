@@ -24,4 +24,6 @@ case class SparkShimDescriptor(major: Int, minor: Int, patch: Int) extends ShimD
 
 trait SparkShims {
   def getShimDescriptor: ShimDescriptor
+  def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
+                                         shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File)
 }
