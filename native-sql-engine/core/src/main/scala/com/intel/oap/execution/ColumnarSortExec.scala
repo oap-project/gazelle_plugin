@@ -240,4 +240,7 @@ case class ColumnarSortExec(
     }
   }
 
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarSortExec =
+    copy(child = newChild)
 }

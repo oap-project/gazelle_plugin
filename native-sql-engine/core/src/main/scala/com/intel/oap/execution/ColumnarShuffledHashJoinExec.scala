@@ -583,4 +583,9 @@ case class ColumnarShuffledHashJoinExec(
     }
   }
 
+  // For spark 3.2.
+  protected def withNewChildrenInternal(newLeft: SparkPlan, newRight: SparkPlan):
+  ColumnarShuffledHashJoinExec =
+    copy(left = newLeft, right = newRight)
+
 }

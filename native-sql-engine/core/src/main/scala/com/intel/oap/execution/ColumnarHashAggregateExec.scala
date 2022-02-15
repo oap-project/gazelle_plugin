@@ -695,4 +695,8 @@ case class ColumnarHashAggregateExec(
       s"ColumnarHashAggregate(keys=$keyString, functions=$functionString)"
     }
   }
+
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarHashAggregateExec =
+    copy(child = newChild)
 }

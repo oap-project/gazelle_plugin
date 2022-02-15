@@ -90,4 +90,8 @@ case class ColumnarCustomShuffleReaderExec(
 
   override protected def doExecute(): RDD[InternalRow] =
     throw new UnsupportedOperationException()
+
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarCustomShuffleReaderExec =
+    copy(child = newChild)
 }

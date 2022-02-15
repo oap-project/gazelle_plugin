@@ -310,4 +310,8 @@ case class RowToArrowColumnarExec(child: SparkPlan) extends UnaryExecNode {
       }
     }
   }
+
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): RowToArrowColumnarExec =
+    copy(child = newChild)
 }

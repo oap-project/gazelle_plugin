@@ -267,6 +267,9 @@ case class ColumnarConditionProjectExec(
     }
   }
 
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarConditionProjectExec =
+    copy(child = newChild)
 }
 
 case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
@@ -308,6 +311,10 @@ case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
+
+  // For spark 3.2.
+  protected def withNewChildrenInternal(newChildren: IndexedSeq[SparkPlan]): ColumnarUnionExec =
+    copy(children = newChildren)
 }
 
 //TODO(): consolidate locallimit and globallimit

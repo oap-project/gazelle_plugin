@@ -254,6 +254,9 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     }
   }
 
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeExec =
+    copy(child = newChild)
 }
 
 class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)

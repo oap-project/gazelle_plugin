@@ -640,4 +640,9 @@ case class ColumnarBroadcastHashJoinExec(
     }
 
   }
+
+  // For spark 3.2.
+  protected def withNewChildrenInternal(newLeft: SparkPlan, newRight: SparkPlan):
+  ColumnarBroadcastHashJoinExec =
+    copy(left = newLeft, right = newRight)
 }

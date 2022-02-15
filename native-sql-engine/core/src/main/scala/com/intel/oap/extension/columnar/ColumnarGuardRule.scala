@@ -42,6 +42,10 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
     throw new UnsupportedOperationException
   }
   def children: Seq[SparkPlan] = Seq(child)
+
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): RowGuard =
+    copy(child = newChild)
 }
 
 case class ColumnarGuardRule() extends Rule[SparkPlan] {
