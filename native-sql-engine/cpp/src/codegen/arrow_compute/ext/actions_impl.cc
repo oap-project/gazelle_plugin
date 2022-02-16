@@ -1884,11 +1884,18 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     std::shared_ptr<arrow::Array> arr_out;
     builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
-      } else {
-        builder_->AppendNull();
+    builder_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          builder_->UnsafeAppend(cache_[offset + i]);
+        } else {
+          builder_->UnsafeAppendNull();
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        builder_->UnsafeAppend(cache_[offset + i]);
       }
     }
 
@@ -2037,13 +2044,21 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     std::shared_ptr<arrow::Array> arr_isempty_out;
     builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
-      } else {
-        builder_->AppendNull();
+    builder_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          builder_->UnsafeAppend(cache_[offset + i]);
+        } else {
+          builder_->UnsafeAppendNull();
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        builder_->UnsafeAppend(cache_[offset + i]);
       }
     }
+
     RETURN_NOT_OK(builder_->Finish(&arr_out));
 
     out->push_back(arr_out);
@@ -2353,15 +2368,25 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
     builder_->Reset();
     builder_isempty_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        builder_->Append(cache_[offset + i]);
-        builder_isempty_->Append(true);
-      } else {
-        builder_->AppendNull();
-        builder_isempty_->Append(false);
+    builder_->Reserve(res_length);
+    builder_isempty_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          builder_->UnsafeAppend(cache_[offset + i]);
+          builder_isempty_->UnsafeAppend(true);
+        } else {
+          builder_->AppendNull();
+          builder_isempty_->Append(false);
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        builder_->UnsafeAppend(cache_[offset + i]);
+        builder_isempty_->UnsafeAppend(true);
       }
     }
+
     RETURN_NOT_OK(builder_->Finish(&arr_out));
     RETURN_NOT_OK(builder_isempty_->Finish(&arr_isempty_out));
     out->push_back(arr_out);
@@ -2884,13 +2909,22 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     sum_builder_->Reset();
     count_builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
-      } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+    sum_builder_->Reserve(res_length);
+    count_builder_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+          count_builder_->UnsafeAppend(cache_count_[offset + i]);
+        } else {
+          sum_builder_->UnsafeAppendNull();
+          count_builder_->UnsafeAppendNull();
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+        count_builder_->UnsafeAppend(cache_count_[offset + i]);
       }
     }
 
@@ -3055,13 +3089,22 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     sum_builder_->Reset();
     count_builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
-      } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+    sum_builder_->Reserve(res_length);
+    count_builder_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+          count_builder_->UnsafeAppend(cache_count_[offset + i]);
+        } else {
+          sum_builder_->UnsafeAppendNull();
+          count_builder_->UnsafeAppendNull();
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+        count_builder_->UnsafeAppend(cache_count_[offset + i]);
       }
     }
 
@@ -3238,13 +3281,22 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     sum_builder_->Reset();
     count_builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
-      } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+    sum_builder_->Reserve(res_length);
+    count_builder_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+          count_builder_->UnsafeAppend(cache_count_[offset + i]);
+        } else {
+          sum_builder_->UnsafeAppendNull();
+          count_builder_->UnsafeAppendNull();
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+        count_builder_->UnsafeAppend(cache_count_[offset + i]);
       }
     }
 
@@ -3411,13 +3463,22 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
     sum_builder_->Reset();
     count_builder_->Reset();
     auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-    for (uint64_t i = 0; i < res_length; i++) {
-      if (cache_validity_[offset + i]) {
-        RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
-        RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
-      } else {
-        RETURN_NOT_OK(sum_builder_->AppendNull());
-        RETURN_NOT_OK(count_builder_->AppendNull());
+    sum_builder_->Reserve(res_length);
+    count_builder_->Reserve(res_length);
+    if (in_null_count_) {
+      for (uint64_t i = 0; i < res_length; i++) {
+        if (cache_validity_[offset + i]) {
+          sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+          count_builder_->UnsafeAppend(cache_count_[offset + i]);
+        } else {
+          sum_builder_->UnsafeAppendNull();
+          count_builder_->UnsafeAppendNull();
+        }
+      }
+    } else {
+      for (uint64_t i = 0; i < res_length; i++) {
+        sum_builder_->UnsafeAppend(cache_sum_[offset + i]);
+        count_builder_->UnsafeAppend(cache_count_[offset + i]);
       }
     }
 
