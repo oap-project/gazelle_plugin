@@ -100,8 +100,11 @@ case class ColumnarConditionProjectExec(
     }
   }
 
-  def isNullIntolerant(expr: Expression): Boolean = expr match {
-    case e: NullIntolerant => e.children.forall(isNullIntolerant)
+  // In spark 3.2, PredicateHelper has already introduced isNullIntolerant with completely same
+  // code. If we use the same method name, override keyword is required. But in spark3.1, no
+  // method is overridden. So we use an independent method name.
+  def isNullIntolerantInternal(expr: Expression): Boolean = expr match {
+    case e: NullIntolerant => e.children.forall(isNullIntolerantInternal)
     case _ => false
   }
 
@@ -110,7 +113,7 @@ case class ColumnarConditionProjectExec(
 
   val notNullAttributes = if (condition != null) {
     val (notNullPreds, otherPreds) = splitConjunctivePredicates(condition).partition {
-      case IsNotNull(a) => isNullIntolerant(a) && a.references.subsetOf(child.outputSet)
+      case IsNotNull(a) => isNullIntolerantInternal(a) && a.references.subsetOf(child.outputSet)
       case _ => false
     }
     notNullPreds.flatMap(_.references).distinct.map(_.exprId)

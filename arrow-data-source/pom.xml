@@ -42,7 +42,12 @@
   </pluginRepositories>
 
   <dependencies>
-  <dependency>
+    <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>spark-sql-columnar-shims-common</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
        <groupId>javax.servlet</groupId>
        <artifactId>javax.servlet-api</artifactId>
        <version>3.1.0</version>

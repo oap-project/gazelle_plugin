@@ -24,6 +24,7 @@ import scala.collection.JavaConverters._
 import scala.util.{Failure, Try}
 
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat
+import com.intel.oap.sql.shims.SparkShimLoader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 import org.apache.hadoop.mapreduce.{Job, JobID, OutputCommitter, TaskAttemptContext, TaskAttemptID, TaskID, TaskType}
@@ -274,6 +275,7 @@ class ParquetFileFormat
     val pushDownStringStartWith = sqlConf.parquetFilterPushDownStringStartWith
     val pushDownInFilterThreshold = sqlConf.parquetFilterPushDownInFilterThreshold
     val isCaseSensitive = sqlConf.caseSensitiveAnalysis
+    val parquetOptions = new ParquetOptions(options, sparkSession.sessionState.conf)
 
     (file: PartitionedFile) => {
       assert(file.partitionValues.numFields == partitionSchema.size)
@@ -292,11 +294,19 @@ class ParquetFileFormat
 
       lazy val footerFileMetaData =
         ParquetFileReader.readFooter(sharedConf, filePath, SKIP_ROW_GROUPS).getFileMetaData
+
+      val datetimeRebaseMode =
+        SparkShimLoader.getSparkShims().getDatetimeRebaseMode(footerFileMetaData, parquetOptions)
+
       // Try to push down filters when filter push-down is enabled.
       val pushed = if (enableParquetFilterPushDown) {
         val parquetSchema = footerFileMetaData.getSchema
-        val parquetFilters = new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
-          pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
+//        val parquetFilters = new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
+//          pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
+        val parquetFilters =
+          SparkShimLoader.getSparkShims().createParquetFilters(parquetSchema: MessageType,
+            pushDownDate, pushDownTimestamp, pushDownDecimal, pushDownStringStartWith,
+            pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
         filters
           // Collects all converted Parquet filter predicates. Notice that not all predicates can be
           // converted (`ParquetFilters.createFilter` returns an `Option`). That's why a `flatMap`
@@ -322,9 +332,9 @@ class ParquetFileFormat
           None
         }
 
-      val datetimeRebaseMode = DataSourceUtils.datetimeRebaseMode(
-        footerFileMetaData.getKeyValueMetaData.get,
-        SQLConf.get.getConf(SQLConf.LEGACY_PARQUET_REBASE_MODE_IN_READ))
+//      val datetimeRebaseMode = DataSourceUtils.datetimeRebaseMode(
+//        footerFileMetaData.getKeyValueMetaData.get,
+//        SQLConf.get.getConf(SQLConf.LEGACY_PARQUET_REBASE_MODE_IN_READ))
 
       val attemptId = new TaskAttemptID(new TaskID(new JobID(), TaskType.MAP, 0), 0)
       val hadoopAttemptContext =

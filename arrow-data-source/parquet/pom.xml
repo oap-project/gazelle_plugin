@@ -22,6 +22,11 @@
             <artifactId>spark-arrow-datasource-standard</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.intel.oap</groupId>
+            <artifactId>spark-sql-columnar-shims-common</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
 </project>

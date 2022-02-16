@@ -299,7 +299,7 @@
       <groupId>com.intel.oap</groupId>
       <artifactId>spark-sql-columnar-shims-common</artifactId>
       <version>${project.version}</version>
-      <scope>compile</scope>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>

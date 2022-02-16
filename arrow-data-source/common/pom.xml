@@ -14,6 +14,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>spark-sql-columnar-shims-common</artifactId>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>${arrow-memory.artifact}</artifactId>
       <version>${arrow.version}</version>

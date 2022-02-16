@@ -18,12 +18,52 @@ package com.intel.oap.sql.shims.spark311
 
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
+import org.apache.spark.sql.internal.SQLConf
 
 class Spark311Shims extends SparkShims {
 
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 
   override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
-                                                  shuffleID: int, mapID: long, partitionLengths: Array[Long], dataTmp: File) =
+                                                  shuffleID: int, mapID: long, partitionLengths: Array[Long], dataTmp: File): Unit =
   shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, dataTmp)
+
+  override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
+  SQLConf.LegacyBehaviorPolicy.Value = {
+    DataSourceUtils.datetimeRebaseMode(
+      footerFileMetaData.getKeyValueMetaData.get,
+      SQLConf.get.getConf(SQLConf.LEGACY_PARQUET_REBASE_MODE_IN_READ))
+  }
+
+  override def createParquetFilters(parquetSchema: MessageType,
+                           pushDownDate: Boolean,
+                           pushDownTimestamp: Boolean,
+                           pushDownDecimal: Boolean,
+                           pushDownStringStartWith: Boolean,
+                           pushDownInFilterThreshold: Int,
+                           isCaseSensitive: Boolean,
+                           datetimeRebaseMode: LegacyBehaviorPolicy.Value): ParquetFilters = {
+    new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
+      pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
+  }
+
+  override def createOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
+    new OutputWriter {
+      override def write(row: InternalRow): Unit = {
+        val batch = row.asInstanceOf[FakeRow].batch
+        writeQueue.enqueue(SparkVectorUtils
+          .toArrowRecordBatch(batch))
+      }
+
+      override def close(): Unit = {
+        writeQueue.close()
+      }
+    }
+  }
+
+
+
 }

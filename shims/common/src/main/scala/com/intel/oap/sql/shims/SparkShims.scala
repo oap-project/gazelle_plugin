@@ -16,6 +16,10 @@
 
 package com.intel.oap.sql.shims
 
+import com.intel.oap.spark.sql.ArrowWriteQueue
+import org.apache.parquet.schema.MessageType
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
+
 sealed abstract class ShimDescriptor
 
 case class SparkShimDescriptor(major: Int, minor: Int, patch: Int) extends ShimDescriptor {
@@ -24,6 +28,20 @@ case class SparkShimDescriptor(major: Int, minor: Int, patch: Int) extends ShimD
 
 trait SparkShims {
   def getShimDescriptor: ShimDescriptor
+
   def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
-                                         shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File)
+                                         shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File): Unit
+
+  def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): SQLConf.LegacyBehaviorPolicy.Value
+
+  def createParquetFilters(parquetSchema: MessageType,
+                           pushDownDate: Boolean,
+                           pushDownTimestamp: Boolean,
+                           pushDownDecimal: Boolean,
+                           pushDownStringStartWith: Boolean,
+                           pushDownInFilterThreshold: Int,
+                           isCaseSensitive: Boolean,
+                           datetimeRebaseMode: LegacyBehaviorPolicy.Value): ParquetFilters
+
+  def createOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
 }

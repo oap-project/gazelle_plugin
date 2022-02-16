@@ -23,6 +23,45 @@ class Spark320Shims extends SparkShims {
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 
   override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
-                                                  shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File) =
+                                                  shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File): Unit =
     shuffleBlockResolver.writeMetadataFileAndCommit(shuffleId, mapId, partitionLengths, null, dataTmp)
+
+  override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
+  SQLConf.LegacyBehaviorPolicy.Value = {
+    val datetimeRebaseModeInRead = parquetOptions.datetimeRebaseModeInRead
+    DataSourceUtils.datetimeRebaseMode(
+      footerFileMetaData.getKeyValueMetaData.get,
+      datetimeRebaseModeInRead)
+  }
+
+  override def createParquetFilters(parquetSchema: MessageType,
+                                    pushDownDate: Boolean,
+                                    pushDownTimestamp: Boolean,
+                                    pushDownDecimal: Boolean,
+                                    pushDownStringStartWith: Boolean,
+                                    pushDownInFilterThreshold: Int,
+                                    isCaseSensitive: Boolean,
+                                    datetimeRebaseMode: LegacyBehaviorPolicy.Value): ParquetFilters = {
+    return new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
+      pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
+  }
+
+  override def createOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
+    new OutputWriter {
+      override def write(row: InternalRow): Unit = {
+        val batch = row.asInstanceOf[FakeRow].batch
+        writeQueue.enqueue(SparkVectorUtils
+          .toArrowRecordBatch(batch))
+      }
+
+      override def close(): Unit = {
+        writeQueue.close()
+      }
+
+      override def path(): String = {
+        path
+      }
+    }
+  }
+
 }
