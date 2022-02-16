@@ -120,6 +120,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     GetRecordBatchReader(input_files[0]);
     std::cout << schema->ToString() << std::endl;
 
+#if 0
     const auto& fields = schema->fields();
     for (const auto& field : fields) {
       if (field->name() == "l_partkey") {
@@ -128,6 +129,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
             std::move(node), arrow::field("res_" + field->name(), field->type())));
       }
     }
+#endif
   }
 
   void TearDown() override {}

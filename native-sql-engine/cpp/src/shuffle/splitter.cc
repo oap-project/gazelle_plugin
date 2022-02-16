@@ -916,73 +916,69 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
 
 arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb) {
   const auto num_rows = rb.num_rows();
+  int64_t row;
+
   for (auto col = 0; col < fixed_width_array_idx_.size(); ++col) {
-    std::copy(partition_buffer_idx_base_.begin(),partition_buffer_idx_base_.end(),
-              partition_buffer_idx_offset_.begin());
+    std::copy(partition_buffer_idx_base_.begin(), partition_buffer_idx_base_.end(),
+          partition_buffer_idx_offset_.begin());
     auto col_idx = fixed_width_array_idx_[col];
     auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[1]->data());
     const auto& dst_addrs = partition_fixed_width_value_addrs_[col];
-    switch (column_type_id_[col_idx]->id()) {
-#define PROCESS(SHUFFLE_TYPE, _CTYPE)                                               \
-  case SHUFFLE_TYPE::type_id:                                                       \
-    for (auto row = 0; row < num_rows; ++row) {                                     \
-      auto pid = partition_id_[row];                                                \
-      auto dst_offset =                                                             \
-          partition_buffer_idx_offset_[pid];      \
-      reinterpret_cast<arrow::TypeTraits<SHUFFLE_TYPE>::CType*>(                    \
-          dst_addrs[pid])[dst_offset] =                                             \
-          reinterpret_cast<arrow::TypeTraits<SHUFFLE_TYPE>::CType*>(src_addr)[row]; \
-      partition_buffer_idx_offset_[pid]++;                                          \
-      _mm_prefetch(&reinterpret_cast<arrow::TypeTraits<SHUFFLE_TYPE>::CType*>(      \
-                       dst_addrs[pid])[dst_offset + 1],                             \
-                   _MM_HINT_T0);                                                    \
-    }                                                                               \
-    break;
-      PROCESS(arrow::Int8Type, uint8_t)
-      PROCESS(arrow::UInt8Type, uint8_t)
-      PROCESS(arrow::Int16Type, uint16_t)
-      PROCESS(arrow::UInt16Type, uint16_t)
-      PROCESS(arrow::Int32Type, uint32_t)
-      PROCESS(arrow::UInt32Type, uint32_t)
-      PROCESS(arrow::FloatType, uint32_t)
-      PROCESS(arrow::Date32Type, uint32_t)
-      PROCESS(arrow::Time32Type, uint32_t)
-      PROCESS(arrow::Int64Type, uint64_t)
-      PROCESS(arrow::UInt64Type, uint64_t)
-      PROCESS(arrow::DoubleType, uint64_t)
-      PROCESS(arrow::Date64Type, uint64_t)
-      PROCESS(arrow::Time64Type, uint64_t)
-      PROCESS(arrow::TimestampType, uint64_t)
+    
+    switch (arrow::bit_width(column_type_id_[col_idx]->id())) {
+#define PROCESS(_CTYPE)                                                               \
+      for (row = 0; row < num_rows; ++row) {                                        \
+        auto pid = partition_id_[row];                                                \
+        /*auto nextpid = partition_id_[row+1];*/                                          \
+        /*_mm_prefetch(&partition_buffer_idx_offset_[nextpid], _MM_HINT_T0);*/            \
+        /*_mm_prefetch(&dst_addrs[nextpid], _MM_HINT_T0);*/                               \
+        auto dst_offset = partition_buffer_idx_offset_[pid];                          \
+        auto dst_pid_base = reinterpret_cast<_CTYPE*>(dst_addrs[pid]);                \
+        /*_mm_prefetch(&src_addr[row+128], _MM_HINT_T0); */                                \
+        dst_pid_base[dst_offset] = reinterpret_cast<_CTYPE*>(src_addr)[row];          \
+        partition_buffer_idx_offset_[pid]++;                                          \
+        _mm_prefetch(&dst_pid_base[dst_offset + 1], _MM_HINT_T0);                     \
+      }                                                                               \
+      break;
+    case 8:
+      PROCESS(uint8_t)
+    case 16:
+      PROCESS(uint16_t)
+    case 32:
+      PROCESS(uint32_t)
+    case 64:
+      PROCESS(uint64_t)
 #undef PROCESS
-      case arrow::Decimal128Type::type_id:
-        for (auto row = 0; row < num_rows; ++row) {
-          auto pid = partition_id_[row];
-          auto dst_offset =
-              (partition_buffer_idx_offset_[pid]) << 1;
-          reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset] =
-              reinterpret_cast<uint64_t*>(src_addr)[row << 1];
-          reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset | 1] =
-              reinterpret_cast<uint64_t*>(src_addr)[row << 1 | 1];
-          partition_buffer_idx_offset_[pid]++;
-          _mm_prefetch(&reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset + 2],
-                       _MM_HINT_T0);
-        }
-        break;
-      case arrow::BooleanType::type_id:
-        for (auto row = 0; row < num_rows; ++row) {
-          auto pid = partition_id_[row];
-          auto dst_offset = partition_buffer_idx_offset_[pid];
-          dst_addrs[pid][dst_offset >> 3] ^=
-              (dst_addrs[pid][dst_offset >> 3] >> (dst_offset & 7) ^
-               src_addr[row >> 3] >> (row & 7))
-              << (dst_offset & 7);
-          partition_buffer_idx_offset_[pid]++;
-        }
-        break;
-      default:
-        return arrow::Status::Invalid("Column type " +
-                                      schema_->field(col_idx)->type()->ToString() +
-                                      " is not fixed width");
+    case 128: //arrow::Decimal128Type::type_id
+      for (auto row = 0; row < num_rows; ++row) {
+        auto pid = partition_id_[row];
+        uint32_t dst_offset = partition_buffer_idx_offset_[pid];
+        dst_offset <<= 1;
+        reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset] =
+            reinterpret_cast<uint64_t*>(src_addr)[row << 1];
+        reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset | 1] =
+            reinterpret_cast<uint64_t*>(src_addr)[row << 1 | 1];
+        partition_buffer_idx_offset_[pid]++;
+        _mm_prefetch(&reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset + 2],
+                      _MM_HINT_T0);
+      }
+      break;
+    case 1: //arrow::BooleanType::type_id:
+      for (auto row = 0; row < num_rows; ++row) {
+        auto pid = partition_id_[row];
+        auto dst_offset =
+            partition_buffer_idx_base_[pid] + partition_buffer_idx_offset_[pid];
+        dst_addrs[pid][dst_offset >> 3] ^=
+            (dst_addrs[pid][dst_offset >> 3] >> (dst_offset & 7) ^
+              src_addr[row >> 3] >> (row & 7))
+            << (dst_offset & 7);
+        partition_buffer_idx_offset_[pid]++;
+      }
+      break;
+    default:
+      return arrow::Status::Invalid("Column type " +
+                                    schema_->field(col_idx)->type()->ToString() +
+                                    " is not fixed width");
     }
   }
   return arrow::Status::OK();
