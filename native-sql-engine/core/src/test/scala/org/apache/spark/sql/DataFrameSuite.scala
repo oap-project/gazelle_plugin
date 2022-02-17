@@ -1537,14 +1537,15 @@ class DataFrameSuite extends QueryTest
     checkAnswer(df.sort(rand(33)), df.sort(rand(33)))
   }
 
-  test("SPARK-9083: sort with non-deterministic expressions") {
-    val seed = 33
-    val df = (1 to 100).map(Tuple1.apply).toDF("i").repartition(1)
-    val random = new XORShiftRandom(seed)
-    val expected = (1 to 100).map(_ -> random.nextDouble()).sortBy(_._2).map(_._1)
-    val actual = df.sort(rand(seed)).collect().map(_.getInt(0))
-    assert(expected === actual)
-  }
+  // This test is implementation dependent. Not applicable to gazelle.
+//  test("SPARK-9083: sort with non-deterministic expressions") {
+//    val seed = 33
+//    val df = (1 to 100).map(Tuple1.apply).toDF("i").repartition(1)
+//    val random = new XORShiftRandom(seed)
+//    val expected = (1 to 100).map(_ -> random.nextDouble()).sortBy(_._2).map(_._1)
+//    val actual = df.sort(rand(seed)).collect().map(_.getInt(0))
+//    assert(expected === actual)
+//  }
 
   test("Sorting columns are not in Filter and Project") {
     checkAnswer(
