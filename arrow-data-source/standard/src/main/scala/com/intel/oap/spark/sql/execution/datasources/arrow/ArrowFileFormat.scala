@@ -96,7 +96,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 //          }
 //        }
 
-        SparkShimLoader.getSparkShims().createOutputWriter(writeQueue, path)
+        SparkShimLoader.getSparkShims.newOutputWriter(writeQueue, path)
       }
     }
   }

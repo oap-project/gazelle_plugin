@@ -38,7 +38,7 @@ class Spark311Shims extends SparkShims {
       SQLConf.get.getConf(SQLConf.LEGACY_PARQUET_REBASE_MODE_IN_READ))
   }
 
-  override def createParquetFilters(parquetSchema: MessageType,
+  override def newParquetFilters(parquetSchema: MessageType,
                            pushDownDate: Boolean,
                            pushDownTimestamp: Boolean,
                            pushDownDecimal: Boolean,
@@ -50,7 +50,7 @@ class Spark311Shims extends SparkShims {
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
   }
 
-  override def createOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
+  override def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
     new OutputWriter {
       override def write(row: InternalRow): Unit = {
         val batch = row.asInstanceOf[FakeRow].batch
@@ -63,6 +63,11 @@ class Spark311Shims extends SparkShims {
       }
     }
   }
+
+  override def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec = {
+    new ColumnarBatchScanExec(plan.output, plan.scan)
+  }
+
 
 
 

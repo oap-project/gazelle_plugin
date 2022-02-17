@@ -96,7 +96,7 @@ class ColumnarShuffleWriter[K, V](
     if (!records.hasNext) {
       partitionLengths = new Array[Long](dep.partitioner.numPartitions)
 //      shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, null)
-      SparkShimLoader.getSparkShims().shuffleBlockResolverWriteAndCommit(
+      SparkShimLoader.getSparkShims.shuffleBlockResolverWriteAndCommit(
             shuffleBlockResolver, dep.shuffleId, mapId, partitionLengths, null)
       mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths, mapId)
       return
@@ -205,7 +205,7 @@ class ColumnarShuffleWriter[K, V](
 //        mapId,
 //        partitionLengths,
 //        dataTmp)
-      SparkShimLoader.getSparkShims().shuffleBlockResolverWriteAndCommit(
+      SparkShimLoader.getSparkShims.shuffleBlockResolverWriteAndCommit(
             shuffleBlockResolver, dep.shuffleId, mapId, partitionLengths, dataTmp)
     } finally {
       if (dataTmp.exists() && !dataTmp.delete()) {

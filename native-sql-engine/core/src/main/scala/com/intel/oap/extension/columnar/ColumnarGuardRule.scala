@@ -20,6 +20,8 @@ package com.intel.oap.extension.columnar
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.execution._
 import com.intel.oap.extension.LocalWindowExec
+import com.intel.oap.sql.shims.SparkShimLoader
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
@@ -76,7 +78,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, plan.child, plan.evalType)
         case plan: BatchScanExec =>
           if (!enableColumnarBatchScan) return false
-          new ColumnarBatchScanExec(plan.output, plan.scan)
+          SparkShimLoader.getSparkShims.newColumnarBatchScanExec(plan)
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
             return false

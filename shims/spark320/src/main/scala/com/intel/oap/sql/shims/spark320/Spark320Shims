@@ -34,7 +34,7 @@ class Spark320Shims extends SparkShims {
       datetimeRebaseModeInRead)
   }
 
-  override def createParquetFilters(parquetSchema: MessageType,
+  override def newParquetFilters(parquetSchema: MessageType,
                                     pushDownDate: Boolean,
                                     pushDownTimestamp: Boolean,
                                     pushDownDecimal: Boolean,
@@ -46,7 +46,7 @@ class Spark320Shims extends SparkShims {
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
   }
 
-  override def createOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
+  override def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
     new OutputWriter {
       override def write(row: InternalRow): Unit = {
         val batch = row.asInstanceOf[FakeRow].batch

@@ -19,6 +19,7 @@ package com.intel.oap.extension
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.GazelleSparkExtensionsInjector
+import com.intel.oap.sql.shims.SparkShimLoader
 
 import scala.collection.mutable
 import com.intel.oap.execution._
@@ -83,7 +84,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, columnarChild, plan.evalType)
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      new ColumnarBatchScanExec(plan.output, plan.scan)
+      SparkShimLoader.getSparkShims.newColumnarBatchScanExec(plan)
     case plan: CoalesceExec =>
       ColumnarCoalesceExec(plan.numPartitions, replaceWithColumnarPlan(plan.child))
     case plan: InMemoryTableScanExec =>

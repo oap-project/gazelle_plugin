@@ -296,7 +296,7 @@ class ParquetFileFormat
         ParquetFileReader.readFooter(sharedConf, filePath, SKIP_ROW_GROUPS).getFileMetaData
 
       val datetimeRebaseMode =
-        SparkShimLoader.getSparkShims().getDatetimeRebaseMode(footerFileMetaData, parquetOptions)
+        SparkShimLoader.getSparkShims.getDatetimeRebaseMode(footerFileMetaData, parquetOptions)
 
       // Try to push down filters when filter push-down is enabled.
       val pushed = if (enableParquetFilterPushDown) {
@@ -304,7 +304,7 @@ class ParquetFileFormat
 //        val parquetFilters = new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
 //          pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
         val parquetFilters =
-          SparkShimLoader.getSparkShims().createParquetFilters(parquetSchema: MessageType,
+          SparkShimLoader.getSparkShims.newParquetFilters(parquetSchema: MessageType,
             pushDownDate, pushDownTimestamp, pushDownDecimal, pushDownStringStartWith,
             pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
         filters

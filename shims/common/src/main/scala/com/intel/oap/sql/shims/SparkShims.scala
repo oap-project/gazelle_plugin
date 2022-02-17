@@ -19,6 +19,7 @@ package com.intel.oap.sql.shims
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import org.apache.parquet.schema.MessageType
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
+import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 
 sealed abstract class ShimDescriptor
 
@@ -34,7 +35,7 @@ trait SparkShims {
 
   def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): SQLConf.LegacyBehaviorPolicy.Value
 
-  def createParquetFilters(parquetSchema: MessageType,
+  def newParquetFilters(parquetSchema: MessageType,
                            pushDownDate: Boolean,
                            pushDownTimestamp: Boolean,
                            pushDownDecimal: Boolean,
@@ -43,5 +44,7 @@ trait SparkShims {
                            isCaseSensitive: Boolean,
                            datetimeRebaseMode: LegacyBehaviorPolicy.Value): ParquetFilters
 
-  def createOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
+  def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
+
+  def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec
 }
