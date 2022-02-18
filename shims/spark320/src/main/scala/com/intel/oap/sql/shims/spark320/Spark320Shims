@@ -64,4 +64,8 @@ class Spark320Shims extends SparkShims {
     }
   }
 
+  override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
+    conf.broadcastHashJoinOutputPartitioningExpandLimit
+  }
+
 }

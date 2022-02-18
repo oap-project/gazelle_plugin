@@ -68,7 +68,10 @@ class Spark311Shims extends SparkShims {
     new ColumnarBatchScanExec(plan.output, plan.scan)
   }
 
-
+  override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
+    sqlContext.getConf(
+      "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
+  }
 
 
 }

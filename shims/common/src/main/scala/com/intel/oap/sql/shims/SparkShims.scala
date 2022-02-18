@@ -20,6 +20,7 @@ import com.intel.oap.spark.sql.ArrowWriteQueue
 import org.apache.parquet.schema.MessageType
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
+import org.apache.spark.sql.internal.SQLConf
 
 sealed abstract class ShimDescriptor
 
@@ -47,4 +48,6 @@ trait SparkShims {
   def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
 
   def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec
+
+  def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
 }
