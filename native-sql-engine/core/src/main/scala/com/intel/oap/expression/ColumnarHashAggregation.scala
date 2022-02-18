@@ -99,7 +99,7 @@ class ColumnarHashAggregation(
     val mode = aggregateExpression.mode
     try {
       aggregateFunc match {
-        case Average(_) =>
+        case _: Average =>
           mode match {
             case Partial =>
               val childrenColumnarFuncNodeList =
@@ -126,7 +126,7 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-        case Sum(_) =>
+        case _: Sum =>
             mode match {
               case Partial =>
                 val childrenColumnarFuncNodeList =
@@ -243,7 +243,7 @@ class ColumnarHashAggregation(
       val mode = exp.mode
       val aggregateFunc = exp.aggregateFunction
       aggregateFunc match {
-        case Average(_) =>
+        case _: Average =>
           mode match {
             case Partial => {
               val avg = aggregateFunc.asInstanceOf[Average]
@@ -270,7 +270,7 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
-        case Sum(_) =>
+        case _: Sum =>
           mode match {
             case Partial | PartialMerge => {
               val sum = aggregateFunc.asInstanceOf[Sum]

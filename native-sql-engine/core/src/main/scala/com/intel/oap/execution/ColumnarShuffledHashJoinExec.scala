@@ -82,6 +82,9 @@ case class ColumnarShuffledHashJoinExec(
 
   buildCheck()
 
+  // For spark 3.2.
+  def isSkewJoin: Boolean = false
+
   protected lazy val (buildPlan, streamedPlan) = buildSide match {
     case BuildLeft => (left, right)
     case BuildRight => (right, left)
