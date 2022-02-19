@@ -132,7 +132,9 @@ class Splitter::PartitionWriter {
       : splitter_(splitter), partition_id_(partition_id) {}
 
   arrow::Status Spill() {
+#ifndef SKIPWRITE
     RETURN_NOT_OK(EnsureOpened());
+#endif
     RETURN_NOT_OK(WriteRecordBatchPayload(spilled_file_os_.get(), partition_id_));
     ClearCache();
     return arrow::Status::OK();

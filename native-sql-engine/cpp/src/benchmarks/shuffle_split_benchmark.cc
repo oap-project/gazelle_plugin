@@ -62,13 +62,12 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     ASSERT_NOT_OK(parquet_reader->GetSchema(&schema));
 
     auto num_rowgroups = parquet_reader->num_row_groups();
-    std::vector<int> row_group_indices;
+    
     for (int i = 0; i < num_rowgroups; ++i) {
       row_group_indices.push_back(i);
     }
 
     auto num_columns = schema->num_fields();
-    std::vector<int> column_indices;
 #if 0
     for (int i = 0; i < num_columns; ++i) {
       column_indices.push_back(i);
@@ -77,15 +76,16 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     column_indices.push_back(0);
     column_indices.push_back(1);
     column_indices.push_back(2);
-    column_indices.push_back(3);
+//    column_indices.push_back(3);
     column_indices.push_back(4);
     column_indices.push_back(5);
     column_indices.push_back(6);
     column_indices.push_back(7);
-    column_indices.push_back(10);
-    column_indices.push_back(11);
-    column_indices.push_back(12);
+//    column_indices.push_back(10);
+//    column_indices.push_back(11);
+//    column_indices.push_back(12);
 //    column_indices.push_back(14);
+
 #endif
     ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
                                                        &record_batch_reader));
@@ -93,17 +93,17 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(15));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(14));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(13));
-//    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(12));
-//    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(11));
-//    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(10));
+    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(12));
+    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(11));
+    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(10));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(9));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(8));
 /*    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(7));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(6));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(5));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(4));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(3));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(2));
+*/    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(3));
+/*    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(2));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(1));
     ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(0));*/
   }
@@ -136,6 +136,8 @@ class BenchmarkShuffleSplit : public ::testing::Test {
 
  protected:
   std::shared_ptr<arrow::io::RandomAccessFile> file;
+  std::vector<int> row_group_indices;
+  std::vector<int> column_indices;
   std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
   std::shared_ptr<RecordBatchReader> record_batch_reader;
   std::shared_ptr<arrow::Schema> schema;
@@ -162,21 +164,34 @@ class BenchmarkShuffleSplit : public ::testing::Test {
 
     std::shared_ptr<arrow::RecordBatch> record_batch;
     int64_t elapse_read = 0;
+    int64_t total_read_elapsed = 0;
     int64_t num_batches = 0;
     int64_t num_rows = 0;
     int64_t split_time = 0;
 
     std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-    do {
-      TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
-      if (record_batch) {
-        batches.push_back(record_batch);
-        num_batches += 1;
-        num_rows += record_batch->num_rows();
-      }
-    } while (record_batch); 
+    while(1)
+    {
+      ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
+                                                    &record_batch_reader));
+      do{
+        TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+        
+        total_read_elapsed+=elapse_read;
+        if (record_batch) {
+          batches.push_back(record_batch);
+          num_batches += 1;
+          num_rows += record_batch->num_rows();
+        }
+      } while (record_batch);
+      batches.clear();
+    }
     
-    std::cout << "parse parquet done elapsed time = " << TIME_NANO_TO_STRING(elapse_read) << std::endl;
+    std::cout << "parse parquet done elapsed time = " << TIME_NANO_TO_STRING(total_read_elapsed) << std::endl;
+    std::cout << "rowgroups = " << row_group_indices.size() << std::endl;
+    std::cout << "columns = " << column_indices.size() << std::endl;
+    std::cout << "batches = " << num_batches << std::endl;
+    std::cout << "num_rows = " << num_rows << std::endl;
     while(1)
       for_each(batches.begin(),batches.end(), [this, &split_time](std::shared_ptr<arrow::RecordBatch> &record_batch){
         TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
