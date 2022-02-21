@@ -21,6 +21,7 @@ import java.util.concurrent._
 
 import com.google.common.collect.Lists
 import com.intel.oap.expression._
+import com.intel.oap.sql.shims.SparkShimLoader
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field}
@@ -84,9 +85,12 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     promise.future
 
   @transient
+  private lazy val maxBroadcastRows = SparkShimLoader.getSparkShims.getMaxBroadcastRows(mode)
+
+  @transient
   private[sql] lazy val relationFuture: java.util.concurrent.Future[broadcast.Broadcast[Any]] = {
     SQLExecution.withThreadLocalCaptured[broadcast.Broadcast[Any]](
-      sqlContext.sparkSession,
+      SparkShimLoader.getSparkShims.getSparkSession,
       BroadcastExchangeExec.executionContext) {
       var relation: Any = null
       try {
@@ -162,9 +166,9 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
 
         /////////////////////////////////////////////////////////////////////////////
 
-        if (numRows >= BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS) {
+        if (numRows >= maxBroadcastRows) {
           throw new SparkException(
-            s"Cannot broadcast the table over ${BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS} rows: $numRows rows")
+            s"Cannot broadcast the table over ${maxBroadcastRows} rows: $numRows rows")
         }
 
         longMetric("collectTime") += NANOSECONDS.toMillis(System.nanoTime() - beforeCollect)

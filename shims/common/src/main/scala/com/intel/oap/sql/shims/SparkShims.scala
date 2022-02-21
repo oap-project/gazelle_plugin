@@ -18,6 +18,10 @@ package com.intel.oap.sql.shims
 
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import org.apache.parquet.schema.MessageType
+import org.apache.spark.TaskContext
+import org.apache.spark.shuffle.BaseShuffleHandle
+import org.apache.spark.shuffle.sort.SortShuffleWriter
+import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.internal.SQLConf
@@ -50,4 +54,10 @@ trait SparkShims {
   def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
+  def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, BaseShuffleHandle,
+                           mapId: Long, context: TaskContext,
+                           shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter
+  def getMaxBroadcastRows(mode: BroadcastMode): Long
+
+  def getSparkSession(plan: SparkPlan): SparkSession
 }

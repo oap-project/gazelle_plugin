@@ -18,7 +18,9 @@ package com.intel.oap.sql.shims.spark311
 
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
 import org.apache.spark.sql.internal.SQLConf
@@ -71,6 +73,25 @@ class Spark311Shims extends SparkShims {
   override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
     sqlContext.getConf(
       "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
+  }
+
+  override def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, BaseShuffleHandle,
+    mapId: Long, context: TaskContext,
+    shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter = {
+    new SortShuffleWriter(
+      shuffleBlockResolver,
+      other,
+      mapId,
+      context,
+      shuffleExecutorComponents)
+  }
+
+  override def getMaxBroadcastRows(mode: BroadcastMode): Long = {
+    BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS
+  }
+
+  override def getSparkSession(plan: SparkPlan): SparkSession = {
+    plan.sqlContext.sparkSession
   }
 
 
