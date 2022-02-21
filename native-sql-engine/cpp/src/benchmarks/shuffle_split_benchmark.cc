@@ -133,7 +133,6 @@ class BenchmarkShuffleSplit : public ::testing::Test {
 
     std::shared_ptr<arrow::RecordBatch> record_batch;
     int64_t elapse_read = 0;
-    int64_t total_read_elapsed = 0;
     int64_t num_batches = 0;
     int64_t num_rows = 0;
     int64_t split_time = 0;
@@ -144,7 +143,6 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     do{
       TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
       
-      total_read_elapsed+=elapse_read;
       if (record_batch) {
         batches.push_back(record_batch);
         num_batches += 1;
@@ -152,7 +150,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
       }
     } while (record_batch);
     
-    std::cout << "parse parquet done elapsed time = " << TIME_NANO_TO_STRING(total_read_elapsed) << std::endl;
+    std::cout << "parse parquet done elapsed time = " << TIME_NANO_TO_STRING(elapse_read) << std::endl;
     std::cout << "rowgroups = " << row_group_indices.size() << std::endl;
     std::cout << "columns = " << column_indices.size() << std::endl;
     std::cout << "batches = " << num_batches << std::endl;

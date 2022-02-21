@@ -937,15 +937,7 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
       }                                                                               \
       break;
     case 8:
-      for (row = 0; row < num_rows; ++row) {                                        \
-        auto pid = partition_id_[row];                                                \
-        auto dst_offset = partition_buffer_idx_offset_[pid];                          \
-        auto dst_pid_base = reinterpret_cast<uint8_t*>(dst_addrs[pid]);                \
-        dst_pid_base[dst_offset] = reinterpret_cast<uint8_t*>(src_addr)[row];          \
-        partition_buffer_idx_offset_[pid]++;                                          \
-        _mm_prefetch(&dst_pid_base[dst_offset + 1], _MM_HINT_T0);                     \
-      }                                                                               \
-      break;
+      PROCESS(uint8_t)
     case 16:
       PROCESS(uint16_t)
     case 32:
