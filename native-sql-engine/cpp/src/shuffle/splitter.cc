@@ -21,6 +21,7 @@
 #include <arrow/memory_pool.h>
 #include <arrow/util/bit_util.h>
 #include <arrow/util/checked_cast.h>
+#include <arrow/type.h>
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
@@ -277,10 +278,18 @@ arrow::Status Splitter::Init() {
   ARROW_ASSIGN_OR_RAISE(column_type_id_, ToSplitterTypeId(schema_->fields()));
 
   partition_writer_.resize(num_partitions_);
+
+  // pre-computed row count for each partition after the record batch split
   partition_id_cnt_.resize(num_partitions_);
+  // pre-allocated buffer size for each partition, unit is row count
   partition_buffer_size_.resize(num_partitions_);
+
+  // start index for each partition when new record batch starts to split
   partition_buffer_idx_base_.resize(num_partitions_);
+  // the offset of each partition during record batch split
   partition_buffer_idx_offset_.resize(num_partitions_);
+
+
   partition_cached_recordbatch_.resize(num_partitions_);
   partition_cached_recordbatch_size_.resize(num_partitions_);
   partition_lengths_.resize(num_partitions_);
@@ -472,6 +481,7 @@ arrow::Status Splitter::Stop() {
 
 arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffers) {
   if (partition_buffer_idx_base_[partition_id] > 0) {
+    // already filled
     auto fixed_width_idx = 0;
     auto binary_idx = 0;
     auto large_binary_idx = 0;
@@ -612,7 +622,7 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         assert(builder != nullptr);
         RETURN_NOT_OK(builder->Reserve(new_size));
         RETURN_NOT_OK(
-            builder->ReserveData(binary_array_empirical_size_[binary_idx] * new_size));
+            builder->ReserveData(binary_array_empirical_size_[binary_idx] * new_size+1024));
         new_binary_builders.push_back(std::move(builder));
         binary_idx++;
         break;
@@ -623,7 +633,7 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         assert(builder != nullptr);
         RETURN_NOT_OK(builder->Reserve(new_size));
         RETURN_NOT_OK(builder->ReserveData(
-            large_binary_array_empirical_size_[large_binary_idx] * new_size));
+            large_binary_array_empirical_size_[large_binary_idx] * new_size + 1024));
         new_large_binary_builders.push_back(std::move(builder));
         large_binary_idx++;
         break;
@@ -715,7 +725,6 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         if (input_fixed_width_has_null_[fixed_width_idx]) {
           partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] =
               const_cast<uint8_t*>(new_validity_buffers[fixed_width_idx]->data());
-          std::cout << "validate buffer assigned "<< std::endl;
         } else {
           partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] = nullptr;
         }
@@ -807,6 +816,7 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
 arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // for the first input record batch, scan binary arrays and large binary
   // arrays to get their empirical sizes
+
   uint32_t size_per_row = 0;
   if (!empirical_size_calculated_) {
     auto num_rows = rb.num_rows();
@@ -815,21 +825,24 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
           std::static_pointer_cast<arrow::BinaryArray>(rb.column(binary_array_idx_[i]));
       auto length = arr->value_offset(num_rows) - arr->value_offset(0);
       binary_array_empirical_size_[i] = length / num_rows;
-      size_per_row += binary_array_empirical_size_[i];
     }
     for (int i = 0; i < large_binary_array_idx_.size(); ++i) {
       auto arr = std::static_pointer_cast<arrow::LargeBinaryArray>(
           rb.column(large_binary_array_idx_[i]));
       auto length = arr->value_offset(num_rows) - arr->value_offset(0);
       large_binary_array_empirical_size_[i] = length / num_rows;
-      size_per_row += large_binary_array_empirical_size_[i];
     }
     empirical_size_calculated_ = true;
   }
 
+  size_per_row = std::accumulate(binary_array_empirical_size_.begin(),
+      binary_array_empirical_size_.end(),0);
+  size_per_row = std::accumulate(large_binary_array_empirical_size_.begin(),
+      large_binary_array_empirical_size_.end(),size_per_row);
+
   for (auto col = 0; col < fixed_width_array_idx_.size(); ++col) {
     auto col_idx = fixed_width_array_idx_[col];
-    size_per_row += arrow::bit_width(column_type_id_[col]->id()) / 8;
+    size_per_row += arrow::bit_width(column_type_id_[col_idx]->id()) / 8;
     if (rb.column_data(col_idx)->GetNullCount() != 0) {
       input_fixed_width_has_null_[col] = true;
     }
@@ -839,50 +852,47 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
       options_.offheap_per_task > 0 && size_per_row > 0
           ? options_.offheap_per_task / 4 / size_per_row / num_partitions_
           : options_.buffer_size;
+  prealloc_row_cnt = std::min(prealloc_row_cnt, (int64_t)options_.buffer_size);
+
+  
 
   // prepare partition buffers and spill if necessary
   for (auto pid = 0; pid < num_partitions_; ++pid) {
-    if (partition_id_cnt_[pid] > 0 &&
-        partition_buffer_idx_base_[pid] + partition_id_cnt_[pid] >
-            partition_buffer_size_[pid]) {
-      auto new_size = std::min((int32_t)prealloc_row_cnt, options_.buffer_size);
-      // make sure the splitted record batch can be filled
-      if (partition_id_cnt_[pid] > new_size) new_size = partition_id_cnt_[pid];
-      if (options_.prefer_spill) {
-        if (partition_buffer_size_[pid] == 0) {  // first allocate?
-          RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
-        } else {  // not first allocate, spill
-          if (partition_id_cnt_[pid] > partition_buffer_size_[pid]) {  // need reallocate?
-            // TODO(): CacheRecordBatch will try to reset builder buffer
-            // AllocatePartitionBuffers will then Reserve memory for builder based on last
-            // recordbatch, the logic on reservation size should be cleaned up
-            RETURN_NOT_OK(CacheRecordBatch(pid, true));
+      if (partition_id_cnt_[pid] > 0) {
+      // make sure the size to be allocated is larger than the size to be filled
+      auto new_size = std::max((int32_t)prealloc_row_cnt,partition_id_cnt_[pid]);
+      if (partition_buffer_size_[pid]==0)
+      {
+        // allocate buffer if it's not yet allocated
+        RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
+      }else if (partition_buffer_idx_base_[pid] + partition_id_cnt_[pid] >
+            partition_buffer_size_[pid])
+      {
+        // if the size to be filled + allready filled > the buffer size, need to allocate new buffer
+        if (options_.prefer_spill) {
+          // if prefer_spill is set, spill current record batch, we may reuse the buffers
+          
+          if (new_size > partition_buffer_size_[pid]) {  
+            // if the partition size after split is already larger than allocated buffer size, need reallocate
+            RETURN_NOT_OK(CacheRecordBatch(pid, /*reset_buffers = */ true));
+            //splill immediately
             RETURN_NOT_OK(SpillPartition(pid));
             RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
           } else {
-            RETURN_NOT_OK(CacheRecordBatch(pid, false));
+            //partition size after split is smaller than buffer size, no need to reset buffer, reuse it.
+            RETURN_NOT_OK(CacheRecordBatch(pid, /*reset_buffers = */ false));
             RETURN_NOT_OK(SpillPartition(pid));
           }
+        } else {
+          // if prefer_spill is disabled, cache the record batch
+          RETURN_NOT_OK(CacheRecordBatch(pid, true));
+          // allocate partition buffer with retries
+          RETURN_NOT_OK(AllocateNew(pid, new_size));
         }
-      } else {
-        RETURN_NOT_OK(CacheRecordBatch(pid, true));
-#ifdef DEBUG
-        std::cout << "Attempt to allocate partition buffer, partition id: " +
-                         std::to_string(pid) + ", old buffer size: " +
-                         std::to_string(partition_buffer_size_[pid]) +
-                         ", new buffer size: " + std::to_string(new_size) +
-                         ", input record batch size: " + std::to_string(rb.num_rows())
-                  << std::endl;
-#endif
-        RETURN_NOT_OK(AllocateNew(pid, new_size));
       }
     }
-  }
-#ifdef DEBUG
-  std::cout << "Total bytes allocated: " << options_.memory_pool->bytes_allocated()
-            << std::endl;
-#endif
-
+  }  
+// now start to split the record batch  
 #if defined(COLUMNAR_PLUGIN_USE_AVX512)
   RETURN_NOT_OK(SplitFixedWidthValueBufferAVX(rb));
 #else
@@ -893,7 +903,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   RETURN_NOT_OK(SplitLargeBinaryArray(rb));
   RETURN_NOT_OK(SplitListArray(rb));
 
-  // update partition buffer base
+  // update partition buffer base after split
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     partition_buffer_idx_base_[pid] += partition_id_cnt_[pid];
   }
@@ -927,7 +937,15 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
       }                                                                               \
       break;
     case 8:
-      PROCESS(uint8_t)
+      for (row = 0; row < num_rows; ++row) {                                        \
+        auto pid = partition_id_[row];                                                \
+        auto dst_offset = partition_buffer_idx_offset_[pid];                          \
+        auto dst_pid_base = reinterpret_cast<uint8_t*>(dst_addrs[pid]);                \
+        dst_pid_base[dst_offset] = reinterpret_cast<uint8_t*>(src_addr)[row];          \
+        partition_buffer_idx_offset_[pid]++;                                          \
+        _mm_prefetch(&dst_pid_base[dst_offset + 1], _MM_HINT_T0);                     \
+      }                                                                               \
+      break;
     case 16:
       PROCESS(uint16_t)
     case 32:
@@ -1313,7 +1331,8 @@ arrow::Status RoundRobinSplitter::ComputeAndCountPartitionId(
   for (auto& pid : partition_id_) {
     pid = pid_selection_;
     partition_id_cnt_[pid_selection_]++;
-    pid_selection_ = pid_selection_==num_partitions_?0:pid_selection_ + 1;
+    auto nextpid = pid_selection_ + 1;
+    pid_selection_ = nextpid==num_partitions_? 0 : nextpid;
   }
   return arrow::Status::OK();
 }

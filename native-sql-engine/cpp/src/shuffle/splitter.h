@@ -169,9 +169,9 @@ class Splitter {
   // partid
   std::vector<int32_t> partition_buffer_size_;
   // partid
-  std::vector<int16_t> partition_buffer_idx_base_;
+  std::vector<uint16_t> partition_buffer_idx_base_;
   // partid
-  std::vector<int16_t> partition_buffer_idx_offset_;
+  std::vector<uint16_t> partition_buffer_idx_offset_;
   // partid
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
   // col partid
