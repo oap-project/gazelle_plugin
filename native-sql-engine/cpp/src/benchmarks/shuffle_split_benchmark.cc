@@ -68,44 +68,12 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     }
 
     auto num_columns = schema->num_fields();
-#if 0
     for (int i = 0; i < num_columns; ++i) {
       column_indices.push_back(i);
     }
-#else
-    column_indices.push_back(0);
-    column_indices.push_back(1);
-    column_indices.push_back(2);
-//    column_indices.push_back(3);
-    column_indices.push_back(4);
-    column_indices.push_back(5);
-    column_indices.push_back(6);
-    column_indices.push_back(7);
-//    column_indices.push_back(10);
-//    column_indices.push_back(11);
-//    column_indices.push_back(12);
-//    column_indices.push_back(14);
 
-#endif
     ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
                                                        &record_batch_reader));
-
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(15));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(14));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(13));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(12));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(11));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(10));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(9));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(8));
-/*    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(7));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(6));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(5));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(4));
-*/    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(3));
-/*    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(2));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(1));
-    ARROW_ASSIGN_OR_THROW(schema, schema->RemoveField(0));*/
   }
   void SetUp() override {
     // read input from parquet file
@@ -120,6 +88,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     GetRecordBatchReader(input_files[0]);
     std::cout << schema->ToString() << std::endl;
 
+//force roundrobin test
 #if 0
     const auto& fields = schema->fields();
     for (const auto& field : fields) {
@@ -170,55 +139,29 @@ class BenchmarkShuffleSplit : public ::testing::Test {
     int64_t split_time = 0;
 
     std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
-    while(1)
-    {
-      ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
-                                                    &record_batch_reader));
-      do{
-        TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
-        
-        total_read_elapsed+=elapse_read;
-        if (record_batch) {
-          batches.push_back(record_batch);
-          num_batches += 1;
-          num_rows += record_batch->num_rows();
-        }
-      } while (record_batch);
-      batches.clear();
-    }
+    ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
+                                                  &record_batch_reader));
+    do{
+      TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      
+      total_read_elapsed+=elapse_read;
+      if (record_batch) {
+        batches.push_back(record_batch);
+        num_batches += 1;
+        num_rows += record_batch->num_rows();
+      }
+    } while (record_batch);
     
     std::cout << "parse parquet done elapsed time = " << TIME_NANO_TO_STRING(total_read_elapsed) << std::endl;
     std::cout << "rowgroups = " << row_group_indices.size() << std::endl;
     std::cout << "columns = " << column_indices.size() << std::endl;
     std::cout << "batches = " << num_batches << std::endl;
     std::cout << "num_rows = " << num_rows << std::endl;
-    while(1)
-      for_each(batches.begin(),batches.end(), [this, &split_time](std::shared_ptr<arrow::RecordBatch> &record_batch){
-        TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
-        });
-/*    do {
-      TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
-      if (record_batch) {
-        TIME_NANO_OR_THROW(split_time, splitter->Split(*record_batch));
-        num_batches += 1;
-        num_rows += record_batch->num_rows();
-      }
-    } while (record_batch);
-*/
-    std::cout << "split done " << std::endl;
+    for_each(batches.begin(),batches.end(), [this, &split_time](std::shared_ptr<arrow::RecordBatch> &record_batch){
+      TIME_NANO_OR_THROW(split_time, this->splitter->Split(*record_batch));
+      });
 
-    for (int i = 1; i < input_files.size(); ++i) {
-      GetRecordBatchReader(input_files[i]);
-      do {
-        TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
-        if (record_batch) {
-          TIME_NANO_OR_THROW(split_time, splitter->Split(*record_batch));
-          num_batches += 1;
-          num_rows += record_batch->num_rows();
-        }
-      } while (record_batch);
-      std::cout << "Done " << input_files[i] << std::endl;
-    }
+    std::cout << "split done " << std::endl;
 
     TIME_NANO_OR_THROW(split_time, splitter->Stop());
 
@@ -260,7 +203,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
   }
 };
 
-//TEST_F(BenchmarkShuffleSplit, LZ4) { DoSplit(arrow::Compression::LZ4_FRAME); }
+TEST_F(BenchmarkShuffleSplit, LZ4) { DoSplit(arrow::Compression::LZ4_FRAME); }
 TEST_F(BenchmarkShuffleSplit, FASTPFOR) { DoSplit(arrow::Compression::FASTPFOR); }
 
 }  // namespace shuffle

@@ -1313,7 +1313,7 @@ arrow::Status RoundRobinSplitter::ComputeAndCountPartitionId(
   for (auto& pid : partition_id_) {
     pid = pid_selection_;
     partition_id_cnt_[pid_selection_]++;
-    pid_selection_ = (pid_selection_ + 1) % num_partitions_;
+    pid_selection_ = pid_selection_==num_partitions_?0:pid_selection_ + 1;
   }
   return arrow::Status::OK();
 }
