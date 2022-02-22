@@ -132,9 +132,7 @@ arrow::Status AppendNodes(std::shared_ptr<arrow::Array> column,
       auto list_array = std::dynamic_pointer_cast<arrow::ListArray>(column);
       RETURN_NOT_OK(AppendNodes(list_array->values(), nodes));
     } break;
-    default: {
-    } break;
-  }
+    default: { } break; }
   return arrow::Status::OK();
 }
 
@@ -222,10 +220,11 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
           std::shared_ptr<arrow::Field> field = type->field(i);
           std::shared_ptr<arrow::ArrayData> struct_child_data;
           RETURN_NOT_OK(MakeArrayData(field->type(), -1, in_bufs, in_bufs_len,
-                                    &struct_child_data, buf_idx_ptr));
+                                      &struct_child_data, buf_idx_ptr));
           struct_child_data_vec.push_back(struct_child_data);
         }
-        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), struct_child_data_vec, null_count);
+        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
+                                           struct_child_data_vec, null_count);
       } break;
       default:
         return arrow::Status::NotImplemented("MakeArrayData for type ", type->ToString(),

@@ -89,14 +89,12 @@ TEST_F(JniUtilsTest, TestMakeRecordBatchWithList) {
 TEST_F(JniUtilsTest, TestMakeRecordBatchBuild_Int_Struct) {
   auto f_int32 = field("f_simple_int32", arrow::int32());
   auto f_struct_int32 =
-  field("f_struct", struct_({field("a", int32()), field("b", int32())}));
+      field("f_struct", struct_({field("a", int32()), field("b", int32())}));
 
-  auto rb_schema =
-      arrow::schema({f_int32, f_struct_int32});
+  auto rb_schema = arrow::schema({f_int32, f_struct_int32});
 
   const std::vector<std::string> input_data_arr = {
-      R"([1, 2])",
-      R"([{"a": 1, "b": 6}, {"a": 2, "b": 7}])"};
+      R"([1, 2])", R"([{"a": 1, "b": 6}, {"a": 2, "b": 7}])"};
 
   std::shared_ptr<arrow::RecordBatch> input_batch_arr;
   std::shared_ptr<arrow::RecordBatch> res_batch_arr;
