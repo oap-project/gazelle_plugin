@@ -777,7 +777,6 @@ class HashAggregateKernel::Impl {
         }
       } else {
         for (int i = 0; i < length; i++) {
-
           aggr_hash_table_->GetOrInsert(
               typed_key_in->GetView(i), [](int) {}, [](int) {}, &(indices[i]));
         }

@@ -158,12 +158,9 @@ class UniqueAction : public ActionBase {
         if (!is_null) {
           cache_validity_[dest_group_id] = true;
           cache_[dest_group_id] = (CType)in_->GetView(row_id_);
-          //cache_.emplace(cache_.begin() + dest_group_id, in_->GetView(row_id_));
         } else {
           cache_validity_[dest_group_id] = true;
           null_flag_[dest_group_id] = true;
-          // CType num;
-          // cache_.emplace(cache_.begin() + dest_group_id, num);
         }
       }
       row_id_++;
