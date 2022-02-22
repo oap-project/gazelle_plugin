@@ -17,6 +17,10 @@
 package com.intel.oap.sql.shims.spark311
 
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
+
+import java.io.File
+
+import org.apache.spark.SparkConf
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.catalyst.InternalRow
@@ -92,6 +96,11 @@ class Spark311Shims extends SparkShims {
 
   override def getSparkSession(plan: SparkPlan): SparkSession = {
     plan.sqlContext.sparkSession
+  }
+
+  override def doFetchFile(urlString: String, targetDirHandler: File,
+                           targetFileName: String, sparkConf: SparkConf): Unit = {
+    Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
   }
 
 

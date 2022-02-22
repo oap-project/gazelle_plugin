@@ -60,4 +60,6 @@ trait SparkShims {
   def getMaxBroadcastRows(mode: BroadcastMode): Long
 
   def getSparkSession(plan: SparkPlan): SparkSession
+
+  def doFetchFile(urlString: String, targetDirHandler: File, targetFileName: String, sparkConf: SparkConf): Unit
 }

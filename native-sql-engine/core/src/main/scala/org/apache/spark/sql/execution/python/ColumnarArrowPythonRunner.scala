@@ -58,12 +58,26 @@ class ColumnarArrowPythonRunner(
     "Pandas execution requires more than 4 bytes. Please set higher buffer. " +
       s"Please change '${SQLConf.PANDAS_UDF_BUFFER_SIZE.key}'.")
 
+  // For spark 3.1
+  protected def newReaderIterator(
+                                   stream: DataInputStream,
+                                   writerThread: WriterThread,
+                                   startTime: Long,
+                                   env: SparkEnv,
+                                   worker: Socket,
+                                   releasedOrClosed: AtomicBoolean,
+                                   context: TaskContext): Iterator[ColumnarBatch] = {
+    newReaderIterator(stream, writerThread, startTime, env, worker, null, releasedOrClosed, context)
+  }
+
+  // For spark 3.2. Currently, pid is not truly used.
   protected def newReaderIterator(
       stream: DataInputStream,
       writerThread: WriterThread,
       startTime: Long,
       env: SparkEnv,
       worker: Socket,
+      pid: Option[Int],
       releasedOrClosed: AtomicBoolean,
       context: TaskContext): Iterator[ColumnarBatch] = {
 

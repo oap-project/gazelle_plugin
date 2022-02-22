@@ -18,6 +18,10 @@ package com.intel.oap.sql.shims.spark311
 
 import com.intel.oap.sql.shims.{SparkShims, ShimDescriptor}
 
+import java.io.File
+
+import org.apache.spark.SparkConf
+import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.unsafe.map.BytesToBytesMap
 
 class Spark320Shims extends SparkShims {
@@ -80,7 +84,8 @@ class Spark320Shims extends SparkShims {
       shuffleExecutorComponents)
   }
 
-  // TODO: to see whether the below piece of code can be used for both spark 3.1/3.2.
+  /** TODO: to see whether the below piece of code can be used for both spark 3.1/3.2.
+    * */
   override def getMaxBroadcastRows(mode: BroadcastMode): Long = {
     // The below code is ported from BroadcastExchangeExec of spark 3.2.
     private lazy val maxBroadcastRows = mode match {
@@ -99,5 +104,10 @@ class Spark320Shims extends SparkShims {
 
   override def getSparkSession(plan: SparkPlan): SparkSession = {
     plan.session
+  }
+
+  override def doFetchFile(urlString: String, targetDirHandler: File,
+                           targetFileName: String, sparkConf: SparkConf): Unit = {
+    Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null)
   }
 }
