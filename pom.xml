@@ -49,12 +49,14 @@
         <id>spark-3.1.1</id>
         <properties>
             <spark.version>${spark311.version}</spark.version>
+            <scala.version>2.12.10</scala.version>
         </properties>
     </profile>
     <profile>
       <id>spark-3.2.0</id>
       <properties>
         <spark.version>${spark320.version}</spark.version>
+        <scala.version>2.12.15</scala.version>
       </properties>
     </profile>
     <profile>
@@ -117,9 +119,12 @@
   </profiles>
 
   <properties>
-    <scala.version>2.12.10</scala.version>
+    <!-- Scala 2.12.10 is the version for default spark 3.1 -->
+    <!--<scala.version>2.12.10</scala.version>-->
     <scala.binary.version>2.12</scala.binary.version>
-    <spark.version>3.1.1</spark.version>
+    <!--<spark.version>3.1.1</spark.version>-->
+    <spark311.version>3.1.1</spark311.version>
+    <spark320.version>3.2.0</spark320.version>
     <arrow.version>4.0.0</arrow.version>
     <log4j.version>2.17.1</log4j.version>
     <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
@@ -136,8 +141,6 @@
     <build_jemalloc>ON</build_jemalloc>
     <project.prefix>spark-sql-columnar</project.prefix>
     <project.name.prefix>OAP Project Spark Columnar Plugin</project.name.prefix>
-    <spark311.version>3.1.1</spark311.version>
-    <spark320.version>3.2.0</spark320.version>
   </properties>
 
   <dependencyManagement>
