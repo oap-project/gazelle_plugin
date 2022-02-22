@@ -16,12 +16,12 @@
 
 package com.intel.oap.sql.shims.spark311
 
-import com.intel.oap.sql.shims.{SparkShims, ShimDescriptor}
-
+import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import java.io.File
 
 import org.apache.spark.SparkConf
 import org.apache.spark.shuffle.sort.SortShuffleWriter
+import org.apache.spark.sql.catalyst.plans.physical.Partitioning
 import org.apache.spark.unsafe.map.BytesToBytesMap
 
 class Spark320Shims extends SparkShims {
@@ -109,5 +109,26 @@ class Spark320Shims extends SparkShims {
   override def doFetchFile(urlString: String, targetDirHandler: File,
                            targetFileName: String, sparkConf: SparkConf): Unit = {
     Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null)
+  }
+
+  /**
+    * Fix compatibility issue that ShuffleQueryStageExec has an additional argument in spark 3.2.
+    * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
+    * changes need futher test to verify.
+    */
+  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
+    child match {
+      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec, _) =>
+        s.child.outputPartitioning
+      case ShuffleQueryStageExec(
+      _,
+      r @ ReusedExchangeExec(_, s: ShuffleExchangeExec), _) =>
+        s.child.outputPartitioning match {
+          case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
+          case other => other
+        }
+      case _ =>
+        throw new IllegalStateException("operating on canonicalization plan")
+    }
   }
 }

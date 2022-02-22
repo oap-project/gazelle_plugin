@@ -21,7 +21,7 @@ import org.apache.parquet.schema.MessageType
 import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.sort.SortShuffleWriter
-import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
+import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.internal.SQLConf
@@ -62,4 +62,6 @@ trait SparkShims {
   def getSparkSession(plan: SparkPlan): SparkSession
 
   def doFetchFile(urlString: String, targetDirHandler: File, targetFileName: String, sparkConf: SparkConf): Unit
+
+  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
 }

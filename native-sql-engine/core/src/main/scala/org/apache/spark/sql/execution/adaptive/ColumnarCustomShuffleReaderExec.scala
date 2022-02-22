@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution.adaptive
 
+import com.intel.oap.sql.shims.SparkShimLoader
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression}
@@ -47,19 +49,20 @@ case class ColumnarCustomShuffleReaderExec(
     if (partitionSpecs.forall(_.isInstanceOf[PartialMapperPartitionSpec]) &&
         partitionSpecs.map(_.asInstanceOf[PartialMapperPartitionSpec].mapIndex).toSet.size ==
           partitionSpecs.length) {
-      child match {
-        case ShuffleQueryStageExec(_, s: ColumnarShuffleExchangeAdaptor) =>
-          s.child.outputPartitioning
-        case ShuffleQueryStageExec(
-            _,
-            r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor)) =>
-          s.child.outputPartitioning match {
-            case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
-            case other => other
-          }
-        case _ =>
-          throw new IllegalStateException("operating on canonicalization plan")
-      }
+      SparkShimLoader.getSparkShims.outputPartitioningForColumnarCustomShuffleReaderExec(child)
+//      child match {
+//        case ShuffleQueryStageExec(_, s: ColumnarShuffleExchangeAdaptor) =>
+//          s.child.outputPartitioning
+//        case ShuffleQueryStageExec(
+//            _,
+//            r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor)) =>
+//          s.child.outputPartitioning match {
+//            case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
+//            case other => other
+//          }
+//        case _ =>
+//          throw new IllegalStateException("operating on canonicalization plan")
+//      }
     } else {
       UnknownPartitioning(partitionSpecs.length)
     }

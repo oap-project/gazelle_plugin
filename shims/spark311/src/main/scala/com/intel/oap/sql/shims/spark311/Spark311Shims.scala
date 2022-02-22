@@ -17,16 +17,19 @@
 package com.intel.oap.sql.shims.spark311
 
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
-
 import java.io.File
 
 import org.apache.spark.SparkConf
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.plans.physical.BroadcastMode
+import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.execution.ColumnarShuffleExchangeAdaptor
+import org.apache.spark.sql.execution.adaptive.ShuffleQueryStageExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
+import org.apache.spark.sql.execution.exchange.{ReusedExchangeExec, ShuffleExchangeExec}
 import org.apache.spark.sql.internal.SQLConf
 
 class Spark311Shims extends SparkShims {
@@ -101,6 +104,27 @@ class Spark311Shims extends SparkShims {
   override def doFetchFile(urlString: String, targetDirHandler: File,
                            targetFileName: String, sparkConf: SparkConf): Unit = {
     Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
+  }
+
+  /**
+    * Fix compatibility issue that ShuffleQueryStageExec has an additional argument in spark 3.2.
+    * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
+    * changes need futher test to verify.
+    */
+  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
+    child match {
+      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec) =>
+        s.child.outputPartitioning
+      case ShuffleQueryStageExec(
+      _,
+      r @ ReusedExchangeExec(_, s: ShuffleExchangeExec)) =>
+        s.child.outputPartitioning match {
+          case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
+          case other => other
+        }
+      case _ =>
+        throw new IllegalStateException("operating on canonicalization plan")
+    }
   }
 
 
