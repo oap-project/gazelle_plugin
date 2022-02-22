@@ -149,6 +149,13 @@ arrow::Status AppendBuffers(std::shared_ptr<arrow::Array> column,
       (*buffers).push_back(list_array->value_offsets());
       RETURN_NOT_OK(AppendBuffers(list_array->values(), buffers));
     } break;
+    case arrow::Type::STRUCT: {
+      auto struct_array = std::dynamic_pointer_cast<arrow::StructArray>(column);
+      (*buffers).push_back(struct_array->null_bitmap());
+      for (int i = 0; i < struct_array->num_fields(); ++i) {
+        RETURN_NOT_OK(AppendBuffers(struct_array->field(i), buffers));
+      }
+    } break;
     default: {
       for (auto& buffer : column->data()->buffers) {
         (*buffers).push_back(buffer);
@@ -197,7 +204,28 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         auto list_array =
             arrow::ListArray::FromArrays(*offset_array, *child_array).ValueOrDie();
         *arr_data = list_array->data();
+      } break;
+      case arrow::Type::STRUCT: {
+        int64_t null_count = arrow::kUnknownNullCount;
+        std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+        if (*buf_idx_ptr >= in_bufs_len) {
+          return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+        }
+        if (in_bufs[*buf_idx_ptr]->size() == 0) {
+          null_count = 0;
+        }
+        buffers.push_back(in_bufs[*buf_idx_ptr]);
+        *buf_idx_ptr += 1;
 
+        ArrayDataVector struct_child_data_vec;
+        for (int i = 0; i < type->num_fields(); ++i) {
+          std::shared_ptr<arrow::Field> field = type->field(i);
+          std::shared_ptr<arrow::ArrayData> struct_child_data;
+          RETURN_NOT_OK(MakeArrayData(field->type(), -1, in_bufs, in_bufs_len,
+                                    &struct_child_data, buf_idx_ptr));
+          struct_child_data_vec.push_back(struct_child_data);
+        }
+        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), struct_child_data_vec, null_count);
       } break;
       default:
         return arrow::Status::NotImplemented("MakeArrayData for type ", type->ToString(),
