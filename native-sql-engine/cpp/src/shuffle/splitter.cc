@@ -381,6 +381,8 @@ arrow::Status Splitter::Init() {
 
 int64_t batch_nbytes(const arrow::RecordBatch& batch) {
   int64_t accumulated = 0L;
+  static int printed = 0;
+  
   for (const auto& array : batch.columns()) {
     if (array == nullptr || array->data() == nullptr) {
       continue;
@@ -389,9 +391,10 @@ int64_t batch_nbytes(const arrow::RecordBatch& batch) {
       if (buf == nullptr) {
         continue;
       }
-      accumulated += buf->capacity();
+      accumulated += buf->size();
     }
   }
+  printed++;
   return accumulated;
 }
 
@@ -558,6 +561,12 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
         }
         default: {
           auto& buffers = partition_fixed_width_buffers_[fixed_width_idx][partition_id];
+          if( buffers[0] != nullptr ){
+            buffers[0]->Resize((num_rows>>3)+1, /*shrink_to_fit =*/ false);
+          }
+          if( buffers[1] != nullptr ){
+            buffers[1]->Resize(num_rows*(arrow::bit_width(column_type_id_[i]->id())>>3), /*shrink_to_fit =*/ false);
+          }
           if (reset_buffers) {
             arrays[i] = arrow::MakeArray(
                 arrow::ArrayData::Make(schema_->field(i)->type(), num_rows,
@@ -577,6 +586,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     }
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
     int64_t raw_size = batch_nbytes(batch);
+
     raw_partition_lengths_[partition_id] += raw_size;
     auto payload = std::make_shared<arrow::ipc::IpcPayload>();
 #ifndef SKIPCOMPRESS
@@ -594,10 +604,12 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                         arrow::ipc::GetRecordBatchPayload(
                             *batch, tiny_bach_write_options_, payload.get()));
 #endif
+
     partition_cached_recordbatch_size_[partition_id] += payload->body_length;
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
   }
+    
   return arrow::Status::OK();
 }
 

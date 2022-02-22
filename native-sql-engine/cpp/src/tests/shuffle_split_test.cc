@@ -181,6 +181,7 @@ const std::vector<std::string> SplitterTest::input_data_2 = {
 
 TEST_F(SplitterTest, TestSingleSplitter) {
   split_options_.buffer_size = 10;
+  
   ARROW_ASSIGN_OR_THROW(splitter_, Splitter::Make("rr", schema_, 1, split_options_))
 
   ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));

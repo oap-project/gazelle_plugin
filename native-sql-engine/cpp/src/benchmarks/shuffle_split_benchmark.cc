@@ -174,8 +174,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
       << (bytes > 1 << 20 ? "MiB" : (bytes > 1 << 10) ? "KiB" : "B")
     auto bytes_spilled = splitter->TotalBytesSpilled();
     auto bytes_written = splitter->TotalBytesWritten();
-    auto raw_lengths = splitter->RawPartitionLengths();
-    uint64_t bytes_raw = std::accumulate(raw_lengths.begin(),raw_lengths.end(),0);
+    auto bytes_raw = splitter->RawPartitionBytes();
 
     std::cout << "Total raw bytes: " << BYTES_TO_STRING(bytes_raw) << std::endl;
     std::cout << "Total bytes spilled: " << BYTES_TO_STRING(bytes_spilled) << std::endl;
@@ -201,7 +200,7 @@ class BenchmarkShuffleSplit : public ::testing::Test {
   }
 };
 
-TEST_F(BenchmarkShuffleSplit, LZ4) { DoSplit(arrow::Compression::LZ4_FRAME); }
+//TEST_F(BenchmarkShuffleSplit, LZ4) { DoSplit(arrow::Compression::LZ4_FRAME); }
 TEST_F(BenchmarkShuffleSplit, FASTPFOR) { DoSplit(arrow::Compression::FASTPFOR); }
 
 }  // namespace shuffle

@@ -27,6 +27,7 @@
 
 #include <random>
 #include <utility>
+#include <numeric>
 
 #include "shuffle/type.h"
 #include "shuffle/utils.h"
@@ -100,6 +101,10 @@ class Splitter {
 
   const std::vector<int64_t>& RawPartitionLengths() const {
     return raw_partition_lengths_;
+  }
+
+  int64_t RawPartitionBytes() const {
+    return std::accumulate(raw_partition_lengths_.begin(),raw_partition_lengths_.end(),0LL);
   }
 
   // for testing
