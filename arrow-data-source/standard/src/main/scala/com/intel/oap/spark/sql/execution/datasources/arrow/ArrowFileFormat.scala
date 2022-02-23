@@ -96,6 +96,8 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 //          }
 //        }
 
+        // TODO: it seems there is no need to fix through shim layer.
+        // TODO: We can just put a new interface method with no override  here.
         SparkShimLoader.getSparkShims.newOutputWriter(writeQueue, path)
       }
     }
