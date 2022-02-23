@@ -243,13 +243,31 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
             ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
-        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
-          logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-          CoalesceBatchesExec(
-            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
-        case ShuffleQueryStageExec(_, reused: ReusedExchangeExec) =>
-          reused match {
-            case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
+
+//        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
+//          logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+//          CoalesceBatchesExec(
+//            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
+//        case ShuffleQueryStageExec(_, reused: ReusedExchangeExec) =>
+//          reused match {
+//            case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
+//              logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+//              CoalesceBatchesExec(
+//                ColumnarCustomShuffleReaderExec(
+//                  plan.child,
+//                  plan.partitionSpecs))
+//            case _ =>
+//              plan
+//          }
+
+        // Use the below code to replace the above to realize compatibility on spark 3.1 & 3.2.
+        case shuffleQueryStageExec: ShuffleQueryStageExec =>
+          shuffleQueryStageExec.plan match {
+            case s: ColumnarShuffleExchangeAdaptor =>
+              logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
+              CoalesceBatchesExec(
+                ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
+            case r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor) =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
               CoalesceBatchesExec(
                 ColumnarCustomShuffleReaderExec(
@@ -258,6 +276,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
             case _ =>
               plan
           }
+
         case _ =>
           plan
       }
@@ -297,17 +316,25 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   def fallBackBroadcastQueryStage(curPlan: BroadcastQueryStageExec): BroadcastQueryStageExec = {
     curPlan.plan match {
       case originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor =>
-        BroadcastQueryStageExec(
-          curPlan.id,
-          BroadcastExchangeExec(
-            originalBroadcastPlan.mode,
-            DataToArrowColumnarExec(originalBroadcastPlan, 1)))
+//        BroadcastQueryStageExec(
+//          curPlan.id,
+//          BroadcastExchangeExec(
+//            originalBroadcastPlan.mode,
+//            DataToArrowColumnarExec(originalBroadcastPlan, 1)))
+        val newBroadcast = BroadcastExchangeExec(
+          originalBroadcastPlan.mode,
+          DataToArrowColumnarExec(originalBroadcastPlan, 1))
+        SparkShimLoader.getSparkShims.newBroadcastQueryStageExec(curPlan.id, newBroadcast)
       case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor) =>
-        BroadcastQueryStageExec(
-          curPlan.id,
-          BroadcastExchangeExec(
-            originalBroadcastPlan.mode,
-            DataToArrowColumnarExec(curPlan.plan, 1)))
+//        BroadcastQueryStageExec(
+//          curPlan.id,
+//          BroadcastExchangeExec(
+//            originalBroadcastPlan.mode,
+//            DataToArrowColumnarExec(curPlan.plan, 1)))
+        val newBroadcast = BroadcastExchangeExec(
+          originalBroadcastPlan.mode,
+          DataToArrowColumnarExec(curPlan.plan, 1))
+        SparkShimLoader.getSparkShims.newBroadcastQueryStageExec(curPlan.id, newBroadcast)
       case _ =>
         curPlan
     }

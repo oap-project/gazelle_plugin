@@ -22,8 +22,10 @@ import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
+import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
 import org.apache.spark.sql.internal.SQLConf
 
 sealed abstract class ShimDescriptor
@@ -65,4 +67,6 @@ trait SparkShims {
 
 //   We already have some code refactor to fix compatibility issues in ColumnarCustomShuffleReaderExec.
 //  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
+
+  def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec
 }

@@ -132,4 +132,8 @@ class Spark320Shims extends SparkShims {
 //    }
 //  }
 
+  override def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec = {
+  BroadcastQueryStageExec(id, plan, plan.doCanonicalize)
+}
+
 }

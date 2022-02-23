@@ -147,13 +147,26 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           left match {
             case exec: BroadcastExchangeExec =>
               new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
-              new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
-            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
-              plan match {
-                case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
-                  new ColumnarBroadcastExchangeExec(b.mode, b.child)
-                case _ =>
+//            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
+//              new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
+//            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
+//              plan match {
+//                case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
+//                  new ColumnarBroadcastExchangeExec(b.mode, b.child)
+//                case _ =>
+//              }
+            // Use the below piece of code to replace the above, in order to realize
+            // compatibility on spark 3.1 & 3.2.
+            case broadcastQueryStageExec: BroadcastQueryStageExec =>
+              broadcastQueryStageExec.plan match {
+                case plan: BroadcastExchangeExec =>
+                  new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
+                case plan: ReusedExchangeExec =>
+                  plan match {
+                    case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
+                      new ColumnarBroadcastExchangeExec(b.mode, b.child)
+                    case _ =>
+                  }
               }
             case _ =>
           }
@@ -161,13 +174,26 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           right match {
             case exec: BroadcastExchangeExec =>
               new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
-              new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
-            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
-              plan match {
-                case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
-                  new ColumnarBroadcastExchangeExec(b.mode, b.child)
-                case _ =>
+//            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
+//              new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
+//            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
+//              plan match {
+//                case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
+//                  new ColumnarBroadcastExchangeExec(b.mode, b.child)
+//                case _ =>
+//              }
+            // Use the below piece of code to replace the above, in order to realize
+            // compatibility on spark 3.1 & 3.2.
+            case broadcastQueryStageExec: BroadcastQueryStageExec =>
+              broadcastQueryStageExec.plan match {
+                case plan: BroadcastExchangeExec =>
+                  new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
+                case plan: ReusedExchangeExec =>
+                  plan match {
+                    case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
+                      new ColumnarBroadcastExchangeExec(b.mode, b.child)
+                    case _ =>
+                  }
               }
             case _ =>
           }
