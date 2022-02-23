@@ -101,12 +101,14 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
+    assert(df.count() == 2)
   }
 
   test("Test Struct in Shuffle stage") {
     val df = spark.sql("SELECT ltab.struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
+    assert(df.count() == 2)
   }
 
   override def afterAll(): Unit = {
