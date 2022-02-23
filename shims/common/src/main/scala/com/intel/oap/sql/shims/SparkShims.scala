@@ -63,5 +63,6 @@ trait SparkShims {
 
   def doFetchFile(urlString: String, targetDirHandler: File, targetFileName: String, sparkConf: SparkConf): Unit
 
-  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
+//   We already have some code refactor to fix compatibility issues in ColumnarCustomShuffleReaderExec.
+//  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
 }

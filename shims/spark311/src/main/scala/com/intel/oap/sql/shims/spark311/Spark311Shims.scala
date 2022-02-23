@@ -111,21 +111,21 @@ class Spark311Shims extends SparkShims {
     * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
     * changes need futher test to verify.
     */
-  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
-    child match {
-      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec) =>
-        s.child.outputPartitioning
-      case ShuffleQueryStageExec(
-      _,
-      r @ ReusedExchangeExec(_, s: ShuffleExchangeExec)) =>
-        s.child.outputPartitioning match {
-          case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
-          case other => other
-        }
-      case _ =>
-        throw new IllegalStateException("operating on canonicalization plan")
-    }
-  }
+//  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
+//    child match {
+//      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec) =>
+//        s.child.outputPartitioning
+//      case ShuffleQueryStageExec(
+//      _,
+//      r @ ReusedExchangeExec(_, s: ShuffleExchangeExec)) =>
+//        s.child.outputPartitioning match {
+//          case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
+//          case other => other
+//        }
+//      case _ =>
+//        throw new IllegalStateException("operating on canonicalization plan")
+//    }
+//  }
 
 
 }
