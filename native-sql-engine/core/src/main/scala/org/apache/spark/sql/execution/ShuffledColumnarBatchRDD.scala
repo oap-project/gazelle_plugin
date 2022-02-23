@@ -77,12 +77,15 @@ class ShuffledColumnarBatchRDD(
   override def getPreferredLocations(partition: Partition): Seq[String] = {
     val tracker = SparkEnv.get.mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]
     partition.asInstanceOf[ShuffledColumnarBatchRDDPartition].spec match {
-      case CoalescedPartitionSpec(startReducerIndex, endReducerIndex) =>
+      // Type matching instead using CoalescedPartitionSpec(startReducerIndex, endReducerIndex)
+      // or CoalescedPartitionSpec(startReducerIndex, endReducerIndex, _) for either spark3.1
+      // or spark 3.2. Thus, this piece of code is compatible with both spark 3.1 & 3.2.
+      case coalescedPartitionSpec: CoalescedPartitionSpec =>
         // TODO order by partition size.
-        startReducerIndex.until(endReducerIndex).flatMap { reducerIndex =>
+        coalescedPartitionSpec.startReducerIndex.until(
+          coalescedPartitionSpec.endReducerIndex).flatMap { reducerIndex =>
           tracker.getPreferredLocationsForShuffle(dependency, reducerIndex)
         }
-
       case PartialReducerPartitionSpec(_, startMapIndex, endMapIndex, _) =>
         tracker.getMapLocation(dependency, startMapIndex, endMapIndex)
 
@@ -97,11 +100,12 @@ class ShuffledColumnarBatchRDD(
     // as well as the `tempMetrics` for basic shuffle metrics.
     val sqlMetricsReporter = new SQLShuffleReadMetricsReporter(tempMetrics, metrics)
     val reader = split.asInstanceOf[ShuffledColumnarBatchRDDPartition].spec match {
-      case CoalescedPartitionSpec(startReducerIndex, endReducerIndex) =>
+      // Use type matching, similar to the purpose of the code in getPreferredLocations.
+      case coalescedPartitionSpec: CoalescedPartitionSpec =>
         SparkEnv.get.shuffleManager.getReader(
           dependency.shuffleHandle,
-          startReducerIndex,
-          endReducerIndex,
+          coalescedPartitionSpec.startReducerIndex,
+          coalescedPartitionSpec.endReducerIndex,
           context,
           sqlMetricsReporter)
 
