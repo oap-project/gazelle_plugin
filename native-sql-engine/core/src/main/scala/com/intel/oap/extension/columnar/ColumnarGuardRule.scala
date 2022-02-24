@@ -289,7 +289,8 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
       case p if !supportCodegen(p) =>
         // insert row guard them recursively
         p.withNewChildren(p.children.map(insertRowGuardOrNot))
-      case p: CustomShuffleReaderExec =>
+//      case p: CustomShuffleReaderExec =>
+      case p if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(p) =>
         p.withNewChildren(p.children.map(insertRowGuardOrNot))
       case p: BroadcastQueryStageExec =>
         p

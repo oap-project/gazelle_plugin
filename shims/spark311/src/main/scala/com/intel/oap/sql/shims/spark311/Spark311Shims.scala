@@ -106,11 +106,11 @@ class Spark311Shims extends SparkShims {
     Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
   }
 
-  /**
-    * Fix compatibility issue that ShuffleQueryStageExec has an additional argument in spark 3.2.
-    * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
-    * changes need futher test to verify.
-    */
+//  /**
+//    * Fix compatibility issue that ShuffleQueryStageExec has an additional argument in spark 3.2.
+//    * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
+//    * changes need futher test to verify.
+//    */
 //  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
 //    child match {
 //      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec) =>
@@ -128,9 +128,37 @@ class Spark311Shims extends SparkShims {
 //  }
 
   override def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec = {
-  BroadcastQueryStageExec(id, plan)
-}
+    BroadcastQueryStageExec(id, plan)
+  }
 
+  /**
+    * CustomShuffleReaderExec is renamed to AQEShuffleReadExec from spark 3.2.
+    */
+  override def isCustomShuffleReaderExec(plan: SparkPlan): Boolean = {
+    plan match {
+      case _: CustomShuffleReaderExec => true
+      case _ => false
+    }
+  }
 
+  /**
+    * Only applicable to CustomShuffleReaderExec. Otherwise, an exception will be thrown.
+    */
+  override def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan = {
+    plan match {
+      case plan: CustomShuffleReaderExec => plan.child
+      case _ => throw RuntimeException("CustomShuffleReaderExec is expected!")
+    }
+  }
+
+  /**
+    * Only applicable to CustomShuffleReaderExec. Otherwise, an exception will be thrown.
+    */
+  override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): ShufflePartitionSpec = {
+    plan match {
+      case plan: CustomShuffleReaderExec => plan.partitionSpecs
+      case _ => throw RuntimeException("CustomShuffleReaderExec is expected!")
+    }
+  }
 
 }

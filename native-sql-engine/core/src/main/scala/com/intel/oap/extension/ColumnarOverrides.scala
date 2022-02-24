@@ -59,7 +59,10 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
 
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
-    case RowGuard(child: CustomShuffleReaderExec) =>
+//    case RowGuard(child: CustomShuffleReaderExec) =>
+//      replaceWithColumnarPlan(child)
+    case RowGuard(child: SparkPlan)
+      if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(child) =>
       replaceWithColumnarPlan(child)
     case plan: RowGuard =>
       val actualPlan = plan.child match {
@@ -237,12 +240,18 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       plan
 
-    case plan: CustomShuffleReaderExec if columnarConf.enableColumnarShuffle =>
-      plan.child match {
+//    case plan: CustomShuffleReaderExec if columnarConf.enableColumnarShuffle =>
+    case plan
+      if (SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan)
+        && columnarConf.enableColumnarShuffle) =>
+      val child = SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+      val partitionSpecs =
+        SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(plan)
+      child match {
         case shuffle: ColumnarShuffleExchangeAdaptor =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
-            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
+            ColumnarCustomShuffleReaderExec(child, partitionSpecs))
 
 //        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
 //          logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")

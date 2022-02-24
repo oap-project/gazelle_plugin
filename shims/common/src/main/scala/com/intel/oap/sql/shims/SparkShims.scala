@@ -69,4 +69,10 @@ trait SparkShims {
 //  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
 
   def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec
+
+  def isCustomShuffleReaderExec(plan: SparkPlan): Boolean
+
+  def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan
+
+  def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): ShufflePartitionSpec
 }
