@@ -56,6 +56,7 @@ trait SparkShims {
   def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
+
   def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, BaseShuffleHandle,
                            mapId: Long, context: TaskContext,
                            shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter

@@ -90,7 +90,7 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
   @transient
   private[sql] lazy val relationFuture: java.util.concurrent.Future[broadcast.Broadcast[Any]] = {
     SQLExecution.withThreadLocalCaptured[broadcast.Broadcast[Any]](
-      SparkShimLoader.getSparkShims.getSparkSession,
+      SparkShimLoader.getSparkShims.getSparkSession(this),
       BroadcastExchangeExec.executionContext) {
       var relation: Any = null
       try {
