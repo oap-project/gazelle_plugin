@@ -38,7 +38,7 @@ trait SparkShims {
   def getShimDescriptor: ShimDescriptor
 
   def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
-                                         shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File): Unit
+                                         shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit
 
   def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): SQLConf.LegacyBehaviorPolicy.Value
 
@@ -57,7 +57,7 @@ trait SparkShims {
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
 
-  def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, BaseShuffleHandle,
+  def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, baseShuffleHandle: BaseShuffleHandle,
                            mapId: Long, context: TaskContext,
                            shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter
   def getMaxBroadcastRows(mode: BroadcastMode): Long
@@ -82,4 +82,5 @@ trait SparkShims {
   def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan
 
   def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): ShufflePartitionSpec
+
 }

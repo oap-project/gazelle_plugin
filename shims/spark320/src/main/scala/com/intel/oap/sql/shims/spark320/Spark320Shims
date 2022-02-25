@@ -79,11 +79,11 @@ class Spark320Shims extends SparkShims {
     conf.broadcastHashJoinOutputPartitioningExpandLimit
   }
 
-  override def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, BaseShuffleHandle,
+  override def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, baseShuffleHandle: BaseShuffleHandle,
                                     mapId: Long, context: TaskContext,
                                     shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter = {
     new SortShuffleWriter(
-      other,
+      baseShuffleHandle:,
       mapId,
       context,
       shuffleExecutorComponents)

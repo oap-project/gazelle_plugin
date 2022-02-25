@@ -45,7 +45,8 @@
     <dependency>
       <groupId>com.intel.oap</groupId>
       <artifactId>spark-sql-columnar-shims-common</artifactId>
-      <scope>provided</scope>
+      <version>${project.version}</version>
+      <scope>compile</scope>
     </dependency>
     <dependency>
        <groupId>javax.servlet</groupId>

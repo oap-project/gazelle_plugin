@@ -82,12 +82,12 @@ class Spark311Shims extends SparkShims {
       "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
   }
 
-  override def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, BaseShuffleHandle,
+  override def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, baseShuffleHandle: BaseShuffleHandle,
     mapId: Long, context: TaskContext,
     shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter = {
     new SortShuffleWriter(
       shuffleBlockResolver,
-      other,
+      baseShuffleHandle,
       mapId,
       context,
       shuffleExecutorComponents)
