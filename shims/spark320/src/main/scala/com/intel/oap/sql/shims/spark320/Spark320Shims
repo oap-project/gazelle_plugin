@@ -151,6 +151,10 @@ class Spark320Shims extends SparkShims {
     }
   }
 
+  override def newCustomShuffleReaderExec(child: SparkPlan, partitionSpecs : Seq[ShufflePartitionSpec]): SparkPlan = {
+    AQEShuffleReadExec(child, partitionSpecs)
+  }
+
   /**
     * Only applicable to AQEShuffleReadExec. Otherwise, an exception will be thrown.
     */
