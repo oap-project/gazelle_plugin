@@ -70,7 +70,7 @@ class ColumnarArrowPythonRunner(
     newReaderIterator(stream, writerThread, startTime, env, worker, null, releasedOrClosed, context)
   }
 
-  // For spark 3.2. Currently, pid is not truly used.
+  // For spark 3.2.
   protected def newReaderIterator(
       stream: DataInputStream,
       writerThread: WriterThread,
@@ -81,7 +81,9 @@ class ColumnarArrowPythonRunner(
       releasedOrClosed: AtomicBoolean,
       context: TaskContext): Iterator[ColumnarBatch] = {
 
-    new ReaderIterator(stream, writerThread, startTime, env, worker, releasedOrClosed, context) {
+    // The pid argument is added for ReaderIterator since spark3.2. So we introduce
+    // ReaderIteratorChild to help fix the compatibilty issues.
+    new ReaderIteratorChild(stream, writerThread, startTime, env, worker, pid, releasedOrClosed, context) {
       private val allocator = SparkMemoryUtils.contextAllocator().newChildAllocator(
         s"stdin reader for $pythonExec", 0, Long.MaxValue)
 
