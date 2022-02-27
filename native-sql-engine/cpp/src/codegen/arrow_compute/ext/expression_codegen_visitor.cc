@@ -683,6 +683,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
                << ");" << std::endl;
     prepare_ss << "} catch (std::invalid_argument) {" << std::endl;
     prepare_ss << validity << " = false;" << std::endl;
+    prepare_ss << "} catch (std::out_of_range)" << std::endl;
+    prepare_ss << validity << " = false;" << std::endl;
     prepare_ss << "}" << std::endl;
     prepare_ss << "}" << std::endl;
 
