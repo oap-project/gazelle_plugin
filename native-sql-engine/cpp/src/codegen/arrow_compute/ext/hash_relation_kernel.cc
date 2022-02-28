@@ -172,7 +172,7 @@ class HashRelationKernel::Impl {
       }
       long tmp_capacity = init_key_capacity;
       if (key_size_ != -1) {
-        tmp_capacity *= 6;
+        tmp_capacity *= 12;
       } else {
         tmp_capacity *= 128;
       }
