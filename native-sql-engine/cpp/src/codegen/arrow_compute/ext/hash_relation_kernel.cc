@@ -122,7 +122,7 @@ class HashRelationKernel::Impl {
         hash_relation_ =
             std::make_shared<HashRelation>(ctx_, hash_relation_list, key_size_);
       } else {
-        //TODO: better to estimate key_size_ for multiple keys join
+        // TODO: better to estimate key_size_ for multiple keys join
         hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
       }
     } else {
@@ -166,7 +166,7 @@ class HashRelationKernel::Impl {
     if (builder_type_ == 1) {
       int init_key_capacity = 128;
       int init_bytes_map_capacity = init_key_capacity * 256;
-      //TODO: should try to estimate the disticnt keys
+      // TODO: should try to estimate the disticnt keys
       if (num_total_cached_ > 32) {
         init_key_capacity = pow(2, ceil(log2(num_total_cached_)) + 1);
       }
