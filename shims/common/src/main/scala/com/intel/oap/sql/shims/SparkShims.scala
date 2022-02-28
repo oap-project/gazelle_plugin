@@ -17,13 +17,25 @@
 package com.intel.oap.sql.shims
 
 import com.intel.oap.spark.sql.ArrowWriteQueue
+import java.io.File
+
+import org.apache.parquet.hadoop.metadata.FileMetaData
 import org.apache.parquet.schema.MessageType
+import org.apache.spark.SparkConf
 import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.BaseShuffleHandle
+import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.adaptive.BroadcastQueryStageExec
+import org.apache.spark.sql.execution.datasources.OutputWriter
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
+import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
 import org.apache.spark.sql.internal.SQLConf
@@ -49,7 +61,7 @@ trait SparkShims {
                            pushDownStringStartWith: Boolean,
                            pushDownInFilterThreshold: Int,
                            isCaseSensitive: Boolean,
-                           datetimeRebaseMode: LegacyBehaviorPolicy.Value): ParquetFilters
+                           datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value): ParquetFilters
 
   def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
 

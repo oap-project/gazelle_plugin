@@ -83,7 +83,7 @@ class Spark320Shims extends SparkShims {
                                     mapId: Long, context: TaskContext,
                                     shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter = {
     new SortShuffleWriter(
-      baseShuffleHandle:,
+      baseShuffleHandle,
       mapId,
       context,
       shuffleExecutorComponents)

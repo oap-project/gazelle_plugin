@@ -81,5 +81,11 @@
           <version>${spark311.version}</version>
           <scope>provided</scope>
       </dependency>
+      <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-arrow-datasource-common</artifactId>
+          <version>${project.version}</version>
+          <scope>provided</scope>
+      </dependency>
   </dependencies>
 </project>
