@@ -23,8 +23,8 @@ import org.apache.parquet.hadoop.metadata.FileMetaData
 import org.apache.parquet.schema.MessageType
 import org.apache.spark.SparkConf
 import org.apache.spark.TaskContext
-import org.apache.spark.shuffle.BaseShuffleHandle
-import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.MigratableResolver
+import org.apache.spark.shuffle.ShuffleHandle
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.SQLContext
@@ -49,7 +49,7 @@ case class SparkShimDescriptor(major: Int, minor: Int, patch: Int) extends ShimD
 trait SparkShims {
   def getShimDescriptor: ShimDescriptor
 
-  def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
+  def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
                                          shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit
 
   def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): SQLConf.LegacyBehaviorPolicy.Value
@@ -69,9 +69,16 @@ trait SparkShims {
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
 
-  def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, baseShuffleHandle: BaseShuffleHandle,
+  /**
+    * The access modifier of IndexShuffleBlockResolver & BaseShuffleHandle is private[spark]. So we
+    * use their corresponding base types here. They will be checked and converted at implementation place.
+    * SortShuffleWriter's access modifier is private[spark], so we let the return type be AnyRef and
+    * make the conversion at the place where this method is called.
+    * */
+  def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
                            mapId: Long, context: TaskContext,
-                           shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter
+                           shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef
+
   def getMaxBroadcastRows(mode: BroadcastMode): Long
 
   def getSparkSession(plan: SparkPlan): SparkSession

@@ -20,7 +20,10 @@ import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import java.io.File
 
 import org.apache.spark.SparkConf
-import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.MigratableResolver
+import org.apache.spark.shuffle.ShuffleHandle
+import org.apache.spark.shuffle.ShuffleUtil
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
@@ -36,9 +39,9 @@ class Spark311Shims extends SparkShims {
 
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 
-  override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: IndexShuffleBlockResolver,
-                                                  shuffleID: int, mapID: long, partitionLengths: Array[Long], dataTmp: File): Unit =
-  shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, dataTmp)
+  override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
+                                                  shuffleId: int, mapID: long, partitionLengths: Array[Long], dataTmp: File): Unit =
+  ShuffleUtil.shuffleBlockResolverWriteAndCommit(shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
 
   override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
   SQLConf.LegacyBehaviorPolicy.Value = {
@@ -82,11 +85,11 @@ class Spark311Shims extends SparkShims {
       "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
   }
 
-  override def newSortShuffleWriter(resolver: IndexShuffleBlockResolver, baseShuffleHandle: BaseShuffleHandle,
+  override def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
     mapId: Long, context: TaskContext,
-    shuffleExecutorComponents: ShuffleExecutorComponents): SortShuffleWriter = {
-    new SortShuffleWriter(
-      shuffleBlockResolver,
+    shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef = {
+    ShuffleUtil.newSortShuffleWriter(
+      resolver,
       baseShuffleHandle,
       mapId,
       context,
