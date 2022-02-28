@@ -78,7 +78,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, plan.child, plan.evalType)
         case plan: BatchScanExec =>
           if (!enableColumnarBatchScan) return false
-          SparkShimLoader.getSparkShims.newColumnarBatchScanExec(plan)
+          SparkShimLoader.getSparkShims.newColumnarBatchScanExec(plan).asInstanceOf[ColumnarBatchScanExec]
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
             return false

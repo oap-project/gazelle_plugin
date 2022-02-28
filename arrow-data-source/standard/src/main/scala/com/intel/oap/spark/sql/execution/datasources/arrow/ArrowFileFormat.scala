@@ -25,6 +25,7 @@ import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
+import com.intel.oap.sql.shims.SparkShimLoader
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.hadoop.conf.Configuration

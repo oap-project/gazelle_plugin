@@ -26,6 +26,7 @@ import org.apache.spark.shuffle.ShuffleUtil
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.catalyst.plans.physical.Partitioning
+import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.unsafe.map.BytesToBytesMap
 
 class Spark320Shims extends SparkShims {
@@ -74,10 +75,9 @@ class Spark320Shims extends SparkShims {
     }
   }
 
-  override def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec = {
+  override def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec = {
     new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
   }
-
 
   override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
     conf.broadcastHashJoinOutputPartitioningExpandLimit

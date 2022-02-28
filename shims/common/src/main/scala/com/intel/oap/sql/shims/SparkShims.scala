@@ -65,7 +65,11 @@ trait SparkShims {
 
   def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
 
-  def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec
+  /**
+    * Use BatchScanExec as return type to avoid cyclic dependency. But a ColumnarBatchScanExec MUST
+    * be returned.
+    */
+  def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
 

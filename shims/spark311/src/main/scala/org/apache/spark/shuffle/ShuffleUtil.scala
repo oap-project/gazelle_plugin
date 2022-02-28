@@ -29,12 +29,13 @@ object ShuffleUtil {
     * IndexShuffleBlockResolver's access modifier is private[spark].
     */
   def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
-                                         shuffleId: Int, mapID: Long, partitionLengths: Array[Long], dataTmp: File): Unit =
+                                         shuffleId: Int, mapID: Long, partitionLengths: Array[Long], dataTmp: File): Unit = {
     shuffleBlockResolver match {
       case resolver: IndexShuffleBlockResolver =>
         resolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, dataTmp)
-      case _: throw new RuntimeException("IndexShuffleBlockResolver is expected!")
+      case _ => throw new RuntimeException ("IndexShuffleBlockResolver is expected!")
     }
+  }
 
   def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
     mapId: Long, context: TaskContext,
@@ -52,5 +53,6 @@ object ShuffleUtil {
           case _ => throw new RuntimeException("BaseShuffleHandle is expected!")
         }
       case _ => throw new RuntimeException("IndexShuffleBlockResolver is expected!")
+    }
   }
 }

@@ -20,12 +20,11 @@ package com.intel.oap.extension
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.GazelleSparkExtensionsInjector
 import com.intel.oap.sql.shims.SparkShimLoader
-
-import scala.collection.mutable
 import com.intel.oap.execution._
 import com.intel.oap.extension.columnar.ColumnarGuardRule
 import com.intel.oap.extension.columnar.RowGuard
 import com.intel.oap.sql.execution.RowToArrowColumnarExec
+
 import org.apache.spark.{MapOutputStatistics, SparkContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions}
@@ -52,6 +51,8 @@ import org.apache.spark.sql.execution.python.{ArrowEvalPythonExec, ColumnarArrow
 import org.apache.spark.sql.execution.window.WindowExec
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.util.ShufflePartitionUtils
+
+import scala.collection.mutable
 
 case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
@@ -87,7 +88,9 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, columnarChild, plan.evalType)
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      SparkShimLoader.getSparkShims.newColumnarBatchScanExec(plan)
+      SparkShimLoader.getSparkShims
+        .newColumnarBatchScanExec(plan)
+        .asInstanceOf[ColumnarBatchScanExec]
     case plan: CoalesceExec =>
       ColumnarCoalesceExec(plan.numPartitions, replaceWithColumnarPlan(plan.child))
     case plan: InMemoryTableScanExec =>
