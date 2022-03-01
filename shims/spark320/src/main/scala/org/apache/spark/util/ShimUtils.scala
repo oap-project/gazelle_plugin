@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.shuffle
+package org.apache.spark.util
 
 import java.io.File
 
@@ -23,7 +23,7 @@ import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.shuffle.ShuffleHandle
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 
-object ShuffleUtil {
+object ShimUtils {
 
   /**
     * Only applicable to IndexShuffleBlockResolver. We move the implementation here, because
@@ -51,4 +51,14 @@ object ShuffleUtil {
       case _ => throw new RuntimeException("BaseShuffleHandle is expected!")
     }
   }
+
+  /**
+    * We move the implementation into this package because Utils has private[spark]
+    * access modifier.
+    */
+  def doFetchFile(urlString: String, targetDirHandler: File,
+                  targetFileName: String, sparkConf: SparkConf): Unit = {
+    Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null)
+  }
+
 }

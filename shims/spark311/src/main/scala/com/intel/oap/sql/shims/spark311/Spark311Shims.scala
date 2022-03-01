@@ -27,7 +27,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.MigratableResolver
 import org.apache.spark.shuffle.ShuffleHandle
-import org.apache.spark.shuffle.ShuffleUtil
+import org.apache.spark.util.ShimUtils
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.SQLContext
@@ -53,7 +53,7 @@ class Spark311Shims extends SparkShims {
 
   override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
                                                   shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit =
-  ShuffleUtil.shuffleBlockResolverWriteAndCommit(shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
+  ShimUtils.shuffleBlockResolverWriteAndCommit(shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
 
   override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
   SQLConf.LegacyBehaviorPolicy.Value = {
@@ -100,7 +100,7 @@ class Spark311Shims extends SparkShims {
   override def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
     mapId: Long, context: TaskContext,
     shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef = {
-    ShuffleUtil.newSortShuffleWriter(
+    ShimUtils.newSortShuffleWriter(
       resolver,
       shuffleHandle,
       mapId,
@@ -118,7 +118,7 @@ class Spark311Shims extends SparkShims {
 
   override def doFetchFile(urlString: String, targetDirHandler: File,
                            targetFileName: String, sparkConf: SparkConf): Unit = {
-    Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
+    ShimUtils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf)
   }
 
 //  /**
@@ -173,7 +173,7 @@ class Spark311Shims extends SparkShims {
   /**
     * Only applicable to CustomShuffleReaderExec. Otherwise, an exception will be thrown.
     */
-  override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): ShufflePartitionSpec = {
+  override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): Seq[ShufflePartitionSpec] = {
     plan match {
       case plan: CustomShuffleReaderExec => plan.partitionSpecs
       case _ => throw new RuntimeException("CustomShuffleReaderExec is expected!")

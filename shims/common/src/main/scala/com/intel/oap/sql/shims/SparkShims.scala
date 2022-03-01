@@ -104,6 +104,6 @@ trait SparkShims {
 
   def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan
 
-  def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): ShufflePartitionSpec
+  def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): Seq[ShufflePartitionSpec]
 
 }

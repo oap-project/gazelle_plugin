@@ -14,25 +14,28 @@
  * limitations under the License.
  */
 
-package org.apache.spark.shuffle
+package org.apache.spark.util
 
 import java.io.File
 
+import org.apache.spark.SparkConf
+import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.MigratableResolver
 import org.apache.spark.shuffle.ShuffleHandle
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
-import org.apache.spark.TaskContext
 
-object ShuffleUtil {
+object ShimUtils {
 
   /**
     * Only applicable to IndexShuffleBlockResolver. We move the implementation here, because
     * IndexShuffleBlockResolver's access modifier is private[spark].
     */
   def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
-                                         shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit = {
+                                         shuffleId: Int, mapId: Long,
+                                         partitionLengths: Array[Long], dataTmp: File): Unit = {
     shuffleBlockResolver match {
       case resolver: IndexShuffleBlockResolver =>
         resolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, dataTmp)
@@ -57,5 +60,14 @@ object ShuffleUtil {
         }
       case _ => throw new RuntimeException("IndexShuffleBlockResolver is expected!")
     }
+  }
+
+  /**
+    * We move the implementation into this package because Utils has private[spark]
+    * access modifier.
+    */
+  def doFetchFile(urlString: String, targetDirHandler: File,
+                  targetFileName: String, sparkConf: SparkConf): Unit = {
+    Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
   }
 }
