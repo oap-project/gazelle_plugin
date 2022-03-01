@@ -292,10 +292,10 @@ arrow::Status Splitter::Init() {
       case arrow::LargeStringType::type_id:
         large_binary_array_idx_.push_back(i);
         break;
-      case arrow::ListType::type_id:
-        list_array_idx_.push_back(i);
-        break;
+      case arrow::StructType::type_id:
+      case arrow::MapType::type_id:
       case arrow::LargeListType::type_id:
+      case arrow::ListType::type_id:
         list_array_idx_.push_back(i);
         break;
       case arrow::NullType::type_id:
@@ -511,20 +511,10 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           large_binary_idx++;
           break;
         }
+        case arrow::StructType::type_id:
+        case arrow::MapType::type_id:
+        case arrow::LargeListType::type_id:
         case arrow::ListType::type_id: {
-          auto& builder = partition_list_builders_[list_idx][partition_id];
-          if (reset_buffers) {
-            RETURN_NOT_OK(builder->Finish(&arrays[i]));
-            builder->Reset();
-          } else {
-            RETURN_NOT_OK(builder->Finish(&arrays[i]));
-            builder->Reset();
-            RETURN_NOT_OK(builder->Reserve(num_rows));
-          }
-          list_idx++;
-          break;
-        }
-        case arrow::LargeListType::type_id: {
           auto& builder = partition_list_builders_[list_idx][partition_id];
           if (reset_buffers) {
             RETURN_NOT_OK(builder->Finish(&arrays[i]));
@@ -618,17 +608,10 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         large_binary_idx++;
         break;
       }
+      case arrow::StructType::type_id:
+      case arrow::MapType::type_id:
+      case arrow::LargeListType::type_id:
       case arrow::ListType::type_id: {
-        std::unique_ptr<arrow::ArrayBuilder> array_builder;
-        RETURN_NOT_OK(
-            MakeBuilder(options_.memory_pool, column_type_id_[i], &array_builder));
-        assert(array_builder != nullptr);
-        RETURN_NOT_OK(array_builder->Reserve(new_size));
-        new_list_builders.push_back(std::move(array_builder));
-        list_idx++;
-        break;
-      }
-      case arrow::LargeListType::type_id: {
         std::unique_ptr<arrow::ArrayBuilder> array_builder;
         RETURN_NOT_OK(
             MakeBuilder(options_.memory_pool, column_type_id_[i], &array_builder));
@@ -687,12 +670,10 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
             std::move(new_large_binary_builders[large_binary_idx]);
         large_binary_idx++;
         break;
-      case arrow::ListType::type_id:
-        partition_list_builders_[list_idx][partition_id] =
-            std::move(new_list_builders[list_idx]);
-        list_idx++;
-        break;
+      case arrow::StructType::type_id:
+      case arrow::MapType::type_id:
       case arrow::LargeListType::type_id:
+      case arrow::ListType::type_id:
         partition_list_builders_[list_idx][partition_id] =
             std::move(new_list_builders[list_idx]);
         list_idx++;

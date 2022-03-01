@@ -1930,8 +1930,21 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   private static class StructWriter extends ArrowVectorWriter {
+    private final StructVector writer;
+
     StructWriter(StructVector vector, ArrowVectorWriter[] children) {
       super(vector);
+      this.writer = vector;
+    }
+
+    @Override
+    void setNull(int rowId) {
+      writer.setNull(rowId);
+    }
+
+    @Override
+    void setNotNull(int rowId) {
+      writer.setIndexDefined(rowId);
     }
   }
 

@@ -37,7 +37,6 @@ import org.apache.arrow.vector._
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ReadChannel, WriteChannel}
 import org.apache.arrow.vector.ipc.message.{ArrowFieldNode, ArrowRecordBatch, IpcOption, MessageChannelReader, MessageResult, MessageSerializer}
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
-
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.aggregate._
@@ -48,13 +47,13 @@ import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.ListBuffer
-
+import scala.collection.mutable.{ArrayBuffer, ListBuffer}
 import io.netty.buffer.{ByteBuf, ByteBufAllocator, ByteBufOutputStream}
 import java.nio.channels.{Channels, WritableByteChannel}
 
 import com.google.common.collect.Lists
 import java.io.{InputStream, OutputStream}
+import java.util
 import java.util.concurrent.TimeUnit.SECONDS
 
 import org.apache.arrow.vector.types.TimeUnit
@@ -517,6 +516,27 @@ object ConverterUtils extends Logging {
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 
+  def checkIfNestTypeSupported(dt: DataType): Unit = dt match {
+    case d: ArrayType => checkIfTypeSupported(d.elementType)
+    case d: StructType =>
+      for ( structField <- d.fields ) {
+        checkIfTypeSupported(structField.dataType)
+      }
+    case d: BooleanType =>
+    case d: ByteType =>
+    case d: ShortType =>
+    case d: IntegerType =>
+    case d: LongType =>
+    case d: FloatType =>
+    case d: DoubleType =>
+    case d: StringType =>
+    case d: DateType =>
+    case d: DecimalType =>
+    case d: TimestampType =>
+    case _ =>
+      throw new UnsupportedOperationException(s"Unsupported data type: $dt")
+  }
+
   def createArrowField(name: String, dt: DataType): Field = dt match {
     case at: ArrayType =>
       new Field(
@@ -526,7 +546,15 @@ object ConverterUtils extends Logging {
     case mt: MapType =>
       throw new UnsupportedOperationException(s"${dt} is not supported yet")
     case st: StructType =>
-      throw new UnsupportedOperationException(s"${dt} is not supported yet")
+      val fieldlist = new util.ArrayList[Field]
+      var structField = null
+      for ( structField <- st.fields ) {
+        fieldlist.add(createArrowField(structField.name, structField.dataType))
+      }
+      new Field(
+        name,
+        FieldType.nullable(ArrowType.Struct.INSTANCE),
+        fieldlist)
     case _ =>
       Field.nullable(name, CodeGeneration.getResultType(dt))
   }
