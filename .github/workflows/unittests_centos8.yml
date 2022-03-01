@@ -30,18 +30,9 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 1.8
-      - run: sudo swapoff -a
       - run: free
-      - run: sudo apt-get update
-      - run: sudo apt-get install cmake ccache
-      - run: sudo apt-get install libboost-all-dev
-      - name: Install Googletest
-        run: |
-          sudo apt-get install libgtest-dev
-          cd /usr/src/gtest
-          sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local
-          sudo make
-          sudo apt-get install google-mock
+      - run: yum update -y
+      - run: yum install -y cmake ccache boost-devel gtest git  make automake gcc gcc-c++
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
@@ -49,7 +40,7 @@ jobs:
           cd arrow && git checkout arrow-4.0.0-oap && cd cpp
           mkdir build && cd build
           cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_ORC=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
-          sudo make install
+          make install
       - name: Run unit tests
         run: |
           cd native-sql-engine/cpp/

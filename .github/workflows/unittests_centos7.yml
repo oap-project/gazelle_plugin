@@ -31,8 +31,9 @@ jobs:
         with:
           java-version: 1.8
       - run: free
-      - run: yum update
-      - run: yum install cmake ccache boost-devel gtest
+      - run: yum update -y
+      - run: yum install -y epel-release cmake3
+      - run: yum install -y ccache boost-devel gtest git make automake gcc gcc-c++ epel-release cmake3
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
@@ -40,7 +41,7 @@ jobs:
           cd arrow && git checkout arrow-4.0.0-oap && cd cpp
           mkdir build && cd build
           cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_ORC=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
-          sudo make install
+          make install
       - name: Run unit tests
         run: |
           cd native-sql-engine/cpp/
