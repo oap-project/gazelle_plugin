@@ -77,20 +77,20 @@ class BenchmarkArrowComputeHashAggregate : public ::testing::Test {
     std::shared_ptr<ResultIteratorBase> aggr_result_iterator_base;
 
     std::shared_ptr<arrow::RecordBatch> record_batch;
-
-    do {
-      TIME_MICRO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
-      if (record_batch) {
-        TIME_MICRO_OR_THROW(elapse_eval,
-                            aggr_expr->evaluate(record_batch, &dummy_result_batches));
-        num_batches += 1;
-      }
-    } while (record_batch);
-    std::cout << "Readed " << num_batches << " batches." << std::endl;
     TIME_MICRO_OR_THROW(elapse_aggr, aggr_expr->finish(&aggr_result_iterator_base));
     auto aggr_result_iterator =
         std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
             aggr_result_iterator_base);
+    do {
+      TIME_MICRO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      if (record_batch) {
+        TIME_MICRO_OR_THROW(elapse_eval, aggr_result_iterator->ProcessAndCacheOne(
+                                             record_batch->columns()));
+        num_batches += 1;
+      }
+    } while (record_batch);
+    std::cout << "Readed " << num_batches << " batches." << std::endl;
+
     std::shared_ptr<arrow::RecordBatch> result_batch;
 
     uint64_t num_output_batches = 0;
@@ -119,7 +119,7 @@ class BenchmarkArrowComputeHashAggregate : public ::testing::Test {
   std::vector<std::shared_ptr<::arrow::Field>> field_list;
   std::vector<std::shared_ptr<::arrow::Field>> ret_field_list;
 
-  int primary_key_index = 0;
+  int primary_key_index = 1;
   std::shared_ptr<arrow::Field> f_res;
 
   uint64_t elapse_gen = 0;
@@ -150,19 +150,25 @@ TEST_F(BenchmarkArrowComputeHashAggregate, GroupbyAggregateBenchmark) {
       TreeExprBuilder::MakeFunction("action_sum", {gandiva_field_list[1]}, uint32());
   auto n_sum_2 =
       TreeExprBuilder::MakeFunction("action_sum", {gandiva_field_list[2]}, uint32());
+  auto n_result =
+      TreeExprBuilder::MakeFunction("resultSchema", gandiva_field_list, uint32());
+  auto n_result_expr =
+      TreeExprBuilder::MakeFunction("resultExpressions", gandiva_field_list, uint32());
+  auto n_action = TreeExprBuilder::MakeFunction("aggregateActions",
+                                                {n_groupby, n_sum_1, n_sum_2}, uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", gandiva_field_list, uint32());
   auto n_schema =
       TreeExprBuilder::MakeFunction("codegen_schema", gandiva_field_list, uint32());
-  auto n_aggr = TreeExprBuilder::MakeFunction("hashAggregateArrays",
-                                              {n_groupby, n_sum_1, n_sum_2}, uint32());
-  auto n_codegen_aggr =
-      TreeExprBuilder::MakeFunction("codegen_withOneInput", {n_aggr, n_schema}, uint32());
-
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+  auto expr = TreeExprBuilder::MakeExpression(n_child, f_res);
   std::shared_ptr<arrow::Schema> schema;
   schema = arrow::schema(field_list);
   std::cout << schema->ToString() << std::endl;
 
-  ::gandiva::ExpressionPtr aggrArrays_expr;
-  aggrArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_aggr, f_res);
+  std::vector<std::shared_ptr<::gandiva::Expression>> aggrArrays_expr = {expr};
 
   auto f0_name = field_list[0]->name();
   auto f1_name = field_list[1]->name();
@@ -201,24 +207,30 @@ TEST_F(BenchmarkArrowComputeHashAggregate, GroupbyAggregateWithAvgBenchmark) {
   auto n_sum_2 =
       TreeExprBuilder::MakeFunction("action_sum", {gandiva_field_list[2]}, uint32());
   auto n_avg_1 =
-      TreeExprBuilder::MakeFunction("action_avg", {gandiva_field_list[1]}, uint32());
+      TreeExprBuilder::MakeFunction("action_min_true", {gandiva_field_list[1]}, uint32());
   auto n_avg_2 =
-      TreeExprBuilder::MakeFunction("action_avg", {gandiva_field_list[2]}, uint32());
+      TreeExprBuilder::MakeFunction("action_max_true", {gandiva_field_list[2]}, uint32());
   auto n_count_1 = TreeExprBuilder::MakeFunction("action_countLiteral_1", {}, uint32());
-  auto n_schema =
-      TreeExprBuilder::MakeFunction("codegen_schema", gandiva_field_list, uint32());
-  auto n_aggr = TreeExprBuilder::MakeFunction(
-      "hashAggregateArrays", {n_groupby, n_sum_1, n_sum_2, n_avg_1, n_avg_2, n_count_1},
+  auto n_result =
+      TreeExprBuilder::MakeFunction("resultSchema", gandiva_field_list, uint32());
+  auto n_result_expr =
+      TreeExprBuilder::MakeFunction("resultExpressions", gandiva_field_list, uint32());
+
+  auto n_action = TreeExprBuilder::MakeFunction(
+      "aggregateActions", {n_groupby, n_sum_1, n_sum_2, n_avg_1, n_avg_2, n_count_1},
       uint32());
-  auto n_codegen_aggr =
-      TreeExprBuilder::MakeFunction("codegen_withOneInput", {n_aggr, n_schema}, uint32());
+  auto n_proj =
+      TreeExprBuilder::MakeFunction("aggregateExpressions", gandiva_field_list, uint32());
+  auto n_aggr = TreeExprBuilder::MakeFunction(
+      "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
+  auto n_child = TreeExprBuilder::MakeFunction("standalone", {n_aggr}, uint32());
+  auto expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   std::shared_ptr<arrow::Schema> schema;
   schema = arrow::schema(field_list);
   std::cout << schema->ToString() << std::endl;
 
-  ::gandiva::ExpressionPtr aggrArrays_expr;
-  aggrArrays_expr = TreeExprBuilder::MakeExpression(n_codegen_aggr, f_res);
+  std::vector<std::shared_ptr<::gandiva::Expression>> aggrArrays_expr = {expr};
 
   auto f0_name = field_list[0]->name();
   auto f1_name = field_list[1]->name();
