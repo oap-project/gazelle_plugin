@@ -130,8 +130,9 @@ object ColumnarBinaryExpression {
         new ColumnarFromUnixTime(left, right)
       case d: DateSub =>
         new ColumnarDateSub(left, right)
-      case g: GetJsonObject =>
-        new ColumnarGetJsonObject(left, right, g)
+      //TODO(): the current impl has poor perf
+      // case g: GetJsonObject =>
+      //   new ColumnarGetJsonObject(left, right, g)
       case instr: StringInstr =>
         new ColumnarStringInstr(left, right, instr)
       case other =>
