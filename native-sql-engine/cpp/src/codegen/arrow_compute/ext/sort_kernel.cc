@@ -455,9 +455,9 @@ class SortArraysToIndicesKernel::Impl {
           auto schema = current_in_cache_batch_->schema();
           std::vector<std::shared_ptr<arrow::Array>> out_arrs;
           for (auto arr : current_in_cache_batch_->columns()) {
-            std::shared_ptr<arrow::Array> copied;
             auto sliced = arr->Slice(cache_offset_);
-            RETURN_NOT_OK(arrow::Concatenate({sliced}, ctx_->memory_pool(), &copied));
+            ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> copied,
+                                  arrow::Concatenate({sliced}, ctx_->memory_pool()));
             out_arrs.push_back(copied);
           }
           *out = arrow::RecordBatch::Make(schema, cur_size, out_arrs);
@@ -971,8 +971,8 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
       std::shared_ptr<arrow::Schema> schema,
       std::shared_ptr<ResultIterator<arrow::RecordBatch>>* out) override {
     if (cached_0_.empty()) return arrow::Status::OK();
-    RETURN_NOT_OK(
-        arrow::Concatenate(cached_0_, ctx_->memory_pool(), &concatenated_array_));
+    ARROW_ASSIGN_OR_RAISE(concatenated_array_,
+                          arrow::Concatenate(cached_0_, ctx_->memory_pool()));
     if (nulls_total_ == 0) {
       // Function SortNoNull is used.
       CTYPE* indices_begin = concatenated_array_->data()->GetMutableValues<CTYPE>(1);
@@ -1153,7 +1153,7 @@ class SortInplaceKernel : public SortArraysToIndicesKernel::Impl {
         uint8_t* dst = (*out)->mutable_data();
 
         if (bitmap.AllSet()) {
-          arrow::BitUtil::SetBitsTo(dst, offset, length, true);
+          arrow::bit_util::SetBitsTo(dst, offset, length, true);
         } else {
           arrow::internal::CopyBitmap(bitmap.data, offset, length, dst, 0);
         }
