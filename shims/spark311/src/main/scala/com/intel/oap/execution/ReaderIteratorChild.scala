@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package com.intel.oap.execution
+package org.apache.spark.execution.python
 
 import java.io.DataInputStream
 import java.net.Socket
 import java.util.concurrent.atomic.AtomicBoolean
+import org.apache.spark.SparkEnv
+import org.apache.spark.TaskContext
 import org.apache.spark.api.python.BasePythonRunner
-
 
 /**
   * pid: Option[Int] is not instroduced for ReaderIterator in spark 3.1.

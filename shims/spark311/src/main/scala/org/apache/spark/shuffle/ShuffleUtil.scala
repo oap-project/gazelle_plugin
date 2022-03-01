@@ -21,6 +21,9 @@ import java.io.File
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
 import org.apache.spark.shuffle.ShuffleHandle
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
+import org.apache.spark.shuffle.sort.SortShuffleWriter
+import org.apache.spark.TaskContext
 
 object ShuffleUtil {
 
@@ -29,7 +32,7 @@ object ShuffleUtil {
     * IndexShuffleBlockResolver's access modifier is private[spark].
     */
   def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
-                                         shuffleId: Int, mapID: Long, partitionLengths: Array[Long], dataTmp: File): Unit = {
+                                         shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit = {
     shuffleBlockResolver match {
       case resolver: IndexShuffleBlockResolver =>
         resolver.writeIndexFileAndCommit(shuffleId, mapId, partitionLengths, dataTmp)
@@ -43,7 +46,7 @@ object ShuffleUtil {
     resolver match {
       case indexShuffleBlockResolver: IndexShuffleBlockResolver =>
         shuffleHandle match {
-          case baseShuffleHandle: BaseShuffleHandle =>
+          case baseShuffleHandle: BaseShuffleHandle[_, _, _] =>
             new SortShuffleWriter(
               indexShuffleBlockResolver,
               baseShuffleHandle,

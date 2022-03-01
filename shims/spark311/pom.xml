@@ -92,5 +92,17 @@
       <version>${spark311.version}</version>
     <scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>spark-arrow-datasource-common</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>23.0</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
 </project>

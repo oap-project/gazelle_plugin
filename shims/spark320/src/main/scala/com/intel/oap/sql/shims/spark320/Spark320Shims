@@ -34,14 +34,14 @@ class Spark320Shims extends SparkShims {
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 
   override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
-                                                  shuffleId: int, mapId: long, partitionLengths: Array[Long], dataTmp: File): Unit =
+                                                  shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit =
     ShuffleUtl.shuffleBlockResolverWriteAndCommit(shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
 
   override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
   SQLConf.LegacyBehaviorPolicy.Value = {
     val datetimeRebaseModeInRead = parquetOptions.datetimeRebaseModeInRead
     DataSourceUtils.datetimeRebaseMode(
-      footerFileMetaData.getKeyValueMetaData.get,
+      fileMetaData.getKeyValueMetaData.get,
       datetimeRebaseModeInRead)
   }
 
@@ -52,7 +52,7 @@ class Spark320Shims extends SparkShims {
                                     pushDownStringStartWith: Boolean,
                                     pushDownInFilterThreshold: Int,
                                     isCaseSensitive: Boolean,
-                                    datetimeRebaseMode: LegacyBehaviorPolicy.Value): ParquetFilters = {
+                                    datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value): ParquetFilters = {
     return new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
   }
@@ -88,7 +88,7 @@ class Spark320Shims extends SparkShims {
                                     shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef = {
     ShuffleUtil.newSortShuffleWriter(
       resolver,
-      baseShuffleHandle,
+      shuffleHandle,
       mapId,
       context,
       shuffleExecutorComponents)
@@ -166,7 +166,7 @@ class Spark320Shims extends SparkShims {
   override def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan = {
     plan match {
       case plan: AQEShuffleReadExec => plan.child
-      case _ => throw RuntimeException("AQEShuffleReadExec is expected!")
+      case _ => throw new RuntimeException("AQEShuffleReadExec is expected!")
     }
   }
 
@@ -176,7 +176,7 @@ class Spark320Shims extends SparkShims {
   override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): ShufflePartitionSpec = {
     plan match {
       case plan: AQEShuffleReadExec => plan.partitionSpecs
-      case _ => throw RuntimeException("AQEShuffleReadExec is expected!")
+      case _ => throw new RuntimeException("AQEShuffleReadExec is expected!")
     }
   }
 
