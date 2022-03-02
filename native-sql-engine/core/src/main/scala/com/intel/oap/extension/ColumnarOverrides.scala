@@ -299,13 +299,13 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
             case s: ColumnarShuffleExchangeAdaptor =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
               CoalesceBatchesExec(
-                ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
+                ColumnarCustomShuffleReaderExec(child, partitionSpecs))
             case r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor) =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
               CoalesceBatchesExec(
                 ColumnarCustomShuffleReaderExec(
-                  plan.child,
-                  plan.partitionSpecs))
+                  child,
+                  partitionSpecs))
             case _ =>
               plan
           }

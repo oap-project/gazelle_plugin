@@ -115,7 +115,7 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
           mapId,
           context,
           shuffleExecutorComponents
-        ).asInstanceOf[SortShuffleWriter]
+        ).asInstanceOf[SortShuffleWriter[K, V, _]]
     }
   }
 

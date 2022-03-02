@@ -194,9 +194,12 @@ object ShufflePartitionUtils {
       case plan if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan) &&
         SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
           .isInstanceOf[ShuffleQueryStageExec] &&
-        SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan).mapStats.isDefined &&
+        SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+          .asInstanceOf[ShuffleQueryStageExec].mapStats.isDefined &&
         SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(plan).nonEmpty &&
-        OptimizeSkewedJoin.supportedShuffleOrigins.contains(s.shuffle.shuffleOrigin) =>
+        OptimizeSkewedJoin.supportedShuffleOrigins.contains(
+          SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+          .asInstanceOf[ShuffleQueryStageExec].shuffle.shuffleOrigin) =>
         val child = SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
           .asInstanceOf[ShuffleQueryStageExec]
         val partitionSpecs =

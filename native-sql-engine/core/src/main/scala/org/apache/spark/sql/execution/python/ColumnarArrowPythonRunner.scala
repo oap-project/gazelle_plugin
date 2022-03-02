@@ -28,7 +28,7 @@ import org.apache.arrow.vector.{ValueVector, VectorLoader, VectorSchemaRoot}
 import org.apache.arrow.vector.ipc.{ArrowStreamReader, ArrowStreamWriter}
 import org.apache.spark.SparkEnv
 import org.apache.spark.TaskContext
-import org.apache.spark.api.python.{BasePythonRunner, BasePythonRunnerChild, ChainedPythonFunctions, PythonRDD, SpecialLengths}
+import org.apache.spark.api.python.{BasePythonRunner, ChainedPythonFunctions, PythonRDD, SpecialLengths}
 import org.apache.spark.sql.BasePythonRunnerChild
 //import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.python.PythonUDFRunner
@@ -37,6 +37,7 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.ArrowUtils
+import org.apache.spark.sql.BasePythonRunnerChild
 import org.apache.spark.util.Utils
 
 /**
@@ -49,7 +50,7 @@ class ColumnarArrowPythonRunner(
     schema: StructType,
     timeZoneId: String,
     conf: Map[String, String])
-  extends BasePythonRunnerChild[ColumnarBatch, ColumnarBatch](funcs, evalType, argOffsets) {
+  extends BasePythonRunnerChild(funcs, evalType, argOffsets) {
 
   override val simplifiedTraceback: Boolean = SQLConf.get.pysparkSimplifiedTraceback
 
