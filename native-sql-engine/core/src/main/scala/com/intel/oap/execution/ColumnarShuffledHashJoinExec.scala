@@ -311,19 +311,19 @@ case class ColumnarShuffledHashJoinExec(
           hash_relation_function,
           Field.nullable("result", new ArrowType.Int(32, true)))
       hashRelationKernel.build(hash_relation_schema, Lists.newArrayList(hash_relation_expr), true)
+      val beforeEval = System.nanoTime()
       while (depIter.hasNext) {
         val dep_cb = depIter.next()
         (0 until dep_cb.numCols).toList.foreach(i =>
           dep_cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
         hashRelationBatchHolder += dep_cb
-        val beforeEval = System.nanoTime()
         val dep_rb = ConverterUtils.createArrowRecordBatch(dep_cb)
         hashRelationKernel.evaluate(dep_rb)
         ConverterUtils.releaseArrowRecordBatch(dep_rb)
-        build_elapse += System.nanoTime() - beforeEval
+
       }
       val hashRelationResultIterator = hashRelationKernel.finishByIterator()
-
+      build_elapse += System.nanoTime() - beforeEval
       val native_function = TreeBuilder.makeFunction(
         s"standalone",
         Lists.newArrayList(getKernelFunction(1)),

@@ -623,6 +623,7 @@ class ConditionedProbeKernel::Impl {
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
+            if (!hash_relation_->maybeContains(unsafe_key_row)) {continue;}
             int index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
             if (index == -1) {
               continue;

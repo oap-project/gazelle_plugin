@@ -265,6 +265,7 @@ class HashRelationKernel::Impl {
   std::vector<arrow::ArrayVector> keys_cached_;
   std::vector<std::shared_ptr<arrow::Array>> key_hash_cached_;
   uint64_t num_total_cached_ = 0;
+  uint64_t estimated_cardinality_ = 0;
   int builder_type_ = 0;
   bool semi_ = false;
   int key_size_ = -1;  // If key_size_ != 0, key will be stored directly in key_map

@@ -27,6 +27,7 @@
 #include "precompile/unsafe_array.h"
 #include "third_party/murmurhash/murmurhash32.h"
 #include "third_party/row_wise_memory/hashMap.h"
+#include "third_party/bf.hpp"
 #include "utils/macros.h"
 
 using sparkcolumnarplugin::codegen::arrowcompute::extra::ArrayItemIndex;
@@ -299,6 +300,10 @@ class HashRelation {
     return 0;
   }
 
+  bool maybeContains(std::shared_ptr<UnsafeRow> payload){
+    return bf.MaybeContains(std::string(payload->data, payload->cursor));
+  }
+
   template <typename CType,
             typename std::enable_if_t<is_number_or_decimal_type<CType>::value>* = nullptr>
   int IfExists(int32_t v, CType payload) {
@@ -450,6 +455,7 @@ class HashRelation {
   uint64_t num_arrays_ = 0;
   std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_column_list_;
   unsafeHashMap* hash_table_ = nullptr;
+  qp::Bloomfilter<std::string, 1<<30, 6> bf;
   using ArrayType = sparkcolumnarplugin::precompile::Int32Array;
   bool null_index_set_ = false;
   std::vector<ArrayItemIndex> null_index_list_;
@@ -462,6 +468,7 @@ class HashRelation {
   arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
                        uint32_t id) {
     assert(hash_table_ != nullptr);
+    bf.Add(std::string(payload->data, payload->cursor));
     auto index = ArrayItemIndex(array_id, id);
     if (!append(hash_table_, payload.get(), v, (char*)&index, sizeof(ArrayItemIndex))) {
       return arrow::Status::CapacityError("Insert to HashMap failed.");
