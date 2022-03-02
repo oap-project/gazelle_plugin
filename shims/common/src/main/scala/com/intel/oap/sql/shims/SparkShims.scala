@@ -29,6 +29,7 @@ import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
 import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution.SparkPlan
@@ -65,11 +66,7 @@ trait SparkShims {
 
   def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
 
-  /**
-    * Use BatchScanExec as return type to avoid cyclic dependency. But a ColumnarBatchScanExec MUST
-    * be returned.
-    */
-  def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec
+  def getRuntimeFilters(plan: BatchScanExec): Seq[Expression]
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
 

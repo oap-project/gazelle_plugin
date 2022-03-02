@@ -37,6 +37,7 @@ import org.apache.spark.sql.execution.joins._
 import org.apache.spark.sql.execution.python.ArrowEvalPythonExec
 import org.apache.spark.sql.execution.python.ColumnarArrowEvalPythonExec
 import org.apache.spark.sql.execution.window.WindowExec
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
 case class RowGuard(child: SparkPlan) extends SparkPlan {
   def output: Seq[Attribute] = child.output
@@ -78,7 +79,27 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, plan.child, plan.evalType)
         case plan: BatchScanExec =>
           if (!enableColumnarBatchScan) return false
-          SparkShimLoader.getSparkShims.newColumnarBatchScanExec(plan).asInstanceOf[ColumnarBatchScanExec]
+          val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters
+          new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters) {
+            // This method is a commonly shared implementation for ColumnarBatchScanExec.
+            // We move it outside of shim layer to break the cyclic dependency caused by
+            // ColumnarDataSourceRDD.
+            override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+              val numOutputRows = longMetric("numOutputRows")
+              val numInputBatches = longMetric("numInputBatches")
+              val numOutputBatches = longMetric("numOutputBatches")
+              val scanTime = longMetric("scanTime")
+              val inputSize = longMetric("inputSize")
+              val inputColumnarRDD =
+                new ColumnarDataSourceRDD(sparkContext, partitions, readerFactory,
+                  true, scanTime, numInputBatches, inputSize, tmpDir)
+              inputColumnarRDD.map { r =>
+                numOutputRows += r.numRows()
+                numOutputBatches += 1
+                r
+              }
+            }
+          }
         case plan: FileSourceScanExec =>
           if (plan.supportsColumnar) {
             return false

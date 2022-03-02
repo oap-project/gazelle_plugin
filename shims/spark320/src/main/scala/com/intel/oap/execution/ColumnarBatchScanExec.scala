@@ -21,12 +21,15 @@ package com.intel.oap.execution
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReaderFactory, Scan}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
-class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan,
-                            runtimeFilters: Seq[Expression])
+/**
+  * The runtimeFilters is not actually used in ColumnarBatchScanExec currently.
+  * This class lacks the implementation for doExecuteColumnar.
+  */
+abstract class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan,
+                                     runtimeFilters: Seq[Expression])
     extends BatchScanExec(output, scan, runtimeFilters) {
   // tmpDir is used by ParquetReader, which looks useless (may be removed in the future).
   // Here, "/tmp" is directly used, no need to get it set through configuration.
@@ -39,21 +42,6 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
     "scanTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_batchscan"),
     "inputSize" -> SQLMetrics.createSizeMetric(sparkContext, "input size in bytes"))
-  override def doExecuteColumnar(): RDD[ColumnarBatch] = {
-    val numOutputRows = longMetric("numOutputRows")
-    val numInputBatches = longMetric("numInputBatches")
-    val numOutputBatches = longMetric("numOutputBatches")
-    val scanTime = longMetric("scanTime")
-    val inputSize = longMetric("inputSize")
-    val inputColumnarRDD =
-      new ColumnarDataSourceRDD(sparkContext, partitions, readerFactory,
-        true, scanTime, numInputBatches, inputSize, tmpDir)
-    inputColumnarRDD.map { r =>
-      numOutputRows += r.numRows()
-      numOutputBatches += 1
-      r
-    }
-  }
 
   override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBatchScanExec]
 
@@ -62,9 +50,4 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
       (that canEqual this) && super.equals(that)
     case _ => false
   }
-
-  override def newColumnarBatchScanExec(plan: BatchScanExec): ColumnarBatchScanExec = {
-    new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
-  }
-
 }

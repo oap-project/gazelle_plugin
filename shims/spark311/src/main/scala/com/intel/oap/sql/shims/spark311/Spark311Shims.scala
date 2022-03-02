@@ -35,7 +35,6 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
-import org.apache.spark.sql.execution.ColumnarShuffleExchangeAdaptor
 import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
@@ -88,8 +87,11 @@ class Spark311Shims extends SparkShims {
     }
   }
 
-  override def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec = {
-    new ColumnarBatchScanExec(plan.output, plan.scan)
+  /**
+    * The runtimeFilters is just available from spark 3.2.
+    */
+  override def getRuntimeFilters(plan: BatchScanExec): Seq[Expression] = {
+    return null
   }
 
   override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {

@@ -75,8 +75,12 @@ class Spark320Shims extends SparkShims {
     }
   }
 
-  override def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec = {
-    new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
+//  override def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec = {
+//    new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
+//  }
+
+  override def getRuntimeFilters(plan: BatchScanExec): Seq[Expression] = {
+    return plan.runtimeFilters
   }
 
   override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
