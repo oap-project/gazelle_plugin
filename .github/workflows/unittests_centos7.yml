@@ -34,6 +34,7 @@ jobs:
       - run: yum update -y
       - run: yum install -y epel-release cmake3
       - run: yum install -y ccache boost-devel gtest git make automake gcc gcc-c++ epel-release cmake3
+      - run: ln -s /usr/bin/cmake3 /usr/bin/cmake
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
