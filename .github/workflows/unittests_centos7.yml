@@ -32,13 +32,14 @@ jobs:
           java-version: 1.8
       - run: free
       - run: yum update -y
-      - run: yum install -y epel-release cmake3
-      - run: yum install -y ccache boost-devel gtest git make automake gcc gcc-c++ epel-release cmake3
+      - run: yum install -y epel-release centos-release-scl-rh
+      - run: yum install -y ccache boost-devel gtest git make automake gcc gcc-c++ cmake3 devtoolset-10 llvm-toolset-7.0-clang
       - run: ln -s /usr/bin/cmake3 /usr/bin/cmake
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
           git clone https://github.com/oap-project/arrow.git
+          source /opt/rh/devtoolset-10/enable
           cd arrow && git checkout arrow-4.0.0-oap && cd cpp
           mkdir build && cd build
           cmake .. -DARROW_JNI=ON -DARROW_GANDIVA_JAVA=ON -DARROW_GANDIVA=ON -DARROW_PARQUET=ON -DARROW_ORC=ON -DARROW_CSV=ON -DARROW_HDFS=ON -DARROW_FILESYSTEM=ON -DARROW_WITH_SNAPPY=ON -DARROW_JSON=ON -DARROW_DATASET=ON -DARROW_WITH_LZ4=ON -DGTEST_ROOT=/usr/src/gtest && make -j2
