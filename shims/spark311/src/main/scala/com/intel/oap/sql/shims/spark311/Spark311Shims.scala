@@ -73,20 +73,6 @@ class Spark311Shims extends SparkShims {
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
   }
 
-  override def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
-    new OutputWriter {
-      override def write(row: InternalRow): Unit = {
-        val batch = row.asInstanceOf[FakeRow].batch
-        writeQueue.enqueue(SparkVectorUtils
-          .toArrowRecordBatch(batch))
-      }
-
-      override def close(): Unit = {
-        writeQueue.close()
-      }
-    }
-  }
-
   /**
     * The runtimeFilters is just available from spark 3.2.
     */

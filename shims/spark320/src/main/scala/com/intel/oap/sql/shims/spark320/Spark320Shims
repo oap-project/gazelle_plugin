@@ -57,28 +57,6 @@ class Spark320Shims extends SparkShims {
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
   }
 
-  override def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter = {
-    new OutputWriter {
-      override def write(row: InternalRow): Unit = {
-        val batch = row.asInstanceOf[FakeRow].batch
-        writeQueue.enqueue(SparkVectorUtils
-          .toArrowRecordBatch(batch))
-      }
-
-      override def close(): Unit = {
-        writeQueue.close()
-      }
-
-      override def path(): String = {
-        path
-      }
-    }
-  }
-
-//  override def newColumnarBatchScanExec(plan: BatchScanExec): BatchScanExec = {
-//    new ColumnarBatchScanExec(plan.output, plan.scan, plan.runtimeFilters)
-//  }
-
   override def getRuntimeFilters(plan: BatchScanExec): Seq[Expression] = {
     return plan.runtimeFilters
   }

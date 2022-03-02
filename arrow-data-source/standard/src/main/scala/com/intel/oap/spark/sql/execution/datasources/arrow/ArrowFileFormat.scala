@@ -25,7 +25,6 @@ import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
-import com.intel.oap.sql.shims.SparkShimLoader
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
 import org.apache.hadoop.conf.Configuration
@@ -85,21 +84,22 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
         val writeQueue = new ArrowWriteQueue(ArrowUtils.toArrowSchema(dataSchema),
           ArrowUtils.getFormat(arrowOptions), path)
 
-//        new OutputWriter {
-//          override def write(row: InternalRow): Unit = {
-//            val batch = row.asInstanceOf[FakeRow].batch
-//            writeQueue.enqueue(SparkVectorUtils
-//                .toArrowRecordBatch(batch))
-//          }
-//
-//          override def close(): Unit = {
-//            writeQueue.close()
-//          }
-//        }
+        new OutputWriter {
+          override def write(row: InternalRow): Unit = {
+            val batch = row.asInstanceOf[FakeRow].batch
+            writeQueue.enqueue(SparkVectorUtils
+                .toArrowRecordBatch(batch))
+          }
 
-        // TODO: it seems there is no need to fix through shim layer.
-        // TODO: We can just put a new interface method with no override  here.
-        SparkShimLoader.getSparkShims.newOutputWriter(writeQueue, path)
+          override def close(): Unit = {
+            writeQueue.close()
+          }
+
+          // Do NOT add override keyword for compatibility on spark 3.1.
+          def path(): String = {
+            path
+          }
+        }
       }
     }
   }

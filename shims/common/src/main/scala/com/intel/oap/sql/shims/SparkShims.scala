@@ -64,8 +64,6 @@ trait SparkShims {
                            isCaseSensitive: Boolean,
                            datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value): ParquetFilters
 
-  def newOutputWriter(writeQueue: ArrowWriteQueue, path: String): OutputWriter
-
   def getRuntimeFilters(plan: BatchScanExec): Seq[Expression]
 
   def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
