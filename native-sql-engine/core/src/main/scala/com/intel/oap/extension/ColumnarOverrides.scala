@@ -91,7 +91,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, columnarChild, plan.evalType)
     case plan: BatchScanExec =>
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-      val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters
+      val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
       new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters) {
         // This method is a commonly shared implementation for ColumnarBatchScanExec.
         // We move it outside of shim layer to break the cyclic dependency caused by

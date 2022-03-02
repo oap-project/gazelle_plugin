@@ -44,6 +44,33 @@
     <nativesql.build_protobuf>${build_protobuf}</nativesql.build_protobuf>
     <nativesql.build_jemalloc>${build_jemalloc}</nativesql.build_jemalloc>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>spark-3.1.1</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark311</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>spark-3.2.0</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark320</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+
   <dependencies>
     <!-- Prevent our dummy JAR from being included in Spark distributions or uploaded to YARN -->
     <dependency>

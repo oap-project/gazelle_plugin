@@ -79,7 +79,7 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           ColumnarArrowEvalPythonExec(plan.udfs, plan.resultAttrs, plan.child, plan.evalType)
         case plan: BatchScanExec =>
           if (!enableColumnarBatchScan) return false
-          val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters
+          val runtimeFilters = SparkShimLoader.getSparkShims.getRuntimeFilters(plan)
           new ColumnarBatchScanExec(plan.output, plan.scan, runtimeFilters) {
             // This method is a commonly shared implementation for ColumnarBatchScanExec.
             // We move it outside of shim layer to break the cyclic dependency caused by
