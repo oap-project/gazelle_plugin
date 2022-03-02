@@ -56,6 +56,7 @@ import java.io.{InputStream, OutputStream}
 import java.util
 import java.util.concurrent.TimeUnit.SECONDS
 
+import org.apache.arrow.vector.complex.MapVector
 import org.apache.arrow.vector.types.TimeUnit
 import org.apache.arrow.vector.types.pojo.ArrowType
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
@@ -522,6 +523,7 @@ object ConverterUtils extends Logging {
       for ( structField <- d.fields ) {
         checkIfTypeSupported(structField.dataType)
       }
+    case d: MapType =>
     case d: BooleanType =>
     case d: ByteType =>
     case d: ShortType =>
@@ -537,26 +539,37 @@ object ConverterUtils extends Logging {
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 
-  def createArrowField(name: String, dt: DataType): Field = dt match {
+  def createArrowField(name: String, dt: DataType, nullable: Boolean = true): Field = dt match {
     case at: ArrayType =>
       new Field(
         name,
-        FieldType.nullable(ArrowType.List.INSTANCE),
+        new FieldType(nullable, ArrowType.List.INSTANCE, null),
         Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))
-    case mt: MapType =>
-      throw new UnsupportedOperationException(s"${dt} is not supported yet")
     case st: StructType =>
       val fieldlist = new util.ArrayList[Field]
       var structField = null
       for ( structField <- st.fields ) {
-        fieldlist.add(createArrowField(structField.name, structField.dataType))
+//        fieldlist.add(createArrowField(structField.name, structField.dataType))
+        fieldlist.add(createArrowField(structField.name, structField.dataType, structField.nullable))
       }
       new Field(
         name,
-        FieldType.nullable(ArrowType.Struct.INSTANCE),
+//        new FieldType(nullable, ArrowType.Struct.INSTANCE, null),
+        new FieldType(nullable, ArrowType.Struct.INSTANCE, null),
         fieldlist)
+    case mt: MapType =>
+      // Note: Map Type struct can not be null, Struct Type key field can not be null
+      new Field(
+        name,
+        new FieldType(nullable, new ArrowType.Map(false), null),
+        Lists.newArrayList(createArrowField(MapVector.DATA_VECTOR_NAME,
+          new StructType()
+            .add(MapVector.KEY_NAME, mt.keyType, false)
+            .add(MapVector.VALUE_NAME, mt.valueType, mt.valueContainsNull),
+          nullable = false
+        )))
     case _ =>
-      Field.nullable(name, CodeGeneration.getResultType(dt))
+      new Field (name, new FieldType(nullable, CodeGeneration.getResultType(dt), null), null)
   }
 
   def createArrowField(attr: Attribute): Field =
