@@ -27,9 +27,9 @@ import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.DateUnit
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.Rand
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.types._
-import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfMonth
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfWeek
@@ -849,6 +849,43 @@ class ColumnarNormalizeNaNAndZero(child: Expression, original: NormalizeNaNAndZe
   }
 }
 
+class ColumnarRand(child: Expression)
+    extends Rand(child: Expression) with ColumnarExpression with Logging {
+
+  val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+  var offset: Integer = _;
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(IntegerType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 || !child.foldable) {
+      // Align with Spark's exception message and to pass the below unit test:
+      // test("SPARK-33945: handles a random seed consisting of an expr tree")
+      throw new Exception(
+        "Input argument to rand/random must be an integer, long, or null constant")
+    }
+  }
+
+  // Aligned with Spark, seed + partitionIndex will be the actual seed.
+  override def initializeInternal(partitionIndex: Int): Unit = {
+    offset = partitionIndex;
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    if (offset != null) {
+      val offsetNode = TreeBuilder.makeLiteral(offset)
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node, offsetNode),
+        resultType), resultType)
+    } else {
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node),
+        resultType), resultType)
+    }
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -914,6 +951,8 @@ object ColumnarUnaryOperator {
       new ColumnarMillisToTimestamp(child)
     case a: MicrosToTimestamp =>
       new ColumnarMicrosToTimestamp(child)
+    case r: Rand =>
+      new ColumnarRand(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {

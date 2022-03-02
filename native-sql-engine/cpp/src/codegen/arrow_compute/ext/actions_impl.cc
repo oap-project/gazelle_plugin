@@ -144,6 +144,7 @@ class UniqueAction : public ActionBase {
     if (cache_validity_.size() <= max_group_id) {
       cache_validity_.resize(max_group_id + 1, false);
       null_flag_.resize(max_group_id + 1, false);
+      cache_.resize(max_group_id + 1);
       length_ = cache_validity_.size();
     }
 
@@ -156,12 +157,10 @@ class UniqueAction : public ActionBase {
       if (cache_validity_[dest_group_id] == false) {
         if (!is_null) {
           cache_validity_[dest_group_id] = true;
-          cache_.emplace(cache_.begin() + dest_group_id, in_->GetView(row_id_));
+          cache_[dest_group_id] = (CType)in_->GetView(row_id_);
         } else {
           cache_validity_[dest_group_id] = true;
           null_flag_[dest_group_id] = true;
-          CType num;
-          cache_.emplace(cache_.begin() + dest_group_id, num);
         }
       }
       row_id_++;

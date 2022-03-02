@@ -53,7 +53,7 @@ namespace precompile {
       typename arrow::internal::HashTraits<arrow::TYPENAME>::MemoTableType;            \
   class HASHMAPNAME::Impl : public MEMOTABLETYPE {                                     \
    public:                                                                             \
-    Impl(arrow::MemoryPool* pool) : MEMOTABLETYPE(pool) {}                             \
+    Impl(arrow::MemoryPool* pool) : MEMOTABLETYPE(pool, 128) {}                        \
   };                                                                                   \
                                                                                        \
   HASHMAPNAME::HASHMAPNAME(arrow::MemoryPool* pool) {                                  \
@@ -68,6 +68,7 @@ namespace precompile {
                                        void (*on_not_found)(int32_t)) {                \
     return impl_->GetOrInsertNull(on_found, on_not_found);                             \
   }                                                                                    \
+  int32_t HASHMAPNAME::Size() { return impl_->size(); }                                \
   int32_t HASHMAPNAME::Get(const TYPE& value) { return impl_->Get(value); }            \
   int32_t HASHMAPNAME::GetNull() { return impl_->GetNull(); }
 
@@ -107,6 +108,6 @@ TYPED_ARROW_HASH_MAP_IMPL(StringHashMap, StringType, arrow::util::string_view,
 TYPED_ARROW_HASH_MAP_DECIMAL_IMPL(Decimal128HashMap, Decimal128Type, arrow::Decimal128,
                                   DecimalMemoTableType)
 #undef TYPED_ARROW_HASH_MAP_IMPL
-
+#undef TYPED_ARROW_HASH_MAP_DECIMAL_IMPL
 }  // namespace precompile
 }  // namespace sparkcolumnarplugin

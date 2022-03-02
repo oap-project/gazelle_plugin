@@ -21,9 +21,8 @@
 
 #include <cmath>
 
-#include "sparsehash/dense_hash_map"
-
-using google::dense_hash_map;
+#include "third_party/parallel_hashmap/phmap.h"
+using phmap::flat_hash_map;
 
 #define NOTFOUND -1
 
@@ -34,22 +33,15 @@ template <typename Scalar>
 class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::value &&
                                              !std::is_same<Scalar, bool>::value>> {
  public:
-  SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) {
-    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
-  }
+  SparseHashMap() {}
+  SparseHashMap(arrow::MemoryPool* pool) {}
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {
-    if (dense_map_.find(value) == dense_map_.end()) {
-      auto index = size_++;
-      dense_map_[value] = index;
-      *out_memo_index = index;
-      on_not_found(index);
-    } else {
-      auto index = dense_map_[value];
-      *out_memo_index = index;
-      on_found(index);
+    auto it = dense_map_.emplace(value, size_);
+    *out_memo_index = it.first->second;
+    if (it.second) {
+      size_++;
     }
     return arrow::Status::OK();
   }
@@ -81,9 +73,12 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
     }
   }
 
- private:
-  dense_hash_map<Scalar, int32_t> dense_map_;
+ public:
   int32_t size_ = 0;
+
+ private:
+  flat_hash_map<Scalar, int32_t> dense_map_;
+
   bool null_index_set_ = false;
   int32_t null_index_;
 };
@@ -91,10 +86,8 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
 template <typename Scalar>
 class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::value>> {
  public:
-  SparseHashMap() { dense_map_.set_empty_key(0); }
-  SparseHashMap(arrow::MemoryPool* pool) {
-    dense_map_.set_empty_key(std::numeric_limits<Scalar>::max());
-  }
+  SparseHashMap() {}
+  SparseHashMap(arrow::MemoryPool* pool) {}
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {
@@ -154,9 +147,12 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_floating_point<Scalar>::val
     }
   }
 
- private:
-  dense_hash_map<Scalar, int32_t> dense_map_;
+ public:
   int32_t size_ = 0;
+
+ private:
+  flat_hash_map<Scalar, int32_t> dense_map_;
+
   bool null_index_set_ = false;
   int32_t null_index_;
   bool nan_index_set_ = false;
@@ -175,16 +171,20 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>>
       if (!true_index_set_) {
         true_index_set_ = true;
         true_index_ = size_++;
+        *out_memo_index = 0;
         on_not_found(true_index_);
       } else {
+        *out_memo_index = 0;
         on_found(true_index_);
       }
     } else if (value == false) {
       if (!false_index_set_) {
         false_index_set_ = true;
         false_index_ = size_++;
+        *out_memo_index = 0;
         on_not_found(false_index_);
       } else {
+        *out_memo_index = 0;
         on_found(false_index_);
       }
     }
@@ -225,8 +225,10 @@ class SparseHashMap<Scalar, std::enable_if_t<std::is_same<Scalar, bool>::value>>
     }
   }
 
- private:
+ public:
   int32_t size_ = 0;
+
+ private:
   bool null_index_set_ = false;
   bool true_index_set_ = false;
   bool false_index_set_ = false;

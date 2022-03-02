@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.nativesql
 
+import com.intel.oap.execution.ColumnarHashAggregateExec
+
 import org.apache.spark.sql.{AnalysisException, Column, DataFrame, QueryTest, Row}
 
 import scala.util.Random
@@ -691,8 +693,47 @@ class NativeDataFrameAggregateSuite extends QueryTest
     " before using it") {
     Seq(
       monotonically_increasing_id(), spark_partition_id(),
-      rand(Random.nextLong()), randn(Random.nextLong())
+      randn(Random.nextLong())
     ).foreach(assertNoExceptions)
+  }
+
+  private def assertNoExceptionsColumnar(c: Column): Unit = {
+    for ((wholeStage, useObjectHashAgg) <-
+         Seq((true, true), (true, false), (false, true), (false, false))) {
+      withSQLConf(
+        (SQLConf.WHOLESTAGE_CODEGEN_ENABLED.key, wholeStage.toString),
+        (SQLConf.USE_OBJECT_HASH_AGG.key, useObjectHashAgg.toString)) {
+
+        val df = Seq(("1", 1), ("1", 2), ("2", 3), ("2", 4)).toDF("x", "y")
+
+        // test case for HashAggregate
+        val hashAggDF = df.groupBy("x").agg(c, sum("y"))
+        hashAggDF.collect()
+        val hashAggPlan = hashAggDF.queryExecution.executedPlan
+        // Will not enter into spark WholeStageCodegen.
+        assert(stripAQEPlan(hashAggPlan.children.head).isInstanceOf[ColumnarHashAggregateExec])
+
+        // test case for ObjectHashAggregate and SortAggregate
+        val objHashAggOrSortAggDF = df.groupBy("x").agg(c, collect_list("y"))
+        objHashAggOrSortAggDF.collect()
+        val objHashAggOrSortAggPlan =
+          stripAQEPlan(objHashAggOrSortAggDF.queryExecution.executedPlan)
+        if (useObjectHashAgg) {
+          assert(objHashAggOrSortAggPlan.isInstanceOf[ObjectHashAggregateExec])
+        } else {
+          assert(objHashAggOrSortAggPlan.isInstanceOf[SortAggregateExec])
+        }
+      }
+    }
+  }
+
+  // This test is similar to the above one. The expected behavior changes since
+  // the relevant expressions are supported and fallback is not required.
+  test("SPARK-19471[Columnar]: AggregationIterator does not initialize the generated " +
+      "result projection before using it") {
+    Seq(
+      rand(Random.nextLong())
+    ).foreach(assertNoExceptionsColumnar)
   }
 
   test("SPARK-21580 ints in aggregation expressions are taken as group-by ordinal.") {

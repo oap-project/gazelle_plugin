@@ -551,7 +551,6 @@ class ConditionedProbeKernel::Impl {
           : hash_relation_(hash_relation), appender_list_(appender_list) {}
       uint64_t Evaluate(std::shared_ptr<arrow::Array> key_array,
                         const arrow::ArrayVector& key_payloads) override {
-        struct timespec start, end;
         auto typed_key_array = std::dynamic_pointer_cast<ArrayType>(key_array);
         std::vector<std::shared_ptr<UnsafeArray>> payloads;
         int i = 0;
@@ -617,30 +616,46 @@ class ConditionedProbeKernel::Impl {
         }
         uint64_t out_length = 0;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
-        for (int i = 0; i < key_array->length(); i++) {
-          int index;
-          if (!do_unsafe_row) {
-            index = fast_probe(i);
-          } else {
+
+        if (do_unsafe_row) {
+          for (int i = 0; i < key_array->length(); i++) {
             unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
-            index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
-          }
-          if (index == -1) {
-            continue;
-          }
-          auto index_list = hash_relation_->GetItemListByIndex(index);
-          for (auto appender : appender_list_) {
-            if (appender->GetType() == AppenderBase::left) {
-              THROW_NOT_OK(appender->Append(index_list));
-            } else {
-              THROW_NOT_OK(appender->Append(0, i, index_list.size()));
+            int index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
+            if (index == -1) {
+              continue;
             }
+            auto index_list = hash_relation_->GetItemListByIndex(index);
+            // TODO(): move this out of the loop
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::left) {
+                THROW_NOT_OK(appender->Append(index_list));
+              } else {
+                THROW_NOT_OK(appender->Append(0, i, index_list.size()));
+              }
+            }
+            out_length += index_list.size();
           }
-          out_length += index_list.size();
+        } else {
+          for (int i = 0; i < key_array->length(); i++) {
+            int index = fast_probe(i);
+            if (index == -1) {
+              continue;
+            }
+            auto index_list = hash_relation_->GetItemListByIndex(index);
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::left) {
+                THROW_NOT_OK(appender->Append(index_list));
+              } else {
+                THROW_NOT_OK(appender->Append(0, i, index_list.size()));
+              }
+            }
+            out_length += index_list.size();
+          }
         }
+
         return out_length;
       }
 
@@ -741,38 +756,61 @@ class ConditionedProbeKernel::Impl {
         }
         uint64_t out_length = 0;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
-        for (int i = 0; i < key_array->length(); i++) {
-          int index;
-          if (!do_unsafe_row) {
-            index = fast_probe(i);
-          } else {
+        if (do_unsafe_row) {
+          for (int i = 0; i < key_array->length(); i++) {
             unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
-            index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
-          }
-          if (index == -1) {
+            int index = hash_relation_->Get(typed_key_array->GetView(i), unsafe_key_row);
+            if (index == -1) {
+              for (auto appender : appender_list_) {
+                if (appender->GetType() == AppenderBase::left) {
+                  THROW_NOT_OK(appender->AppendNull());
+                } else {
+                  THROW_NOT_OK(appender->Append(0, i));
+                }
+              }
+              out_length += 1;
+              continue;
+            }
+            auto index_list = hash_relation_->GetItemListByIndex(index);
             for (auto appender : appender_list_) {
               if (appender->GetType() == AppenderBase::left) {
-                THROW_NOT_OK(appender->AppendNull());
+                THROW_NOT_OK(appender->Append(index_list));
               } else {
-                THROW_NOT_OK(appender->Append(0, i));
+                THROW_NOT_OK(appender->Append(0, i, index_list.size()));
               }
             }
-            out_length += 1;
-            continue;
+            out_length += index_list.size();
           }
-          auto index_list = hash_relation_->GetItemListByIndex(index);
-          for (auto appender : appender_list_) {
-            if (appender->GetType() == AppenderBase::left) {
-              THROW_NOT_OK(appender->Append(index_list));
-            } else {
-              THROW_NOT_OK(appender->Append(0, i, index_list.size()));
+        } else {
+          for (int i = 0; i < key_array->length(); i++) {
+            int index = fast_probe(i);
+
+            if (index == -1) {
+              for (auto appender : appender_list_) {
+                if (appender->GetType() == AppenderBase::left) {
+                  THROW_NOT_OK(appender->AppendNull());
+                } else {
+                  THROW_NOT_OK(appender->Append(0, i));
+                }
+              }
+              out_length += 1;
+              continue;
             }
+            auto index_list = hash_relation_->GetItemListByIndex(index);
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::left) {
+                THROW_NOT_OK(appender->Append(index_list));
+              } else {
+                THROW_NOT_OK(appender->Append(0, i, index_list.size()));
+              }
+            }
+            out_length += index_list.size();
           }
-          out_length += index_list.size();
         }
+
         return out_length;
       }
 
@@ -926,11 +964,10 @@ class ConditionedProbeKernel::Impl {
         }
         uint64_t out_length = 0;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
-        for (int i = 0; i < key_array->length(); i++) {
-          int index;
-          if (!do_unsafe_row) {
-            index = getSingleKeyIndex(fast_probe, i);
-          } else {
+        if (do_unsafe_row) {
+          for (int i = 0; i < key_array->length(); i++) {
+            int index;
+
             for (int colIdx = 0; colIdx < payloads.size(); colIdx++) {
               if (has_null_list[colIdx] && key_payloads[colIdx]->IsNull(i)) {
                 // If the keys in stream side contains null, will join this row.
@@ -944,18 +981,35 @@ class ConditionedProbeKernel::Impl {
                     hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
               }
             }
-          }
-          if (index == -1) {
-            for (auto appender : appender_list_) {
-              if (appender->GetType() == AppenderBase::left) {
-                THROW_NOT_OK(appender->AppendNull());
-              } else {
-                THROW_NOT_OK(appender->Append(0, i));
+
+            if (index == -1) {
+              for (auto appender : appender_list_) {
+                if (appender->GetType() == AppenderBase::left) {
+                  THROW_NOT_OK(appender->AppendNull());
+                } else {
+                  THROW_NOT_OK(appender->Append(0, i));
+                }
               }
+              out_length += 1;
             }
-            out_length += 1;
+          }
+        } else {
+          for (int i = 0; i < key_array->length(); i++) {
+            int index = getSingleKeyIndex(fast_probe, i);
+
+            if (index == -1) {
+              for (auto appender : appender_list_) {
+                if (appender->GetType() == AppenderBase::left) {
+                  THROW_NOT_OK(appender->AppendNull());
+                } else {
+                  THROW_NOT_OK(appender->Append(0, i));
+                }
+              }
+              out_length += 1;
+            }
           }
         }
+
         return out_length;
       }
 
@@ -1074,33 +1128,46 @@ class ConditionedProbeKernel::Impl {
 
         uint64_t out_length = 0;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
-        for (int i = 0; i < key_array->length(); i++) {
-          int index;
-          if (!do_unsafe_row) {
-            index = fast_probe(i);
-          } else {
-            if (unsafe_key_row) {
-              unsafe_key_row->reset();
-            }
+        if (do_unsafe_row) {
+          for (int i = 0; i < key_array->length(); i++) {
+            unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
-            auto make_unsafe_row_end = std::chrono::steady_clock::now();
-            index = hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
-          }
 
-          if (index == -1) {
-            continue;
-          }
-          for (auto appender : appender_list_) {
-            if (appender->GetType() == AppenderBase::left) {
-              THROW_NOT_OK(appender->AppendNull());
-            } else {
-              THROW_NOT_OK(appender->Append(0, i));
+            int index =
+                hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
+
+            if (index == -1) {
+              continue;
             }
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::left) {
+                THROW_NOT_OK(appender->AppendNull());
+              } else {
+                THROW_NOT_OK(appender->Append(0, i));
+              }
+            }
+            out_length += 1;
           }
-          out_length += 1;
+        } else {
+          for (int i = 0; i < key_array->length(); i++) {
+            int index = fast_probe(i);
+
+            if (index == -1) {
+              continue;
+            }
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::left) {
+                THROW_NOT_OK(appender->AppendNull());
+              } else {
+                THROW_NOT_OK(appender->Append(0, i));
+              }
+            }
+            out_length += 1;
+          }
         }
+
         return out_length;
       }
 
@@ -1197,32 +1264,51 @@ class ConditionedProbeKernel::Impl {
         }
         uint64_t out_length = 0;
         auto unsafe_key_row = std::make_shared<UnsafeRow>(payloads.size());
-        for (int i = 0; i < key_array->length(); i++) {
-          int index;
-          if (!do_unsafe_row) {
-            index = fast_probe(i);
-          } else {
+        if (do_unsafe_row) {
+          for (int i = 0; i < key_array->length(); i++) {
             unsafe_key_row->reset();
             for (auto payload_arr : payloads) {
               payload_arr->Append(i, &unsafe_key_row);
             }
-            index = hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
-          }
-          bool exists = true;
-          if (index == -1) {
-            exists = false;
-          }
-          for (auto appender : appender_list_) {
-            if (appender->GetType() == AppenderBase::exist) {
-              THROW_NOT_OK(appender->AppendExistence(exists));
-            } else if (appender->GetType() == AppenderBase::right) {
-              THROW_NOT_OK(appender->Append(0, i));
-            } else {
-              THROW_NOT_OK(appender->AppendNull());
+            int index =
+                hash_relation_->IfExists(typed_key_array->GetView(i), unsafe_key_row);
+
+            bool exists = true;
+            if (index == -1) {
+              exists = false;
             }
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::exist) {
+                THROW_NOT_OK(appender->AppendExistence(exists));
+              } else if (appender->GetType() == AppenderBase::right) {
+                THROW_NOT_OK(appender->Append(0, i));
+              } else {
+                THROW_NOT_OK(appender->AppendNull());
+              }
+            }
+            out_length += 1;
           }
-          out_length += 1;
+        } else {
+          for (int i = 0; i < key_array->length(); i++) {
+            int index = fast_probe(i);
+
+            bool exists = true;
+            if (index == -1) {
+              exists = false;
+            }
+            for (auto appender : appender_list_) {
+              if (appender->GetType() == AppenderBase::exist) {
+                THROW_NOT_OK(appender->AppendExistence(exists));
+              } else if (appender->GetType() == AppenderBase::right) {
+                THROW_NOT_OK(appender->Append(0, i));
+              } else {
+                THROW_NOT_OK(appender->AppendNull());
+              }
+            }
+            out_length += 1;
+          }
         }
+
         return out_length;
       }
 
