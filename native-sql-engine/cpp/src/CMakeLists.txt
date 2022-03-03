@@ -222,14 +222,14 @@ macro(build_arrow STATIC_ARROW)
 
     ExternalProject_Add_Step(arrow_ep copy_arrow_binary_400_0_0
                       COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
-                      COMMENT "Copy libarrow.so.400.0.0 to releases/"
+                      COMMENT "Copy libarrow.so.700.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
 
     ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_400_0_0
                       COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
-                      COMMENT "Copy libgandiva.so.400.0.0 to releases/"
+                      COMMENT "Copy libgandiva.so.700.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
