@@ -14,28 +14,51 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark311
+package com.intel.oap.sql.shims.spark320
 
+import com.intel.oap.execution.ColumnarBatchScanExec
+import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import java.io.File
 
+import org.apache.parquet.hadoop.metadata.FileMetaData
+import org.apache.parquet.schema.MessageType
 import org.apache.spark.SparkConf
+import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.MigratableResolver
 import org.apache.spark.shuffle.ShuffleHandle
+import org.apache.spark.unsafe.map.BytesToBytesMap
 import org.apache.spark.util.ShimUtils
 import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
-import org.apache.spark.sql.catalyst.plans.physical.Partitioning
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.execution.ShufflePartitionSpec
+import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.adaptive.{AQEShuffleReadExec, BroadcastQueryStageExec, ShuffleQueryStageExec}
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
+import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
-import org.apache.spark.unsafe.map.BytesToBytesMap
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION_BY_COL, ReusedExchangeExec, ShuffleExchangeExec, ShuffleOrigin}
+import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
+import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.types.LongType
 
 class Spark320Shims extends SparkShims {
 
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 
   override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
-                                                  shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit =
-    ShimUtils.shuffleBlockResolverWriteAndCommit(shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
+                                                  shuffleId: Int, mapId: Long,
+                                                  partitionLengths: Array[Long],
+                                                  dataTmp: File): Unit =
+    ShimUtils.shuffleBlockResolverWriteAndCommit(
+      shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
 
   override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
   SQLConf.LegacyBehaviorPolicy.Value = {
@@ -52,22 +75,25 @@ class Spark320Shims extends SparkShims {
                                     pushDownStringStartWith: Boolean,
                                     pushDownInFilterThreshold: Int,
                                     isCaseSensitive: Boolean,
-                                    datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value): ParquetFilters = {
+                                    datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value):
+  ParquetFilters = {
     return new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
-      pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive, datetimeRebaseMode)
+      pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold,
+      isCaseSensitive, datetimeRebaseMode)
   }
 
   override def getRuntimeFilters(plan: BatchScanExec): Seq[Expression] = {
     return plan.runtimeFilters
   }
 
-  override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
-    conf.broadcastHashJoinOutputPartitioningExpandLimit
+  override def getBroadcastHashJoinOutputPartitioningExpandLimit(plan: SparkPlan): Int = {
+    plan.conf.broadcastHashJoinOutputPartitioningExpandLimit
   }
 
   override def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
                                     mapId: Long, context: TaskContext,
-                                    shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef = {
+                                    shuffleExecutorComponents: ShuffleExecutorComponents):
+  AnyRef = {
     ShimUtils.newSortShuffleWriter(
       resolver,
       shuffleHandle,
@@ -80,7 +106,7 @@ class Spark320Shims extends SparkShims {
     * */
   override def getMaxBroadcastRows(mode: BroadcastMode): Long = {
     // The below code is ported from BroadcastExchangeExec of spark 3.2.
-    private lazy val maxBroadcastRows = mode match {
+    val maxBroadcastRows = mode match {
       case HashedRelationBroadcastMode(key, _)
         // NOTE: LongHashedRelation is used for single key with LongType. This should be kept
         // consistent with HashedRelation.apply.
@@ -100,7 +126,7 @@ class Spark320Shims extends SparkShims {
 
   override def doFetchFile(urlString: String, targetDirHandler: File,
                            targetFileName: String, sparkConf: SparkConf): Unit = {
-    ShimUtils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null)
+    ShimUtils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf)
   }
 
 //  /**
@@ -124,7 +150,8 @@ class Spark320Shims extends SparkShims {
 //    }
 //  }
 
-  override def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec = {
+  override def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec):
+  BroadcastQueryStageExec = {
     BroadcastQueryStageExec(id, plan, plan.doCanonicalize)
   }
 
@@ -138,7 +165,8 @@ class Spark320Shims extends SparkShims {
     }
   }
 
-  override def newCustomShuffleReaderExec(child: SparkPlan, partitionSpecs : Seq[ShufflePartitionSpec]): SparkPlan = {
+  override def newCustomShuffleReaderExec(child: SparkPlan, partitionSpecs:
+  Seq[ShufflePartitionSpec]): SparkPlan = {
     AQEShuffleReadExec(child, partitionSpecs)
   }
 
@@ -147,7 +175,7 @@ class Spark320Shims extends SparkShims {
     */
   override def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan = {
     plan match {
-      case plan: AQEShuffleReadExec => plan.child
+      case p: AQEShuffleReadExec => p.child
       case _ => throw new RuntimeException("AQEShuffleReadExec is expected!")
     }
   }
@@ -155,10 +183,18 @@ class Spark320Shims extends SparkShims {
   /**
     * Only applicable to AQEShuffleReadExec. Otherwise, an exception will be thrown.
     */
-  override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): Seq[ShufflePartitionSpec] = {
+  override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan):
+  Seq[ShufflePartitionSpec] = {
     plan match {
-      case plan: AQEShuffleReadExec => plan.partitionSpecs
+      case p: AQEShuffleReadExec => p.partitionSpecs
       case _ => throw new RuntimeException("AQEShuffleReadExec is expected!")
+    }
+  }
+
+  override def isRepartition(shuffleOrigin: ShuffleOrigin): Boolean = {
+    shuffleOrigin match {
+      case REPARTITION_BY_COL => true
+      case _ => false
     }
   }
 

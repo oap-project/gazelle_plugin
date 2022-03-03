@@ -23,9 +23,8 @@ import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight}
 import org.apache.spark.sql.catalyst.plans.logical.Statistics
 import org.apache.spark.sql.catalyst.plans.{Cross, Inner, JoinType, LeftAnti, LeftOuter, LeftSemi, RightOuter}
-import org.apache.spark.sql.execution.adaptive.OptimizeSkewedJoin.supportedJoinTypes
-import org.apache.spark.sql.execution.adaptive.{CustomShuffleReaderExec, OptimizeSkewedJoin, ShuffleQueryStageExec, ShuffleStage, ShuffleStageInfo}
-import org.apache.spark.sql.execution.exchange.{ENSURE_REQUIREMENTS, REPARTITION}
+import org.apache.spark.sql.execution.adaptive.{OptimizeSkewedJoin, ShuffleQueryStageExec, ShuffleStageInfo}
+import org.apache.spark.sql.execution.exchange.ENSURE_REQUIREMENTS
 import org.apache.spark.sql.execution.joins.{ShuffledHashJoinExec, SortMergeJoinExec}
 
 import scala.collection.mutable
@@ -52,10 +51,22 @@ object ShufflePartitionUtils {
 
   def reoptimizeShuffledHashJoinInput(plan: ShuffledHashJoinExec): ShuffledHashJoinExec =
     plan match {
-      case shj @ ShuffledHashJoinExec(_, _, joinType, _, _,
-      s1 @ ShuffleStage(leftStageInfo: ShuffleStageInfo),
-      s2 @ ShuffleStage(rightStageInfo: ShuffleStageInfo))
-        if isShuffledHashJoinTypeOptimizable(joinType) =>
+//      case shj @ ShuffledHashJoinExec(_, _, joinType, _, _,
+//      s1 @ ShuffleStage(leftStageInfo: ShuffleStageInfo),
+//      s2 @ ShuffleStage(rightStageInfo: ShuffleStageInfo))
+//        if isShuffledHashJoinTypeOptimizable(joinType) =>
+      // Replace the above code by the following to fix compatibility issue that
+      // ShuffledHashJoinExec has an extra argument from spark3.2.
+      // TODO: p.left p.right may need to be checked.
+      case p: ShuffledHashJoinExec if isShuffledHashJoinTypeOptimizable(p.joinType) =>
+        val leftStageInfo: ShuffleStageInfo = p.left match {
+          case ShuffleStage(leftStage: ShuffleStageInfo) => leftStage
+          case _ => throw new RuntimeException("Fix me!")
+        }
+        val rightStageInfo: ShuffleStageInfo = p.left match {
+          case ShuffleStage(rightStage: ShuffleStageInfo) => rightStage
+          case _ => throw new RuntimeException("Fix me!")
+        }
 
         val left = plan.left
         val right = plan.right
@@ -69,7 +80,7 @@ object ShufflePartitionUtils {
 
         if (!shuffleStages.forall(s => s.shuffle.shuffleOrigin match {
           case ENSURE_REQUIREMENTS => true
-          case REPARTITION => true
+          case so if SparkShimLoader.getSparkShims.isRepartition(so) => true
           case _ => false
         })) {
           return plan
@@ -208,10 +219,10 @@ object ShufflePartitionUtils {
         val mapStats = child.mapStats.get
         val sizes = mapStats.bytesByPartitionId
         val partitions = partitionSpecs.map {
-          case spec @ CoalescedPartitionSpec(start, end) =>
+          case spec: CoalescedPartitionSpec =>
             var sum = 0L
-            var i = start
-            while (i < end) {
+            var i = spec.startReducerIndex
+            while (i < spec.endReducerIndex) {
               sum += sizes(i)
               i += 1
             }

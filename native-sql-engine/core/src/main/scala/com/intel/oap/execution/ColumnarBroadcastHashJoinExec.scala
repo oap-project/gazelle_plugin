@@ -157,7 +157,7 @@ case class ColumnarBroadcastHashJoinExec(
     val broadcastHashJoinOutputPartitioningExpandLimit: Int =
       SparkShimLoader
         .getSparkShims
-        .getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf)
+        .getBroadcastHashJoinOutputPartitioningExpandLimit(this: SparkPlan)
     joinType match {
       case _: InnerLike if broadcastHashJoinOutputPartitioningExpandLimit > 0 =>
         streamedPlan.outputPartitioning match {
@@ -202,7 +202,7 @@ case class ColumnarBroadcastHashJoinExec(
     val maxNumCombinations =
       SparkShimLoader
         .getSparkShims
-        .getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf)
+        .getBroadcastHashJoinOutputPartitioningExpandLimit(this: SparkPlan)
     var currentNumCombinations = 0
 
     def generateExprCombinations(current: Seq[Expression],

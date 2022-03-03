@@ -43,7 +43,7 @@ import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
-import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ReusedExchangeExec, ShuffleExchangeExec}
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION, ReusedExchangeExec, ShuffleExchangeExec, ShuffleOrigin}
 import org.apache.spark.sql.internal.SQLConf
 
 class Spark311Shims extends SparkShims {
@@ -80,8 +80,8 @@ class Spark311Shims extends SparkShims {
     return null
   }
 
-  override def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int = {
-    sqlContext.getConf(
+  override def getBroadcastHashJoinOutputPartitioningExpandLimit(plan: SparkPlan): Int = {
+    plan.sqlContext.getConf(
       "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
   }
 
@@ -130,7 +130,8 @@ class Spark311Shims extends SparkShims {
 //    }
 //  }
 
-  override def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec = {
+  override def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec):
+  BroadcastQueryStageExec = {
     BroadcastQueryStageExec(id, plan)
   }
 
@@ -165,6 +166,13 @@ class Spark311Shims extends SparkShims {
     plan match {
       case plan: CustomShuffleReaderExec => plan.partitionSpecs
       case _ => throw new RuntimeException("CustomShuffleReaderExec is expected!")
+    }
+  }
+
+  override def isRepartition(shuffleOrigin: ShuffleOrigin): Boolean = {
+    shuffleOrigin match {
+      case REPARTITION => true
+      case _ => false
     }
   }
 

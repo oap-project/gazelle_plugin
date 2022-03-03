@@ -47,8 +47,9 @@ case class RowGuard(child: SparkPlan) extends SparkPlan {
   def children: Seq[SparkPlan] = Seq(child)
 
   // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): RowGuard =
-    copy(child = newChild)
+  // TODO: can newChild have more than one element?
+  protected def withNewChildrenInternal(newChild: IndexedSeq[SparkPlan]): RowGuard =
+    copy(child = newChild.head)
 }
 
 case class ColumnarGuardRule() extends Rule[SparkPlan] {

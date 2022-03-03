@@ -31,14 +31,13 @@ import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
-import org.apache.spark.sql.execution.ShufflePartitionSpec
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.BroadcastQueryStageExec
 import org.apache.spark.sql.execution.datasources.OutputWriter
 import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
 import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
-import org.apache.spark.sql.execution.exchange.BroadcastExchangeExec
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ShuffleOrigin}
 import org.apache.spark.sql.internal.SQLConf
 
 sealed abstract class ShimDescriptor
@@ -66,7 +65,7 @@ trait SparkShims {
 
   def getRuntimeFilters(plan: BatchScanExec): Seq[Expression]
 
-  def getBroadcastHashJoinOutputPartitioningExpandLimit(sqlContext: SQLContext, conf: SQLConf): Int
+  def getBroadcastHashJoinOutputPartitioningExpandLimit(plan: SparkPlan): Int
 
   /**
     * The access modifier of IndexShuffleBlockResolver & BaseShuffleHandle is private[spark]. So we
@@ -87,7 +86,7 @@ trait SparkShims {
 //   We already have some code refactor to fix compatibility issues in ColumnarCustomShuffleReaderExec.
 //  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
 
-  def newBroadcastQueryStageExec(id: Int, plan: SparkPlan): BroadcastQueryStageExec
+  def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec): BroadcastQueryStageExec
 
   def isCustomShuffleReaderExec(plan: SparkPlan): Boolean
 
@@ -101,4 +100,8 @@ trait SparkShims {
 
   def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): Seq[ShufflePartitionSpec]
 
+  /**
+    * REPARTITION is changed to REPARTITION_BY_COL from spark 3.2.
+    */
+  def isRepartition(shuffleOrigin: ShuffleOrigin): Boolean
 }

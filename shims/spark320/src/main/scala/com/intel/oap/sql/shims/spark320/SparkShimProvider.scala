@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark311
+package com.intel.oap.sql.shims.spark320
 
 import com.intel.oap.sql.shims.{SparkShims, SparkShimDescriptor}
 

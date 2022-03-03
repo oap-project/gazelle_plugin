@@ -390,6 +390,10 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
 
+  protected def withNewChildInternal(newChild: SparkPlan):
+  ColumnarLocalLimitExec =
+    copy(child = newChild)
+
 }
 
 case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
@@ -461,4 +465,8 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
+
+  protected def withNewChildInternal(newChild: SparkPlan):
+  ColumnarGlobalLimitExec =
+    copy(child = newChild)
 }

@@ -18,9 +18,13 @@ package org.apache.spark.util
 
 import java.io.File
 
+import org.apache.spark.SparkConf
+import org.apache.spark.TaskContext
 import org.apache.spark.shuffle.BaseShuffleHandle
 import org.apache.spark.shuffle.IndexShuffleBlockResolver
+import org.apache.spark.shuffle.MigratableResolver
 import org.apache.spark.shuffle.ShuffleHandle
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
 import org.apache.spark.shuffle.sort.SortShuffleWriter
 
 object ShimUtils {
@@ -30,19 +34,20 @@ object ShimUtils {
     * IndexShuffleBlockResolver's access modifier is private[spark].
     */
   def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
-                                         shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit =
+                                         shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit = {
     shuffleBlockResolver match {
       case resolver: IndexShuffleBlockResolver =>
         resolver.writeMetadataFileAndCommit(shuffleId, mapId, partitionLengths, null, dataTmp)
-      case _: throw new RuntimeException("IndexShuffleBlockResolver is expected!")
+      case _ => throw new RuntimeException ("IndexShuffleBlockResolver is expected!")
     }
+  }
 
   def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
                            mapId: Long, context: TaskContext,
                            shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef = {
 
     shuffleHandle match {
-      case baseShuffleHandle: BaseShuffleHandle =>
+      case baseShuffleHandle: BaseShuffleHandle[_, _, _] =>
         new SortShuffleWriter(
           baseShuffleHandle,
           mapId,
