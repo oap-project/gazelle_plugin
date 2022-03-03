@@ -69,7 +69,7 @@ case class ColumnarShuffledHashJoinExec(
     projectList: Seq[NamedExpression] = null)
     extends BaseJoinExec
     with ColumnarCodegenSupport
-    with ShuffledJoin {
+    with ColumnarShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
