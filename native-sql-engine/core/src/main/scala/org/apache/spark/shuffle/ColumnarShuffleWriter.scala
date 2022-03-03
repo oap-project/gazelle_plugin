@@ -18,8 +18,6 @@
 package org.apache.spark.shuffle
 
 import java.io.IOException
-import java.util
-
 import com.google.common.annotations.VisibleForTesting
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.ConverterUtils

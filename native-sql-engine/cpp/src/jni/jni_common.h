@@ -221,7 +221,8 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         RETURN_NOT_OK(MakeArrayData(child_type, -1, in_bufs, in_bufs_len,
                                     &list_child_data, buf_idx_ptr));
         list_child_data_vec.push_back(list_child_data);
-        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), list_child_data_vec, null_count);
+        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
+                                           list_child_data_vec, null_count);
       } break;
       case arrow::Type::STRUCT: {
         int64_t null_count = arrow::kUnknownNullCount;
@@ -243,7 +244,8 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
                                       &struct_child_data, buf_idx_ptr));
           struct_child_data_vec.push_back(struct_child_data);
         }
-        // For Struct recursion (Multiple levels) in the NestArray, num_rows cannot be calculated from offsets.
+        // For Struct recursion (Multiple levels) in the NestArray, num_rows cannot be
+        // calculated from offsets.
         if (num_rows == -1) {
           num_rows = struct_child_data_vec.at(0)->length;
         }
@@ -276,8 +278,8 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         ArrayDataVector map_child_data_vec;
         std::shared_ptr<arrow::ArrayData> map_child_data;
         // create child ArrayData
-        RETURN_NOT_OK(MakeArrayData(child_type, -1, in_bufs, in_bufs_len,
-                                    &map_child_data, buf_idx_ptr));
+        RETURN_NOT_OK(MakeArrayData(child_type, -1, in_bufs, in_bufs_len, &map_child_data,
+                                    buf_idx_ptr));
         map_child_data_vec.push_back(map_child_data);
         // specific handing because of the different schema between spark and native
         if (map_child_data->null_count == arrow::kUnknownNullCount) {
@@ -295,7 +297,8 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
           }
         }
 
-        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), map_child_data_vec, null_count);
+        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
+                                           map_child_data_vec, null_count);
       } break;
       default:
         return arrow::Status::NotImplemented("MakeArrayData for type ", type->ToString(),

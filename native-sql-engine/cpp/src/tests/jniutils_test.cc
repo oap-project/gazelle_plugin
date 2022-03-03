@@ -135,9 +135,7 @@ TEST_F(JniUtilsTest, TestMakeRecordBatchBuild_map) {
 
   auto rb_schema = arrow::schema({f_map});
 
-  const std::vector<std::string> input_data_arr = {
-      R"([[[1, 2]], [[1, 2]]])"};
-
+  const std::vector<std::string> input_data_arr = {R"([[[1, 2]], [[1, 2]]])"};
 
   std::shared_ptr<arrow::RecordBatch> input_batch_arr;
   std::shared_ptr<arrow::RecordBatch> res_batch_arr;
@@ -182,7 +180,6 @@ TEST_F(JniUtilsTest, TestMakeRecordBatchBuild_list_map) {
   const std::vector<std::string> input_data_arr = {
       R"([[[1, 2, 3]], [[9, 8], [null]], [[3, 1], [0]], [[1, 9, null]]])",
       R"([[[["key1", "val_aa1"]]], [[["key1", "val_bb1"]], [["key2", "val_bb2"]]], [[["key1", "val_cc1"]]], [[["key1", "val_dd1"]]]])"};
-
 
   std::shared_ptr<arrow::RecordBatch> input_batch_arr;
   std::shared_ptr<arrow::RecordBatch> res_batch_arr;
