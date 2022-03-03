@@ -169,16 +169,6 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           left match {
             case exec: BroadcastExchangeExec =>
               new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-//            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
-//              new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
-//            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
-//              plan match {
-//                case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
-//                  new ColumnarBroadcastExchangeExec(b.mode, b.child)
-//                case _ =>
-//              }
-            // Use the below piece of code to replace the above, in order to realize
-            // compatibility on spark 3.1 & 3.2.
             case broadcastQueryStageExec: BroadcastQueryStageExec =>
               broadcastQueryStageExec.plan match {
                 case plan: BroadcastExchangeExec =>
@@ -196,16 +186,6 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
           right match {
             case exec: BroadcastExchangeExec =>
               new ColumnarBroadcastExchangeExec(exec.mode, exec.child)
-//            case BroadcastQueryStageExec(_, plan: BroadcastExchangeExec) =>
-//              new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
-//            case BroadcastQueryStageExec(_, plan: ReusedExchangeExec) =>
-//              plan match {
-//                case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
-//                  new ColumnarBroadcastExchangeExec(b.mode, b.child)
-//                case _ =>
-//              }
-            // Use the below piece of code to replace the above, in order to realize
-            // compatibility on spark 3.1 & 3.2.
             case broadcastQueryStageExec: BroadcastQueryStageExec =>
               broadcastQueryStageExec.plan match {
                 case plan: BroadcastExchangeExec =>
@@ -311,7 +291,6 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
       case p if !supportCodegen(p) =>
         // insert row guard them recursively
         p.withNewChildren(p.children.map(insertRowGuardOrNot))
-//      case p: CustomShuffleReaderExec =>
       case p if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(p) =>
         p.withNewChildren(p.children.map(insertRowGuardOrNot))
       case p: BroadcastQueryStageExec =>

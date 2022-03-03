@@ -63,8 +63,6 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
 
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
-//    case RowGuard(child: CustomShuffleReaderExec) =>
-//      replaceWithColumnarPlan(child)
     case RowGuard(child: SparkPlan)
       if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(child) =>
       replaceWithColumnarPlan(child)
@@ -264,7 +262,6 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       plan
 
-//    case plan: CustomShuffleReaderExec if columnarConf.enableColumnarShuffle =>
     case plan
       if (SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan)
         && columnarConf.enableColumnarShuffle) =>
@@ -276,23 +273,6 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
           CoalesceBatchesExec(
             ColumnarCustomShuffleReaderExec(child, partitionSpecs))
-
-//        case ShuffleQueryStageExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
-//          logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-//          CoalesceBatchesExec(
-//            ColumnarCustomShuffleReaderExec(plan.child, plan.partitionSpecs))
-//        case ShuffleQueryStageExec(_, reused: ReusedExchangeExec) =>
-//          reused match {
-//            case ReusedExchangeExec(_, shuffle: ColumnarShuffleExchangeAdaptor) =>
-//              logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-//              CoalesceBatchesExec(
-//                ColumnarCustomShuffleReaderExec(
-//                  plan.child,
-//                  plan.partitionSpecs))
-//            case _ =>
-//              plan
-//          }
-
         // Use the below code to replace the above to realize compatibility on spark 3.1 & 3.2.
         case shuffleQueryStageExec: ShuffleQueryStageExec =>
           shuffleQueryStageExec.plan match {
@@ -349,21 +329,11 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   def fallBackBroadcastQueryStage(curPlan: BroadcastQueryStageExec): BroadcastQueryStageExec = {
     curPlan.plan match {
       case originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor =>
-//        BroadcastQueryStageExec(
-//          curPlan.id,
-//          BroadcastExchangeExec(
-//            originalBroadcastPlan.mode,
-//            DataToArrowColumnarExec(originalBroadcastPlan, 1)))
         val newBroadcast = BroadcastExchangeExec(
           originalBroadcastPlan.mode,
           DataToArrowColumnarExec(originalBroadcastPlan, 1))
         SparkShimLoader.getSparkShims.newBroadcastQueryStageExec(curPlan.id, newBroadcast)
       case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor) =>
-//        BroadcastQueryStageExec(
-//          curPlan.id,
-//          BroadcastExchangeExec(
-//            originalBroadcastPlan.mode,
-//            DataToArrowColumnarExec(curPlan.plan, 1)))
         val newBroadcast = BroadcastExchangeExec(
           originalBroadcastPlan.mode,
           DataToArrowColumnarExec(curPlan.plan, 1))

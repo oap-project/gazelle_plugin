@@ -301,8 +301,6 @@ class ParquetFileFormat
       // Try to push down filters when filter push-down is enabled.
       val pushed = if (enableParquetFilterPushDown) {
         val parquetSchema = footerFileMetaData.getSchema
-//        val parquetFilters = new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
-//          pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
         val parquetFilters =
           SparkShimLoader.getSparkShims.newParquetFilters(parquetSchema: MessageType,
             pushDownDate, pushDownTimestamp, pushDownDecimal, pushDownStringStartWith,
@@ -331,10 +329,6 @@ class ParquetFileFormat
         } else {
           None
         }
-
-//      val datetimeRebaseMode = DataSourceUtils.datetimeRebaseMode(
-//        footerFileMetaData.getKeyValueMetaData.get,
-//        SQLConf.get.getConf(SQLConf.LEGACY_PARQUET_REBASE_MODE_IN_READ))
 
       val attemptId = new TaskAttemptID(new TaskID(new JobID(), TaskType.MAP, 0), 0)
       val hadoopAttemptContext =

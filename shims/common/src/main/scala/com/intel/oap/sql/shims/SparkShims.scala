@@ -83,9 +83,6 @@ trait SparkShims {
 
   def doFetchFile(urlString: String, targetDirHandler: File, targetFileName: String, sparkConf: SparkConf): Unit
 
-//   We already have some code refactor to fix compatibility issues in ColumnarCustomShuffleReaderExec.
-//  def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning
-
   def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec): BroadcastQueryStageExec
 
   def isCustomShuffleReaderExec(plan: SparkPlan): Boolean

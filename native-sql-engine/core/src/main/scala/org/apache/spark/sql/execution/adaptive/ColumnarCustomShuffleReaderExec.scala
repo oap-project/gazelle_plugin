@@ -49,27 +49,9 @@ case class ColumnarCustomShuffleReaderExec(
     if (partitionSpecs.forall(_.isInstanceOf[PartialMapperPartitionSpec]) &&
         partitionSpecs.map(_.asInstanceOf[PartialMapperPartitionSpec].mapIndex).toSet.size ==
           partitionSpecs.length) {
-      // The shim layer approach to handle compatibility issues, which can be deleted at last.
-//      SparkShimLoader.getSparkShims.outputPartitioningForColumnarCustomShuffleReaderExec(child)
-
-//      child match {
-//        case ShuffleQueryStageExec(_, s: ColumnarShuffleExchangeAdaptor) =>
-//          s.child.outputPartitioning
-//        case ShuffleQueryStageExec(
-//            _,
-//            r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor)) =>
-//          s.child.outputPartitioning match {
-//            case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
-//            case other => other
-//          }
-//        case _ =>
-//          throw new IllegalStateException("operating on canonicalization plan")
-//      }
-      // Need to double check whether the below code is equivalent with the above.
-      // The purse is making it compatible with both spark 3.1 & 3.2.
-     child match {
-       case shuffleQueryStageExec: ShuffleQueryStageExec =>
-         shuffleQueryStageExec.plan match {
+      child match {
+        case shuffleQueryStageExec: ShuffleQueryStageExec =>
+          shuffleQueryStageExec.plan match {
            case s: ColumnarShuffleExchangeAdaptor => s.child.outputPartitioning
            case r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor) =>
              s.child.outputPartitioning match {

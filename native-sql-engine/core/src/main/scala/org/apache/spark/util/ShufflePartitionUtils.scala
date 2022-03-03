@@ -51,12 +51,6 @@ object ShufflePartitionUtils {
 
   def reoptimizeShuffledHashJoinInput(plan: ShuffledHashJoinExec): ShuffledHashJoinExec =
     plan match {
-//      case shj @ ShuffledHashJoinExec(_, _, joinType, _, _,
-//      s1 @ ShuffleStage(leftStageInfo: ShuffleStageInfo),
-//      s2 @ ShuffleStage(rightStageInfo: ShuffleStageInfo))
-//        if isShuffledHashJoinTypeOptimizable(joinType) =>
-      // Replace the above code by the following to fix compatibility issue that
-      // ShuffledHashJoinExec has an extra argument from spark3.2.
       // TODO: p.left p.right may need to be checked.
       case p: ShuffledHashJoinExec if isShuffledHashJoinTypeOptimizable(p.joinType) =>
         val leftStageInfo: ShuffleStageInfo = p.left match {
@@ -201,7 +195,6 @@ object ShufflePartitionUtils {
         }
         Some(ShuffleStageInfo(s, mapStats, s.getRuntimeStatistics, partitions))
 
-//      case CustomShuffleReaderExec(s: ShuffleQueryStageExec, partitionSpecs)
       case plan if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan) &&
         SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
           .isInstanceOf[ShuffleQueryStageExec] &&

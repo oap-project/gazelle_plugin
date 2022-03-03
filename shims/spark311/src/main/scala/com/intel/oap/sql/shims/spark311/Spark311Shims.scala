@@ -109,27 +109,6 @@ class Spark311Shims extends SparkShims {
     ShimUtils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf)
   }
 
-//  /**
-//    * Fix compatibility issue that ShuffleQueryStageExec has an additional argument in spark 3.2.
-//    * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
-//    * changes need futher test to verify.
-//    */
-//  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
-//    child match {
-//      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec) =>
-//        s.child.outputPartitioning
-//      case ShuffleQueryStageExec(
-//      _,
-//      r @ ReusedExchangeExec(_, s: ShuffleExchangeExec)) =>
-//        s.child.outputPartitioning match {
-//          case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
-//          case other => other
-//        }
-//      case _ =>
-//        throw new IllegalStateException("operating on canonicalization plan")
-//    }
-//  }
-
   override def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec):
   BroadcastQueryStageExec = {
     BroadcastQueryStageExec(id, plan)

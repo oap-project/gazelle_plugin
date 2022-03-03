@@ -95,7 +95,6 @@ class ColumnarShuffleWriter[K, V](
   override def write(records: Iterator[Product2[K, V]]): Unit = {
     if (!records.hasNext) {
       partitionLengths = new Array[Long](dep.partitioner.numPartitions)
-//      shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, null)
       SparkShimLoader.getSparkShims.shuffleBlockResolverWriteAndCommit(
             shuffleBlockResolver, dep.shuffleId, mapId, partitionLengths, null)
       mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths, mapId)
@@ -200,11 +199,6 @@ class ColumnarShuffleWriter[K, V](
     partitionLengths = splitResult.getPartitionLengths
     rawPartitionLengths = splitResult.getRawPartitionLengths
     try {
-//      shuffleBlockResolver.writeIndexFileAndCommit(
-//        dep.shuffleId,
-//        mapId,
-//        partitionLengths,
-//        dataTmp)
       SparkShimLoader.getSparkShims.shuffleBlockResolverWriteAndCommit(
             shuffleBlockResolver, dep.shuffleId, mapId, partitionLengths, dataTmp)
     } finally {
