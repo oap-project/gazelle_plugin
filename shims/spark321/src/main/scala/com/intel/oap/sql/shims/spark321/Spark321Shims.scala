@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark320
+package com.intel.oap.sql.shims.spark321
 
 import com.intel.oap.execution.ColumnarBatchScanExec
 import com.intel.oap.spark.sql.ArrowWriteQueue
@@ -49,7 +49,7 @@ import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.LongType
 
-class Spark320Shims extends SparkShims {
+class Spark321Shims extends SparkShims {
 
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 
