@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.misc
+package org.apache.spark.shuffle
 
 import java.nio.file.Files
 
@@ -26,7 +26,7 @@ import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.test.SharedSparkSession
 
-class ComplexTypeSuite extends QueryTest with SharedSparkSession {
+class TestSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "5000m"
   private var runner: TPCRunner = _
@@ -76,7 +76,17 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     lPath = lfile.getAbsolutePath
     spark.range(2).select(col("id"), expr("1").as("kind"),
         expr("array(1, 2)").as("arr_field"),
-        expr("struct(1, 2)").as("struct_field"))
+        expr("array(array(1, 2), array(3, 4))").as("arr_arr_field"),
+        expr("array(struct(1, 2), struct(1, 2))").as("arr_struct_field"),
+        expr("array(map(1, 2), map(3,4))").as("arr_map_field"),
+        expr("struct(1, 2)").as("struct_field"),
+        expr("struct(1, struct(1, 2))").as("struct_struct_field"),
+        expr("struct(1, array(1, 2))").as("struct_array_field"),
+        expr("map(1, 2)").as("map_field"),
+        expr("map(1, map(3,4))").as("map_map_field"),
+        expr("map(1, array(1, 2))").as("map_arr_field"),
+        expr("map(struct(1, 2), 2)").as("map_struct_field"))
+        .coalesce(1)
         .write
         .format("parquet")
         .mode("overwrite")
@@ -88,6 +98,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     spark.range(2).select(col("id"), expr("id % 2").as("kind"),
       expr("array(1, 2)").as("arr_field"),
       expr("struct(1, 2)").as("struct_field"))
+        .coalesce(1)
         .write
         .format("parquet")
         .mode("overwrite")
@@ -101,11 +112,74 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.count() == 2)
+    assert(df.count == 2)
+  }
+
+  test("Test Nest Array in Shuffle split") {
+    val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count == 2)
+  }
+
+  test("Test Array_Struct in Shuffle split") {
+    val df = spark.sql("SELECT ltab.arr_struct_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count == 2)
+  }
+
+  test("Test Array_Map in Shuffle split") {
+    val df = spark.sql("SELECT ltab.arr_map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count == 2)
   }
 
   test("Test Struct in Shuffle stage") {
     val df = spark.sql("SELECT ltab.struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count() == 2)
+  }
+
+  test("Test Nest Struct in Shuffle stage") {
+    val df = spark.sql("SELECT ltab.struct_struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count() == 2)
+  }
+
+  test("Test Struct_Array in Shuffle stage") {
+    val df = spark.sql("SELECT ltab.struct_array_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count() == 2)
+  }
+
+  test("Test Map in Shuffle stage") {
+    val df = spark.sql("SELECT ltab.map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count() == 2)
+  }
+
+  test("Test Nest Map in Shuffle stage") {
+    val df = spark.sql("SELECT ltab.map_map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count() == 2)
+  }
+
+  test("Test Map_Array in Shuffle stage") {
+    val df = spark.sql("SELECT ltab.map_arr_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.explain(true)
+    df.show()
+    assert(df.count() == 2)
+  }
+
+  test("Test Map_Struct in Shuffle stage") {
+    val df = spark.sql("SELECT ltab.map_struct_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
     assert(df.count() == 2)
