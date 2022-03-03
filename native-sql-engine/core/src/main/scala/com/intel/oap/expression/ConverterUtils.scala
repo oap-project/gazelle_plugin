@@ -549,12 +549,10 @@ object ConverterUtils extends Logging {
       val fieldlist = new util.ArrayList[Field]
       var structField = null
       for ( structField <- st.fields ) {
-//        fieldlist.add(createArrowField(structField.name, structField.dataType))
         fieldlist.add(createArrowField(structField.name, structField.dataType, structField.nullable))
       }
       new Field(
         name,
-//        new FieldType(nullable, ArrowType.Struct.INSTANCE, null),
         new FieldType(nullable, ArrowType.Struct.INSTANCE, null),
         fieldlist)
     case mt: MapType =>

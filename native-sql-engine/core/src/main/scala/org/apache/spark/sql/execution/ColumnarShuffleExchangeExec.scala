@@ -85,10 +85,6 @@ case class ColumnarShuffleExchangeExec(
   def buildCheck(): Unit = {
     // check input datatype
     for (attr <- child.output) {
-//      try {
-//        ConverterUtils.checkIfNestTypeSupported(attr.dataType)
-//      } catch {
-//        case e: UnsupportedOperationException =>
       try {
         ConverterUtils.createArrowField(attr)
       } catch {

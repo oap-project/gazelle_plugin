@@ -26,7 +26,7 @@ import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.test.SharedSparkSession
 
-class TestSuite extends QueryTest with SharedSparkSession {
+class ComplexTypeSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "5000m"
   private var runner: TPCRunner = _

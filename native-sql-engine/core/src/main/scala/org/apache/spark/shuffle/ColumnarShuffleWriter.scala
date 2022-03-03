@@ -102,12 +102,7 @@ class ColumnarShuffleWriter[K, V](
     }
 
     val dataTmp = Utils.tempFileWith(shuffleBlockResolver.getDataFile(dep.shuffleId, mapId))
-    val bytearr = dep.nativePartitioning.getSchema
-    println("util.Arrays.toString(bytearr): " + util.Arrays.toString(bytearr))
-    val arrowSchema = ConverterUtils.getSchemaFromBytesBuf(dep.nativePartitioning.getSchema)
-    println("arrowSchema:" + arrowSchema.toString)
     if (nativeSplitter == 0) {
-      println("nativeSplitter = jniWrapper.make(")
       nativeSplitter = jniWrapper.make(
         dep.nativePartitioning,
         offheapPerTask,
@@ -131,10 +126,8 @@ class ColumnarShuffleWriter[K, V](
             }
           }).getNativeInstanceId,
         writeSchema)
-      println("After nativeSplitter = jniWrapper.make(")
     }
 
-    println("while (records.hasNext)")
     while (records.hasNext) {
       val cb = records.next()._2.asInstanceOf[ColumnarBatch]
       if (cb.numRows == 0 || cb.numCols == 0) {

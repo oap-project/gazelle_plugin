@@ -212,9 +212,6 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         auto offsets_size = in_bufs[*buf_idx_ptr]->size();
         *buf_idx_ptr += 1;
         num_rows = offsets_size * 8 / offsetbits - 1;
-        std::cout <<  "offsetbits: " << offsetbits << std::endl;
-        std::cout <<  "offsets_size: " << offsets_size << std::endl;
-        std::cout <<  "num_rows: " << num_rows << std::endl;
 
         auto list_type = std::dynamic_pointer_cast<arrow::ListType>(type);
         auto child_type = list_type->value_type();
@@ -225,7 +222,6 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
                                     &list_child_data, buf_idx_ptr));
         list_child_data_vec.push_back(list_child_data);
         *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), list_child_data_vec, null_count);
-        std::cout <<  "In List (*arr_data)->null_count: " << (*arr_data)->null_count << std::endl;
       } break;
       case arrow::Type::STRUCT: {
         int64_t null_count = arrow::kUnknownNullCount;
@@ -253,14 +249,6 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         }
         *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
                                            struct_child_data_vec, null_count);
-        std::cout <<  "in Struct (*arr_data)->null_count: " << (*arr_data)->null_count << std::endl;
-        // if ((*arr_data)->null_count == arrow::kUnknownNullCount) {
-        //   int struct_null_count = (*arr_data)->GetNullCount();
-        //   std::cout <<  "struct_null_count: " << struct_null_count << std::endl;
-        //   // if (child_null_count != 0) {
-        //   //   return Status::Invalid("Map array child array should have no nulls");
-        //   // }
-        // }
       } break;
       case arrow::Type::MAP: {
         int64_t null_count = arrow::kUnknownNullCount;
@@ -282,9 +270,6 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         auto offsets_size = in_bufs[*buf_idx_ptr]->size();
         *buf_idx_ptr += 1;
         num_rows = offsets_size * 8 / offsetbits - 1;
-        std::cout <<  "offsetbits: " << offsetbits << std::endl;
-        std::cout <<  "offsets_size: " << offsets_size << std::endl;
-        std::cout <<  "num_rows: " << num_rows << std::endl;
 
         auto map_type = std::dynamic_pointer_cast<arrow::MapType>(type);
         auto child_type = map_type->value_type();
@@ -298,12 +283,6 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         if (map_child_data->null_count == arrow::kUnknownNullCount) {
           map_child_data->buffers.at(0) = nullptr;
           map_child_data->null_count = 0;
-          std::cout <<  "map_child_data->null_count: " << map_child_data->null_count << std::endl;
-          int child_null_count = map_child_data->GetNullCount();
-          std::cout <<  "child_null_count: " << child_null_count << std::endl;
-          // if (child_null_count != 0) {
-          //   return Status::Invalid("Map array child array should have no nulls");
-          // }
         }
         // validate child data for map
         if (map_child_data->child_data.size() != 2) {
@@ -311,14 +290,12 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
         }
         if (map_child_data->child_data[0]->null_count == arrow::kUnknownNullCount) {
           int key_null_count = map_child_data->child_data[0]->GetNullCount();
-          std::cout <<  "key_null_count: " << key_null_count << std::endl;
           if (key_null_count != 0) {
             return Status::Invalid("Map array keys array should have no nulls");
           }
         }
 
         *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers), map_child_data_vec, null_count);
-        std::cout <<  "in map (*arr_data)->null_count: " << (*arr_data)->null_count << std::endl;
       } break;
       default:
         return arrow::Status::NotImplemented("MakeArrayData for type ", type->ToString(),
