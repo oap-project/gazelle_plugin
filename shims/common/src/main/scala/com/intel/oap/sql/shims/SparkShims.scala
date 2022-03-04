@@ -18,6 +18,7 @@ package com.intel.oap.sql.shims
 
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import java.io.File
+import java.time.ZoneId
 
 import org.apache.parquet.hadoop.metadata.FileMetaData
 import org.apache.parquet.schema.MessageType
@@ -34,8 +35,7 @@ import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning
 import org.apache.spark.sql.execution.{ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.BroadcastQueryStageExec
 import org.apache.spark.sql.execution.datasources.OutputWriter
-import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
-import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
+import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, ShuffleOrigin}
 import org.apache.spark.sql.internal.SQLConf
@@ -55,13 +55,25 @@ trait SparkShims {
   def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): SQLConf.LegacyBehaviorPolicy.Value
 
   def newParquetFilters(parquetSchema: MessageType,
-                           pushDownDate: Boolean,
-                           pushDownTimestamp: Boolean,
-                           pushDownDecimal: Boolean,
-                           pushDownStringStartWith: Boolean,
-                           pushDownInFilterThreshold: Int,
-                           isCaseSensitive: Boolean,
-                           datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value): ParquetFilters
+                        pushDownDate: Boolean,
+                        pushDownTimestamp: Boolean,
+                        pushDownDecimal: Boolean,
+                        pushDownStringStartWith: Boolean,
+                        pushDownInFilterThreshold: Int,
+                        isCaseSensitive: Boolean,
+                        fileMetaData: FileMetaData,
+                        parquetOptions: ParquetOptions): ParquetFilters
+
+  def newVectorizedParquetRecordReader(convertTz: ZoneId,
+                                       fileMetaData: FileMetaData,
+                                       parquetOptions: ParquetOptions,
+                                       useOffHeap: Boolean,
+                                       capacity: Int): VectorizedParquetRecordReader
+
+  def newParquetReadSupport(convertTz: Option[ZoneId],
+                            enableVectorizedReader: Boolean,
+                            fileMetaData: FileMetaData,
+                            parquetOptions: ParquetOptions): ParquetReadSupport
 
   def getRuntimeFilters(plan: BatchScanExec): Seq[Expression]
 

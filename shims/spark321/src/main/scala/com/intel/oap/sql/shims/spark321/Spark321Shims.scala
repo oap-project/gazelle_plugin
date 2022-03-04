@@ -20,6 +20,7 @@ import com.intel.oap.execution.ColumnarBatchScanExec
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import java.io.File
+import java.time.ZoneId
 
 import org.apache.parquet.hadoop.metadata.FileMetaData
 import org.apache.parquet.schema.MessageType
@@ -36,11 +37,11 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.catalyst.util.RebaseDateTime.RebaseSpec
 import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.adaptive.{AQEShuffleReadExec, BroadcastQueryStageExec, ShuffleQueryStageExec}
-import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
-import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
+import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
@@ -60,26 +61,57 @@ class Spark321Shims extends SparkShims {
     ShimUtils.shuffleBlockResolverWriteAndCommit(
       shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
 
+  def getDatetimeRebaseSpec(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): RebaseSpec = {
+    DataSourceUtils.datetimeRebaseSpec(
+      fileMetaData.getKeyValueMetaData.get,
+      parquetOptions.datetimeRebaseModeInRead)
+  }
+
+  def getInt96RebaseSpec(fileMetaData: FileMetaData, parquetOptions: ParquetOptions): RebaseSpec = {
+    DataSourceUtils.int96RebaseSpec(
+      fileMetaData.getKeyValueMetaData.get,
+      parquetOptions.datetimeRebaseModeInRead)
+  }
+
   override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
   SQLConf.LegacyBehaviorPolicy.Value = {
-    val datetimeRebaseModeInRead = parquetOptions.datetimeRebaseModeInRead
-    DataSourceUtils.datetimeRebaseMode(
-      fileMetaData.getKeyValueMetaData.get,
-      datetimeRebaseModeInRead)
+    getDatetimeRebaseSpec(fileMetaData, parquetOptions).mode
   }
 
   override def newParquetFilters(parquetSchema: MessageType,
-                                    pushDownDate: Boolean,
-                                    pushDownTimestamp: Boolean,
-                                    pushDownDecimal: Boolean,
-                                    pushDownStringStartWith: Boolean,
-                                    pushDownInFilterThreshold: Int,
-                                    isCaseSensitive: Boolean,
-                                    datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value):
+                                 pushDownDate: Boolean,
+                                 pushDownTimestamp: Boolean,
+                                 pushDownDecimal: Boolean,
+                                 pushDownStringStartWith: Boolean,
+                                 pushDownInFilterThreshold: Int,
+                                 isCaseSensitive: Boolean,
+                                 fileMetaData: FileMetaData,
+                                 parquetOptions: ParquetOptions):
   ParquetFilters = {
     return new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold,
-      isCaseSensitive, datetimeRebaseMode)
+      isCaseSensitive,
+      getDatetimeRebaseSpec(fileMetaData, parquetOptions))
+  }
+
+  override def newVectorizedParquetRecordReader(convertTz: ZoneId,
+                                                fileMetaData: FileMetaData,
+                                                parquetOptions: ParquetOptions,
+                                                useOffHeap: Boolean,
+                                                capacity: Int): VectorizedParquetRecordReader = {
+    val rebaseSpec = getDatetimeRebaseSpec(fileMetaData: FileMetaData, parquetOptions: ParquetOptions)
+    // TODO: int96RebaseMode & int96RebaseTz are set to "", need to verify.
+    new VectorizedParquetRecordReader(convertTz, rebaseSpec.mode.toString,
+      rebaseSpec.timeZone, "", "", useOffHeap, capacity)
+  }
+
+  override def newParquetReadSupport(convertTz: Option[ZoneId],
+                                     enableVectorizedReader: Boolean,
+                                     fileMetaData: FileMetaData,
+                                     parquetOptions: ParquetOptions): ParquetReadSupport = {
+    val datetimeRebaseSpec = getDatetimeRebaseSpec(fileMetaData, parquetOptions)
+    val int96RebaseSpec = getInt96RebaseSpec(fileMetaData, parquetOptions)
+    new ParquetReadSupport(convertTz, enableVectorizedReader, datetimeRebaseSpec, int96RebaseSpec)
   }
 
   override def getRuntimeFilters(plan: BatchScanExec): Seq[Expression] = {

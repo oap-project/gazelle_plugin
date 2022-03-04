@@ -127,6 +127,7 @@
     <spark321.version>3.2.1</spark321.version>
     <!-- Scala 2.12.10 is the version for default spark 3.1 -->
     <scala.version>2.12.10</scala.version>
+    <java.version>1.8</java.version>
     <jackson.version>2.10.0</jackson.version>
     <scala.binary.version>2.12</scala.binary.version>
     <arrow.version>4.0.0</arrow.version>

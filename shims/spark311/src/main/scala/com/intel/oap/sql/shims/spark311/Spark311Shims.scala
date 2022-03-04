@@ -20,6 +20,7 @@ import com.intel.oap.execution.ColumnarBatchScanExec
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import java.io.File
+import java.time.ZoneId
 
 import org.apache.parquet.hadoop.metadata.FileMetaData
 import org.apache.parquet.schema.MessageType
@@ -38,8 +39,7 @@ import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning
 import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution.SparkPlan
 import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
-import org.apache.spark.sql.execution.datasources.parquet.ParquetFilters
-import org.apache.spark.sql.execution.datasources.parquet.ParquetOptions
+import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
@@ -62,15 +62,39 @@ class Spark311Shims extends SparkShims {
   }
 
   override def newParquetFilters(parquetSchema: MessageType,
-                           pushDownDate: Boolean,
-                           pushDownTimestamp: Boolean,
-                           pushDownDecimal: Boolean,
-                           pushDownStringStartWith: Boolean,
-                           pushDownInFilterThreshold: Int,
-                           isCaseSensitive: Boolean,
-                           datetimeRebaseMode: SQLConf.LegacyBehaviorPolicy.Value): ParquetFilters = {
+                                 pushDownDate: Boolean,
+                                 pushDownTimestamp: Boolean,
+                                 pushDownDecimal: Boolean,
+                                 pushDownStringStartWith: Boolean,
+                                 pushDownInFilterThreshold: Int,
+                                 isCaseSensitive: Boolean,
+                                 fileMetaData: FileMetaData,
+                                 parquetOptions: ParquetOptions
+                                ): ParquetFilters = {
     new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
       pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
+  }
+
+  override def newVectorizedParquetRecordReader(convertTz: ZoneId,
+                                                fileMetaData: FileMetaData,
+                                                parquetOptions: ParquetOptions,
+                                                useOffHeap: Boolean,
+                                                capacity: Int): VectorizedParquetRecordReader = {
+    new VectorizedParquetRecordReader(
+      convertTz,
+      getDatetimeRebaseMode(fileMetaData, parquetOptions).toString,
+      "",
+      useOffHeap,
+      capacity)
+  }
+
+  override def newParquetReadSupport(convertTz: Option[ZoneId],
+                            enableVectorizedReader: Boolean,
+                            fileMetaData: FileMetaData,
+                            parquetOptions: ParquetOptions): ParquetReadSupport = {
+    val datetimeRebaseMode = getDatetimeRebaseMode(fileMetaData, parquetOptions)
+    new ParquetReadSupport(
+      convertTz, enableVectorizedReader = false, datetimeRebaseMode, SQLConf.LegacyBehaviorPolicy.LEGACY)
   }
 
   /**
