@@ -177,7 +177,9 @@ class Decimal128Array : public FixedSizeBinaryArray {
  public:
   Decimal128Array(const std::shared_ptr<arrow::Array>& in) : FixedSizeBinaryArray(in) {}
   arrow::Decimal128 GetView(int64_t i) const {
-    const arrow::Decimal128 value(GetValue(i));
+    const uint8_t *val = GetValue(i);
+    const arrow::Decimal128 value(arrow::BasicDecimal128(reinterpret_cast<const int64_t*>(val)[0],
+                                                         reinterpret_cast<const uint64_t*>(val)[1]));
     return value;
   }
 };
