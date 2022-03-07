@@ -1149,7 +1149,8 @@ arrow::Status ExpressionCodegenVisitor::Visit(const gandiva::FunctionNode& node)
     check_str_ = validity;
   } else {
     std::cout << "function name: " << func_name << std::endl;
-    return arrow::Status::NotImplemented(func_name, " is currently not supported.");
+    return arrow::Status::NotImplemented(func_name,
+                                         " is currently not supported in WSCG.");
   }
   return arrow::Status::OK();
 }

@@ -217,7 +217,8 @@ class WholeStageCodeGenKernel::Impl {
                                               result_field_node_list,
                                               result_expr_node_list, out));
     } else {
-      return arrow::Status::NotImplemented("Not supported function name:", func_name);
+      return arrow::Status::NotImplemented("WSCG Not supported function name:",
+                                           func_name);
     }
     return arrow::Status::OK();
   }

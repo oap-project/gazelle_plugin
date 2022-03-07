@@ -637,9 +637,20 @@ case class ColumnarHashAggregateExec(
 
   override def getChild: SparkPlan = child
 
-  override def supportColumnarCodegen: Boolean = true
+  override def supportColumnarCodegen: Boolean = {
+    for (expr <- aggregateExpressions) {
+      val internalExpressionList = expr.aggregateFunction.children
+      for (expr <- internalExpressionList) {
+        logInfo(s"AA: $expr")
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+          return false
+        }
+      }
 
-  // override def canEqual(that: Any): Boolean = false
+    }
+    return true
+  }
 
   def getKernelFunction: TreeNode = {
     ColumnarHashAggregation.prepareKernelFunction(
