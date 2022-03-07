@@ -170,14 +170,13 @@ case class ColumnarConditionProjectExec(
       // support codegen if cond expression and proj expression both supports codegen
       if (!colCondExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
         return false
-      } else {
-        if (projectList != null) {
-          for (expr <- projectList) {
-            val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-            if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
-              return false
-            }
-          }
+      }
+    }
+    if (projectList != null) {
+      for (expr <- projectList) {
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+          return false
         }
       }
     }

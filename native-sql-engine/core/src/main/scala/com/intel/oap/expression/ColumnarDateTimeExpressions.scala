@@ -671,6 +671,10 @@ object ColumnarDateTimeExpressions {
         "date_diff", Lists.newArrayList(leftNode, rightNode), outType)
       (funcNode, outType)
     }
+
+    override def supportColumnarCodegen(args: Object): Boolean = {
+      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+    }
   }
 
   class ColumnarMakeDate(

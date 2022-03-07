@@ -641,7 +641,6 @@ case class ColumnarHashAggregateExec(
     for (expr <- aggregateExpressions) {
       val internalExpressionList = expr.aggregateFunction.children
       for (expr <- internalExpressionList) {
-        logInfo(s"AA: $expr")
         val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
         if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
           return false
