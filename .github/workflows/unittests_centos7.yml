@@ -23,7 +23,7 @@ on:
 jobs:
   cpp-unit-test:
     runs-on: ubuntu-latest
-    container: docker.io/centos:7
+    container: docker.io/centos:devtoolset-7-toolchain-rhel7
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK 1.8
@@ -32,8 +32,8 @@ jobs:
           java-version: 1.8
       - run: free
       - run: yum update -y
-      - run: yum install -y epel-release centos-release-scl-rh
-      - run: yum install -y ccache boost-devel gtest git make automake gcc gcc-c++ cmake3 devtoolset-10 llvm-toolset-7.0-clang
+      - run: yum install -y epel-release 
+      - run: yum install -y ccache boost-devel gtest git make automake gcc gcc-c++ cmake3 llvm-toolset-7.0-clang
       - run: ln -s /usr/bin/cmake3 /usr/bin/cmake
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
