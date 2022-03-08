@@ -399,8 +399,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
               }
             }
             arrow::Decimal128 value =
-                arrow::Decimal128(arrow::BasicDecimal128(reinterpret_cast<const int64_t*>(bytesValue2)[0],
-                                                         reinterpret_cast<const uint64_t*>(bytesValue2)[1]));
+                arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
             array_data[position] = value;
           }
         }
@@ -962,8 +961,7 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
                       }
                     }
                     arrow::Decimal128 value =
-                        arrow::Decimal128(arrow::BasicDecimal128(reinterpret_cast<const int64_t*>(bytesValue2)[0],
-                                                                 reinterpret_cast<const uint64_t*>(bytesValue2)[1]));
+                        arrow::Decimal128(arrow::BasicDecimal128(bytesValue2));
                     RETURN_NOT_OK(child_builder.Append(value));
                   }
                 }
