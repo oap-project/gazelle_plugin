@@ -24,6 +24,7 @@ import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.execution.ColumnarShuffleExchangeExec
+import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
 import org.apache.spark.sql.functions.{col, expr}
 import org.apache.spark.sql.test.SharedSparkSession
 
@@ -192,6 +193,13 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     df.show()
     assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
     assert(df.count() == 2)
+  }
+
+  test("Test Fall back with complex type in Partitioning keys") {
+    val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.arr_field = rtab.arr_field")
+    df.explain(true)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ShuffleExchangeExec]).isDefined)
   }
 
   override def afterAll(): Unit = {

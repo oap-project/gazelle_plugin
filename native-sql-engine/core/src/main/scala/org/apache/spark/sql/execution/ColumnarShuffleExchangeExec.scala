@@ -93,6 +93,23 @@ case class ColumnarShuffleExchangeExec(
             s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec.")
       }
     }
+
+    // Check partitioning keys
+    outputPartitioning match {
+      case HashPartitioning(exprs, n) =>
+        exprs.zipWithIndex.foreach {
+          case (expr, i) =>
+            val attr = ConverterUtils.getAttrFromExpr(expr)
+            try {
+              ConverterUtils.checkIfTypeSupported(attr.dataType)
+            } catch {
+              case e: UnsupportedOperationException =>
+                throw new UnsupportedOperationException(
+                  s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec Partitioning.")
+            }
+        }
+      case _ =>
+    }
   }
 
   val serializer: Serializer = new ArrowColumnarBatchSerializer(
