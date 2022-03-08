@@ -157,6 +157,12 @@ arrow::Status AppendBuffers(std::shared_ptr<arrow::Array> column,
         RETURN_NOT_OK(AppendBuffers(struct_array->field(i), buffers));
       }
     } break;
+    case arrow::Type::MAP: {
+      auto map_array = std::dynamic_pointer_cast<arrow::MapArray>(column);
+      (*buffers).push_back(map_array->null_bitmap());
+      (*buffers).push_back(map_array->value_offsets());
+      RETURN_NOT_OK(AppendBuffers(map_array->values(), buffers));
+    } break;
     default: {
       for (auto& buffer : column->data()->buffers) {
         (*buffers).push_back(buffer);
@@ -187,24 +193,36 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
     switch (type->id()) {
       case arrow::Type::LIST:
       case arrow::Type::LARGE_LIST: {
-        auto offset_data_type = GetOffsetDataType(type);
+        int64_t null_count = arrow::kUnknownNullCount;
+        std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+        if (*buf_idx_ptr >= in_bufs_len) {
+          return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+        }
+        if (in_bufs[*buf_idx_ptr]->size() == 0) {
+          null_count = 0;
+        }
+        buffers.push_back(in_bufs[*buf_idx_ptr]);
+        *buf_idx_ptr += 1;
+
+        auto offsetbits = arrow::offset_bit_width(type->id());
+        if (*buf_idx_ptr >= in_bufs_len) {
+          return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+        }
+        buffers.push_back(in_bufs[*buf_idx_ptr]);
+        auto offsets_size = in_bufs[*buf_idx_ptr]->size();
+        *buf_idx_ptr += 1;
+        num_rows = offsets_size * 8 / offsetbits - 1;
+
         auto list_type = std::dynamic_pointer_cast<arrow::ListType>(type);
         auto child_type = list_type->value_type();
-        std::shared_ptr<arrow::ArrayData> child_array_data, offset_array_data;
-        // create offset array
-        // Chendi: For some reason, for ListArray::FromArrays will remove last row from
-        // offset array, refer to array_nested.cc CleanListOffsets function
-        FIXOffsetBuffer(&in_bufs[*buf_idx_ptr], num_rows);
-        RETURN_NOT_OK(MakeArrayData(offset_data_type, num_rows + 1, in_bufs, in_bufs_len,
-                                    &offset_array_data, buf_idx_ptr));
-        auto offset_array = arrow::MakeArray(offset_array_data);
-        // create child data array
+        ArrayDataVector list_child_data_vec;
+        std::shared_ptr<arrow::ArrayData> list_child_data;
+        // create child ArrayData
         RETURN_NOT_OK(MakeArrayData(child_type, -1, in_bufs, in_bufs_len,
-                                    &child_array_data, buf_idx_ptr));
-        auto child_array = arrow::MakeArray(child_array_data);
-        auto list_array =
-            arrow::ListArray::FromArrays(*offset_array, *child_array).ValueOrDie();
-        *arr_data = list_array->data();
+                                    &list_child_data, buf_idx_ptr));
+        list_child_data_vec.push_back(list_child_data);
+        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
+                                           list_child_data_vec, null_count);
       } break;
       case arrow::Type::STRUCT: {
         int64_t null_count = arrow::kUnknownNullCount;
@@ -226,8 +244,61 @@ arrow::Status MakeArrayData(std::shared_ptr<arrow::DataType> type, int num_rows,
                                       &struct_child_data, buf_idx_ptr));
           struct_child_data_vec.push_back(struct_child_data);
         }
+        // For Struct recursion (Multiple levels) in the NestArray, num_rows cannot be
+        // calculated from offsets.
+        if (num_rows == -1) {
+          num_rows = struct_child_data_vec.at(0)->length;
+        }
         *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
                                            struct_child_data_vec, null_count);
+      } break;
+      case arrow::Type::MAP: {
+        int64_t null_count = arrow::kUnknownNullCount;
+        std::vector<std::shared_ptr<arrow::Buffer>> buffers;
+        if (*buf_idx_ptr >= in_bufs_len) {
+          return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+        }
+        if (in_bufs[*buf_idx_ptr]->size() == 0) {
+          null_count = 0;
+        }
+        buffers.push_back(in_bufs[*buf_idx_ptr]);
+        *buf_idx_ptr += 1;
+
+        auto offsetbits = arrow::offset_bit_width(type->id());
+        if (*buf_idx_ptr >= in_bufs_len) {
+          return arrow::Status::Invalid("insufficient number of in_buf_addrs");
+        }
+        buffers.push_back(in_bufs[*buf_idx_ptr]);
+        auto offsets_size = in_bufs[*buf_idx_ptr]->size();
+        *buf_idx_ptr += 1;
+        num_rows = offsets_size * 8 / offsetbits - 1;
+
+        auto map_type = std::dynamic_pointer_cast<arrow::MapType>(type);
+        auto child_type = map_type->value_type();
+        ArrayDataVector map_child_data_vec;
+        std::shared_ptr<arrow::ArrayData> map_child_data;
+        // create child ArrayData
+        RETURN_NOT_OK(MakeArrayData(child_type, -1, in_bufs, in_bufs_len, &map_child_data,
+                                    buf_idx_ptr));
+        map_child_data_vec.push_back(map_child_data);
+        // specific handing because of the different schema between spark and native
+        if (map_child_data->null_count == arrow::kUnknownNullCount) {
+          map_child_data->buffers.at(0) = nullptr;
+          map_child_data->null_count = 0;
+        }
+        // validate child data for map
+        if (map_child_data->child_data.size() != 2) {
+          return Status::Invalid("Map array child array should have two fields");
+        }
+        if (map_child_data->child_data[0]->null_count == arrow::kUnknownNullCount) {
+          int key_null_count = map_child_data->child_data[0]->GetNullCount();
+          if (key_null_count != 0) {
+            return Status::Invalid("Map array keys array should have no nulls");
+          }
+        }
+
+        *arr_data = arrow::ArrayData::Make(type, num_rows, std::move(buffers),
+                                           map_child_data_vec, null_count);
       } break;
       default:
         return arrow::Status::NotImplemented("MakeArrayData for type ", type->ToString(),
