@@ -19,8 +19,9 @@ package com.intel.oap.sql.shims.spark311
 import com.intel.oap.sql.shims.{SparkShims, SparkShimDescriptor}
 
 object SparkShimProvider {
-  val DESCRIPTOR = SparkShimDescriptor(3, 1, 1)
-  val DESCRIPTOR_STRINGS = Seq(s"$DESCRIPTOR")
+  val SPARK311_DESCRIPTOR = SparkShimDescriptor(3, 1, 1)
+  val SPARK312_DESCRIPTOR = SparkShimDescriptor(3, 1, 2)
+  val DESCRIPTOR_STRINGS = Seq(s"$SPARK311_DESCRIPTOR", s"$SPARK312_DESCRIPTOR")
 }
 
 class SparkShimProvider extends com.intel.oap.sql.shims.SparkShimProvider {
