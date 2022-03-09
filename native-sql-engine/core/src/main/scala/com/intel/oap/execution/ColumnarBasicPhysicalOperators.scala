@@ -167,9 +167,24 @@ case class ColumnarConditionProjectExec(
 
   override def getChild: SparkPlan = child
 
-  override def supportColumnarCodegen: Boolean = true
-
-  // override def canEqual(that: Any): Boolean = false
+  override def supportColumnarCodegen: Boolean = {
+    if (condition != null) {
+      val colCondExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(condition)
+      // support codegen if cond expression and proj expression both supports codegen
+      if (!colCondExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+        return false
+      }
+    }
+    if (projectList != null) {
+      for (expr <- projectList) {
+        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+          return false
+        }
+      }
+    }
+    true
+  }
 
   def getKernelFunction(childTreeNode: TreeNode): TreeNode = {
     val (filterNode, projectNode) =

@@ -276,7 +276,7 @@ case class ColumnarCollapseCodegenStages(
           if plan.output.length == 1 && plan.output.head.dataType.isInstanceOf[ObjectType] =>
         plan.withNewChildren(plan.children.map(insertWholeStageCodegen))
       case j: ColumnarHashAggregateExec =>
-        if (!j.child.isInstanceOf[ColumnarHashAggregateExec] && existsJoins(j)) {
+        if (j.supportColumnarCodegen && !j.child.isInstanceOf[ColumnarHashAggregateExec] && existsJoins(j)) {
           ColumnarWholeStageCodegenExec(j.withNewChildren(j.children.map(insertInputAdapter)))(
             codegenStageCounter.incrementAndGet())
         } else {

@@ -246,6 +246,10 @@ class ColumnarMultiply(left: Expression, right: Expression, original: Expression
         (funcNode, resultType)
     }
   }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    return left_val.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right_val.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
 }
 
 class ColumnarDivide(left: Expression, right: Expression,
