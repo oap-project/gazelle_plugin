@@ -38,6 +38,7 @@
 #include "codegen/common/hash_relation_number.h"
 #include "codegen/common/hash_relation_string.h"
 #include "utils/macros.h"
+#include "third_party/hyperloglog.hpp"
 
 namespace sparkcolumnarplugin {
 namespace codegen {
@@ -156,6 +157,11 @@ class HashRelationKernel::Impl {
         key_projector_->Evaluate(*hash_in_batch, ctx_->memory_pool(), &hash_outputs));
     key_array = hash_outputs[0];
     key_hash_cached_.push_back(key_array);
+    // note: this estimated on its hash
+    auto typed_key_arr = std::make_shared<precompile::Int32Array>(key_array);
+    for (size_t i = 0; i< key_array->length(); i++) {
+      estimator.add(typed_key_arr->GetView(i));
+    }
 
     return arrow::Status::OK();
   }
@@ -163,6 +169,9 @@ class HashRelationKernel::Impl {
   arrow::Status FinishInternal() {
     if (builder_type_ == 2) return arrow::Status::OK();
     // Decide init hashmap size
+    estimated_cardinality_ = estimator.estimate();
+    std::cout << "cardinality: " << estimated_cardinality_ << std::endl;
+    std::cout << "number cached: " << num_total_cached_ << std::endl;
     if (builder_type_ == 1) {
       int init_key_capacity = 128;
       int init_bytes_map_capacity = init_key_capacity * 256;
@@ -174,6 +183,7 @@ class HashRelationKernel::Impl {
       if (key_size_ != -1) {
         tmp_capacity *= 12;
       } else {
+        //TODO: fully calcute the space for multiple keys
         tmp_capacity *= 128;
       }
       if (tmp_capacity > INT_MAX) {
@@ -181,6 +191,8 @@ class HashRelationKernel::Impl {
       } else {
         init_bytes_map_capacity = tmp_capacity;
       }
+      std::cout << "init_key_capacity: " << init_key_capacity << std::endl;
+      std::cout << "init_bytes_capacity: " << init_bytes_map_capacity << std::endl;
       RETURN_NOT_OK(
           hash_relation_->InitHashTable(init_key_capacity, init_bytes_map_capacity));
     }
@@ -265,6 +277,7 @@ class HashRelationKernel::Impl {
   std::vector<arrow::ArrayVector> keys_cached_;
   std::vector<std::shared_ptr<arrow::Array>> key_hash_cached_;
   uint64_t num_total_cached_ = 0;
+  hll::HyperLogLog estimator;
   uint64_t estimated_cardinality_ = 0;
   int builder_type_ = 0;
   bool semi_ = false;
