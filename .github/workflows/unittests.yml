@@ -97,9 +97,7 @@ jobs:
       - name: Run unit tests
         run: |
           mvn clean install -N
-          cd arrow-data-source
-          mvn clean install -DskipTests -Dbuild_arrow=OFF
-          cd ..
+          mvn clean install -DskipTests -Dbuild_arrow=OFF -pl arrow-data-source
           mvn clean package -P full-scala-compiler -Phadoop-2.7.4 -am -pl native-sql-engine/core -DskipTests -Dbuild_arrow=OFF
           mvn test -P full-scala-compiler -DmembersOnlySuites=org.apache.spark.sql.nativesql -am -DfailIfNoTests=false -Dexec.skip=true -DargLine="-Dspark.test.home=/tmp/spark-3.1.1-bin-hadoop2.7" &> log-file.log
           echo '#!/bin/bash' > grep.sh
@@ -144,9 +142,7 @@ jobs:
       - name: Run unit tests
         run: |
           mvn clean install -N
-          cd arrow-data-source
-          mvn clean install -DskipTests -Dbuild_arrow=OFF
-          cd ..
+          mvn clean install -DskipTests -Dbuild_arrow=OFF -pl arrow-data-source
           mvn clean package -P full-scala-compiler -Phadoop-3.2 -am -pl native-sql-engine/core -DskipTests -Dbuild_arrow=OFF
           mvn test -P full-scala-compiler -DmembersOnlySuites=org.apache.spark.sql.nativesql -am -DfailIfNoTests=false -Dexec.skip=true -DargLine="-Dspark.test.home=/tmp/spark-3.1.1-bin-hadoop3.2" &> log-file.log
           echo '#!/bin/bash' > grep.sh

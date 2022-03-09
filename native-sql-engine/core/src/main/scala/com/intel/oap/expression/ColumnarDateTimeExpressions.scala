@@ -565,6 +565,11 @@ object ColumnarDateTimeExpressions {
           }
       }
     }
+
+    // For spark 3.2.
+    protected def withNewChildrenInternal(newLeft: Expression, newRight: Expression):
+    ColumnarGetTimestamp =
+      copy(leftChild = newLeft, rightChild = newRight)
   }
 
   class ColumnarFromUnixTime(left: Expression, right: Expression)

@@ -44,6 +44,33 @@
     <nativesql.build_protobuf>${build_protobuf}</nativesql.build_protobuf>
     <nativesql.build_jemalloc>${build_jemalloc}</nativesql.build_jemalloc>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>spark-3.1.1</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark311</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+    <profile>
+      <id>spark-3.2</id>
+      <dependencies>
+        <dependency>
+          <groupId>com.intel.oap</groupId>
+          <artifactId>spark-sql-columnar-shims-spark321</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+  </profiles>
+
   <dependencies>
     <!-- Prevent our dummy JAR from being included in Spark distributions or uploaded to YARN -->
     <dependency>
@@ -166,19 +193,19 @@
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
-      <version>2.10.0</version>
+      <version>${jackson.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-annotations</artifactId>
-      <version>2.10.0</version>
+      <version>${jackson.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
-      <version>2.10.0</version>
+      <version>${jackson.version}</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -299,7 +326,7 @@
       <groupId>com.intel.oap</groupId>
       <artifactId>spark-sql-columnar-shims-common</artifactId>
       <version>${project.version}</version>
-      <scope>compile</scope>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.apache.logging.log4j</groupId>

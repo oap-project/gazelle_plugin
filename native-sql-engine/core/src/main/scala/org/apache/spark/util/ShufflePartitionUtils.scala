@@ -17,13 +17,14 @@
 
 package org.apache.spark.util
 
+import com.intel.oap.sql.shims.SparkShimLoader
+
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight}
 import org.apache.spark.sql.catalyst.plans.logical.Statistics
 import org.apache.spark.sql.catalyst.plans.{Cross, Inner, JoinType, LeftAnti, LeftOuter, LeftSemi, RightOuter}
-import org.apache.spark.sql.execution.adaptive.OptimizeSkewedJoin.supportedJoinTypes
-import org.apache.spark.sql.execution.adaptive.{CustomShuffleReaderExec, OptimizeSkewedJoin, ShuffleQueryStageExec, ShuffleStage, ShuffleStageInfo}
-import org.apache.spark.sql.execution.exchange.{ENSURE_REQUIREMENTS, REPARTITION}
+import org.apache.spark.sql.execution.adaptive.{OptimizeSkewedJoin, ShuffleQueryStageExec, ShuffleStageInfo}
+import org.apache.spark.sql.execution.exchange.ENSURE_REQUIREMENTS
 import org.apache.spark.sql.execution.joins.{ShuffledHashJoinExec, SortMergeJoinExec}
 
 import scala.collection.mutable
@@ -37,7 +38,7 @@ import java.io.{Externalizable, ObjectInput, ObjectOutput}
 object ShufflePartitionUtils {
 
   def withCustomShuffleReaders(plan: SparkPlan): Boolean = {
-    plan.children.forall(_.isInstanceOf[CustomShuffleReaderExec])
+    plan.children.forall(p => SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(p))
   }
 
   def isShuffledHashJoinTypeOptimizable(joinType: JoinType): Boolean = {
@@ -50,16 +51,22 @@ object ShufflePartitionUtils {
 
   def reoptimizeShuffledHashJoinInput(plan: ShuffledHashJoinExec): ShuffledHashJoinExec =
     plan match {
-      case shj @ ShuffledHashJoinExec(_, _, joinType, _, _,
-      s1 @ ShuffleStage(leftStageInfo: ShuffleStageInfo),
-      s2 @ ShuffleStage(rightStageInfo: ShuffleStageInfo))
-        if isShuffledHashJoinTypeOptimizable(joinType) =>
+      // TODO: p.left p.right may need to be checked.
+      case p: ShuffledHashJoinExec if isShuffledHashJoinTypeOptimizable(p.joinType) =>
+        val leftStageInfo: ShuffleStageInfo = p.left match {
+          case ShuffleStage(leftStage: ShuffleStageInfo) => leftStage
+          case _ => throw new RuntimeException("Fix me!")
+        }
+        val rightStageInfo: ShuffleStageInfo = p.left match {
+          case ShuffleStage(rightStage: ShuffleStageInfo) => rightStage
+          case _ => throw new RuntimeException("Fix me!")
+        }
 
         val left = plan.left
         val right = plan.right
         val shuffleStages = Array(left, right)
-            .map(c => c.asInstanceOf[CustomShuffleReaderExec]
-                .child.asInstanceOf[ShuffleQueryStageExec]).toList
+            .map(c => SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(c)
+              .asInstanceOf[ShuffleQueryStageExec]).toList
 
         if (shuffleStages.isEmpty) {
           return plan
@@ -67,7 +74,7 @@ object ShufflePartitionUtils {
 
         if (!shuffleStages.forall(s => s.shuffle.shuffleOrigin match {
           case ENSURE_REQUIREMENTS => true
-          case REPARTITION => true
+          case so if SparkShimLoader.getSparkShims.isRepartition(so) => true
           case _ => false
         })) {
           return plan
@@ -104,8 +111,8 @@ object ShufflePartitionUtils {
 
         val offHeapOptimizationTarget = buildSizeLimit
 
-        val leftSpecs = left.asInstanceOf[CustomShuffleReaderExec].partitionSpecs
-        val rightSpecs = right.asInstanceOf[CustomShuffleReaderExec].partitionSpecs
+        val leftSpecs = SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(left)
+        val rightSpecs = SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(right)
 
         if (leftSpecs.size != rightSpecs.size) {
           throw new IllegalStateException("Input partition mismatch for ColumnarShuffledHashJoin")
@@ -164,16 +171,13 @@ object ShufflePartitionUtils {
           }
         }
 
-        val leftReader = left.asInstanceOf[CustomShuffleReaderExec]
-        val rightReader = right.asInstanceOf[CustomShuffleReaderExec]
+        val leftReaderChild = SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(left)
+        val rightReaderChild = SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(right)
 
         // todo equality check?
         plan.withNewChildren(
-          Array(
-            CustomShuffleReaderExec(leftReader.child,
-              leftJoinedParts),
-            CustomShuffleReaderExec(rightReader.child,
-              rightJoinedParts)
+            Array(SparkShimLoader.getSparkShims.newCustomShuffleReaderExec(leftReaderChild, leftJoinedParts),
+              SparkShimLoader.getSparkShims.newCustomShuffleReaderExec(rightReaderChild, rightJoinedParts)
           )).asInstanceOf[ShuffledHashJoinExec]
       case _ =>
         plan
@@ -191,17 +195,27 @@ object ShufflePartitionUtils {
         }
         Some(ShuffleStageInfo(s, mapStats, s.getRuntimeStatistics, partitions))
 
-      case CustomShuffleReaderExec(s: ShuffleQueryStageExec, partitionSpecs)
-        if s.mapStats.isDefined && partitionSpecs.nonEmpty &&
-            OptimizeSkewedJoin.supportedShuffleOrigins.contains(s.shuffle.shuffleOrigin) =>
-        val statistics = s.getRuntimeStatistics
-        val mapStats = s.mapStats.get
+      case plan if SparkShimLoader.getSparkShims.isCustomShuffleReaderExec(plan) &&
+        SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+          .isInstanceOf[ShuffleQueryStageExec] &&
+        SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+          .asInstanceOf[ShuffleQueryStageExec].mapStats.isDefined &&
+        SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(plan).nonEmpty &&
+        OptimizeSkewedJoin.supportedShuffleOrigins.contains(
+          SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+          .asInstanceOf[ShuffleQueryStageExec].shuffle.shuffleOrigin) =>
+        val child = SparkShimLoader.getSparkShims.getChildOfCustomShuffleReaderExec(plan)
+          .asInstanceOf[ShuffleQueryStageExec]
+        val partitionSpecs =
+          SparkShimLoader.getSparkShims.getPartitionSpecsOfCustomShuffleReaderExec(plan)
+        val statistics = child.getRuntimeStatistics
+        val mapStats = child.mapStats.get
         val sizes = mapStats.bytesByPartitionId
         val partitions = partitionSpecs.map {
-          case spec @ CoalescedPartitionSpec(start, end) =>
+          case spec: CoalescedPartitionSpec =>
             var sum = 0L
-            var i = start
-            while (i < end) {
+            var i = spec.startReducerIndex
+            while (i < spec.endReducerIndex) {
               sum += sizes(i)
               i += 1
             }
@@ -209,7 +223,7 @@ object ShufflePartitionUtils {
           case other => throw new IllegalArgumentException(
             s"Expect CoalescedPartitionSpec but got $other")
         }
-        Some(ShuffleStageInfo(s, mapStats, s.getRuntimeStatistics, partitions))
+        Some(ShuffleStageInfo(child, mapStats, child.getRuntimeStatistics, partitions))
 
       case _ => None
     }

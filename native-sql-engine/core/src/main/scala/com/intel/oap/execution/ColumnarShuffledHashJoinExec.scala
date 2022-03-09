@@ -69,7 +69,7 @@ case class ColumnarShuffledHashJoinExec(
     projectList: Seq[NamedExpression] = null)
     extends BaseJoinExec
     with ColumnarCodegenSupport
-    with ShuffledJoin {
+    with ColumnarShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
@@ -81,6 +81,9 @@ case class ColumnarShuffledHashJoinExec(
     "joinTime" -> SQLMetrics.createTimingMetric(sparkContext, "join time"))
 
   buildCheck()
+
+  // For spark 3.2.
+  def isSkewJoin: Boolean = false
 
   protected lazy val (buildPlan, streamedPlan) = buildSide match {
     case BuildLeft => (left, right)
@@ -582,5 +585,10 @@ case class ColumnarShuffledHashJoinExec(
         new CloseableColumnBatchIterator(res)
     }
   }
+
+  // For spark 3.2.
+  protected def withNewChildrenInternal(newLeft: SparkPlan, newRight: SparkPlan):
+  ColumnarShuffledHashJoinExec =
+    copy(left = newLeft, right = newRight)
 
 }

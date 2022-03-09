@@ -20,6 +20,8 @@ package org.apache.spark.shuffle.sort
 import java.io.InputStream
 import java.util.concurrent.ConcurrentHashMap
 
+import com.intel.oap.sql.shims.SparkShimLoader
+
 import org.apache.spark._
 import org.apache.spark.internal.Logging
 import org.apache.spark.serializer.SerializerManager
@@ -107,12 +109,13 @@ class ColumnarShuffleManager(conf: SparkConf) extends ShuffleManager with Loggin
           metrics,
           shuffleExecutorComponents)
       case other: BaseShuffleHandle[K @unchecked, V @unchecked, _] =>
-        new SortShuffleWriter(
+        SparkShimLoader.getSparkShims.newSortShuffleWriter(
           shuffleBlockResolver,
           other,
           mapId,
           context,
-          shuffleExecutorComponents)
+          shuffleExecutorComponents
+        ).asInstanceOf[SortShuffleWriter[K, V, _]]
     }
   }
 

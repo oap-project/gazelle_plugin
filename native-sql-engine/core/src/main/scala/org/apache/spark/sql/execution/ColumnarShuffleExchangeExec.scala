@@ -173,7 +173,8 @@ case class ColumnarShuffleExchangeExec(
     cachedShuffleRDD
   }
 
-  // 'shuffleDependency' is only needed when enable AQE. Columnar shuffle will use 'columnarShuffleDependency'
+  // 'shuffleDependency' is only needed when enable AQE. Columnar shuffle will
+  // use 'columnarShuffleDependency'
   @transient
   lazy val shuffleDependency: ShuffleDependency[Int, InternalRow, InternalRow] =
     new ShuffleDependency[Int, InternalRow, InternalRow](
@@ -187,6 +188,9 @@ case class ColumnarShuffleExchangeExec(
       override val shuffleHandle: ShuffleHandle = columnarShuffleDependency.shuffleHandle
     }
 
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarShuffleExchangeExec =
+    copy(child = newChild)
 }
 
 class ColumnarShuffleExchangeAdaptor(
