@@ -319,6 +319,8 @@ object ConverterUtils extends Logging {
     fieldExpr match {
       case a: Cast =>
         getAttrFromExpr(a.child)
+      case l: Literal =>
+        new AttributeReference("name", l.dataType, l.nullable)()
       case a: AggregateExpression =>
         getAttrFromExpr(a.aggregateFunction.children(0))
       case a: AttributeReference =>
