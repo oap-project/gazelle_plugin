@@ -42,13 +42,13 @@
           <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
-          <spark.version>${spark311.version}</spark.version>
+          <spark.version>${spark313.version}</spark.version>
       </properties>
     </profile>
     <profile>
         <id>spark-3.1</id>
         <properties>
-            <spark.version>${spark311.version}</spark.version>
+            <spark.version>${spark313.version}</spark.version>
             <scala.version>2.12.10</scala.version>
             <jackson.version>2.10.0</jackson.version>
         </properties>
@@ -123,7 +123,7 @@
   <properties>
     <!--TODO: need to verify whether the settings will be overridden in profile-->
     <spark.version>3.1.1</spark.version>
-    <spark311.version>3.1.1</spark311.version>
+    <spark313.version>3.1.1</spark313.version>
     <spark321.version>3.2.1</spark321.version>
     <!-- Scala 2.12.10 is the version for default spark 3.1 -->
     <scala.version>2.12.10</scala.version>
@@ -316,6 +316,29 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <repositories>
+    <repository>
+      <id>snapshots-repo</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>apache-snapshots-repo</id>
+      <url>https://repository.apache.org/content/repositories/snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
 
   <build>
     <plugins>

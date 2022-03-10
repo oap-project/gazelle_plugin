@@ -42,8 +42,10 @@ import org.apache.spark.sql.internal.SQLConf
 
 sealed abstract class ShimDescriptor
 
-case class SparkShimDescriptor(major: Int, minor: Int, patch: Int) extends ShimDescriptor {
-  override def toString(): String = s"$major.$minor.$patch"
+// The append arg can either be "" for release version or be "-SNAPSHOT" for snapshot version.
+case class SparkShimDescriptor(major: Int, minor: Int, patch: Int,
+                               append: String = "") extends ShimDescriptor {
+  override def toString(): String = s"$major.$minor.$patch$append"
 }
 
 trait SparkShims {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark311
+package com.intel.oap.sql.shims.spark313
 
 import com.intel.oap.execution.ColumnarBatchScanExec
 import com.intel.oap.spark.sql.ArrowWriteQueue
@@ -46,7 +46,7 @@ import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter
 import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION, ReusedExchangeExec, ShuffleExchangeExec, ShuffleOrigin}
 import org.apache.spark.sql.internal.SQLConf
 
-class Spark311Shims extends SparkShims {
+class Spark313Shims extends SparkShims {
 
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
 

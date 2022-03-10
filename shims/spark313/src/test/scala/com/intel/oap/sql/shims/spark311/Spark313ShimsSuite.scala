@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.intel.oap.sql.shims.spark311
+package com.intel.oap.sql.shims.spark313
 
 import com.intel.oap.sql.shims.{SparkShims, SparkShimLoader, SparkShimDescriptor}
 
 import org.scalatest.FunSuite;
 
-class Spark311ShimsSuite extends FunSuite {
+class Spark313ShimsSuite extends FunSuite {
   val descriptor = SparkShimDescriptor(3, 1, 1)
   test("Spark shims descriptor") {
     val sparkShims: SparkShims = new SparkShimProvider().createShim

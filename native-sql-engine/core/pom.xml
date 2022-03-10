@@ -54,7 +54,7 @@
       <dependencies>
         <dependency>
           <groupId>com.intel.oap</groupId>
-          <artifactId>spark-sql-columnar-shims-spark311</artifactId>
+          <artifactId>spark-sql-columnar-shims-spark313</artifactId>
           <version>${project.version}</version>
         </dependency>
       </dependencies>

@@ -70,7 +70,7 @@
         </activation>
         <modules>
           <module>common</module>
-          <module>spark311</module>
+          <module>spark313</module>
         </modules>
     </profile>
     <profile>
@@ -79,7 +79,7 @@
         </properties>
         <modules>
           <module>common</module>
-          <module>spark311</module>
+          <module>spark313</module>
         </modules>
     </profile>
     <profile>
