@@ -842,6 +842,80 @@ TEST(TestArrowComputeSort, SortTestOnekeyNullsFirstAsc) {
   }
 }
 
+TEST(TestArrowComputeSort, SortTestOnekeyArrayAsc) {
+  ////////////////////// prepare expr_vector ///////////////////////
+  auto f0 = field("f0", float64());
+  auto f1 = field("f1", list(uint32()));
+  auto arg_0 = TreeExprBuilder::MakeField(f0);
+  auto arg_1 = TreeExprBuilder::MakeField(f1);
+  auto f_res = field("res", uint32());
+  auto indices_type = std::make_shared<FixedSizeBinaryType>(16);
+  auto f_indices = field("indices", indices_type);
+
+  auto n_key_func = TreeExprBuilder::MakeFunction("key_function", {arg_0}, uint32());
+  auto n_key_field = TreeExprBuilder::MakeFunction("key_field", {arg_0}, uint32());
+  auto n_dir = TreeExprBuilder::MakeFunction(
+      "sort_directions", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto n_nulls_order = TreeExprBuilder::MakeFunction(
+      "sort_nulls_order", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto NaN_check = TreeExprBuilder::MakeFunction(
+      "NaN_check", {TreeExprBuilder::MakeLiteral(true)}, uint32());
+  auto do_codegen = TreeExprBuilder::MakeFunction(
+      "codegen", {TreeExprBuilder::MakeLiteral(false)}, uint32());
+  auto n_sort_to_indices = TreeExprBuilder::MakeFunction(
+      "sortArraysToIndices",
+      {n_key_func, n_key_field, n_dir, n_nulls_order, NaN_check, do_codegen}, uint32());
+  auto n_sort =
+      TreeExprBuilder::MakeFunction("standalone", {n_sort_to_indices}, uint32());
+  auto sortArrays_expr = TreeExprBuilder::MakeExpression(n_sort, f_res);
+
+  auto sch = arrow::schema({f0, f1});
+  std::vector<std::shared_ptr<Field>> ret_types = {f0, f1};
+  ///////////////////// Calculation //////////////////
+  std::shared_ptr<CodeGenerator> sort_expr;
+  arrow::compute::ExecContext ctx;
+  ASSERT_NOT_OK(CreateCodeGenerator(ctx.memory_pool(), sch, {sortArrays_expr}, ret_types,
+                                    &sort_expr, true));
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
+  std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
+
+  std::vector<std::string> input_data_string = {"[3,4]",
+                                                "[[3,3],[4,4]]"};
+  MakeInputBatch(input_data_string, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  std::vector<std::string> input_data_string_2 = {"[2, 1]",
+                                                  "[[2,2],[1,1]]"};
+  MakeInputBatch(input_data_string_2, sch, &input_batch);
+  input_batch_list.push_back(input_batch);
+
+  ////////////////////////////////// calculation
+  //////////////////////////////////////
+  std::shared_ptr<arrow::RecordBatch> expected_result;
+  std::vector<std::string> expected_result_string = {
+      "[1, 2, 3, 4]",
+      "[[1, 1], [2, 2], [3, 3], [4, 4]]"};
+  MakeInputBatch(expected_result_string, sch, &expected_result);
+
+  for (auto batch : input_batch_list) {
+    ASSERT_NOT_OK(sort_expr->evaluate(batch, &dummy_result_batches));
+  }
+  std::shared_ptr<ResultIterator<arrow::RecordBatch>> sort_result_iterator;
+  std::shared_ptr<ResultIteratorBase> sort_result_iterator_base;
+  ASSERT_NOT_OK(sort_expr->finish(&sort_result_iterator_base));
+  sort_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
+      sort_result_iterator_base);
+
+  std::shared_ptr<arrow::RecordBatch> dummy_result_batch;
+  std::shared_ptr<arrow::RecordBatch> result_batch;
+
+  if (sort_result_iterator->HasNext()) {
+    ASSERT_NOT_OK(sort_result_iterator->Next(&result_batch));
+    ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
+  }
+}
+
 TEST(TestArrowComputeSort, SortTestOnekeyNullsLastAsc) {
   ////////////////////// prepare expr_vector ///////////////////////
   auto f0 = field("f0", float64());

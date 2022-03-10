@@ -379,6 +379,55 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
   arrow::MemoryPool* pool_;
 };
 
+class NextArrayTaker: public TakerBase {
+ public:
+  NextArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool, std::shared_ptr<arrow::DataType> type)
+      : ctx_(ctx), pool_(pool), type_(type) {
+    std::unique_ptr<arrow::ArrayBuilder> array_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), type_, &array_builder);
+    builder_.reset(array_builder.release());
+  }
+
+  ~NextArrayTaker() {}
+
+  arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
+    cached_arr_.push_back(arr);
+    if (!has_null_ && arr->null_count() > 0) has_null_ = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status PopArray() override {
+    cached_arr_.pop_back();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status ClearArrays() override {
+    cached_arr_.clear();
+    has_null_ = false;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status TakeFromIndices(ArrayItemIndexS* indices_begin, int64_t length,
+                                std::shared_ptr<arrow::Array>* out) {
+    for (int64_t position = 0; position < length; position++) {
+      auto item = indices_begin + position;
+      int64_t array_id = item->array_id;
+      RETURN_NOT_OK(builder_->AppendArraySlice(*(cached_arr_[array_id]->data()), item->id, 1));
+    }
+    auto status = builder_->Finish(out);
+    return status;
+  }
+
+ private:
+  std::unique_ptr<arrow::ArrayBuilder> builder_;
+  std::vector<std::shared_ptr<arrow::Array>> cached_arr_;
+  arrow::compute::ExecContext* ctx_;
+  bool has_null_ = false;
+  arrow::MemoryPool* pool_;
+  std::shared_ptr<arrow::DataType> type_;
+};
+
 template <typename DataType, typename CType>
 class ArrayTaker<DataType, CType, enable_if_timestamp<DataType>> : public TakerBase {
  public:
@@ -495,6 +544,11 @@ static arrow::Status MakeArrayTaker(arrow::compute::ExecContext* ctx,
     case arrow::StringType::type_id: {
       auto app_ptr = std::make_shared<ArrayTaker<arrow::StringType, std::string>>(
           ctx, ctx->memory_pool());
+      *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
+    } break;
+    case arrow::ListType::type_id: {
+      auto app_ptr = std::make_shared<NextArrayTaker>(
+          ctx, ctx->memory_pool(), type);
       *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
     } break;
     default: {

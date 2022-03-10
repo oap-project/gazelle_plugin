@@ -95,7 +95,7 @@ case class ColumnarSortExec(
     // check types
     for (attr <- output) {
       try {
-        ConverterUtils.checkIfTypeSupported(attr.dataType)
+        ConverterUtils.checkIfNestTypeSupported(attr.dataType)
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(

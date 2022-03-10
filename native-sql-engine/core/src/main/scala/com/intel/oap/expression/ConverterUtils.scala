@@ -520,12 +520,7 @@ object ConverterUtils extends Logging {
   }
 
   def checkIfNestTypeSupported(dt: DataType): Unit = dt match {
-    case d: ArrayType => checkIfTypeSupported(d.elementType)
-    case d: StructType =>
-      for ( structField <- d.fields ) {
-        checkIfTypeSupported(structField.dataType)
-      }
-    case d: MapType =>
+    case d: ArrayType =>
     case d: BooleanType =>
     case d: ByteType =>
     case d: ShortType =>
@@ -546,7 +541,7 @@ object ConverterUtils extends Logging {
       new Field(
         name,
         new FieldType(nullable, ArrowType.List.INSTANCE, null),
-        Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))
+        Lists.newArrayList(createArrowField("element", at.elementType)))
     case st: StructType =>
       val fieldlist = new util.ArrayList[Field]
       var structField = null
