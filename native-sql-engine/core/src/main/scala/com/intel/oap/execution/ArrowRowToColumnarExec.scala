@@ -102,12 +102,14 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
           // Allocate large buffer to store the numRows rows
           val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
           val allocator = SparkMemoryUtils.contextAllocator()
-          val arrowBuf: ArrowBuf = allocator.buffer(bufferSize)
+          var arrowBuf: ArrowBuf = null
           override def hasNext: Boolean = {
             rowIterator.hasNext
           }
           TaskContext.get().addTaskCompletionListener[Unit] { _ =>
-            arrowBuf.close()
+            if (arrowBuf != null) {
+              arrowBuf.close()
+            }
           }
           override def next(): ColumnarBatch = {
             var isUnsafeRow = true
@@ -130,6 +132,9 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               assert(firstRow.isInstanceOf[UnsafeRow])
               val unsafeRow = firstRow.asInstanceOf[UnsafeRow]
               val sizeInBytes = unsafeRow.getSizeInBytes
+              // allocate buffer based on 1st row
+              val estimatedBufSize = sizeInBytes * numRows * 1.2
+              arrowBuf = allocator.buffer(estimatedBufSize.toLong)
               Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
                 null, arrowBuf.memoryAddress() + offset, sizeInBytes)
               offset += sizeInBytes
@@ -141,6 +146,10 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
                 assert(row.isInstanceOf[UnsafeRow])
                 val unsafeRow = row.asInstanceOf[UnsafeRow]
                 val sizeInBytes = unsafeRow.getSizeInBytes
+                if ((offset + sizeInBytes) > arrowBuf.capacity()) {
+                  arrowBuf.close()
+                  arrowBuf = allocator.buffer((arrowBuf.capacity() * 1.2).toLong)
+                }
                 Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
                   null, arrowBuf.memoryAddress() + offset, sizeInBytes)
                 offset += sizeInBytes
@@ -158,6 +167,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val output = ConverterUtils.fromArrowRecordBatch(arrowSchema, rb)
               val outputNumRows = rb.getLength
               ConverterUtils.releaseArrowRecordBatch(rb)
+              arrowBuf.close()
               last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
               elapse = System.nanoTime() - start
               processTime.set(NANOSECONDS.toMillis(elapse))
