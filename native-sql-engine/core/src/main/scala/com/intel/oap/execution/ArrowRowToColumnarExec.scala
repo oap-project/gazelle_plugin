@@ -107,7 +107,9 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
             rowIterator.hasNext
           }
           TaskContext.get().addTaskCompletionListener[Unit] { _ =>
-            arrowBuf.close()
+            if (arrowBuf != null) {
+              arrowBuf.close()
+            }
           }
           override def next(): ColumnarBatch = {
             var isUnsafeRow = true
@@ -165,6 +167,7 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
               val output = ConverterUtils.fromArrowRecordBatch(arrowSchema, rb)
               val outputNumRows = rb.getLength
               ConverterUtils.releaseArrowRecordBatch(rb)
+              arrowBuf.close()
               last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
               elapse = System.nanoTime() - start
               processTime.set(NANOSECONDS.toMillis(elapse))
