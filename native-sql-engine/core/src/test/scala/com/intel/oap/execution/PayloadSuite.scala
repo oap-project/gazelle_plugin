@@ -113,7 +113,7 @@ class PayloadSuite extends QueryTest with SharedSparkSession {
 
   test("Test Array in Sort") {
     //    spark.sql("SELECT *  FROM ltab").printSchema()
-    val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    val df = spark.sql("SELECT ltab.arr_field  FROM ltab order by ltab.kind")
     df.explain(false)
     df.show()
     assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
@@ -121,7 +121,7 @@ class PayloadSuite extends QueryTest with SharedSparkSession {
   }
 
   test("Test Nest Array in Sort") {
-    val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab order by ltab.kind")
     df.explain(false)
     df.show()
     assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
@@ -129,11 +129,67 @@ class PayloadSuite extends QueryTest with SharedSparkSession {
   }
 
   test("Test Nest Array in multi-keys Sort") {
-    val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind and ltab.key = rtab.key")
+    val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab order by ltab.kind, ltab.key")
     df.explain(false)
     df.show()
     assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
     assert(df.count == 2)
+  }
+
+  test("Test Struct in Sort") {
+    val df = spark.sql("SELECT ltab.struct_field  FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
+  }
+
+  test("Test Nest Struct in Sort") {
+    val df = spark.sql("SELECT ltab.struct_struct_field  FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
+  }
+
+  test("Test Struct_Array in Sort") {
+    val df = spark.sql("SELECT ltab.struct_array_field  FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
+  }
+
+  test("Test Map in Sort") {
+    val df = spark.sql("SELECT ltab.map_field FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
+  }
+
+  test("Test Nest Map in Sort") {
+    val df = spark.sql("SELECT ltab.map_map_field FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
+  }
+
+  test("Test Map_Array in Sort") {
+    val df = spark.sql("SELECT ltab.map_arr_field FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
+  }
+
+  test("Test Map_Struct in Sort") {
+    val df = spark.sql("SELECT ltab.map_struct_field FROM ltab order by ltab.kind")
+    df.explain(false)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarSortExec]).isDefined)
+    assert(df.count() == 2)
   }
 
   override def afterAll(): Unit = {

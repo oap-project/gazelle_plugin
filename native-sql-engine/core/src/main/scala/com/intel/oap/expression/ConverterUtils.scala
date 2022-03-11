@@ -520,7 +520,12 @@ object ConverterUtils extends Logging {
   }
 
   def checkIfNestTypeSupported(dt: DataType): Unit = dt match {
-    case d: ArrayType =>
+    case d: ArrayType => checkIfTypeSupported(d.elementType)
+    case d: StructType =>
+      for ( structField <- d.fields ) {
+        checkIfTypeSupported(structField.dataType)
+      }
+    case d: MapType =>
     case d: BooleanType =>
     case d: ByteType =>
     case d: ShortType =>

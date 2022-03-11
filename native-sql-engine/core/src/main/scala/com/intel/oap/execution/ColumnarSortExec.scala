@@ -43,7 +43,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils, Utils}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-import org.apache.spark.sql.types.DecimalType
+import org.apache.spark.sql.types._
 
 import scala.util.control.Breaks.{break, breakable}
 
@@ -94,10 +94,22 @@ case class ColumnarSortExec(
   def buildCheck(): Unit = {
     // check types
     for (attr <- output) {
-      try {
-        ConverterUtils.checkIfNestTypeSupported(attr.dataType)
-      } catch {
-        case e: UnsupportedOperationException =>
+      attr.dataType match {
+        case d: BooleanType =>
+        case d: ByteType =>
+        case d: ShortType =>
+        case d: IntegerType =>
+        case d: LongType =>
+        case d: FloatType =>
+        case d: DoubleType =>
+        case d: StringType =>
+        case d: DateType =>
+        case d: DecimalType =>
+        case d: TimestampType =>
+        case d: ArrayType =>
+        case d: MapType =>
+        case d: StructType =>
+        case _ =>
           throw new UnsupportedOperationException(
             s"${attr.dataType} is not supported in ColumnarSorter.")
       }
