@@ -880,22 +880,19 @@ TEST(TestArrowComputeSort, SortTestOnekeyArrayAsc) {
   std::vector<std::shared_ptr<arrow::RecordBatch>> input_batch_list;
   std::vector<std::shared_ptr<arrow::RecordBatch>> dummy_result_batches;
 
-  std::vector<std::string> input_data_string = {"[3,4]",
-                                                "[[3,3],[4,4]]"};
+  std::vector<std::string> input_data_string = {"[3,4]", "[[3,3],[4,4]]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
-  std::vector<std::string> input_data_string_2 = {"[2, 1]",
-                                                  "[[2,2],[1,1]]"};
+  std::vector<std::string> input_data_string_2 = {"[2, 1]", "[[2,2],[1,1]]"};
   MakeInputBatch(input_data_string_2, sch, &input_batch);
   input_batch_list.push_back(input_batch);
 
   ////////////////////////////////// calculation
   //////////////////////////////////////
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_result_string = {
-      "[1, 2, 3, 4]",
-      "[[1, 1], [2, 2], [3, 3], [4, 4]]"};
+  std::vector<std::string> expected_result_string = {"[1, 2, 3, 4]",
+                                                     "[[1, 1], [2, 2], [3, 3], [4, 4]]"};
   MakeInputBatch(expected_result_string, sch, &expected_result);
 
   for (auto batch : input_batch_list) {
