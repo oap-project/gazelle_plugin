@@ -43,6 +43,13 @@
       </exclusions>
       <scope>compile</scope>
     </dependency>
+
+    <!-- https://mvnrepository.com/artifact/com.sun.xml.messaging.saaj/saaj-impl -->
+    <dependency>
+      <groupId>com.sun.xml.messaging.saaj</groupId>
+      <artifactId>saaj-impl</artifactId>
+      <version>1.5.3</version>
+    </dependency>
   </dependencies>
   <build>
     <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>

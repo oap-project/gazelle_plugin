@@ -17,24 +17,37 @@
 
 package org.apache.spark.sql.execution
 
-import java.io._
+import java.io.{ByteArrayInputStream, Externalizable, ObjectInput, ObjectOutput}
 
-import com.esotericsoftware.kryo.io.{Input, Output}
 import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
+import com.esotericsoftware.kryo.io.{Input, Output}
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, SerializableObject}
+
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.execution.ColumnarHashedRelation.Deallocator
 import org.apache.spark.sql.vectorized.ColumnarBatch
-import org.apache.spark.util.KnownSizeEstimation
-import sun.misc.Cleaner
+import org.apache.spark.util.{KnownSizeEstimation, Utils}
 
 class ColumnarHashedRelation(
     var hashRelationObj: SerializableObject,
     var arrowColumnarBatch: Array[ColumnarBatch],
     var arrowColumnarBatchSize: Int)
-    extends Externalizable
+  extends Externalizable
     with KryoSerializable
-    with KnownSizeEstimation {
+    with KnownSizeEstimation
+    with Logging {
+
+  // The implementation of Cleaner changed from JDK 8 to 9
+  // --add-opens=java.base/jdk.internal.ref=ALL-UNNAMED should be set to JVM while using jdk11
+  val cleanerClassName = {
+    val majorVersion = System.getProperty("java.version").split("\\D+")(0).toInt
+    if (majorVersion < 9) {
+      "sun.misc.Cleaner"
+    } else {
+      "jdk.internal.ref.Cleaner"
+    }
+  }
 
   createCleaner(hashRelationObj, arrowColumnarBatch)
 
@@ -47,12 +60,26 @@ class ColumnarHashedRelation(
       // no need to clean up
       return
     }
-    Cleaner.create(this, new Deallocator(obj, batch))
+    val cleanerClass = Utils.classForName(cleanerClassName)
+    val createMethod = cleanerClass.getMethod(
+      "create", classOf[Object], classOf[Runnable])
+    // Accessing jdk.internal.ref.Cleaner should actually fail by default in JDK 9+,
+    // unfortunately, unless the user has allowed access with something like
+    // --add-opens java.base/java.lang=ALL-UNNAMED  If not, we can't really use the Cleaner
+    // hack below. It doesn't break, just means the user might run into the default JVM limit
+    // on off-heap memory and increase it or set the flag above. This tests whether it's
+    // available:
+    try {
+      createMethod.invoke(null, this, new Deallocator(obj, batch), null)
+    } catch {
+      case e: IllegalAccessException =>
+        // Don't throw an exception, but can't log here?
+        logError("failed to run Cleaner.create", e)
+    }
   }
 
 
   def asReadOnlyCopy(): ColumnarHashedRelation = {
-    //new ColumnarHashedRelation(hashRelationObj, arrowColumnarBatch, arrowColumnarBatchSize)
     this
   }
 
@@ -77,11 +104,6 @@ class ColumnarHashedRelation(
     arrowColumnarBatch =
       ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
     createCleaner(hashRelationObj, arrowColumnarBatch)
-    // retain all cols
-    /*arrowColumnarBatch.foreach(cb => {
-      (0 until cb.numCols).toList.foreach(i =>
-        cb.column(i).asInstanceOf[ArrowWritableColumnVector].retain())
-    })*/
   }
 
   override def read(kryo: Kryo, in: Input): Unit = {
@@ -92,12 +114,6 @@ class ColumnarHashedRelation(
     arrowColumnarBatch =
       ConverterUtils.convertFromNetty(null, new ByteArrayInputStream(rawArrowData)).toArray
     createCleaner(hashRelationObj, arrowColumnarBatch)
-    // retain all cols
-    /*arrowColumnarBatch.foreach(cb => {
-      (0 until cb.numCols).toList.foreach(i =>
-        cb.column(i).asInstanceOf[ArrowWr:w
-        itableColumnVector].retain())
-    })*/
   }
 
   def size(): Int = {
@@ -121,7 +137,7 @@ class ColumnarHashedRelation(
     }
   }
 }
-object ColumnarHashedRelation {
+object ColumnarHashedRelation extends Logging {
 
   private class Deallocator (
       var hashRelationObj: SerializableObject,
@@ -134,8 +150,7 @@ object ColumnarHashedRelation {
       } catch {
         case e: Exception =>
           // We should suppress all possible errors in Cleaner to prevent JVM from being shut down
-          System.err.println("ColumnarHashedRelation: Error running deaallocator")
-          e.printStackTrace()
+          logError("ColumnarHashedRelation: Error running deallocator", e)
       }
     }
   }

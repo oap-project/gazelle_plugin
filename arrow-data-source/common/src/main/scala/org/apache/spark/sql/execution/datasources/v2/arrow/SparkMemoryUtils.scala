@@ -24,7 +24,7 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow._
-import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
+import com.sun.xml.messaging.saaj.util.ByteOutputStream
 import org.apache.arrow.dataset.jni.NativeMemoryPool
 import org.apache.arrow.memory.AllocationListener
 import org.apache.arrow.memory.BufferAllocator
