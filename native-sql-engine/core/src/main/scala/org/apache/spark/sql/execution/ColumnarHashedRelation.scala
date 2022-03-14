@@ -70,7 +70,7 @@ class ColumnarHashedRelation(
     // on off-heap memory and increase it or set the flag above. This tests whether it's
     // available:
     try {
-      createMethod.invoke(null, this, new Deallocator(obj, batch), null)
+      createMethod.invoke(null, this, new Deallocator(obj, batch))
     } catch {
       case e: IllegalAccessException =>
         // Don't throw an exception, but can't log here?
