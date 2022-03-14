@@ -117,6 +117,14 @@ case class ColumnarSortExec(
     // check expr
     sortOrder.toList.map(expr => {
       ColumnarExpressionConverter.replaceWithColumnarExpression(expr.child)
+      val attr = ConverterUtils.getAttrFromExpr(expr.child, true)
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarSortExec keys.")
+      }
     })
   }
 
