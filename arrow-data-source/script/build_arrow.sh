@@ -98,7 +98,7 @@ make -j$NPROC
 make install
 
 cd java        
-mvn clean install -P arrow-jni -am -Darrow.cpp.build.dir=${ARROW_INSTALL_DIR}/lib -DskipTests -Dcheckstyle.skip
+mvn clean install -P arrow-jni -pl dataset,gandiva -am -Darrow.cpp.build.dir=${ARROW_INSTALL_DIR}/lib -DskipTests -Dcheckstyle.skip
 popd
 echo "Finish to build Arrow from Source !!!"
 else
