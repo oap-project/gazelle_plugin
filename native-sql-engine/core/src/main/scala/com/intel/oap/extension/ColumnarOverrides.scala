@@ -61,6 +61,22 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
   var isSupportAdaptive: Boolean = true
 
+  def checkRowOp(plan: SparkPlan): Boolean = {
+    for (line <- plan.toString().linesIterator) {
+      if (!line.contains("Columnar")) {
+        return true
+      }
+    }
+    return false
+  }
+  //TODO: do not cross on shuffle
+  def removeRowGuard(plan: SparkPlan): SparkPlan = plan match {
+    case plan: RowGuard =>
+      plan.child
+    case other =>
+      val children = other.children.map(removeRowGuard)
+      other.withNewChildren(children)
+  }
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
     case RowGuard(child: SparkPlan)
@@ -170,6 +186,12 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       }
     case plan: ShuffleExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
+
+      if (checkRowOp(child) && columnarConf.enableStageFallback) {
+        val rowChild = plan.child
+        val rowChildRemoveRowGuard = removeRowGuard(rowChild)
+        return plan.withNewChildren(Seq(rowChildRemoveRowGuard))
+      }
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if ((child.supportsColumnar || columnarConf.enablePreferColumnar) && columnarConf.enableColumnarShuffle) {
         if (isSupportAdaptive) {

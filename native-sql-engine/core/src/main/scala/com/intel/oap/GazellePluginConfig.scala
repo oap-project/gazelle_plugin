@@ -153,7 +153,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   // prefer to use columnar operators if set to true
   val enablePreferColumnar: Boolean =
     conf.getConfString("spark.oap.sql.columnar.preferColumnar", "true").toBoolean
-
+  
+  // fallback on entire stage even if there's only one row op
+  val enableStageFallback: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.stagefallback", "true").toBoolean
   // fallback to row operators if there are several continous joins
   val joinOptimizationThrottle: Integer =
     conf.getConfString("spark.oap.sql.columnar.joinOptimizationLevel", "12").toInt
