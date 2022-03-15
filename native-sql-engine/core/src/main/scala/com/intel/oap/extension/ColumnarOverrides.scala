@@ -377,7 +377,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       if (columnarConf.enableArrowRowToColumnar) {
         logDebug(s"ColumnarPostOverrides ArrowRowToColumnarExec(${child.getClass})")
         try {
-          new ArrowRowToColumnarExec(child)
+          ArrowRowToColumnarExec(child)
         } catch {
           case _: Throwable =>
             logInfo("ArrowRowToColumnar: Falling back to RowToColumnar...")

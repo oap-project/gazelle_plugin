@@ -29,8 +29,8 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.UnsafeRow
-import org.apache.spark.sql.execution.{RowToColumnarExec, SparkPlan}
+import org.apache.spark.sql.catalyst.expressions.{Attribute, UnsafeRow}
+import org.apache.spark.sql.execution.{RowToColumnarExec, SparkPlan, UnaryExecNode}
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
@@ -42,7 +42,7 @@ import org.apache.spark.TaskContext
 import org.apache.spark.unsafe.Platform
 
 
-class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child = child) {
+case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
   override def nodeName: String = "ArrowRowToColumnarExec"
 
   buildCheck()
@@ -76,6 +76,16 @@ class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child =
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "number of output batches"),
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert")
   )
+
+  override def output: Seq[Attribute] = child.output
+
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ArrowRowToColumnarExec =
+    copy(child = newChild)
+
+  override def doExecute(): RDD[InternalRow] = {
+    child.execute()
+  }
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     val numInputRows = longMetric("numInputRows")
