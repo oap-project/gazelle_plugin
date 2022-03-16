@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.shuffle.sort.SortShuffleManager
+import org.apache.spark.sql.execution.CoalescedMapperPartitionSpec
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLShuffleReadMetricsReporter}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.ColumnarBatch
@@ -86,6 +87,9 @@ class ShuffledColumnarBatchRDD(
           coalescedPartitionSpec.endReducerIndex).flatMap { reducerIndex =>
           tracker.getPreferredLocationsForShuffle(dependency, reducerIndex)
         }
+      case CoalescedMapperPartitionSpec(startMapIndex, endMapIndex, _) =>
+        tracker.getMapLocation(dependency, startMapIndex, endMapIndex)
+
       case PartialReducerPartitionSpec(_, startMapIndex, endMapIndex, _) =>
         tracker.getMapLocation(dependency, startMapIndex, endMapIndex)
 
@@ -126,6 +130,16 @@ class ShuffledColumnarBatchRDD(
           mapIndex + 1,
           startReducerIndex,
           endReducerIndex,
+          context,
+          sqlMetricsReporter)
+      
+      case CoalescedMapperPartitionSpec(startMapIndex, endMapIndex, numReducers) =>
+        SparkEnv.get.shuffleManager.getReader(
+          dependency.shuffleHandle,
+          startMapIndex,
+          endMapIndex,
+          0,
+          numReducers,
           context,
           sqlMetricsReporter)
     }

@@ -33,6 +33,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.codegen.LazilyGeneratedOrdering
 import org.apache.spark.sql.catalyst.expressions.{Attribute, BoundReference, UnsafeProjection}
 import org.apache.spark.sql.catalyst.plans.physical._
+import org.apache.spark.sql.catalyst.plans.logical.Statistics
 import org.apache.spark.sql.catalyst.util.truncatedString
 import org.apache.spark.sql.execution.CoalesceExec.EmptyPartition
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
@@ -200,15 +201,15 @@ case class ColumnarShuffleExchangeExec(
     copy(child = newChild)
 }
 
-class ColumnarShuffleExchangeAdaptor(
+case class ColumnarShuffleExchangeAdaptor(
     override val outputPartitioning: Partitioning,
     child: SparkPlan,
     shuffleOrigin: ShuffleOrigin = ENSURE_REQUIREMENTS)
-    extends ShuffleExchangeExec(outputPartitioning, child) {
+    extends ShuffleExchangeLike {
 
   private[sql] lazy val writeMetrics =
     SQLShuffleWriteMetricsReporter.createShuffleWriteMetrics(sparkContext)
-  private[sql] override lazy val readMetrics =
+  private[sql] lazy val readMetrics =
     SQLShuffleReadMetricsReporter.createShuffleReadMetrics(sparkContext)
   override lazy val metrics: Map[String, SQLMetric] = Map(
     "dataSize" -> SQLMetrics.createSizeMetric(sparkContext, "data size"),
@@ -228,7 +229,17 @@ class ColumnarShuffleExchangeAdaptor(
   override def output: Seq[Attribute] = child.output
 
   override def supportsColumnar: Boolean = true
+  override def numMappers: Int = shuffleDependency.rdd.getNumPartitions
 
+  override def numPartitions: Int = shuffleDependency.partitioner.numPartitions
+  override def runtimeStatistics: Statistics = {
+    val dataSize = metrics("dataSize").value
+    val rowCount = metrics(SQLShuffleWriteMetricsReporter.SHUFFLE_RECORDS_WRITTEN).value
+    Statistics(dataSize, Some(rowCount))
+  }
+  override def getShuffleRDD(partitionSpecs: Array[ShufflePartitionSpec]): RDD[ColumnarBatch] = {
+    cachedShuffleRDD
+  }
   override def stringArgs =
     super.stringArgs ++ Iterator(s"[id=#$id]")
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
@@ -285,7 +296,7 @@ class ColumnarShuffleExchangeAdaptor(
 
   // 'shuffleDependency' is only needed when enable AQE. Columnar shuffle will use 'columnarShuffleDependency'
   @transient
-  override lazy val shuffleDependency: ShuffleDependency[Int, InternalRow, InternalRow] =
+  lazy val shuffleDependency: ShuffleDependency[Int, InternalRow, InternalRow] =
     new ShuffleDependency[Int, InternalRow, InternalRow](
       _rdd = new ColumnarShuffleExchangeExec.DummyPairRDDWithPartitions(
         sparkContext,
@@ -315,7 +326,8 @@ class ColumnarShuffleExchangeAdaptor(
         attr.name + ":" + attr.dataType
     }.toString()
   }
-
+  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarShuffleExchangeAdaptor =
+    copy(child = newChild)
 }
 
 object ColumnarShuffleExchangeExec extends Logging {
