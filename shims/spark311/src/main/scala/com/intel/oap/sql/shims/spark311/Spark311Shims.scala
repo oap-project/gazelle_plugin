@@ -186,24 +186,24 @@ class Spark311Shims extends SparkShims {
   }
 
   /**
-    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return -1 for spark3.1.
+    * This method cannot be invoked in spark3.1.
     */
   override def getStartMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
-    -1
+    throw new RuntimeException("This method should not be invoked in spark 3.1.")
   }
 
   /**
-    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return -1 for spark3.1.
+    * This method cannot be invoked in spark3.1.
     */
   override def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
-    -1
+    throw new RuntimeException("This method should not be invoked in spark 3.1.")
   }
 
   /**
-    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return -1 for spark3.1.
+    * This method cannot be invoked in spark3.1.
     */
   override def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
-    -1
+    throw new RuntimeException("This method should not be invoked in spark 3.1.")
   }
 
 }
