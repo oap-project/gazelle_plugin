@@ -36,8 +36,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
-import org.apache.spark.sql.execution.ShufflePartitionSpec
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
@@ -177,6 +176,34 @@ class Spark311Shims extends SparkShims {
       case REPARTITION => true
       case _ => false
     }
+  }
+
+  /**
+    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return false for spark3.1.
+    */
+  override def isCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Boolean = {
+    false
+  }
+
+  /**
+    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return -1 for spark3.1.
+    */
+  override def getStartMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    -1
+  }
+
+  /**
+    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return -1 for spark3.1.
+    */
+  override def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    -1
+  }
+
+  /**
+    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return -1 for spark3.1.
+    */
+  override def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    -1
   }
 
 }

@@ -326,7 +326,9 @@ case class ColumnarShuffleExchangeAdaptor(
         attr.name + ":" + attr.dataType
     }.toString()
   }
-  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarShuffleExchangeAdaptor =
+
+  // For spark3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarShuffleExchangeAdaptor =
     copy(child = newChild)
 }
 

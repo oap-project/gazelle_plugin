@@ -38,8 +38,7 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
 import org.apache.spark.sql.catalyst.util.RebaseDateTime.RebaseSpec
-import org.apache.spark.sql.execution.ShufflePartitionSpec
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{CoalescedMapperPartitionSpec, ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.{AQEShuffleReadExec, BroadcastQueryStageExec, ShuffleQueryStageExec}
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
@@ -227,6 +226,34 @@ class Spark321Shims extends SparkShims {
     shuffleOrigin match {
       case REPARTITION_BY_COL => true
       case _ => false
+    }
+  }
+
+  override def isCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Boolean = {
+    spec match {
+      case _: CoalescedMapperPartitionSpec => true
+      case _ => false
+    }
+  }
+
+  override def getStartMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    spec match {
+      case c: CoalescedMapperPartitionSpec => c.startMapIndex
+      case _ => throw new RuntimeException("CoalescedMapperPartitionSpec is expected!")
+    }
+  }
+
+  override def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    spec match {
+      case c: CoalescedMapperPartitionSpec => c.endMapIndex
+      case _ => throw new RuntimeException("CoalescedMapperPartitionSpec is expected!")
+    }
+  }
+
+  override def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    spec match {
+      case c: CoalescedMapperPartitionSpec => c.numReducers
+      case _ => throw new RuntimeException("CoalescedMapperPartitionSpec is expected!")
     }
   }
 
