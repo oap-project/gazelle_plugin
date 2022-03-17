@@ -219,7 +219,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if (isSupportAdaptive)
-        new ColumnarBroadcastExchangeAdaptor(plan.mode, child)
+        ColumnarBroadcastExchangeAdaptor(plan.mode, child)
       else
         ColumnarBroadcastExchangeExec(plan.mode, child)
     case plan: BroadcastHashJoinExec =>
