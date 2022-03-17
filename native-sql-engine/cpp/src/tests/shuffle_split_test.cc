@@ -214,6 +214,7 @@ TEST_F(SplitterTest, TestSingleSplitter) {
     ASSERT_EQ(rb->num_columns(), schema_->num_fields());
     for (auto j = 0; j < rb->num_columns(); ++j) {
       ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+      ASSERT_TRUE(rb->column(j)->Equals(*expected[i]->column(j),EqualOptions::Defaults().diff_sink(&std::cout)));
     }
     ASSERT_TRUE(rb->Equals(*expected[i]));
   }

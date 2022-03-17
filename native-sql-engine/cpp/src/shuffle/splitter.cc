@@ -382,7 +382,7 @@ arrow::Status Splitter::Init() {
 int64_t batch_nbytes(const arrow::RecordBatch& batch) {
   int64_t accumulated = 0L;
   static int printed = 0;
-  
+
   for (const auto& array : batch.columns()) {
     if (array == nullptr || array->data() == nullptr) {
       continue;
@@ -565,8 +565,12 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
             buffers[0]->Resize((num_rows>>3)+1, /*shrink_to_fit =*/ false);
           }
           if( buffers[1] != nullptr ){
-            buffers[1]->Resize(num_rows*(arrow::bit_width(column_type_id_[i]->id())>>3), /*shrink_to_fit =*/ false);
+            if ( column_type_id_[i]->id() == arrow::BooleanType::type_id )
+              buffers[1]->Resize((num_rows>>3)+1, /*shrink_to_fit =*/ false);
+            else
+              buffers[1]->Resize(num_rows*(arrow::bit_width(column_type_id_[i]->id())>>3), /*shrink_to_fit =*/ false);
           }
+
           if (reset_buffers) {
             arrays[i] = arrow::MakeArray(
                 arrow::ArrayData::Make(schema_->field(i)->type(), num_rows,
