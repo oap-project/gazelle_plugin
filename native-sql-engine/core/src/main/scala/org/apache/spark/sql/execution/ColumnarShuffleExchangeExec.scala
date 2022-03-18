@@ -308,14 +308,6 @@ case class ColumnarShuffleExchangeAdaptor(
       override val shuffleHandle: ShuffleHandle = columnarShuffleDependency.shuffleHandle
     }
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeAdaptor]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarShuffleExchangeAdaptor =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
-
   override def verboseString(maxFields: Int): String = toString(super.verboseString(maxFields))
 
   override def simpleString(maxFields: Int): String = toString(super.simpleString(maxFields))
