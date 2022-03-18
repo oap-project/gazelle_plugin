@@ -173,6 +173,8 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
               broadcastQueryStageExec.plan match {
                 case plan: BroadcastExchangeExec =>
                   new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
+                case plan: ColumnarBroadcastExchangeAdaptor =>
+                  new ColumnarBroadcastExchangeExec(plan.mode, plan.child)
                 case plan: ReusedExchangeExec =>
                   plan match {
                     case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
