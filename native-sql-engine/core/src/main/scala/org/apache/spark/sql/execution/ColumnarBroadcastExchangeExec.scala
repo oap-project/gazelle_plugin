@@ -311,14 +311,6 @@ case class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPla
   override protected[sql] def doExecuteBroadcast[T](): broadcast.Broadcast[T] =
     plan.doExecuteBroadcast[T]()
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBroadcastExchangeAdaptor]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarBroadcastExchangeAdaptor =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
-
   // For spark3.2.
   protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeAdaptor =
     copy(child = newChild)
