@@ -179,6 +179,8 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
                   plan match {
                     case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
                       new ColumnarBroadcastExchangeExec(b.mode, b.child)
+                    case ReusedExchangeExec(_, b: ColumnarBroadcastExchangeAdaptor) =>
+                      new ColumnarBroadcastExchangeExec(b.mode, b.child)
                     case _ =>
                   }
               }
@@ -197,6 +199,8 @@ case class ColumnarGuardRule() extends Rule[SparkPlan] {
                 case plan: ReusedExchangeExec =>
                   plan match {
                     case ReusedExchangeExec(_, b: BroadcastExchangeExec) =>
+                      new ColumnarBroadcastExchangeExec(b.mode, b.child)
+                    case ReusedExchangeExec(_, b: ColumnarBroadcastExchangeAdaptor) =>
                       new ColumnarBroadcastExchangeExec(b.mode, b.child)
                     case _ =>
                   }
