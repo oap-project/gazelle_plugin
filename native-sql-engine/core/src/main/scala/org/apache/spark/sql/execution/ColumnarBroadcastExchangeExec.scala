@@ -320,6 +320,6 @@ case class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPla
   }
 
   // For spark3.2.
-  override protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeAdaptor =
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeAdaptor =
     copy(child = newChild)
 }
