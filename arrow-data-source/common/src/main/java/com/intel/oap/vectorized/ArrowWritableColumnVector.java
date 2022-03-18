@@ -81,9 +81,9 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       int capacity, StructType schema) {
     String timeZoneId = SparkSchemaUtils.getLocalTimezoneID();
     Schema arrowSchema = ArrowUtils.toArrowSchema(schema, timeZoneId);
+    System.setProperty("arrow.struct.conflict.policy", AbstractStructVector.ConflictPolicy.CONFLICT_APPEND.toString());
     VectorSchemaRoot new_root =
         VectorSchemaRoot.create(arrowSchema, SparkMemoryUtils.contextAllocator());
-
     List<FieldVector> fieldVectors = new_root.getFieldVectors();
     ArrowWritableColumnVector[] vectors =
         new ArrowWritableColumnVector[fieldVectors.size()];
