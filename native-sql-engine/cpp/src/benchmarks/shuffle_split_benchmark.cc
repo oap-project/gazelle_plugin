@@ -154,8 +154,6 @@ BENCHMARK_DEFINE_F(BenchmarkShuffleSplit, CacheScan)(benchmark::State& state){
     int64_t num_rows = 0;
     int64_t split_time = 0;
 
-    std::shared_ptr<arrow::RecordBatch> record_batch;
-
     std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
     std::shared_ptr<RecordBatchReader> record_batch_reader;
     ASSERT_NOT_OK(::parquet::arrow::FileReader::Make(
@@ -242,7 +240,6 @@ BENCHMARK_DEFINE_F(BenchmarkShuffleSplit, IterateScan)(benchmark::State& state){
           splitter, Splitter::Make("rr", schema, num_partitions, std::move(options)));
     }
 
-    std::shared_ptr<arrow::RecordBatch> record_batch;
     int64_t elapse_read = 0;
     int64_t num_batches = 0;
     int64_t num_rows = 0;
