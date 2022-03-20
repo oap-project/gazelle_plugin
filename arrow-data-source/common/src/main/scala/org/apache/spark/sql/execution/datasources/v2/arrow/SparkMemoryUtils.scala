@@ -26,7 +26,6 @@ import scala.collection.JavaConverters._
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow._
 import com.sun.xml.internal.messaging.saaj.util.ByteOutputStream
 import org.apache.arrow.dataset.jni.NativeMemoryPool
-import org.apache.arrow.dataset.jni.ReservationListener
 import org.apache.arrow.memory.AllocationListener
 import org.apache.arrow.memory.BufferAllocator
 import org.apache.arrow.memory.MemoryChunkCleaner
@@ -44,16 +43,6 @@ import org.apache.spark.util.TaskCompletionListener
 object SparkMemoryUtils extends Logging {
 
   private val DEBUG: Boolean = false
-
-  class DummyReservationListener extends ReservationListener {
-    override def reserve(l: Long): Unit = {
-
-    }
-
-    override def unreserve(l: Long): Unit = {
-
-    }
-  }
 
   class TaskMemoryResources {
     if (!inSparkTask()) {
@@ -121,10 +110,9 @@ object SparkMemoryUtils extends Logging {
           Long.MaxValue)
 
     val defaultMemoryPool: NativeMemoryPoolWrapper = {
-//      val rl = new SparkManagedReservationListener(
-//        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
-//        sharedMetrics)
-      val rl = new DummyReservationListener
+      val rl = new SparkManagedReservationListener(
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
+        sharedMetrics)
       val pool = NativeMemoryPoolWrapper(NativeMemoryPool.createListenable(rl), rl,
         collectStackForDebug)
       memoryPools.add(pool)
@@ -132,10 +120,9 @@ object SparkMemoryUtils extends Logging {
     }
 
     def createSpillableMemoryPool(spiller: Spiller): NativeMemoryPool = {
-//      val rl = new SparkManagedReservationListener(
-//        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
-//        sharedMetrics)
-      val rl = new DummyReservationListener
+      val rl = new SparkManagedReservationListener(
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
+        sharedMetrics)
       val pool = NativeMemoryPool.createListenable(rl)
       memoryPools.add(NativeMemoryPoolWrapper(pool, rl, collectStackForDebug))
       pool
@@ -182,12 +169,7 @@ object SparkMemoryUtils extends Logging {
     private def softClose(pool: NativeMemoryPoolWrapper): Unit = {
       // move to leaked list
       logWarning(s"Detected leaked memory pool, size: ${pool.pool.getBytesAllocated}...")
-      pool.listener match {
-        case listener: SparkManagedReservationListener =>
-          listener.inactivate()
-        case _ =>
-      }
-
+      pool.listener.inactivate()
       if (DEBUG) {
         leakedMemoryPools.add(pool)
       }
@@ -373,5 +355,5 @@ object SparkMemoryUtils extends Logging {
   }
 
   case class NativeMemoryPoolWrapper(pool: NativeMemoryPool,
-      listener: ReservationListener, log: String = null)
+      listener: SparkManagedReservationListener, log: String = null)
 }
