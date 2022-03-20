@@ -173,7 +173,7 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowTransit
     Seq(child.executeColumnar().asInstanceOf[RDD[InternalRow]]) // Hack because of type erasure
   }
 
-  override protected def withNewChildInternal(newChild: SparkPlan): ArrowColumnarToRowExec =
+  protected def withNewChildInternal(newChild: SparkPlan): ArrowColumnarToRowExec =
     copy(child = newChild)
 }
 
