@@ -174,8 +174,22 @@ public class JniUtils {
       // only find all include file in the jar that contains JniUtils.class
       final String jarPath =
               JniUtils.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-      extractResourcesToDirectory(
-              new JarFile(new File(jarPath)), folderToLoad, tmp_dir + "/" + "nativesql_include");
+      if (jarPath.endsWith(".jar")) {
+        extractResourcesToDirectory(
+                new JarFile(new File(jarPath)), folderToLoad, tmp_dir + "/" + "nativesql_include");
+      } else {
+        // For Maven test only
+        final URLConnection urlConnection =
+                JniUtils.class.getClassLoader().getResource("include").openConnection();
+        String path = urlConnection.getURL().toString();
+        if (urlConnection.getURL().toString().startsWith("file:")) {
+          // remove the prefix of "file:" from includePath
+          path = urlConnection.getURL().toString().substring(5);
+        }
+        final File folder = new File(path);
+        copyResourcesToDirectory(urlConnection,
+                tmp_dir + "/" + "nativesql_include", folder);
+      }
     }
   }
 
