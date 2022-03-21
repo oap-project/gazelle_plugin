@@ -161,6 +161,10 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       ColumnarExpandExec(plan.projections, plan.output, child)
     case plan: SortExec =>
       val child = replaceWithColumnarPlan(plan.child)
+      if (!child.supportsColumnar) {
+        //FIXME: fallback here to improve perf
+        return plan.withNewChildren(Seq(child))
+      }
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       child match {
         case p: CoalesceBatchesExec =>
