@@ -227,40 +227,15 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
         val left = replaceWithColumnarPlan(plan.left)
         val right = replaceWithColumnarPlan(plan.right)
         logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-        // Due to the tackling for BroadcastQueryStageExec with ReusedExchangeExec(_,
-        // originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor), it is possible that
-        // left or right child has row based BroadcastExchangeExec. If so, we should fallback.
-        val leftBEE = left match {
-          case broadcastQueryStageExec: BroadcastQueryStageExec =>
-            broadcastQueryStageExec.plan match {
-              case _: BroadcastExchangeExec => true
-              case _ => false
-            }
-          case _ => false
-        }
-        val rightBEE = right match {
-          case broadcastQueryStageExec: BroadcastQueryStageExec =>
-            broadcastQueryStageExec.plan match {
-              case _: BroadcastExchangeExec => true
-              case _ => false
-            }
-          case _ => false
-        }
-        if (leftBEE || rightBEE) {
-          val children = plan.children.map(replaceWithColumnarPlan)
-          logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
-          plan.withNewChildren(children)
-        } else {
-          ColumnarBroadcastHashJoinExec(
-            plan.leftKeys,
-            plan.rightKeys,
-            plan.joinType,
-            plan.buildSide,
-            plan.condition,
-            left,
-            right,
-            nullAware = plan.isNullAwareAntiJoin)
-        }
+        ColumnarBroadcastHashJoinExec(
+          plan.leftKeys,
+          plan.rightKeys,
+          plan.joinType,
+          plan.buildSide,
+          plan.condition,
+          left,
+          right,
+          nullAware = plan.isNullAwareAntiJoin)
       } else {
         val children = plan.children.map(replaceWithColumnarPlan)
         logDebug(s"Columnar Processing for ${plan.getClass} is not currently supported.")
