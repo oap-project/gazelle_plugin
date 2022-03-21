@@ -77,7 +77,6 @@ case class ColumnarShuffleExchangeExec(
   override def output: Seq[Attribute] = child.output
   buildCheck()
 
-  val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
   
   override def supportsColumnar: Boolean = true
 
@@ -86,6 +85,7 @@ case class ColumnarShuffleExchangeExec(
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   def buildCheck(): Unit = {
+    val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
     // check input datatype
     for (attr <- child.output) {
       try {
