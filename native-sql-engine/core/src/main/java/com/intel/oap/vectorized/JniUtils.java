@@ -171,21 +171,11 @@ public class JniUtils {
         tmp_dir = System.getProperty("java.io.tmpdir");
       }
       final String folderToLoad = "include";
-      final URLConnection urlConnection = JniUtils.class.getClassLoader().getResource("include").openConnection();
-      if (urlConnection instanceof JarURLConnection) {
-        final JarFile jarFile = ((JarURLConnection) urlConnection).getJarFile();
-        extractResourcesToDirectory(jarFile, folderToLoad, tmp_dir + "/" + "nativesql_include");
-      } else {
-        // For Maven test only
-        String path = urlConnection.getURL().toString();
-        if (urlConnection.getURL().toString().startsWith("file:")) {
-          // remove the prefix of "file:" from includePath
-          path = urlConnection.getURL().toString().substring(5);
-        }
-        final File folder = new File(path);
-        copyResourcesToDirectory(urlConnection,
-                                 tmp_dir + "/" + "nativesql_include", folder);
-      }
+      // only find all include file in the jar that contains JniUtils.class
+      final String jarPath =
+              JniUtils.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+      extractResourcesToDirectory(
+              new JarFile(new File(jarPath)), folderToLoad, tmp_dir + "/" + "nativesql_include");
     }
   }
 
