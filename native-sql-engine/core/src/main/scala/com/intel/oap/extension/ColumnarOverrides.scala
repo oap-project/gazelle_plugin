@@ -209,15 +209,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
         right)
     case plan: BroadcastQueryStageExec =>
       logDebug(
-        s"Columnar Processing for ${plan.getClass} is currently supported, actual plan is ${plan.plan}.")
-      plan.plan match {
-        case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor) =>
-          val newBroadcast = BroadcastExchangeExec(
-            originalBroadcastPlan.mode,
-            DataToArrowColumnarExec(plan.plan, 1))
-          SparkShimLoader.getSparkShims.newBroadcastQueryStageExec(plan.id, newBroadcast)
-        case other => plan
-      }
+        s"Columnar Processing for ${plan.getClass} is currently supported, actual plan is ${plan.plan.getClass}.")
+      plan
     case plan: BroadcastExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
