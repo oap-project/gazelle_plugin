@@ -43,7 +43,7 @@ import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.execution.ShufflePartitionSpec
 import org.apache.spark.sql.execution._
 import org.apache.spark.sql.execution.adaptive.{ShuffleStageInfo, _}
-import org.apache.spark.sql.execution.aggregate.HashAggregateExec
+import org.apache.spark.sql.execution.aggregate.{HashAggregateExec, SortAggregateExec}
 import org.apache.spark.sql.execution.columnar.InMemoryTableScanExec
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.exchange._
@@ -167,6 +167,17 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
           ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
         case _ =>
           ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
+      }
+    case plan: SortAggregateExec =>
+      //FIXME: fallback sortagg and sort to improve per
+      val sortPlan = plan.child
+      if (sortPlan.isInstanceOf[SortExec]) {
+        val sortChild = sortPlan.asInstanceOf[SortExec].child
+        val child = replaceWithColumnarPlan(sortChild)
+        sortPlan.withNewChildren(Seq(child))
+        plan.withNewChildren(Seq(sortPlan.withNewChildren(Seq(child))))
+      } else {
+        plan
       }
     case plan: ShuffleExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
