@@ -29,6 +29,7 @@ import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression}
+import org.apache.spark.sql.catalyst.plans.logical.Statistics
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, _}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, _}
@@ -263,8 +264,8 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     copy(child = newChild)
 }
 
-class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
-    extends BroadcastExchangeExec(mode, child) {
+case class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
+    extends BroadcastExchangeLike {
   val plan: ColumnarBroadcastExchangeExec = new ColumnarBroadcastExchangeExec(mode, child)
 
   override def supportsColumnar = true
@@ -276,6 +277,13 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
   override def outputPartitioning: Partitioning = plan.outputPartitioning
 
   override def doCanonicalize(): SparkPlan = plan.doCanonicalize()
+
+  // Ported from BroadcastExchangeExec
+  override def runtimeStatistics: Statistics = {
+    val dataSize = metrics("dataSize").value
+    val rowCount = metrics("numOutputRows").value
+    Statistics(dataSize, Some(rowCount))
+  }
 
   @transient
   private val timeout: Long = SQLConf.get.broadcastTimeout
@@ -303,11 +311,7 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
   override protected[sql] def doExecuteBroadcast[T](): broadcast.Broadcast[T] =
     plan.doExecuteBroadcast[T]()
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeAdaptor]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarShuffleExchangeAdaptor =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
+  // For spark3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeAdaptor =
+    copy(child = newChild)
 }

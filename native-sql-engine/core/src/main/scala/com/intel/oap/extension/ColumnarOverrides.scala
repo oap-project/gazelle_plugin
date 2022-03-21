@@ -215,7 +215,7 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if (isSupportAdaptive)
-        new ColumnarBroadcastExchangeAdaptor(plan.mode, child)
+        ColumnarBroadcastExchangeAdaptor(plan.mode, child)
       else
         ColumnarBroadcastExchangeExec(plan.mode, child)
     case plan: BroadcastHashJoinExec =>
@@ -373,7 +373,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       if (columnarConf.enableArrowRowToColumnar) {
         logDebug(s"ColumnarPostOverrides ArrowRowToColumnarExec(${child.getClass})")
         try {
-          new ArrowRowToColumnarExec(child)
+          ArrowRowToColumnarExec(child)
         } catch {
           case _: Throwable =>
             logInfo("ArrowRowToColumnar: Falling back to RowToColumnar...")
@@ -393,7 +393,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
       if (columnarConf.enableArrowColumnarToRow) {
         val child = replaceWithColumnarPlan(plan.child)
         logDebug(s"ColumnarPostOverrides ArrowColumnarToRowExec(${child.getClass})")
-        new ArrowColumnarToRowExec(child)
+        ArrowColumnarToRowExec(child)
       } else {
         val children = plan.children.map(replaceWithColumnarPlan)
         plan.withNewChildren(children)
@@ -408,7 +408,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
           if (columnarConf.enableArrowColumnarToRow) {
             try {
               val child = replaceWithColumnarPlan(c.child)
-              new ArrowColumnarToRowExec(child)
+              ArrowColumnarToRowExec(child)
             } catch {
               case _: Throwable =>
                 logInfo("ArrowColumnarToRow : Falling back to ColumnarToRow...")

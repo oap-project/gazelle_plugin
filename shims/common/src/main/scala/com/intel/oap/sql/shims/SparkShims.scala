@@ -113,4 +113,12 @@ trait SparkShims {
     * REPARTITION is changed to REPARTITION_BY_COL from spark 3.2.
     */
   def isRepartition(shuffleOrigin: ShuffleOrigin): Boolean
+
+  def isCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Boolean
+
+  def getStartMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
+
+  def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
+
+  def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int
 }
