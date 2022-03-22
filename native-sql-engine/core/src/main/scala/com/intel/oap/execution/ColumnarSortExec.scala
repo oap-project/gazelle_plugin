@@ -104,7 +104,7 @@ case class ColumnarSortExec(
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec.")
+            s"${attr.dataType} is not supported in ColumnarSortExec.")
       }
     }
     // check expr
