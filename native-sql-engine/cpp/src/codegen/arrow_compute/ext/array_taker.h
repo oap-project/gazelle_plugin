@@ -379,9 +379,10 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
   arrow::MemoryPool* pool_;
 };
 
-class NextArrayTaker : public TakerBase {
+// For Array/Struct/Map
+class ComplexArrayTaker : public TakerBase {
  public:
-  NextArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool,
+  ComplexArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool,
                  std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx), pool_(pool), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
@@ -389,7 +390,7 @@ class NextArrayTaker : public TakerBase {
     builder_.reset(array_builder.release());
   }
 
-  ~NextArrayTaker() {}
+  ~ComplexArrayTaker() {}
 
   arrow::Status AddArray(const std::shared_ptr<arrow::Array>& arr) override {
     cached_arr_.push_back(arr);
@@ -552,7 +553,7 @@ static arrow::Status MakeArrayTaker(arrow::compute::ExecContext* ctx,
     case arrow::LargeListType::type_id:
     case arrow::StructType::type_id:
     case arrow::MapType::type_id: {
-      auto app_ptr = std::make_shared<NextArrayTaker>(ctx, ctx->memory_pool(), type);
+      auto app_ptr = std::make_shared<ComplexArrayTaker>(ctx, ctx->memory_pool(), type);
       *out = std::dynamic_pointer_cast<TakerBase>(app_ptr);
     } break;
     default: {
