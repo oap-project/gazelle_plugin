@@ -383,7 +383,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_same<DataType, arrow::StringT
 class ComplexArrayTaker : public TakerBase {
  public:
   ComplexArrayTaker(arrow::compute::ExecContext* ctx, arrow::MemoryPool* pool,
-                 std::shared_ptr<arrow::DataType> type)
+                    std::shared_ptr<arrow::DataType> type)
       : ctx_(ctx), pool_(pool), type_(type) {
     std::unique_ptr<arrow::ArrayBuilder> array_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), type_, &array_builder);

@@ -92,26 +92,19 @@ case class ColumnarSortExec(
   buildCheck()
 
   def buildCheck(): Unit = {
+    val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
     // check types
     for (attr <- output) {
-      attr.dataType match {
-        case d: BooleanType =>
-        case d: ByteType =>
-        case d: ShortType =>
-        case d: IntegerType =>
-        case d: LongType =>
-        case d: FloatType =>
-        case d: DoubleType =>
-        case d: StringType =>
-        case d: DateType =>
-        case d: DecimalType =>
-        case d: TimestampType =>
-        case d: ArrayType =>
-        case d: MapType =>
-        case d: StructType =>
-        case _ =>
+      try {
+        if (!columnarConf.enableComplexType) {
+          ConverterUtils.checkIfTypeSupported(attr.dataType)
+        } else {
+          ConverterUtils.checkIfComplexTypeSupported(attr.dataType)
+        }
+      } catch {
+        case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarSorter.")
+            s"${attr.dataType} is not supported in ColumnarShuffledExchangeExec.")
       }
     }
     // check expr
