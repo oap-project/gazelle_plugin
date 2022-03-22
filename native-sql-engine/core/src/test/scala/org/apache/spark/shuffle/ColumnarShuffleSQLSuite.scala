@@ -75,6 +75,7 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     lPath = lfile.getAbsolutePath
     spark.range(2).select(col("id"), expr("1").as("kind"),
         expr("array(1, 2)").as("arr_field"),
+      expr("array(\"hello\", \"world\")").as("arr_str_field"),
         expr("array(array(1, 2), array(3, 4))").as("arr_arr_field"),
         expr("array(struct(1, 2), struct(1, 2))").as("arr_struct_field"),
         expr("array(map(1, 2), map(3,4))").as("arr_map_field"),
@@ -200,6 +201,15 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     df.explain(true)
     df.show()
     assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ShuffleExchangeExec]).isDefined)
+  }
+
+  test("Test Array String in Shuffle split") {
+    val df = spark.sql("SELECT ltab.arr_str_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
+    df.printSchema()
+    df.explain(true)
+    df.show()
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.count == 2)
   }
 
   override def afterAll(): Unit = {
