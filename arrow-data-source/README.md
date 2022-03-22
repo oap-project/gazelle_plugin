@@ -117,7 +117,7 @@ You have to use a customized Arrow to support for our datasets Java API.
 
 ```
 // build arrow-cpp
-git clone -b arrow-4.0.0-oap https://github.com/oap-project/arrow.git
+git clone -b arrow-4.0.0-oap-1.3.1 https://github.com/oap-project/arrow.git
 cd arrow/cpp
 mkdir build
 cd build
