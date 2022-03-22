@@ -519,6 +519,25 @@ object ConverterUtils extends Logging {
       throw new UnsupportedOperationException(s"Unsupported data type: $dt")
   }
 
+  def checkIfComplexTypeSupported(dt: DataType): Unit = dt match {
+    case d: ArrayType =>
+    case d: StructType =>
+    case d: MapType =>
+    case d: BooleanType =>
+    case d: ByteType =>
+    case d: ShortType =>
+    case d: IntegerType =>
+    case d: LongType =>
+    case d: FloatType =>
+    case d: DoubleType =>
+    case d: StringType =>
+    case d: DateType =>
+    case d: DecimalType =>
+    case d: TimestampType =>
+    case _ =>
+      throw new UnsupportedOperationException(s"Unsupported data type: $dt")
+  }
+
   def checkIfNestTypeSupported(dt: DataType): Unit = dt match {
     case d: ArrayType => checkIfTypeSupported(d.elementType)
     case d: StructType =>
@@ -546,7 +565,7 @@ object ConverterUtils extends Logging {
       new Field(
         name,
         new FieldType(nullable, ArrowType.List.INSTANCE, null),
-        Lists.newArrayList(createArrowField(s"${name}_${dt}", at.elementType)))
+        Lists.newArrayList(createArrowField("element", at.elementType)))
     case st: StructType =>
       val fieldlist = new util.ArrayList[Field]
       var structField = null
