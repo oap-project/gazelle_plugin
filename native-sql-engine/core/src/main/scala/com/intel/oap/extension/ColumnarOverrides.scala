@@ -379,6 +379,12 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
   var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
+    case RowToColumnarExec(child: BroadcastQueryStageExec) =>
+      logDebug(s"$child Due to a fallback of BHJ inserted into plan." +
+        s" See above override in BroadcastQueryStageExec")
+      val localBroadcastXchg = child.plan.asInstanceOf[BroadcastExchangeExec]
+      val dataToRow = localBroadcastXchg.child.asInstanceOf[DataToArrowColumnarExec]
+      ColumnarBroadcastExchangeExec(localBroadcastXchg.mode, dataToRow)
     case plan: RowToColumnarExec =>
       val child = replaceWithColumnarPlan(plan.child)
       if (columnarConf.enableArrowRowToColumnar) {
