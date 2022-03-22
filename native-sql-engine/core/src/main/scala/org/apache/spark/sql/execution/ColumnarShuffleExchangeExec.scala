@@ -19,6 +19,7 @@ package org.apache.spark.sql.execution
 
 import com.google.common.collect.Lists
 import com.intel.oap.expression.{CodeGeneration, ColumnarExpression, ColumnarExpressionConverter, ConverterUtils}
+import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized.{ArrowColumnarBatchSerializer, ArrowWritableColumnVector, NativePartitioning}
 import org.apache.arrow.gandiva.expression.TreeBuilder
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, FieldType, Schema}
@@ -76,6 +77,7 @@ case class ColumnarShuffleExchangeExec(
   override def output: Seq[Attribute] = child.output
   buildCheck()
 
+  
   override def supportsColumnar: Boolean = true
 
   override def stringArgs =
@@ -83,10 +85,15 @@ case class ColumnarShuffleExchangeExec(
   //super.stringArgs ++ Iterator(output.map(o => s"${o}#${o.dataType.simpleString}"))
 
   def buildCheck(): Unit = {
+    val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
     // check input datatype
     for (attr <- child.output) {
       try {
-        ConverterUtils.createArrowField(attr)
+        if (!columnarConf.enableComplexType) {
+          ConverterUtils.checkIfTypeSupported(attr.dataType)
+        } else {
+          ConverterUtils.createArrowField(attr)
+        }
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
