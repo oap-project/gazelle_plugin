@@ -213,13 +213,20 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
         right)
     case plan: BroadcastQueryStageExec =>
       logDebug(
-        s"Columnar Processing for ${plan.getClass} is currently supported, actual plan is ${plan.plan.getClass}.")
-      plan
+        s"Columnar Processing for ${plan.getClass} is currently supported, actual plan is ${plan.plan}.")
+      plan.plan match {
+        case ReusedExchangeExec(_, originalBroadcastPlan: ColumnarBroadcastExchangeAdaptor) =>
+          val newBroadcast = BroadcastExchangeExec(
+            originalBroadcastPlan.mode,
+            DataToArrowColumnarExec(plan.plan, 1))
+          SparkShimLoader.getSparkShims.newBroadcastQueryStageExec(plan.id, newBroadcast)
+        case other => plan
+      }
     case plan: BroadcastExchangeExec =>
       val child = replaceWithColumnarPlan(plan.child)
       logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
       if (isSupportAdaptive)
-        new ColumnarBroadcastExchangeAdaptor(plan.mode, child)
+        ColumnarBroadcastExchangeAdaptor(plan.mode, child)
       else
         ColumnarBroadcastExchangeExec(plan.mode, child)
     case plan: BroadcastHashJoinExec =>
@@ -372,12 +379,23 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
   var isSupportAdaptive: Boolean = true
 
   def replaceWithColumnarPlan(plan: SparkPlan): SparkPlan = plan match {
+    // To get ColumnarBroadcastExchangeExec back from the fallback that for DPP reuse.
+    case RowToColumnarExec(broadcastQueryStageExec: BroadcastQueryStageExec)
+      if (broadcastQueryStageExec.plan match {
+        case BroadcastExchangeExec(_, _: DataToArrowColumnarExec) => true
+        case _ => false
+      }) =>
+      logDebug(s"Due to a fallback of BHJ inserted into plan." +
+        s" See above override in BroadcastQueryStageExec")
+      val localBroadcastXchg = broadcastQueryStageExec.plan.asInstanceOf[BroadcastExchangeExec]
+      val dataToArrowColumnar = localBroadcastXchg.child.asInstanceOf[DataToArrowColumnarExec]
+      ColumnarBroadcastExchangeExec(localBroadcastXchg.mode, dataToArrowColumnar)
     case plan: RowToColumnarExec =>
       val child = replaceWithColumnarPlan(plan.child)
       if (columnarConf.enableArrowRowToColumnar) {
         logDebug(s"ColumnarPostOverrides ArrowRowToColumnarExec(${child.getClass})")
         try {
-          new ArrowRowToColumnarExec(child)
+          ArrowRowToColumnarExec(child)
         } catch {
           case _: Throwable =>
             logInfo("ArrowRowToColumnar: Falling back to RowToColumnar...")
@@ -398,7 +416,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
         val child = replaceWithColumnarPlan(plan.child)
         logDebug(s"ColumnarPostOverrides ArrowColumnarToRowExec(${child.getClass})")
         try {
-          new ArrowColumnarToRowExec(child)
+          ArrowColumnarToRowExec(child)
         } catch {
           case _: Throwable =>
             logInfo("ArrowColumnarToRowExec: Falling back to ColumnarToRow...")
@@ -418,7 +436,7 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
           if (columnarConf.enableArrowColumnarToRow) {
             try {
               val child = replaceWithColumnarPlan(c.child)
-              new ArrowColumnarToRowExec(child)
+              ArrowColumnarToRowExec(child)
             } catch {
               case _: Throwable =>
                 logInfo("ArrowColumnarToRow : Falling back to ColumnarToRow...")

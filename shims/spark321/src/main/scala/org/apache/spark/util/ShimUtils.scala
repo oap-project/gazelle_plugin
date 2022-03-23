@@ -37,7 +37,8 @@ object ShimUtils {
                                          shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit = {
     shuffleBlockResolver match {
       case resolver: IndexShuffleBlockResolver =>
-        resolver.writeMetadataFileAndCommit(shuffleId, mapId, partitionLengths, null, dataTmp)
+        // Set checksums with an empty array. TODO: do we need to pass the actual checksum?
+        resolver.writeMetadataFileAndCommit(shuffleId, mapId, partitionLengths, Array[Long](), dataTmp)
       case _ => throw new RuntimeException ("IndexShuffleBlockResolver is expected!")
     }
   }

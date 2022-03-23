@@ -17,6 +17,8 @@
 
 package org.apache.spark.sql.execution
 
+import com.intel.oap.sql.shims.SparkShimLoader
+
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.shuffle.sort.SortShuffleManager
@@ -86,6 +88,13 @@ class ShuffledColumnarBatchRDD(
           coalescedPartitionSpec.endReducerIndex).flatMap { reducerIndex =>
           tracker.getPreferredLocationsForShuffle(dependency, reducerIndex)
         }
+      case spec if SparkShimLoader.getSparkShims.isCoalescedMapperPartitionSpec(spec) =>
+        val startMapIndex =
+          SparkShimLoader.getSparkShims.getStartMapIndexOfCoalescedMapperPartitionSpec(spec)
+        val endMapIndex =
+          SparkShimLoader.getSparkShims.getEndMapIndexOfCoalescedMapperPartitionSpec(spec)
+        tracker.getMapLocation(dependency, startMapIndex, endMapIndex)
+
       case PartialReducerPartitionSpec(_, startMapIndex, endMapIndex, _) =>
         tracker.getMapLocation(dependency, startMapIndex, endMapIndex)
 
@@ -126,6 +135,22 @@ class ShuffledColumnarBatchRDD(
           mapIndex + 1,
           startReducerIndex,
           endReducerIndex,
+          context,
+          sqlMetricsReporter)
+      
+      case spec if SparkShimLoader.getSparkShims.isCoalescedMapperPartitionSpec(spec) =>
+        val startMapIndex =
+          SparkShimLoader.getSparkShims.getStartMapIndexOfCoalescedMapperPartitionSpec(spec)
+        val endMapIndex =
+          SparkShimLoader.getSparkShims.getEndMapIndexOfCoalescedMapperPartitionSpec(spec)
+        val numReducers =
+          SparkShimLoader.getSparkShims.getNumReducersOfCoalescedMapperPartitionSpec(spec)
+        SparkEnv.get.shuffleManager.getReader(
+          dependency.shuffleHandle,
+          startMapIndex,
+          endMapIndex,
+          0,
+          numReducers,
           context,
           sqlMetricsReporter)
     }

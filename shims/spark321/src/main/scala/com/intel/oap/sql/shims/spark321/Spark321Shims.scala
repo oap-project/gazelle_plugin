@@ -38,14 +38,13 @@ import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Expression
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
 import org.apache.spark.sql.catalyst.util.RebaseDateTime.RebaseSpec
-import org.apache.spark.sql.execution.ShufflePartitionSpec
-import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.{CoalescedMapperPartitionSpec, ShufflePartitionSpec, SparkPlan}
 import org.apache.spark.sql.execution.adaptive.{AQEShuffleReadExec, BroadcastQueryStageExec, ShuffleQueryStageExec}
 import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
-import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION_BY_COL, ReusedExchangeExec, ShuffleExchangeExec, ShuffleOrigin}
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION_BY_COL, ReusedExchangeExec, ShuffleOrigin}
 import org.apache.spark.sql.execution.joins.HashedRelationBroadcastMode
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.LongType
@@ -161,27 +160,6 @@ class Spark321Shims extends SparkShims {
     ShimUtils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf)
   }
 
-//  /**
-//    * Fix compatibility issue that ShuffleQueryStageExec has an additional argument in spark 3.2.
-//    * ShuffleExchangeExec replaces ColumnarShuffleExchangeAdaptor to avoid cyclic dependency. This
-//    * changes need futher test to verify.
-//    */
-//  override def outputPartitioningForColumnarCustomShuffleReaderExec(child: SparkPlan): Partitioning = {
-//    child match {
-//      case ShuffleQueryStageExec(_, s: ShuffleExchangeExec, _) =>
-//        s.child.outputPartitioning
-//      case ShuffleQueryStageExec(
-//      _,
-//      r @ ReusedExchangeExec(_, s: ShuffleExchangeExec), _) =>
-//        s.child.outputPartitioning match {
-//          case e: Expression => r.updateAttr(e).asInstanceOf[Partitioning]
-//          case other => other
-//        }
-//      case _ =>
-//        throw new IllegalStateException("operating on canonicalization plan")
-//    }
-//  }
-
   override def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec):
   BroadcastQueryStageExec = {
     BroadcastQueryStageExec(id, plan, plan.doCanonicalize)
@@ -227,6 +205,34 @@ class Spark321Shims extends SparkShims {
     shuffleOrigin match {
       case REPARTITION_BY_COL => true
       case _ => false
+    }
+  }
+
+  override def isCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Boolean = {
+    spec match {
+      case _: CoalescedMapperPartitionSpec => true
+      case _ => false
+    }
+  }
+
+  override def getStartMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    spec match {
+      case c: CoalescedMapperPartitionSpec => c.startMapIndex
+      case _ => throw new RuntimeException("CoalescedMapperPartitionSpec is expected!")
+    }
+  }
+
+  override def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    spec match {
+      case c: CoalescedMapperPartitionSpec => c.endMapIndex
+      case _ => throw new RuntimeException("CoalescedMapperPartitionSpec is expected!")
+    }
+  }
+
+  override def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    spec match {
+      case c: CoalescedMapperPartitionSpec => c.numReducers
+      case _ => throw new RuntimeException("CoalescedMapperPartitionSpec is expected!")
     }
   }
 
