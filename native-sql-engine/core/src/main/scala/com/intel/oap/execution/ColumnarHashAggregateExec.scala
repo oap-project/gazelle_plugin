@@ -272,6 +272,9 @@ case class ColumnarHashAggregateExec(
               case t: BooleanType =>
                 vectors(idx)
                   .put(0, res.asInstanceOf[Boolean].booleanValue())
+              case t: DecimalType =>
+                vectors(idx)
+                  .put(0, res.asInstanceOf[Number].intValue())
               case other =>
                 throw new UnsupportedOperationException(s"$other is not supported.")
             }

@@ -224,12 +224,13 @@ case class ColumnarCollapseCodegenStages(
       case p: ColumnarConditionProjectExec
           if (containsSubquery(p.condition) || containsSubquery(p.projectList)) =>
         new ColumnarInputAdapter(p.withNewChildren(p.children.map(insertWholeStageCodegen)))
-      case j: ColumnarSortMergeJoinExec
-          if j.buildPlan.isInstanceOf[ColumnarSortMergeJoinExec] || (j.buildPlan
-            .isInstanceOf[ColumnarConditionProjectExec] && j.buildPlan
-            .children(0)
-            .isInstanceOf[ColumnarSortMergeJoinExec]) =>
+      case j: ColumnarSortMergeJoinExec =>
+          // if j.buildPlan.isInstanceOf[ColumnarSortMergeJoinExec] || (j.buildPlan
+          //   .isInstanceOf[ColumnarConditionProjectExec] && j.buildPlan
+          //   .children(0)
+          //   .isInstanceOf[ColumnarSortMergeJoinExec]) =>
         // we don't support any ColumnarSortMergeJoin whose both children are ColumnarSortMergeJoin
+        System.out.println(s"HHH1: $j")
         j.withNewChildren(j.children.map(c => {
           if (c.equals(j.buildPlan)) {
             new ColumnarInputAdapter(insertWholeStageCodegen(c))
@@ -255,7 +256,18 @@ case class ColumnarCollapseCodegenStages(
                 }
               }))
             } else {
+              System.out.println(s"III: $after_opt")
+              if (after_opt.isInstanceOf[ColumnarSortMergeJoinExec]) {
+                val localSMJ = after_opt.asInstanceOf[ColumnarSortMergeJoinExec]
+                if (localSMJ.left.isInstanceOf[ColumnarSortMergeJoinExec] && localSMJ.right.isInstanceOf[ColumnarSortMergeJoinExec]) {
+                  return after_opt.withNewChildren(after_opt.children.map(c => {
+                    System.out.println(s"KKK: $c")
+                    new ColumnarInputAdapter(insertWholeStageCodegen(c))
+                  }))
+                }
+              }
               after_opt.withNewChildren(after_opt.children.map(c => {
+                System.out.println(s"OOO: $c")
                 insertInputAdapter(c)
               }))
             }
@@ -277,6 +289,7 @@ case class ColumnarCollapseCodegenStages(
         plan.withNewChildren(plan.children.map(insertWholeStageCodegen))
       case j: ColumnarHashAggregateExec =>
         if (j.supportColumnarCodegen && !j.child.isInstanceOf[ColumnarHashAggregateExec] && existsJoins(j)) {
+          System.out.println(s"HHH: $j")
           ColumnarWholeStageCodegenExec(j.withNewChildren(j.children.map(insertInputAdapter)))(
             codegenStageCounter.incrementAndGet())
         } else {
