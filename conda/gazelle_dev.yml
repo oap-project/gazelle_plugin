@@ -70,5 +70,3 @@ dependencies:
   - yaml=0.2.5=h7b6447c_0
   - zlib=1.2.11=h7f8727e_4
   - zstd=1.5.0=ha4553b6_1
-prefix: /root/.conda/envs/gazelle_dev
-
