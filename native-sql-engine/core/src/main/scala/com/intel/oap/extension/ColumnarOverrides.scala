@@ -389,7 +389,8 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
         s" See above override in BroadcastQueryStageExec")
       val localBroadcastXchg = broadcastQueryStageExec.plan.asInstanceOf[BroadcastExchangeExec]
       val dataToArrowColumnar = localBroadcastXchg.child.asInstanceOf[DataToArrowColumnarExec]
-      ColumnarBroadcastExchangeExec(localBroadcastXchg.mode, dataToArrowColumnar)
+      //ColumnarBroadcastExchangeExec(localBroadcastXchg.mode, dataToArrowColumnar)
+      dataToArrowColumnar.child
     case plan: RowToColumnarExec =>
       val child = replaceWithColumnarPlan(plan.child)
       if (columnarConf.enableArrowRowToColumnar) {
