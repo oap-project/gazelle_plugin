@@ -255,9 +255,8 @@ case class ColumnarCollapseCodegenStages(
                 }
               }))
             } else {
-              after_opt.withNewChildren(after_opt.children.map(c => {
-                insertInputAdapter(c)
-              }))
+              // after_opt needs to be checked also.
+              insertInputAdapter(after_opt)
             }
           case _ =>
             p.withNewChildren(p.children.map(insertInputAdapter))
