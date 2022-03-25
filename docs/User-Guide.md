@@ -68,7 +68,7 @@ If you prefer to build from the source code on your hand, please follow below st
 #### Prerequisite
 
 There are some requirements before you build the project.
-Please check the document [Prerequisite](./Prerequisite.md) and make sure you have already installed the software in your system. A [conda env](./conda/) was also provided to help to setup the building env quickly.
+Please check the document [Prerequisite](./Prerequisite.md) and make sure you have already installed the software in your system. A [conda env](../conda/gazelle_dev.yml) was also provided to help to setup the building env quickly.
 If you are running a SPARK Cluster, please make sure all the software are installed in every single node.
 
 #### Installation
