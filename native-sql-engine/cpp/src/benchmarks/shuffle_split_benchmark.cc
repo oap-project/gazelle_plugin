@@ -299,7 +299,7 @@ BENCHMARK_DEFINE_F(BenchmarkShuffleSplit, IterateScan)(benchmark::State& state){
     state.counters["split_time"] = benchmark::Counter(split_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
 }
 
-BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, CacheScan)->Iterations(1)
+/*BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, CacheScan)->Iterations(1)
       ->Args({96*2, arrow::Compression::FASTPFOR})
       ->Args({96*4, arrow::Compression::FASTPFOR})
       ->Args({96*8, arrow::Compression::FASTPFOR})
@@ -312,8 +312,8 @@ BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, CacheScan)->Iterations(1)
       ->Threads(16)
       ->Threads(24)
       ->Unit(benchmark::kSecond);
-
-BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, IterateScan)->Iterations(1)
+*/
+/*BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, IterateScan)->Iterations(1)
       ->Args({96*2, arrow::Compression::FASTPFOR})
       ->Args({96*4, arrow::Compression::FASTPFOR})
       ->Args({96*8, arrow::Compression::FASTPFOR})
@@ -325,6 +325,12 @@ BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, IterateScan)->Iterations(1)
       ->Threads(8)
       ->Threads(16)
       ->Threads(24)
+      ->Unit(benchmark::kSecond);*/
+BENCHMARK_REGISTER_F(BenchmarkShuffleSplit, IterateScan)->Iterations(1)
+      ->Args({96*16, arrow::Compression::FASTPFOR})
+      ->Threads(24)
+      ->ReportAggregatesOnly(false)
+      ->MeasureProcessCPUTime()
       ->Unit(benchmark::kSecond);
 }  // namespace shuffle
 }  // namespace sparkcolumnarplugin
