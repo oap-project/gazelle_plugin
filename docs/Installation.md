@@ -12,10 +12,11 @@ yum install gmock
 ## Build Gazelle Plugin
 
 ``` shell
-git clone -b ${version} https://github.com/oap-project/native-sql-engine.git
-cd oap-native-sql
-mvn clean package -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
+git clone -b ${version} https://github.com/oap-project/gazelle_plugin.git
+cd gazelle_plugin
+mvn clean package -PSpark-3.2 -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 ```
+Two Spark profiles(spark-3.1, spark-3.2) were provided to build packages for different Spark.
 
 Based on the different environment, there are some parameters can be set via -D with mvn.
 
@@ -27,7 +28,7 @@ Based on the different environment, there are some parameters can be set via -D 
 | build_protobuf | Build Protobuf from Source. If set to False, default library path will be used to find protobuf library. | True |
 
 When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from [OAP Arrow](https://github.com/oap-project/arrow/tree/arrow-4.0.0-oap)
-If you wish to change any parameters from Arrow, you can change it from the `build_arrow.sh` script under `native-sql-engine/arrow-data-source/script/`.
+If you wish to change any parameters from Arrow, you can change it from the `build_arrow.sh` script under `gazelle_plugin/arrow-data-source/script/`.
 
 ### Additional Notes
 [Notes for Installation Issues](./InstallationNotes.md)
