@@ -77,7 +77,8 @@ Please check the document [Installation Guide](./Installation.md)
 
 ## Get started
 
-To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` should be added to Spark configuration. We also recommend to use `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar`. We will demonstrate an example by using both jar files.
+To enable Gazelle Plugin, the previous built jar `spark-columnar-core-<version>-jar-with-dependencies.jar` and `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` should be added to Spark configuration. As of 1.3.1 release, a new shim layer was introduced to work with Spark minor releases. The shim layer also have two jars`spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar` and `spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar`
+We will demonstrate an example with Spark 3.2.1 by here.
 SPARK related options are:
 
 * `spark.driver.extraClassPath` : Set to load jar file to driver.
@@ -98,8 +99,10 @@ ${SPARK_HOME}/bin/spark-shell \
         --master yarn \
         --driver-memory 10G \
         --conf spark.plugins=com.intel.oap.GazellePlugin \
-        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
-        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar:$PATH_TO_JAR/
+        spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-<version>-jar-with-dependencies.jar:$PATH_TO_JAR/spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar:$PATH_TO_JAR/
+        spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar \
         --conf spark.shuffle.manager=org.apache.spark.shuffle.sort.ColumnarShuffleManager \
         --conf spark.driver.cores=1 \
         --conf spark.executor.instances=12 \
