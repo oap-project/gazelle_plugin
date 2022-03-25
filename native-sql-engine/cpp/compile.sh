@@ -26,14 +26,10 @@ cd ${CURRENT_DIR}
 if [ -d build ]; then
     rm -r build
 fi
-mkdir build
+mkdir -p build
 cd build
 cmake .. -DTESTS=${TESTS} -DBUILD_ARROW=${BUILD_ARROW} -DSTATIC_ARROW=${STATIC_ARROW} -DBUILD_PROTOBUF=${BUILD_PROTOBUF} -DARROW_ROOT=${ARROW_ROOT} -DARROW_BFS_INSTALL_DIR=${ARROW_BFS_INSTALL_DIR} -DBUILD_JEMALLOC=${BUILD_JEMALLOC}
-make -j2
+cores=$(grep -c ^processor /proc/cpuinfo 2>/dev/null)
+make -j$cores
 
 set +eu
-
-make -j2
-
-set +eu
-

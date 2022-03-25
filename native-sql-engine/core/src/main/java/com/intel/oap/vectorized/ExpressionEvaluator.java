@@ -58,6 +58,7 @@ public class ExpressionEvaluator implements AutoCloseable {
     jniWrapper = new ExpressionEvaluatorJniWrapper(tmp_dir, listJars);
     jniWrapper.nativeSetJavaTmpDir(jniWrapper.tmp_dir_path);
     jniWrapper.nativeSetBatchSize(GazellePluginConfig.getBatchSize());
+    jniWrapper.nativeSetHashmapMultipiler(GazellePluginConfig.getHashmapMultipiler());
     if (GazellePluginConfig.getSpillThreshold() != -1)
         jniWrapper.nativeSetSortSpillThreshold(GazellePluginConfig.getSpillThreshold());
     jniWrapper.nativeSetMetricsTime(GazellePluginConfig.getEnableMetricsTime());

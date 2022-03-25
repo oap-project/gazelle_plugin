@@ -55,6 +55,7 @@ class HashRelationKernel::Impl {
        const std::vector<std::shared_ptr<arrow::Field>>& output_field_list)
       : ctx_(ctx), input_field_list_(input_field_list) {
     pool_ = ctx_->memory_pool();
+    multipiler_ = GetHashmapMultipiler();
     std::vector<std::shared_ptr<HashRelationColumn>> hash_relation_list;
     for (auto field : input_field_list) {
       std::shared_ptr<HashRelationColumn> hash_relation_column;
@@ -172,8 +173,10 @@ class HashRelationKernel::Impl {
       }
       long tmp_capacity = init_key_capacity;
       if (key_size_ != -1) {
+        // Single key
         tmp_capacity *= 16;
       } else {
+        // multiple keys or string key
         tmp_capacity *= 128;
       }
       if (tmp_capacity > INT_MAX) {
@@ -264,6 +267,7 @@ class HashRelationKernel::Impl {
   std::shared_ptr<HashRelation> hash_relation_;
   std::vector<arrow::ArrayVector> keys_cached_;
   std::vector<std::shared_ptr<arrow::Array>> key_hash_cached_;
+  int multipiler_;
   uint64_t num_total_cached_ = 0;
   int builder_type_ = 0;
   bool semi_ = false;

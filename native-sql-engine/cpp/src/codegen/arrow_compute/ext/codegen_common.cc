@@ -564,6 +564,17 @@ int GetBatchSize() {
   return batch_size;
 }
 
+int GetHashmapMultipiler() {
+  int m;
+  const char* m2 = std::getenv("NATIVESQL_HASHMAP_MULTIPILER");
+  if (m2 != nullptr) {
+    m = atoi(m2);
+  } else {
+    m = 128;
+  }
+  return m;
+}
+
 int GetMemoryThreshold() {
   int size;
   const char* env_size = std::getenv("NATIVESQL_MAX_MEMORY_SIZE");

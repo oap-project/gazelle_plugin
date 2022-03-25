@@ -65,6 +65,14 @@ public class ExpressionEvaluatorJniWrapper {
         native void nativeSetSortSpillThreshold(long spill_threshold);
 
         /**
+         * Set native env variables NATIVE_BATCH_SIZE
+         *
+         * @param batch_size numRows of one batch, use
+         *                   spark.sql.execution.sort.spillThreshold
+         */
+        native void nativeSetHashmapMultipiler(int multipler);
+
+        /**
          * Set native env variables NATIVESQL_METRICS_TIME
          *
          * @param batch_size numRows of one batch, use

@@ -165,6 +165,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val batchSize: Int =
     conf.getConfString("spark.sql.execution.arrow.maxRecordsPerBatch", "10000").toInt
 
+  // hash map memory multipiler
+  val hashmapMultipiler: Int =
+    conf.getConfString("spark.oap.sql.columnar.hashmapMultipiler", "128").toInt
+
   val sortSpillThreshold: Long =
     conf.getConfString("spark.sql.execution.sort.spillThreshold", "-1").toLong
 
@@ -244,6 +248,14 @@ object GazellePluginConfig {
       10000
     } else {
       ins.batchSize
+    }
+  }
+
+  def getHashmapMultipiler: Int = synchronized {
+    if (ins == null) {
+      128
+    } else {
+      ins.hashmapMultipiler
     }
   }
 

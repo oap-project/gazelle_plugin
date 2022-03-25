@@ -38,6 +38,8 @@ int FileSpinLock();
 void FileSpinUnLock(int fd);
 
 int GetBatchSize();
+int GetHashmapMultipiler();
+
 int GetMemoryThreshold();
 bool GetEnableTimeMetrics();
 std::string exec(const char* cmd);

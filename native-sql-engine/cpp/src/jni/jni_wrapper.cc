@@ -347,6 +347,12 @@ Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetBatchSize(
 }
 
 JNIEXPORT void JNICALL
+Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetHashmapMultipler(
+    JNIEnv* env, jobject obj, jint multipler) {
+  setenv("NATIVESQL_HASHMAP_MULTIPILER", std::to_string(multipler).c_str(), 1);
+}
+
+JNIEXPORT void JNICALL
 Java_com_intel_oap_vectorized_ExpressionEvaluatorJniWrapper_nativeSetSortSpillThreshold(
     JNIEnv* env, jobject obj, jlong spill_size) {
   JNI_METHOD_START
