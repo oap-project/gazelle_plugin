@@ -248,7 +248,7 @@ case class ColumnarCollapseCodegenStages(
             .isInstanceOf[ColumnarSortMergeJoinExec]) =>
         // we don't support any ColumnarSortMergeJoin whose both children are ColumnarSortMergeJoin
         j.withNewChildren(j.children.map(c => {
-          if (c.isInstanceOf[ColumnarSortMergeJoinExec]) {
+          if (c.equals(j.buildPlan)) {
             new ColumnarInputAdapter(insertWholeStageCodegen(c))
           } else {
             insertInputAdapter(c)
