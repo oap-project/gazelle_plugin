@@ -201,7 +201,8 @@ case class ColumnarCollapseCodegenStages(
         p.right,
         plan.projectList)
     case p: ColumnarSortMergeJoinExec
-        if !skip_smj && plan.condition == null && !containsExpression(plan.projectList) =>
+        if !skip_smj && plan.condition == null && !containsExpression(plan.projectList)
+          && !isConsecutiveSMJ(p) =>
       ColumnarSortMergeJoinExec(
         p.leftKeys,
         p.rightKeys,
@@ -215,10 +216,26 @@ case class ColumnarCollapseCodegenStages(
   }
 
   /**
+    * To filter the case that a opeeration is SMJ and its children are also SMJ (TPC-DS q23b).
+    */
+  def isConsecutiveSMJ(plan: SparkPlan): Boolean = {
+    plan match {
+      case p: ColumnarSortMergeJoinExec if p.left.isInstanceOf[ColumnarSortMergeJoinExec]
+        && p.right.isInstanceOf[ColumnarSortMergeJoinExec] =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  /**
    * Inserts an InputAdapter on top of those that do not support codegen.
    */
   private def insertInputAdapter(plan: SparkPlan): SparkPlan = {
     plan match {
+      case p if isConsecutiveSMJ(p) =>
+        new ColumnarInputAdapter(p.withNewChildren(p.children.map(c =>
+          insertWholeStageCodegen(c))))
       case p if !supportCodegen(p) =>
         new ColumnarInputAdapter(insertWholeStageCodegen(p))
       case p: ColumnarConditionProjectExec
