@@ -18,7 +18,9 @@
 package com.intel.oap.execution
 
 //import com.intel.oap.GazellePluginConfig
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.rdd.RDD
+import org.apache.spark.sql.catalyst.expressions.{DynamicPruningExpression, Literal, _}
+import org.apache.spark.sql.catalyst.plans.QueryPlan
 import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
 import org.apache.spark.sql.connector.read.{InputPartition, PartitionReaderFactory, Scan}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
@@ -28,7 +30,7 @@ import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
   * The runtimeFilters is not actually used in ColumnarBatchScanExec currently.
   * This class lacks the implementation for doExecuteColumnar.
   */
-abstract class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan,
+class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan,
                                      runtimeFilters: Seq[Expression])
     extends BatchScanExec(output, scan, runtimeFilters) {
   // tmpDir is used by ParquetReader, which looks useless (may be removed in the future).
@@ -42,6 +44,18 @@ abstract class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient
     "numOutputBatches" -> SQLMetrics.createMetric(sparkContext, "output_batches"),
     "scanTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_batchscan"),
     "inputSize" -> SQLMetrics.createSizeMetric(sparkContext, "input size in bytes"))
+
+  override def doExecuteColumnar(): RDD[ColumnarBatch] = {
+    throw new RuntimeException("Fix me!")
+  }
+
+  override def doCanonicalize(): ColumnarBatchScanExec = {
+    new ColumnarBatchScanExec(
+      output.map(QueryPlan.normalizeExpressions(_, output)), scan,
+      QueryPlan.normalizePredicates(
+        runtimeFilters.filterNot(_ == DynamicPruningExpression(Literal.TrueLiteral)),
+        output))
+  }
 
   override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBatchScanExec]
 
