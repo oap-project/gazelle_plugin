@@ -43,7 +43,7 @@ import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils, Utils}
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-import org.apache.spark.sql.types.DecimalType
+import org.apache.spark.sql.types._
 
 import scala.util.control.Breaks.{break, breakable}
 
@@ -92,19 +92,32 @@ case class ColumnarSortExec(
   buildCheck()
 
   def buildCheck(): Unit = {
+    val columnarConf: GazellePluginConfig = GazellePluginConfig.getSessionConf
     // check types
     for (attr <- output) {
       try {
-        ConverterUtils.checkIfTypeSupported(attr.dataType)
+        if (!columnarConf.enableComplexType) {
+          ConverterUtils.checkIfTypeSupported(attr.dataType)
+        } else {
+          ConverterUtils.checkIfComplexTypeSupported(attr.dataType)
+        }
       } catch {
         case e: UnsupportedOperationException =>
           throw new UnsupportedOperationException(
-            s"${attr.dataType} is not supported in ColumnarSorter.")
+            s"${attr.dataType} is not supported in ColumnarSortExec.")
       }
     }
     // check expr
     sortOrder.toList.map(expr => {
       ColumnarExpressionConverter.replaceWithColumnarExpression(expr.child)
+      val attr = ConverterUtils.getAttrFromExpr(expr.child, true)
+      try {
+        ConverterUtils.checkIfTypeSupported(attr.dataType)
+      } catch {
+        case e: UnsupportedOperationException =>
+          throw new UnsupportedOperationException(
+            s"${attr.dataType} is not supported in ColumnarSortExec keys.")
+      }
     })
   }
 
@@ -240,4 +253,7 @@ case class ColumnarSortExec(
     }
   }
 
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarSortExec =
+    copy(child = newChild)
 }

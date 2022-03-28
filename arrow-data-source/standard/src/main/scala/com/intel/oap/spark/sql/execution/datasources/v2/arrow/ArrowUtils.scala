@@ -18,6 +18,7 @@
 package com.intel.oap.spark.sql.execution.datasources.v2.arrow
 
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.time.ZoneId
 
 import scala.collection.JavaConverters._
@@ -69,7 +70,7 @@ object ArrowUtils {
     }
   }
 
-  def makeArrowDiscovery(file: String, startOffset: Long, length: Long,
+  def makeArrowDiscovery(encodedUri: String, startOffset: Long, length: Long,
                          options: ArrowOptions): FileSystemDatasetFactory = {
 
     val format = getFormat(options)
@@ -77,7 +78,7 @@ object ArrowUtils {
     val factory = new FileSystemDatasetFactory(allocator,
       SparkMemoryUtils.contextMemoryPool(),
       format,
-      rewriteUri(file),
+      rewriteUri(encodedUri),
       startOffset,
       length)
     factory
@@ -122,8 +123,9 @@ object ArrowUtils {
     }
   }
 
-  private def rewriteUri(uriStr: String): String = {
-    val uri = URI.create(uriStr)
+  private def rewriteUri(encodeUri: String): String = {
+    val decodedUri = encodeUri
+    val uri = URI.create(decodedUri)
     if (uri.getScheme == "s3" || uri.getScheme == "s3a") {
       val s3Rewritten = new URI("s3", uri.getAuthority,
         uri.getPath, uri.getQuery, uri.getFragment).toString
@@ -134,8 +136,8 @@ object ArrowUtils {
       case "file" => "file"
     }
     val ssp = uri.getScheme match {
-      case "hdfs" => uri.getRawSchemeSpecificPart
-      case "file" => "//" + uri.getRawSchemeSpecificPart
+      case "hdfs" => uri.getSchemeSpecificPart
+      case "file" => "//" + uri.getSchemeSpecificPart
     }
     val rewritten = new URI(sch, ssp, uri.getFragment)
     rewritten.toString

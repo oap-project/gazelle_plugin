@@ -19,7 +19,7 @@ package com.intel.oap.misc
 
 import com.intel.oap.tpc.ds.TPCDSTableGen
 import com.intel.oap.tpc.util.TPCRunner
-//import org.apache.log4j.{Level, LogManager}
+import org.apache.log4j.{Level, LogManager}
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.functions.{col, expr}
@@ -29,7 +29,7 @@ import java.nio.file.Files
 
 class PartitioningSuite extends QueryTest with SharedSparkSession {
 
-  private val MAX_DIRECT_MEMORY = "5000m"
+  private val MAX_DIRECT_MEMORY = "10000m"
   private var runner: TPCRunner = _
 
   private var lPath: String = _
@@ -68,7 +68,7 @@ class PartitioningSuite extends QueryTest with SharedSparkSession {
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    //LogManager.getRootLogger.setLevel(Level.WARN)
+    LogManager.getRootLogger.setLevel(Level.WARN)
 
     lPath = Files.createTempFile("", ".parquet").toFile.getAbsolutePath
     spark.range(scale)

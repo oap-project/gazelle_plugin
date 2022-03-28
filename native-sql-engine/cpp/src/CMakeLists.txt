@@ -304,11 +304,13 @@ macro(find_arrow)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/arrow DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/gandiva DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_BFS_INCLUDE_DIR}/parquet DESTINATION ${root_directory}/releases/include)
+    file(COPY ${ARROW_BFS_INCLUDE_DIR}/re2 DESTINATION ${root_directory}/releases/include)
   else()
     message(STATUS "COPY and Set Arrow Header to: ${ARROW_INCLUDE_DIR}")
     file(COPY ${ARROW_INCLUDE_DIR}/arrow DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_INCLUDE_DIR}/gandiva DESTINATION ${root_directory}/releases/include)
     file(COPY ${ARROW_INCLUDE_DIR}/parquet DESTINATION ${root_directory}/releases/include)
+    file(COPY ${ARROW_INCLUDE_DIR}/re2 DESTINATION ${root_directory}/releases/include)
   endif()
 
   # Set up Arrow Shared Library Directory
@@ -511,6 +513,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/kernels_ext.cc
         shuffle/splitter.cc
         operators/columnar_to_row_converter.cc
+        operators/row_to_columnar_converter.cc
         precompile/hash_map.cc
         precompile/sparse_hash_map.cc
         precompile/builder.cc

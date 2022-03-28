@@ -16,7 +16,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.intel.oap</groupId>
   <artifactId>native-sql-engine-parent</artifactId>
-  <version>1.3.0-SNAPSHOT</version>
+  <version>1.4.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Native SQL Engine Parent Pom</name>
@@ -46,24 +46,34 @@
       </properties>
     </profile>
     <profile>
-        <id>spark-3.1.1</id>
+        <id>spark-3.1</id>
         <properties>
             <spark.version>${spark311.version}</spark.version>
+            <scala.version>2.12.10</scala.version>
+            <jackson.version>2.10.0</jackson.version>
         </properties>
     </profile>
     <profile>
+      <id>spark-3.2</id>
+      <properties>
+        <spark.version>${spark321.version}</spark.version>
+        <scala.version>2.12.15</scala.version>
+        <jackson.version>2.12.0</jackson.version>
+      </properties>
+    </profile>
+    <profile>
       <id>hadoop-2.7.4</id>
-      <activation>
-        <property>
-          <name>!hadoop.version</name>
-        </property>
-      </activation>
       <properties>
         <hadoop.version>2.7.4</hadoop.version>
       </properties>
     </profile>
     <profile>
       <id>hadoop-3.2</id>
+      <activation>
+        <property>
+          <name>!hadoop.version</name>
+        </property>
+      </activation>
       <properties>
         <hadoop.version>3.2.0</hadoop.version>
       </properties>
@@ -111,10 +121,19 @@
   </profiles>
 
   <properties>
-    <scala.version>2.12.10</scala.version>
-    <scala.binary.version>2.12</scala.binary.version>
+    <!--TODO: need to verify whether the settings will be overridden in profile-->
     <spark.version>3.1.1</spark.version>
+    <spark311.version>3.1.1</spark311.version>
+    <spark321.version>3.2.1</spark321.version>
+    <!-- Scala 2.12.10 is the version for default spark 3.1 -->
+    <scala.version>2.12.10</scala.version>
+    <java.version>1.8</java.version>
+    <maven.compiler.source>${java.version}</maven.compiler.source>
+    <maven.compiler.target>${java.version}</maven.compiler.target>
+    <jackson.version>2.10.0</jackson.version>
+    <scala.binary.version>2.12</scala.binary.version>
     <arrow.version>4.0.0</arrow.version>
+    <log4j.version>2.17.1</log4j.version>
     <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
     <hadoop.version>${hadoop.version}</hadoop.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -129,7 +148,6 @@
     <build_jemalloc>ON</build_jemalloc>
     <project.prefix>spark-sql-columnar</project.prefix>
     <project.name.prefix>OAP Project Spark Columnar Plugin</project.name.prefix>
-    <spark311.version>3.1.1</spark311.version>
   </properties>
 
   <dependencyManagement>
@@ -196,6 +214,10 @@
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-recipes</artifactId>
           </exclusion>
+          <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+          </exclusion>
         </exclusions>
       </dependency>
       <dependency>
@@ -206,6 +228,10 @@
           <exclusion>
             <groupId>org.apache.arrow</groupId>
             <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
           </exclusion>
         </exclusions>
         <type>test-jar</type>
@@ -219,6 +245,10 @@
           <exclusion>
             <groupId>org.apache.arrow</groupId>
             <artifactId>*</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
           </exclusion>
         </exclusions>
         <type>test-jar</type>
@@ -260,6 +290,30 @@
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest_${scala.binary.version}</artifactId>
         <version>3.2.3</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-1.2-api</artifactId>
+        <version>${log4j.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-api</artifactId>
+        <version>${log4j.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-core</artifactId>
+        <version>${log4j.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.logging.log4j</groupId>
+        <artifactId>log4j-slf4j-impl</artifactId>
+        <version>${log4j.version}</version>
         <scope>test</scope>
       </dependency>
     </dependencies>

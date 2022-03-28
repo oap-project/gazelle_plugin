@@ -76,40 +76,17 @@ class HashRelationKernel::Impl {
           std::dynamic_pointer_cast<gandiva::LiteralNode>(parameter_nodes[0])->holder());
       builder_type_ = std::stoi(builder_type_str);
     }
+    // Notes:
+    // 0 -> unsed, should be removed
+    // 1 -> SHJ
+    // 2 -> BHJ
+    // 3 -> Semi opts SHJ, can be applied to anti join also
     if (builder_type_ == 3) {
       // This is for using unsafeHashMap while with skipDuplication strategy
       semi_ = true;
       builder_type_ = 1;
     }
-    if (builder_type_ == 0) {
-      // builder_type_ == 0 will be abandoned in near future, won't support
-      // decimal here.
-      if (key_nodes.size() == 1) {
-        auto key_node = key_nodes[0];
-        std::shared_ptr<TypedNodeVisitor> node_visitor;
-        THROW_NOT_OK(MakeTypedNodeVisitor(key_node, &node_visitor));
-        if (node_visitor->GetResultType() == TypedNodeVisitor::FieldNode) {
-          std::shared_ptr<gandiva::FieldNode> field_node;
-          node_visitor->GetTypedNode(&field_node);
-          key_fields.push_back(field_node->field());
-          need_project = false;
-        }
-      }
-      if (!need_project) {
-        THROW_NOT_OK(GetIndexList(key_fields, input_field_list, &key_indices_));
-        THROW_NOT_OK(MakeHashRelation(key_fields[0]->type()->id(), ctx_,
-                                      hash_relation_list, &hash_relation_));
-      } else {
-        gandiva::ExpressionPtr project_expr;
-        project_expr = GetConcatedKernel(key_nodes);
-        auto schema = arrow::schema(input_field_list);
-        auto configuration = gandiva::ConfigurationBuilder().DefaultConfiguration();
-        THROW_NOT_OK(gandiva::Projector::Make(schema, {project_expr}, configuration,
-                                              &key_projector_));
-        THROW_NOT_OK(MakeHashRelation(project_expr->result()->type()->id(), ctx_,
-                                      hash_relation_list, &hash_relation_));
-      }
-    } else if (builder_type_ == 1) {
+    if (builder_type_ == 1) {
       // we will use unsafe_row and new unsafe_hash_map
       gandiva::ExpressionVector key_project_expr = GetGandivaKernel(key_nodes);
       gandiva::ExpressionPtr key_hash_expr = GetHash32Kernel(key_nodes);
@@ -145,6 +122,7 @@ class HashRelationKernel::Impl {
         hash_relation_ =
             std::make_shared<HashRelation>(ctx_, hash_relation_list, key_size_);
       } else {
+        // TODO: better to estimate key_size_ for multiple keys join
         hash_relation_ = std::make_shared<HashRelation>(ctx_, hash_relation_list);
       }
     } else {
@@ -161,36 +139,24 @@ class HashRelationKernel::Impl {
     }
     if (builder_type_ == 2) return arrow::Status::OK();
     std::shared_ptr<arrow::Array> key_array;
-    if (builder_type_ == 0) {
-      if (key_projector_) {
-        arrow::ArrayVector outputs;
-        auto length = in.size() > 0 ? in[0]->length() : 0;
-        auto in_batch =
-            arrow::RecordBatch::Make(arrow::schema(input_field_list_), length, in);
-        RETURN_NOT_OK(key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
-        key_array = outputs[0];
-      } else {
-        key_array = in[key_indices_[0]];
-      }
-      key_hash_cached_.push_back(key_array);
-    } else {
-      /* Process original key projection */
-      arrow::ArrayVector project_outputs;
-      auto length = in.size() > 0 ? in[0]->length() : 0;
-      auto in_batch =
-          arrow::RecordBatch::Make(arrow::schema(input_field_list_), length, in);
-      RETURN_NOT_OK(key_prepare_projector_->Evaluate(*in_batch, ctx_->memory_pool(),
-                                                     &project_outputs));
-      keys_cached_.push_back(project_outputs);
-      /* Process key Hash projection */
-      arrow::ArrayVector hash_outputs;
-      auto hash_in_batch =
-          arrow::RecordBatch::Make(hash_input_schema_, length, project_outputs);
-      RETURN_NOT_OK(
-          key_projector_->Evaluate(*hash_in_batch, ctx_->memory_pool(), &hash_outputs));
-      key_array = hash_outputs[0];
-      key_hash_cached_.push_back(key_array);
-    }
+
+    /* Process original key projection */
+    arrow::ArrayVector project_outputs;
+    auto length = in.size() > 0 ? in[0]->length() : 0;
+    auto in_batch =
+        arrow::RecordBatch::Make(arrow::schema(input_field_list_), length, in);
+    RETURN_NOT_OK(key_prepare_projector_->Evaluate(*in_batch, ctx_->memory_pool(),
+                                                   &project_outputs));
+    keys_cached_.push_back(project_outputs);
+    /* Process key Hash projection */
+    arrow::ArrayVector hash_outputs;
+    auto hash_in_batch =
+        arrow::RecordBatch::Make(hash_input_schema_, length, project_outputs);
+    RETURN_NOT_OK(
+        key_projector_->Evaluate(*hash_in_batch, ctx_->memory_pool(), &hash_outputs));
+    key_array = hash_outputs[0];
+    key_hash_cached_.push_back(key_array);
+
     return arrow::Status::OK();
   }
 
@@ -200,12 +166,13 @@ class HashRelationKernel::Impl {
     if (builder_type_ == 1) {
       int init_key_capacity = 128;
       int init_bytes_map_capacity = init_key_capacity * 256;
+      // TODO: should try to estimate the disticnt keys
       if (num_total_cached_ > 32) {
         init_key_capacity = pow(2, ceil(log2(num_total_cached_)) + 1);
       }
       long tmp_capacity = init_key_capacity;
       if (key_size_ != -1) {
-        tmp_capacity *= 12;
+        tmp_capacity *= 16;
       } else {
         tmp_capacity *= 128;
       }

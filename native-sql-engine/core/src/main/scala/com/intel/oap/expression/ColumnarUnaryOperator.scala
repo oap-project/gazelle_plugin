@@ -27,9 +27,9 @@ import org.apache.arrow.vector.types.pojo.Field
 import org.apache.arrow.vector.types.DateUnit
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.Rand
 import org.apache.spark.sql.catalyst.optimizer._
 import org.apache.spark.sql.types._
-import scala.collection.mutable.ListBuffer
 
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfMonth
 import com.intel.oap.expression.ColumnarDateTimeExpressions.ColumnarDayOfWeek
@@ -293,6 +293,66 @@ class ColumnarAbs(child: Expression, original: Expression)
   }
 }
 
+class ColumnarFloor(child: Expression, original: Expression)
+    extends Floor(child: Expression)
+        with ColumnarExpression
+        with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    // Currently, decimal type is not supported.
+    val supportedTypes = List(DoubleType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarFloor")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode =
+      TreeBuilder.makeFunction("floor", Lists.newArrayList(child_node), resultType)
+    (funcNode, resultType)
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false && child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+}
+
+class ColumnarCeil(child: Expression, original: Expression)
+    extends Ceil(child: Expression)
+        with ColumnarExpression
+        with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    // Currently, decimal type is not supported.
+    val supportedTypes = List(DoubleType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 &&
+        !child.dataType.isInstanceOf[DecimalType]) {
+      throw new UnsupportedOperationException(
+        s"${child.dataType} is not supported in ColumnarCeil")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = CodeGeneration.getResultType(dataType)
+    val funcNode =
+      TreeBuilder.makeFunction("ceil", Lists.newArrayList(child_node), resultType)
+    (funcNode, resultType)
+  }
+}
+
 class ColumnarUpper(child: Expression, original: Expression)
     extends Upper(child: Expression)
     with ColumnarExpression
@@ -408,6 +468,7 @@ class ColumnarCast(
     if (datatype == StringType) {
       val supported =
         List(
+          BooleanType,
           ByteType,
           ShortType,
           IntegerType,
@@ -430,12 +491,14 @@ class ColumnarCast(
       }
     } else if (datatype == IntegerType) {
       val supported =
-        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType, DecimalType, StringType)
+        List(ByteType, ShortType, LongType, FloatType, DoubleType, DateType,
+          DecimalType, StringType)
       if (supported.indexOf(child.dataType) == -1 && !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(s"${child.dataType} is not supported in castINT")
       }
     } else if (datatype == LongType) {
-      val supported = List(IntegerType, FloatType, DoubleType, DateType, DecimalType, TimestampType, StringType)
+      val supported = List(IntegerType, FloatType, DoubleType, DateType,
+        DecimalType, TimestampType, StringType, BooleanType)
       if (supported.indexOf(child.dataType) == -1 &&
           !child.dataType.isInstanceOf[DecimalType]) {
         throw new UnsupportedOperationException(
@@ -494,21 +557,22 @@ class ColumnarCast(
     }
     if (dataType == StringType) {
       val limitLen: java.lang.Long = childType0 match {
-        case int: ArrowType.Int if int.getBitWidth == 8 => 4
-        case int: ArrowType.Int if int.getBitWidth == 16 => 6
-        case int: ArrowType.Int if int.getBitWidth == 32 => 11
-        case int: ArrowType.Int if int.getBitWidth == 64 => 20
+        case int: ArrowType.Int if int.getBitWidth == 8 => 4L
+        case int: ArrowType.Int if int.getBitWidth == 16 => 6L
+        case int: ArrowType.Int if int.getBitWidth == 32 => 11L
+        case int: ArrowType.Int if int.getBitWidth == 64 => 20L
         case float: ArrowType.FloatingPoint
             if float.getPrecision() == FloatingPointPrecision.SINGLE =>
-          12
+          12L
         case float: ArrowType.FloatingPoint
             if float.getPrecision() == FloatingPointPrecision.DOUBLE =>
-          21
-        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10
+          21L
+        case _: ArrowType.Bool => 10L
+        case date: ArrowType.Date if date.getUnit == DateUnit.DAY => 10L
         case decimal: ArrowType.Decimal =>
           // Add two to precision for decimal point and negative sign
           (decimal.getPrecision() + 2)
-        case _: ArrowType.Timestamp => 24
+        case _: ArrowType.Timestamp => 24L
         case _ =>
           throw new UnsupportedOperationException(
             s"ColumnarCast to String doesn't support ${childType0}")
@@ -789,6 +853,43 @@ class ColumnarNormalizeNaNAndZero(child: Expression, original: NormalizeNaNAndZe
   }
 }
 
+class ColumnarRand(child: Expression)
+    extends Rand(child: Expression) with ColumnarExpression with Logging {
+
+  val resultType = new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE);
+  var offset: Integer = _;
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedTypes = List(IntegerType, LongType)
+    if (supportedTypes.indexOf(child.dataType) == -1 || !child.foldable) {
+      // Align with Spark's exception message and to pass the below unit test:
+      // test("SPARK-33945: handles a random seed consisting of an expr tree")
+      throw new Exception(
+        "Input argument to rand/random must be an integer, long, or null constant")
+    }
+  }
+
+  // Aligned with Spark, seed + partitionIndex will be the actual seed.
+  override def initializeInternal(partitionIndex: Int): Unit = {
+    offset = partitionIndex;
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    if (offset != null) {
+      val offsetNode = TreeBuilder.makeLiteral(offset)
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node, offsetNode),
+        resultType), resultType)
+    } else {
+      (TreeBuilder.makeFunction("rand", Lists.newArrayList(child_node),
+        resultType), resultType)
+    }
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -818,6 +919,10 @@ object ColumnarUnaryOperator {
       new ColumnarNot(child, n)
     case a: Abs =>
       new ColumnarAbs(child, a)
+    case f: Floor =>
+      new ColumnarFloor(child, f)
+    case c: Ceil =>
+      new ColumnarCeil(child, c)
     case u: Upper =>
       new ColumnarUpper(child, u)
     case c: Cast =>
@@ -850,6 +955,8 @@ object ColumnarUnaryOperator {
       new ColumnarMillisToTimestamp(child)
     case a: MicrosToTimestamp =>
       new ColumnarMicrosToTimestamp(child)
+    case r: Rand =>
+      new ColumnarRand(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {

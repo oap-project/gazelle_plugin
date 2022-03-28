@@ -21,6 +21,7 @@ import java.util.concurrent._
 
 import com.google.common.collect.Lists
 import com.intel.oap.expression._
+import com.intel.oap.sql.shims.SparkShimLoader
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, ExpressionEvaluator}
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field}
@@ -28,6 +29,7 @@ import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{Attribute, Expression}
+import org.apache.spark.sql.catalyst.plans.logical.Statistics
 import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, _}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, _}
@@ -84,9 +86,12 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     promise.future
 
   @transient
+  private lazy val maxBroadcastRows = SparkShimLoader.getSparkShims.getMaxBroadcastRows(mode)
+
+  @transient
   private[sql] lazy val relationFuture: java.util.concurrent.Future[broadcast.Broadcast[Any]] = {
     SQLExecution.withThreadLocalCaptured[broadcast.Broadcast[Any]](
-      sqlContext.sparkSession,
+      SparkShimLoader.getSparkShims.getSparkSession(this),
       BroadcastExchangeExec.executionContext) {
       var relation: Any = null
       try {
@@ -162,9 +167,9 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
 
         /////////////////////////////////////////////////////////////////////////////
 
-        if (numRows >= BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS) {
+        if (numRows >= maxBroadcastRows) {
           throw new SparkException(
-            s"Cannot broadcast the table over ${BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS} rows: $numRows rows")
+            s"Cannot broadcast the table over ${maxBroadcastRows} rows: $numRows rows")
         }
 
         longMetric("collectTime") += NANOSECONDS.toMillis(System.nanoTime() - beforeCollect)
@@ -254,10 +259,13 @@ case class ColumnarBroadcastExchangeExec(mode: BroadcastMode, child: SparkPlan) 
     }
   }
 
+  // For spark 3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeExec =
+    copy(child = newChild)
 }
 
-class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
-    extends BroadcastExchangeExec(mode, child) {
+case class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
+    extends BroadcastExchangeLike {
   val plan: ColumnarBroadcastExchangeExec = new ColumnarBroadcastExchangeExec(mode, child)
 
   override def supportsColumnar = true
@@ -269,6 +277,13 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
   override def outputPartitioning: Partitioning = plan.outputPartitioning
 
   override def doCanonicalize(): SparkPlan = plan.doCanonicalize()
+
+  // Ported from BroadcastExchangeExec
+  override def runtimeStatistics: Statistics = {
+    val dataSize = metrics("dataSize").value
+    val rowCount = metrics("numOutputRows").value
+    Statistics(dataSize, Some(rowCount))
+  }
 
   @transient
   private val timeout: Long = SQLConf.get.broadcastTimeout
@@ -296,11 +311,7 @@ class ColumnarBroadcastExchangeAdaptor(mode: BroadcastMode, child: SparkPlan)
   override protected[sql] def doExecuteBroadcast[T](): broadcast.Broadcast[T] =
     plan.doExecuteBroadcast[T]()
 
-  override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarShuffleExchangeAdaptor]
-
-  override def equals(other: Any): Boolean = other match {
-    case that: ColumnarShuffleExchangeAdaptor =>
-      (that canEqual this) && super.equals(that)
-    case _ => false
-  }
+  // For spark3.2.
+  protected def withNewChildInternal(newChild: SparkPlan): ColumnarBroadcastExchangeAdaptor =
+    copy(child = newChild)
 }

@@ -292,11 +292,11 @@ arrow::Status Splitter::Init() {
       case arrow::LargeStringType::type_id:
         large_binary_array_idx_.push_back(i);
         break;
+      case arrow::StructType::type_id:
+      case arrow::MapType::type_id:
+      case arrow::LargeListType::type_id:
       case arrow::ListType::type_id:
         list_array_idx_.push_back(i);
-        break;
-      case arrow::LargeListType::type_id:
-        large_list_array_idx_.push_back(i);
         break;
       case arrow::NullType::type_id:
         break;
@@ -329,10 +329,6 @@ arrow::Status Splitter::Init() {
   partition_list_builders_.resize(list_array_idx_.size());
   for (auto i = 0; i < list_array_idx_.size(); ++i) {
     partition_list_builders_[i].resize(num_partitions_);
-  }
-  partition_large_list_builders_.resize(large_list_array_idx_.size());
-  for (auto i = 0; i < large_list_array_idx_.size(); ++i) {
-    partition_large_list_builders_[i].resize(num_partitions_);
   }
 
   ARROW_ASSIGN_OR_RAISE(configured_dirs_, GetConfiguredLocalDirs());
@@ -433,8 +429,15 @@ arrow::Status Splitter::Split(const arrow::RecordBatch& rb) {
 arrow::Status Splitter::Stop() {
   EVAL_START("write", options_.thread_id)
   // open data file output stream
-  ARROW_ASSIGN_OR_RAISE(data_file_os_,
+  std::shared_ptr<arrow::io::FileOutputStream> fout;
+  ARROW_ASSIGN_OR_RAISE(fout,
                         arrow::io::FileOutputStream::Open(options_.data_file, true));
+  if (options_.buffered_write) {
+    ARROW_ASSIGN_OR_RAISE(data_file_os_, arrow::io::UnlockedBufferedOutputStream::Create(
+                                             16384, options_.memory_pool, fout));
+  } else {
+    data_file_os_ = fout;
+  }
 
   // stop PartitionWriter and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
@@ -469,7 +472,6 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     auto binary_idx = 0;
     auto large_binary_idx = 0;
     auto list_idx = 0;
-    auto large_list_idx = 0;
     auto num_fields = schema_->num_fields();
     auto num_rows = partition_buffer_idx_base_[partition_id];
     auto buffer_sizes = 0;
@@ -509,6 +511,9 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           large_binary_idx++;
           break;
         }
+        case arrow::StructType::type_id:
+        case arrow::MapType::type_id:
+        case arrow::LargeListType::type_id:
         case arrow::ListType::type_id: {
           auto& builder = partition_list_builders_[list_idx][partition_id];
           if (reset_buffers) {
@@ -520,19 +525,6 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
             RETURN_NOT_OK(builder->Reserve(num_rows));
           }
           list_idx++;
-          break;
-        }
-        case arrow::LargeListType::type_id: {
-          auto& builder = partition_large_list_builders_[large_list_idx][partition_id];
-          if (reset_buffers) {
-            RETURN_NOT_OK(builder->Finish(&arrays[i]));
-            builder->Reset();
-          } else {
-            RETURN_NOT_OK(builder->Finish(&arrays[i]));
-            builder->Reset();
-            RETURN_NOT_OK(builder->Reserve(num_rows));
-          }
-          large_list_idx++;
           break;
         }
         case arrow::NullType::type_id: {
@@ -586,12 +578,10 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
   auto binary_idx = 0;
   auto large_binary_idx = 0;
   auto list_idx = 0;
-  auto large_list_idx = 0;
 
   std::vector<std::shared_ptr<arrow::BinaryBuilder>> new_binary_builders;
   std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>> new_large_binary_builders;
-  std::vector<std::shared_ptr<arrow::ListBuilder>> new_list_builders;
-  std::vector<std::shared_ptr<arrow::LargeListBuilder>> new_large_list_builders;
+  std::vector<std::shared_ptr<arrow::ArrayBuilder>> new_list_builders;
   std::vector<std::shared_ptr<arrow::ResizableBuffer>> new_value_buffers;
   std::vector<std::shared_ptr<arrow::ResizableBuffer>> new_validity_buffers;
   for (auto i = 0; i < num_fields; ++i) {
@@ -618,31 +608,17 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         large_binary_idx++;
         break;
       }
+      case arrow::StructType::type_id:
+      case arrow::MapType::type_id:
+      case arrow::LargeListType::type_id:
       case arrow::ListType::type_id: {
-        auto child_type =
-            std::dynamic_pointer_cast<arrow::ListType>(column_type_id_[i])->value_type();
-        std::unique_ptr<arrow::ArrayBuilder> child_builder;
-        RETURN_NOT_OK(MakeBuilder(options_.memory_pool, child_type, &child_builder));
-        auto builder = std::make_shared<arrow::ListBuilder>(options_.memory_pool,
-                                                            std::move(child_builder));
-        assert(builder != nullptr);
-        RETURN_NOT_OK(builder->Reserve(new_size));
-        new_list_builders.push_back(std::move(builder));
+        std::unique_ptr<arrow::ArrayBuilder> array_builder;
+        RETURN_NOT_OK(
+            MakeBuilder(options_.memory_pool, column_type_id_[i], &array_builder));
+        assert(array_builder != nullptr);
+        RETURN_NOT_OK(array_builder->Reserve(new_size));
+        new_list_builders.push_back(std::move(array_builder));
         list_idx++;
-        break;
-      }
-      case arrow::LargeListType::type_id: {
-        auto child_type =
-            std::dynamic_pointer_cast<arrow::LargeListType>(column_type_id_[i])
-                ->value_type();
-        std::unique_ptr<arrow::ArrayBuilder> child_builder;
-        RETURN_NOT_OK(MakeBuilder(options_.memory_pool, child_type, &child_builder));
-        auto builder = std::make_shared<arrow::LargeListBuilder>(
-            options_.memory_pool, std::move(child_builder));
-        assert(builder != nullptr);
-        RETURN_NOT_OK(builder->Reserve(new_size));
-        new_large_list_builders.push_back(std::move(builder));
-        large_list_idx++;
         break;
       }
       case arrow::NullType::type_id:
@@ -680,7 +656,6 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
   // point to newly allocated buffers
   fixed_width_idx = binary_idx = large_binary_idx = 0;
   list_idx = 0;
-  large_list_idx = 0;
   for (auto i = 0; i < num_fields; ++i) {
     switch (column_type_id_[i]->id()) {
       case arrow::BinaryType::type_id:
@@ -695,15 +670,13 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
             std::move(new_large_binary_builders[large_binary_idx]);
         large_binary_idx++;
         break;
+      case arrow::StructType::type_id:
+      case arrow::MapType::type_id:
+      case arrow::LargeListType::type_id:
       case arrow::ListType::type_id:
         partition_list_builders_[list_idx][partition_id] =
             std::move(new_list_builders[list_idx]);
         list_idx++;
-        break;
-      case arrow::LargeListType::type_id:
-        partition_large_list_builders_[large_list_idx][partition_id] =
-            std::move(new_large_list_builders[large_list_idx]);
-        large_list_idx++;
         break;
       case arrow::NullType::type_id:
         break;
@@ -889,7 +862,6 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   RETURN_NOT_OK(SplitBinaryArray(rb));
   RETURN_NOT_OK(SplitLargeBinaryArray(rb));
   RETURN_NOT_OK(SplitListArray(rb));
-  RETURN_NOT_OK(SplitLargeListArray(rb));
 
   // update partition buffer base
   for (auto pid = 0; pid < num_partitions_; ++pid) {
@@ -1227,46 +1199,13 @@ arrow::Status Splitter::SplitListArray(const arrow::RecordBatch& rb) {
   for (int i = 0; i < list_array_idx_.size(); ++i) {
     auto src_arr =
         std::static_pointer_cast<arrow::ListArray>(rb.column(list_array_idx_[i]));
-    switch (src_arr->value_type()->id()) {
-#define PROCESS(InType)                                       \
-  case InType::type_id: {                                     \
-    auto status = AppendList<arrow::ListType, InType>(        \
-        src_arr, partition_list_builders_[i], rb.num_rows()); \
-    if (!status.ok()) return status;                          \
-  } break;
-      PROCESS_SUPPORTED_TYPES(PROCESS)
-#undef PROCESS
-      default: {
-        return arrow::Status::NotImplemented(
-            "AppendList internal type not supported, type is ",
-            src_arr->value_type()->ToString());
-      } break;
-    }
+    auto status = AppendList(rb.column(list_array_idx_[i]), partition_list_builders_[i],
+                             rb.num_rows());
+    if (!status.ok()) return status;
   }
   return arrow::Status::OK();
 }
 
-arrow::Status Splitter::SplitLargeListArray(const arrow::RecordBatch& rb) {
-  for (int i = 0; i < large_list_array_idx_.size(); ++i) {
-    auto src_arr = std::static_pointer_cast<arrow::LargeListArray>(
-        rb.column(large_list_array_idx_[i]));
-    switch (src_arr->value_type()->id()) {
-#define PROCESS(InType)                                       \
-  case InType::type_id: {                                     \
-    return AppendList<arrow::LargeListType, InType>(          \
-        src_arr, partition_list_builders_[i], rb.num_rows()); \
-  } break;
-      PROCESS_SUPPORTED_TYPES(PROCESS)
-#undef PROCESS
-      default: {
-        return arrow::Status::NotImplemented(
-            "AppendList internal type not supported, type is ",
-            src_arr->value_type()->ToString());
-      } break;
-    }
-  }
-  return arrow::Status::OK();
-}
 #undef PROCESS_SUPPORTED_TYPES
 
 template <typename T, typename ArrayType, typename BuilderType>
@@ -1300,49 +1239,13 @@ arrow::Status Splitter::AppendBinary(
   return arrow::Status::OK();
 }
 
-template <typename T, typename ValueType, typename ArrayType, typename BuilderType>
 arrow::Status Splitter::AppendList(
-    const std::shared_ptr<ArrayType>& src_arr,
-    const std::vector<std::shared_ptr<BuilderType>>& dst_builders, int64_t num_rows) {
-  using offset_type = typename T::offset_type;
-  using ValueBuilderType = typename arrow::TypeTraits<ValueType>::BuilderType;
-  using ValueArrayType = typename arrow::TypeTraits<ValueType>::ArrayType;
-  std::vector<ValueBuilderType*> dst_values_builders;
-  for (auto builder : dst_builders) {
-    dst_values_builders.push_back(
-        checked_cast<ValueBuilderType*>(builder->value_builder()));
-  }
-  auto src_arr_values = std::dynamic_pointer_cast<ValueArrayType>(src_arr->values());
-
-  if (src_arr->values()->null_count() == 0) {
-    for (auto row = 0; row < num_rows; ++row) {
-      auto src_arr_values_offset = src_arr->value_offset(row);
-      auto src_arr_values_length = src_arr->value_offset(row + 1) - src_arr_values_offset;
-      RETURN_NOT_OK(dst_builders[partition_id_[row]]->Append());
-      for (auto i = 0; i < src_arr_values_length; i++) {
-        RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->Append(
-            src_arr_values->GetView(src_arr_values_offset + i)));
-      }
-    }
-  } else {
-    for (auto row = 0; row < num_rows; ++row) {
-      if (src_arr->IsValid(row)) {
-        auto src_arr_values_offset = src_arr->value_offset(row);
-        auto src_arr_values_length =
-            src_arr->value_offset(row + 1) - src_arr_values_offset;
-        RETURN_NOT_OK(dst_builders[partition_id_[row]]->Append());
-        for (auto i = 0; i < src_arr_values_length; i++) {
-          if (src_arr_values->IsValid(src_arr_values_offset + i)) {
-            RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->Append(
-                src_arr_values->GetView(src_arr_values_offset + i)));
-          } else {
-            RETURN_NOT_OK(dst_values_builders[partition_id_[row]]->AppendNull());
-          }
-        }
-      } else {
-        RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendNull());
-      }
-    }
+    const std::shared_ptr<arrow::Array>& src_arr,
+    const std::vector<std::shared_ptr<arrow::ArrayBuilder>>& dst_builders,
+    int64_t num_rows) {
+  for (auto row = 0; row < num_rows; ++row) {
+    RETURN_NOT_OK(dst_builders[partition_id_[row]]->AppendArraySlice(
+        *(src_arr->data().get()), row, 1));
   }
   return arrow::Status::OK();
 }

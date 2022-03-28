@@ -80,6 +80,9 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val enableArrowColumnarToRow: Boolean =
     conf.getConfString("spark.oap.sql.columnar.columnartorow", "true").toBoolean && enableCpu
 
+  val enableArrowRowToColumnar: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.rowtocolumnar", "true").toBoolean && enableCpu
+
   val forceShuffledHashJoin: Boolean =
     conf.getConfString("spark.oap.sql.columnar.forceshuffledhashjoin", "false").toBoolean &&
         enableCpu
@@ -145,6 +148,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val enableColumnarShuffle: Boolean = conf
     .getConfString("spark.shuffle.manager", "sort")
     .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager") && enableCpu
+
+  // enable experimental complex type support
+  val enableComplexType: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.enableComplexType", "true").toBoolean
 
   // for all perf turnings
   // prefer to use columnar operators if set to true

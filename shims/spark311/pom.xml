@@ -20,7 +20,7 @@
   <parent>
     <groupId>com.intel.oap</groupId>
     <artifactId>spark-sql-columnar-shims</artifactId>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.4.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -91,6 +91,30 @@
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
       <version>${spark311.version}</version>
     <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>spark-arrow-datasource-common</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>23.0</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-mapreduce-client-core</artifactId>
+      <version>${hadoop.version}</version>
+      <scope>provided</scope>
     </dependency>
   </dependencies>
 </project>

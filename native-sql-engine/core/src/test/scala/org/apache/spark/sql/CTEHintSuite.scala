@@ -17,7 +17,7 @@
 
 package org.apache.spark.sql
 
-//import org.apache.log4j.Level
+import org.apache.log4j.Level
 
 import org.apache.spark.sql.catalyst.plans.logical._
 import org.apache.spark.sql.test.SharedSparkSession
@@ -55,7 +55,6 @@ class CTEHintSuite extends QueryTest with SharedSparkSession {
     assert(joinHints == expectedHints)
   }
 
-  /* Remark log4j1 unit test
   def verifyJoinHintWithWarnings(
       df: => DataFrame,
       expectedHints: Seq[JoinHint],
@@ -73,7 +72,6 @@ class CTEHintSuite extends QueryTest with SharedSparkSession {
       assert(warningMessages.contains(w))
     }
   }
-  */
 
   def msgNoJoinForJoinHint(strategy: String): String =
     s"A join hint (strategy=$strategy) is specified but it is not part of a join relation."
@@ -135,7 +133,6 @@ class CTEHintSuite extends QueryTest with SharedSparkSession {
           Some(HintInfo(strategy = Some(SHUFFLE_HASH))),
           None) :: Nil
       )
-      /* Remark log4j1 unit test
       verifyJoinHintWithWarnings(
         sql(
           """
@@ -154,7 +151,6 @@ class CTEHintSuite extends QueryTest with SharedSparkSession {
           msgNoJoinForJoinHint("shuffle_hash") ::
             msgJoinHintOverridden("broadcast") :: Nil
       )
-      */
       verifyJoinHint(
         sql(
           """
