@@ -128,7 +128,7 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
             rowIterator.hasNext
           }
           TaskContext.get().addTaskCompletionListener[Unit] { _ =>
-            if (arrowBuf != null) {
+            if (arrowBuf != null && arrowBuf.isOpen()) {
               arrowBuf.close()
             }
           }
@@ -144,7 +144,7 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               isUnsafeRow = false
             }
 
-            if (arrowBuf != null && isUnsafeRow) {
+            if (isUnsafeRow) {
               val rowLength = new ListBuffer[Long]()
               var rowCount = 0
               var offset = 0
