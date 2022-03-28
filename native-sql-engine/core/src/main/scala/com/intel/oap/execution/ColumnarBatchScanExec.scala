@@ -17,25 +17,19 @@
 
 package com.intel.oap.execution
 
-//import com.intel.oap.GazellePluginConfig
+import com.intel.oap.GazellePluginConfig
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.expressions._
+import org.apache.spark.sql.catalyst.expressions.{DynamicPruningExpression, Literal, _}
 import org.apache.spark.sql.catalyst.plans.QueryPlan
-import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
-import org.apache.spark.sql.connector.read.{InputPartition, PartitionReaderFactory, Scan}
-import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
+import org.apache.spark.sql.connector.read.{Scan}
+import org.apache.spark.sql.execution.metric.SQLMetrics
+import org.apache.spark.sql.vectorized.ColumnarBatch
 
-/** For spark 3.1, the runtimeFilters: Seq[Expression] is not introduced in BatchScanExec.
-  * This class lacks the implementation for doExecuteColumnar.
-  */
+
 class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Scan,
-                                     runtimeFilters: Seq[Expression])
-  extends BatchScanExec(output, scan) {
-  // tmpDir is used by ParquetReader, which looks useless (may be removed in the future).
-  // Here, "/tmp" is directly used, no need to get it set through configuration.
-  // val tmpDir: String = GazellePluginConfig.getConf.tmpFile
-  val tmpDir: String = "/tmp"
+                            runtimeFilters: Seq[Expression])
+  extends ColumnarBatchScanExecBase(output, scan, runtimeFilters) {
+   val tmpDir: String = GazellePluginConfig.getConf.tmpFile
   override def supportsColumnar(): Boolean = true
   override lazy val metrics = Map(
     "numOutputRows" -> SQLMetrics.createMetric(sparkContext, "number of output rows"),
@@ -45,11 +39,33 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
     "inputSize" -> SQLMetrics.createSizeMetric(sparkContext, "input size in bytes"))
 
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
-    throw new RuntimeException("Fix me!")
+    val numOutputRows = longMetric("numOutputRows")
+    val numInputBatches = longMetric("numInputBatches")
+    val numOutputBatches = longMetric("numOutputBatches")
+    val scanTime = longMetric("scanTime")
+    val inputSize = longMetric("inputSize")
+    val inputColumnarRDD =
+      new ColumnarDataSourceRDD(sparkContext, partitions, readerFactory,
+        true, scanTime, numInputBatches, inputSize, tmpDir)
+    inputColumnarRDD.map { r =>
+      numOutputRows += r.numRows()
+      numOutputBatches += 1
+      r
+    }
   }
 
   override def doCanonicalize(): ColumnarBatchScanExec = {
-    new ColumnarBatchScanExec(output.map(QueryPlan.normalizeExpressions(_, output)))
+    if (runtimeFilters == null) {
+      // For spark3.1.
+      new ColumnarBatchScanExec(output.map(QueryPlan.normalizeExpressions(_, output)), scan, null)
+    } else {
+      // For spark3.2.
+      new ColumnarBatchScanExec(
+        output.map(QueryPlan.normalizeExpressions(_, output)), scan,
+        QueryPlan.normalizePredicates(
+          runtimeFilters.filterNot(_ == DynamicPruningExpression(Literal.TrueLiteral)),
+          output))
+    }
   }
 
   override def canEqual(other: Any): Boolean = other.isInstanceOf[ColumnarBatchScanExec]
