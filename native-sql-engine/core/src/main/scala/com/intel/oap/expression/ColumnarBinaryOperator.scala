@@ -150,10 +150,6 @@ class ColumnarContains(left: Expression, right: Expression, original: Expression
       TreeBuilder.makeFunction("is_substr", Lists.newArrayList(left_node, right_node), resultType)
     (funcNode, resultType)
   }
-
-  override def supportColumnarCodegen(args: Object): Boolean = {
-    false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
-  }
 }
 
 class ColumnarEqualTo(left: Expression, right: Expression, original: Expression)

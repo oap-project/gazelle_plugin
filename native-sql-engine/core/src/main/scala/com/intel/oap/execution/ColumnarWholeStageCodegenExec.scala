@@ -594,8 +594,4 @@ case class ColumnarWholeStageCodegenExec(child: SparkPlan)(val codegenStageId: I
       new CloseableColumnBatchIterator(resIter)
     }
   }
-
-  // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): ColumnarWholeStageCodegenExec =
-    copy(child = newChild)(codegenStageId)
 }

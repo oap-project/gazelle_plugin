@@ -29,9 +29,8 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.Schema
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, UnsafeRow}
-import org.apache.spark.sql.catalyst.plans.physical.Partitioning
-import org.apache.spark.sql.execution.{RowToColumnarExec, SparkPlan, UnaryExecNode}
+import org.apache.spark.sql.catalyst.expressions.UnsafeRow
+import org.apache.spark.sql.execution.{RowToColumnarExec, SparkPlan}
 import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkSchemaUtils}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
@@ -39,11 +38,11 @@ import org.apache.spark.sql.execution.vectorized.WritableColumnVector
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
-import org.apache.spark.{TaskContext, broadcast}
+import org.apache.spark.TaskContext
 import org.apache.spark.unsafe.Platform
 
 
-case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
+class ArrowRowToColumnarExec(child: SparkPlan) extends RowToColumnarExec(child = child) {
   override def nodeName: String = "ArrowRowToColumnarExec"
 
   buildCheck()
@@ -78,26 +77,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
     "processTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert")
   )
 
-  override def output: Seq[Attribute] = child.output
-
-  override def outputPartitioning: Partitioning = child.outputPartitioning
-
-  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
-
-  override def supportsColumnar: Boolean = true
-
-  // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): ArrowRowToColumnarExec =
-    copy(child = newChild)
-
-  override def doExecute(): RDD[InternalRow] = {
-    child.execute()
-  }
-
-  override def doExecuteBroadcast[T](): broadcast.Broadcast[T] = {
-    child.executeBroadcast()
-  }
-
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     val numInputRows = longMetric("numInputRows")
     val numOutputBatches = longMetric("numOutputBatches")
@@ -123,14 +102,12 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
           // Allocate large buffer to store the numRows rows
           val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
           val allocator = SparkMemoryUtils.contextAllocator()
-          var arrowBuf: ArrowBuf = null
+          val arrowBuf: ArrowBuf = allocator.buffer(bufferSize)
           override def hasNext: Boolean = {
             rowIterator.hasNext
           }
           TaskContext.get().addTaskCompletionListener[Unit] { _ =>
-            if (arrowBuf != null) {
-              arrowBuf.close()
-            }
+            arrowBuf.close()
           }
           override def next(): ColumnarBatch = {
             var isUnsafeRow = true
@@ -153,9 +130,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               assert(firstRow.isInstanceOf[UnsafeRow])
               val unsafeRow = firstRow.asInstanceOf[UnsafeRow]
               val sizeInBytes = unsafeRow.getSizeInBytes
-              // allocate buffer based on 1st row
-              val estimatedBufSize = sizeInBytes * numRows * 1.2
-              arrowBuf = allocator.buffer(estimatedBufSize.toLong)
               Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
                 null, arrowBuf.memoryAddress() + offset, sizeInBytes)
               offset += sizeInBytes
@@ -167,10 +141,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
                 assert(row.isInstanceOf[UnsafeRow])
                 val unsafeRow = row.asInstanceOf[UnsafeRow]
                 val sizeInBytes = unsafeRow.getSizeInBytes
-                if ((offset + sizeInBytes) > arrowBuf.capacity()) {
-                  arrowBuf.close()
-                  arrowBuf = allocator.buffer((arrowBuf.capacity() * 1.2).toLong)
-                }
                 Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
                   null, arrowBuf.memoryAddress() + offset, sizeInBytes)
                 offset += sizeInBytes
@@ -188,7 +158,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               val output = ConverterUtils.fromArrowRecordBatch(arrowSchema, rb)
               val outputNumRows = rb.getLength
               ConverterUtils.releaseArrowRecordBatch(rb)
-              arrowBuf.close()
               last_cb = new ColumnarBatch(output.map(v => v.asInstanceOf[ColumnVector]).toArray, outputNumRows)
               elapse = System.nanoTime() - start
               processTime.set(NANOSECONDS.toMillis(elapse))
@@ -225,6 +194,14 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
         Iterator.empty
       }
     }
+  }
+
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ArrowRowToColumnarExec]
+
+  override def equals(other: Any): Boolean = other match {
+    case that: ArrowRowToColumnarExec =>
+      (that canEqual this) && super.equals(that)
+    case _ => false
   }
 
 }

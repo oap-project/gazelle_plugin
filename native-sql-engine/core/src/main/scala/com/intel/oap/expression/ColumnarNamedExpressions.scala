@@ -39,10 +39,6 @@ class ColumnarAlias(child: Expression, name: String)(
     child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
   }
 
-  override def supportColumnarCodegen(args: Object): Boolean = {
-    child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
-  }
-
 }
 
 class ColumnarAttributeReference(

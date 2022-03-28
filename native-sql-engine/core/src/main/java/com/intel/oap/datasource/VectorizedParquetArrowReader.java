@@ -24,7 +24,7 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import org.apache.spark.sql.execution.datasources.VectorizedParquetRecordReaderChild;
+import org.apache.spark.sql.execution.datasources.parquet.VectorizedParquetRecordReader;
 import com.intel.oap.datasource.parquet.ParquetReader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -46,7 +46,7 @@ import org.apache.spark.sql.vectorized.ColumnarBatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class VectorizedParquetArrowReader extends VectorizedParquetRecordReaderChild {
+public class VectorizedParquetArrowReader extends VectorizedParquetRecordReader {
   private static final Logger LOG =
       LoggerFactory.getLogger(VectorizedParquetArrowReader.class);
   private ParquetReader reader = null;
@@ -70,8 +70,7 @@ public class VectorizedParquetArrowReader extends VectorizedParquetRecordReaderC
 
   public VectorizedParquetArrowReader(String path, ZoneId convertTz, boolean useOffHeap,
       int capacity, StructType sourceSchema, StructType readDataSchema, String tmp_dir) {
-    // TODO: datetimeRebaseTz & int96RebaseTz are set to "", needs to check the impact.
-    super(convertTz, "CORRECTED", "", "LEGACY", "", useOffHeap, capacity);
+    super(convertTz, "CORRECTED", "LEGACY", useOffHeap, capacity);
     this.capacity = capacity;
     this.path = path;
     this.tmp_dir = tmp_dir;

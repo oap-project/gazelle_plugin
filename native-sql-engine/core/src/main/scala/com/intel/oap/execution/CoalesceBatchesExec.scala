@@ -147,10 +147,6 @@ case class CoalesceBatchesExec(child: SparkPlan) extends UnaryExecNode {
       new CloseableColumnBatchIterator(res)
     }
   }
-
-  // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): CoalesceBatchesExec =
-    copy(child = newChild)
 }
 
 object CoalesceBatchesExec {

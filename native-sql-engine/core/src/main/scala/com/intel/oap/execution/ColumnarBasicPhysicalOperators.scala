@@ -100,11 +100,8 @@ case class ColumnarConditionProjectExec(
     }
   }
 
-  // In spark 3.2, PredicateHelper has already introduced isNullIntolerant with completely same
-  // code. If we use the same method name, override keyword is required. But in spark3.1, no
-  // method is overridden. So we use an independent method name.
-  def isNullIntolerantInternal(expr: Expression): Boolean = expr match {
-    case e: NullIntolerant => e.children.forall(isNullIntolerantInternal)
+  def isNullIntolerant(expr: Expression): Boolean = expr match {
+    case e: NullIntolerant => e.children.forall(isNullIntolerant)
     case _ => false
   }
 
@@ -113,7 +110,7 @@ case class ColumnarConditionProjectExec(
 
   val notNullAttributes = if (condition != null) {
     val (notNullPreds, otherPreds) = splitConjunctivePredicates(condition).partition {
-      case IsNotNull(a) => isNullIntolerantInternal(a) && a.references.subsetOf(child.outputSet)
+      case IsNotNull(a) => isNullIntolerant(a) && a.references.subsetOf(child.outputSet)
       case _ => false
     }
     notNullPreds.flatMap(_.references).distinct.map(_.exprId)
@@ -167,24 +164,9 @@ case class ColumnarConditionProjectExec(
 
   override def getChild: SparkPlan = child
 
-  override def supportColumnarCodegen: Boolean = {
-    if (condition != null) {
-      val colCondExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(condition)
-      // support codegen if cond expression and proj expression both supports codegen
-      if (!colCondExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
-        return false
-      }
-    }
-    if (projectList != null) {
-      for (expr <- projectList) {
-        val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
-          return false
-        }
-      }
-    }
-    true
-  }
+  override def supportColumnarCodegen: Boolean = true
+
+  // override def canEqual(that: Any): Boolean = false
 
   def getKernelFunction(childTreeNode: TreeNode): TreeNode = {
     val (filterNode, projectNode) =
@@ -285,9 +267,6 @@ case class ColumnarConditionProjectExec(
     }
   }
 
-  // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): ColumnarConditionProjectExec =
-    copy(child = newChild)
 }
 
 case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
@@ -329,10 +308,6 @@ case class ColumnarUnionExec(children: Seq[SparkPlan]) extends SparkPlan {
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
-
-  // For spark 3.2.
-  protected def withNewChildrenInternal(newChildren: IndexedSeq[SparkPlan]): ColumnarUnionExec =
-    copy(children = newChildren)
 }
 
 //TODO(): consolidate locallimit and globallimit
@@ -405,10 +380,6 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
 
-  protected def withNewChildInternal(newChild: SparkPlan):
-  ColumnarLocalLimitExec =
-    copy(child = newChild)
-
 }
 
 case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitExec {
@@ -480,8 +451,4 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
       : org.apache.spark.rdd.RDD[org.apache.spark.sql.catalyst.InternalRow] = {
     throw new UnsupportedOperationException(s"This operator doesn't support doExecute().")
   }
-
-  protected def withNewChildInternal(newChild: SparkPlan):
-  ColumnarGlobalLimitExec =
-    copy(child = newChild)
 }

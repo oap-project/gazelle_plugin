@@ -385,6 +385,8 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(i.value)
       case ss: Substring =>
         containsSubquery(ss.str) || containsSubquery(ss.pos) || containsSubquery(ss.len)
+      case oaps: com.intel.oap.expression.ColumnarScalarSubquery =>
+        return true
       case s: org.apache.spark.sql.execution.ScalarSubquery =>
         return true
       case c: Concat =>

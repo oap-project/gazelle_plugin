@@ -137,10 +137,6 @@ object ArrowWriteExtension {
   private case class ColumnarToFakeRowLogicAdaptor(child: LogicalPlan)
       extends OrderPreservingUnaryNode {
     override def output: Seq[Attribute] = child.output
-
-    // For spark 3.2.
-    protected def withNewChildInternal(newChild: LogicalPlan): ColumnarToFakeRowLogicAdaptor =
-      copy(child = newChild)
   }
 
   private case class ColumnarToFakeRowAdaptor(child: SparkPlan) extends ColumnarToRowTransition {
@@ -153,10 +149,6 @@ object ArrowWriteExtension {
     }
 
     override def output: Seq[Attribute] = child.output
-
-    // For spark 3.2.
-    protected def withNewChildInternal(newChild: SparkPlan): ColumnarToFakeRowAdaptor =
-      copy(child = newChild)
   }
 
   case class SimpleStrategy() extends Strategy {

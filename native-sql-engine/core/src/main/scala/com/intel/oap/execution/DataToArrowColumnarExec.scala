@@ -110,7 +110,4 @@ case class DataToArrowColumnarExec(child: SparkPlan, numPartitions: Int) extends
       child.executeBroadcast[ColumnarHashedRelation]())
   }
 
-  // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): DataToArrowColumnarExec =
-    copy(child = newChild)
 }

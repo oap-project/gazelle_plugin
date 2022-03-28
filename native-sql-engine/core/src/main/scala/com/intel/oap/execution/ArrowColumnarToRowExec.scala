@@ -20,32 +20,21 @@ package com.intel.oap.execution
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.vectorized.{ArrowColumnarToRowJniWrapper, ArrowWritableColumnVector}
 import org.apache.arrow.vector.types.pojo.{Field, Schema}
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.codegen.CodegenContext
-import org.apache.spark.sql.catalyst.expressions.{Attribute, SortOrder, UnsafeProjection, UnsafeRow}
-import org.apache.spark.sql.catalyst.plans.physical.Partitioning
+import org.apache.spark.sql.catalyst.expressions.{UnsafeProjection, UnsafeRow}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
 import org.apache.spark.sql.execution.metric.{SQLMetric, SQLMetrics}
-import org.apache.spark.sql.execution.{CodegenSupport, ColumnarToRowTransition, SparkPlan}
+import org.apache.spark.sql.execution.{ColumnarToRowExec, SparkPlan}
 import org.apache.spark.sql.types._
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
 
-case class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowTransition with CodegenSupport {
+class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowExec(child = child) {
   override def nodeName: String = "ArrowColumnarToRow"
-
-  override def output: Seq[Attribute] = child.output
-
-  override def outputPartitioning: Partitioning = child.outputPartitioning
-
-  override def outputOrdering: Seq[SortOrder] = child.outputOrdering
-
-  // `ColumnarToRowExec` processes the input RDD directly, which is kind of a leaf node in the
-  // codegen stage and needs to do the limit check.
-  protected override def canCheckLimitNotReached: Boolean = true
 
   override def supportCodegen: Boolean = false
 
@@ -78,10 +67,6 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowTransit
     "numInputBatches" -> SQLMetrics.createMetric(sparkContext, "number of input batches"),
     "convertTime" -> SQLMetrics.createTimingMetric(sparkContext, "time to convert")
   )
-
-  protected def doProduce(ctx: CodegenContext): String = {
-    throw new RuntimeException("Codegen is not supported!")
-  }
 
   override def doExecute(): RDD[InternalRow] = {
     val numOutputRows = longMetric("numOutputRows")
@@ -169,11 +154,12 @@ case class ArrowColumnarToRowExec(child: SparkPlan) extends ColumnarToRowTransit
    }
   }
 
-  override def inputRDDs(): Seq[RDD[InternalRow]] = {
-    Seq(child.executeColumnar().asInstanceOf[RDD[InternalRow]]) // Hack because of type erasure
-  }
+  override def canEqual(other: Any): Boolean = other.isInstanceOf[ArrowColumnarToRowExec]
 
-  protected def withNewChildInternal(newChild: SparkPlan): ArrowColumnarToRowExec =
-    copy(child = newChild)
+  override def equals(other: Any): Boolean = other match {
+    case that: ArrowColumnarToRowExec =>
+      (that canEqual this) && super.equals(that)
+    case _ => false
+  }
 }
 

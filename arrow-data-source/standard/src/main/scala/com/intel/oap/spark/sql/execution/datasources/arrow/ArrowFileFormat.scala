@@ -94,11 +94,6 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
           override def close(): Unit = {
             writeQueue.close()
           }
-
-          // Do NOT add override keyword for compatibility on spark 3.1.
-          def path(): String = {
-            path
-          }
         }
       }
     }

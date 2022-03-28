@@ -319,10 +319,6 @@ class ColumnarFloor(child: Expression, original: Expression)
       TreeBuilder.makeFunction("floor", Lists.newArrayList(child_node), resultType)
     (funcNode, resultType)
   }
-
-  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    false && child.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
-  }
 }
 
 class ColumnarCeil(child: Expression, original: Expression)

@@ -133,8 +133,4 @@ case class ColumnarExpandExec(
       new CloseableColumnBatchIterator(res)
     }
   }
-
-  // For spark 3.2.
-  protected def withNewChildInternal(newChild: SparkPlan): ColumnarExpandExec =
-    copy(child = newChild)
 }

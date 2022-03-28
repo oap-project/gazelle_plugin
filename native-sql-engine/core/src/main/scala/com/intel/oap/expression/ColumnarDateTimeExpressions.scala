@@ -565,11 +565,6 @@ object ColumnarDateTimeExpressions {
           }
       }
     }
-
-    // For spark 3.2.
-    protected def withNewChildrenInternal(newLeft: Expression, newRight: Expression):
-    ColumnarGetTimestamp =
-      copy(leftChild = newLeft, rightChild = newRight)
   }
 
   class ColumnarFromUnixTime(left: Expression, right: Expression)
@@ -675,10 +670,6 @@ object ColumnarDateTimeExpressions {
       val funcNode = TreeBuilder.makeFunction(
         "date_diff", Lists.newArrayList(leftNode, rightNode), outType)
       (funcNode, outType)
-    }
-
-    override def supportColumnarCodegen(args: Object): Boolean = {
-      false && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) && right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
     }
   }
 

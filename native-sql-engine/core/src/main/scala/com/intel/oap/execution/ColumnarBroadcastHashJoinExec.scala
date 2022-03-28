@@ -21,11 +21,9 @@ import com.google.common.collect.Lists
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized.{ExpressionEvaluator, _}
-import com.intel.oap.sql.shims.SparkShimLoader
 import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.plans._
@@ -37,7 +35,6 @@ import org.apache.spark.sql.catalyst.expressions.codegen.CodegenContext
 import org.apache.spark.sql.catalyst.optimizer.{BuildLeft, BuildRight, BuildSide}
 import org.apache.spark.sql.catalyst.plans.physical.{HashPartitioning, Partitioning, PartitioningCollection}
 import org.apache.spark.sql.execution.metric.SQLMetrics
-import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
 import org.apache.spark.util.{ExecutorManager, UserAddedJarUtils}
@@ -62,7 +59,7 @@ case class ColumnarBroadcastHashJoinExec(
     nullAware: Boolean = false)
     extends BaseJoinExec
     with ColumnarCodegenSupport
-    with ColumnarShuffledJoin {
+    with ShuffledJoin {
 
   val sparkConf = sparkContext.getConf
   val numaBindingInfo = GazellePluginConfig.getConf.numaBindingInfo
@@ -91,9 +88,6 @@ case class ColumnarBroadcastHashJoinExec(
     }
   }
   buildCheck()
-
-  // A method in ShuffledJoin of spark3.2.
-  def isSkewJoin: Boolean = false
 
   def buildCheck(): Unit = {
     joinType match {
@@ -151,13 +145,13 @@ case class ColumnarBroadcastHashJoinExec(
     throw new UnsupportedOperationException(
       s"ColumnarBroadcastHashJoinExec doesn't support doExecute")
   }
+
   val isNullAwareAntiJoin : Boolean = nullAware
 
+  val broadcastHashJoinOutputPartitioningExpandLimit: Int = sqlContext.getConf(
+    "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
+
   override lazy val outputPartitioning: Partitioning = {
-    val broadcastHashJoinOutputPartitioningExpandLimit: Int =
-      SparkShimLoader
-        .getSparkShims
-        .getBroadcastHashJoinOutputPartitioningExpandLimit(this: SparkPlan)
     joinType match {
       case _: InnerLike if broadcastHashJoinOutputPartitioningExpandLimit > 0 =>
         streamedPlan.outputPartitioning match {
@@ -199,10 +193,7 @@ case class ColumnarBroadcastHashJoinExec(
   // Seq("a", "b", "c"), Seq("a", "b", "y"), Seq("a", "x", "c"), Seq("a", "x", "y").
   // The expanded expressions are returned as PartitioningCollection.
   private def expandOutputPartitioning(partitioning: HashPartitioning): PartitioningCollection = {
-    val maxNumCombinations =
-      SparkShimLoader
-        .getSparkShims
-        .getBroadcastHashJoinOutputPartitioningExpandLimit(this: SparkPlan)
+    val maxNumCombinations = broadcastHashJoinOutputPartitioningExpandLimit
     var currentNumCombinations = 0
 
     def generateExprCombinations(current: Seq[Expression],
@@ -649,9 +640,4 @@ case class ColumnarBroadcastHashJoinExec(
     }
 
   }
-
-  // For spark 3.2.
-  protected def withNewChildrenInternal(newLeft: SparkPlan, newRight: SparkPlan):
-  ColumnarBroadcastHashJoinExec =
-    copy(left = newLeft, right = newRight)
 }

@@ -60,14 +60,6 @@ class ColumnarIf(predicate: Expression, trueValue: Expression,
       val funcNode = TreeBuilder.makeIf(predicate_node, true_node, false_node, trueType)
       (funcNode, trueType)
   }
-
-  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
-    // return true only when all branches are true
-    val ret = (predicate.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
-    trueValue.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
-    falseValue.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args))
-    return ret
-  }
 }
 
 object ColumnarIfOperator {

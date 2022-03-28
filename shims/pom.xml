@@ -29,6 +29,7 @@
   <packaging>pom</packaging>
  
   <properties>
+    <scala.version>2.12.10</scala.version>
     <scala.binary.version>2.12</scala.binary.version>
     <scala.plugin.version>4.3.0</scala.plugin.version>
     <scalatest-maven-plugin.version>3.2.2</scalatest-maven-plugin.version>
@@ -74,22 +75,13 @@
         </modules>
     </profile>
     <profile>
-        <id>spark-3.1</id>
+        <id>spark-3.1.1</id>
         <properties>
         </properties>
         <modules>
           <module>common</module>
           <module>spark311</module>
         </modules>
-    </profile>
-    <profile>
-      <id>spark-3.2</id>
-      <properties>
-      </properties>
-      <modules>
-        <module>common</module>
-        <module>spark321</module>
-      </modules>
     </profile>
   </profiles>
 

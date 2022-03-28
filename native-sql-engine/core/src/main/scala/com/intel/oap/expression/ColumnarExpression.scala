@@ -27,11 +27,6 @@ import scala.collection.mutable.ListBuffer
 
 trait ColumnarExpression {
 
-  def supportColumnarCodegen(args: java.lang.Object): (Boolean) = {
-    // TODO: disable all codegen unless manuall enabled
-    true
-  }
-
   def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     throw new UnsupportedOperationException(s"Not support doColumnarCodeGen.")
   }

@@ -46,20 +46,10 @@
       </properties>
     </profile>
     <profile>
-        <id>spark-3.1</id>
+        <id>spark-3.1.1</id>
         <properties>
             <spark.version>${spark311.version}</spark.version>
-            <scala.version>2.12.10</scala.version>
-            <jackson.version>2.10.0</jackson.version>
         </properties>
-    </profile>
-    <profile>
-      <id>spark-3.2</id>
-      <properties>
-        <spark.version>${spark321.version}</spark.version>
-        <scala.version>2.12.15</scala.version>
-        <jackson.version>2.12.0</jackson.version>
-      </properties>
     </profile>
     <profile>
       <id>hadoop-2.7.4</id>
@@ -121,17 +111,9 @@
   </profiles>
 
   <properties>
-    <!--TODO: need to verify whether the settings will be overridden in profile-->
-    <spark.version>3.1.1</spark.version>
-    <spark311.version>3.1.1</spark311.version>
-    <spark321.version>3.2.1</spark321.version>
-    <!-- Scala 2.12.10 is the version for default spark 3.1 -->
     <scala.version>2.12.10</scala.version>
-    <java.version>1.8</java.version>
-    <maven.compiler.source>${java.version}</maven.compiler.source>
-    <maven.compiler.target>${java.version}</maven.compiler.target>
-    <jackson.version>2.10.0</jackson.version>
     <scala.binary.version>2.12</scala.binary.version>
+    <spark.version>3.1.1</spark.version>
     <arrow.version>4.0.0</arrow.version>
     <log4j.version>2.17.1</log4j.version>
     <arrow-memory.artifact>arrow-memory-unsafe</arrow-memory.artifact>
@@ -148,6 +130,7 @@
     <build_jemalloc>ON</build_jemalloc>
     <project.prefix>spark-sql-columnar</project.prefix>
     <project.name.prefix>OAP Project Spark Columnar Plugin</project.name.prefix>
+    <spark311.version>3.1.1</spark311.version>
   </properties>
 
   <dependencyManagement>
