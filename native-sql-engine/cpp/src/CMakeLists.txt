@@ -140,7 +140,7 @@ macro(build_arrow STATIC_ARROW)
   ExternalProject_Add(arrow_ep
                       GIT_REPOSITORY https://github.com/zhixingheyi-tian/arrow.git
                       SOURCE_DIR ${ARROW_SOURCE_DIR}
-                      GIT_TAG implement-nesttype-split
+                      GIT_TAG fixDeserializeUnsafeFromJava
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${ARROW_PREFIX}
                       INSTALL_COMMAND make install

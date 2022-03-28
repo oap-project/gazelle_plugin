@@ -62,7 +62,7 @@ echo "ARROW_SOURCE_DIR=${ARROW_SOURCE_DIR}"
 echo "ARROW_INSTALL_DIR=${ARROW_INSTALL_DIR}"
 mkdir -p $ARROW_SOURCE_DIR
 mkdir -p $ARROW_INSTALL_DIR
-git clone https://github.com/zhixingheyi-tian/arrow.git  --branch implement-nesttype-split $ARROW_SOURCE_DIR
+git clone https://github.com/zhixingheyi-tian/arrow.git  --branch fixDeserializeUnsafeFromJava $ARROW_SOURCE_DIR
 pushd $ARROW_SOURCE_DIR
 
 cmake ./cpp \

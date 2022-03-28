@@ -69,8 +69,6 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
   }
 
   test("randomSplit on reordered partitions") {
-    // TODO: Once fixed, will removed this config
-    withSQLConf("spark.oap.sql.columnar.enableComplexType" -> "false") {
       def testNonOverlappingSplits(data: DataFrame): Unit = {
         val splits = data.randomSplit(Array[Double](2, 3), seed = 1)
         assert(splits.length == 2, "wrong number of splits")
@@ -102,7 +100,6 @@ class DataFrameStatSuite extends QueryTest with SharedSparkSession {
       testNonOverlappingSplits(dataWithInts)
       testNonOverlappingSplits(dataWithMaps)
       testNonOverlappingSplits(dataWithArrayOfMaps)
-    }
   }
 
   test("pearson correlation") {
