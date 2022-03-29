@@ -37,7 +37,6 @@ import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.ArrowUtils
-import org.apache.spark.sql.BasePythonRunnerChild
 import org.apache.spark.util.Utils
 
 /**
