@@ -16,7 +16,6 @@
 
 package com.intel.oap.sql.shims.spark321
 
-import com.intel.oap.execution.ColumnarBatchScanExec
 import com.intel.oap.spark.sql.ArrowWriteQueue
 import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
 import java.io.File
