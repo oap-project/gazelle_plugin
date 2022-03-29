@@ -64,7 +64,8 @@ TEST(TestArrowComputeWindow, DoubleTest) {
   ASSERT_NOT_OK(expr->finish(&out))
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
-  std::vector<std::string> expected_output_data = {"[118.276, 37.244, 118.276]"};
+  std::vector<std::string> expected_output_data = {
+      "[118.27600000000001, 37.244, 118.27600000000001]"};
 
   MakeInputBatch(expected_output_data, arrow::schema({res}), &expected_result);
   ASSERT_NOT_OK(Equals(*expected_result.get(), *(out.at(0).get())));
