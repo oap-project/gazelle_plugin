@@ -15,13 +15,19 @@
  * limitations under the License.
  */
 
-package com.intel.oap.execution
+package org.apache.spark.sql.execution
 
 import com.intel.oap.GazellePluginConfig
+import com.intel.oap.execution.ColumnarBatchScanExecBase
+import com.intel.oap.execution.ColumnarDataSourceRDD
+
+import org.apache.spark.SparkException
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.expressions.{DynamicPruningExpression, Literal, _}
 import org.apache.spark.sql.catalyst.plans.QueryPlan
-import org.apache.spark.sql.connector.read.{Scan}
+import org.apache.spark.sql.connector.read.{InputPartition, Scan, SupportsRuntimeFiltering}
+import org.apache.spark.sql.execution.datasources.DataSourceStrategy
+import org.apache.spark.sql.execution.datasources.v2.DataSourcePartitioning
 import org.apache.spark.sql.execution.metric.SQLMetrics
 import org.apache.spark.sql.vectorized.ColumnarBatch
 
@@ -38,6 +44,39 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
     "scanTime" -> SQLMetrics.createTimingMetric(sparkContext, "totaltime_batchscan"),
     "inputSize" -> SQLMetrics.createSizeMetric(sparkContext, "input size in bytes"))
 
+  // Ported from spark.
+  @transient private lazy val filteredPartitions: Seq[InputPartition] = {
+    val dataSourceFilters = runtimeFilters.flatMap {
+      case DynamicPruningExpression(e) => DataSourceStrategy.translateRuntimeFilter(e)
+      case _ => None
+    }
+
+    if (dataSourceFilters.nonEmpty) {
+      val originalPartitioning = outputPartitioning
+
+      // the cast is safe as runtime filters are only assigned if the scan can be filtered
+      val filterableScan = scan.asInstanceOf[SupportsRuntimeFiltering]
+      filterableScan.filter(dataSourceFilters.toArray)
+
+      // call toBatch again to get filtered partitions
+      val newPartitions = scan.toBatch.planInputPartitions()
+
+      originalPartitioning match {
+        case p: DataSourcePartitioning if p.numPartitions != newPartitions.size =>
+          throw new SparkException(
+            "Data source must have preserved the original partitioning during runtime filtering; " +
+              s"reported num partitions: ${p.numPartitions}, " +
+              s"num partitions after runtime filtering: ${newPartitions.size}")
+        case _ =>
+        // no validation is needed as the data source did not report any specific partitioning
+      }
+
+      newPartitions
+    } else {
+      partitions
+    }
+  }
+
   override def doExecuteColumnar(): RDD[ColumnarBatch] = {
     val numOutputRows = longMetric("numOutputRows")
     val numInputBatches = longMetric("numInputBatches")
@@ -45,7 +84,7 @@ class ColumnarBatchScanExec(output: Seq[AttributeReference], @transient scan: Sc
     val scanTime = longMetric("scanTime")
     val inputSize = longMetric("inputSize")
     val inputColumnarRDD =
-      new ColumnarDataSourceRDD(sparkContext, partitions, readerFactory,
+      new ColumnarDataSourceRDD(sparkContext, filteredPartitions, readerFactory,
         true, scanTime, numInputBatches, inputSize, tmpDir)
     inputColumnarRDD.map { r =>
       numOutputRows += r.numRows()
