@@ -241,6 +241,7 @@ class HashRelationKernel::Impl {
         }
       }
     }
+    hash_relation_->Minimize();
     return arrow::Status::OK();
   }
 
