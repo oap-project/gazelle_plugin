@@ -1,4 +1,6 @@
 ### Spark Eventlog Analyzer
+The pyspark script to analyze Gazelle's eventlog
+
 ## Prequisites
 
 # Jupyter Installation
@@ -62,3 +64,10 @@ In App_Log_Analysis:get_app_info, the url for display.
 In show_rst function, the url for html.
 In pyhdfs, the url for HDFS hosts.
 
+
+
+###To run in in commandline:
+jupyter nbconvert --execute --to notebook --inplace --allow-errors --ExecutePreprocessor.timeout=-1 ./gazelle_analysis.ipynb --template classic
+
+###To convert into HTML:
+jupyter nbconvert --to html ./gazelle_analysis.ipynb --output ./gazelle_analysis.html --template classic
