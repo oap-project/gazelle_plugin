@@ -1,6 +1,6 @@
-### Download Spark 3.1.1
+### Download Spark binary
 
-Currently Gazelle Plugin works on the Spark 3.1.1 version.
+Currently Gazelle Plugin can work on Spark 3.1.x & 3.2.x. Take Spark 3.1.1 as example.
 
 ```
 wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop3.2.tgz
@@ -9,7 +9,9 @@ sudo cd /opt/spark && sudo tar -xf spark-3.1.1-bin-hadoop3.2.tgz
 export SPARK_HOME=/opt/spark/spark-3.1.1-bin-hadoop3.2/
 ```
 
-### [Or building Spark from source](https://spark.apache.org/docs/latest/building-spark.html)
+### Build Spark from source
+
+Ref. [link](https://spark.apache.org/docs/latest/building-spark.html).
 
 ``` shell
 git clone https://github.com/intel-bigdata/spark.git
@@ -27,7 +29,7 @@ Specify SPARK_HOME to spark path
 export SPARK_HOME=${HADOOP_PATH}
 ```
 
-### Hadoop building from source
+### Build Hadoop from source
 
 ``` shell
 git clone https://github.com/apache/hadoop.git
