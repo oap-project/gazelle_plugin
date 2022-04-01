@@ -16,8 +16,8 @@ git clone -b ${version} https://github.com/oap-project/gazelle_plugin.git
 cd gazelle_plugin
 mvn clean package -Pspark-3.1 -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 ```
-Please note two Spark profiles (`spark-3.1`, `spark-3.2`) are provided to build packages for different versions of Spark.
-Currently, a few unit tests are not compatible with spark 3.1. So if profile 'spark-3.2' is used, `-Dmaven.test.skip` should be added to skip compiling unit tests.
+Please note two Spark profiles (`spark-3.1`, `spark-3.2`) are provided to build packages with different versions of Spark dependencies.
+Currently, a few unit tests are not compatible with spark 3.2. So if profile `spark-3.2` is used, `-Dmaven.test.skip` should be added to skip compiling unit tests.
 ```
 mvn clean package -Pspark-3.2 -Dmaven.test.skip -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 ```
