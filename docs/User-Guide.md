@@ -55,7 +55,8 @@ For usage, you will require below two jar files:
 1. `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
 2. `spark-columnar-core-<version>-jar-with-dependencies.jar` is located in com/intel/oap/spark-columnar-core/<version>/
 
-Since 1.3.1 release, there are two extra jars to work with different Spark minor releases
+Since 1.3.1 release, there are two extra jars to work with different Spark minor releases. For spark 3.1.x, the jar whose `<spark-version>` is `spark311` should be used.
+And for spark 3.2.x, the jar whose `<spark-version>` is `spark321` should be used.
 
 3. `spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar`
 

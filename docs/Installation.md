@@ -14,9 +14,13 @@ yum install gmock
 ``` shell
 git clone -b ${version} https://github.com/oap-project/gazelle_plugin.git
 cd gazelle_plugin
-mvn clean package -PSpark-3.2 -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
+mvn clean package -Pspark-3.1 -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 ```
-Two Spark profiles(spark-3.1, spark-3.2) were provided to build packages for different Spark.
+Please note two Spark profiles (`spark-3.1`, `spark-3.2`) are provided to build packages with different versions of Spark dependencies.
+Currently, a few unit tests are not compatible with spark 3.2. So if profile `spark-3.2` is used, `-Dmaven.test.skip` should be added to skip compiling unit tests.
+```
+mvn clean package -Pspark-3.2 -Dmaven.test.skip -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
+```
 
 Based on the different environment, there are some parameters can be set via -D with mvn.
 
