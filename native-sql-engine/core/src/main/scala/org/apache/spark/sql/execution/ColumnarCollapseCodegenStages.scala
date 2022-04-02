@@ -229,11 +229,28 @@ case class ColumnarCollapseCodegenStages(
   }
 
   /**
+    * To filter LeftOuter SMJ and its right child are not Sort.
+    */
+  def isVariantSMJ(plan: SparkPlan): Boolean = {
+    plan match {
+      case p: ColumnarSortMergeJoinExec if p.left.isInstanceOf[ColumnarSortExec]
+        && p.joinType == LeftOuter
+        && p.right.isInstanceOf[ColumnarConditionProjectExec] =>
+        true
+      case _ =>
+        false
+    }
+  }
+
+  /**
    * Inserts an InputAdapter on top of those that do not support codegen.
    */
   private def insertInputAdapter(plan: SparkPlan): SparkPlan = {
     plan match {
       case p if isConsecutiveSMJ(p) =>
+        new ColumnarInputAdapter(p.withNewChildren(p.children.map(c =>
+          insertWholeStageCodegen(c))))
+      case p if isVariantSMJ(p) =>
         new ColumnarInputAdapter(p.withNewChildren(p.children.map(c =>
           insertWholeStageCodegen(c))))
       case p if !supportCodegen(p) =>
