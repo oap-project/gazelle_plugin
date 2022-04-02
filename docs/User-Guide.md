@@ -52,8 +52,16 @@ There are three ways to use OAP: Gazelle Plugin,
 
 Please go to [OAP's Maven Central Repository](https://repo1.maven.org/maven2/com/intel/oap/) to find Gazelle Plugin jars.
 For usage, you will require below two jar files:
-1. spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
-2. spark-columnar-core-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-columnar-core/<version>/
+1. `spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar` is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
+2. `spark-columnar-core-<version>-jar-with-dependencies.jar` is located in com/intel/oap/spark-columnar-core/<version>/
+
+Since 1.3.1 release, there are two extra jars to work with different Spark minor releases. For spark 3.1.x, the jar whose `<spark-version>` is `spark311` should be used.
+And for spark 3.2.x, the jar whose `<spark-version>` is `spark321` should be used.
+
+3. `spark-sql-columnar-shims-common-<version>-SNAPSHOT.jar`
+
+4. `spark-sql-columnar-shims-<spark-version>-<version>-SNAPSHOT.jar`
+
 Please notice the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage. 
 
 ### Building by Conda
