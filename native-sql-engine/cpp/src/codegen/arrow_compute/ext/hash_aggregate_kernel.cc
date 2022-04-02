@@ -827,7 +827,13 @@ class HashAggregateKernel::Impl {
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
-      *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
+      if (result_schema_->fields().empty() && !outputs.empty()) {
+        // treat as metadata query, for distinct count? see TPC-DS Q38 / Q87
+        *out = arrow::RecordBatch::Make(result_schema_, out_length,
+                                        std::vector<std::shared_ptr<arrow::Array>>());
+      } else {
+        *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
+      }
       return arrow::Status::OK();
     }
 
@@ -1141,8 +1147,13 @@ class HashAggregateKernel::Impl {
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
-
-      *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
+      if (result_schema_->fields().empty() && !outputs.empty()) {
+        // treat as metadata query, for distinct count? see TPC-DS Q38 / Q87
+        *out = arrow::RecordBatch::Make(result_schema_, out_length,
+                                        std::vector<std::shared_ptr<arrow::Array>>());
+      } else {
+        *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
+      }
       return arrow::Status::OK();
     }
 
