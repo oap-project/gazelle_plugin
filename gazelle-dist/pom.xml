@@ -88,14 +88,14 @@
         <executions>
           <execution>
             <id>go-framework-assemby</id>
-            <!-- create assembly in package phase (invoke 'single' goal on assemby plugin)-->
+            <!-- create assembly in package phase-->
             <phase>package</phase>
             <goals>
               <goal>single</goal>
             </goals>
             <configuration>
               <descriptors>
-                <descriptor>src/main/assemble/gazelle_bin.xml</descriptor>
+                <descriptor>src/main/assembly/assembly.xml</descriptor>
               </descriptors>
               <finalName>gazelle-plugin-${project.version}</finalName>
               <appendAssemblyId>false</appendAssemblyId>
