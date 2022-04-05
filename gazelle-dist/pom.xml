@@ -23,7 +23,7 @@
   </parent>
 
   <artifactId>gazelle-dist</artifactId>
-  <version>1.4.0-SNAPSHOT</version>
+  <name>Gazelle dist</name>
   <packaging>pom</packaging>
 
   <profiles>

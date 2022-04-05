@@ -38,27 +38,22 @@
 
   <profiles>
     <profile>
-      <id>spark</id>
+      <id>spark-3.1</id>
       <activation>
-          <activeByDefault>true</activeByDefault>
+        <activeByDefault>true</activeByDefault>
       </activation>
       <properties>
-          <spark.version>${spark311.version}</spark.version>
+        <spark.version>${spark311.version}</spark.version>
+        <scala.version>2.12.10</scala.version>
+        <jackson.version>2.10.0</jackson.version>
       </properties>
-    </profile>
-    <profile>
-        <id>spark-3.1</id>
-        <properties>
-            <spark.version>${spark311.version}</spark.version>
-            <scala.version>2.12.10</scala.version>
-            <jackson.version>2.12.0</jackson.version>
-        </properties>
     </profile>
     <profile>
       <id>spark-3.2</id>
       <properties>
         <spark.version>${spark321.version}</spark.version>
         <scala.version>2.12.15</scala.version>
+        <!--Jackson may be directly used in future UT. Align with the version in spark 3.2.-->
         <jackson.version>2.12.0</jackson.version>
       </properties>
     </profile>
@@ -131,7 +126,7 @@
     <java.version>1.8</java.version>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
-    <jackson.version>2.12.0</jackson.version>
+    <jackson.version>2.10.0</jackson.version>
     <scala.binary.version>2.12</scala.binary.version>
     <arrow.version>4.0.0</arrow.version>
     <log4j.version>2.17.1</log4j.version>
