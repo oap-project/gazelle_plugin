@@ -33,6 +33,7 @@
     <module>arrow-data-source</module>
     <module>native-sql-engine/core</module>
     <module>shims</module>
+    <module>gazelle-dist</module>
   </modules>
 
   <profiles>
