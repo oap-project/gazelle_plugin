@@ -73,6 +73,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
   def removeRowGuard(plan: SparkPlan): SparkPlan = plan match {
     case plan: RowGuard =>
       plan.child
+    case shuffle: ShuffleExchangeExec =>
+      shuffle
     case other =>
       val children = other.children.map(removeRowGuard)
       other.withNewChildren(children)
