@@ -422,7 +422,6 @@ class HashRelation {
 
   arrow::Status Insert(int32_t v, std::shared_ptr<UnsafeRow> payload, uint32_t array_id,
                        uint32_t id) {
-    
     auto index = ArrayItemIndex(array_id, id);
     if (!append(hash_table_, payload.get(), v, (char*)&index, sizeof(ArrayItemIndex))) {
       return arrow::Status::CapacityError("Insert to HashMap failed.");
@@ -432,7 +431,6 @@ class HashRelation {
 
   template <typename CType>
   arrow::Status Insert(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
-    
     auto index = ArrayItemIndex(array_id, id);
     if (!append(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
       return arrow::Status::CapacityError("Insert to HashMap failed.");
@@ -442,7 +440,6 @@ class HashRelation {
 
   arrow::Status Insert(int32_t v, const char* payload, size_t payload_len,
                        uint32_t array_id, uint32_t id) {
-    
     auto index = ArrayItemIndex(array_id, id);
     if (!append(hash_table_, payload, payload_len, v, (char*)&index,
                 sizeof(ArrayItemIndex))) {
@@ -453,7 +450,6 @@ class HashRelation {
 
   arrow::Status InsertSkipDup(int32_t v, std::shared_ptr<UnsafeRow> payload,
                               uint32_t array_id, uint32_t id) {
-    
     auto index = ArrayItemIndex(array_id, id);
     if (!appendNewKey(hash_table_, payload.get(), v, (char*)&index,
                       sizeof(ArrayItemIndex))) {
@@ -464,7 +460,6 @@ class HashRelation {
 
   template <typename CType>
   arrow::Status InsertSkipDup(int32_t v, CType payload, uint32_t array_id, uint32_t id) {
-    
     auto index = ArrayItemIndex(array_id, id);
     if (!appendNewKey(hash_table_, payload, v, (char*)&index, sizeof(ArrayItemIndex))) {
       return arrow::Status::CapacityError("Insert to HashMap failed.");
@@ -474,7 +469,6 @@ class HashRelation {
 
   arrow::Status InsertSkipDup(int32_t v, const char* payload, size_t payload_len,
                               uint32_t array_id, uint32_t id) {
-    
     auto index = ArrayItemIndex(array_id, id);
     if (!appendNewKey(hash_table_, payload, payload_len, v, (char*)&index,
                       sizeof(ArrayItemIndex))) {
