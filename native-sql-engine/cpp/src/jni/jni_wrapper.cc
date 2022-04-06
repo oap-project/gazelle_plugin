@@ -45,6 +45,11 @@
 #include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
 #include "utils/exception.h"
+#include "arrow/array/concatenate.h"
+
+#include "arrow/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/array.h"
 
 namespace {
 
@@ -1394,6 +1399,86 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeClose(
   JNI_METHOD_START
   columnar_to_row_converter_holder_.Erase(instance_id);
   JNI_METHOD_END()
+}
+
+JNIEXPORT jobject JNICALL
+Java_com_intel_oap_vectorized_ArrowCoalesceBatchesJniWrapper_nativeCoalesceBatches(
+    JNIEnv* env, jobject, jbyteArray schema_arr, jint total_num_rows, jintArray num_rows_arr,
+    jobjectArray buf_addrs, jobjectArray buf_sizes, jlong memory_pool_id) {
+  JNI_METHOD_START
+  if (schema_arr == NULL) {
+    JniThrow("Native Coalesce Batches: schema can't be null");
+  }
+  if (buf_addrs == NULL) {
+    JniThrow("Native Coalesce Batches: buf_addrs can't be null");
+  }
+  if (buf_sizes == NULL) {
+    JniThrow("Native Coalesce Batches: buf_sizes can't be null");
+  }
+
+  int in_bufs_len = env->GetArrayLength(buf_addrs);
+  if (in_bufs_len != env->GetArrayLength(buf_sizes)) {
+    JniThrow(
+        "Native Coalesce Batches: length of buf_addrs and buf_sizes mismatch");
+  }
+
+  std::shared_ptr<arrow::Schema> schema;
+  // ValueOrDie in MakeSchema
+  MakeSchema(env, schema_arr, &schema);
+
+  // convert the record batch to spark unsafe row.
+  auto* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+  if (pool == nullptr) {
+    JniThrow("Memory pool does not exist or has been closed");
+  }
+  
+  arrow::RecordBatchVector batches;
+  
+  for (jint i = 0; i < in_bufs_len; i++) {
+    jlongArray addr_array = (jlongArray)env->GetObjectArrayElement(buf_addrs, i);
+    jlongArray size_array = (jlongArray)env->GetObjectArrayElement(buf_sizes, i);
+    jint* rows_arr = env->GetIntArrayElements(num_rows_arr, nullptr);
+
+    
+    int addrs_len = env->GetArrayLength(addr_array);
+    if (addrs_len != env->GetArrayLength(size_array)) {
+      JniThrow(
+        "Native Coalesce Batches: length of addr_array and size_array mismatch");
+    }
+    jlong* addrs_buf = env->GetLongArrayElements(addr_array, JNI_FALSE);
+    jlong* sizes_buf = env->GetLongArrayElements(size_array, JNI_FALSE);
+
+    std::shared_ptr<arrow::RecordBatch> rb;
+    JniAssertOkOrThrow(MakeRecordBatch(schema, rows_arr[i], (int64_t*)addrs_buf,
+                                     (int64_t*)sizes_buf, addrs_len, &rb),
+                     "Native Coalesce Batches: make record batch failed");
+    batches.push_back(rb);
+
+
+
+    env->ReleaseLongArrayElements(addr_array, addrs_buf, JNI_ABORT);
+    env->ReleaseLongArrayElements(size_array, sizes_buf, JNI_ABORT);
+    env->ReleaseIntArrayElements(num_rows_arr, rows_arr, JNI_ABORT);
+  }
+
+  // int num_columns = batches.at(0)->num_columns();
+  int num_columns = schema->num_fields();
+  arrow::ArrayVector arrayColumns;
+  for (jint i = 0; i < num_columns; i++) {
+    arrow::ArrayVector arrvec;
+    for (const auto& batch : batches) {
+      arrvec.push_back(batch->column(i));
+    }
+    std::shared_ptr<arrow::Array> bigArr;
+    Concatenate(arrvec, pool, &bigArr);
+    // ARROW_ASSIGN_OR_RAISE(auto bigArr, Concatenate(arrvec, pool));
+    arrayColumns.push_back(bigArr);
+  }
+  auto out_batch = arrow::RecordBatch::Make(schema, total_num_rows, arrayColumns);
+  jbyteArray serialized_record_batch =
+      JniGetOrThrow(ToBytes(env, out_batch), "Error serializing message");
+  return serialized_record_batch;
+  JNI_METHOD_END(nullptr)
 }
 
 JNIEXPORT jobject JNICALL

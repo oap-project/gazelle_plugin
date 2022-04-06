@@ -148,6 +148,8 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       child match {
         case p: CoalesceBatchesExec =>
           ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
+        case p: ArrowCoalesceBatchesExec =>
+          ColumnarSortExec(plan.sortOrder, plan.global, p.child, plan.testSpillFrequency)
         case _ =>
           ColumnarSortExec(plan.sortOrder, plan.global, child, plan.testSpillFrequency)
       }
@@ -160,10 +162,17 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
             plan.outputPartitioning,
             child)
         } else {
-          CoalesceBatchesExec(
-            ColumnarShuffleExchangeExec(
-              plan.outputPartitioning,
-              child))
+          if (columnarConf.enableArrowCoalesceBatches) {
+            ArrowCoalesceBatchesExec(
+              ColumnarShuffleExchangeExec(
+                plan.outputPartitioning,
+                child))
+          } else {
+            CoalesceBatchesExec(
+              ColumnarShuffleExchangeExec(
+                plan.outputPartitioning,
+                child))
+          }
         }
       } else {
         plan.withNewChildren(Seq(child))
@@ -261,21 +270,39 @@ case class ColumnarPreOverrides() extends Rule[SparkPlan] {
       child match {
         case shuffle: ColumnarShuffleExchangeAdaptor =>
           logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-          CoalesceBatchesExec(
-            ColumnarCustomShuffleReaderExec(child, partitionSpecs))
+          if (columnarConf.enableArrowCoalesceBatches) {
+            ArrowCoalesceBatchesExec(
+              ColumnarCustomShuffleReaderExec(child, partitionSpecs))
+          } else {
+            CoalesceBatchesExec(
+              ColumnarCustomShuffleReaderExec(child, partitionSpecs))
+          }
+
         // Use the below code to replace the above to realize compatibility on spark 3.1 & 3.2.
         case shuffleQueryStageExec: ShuffleQueryStageExec =>
           shuffleQueryStageExec.plan match {
             case s: ColumnarShuffleExchangeAdaptor =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-              CoalesceBatchesExec(
-                ColumnarCustomShuffleReaderExec(child, partitionSpecs))
+              if (columnarConf.enableArrowCoalesceBatches) {
+                ArrowCoalesceBatchesExec(
+                  ColumnarCustomShuffleReaderExec(child, partitionSpecs))
+              } else {
+                CoalesceBatchesExec(
+                  ColumnarCustomShuffleReaderExec(child, partitionSpecs))
+              }
             case r @ ReusedExchangeExec(_, s: ColumnarShuffleExchangeAdaptor) =>
               logDebug(s"Columnar Processing for ${plan.getClass} is currently supported.")
-              CoalesceBatchesExec(
-                ColumnarCustomShuffleReaderExec(
-                  child,
-                  partitionSpecs))
+              if (columnarConf.enableArrowCoalesceBatches) {
+                ArrowCoalesceBatchesExec(
+                  ColumnarCustomShuffleReaderExec(
+                    child,
+                    partitionSpecs))
+              } else {
+                CoalesceBatchesExec(
+                  ColumnarCustomShuffleReaderExec(
+                    child,
+                    partitionSpecs))
+              }
             case _ =>
               plan
           }
@@ -390,6 +417,8 @@ case class ColumnarPostOverrides() extends Rule[SparkPlan] {
     case ColumnarToRowExec(child: ColumnarBroadcastExchangeAdaptor) =>
       replaceWithColumnarPlan(child)
     case ColumnarToRowExec(child: CoalesceBatchesExec) =>
+      plan.withNewChildren(Seq(replaceWithColumnarPlan(child.child)))
+    case ColumnarToRowExec(child: ArrowCoalesceBatchesExec) =>
       plan.withNewChildren(Seq(replaceWithColumnarPlan(child.child)))
     case plan: ColumnarToRowExec =>
       if (columnarConf.enableArrowColumnarToRow) {
