@@ -120,8 +120,6 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
           private val converters = new RowToColumnConverter(localSchema)
           private var last_cb: ColumnarBatch = null
           private var elapse: Long = 0
-          // Allocate large buffer to store the numRows rows
-          val bufferSize = 134217728  // 128M can estimator the buffer size based on the data type
           val allocator = SparkMemoryUtils.contextAllocator()
           var arrowBuf: ArrowBuf = null
           override def hasNext: Boolean = {
@@ -154,7 +152,7 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               val unsafeRow = firstRow.asInstanceOf[UnsafeRow]
               val sizeInBytes = unsafeRow.getSizeInBytes
               // allocate buffer based on 1st row
-              val estimatedBufSize = sizeInBytes * numRows * 1.2
+              val estimatedBufSize = sizeInBytes.toDouble * numRows * 1.2
               arrowBuf = allocator.buffer(estimatedBufSize.toLong)
               Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
                 null, arrowBuf.memoryAddress() + offset, sizeInBytes)
