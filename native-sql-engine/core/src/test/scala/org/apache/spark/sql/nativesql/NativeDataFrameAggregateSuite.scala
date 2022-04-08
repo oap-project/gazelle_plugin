@@ -50,7 +50,7 @@ class NativeDataFrameAggregateSuite extends QueryTest
     )
     checkAnswer(
       testData2.groupBy("a").agg(sum($"b").as("totB")).agg(sum($"totB")),
-      Row(9)
+      Row(1)
     )
     checkAnswer(
       testData2.groupBy("a").agg(count("*")),
