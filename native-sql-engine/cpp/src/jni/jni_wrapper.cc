@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-#include <arrow/array/concatenate.h>
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
 #include <arrow/buffer.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/path_util.h>
@@ -49,7 +49,6 @@
 #include "proto/protobuf_utils.h"
 #include "shuffle/splitter.h"
 #include "utils/exception.h"
-
 
 namespace {
 
