@@ -1,5 +1,126 @@
 # Change log
-Generated on 2022-01-12
+Generated on 2022-04-08
+
+## Release 1.3.1
+
+### Gazelle Plugin
+
+#### Features
+|||
+|:---|:---|
+|[#710](https://github.com/oap-project/gazelle_plugin/issues/710)|Add rand expression support|
+|[#745](https://github.com/oap-project/gazelle_plugin/issues/745)|improve codegen check|
+|[#761](https://github.com/oap-project/gazelle_plugin/issues/761)|Update the document to reflect the changes in build and deployment|
+|[#635](https://github.com/oap-project/gazelle_plugin/issues/635)|Document the incompatibility with Spark on Expressions|
+|[#702](https://github.com/oap-project/gazelle_plugin/issues/702)|Print output datatype for columnar shuffle on WebUI|
+|[#712](https://github.com/oap-project/gazelle_plugin/issues/712)|[Nested type] Optimize Array split and support nested Array |
+|[#732](https://github.com/oap-project/gazelle_plugin/issues/732)|[Nested type] Support Struct and Map nested types in Shuffle|
+|[#759](https://github.com/oap-project/gazelle_plugin/issues/759)|Add spark 3.1.2 & 3.1.3 as supported versions for 3.1.1 shim layer|
+
+#### Performance
+|||
+|:---|:---|
+|[#610](https://github.com/oap-project/gazelle_plugin/issues/610)|refactor on shuffled hash join/hash agg|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#755](https://github.com/oap-project/gazelle_plugin/issues/755)|GetAttrFromExpr unsupported issue when run TPCDS Q57|
+|[#764](https://github.com/oap-project/gazelle_plugin/issues/764)|add java.version to clarify jdk version|
+|[#774](https://github.com/oap-project/gazelle_plugin/issues/774)|Fix runtime issues on spark 3.2|
+|[#778](https://github.com/oap-project/gazelle_plugin/issues/778)|Failed to find include file while running code gen|
+|[#725](https://github.com/oap-project/gazelle_plugin/issues/725)|gazelle failed to run with spark local|
+|[#746](https://github.com/oap-project/gazelle_plugin/issues/746)|Improve memory allocation on native row to column operator|
+|[#770](https://github.com/oap-project/gazelle_plugin/issues/770)|There are cast exception and null pointer expection in spark-3.2|
+|[#772](https://github.com/oap-project/gazelle_plugin/issues/772)|ColumnarBatchScan name missing in UI for Spark321|
+|[#740](https://github.com/oap-project/gazelle_plugin/issues/740)|Handle exceptions like std::out_of_range in casting string to numeric types in WSCG|
+|[#727](https://github.com/oap-project/gazelle_plugin/issues/727)|Create table failed with TPCH partiton dataset|
+|[#719](https://github.com/oap-project/gazelle_plugin/issues/719)|Wrong result on TPC-DS Q38, Q87|
+|[#705](https://github.com/oap-project/gazelle_plugin/issues/705)|Two unit tests failed on master branch|
+
+#### PRs
+|||
+|:---|:---|
+|[#833](https://github.com/oap-project/gazelle_plugin/pull/833)|[NSE-782] backport master changes to 1.3.1 branch |
+|[#809](https://github.com/oap-project/gazelle_plugin/pull/809)|[NSE-746]Fix memory allocation in row to columnar|
+|[#820](https://github.com/oap-project/gazelle_plugin/pull/820)|[NSE-782] backport master changes to 1.3.1 branch |
+|[#817](https://github.com/oap-project/gazelle_plugin/pull/817)|[NSE-761] Update document to reflect spark 3.2.x support|
+|[#814](https://github.com/oap-project/gazelle_plugin/pull/814)|[NSE-782] backport master changes to 1.3.1 branch |
+|[#805](https://github.com/oap-project/gazelle_plugin/pull/805)|[NSE-772] Code refactor for ColumnarBatchScan|
+|[#779](https://github.com/oap-project/gazelle_plugin/pull/779)|[NSE-778] Failed to find include file while running code gen|
+|[#807](https://github.com/oap-project/gazelle_plugin/pull/807)|[NSE-782] backport master changes to 1.3.1 branch|
+|[#798](https://github.com/oap-project/gazelle_plugin/pull/798)|[NSE-795] Fix a consecutive SMJ issue in wscg|
+|[#803](https://github.com/oap-project/gazelle_plugin/pull/803)|[NSE-782]  backport master changes to 1.3.1 branch|
+|[#799](https://github.com/oap-project/gazelle_plugin/pull/799)|[NSE-791] fix xchg reuse in Spark321|
+|[#773](https://github.com/oap-project/gazelle_plugin/pull/773)|[NSE-770] [NSE-774] Fix runtime issues on spark 3.2|
+|[#787](https://github.com/oap-project/gazelle_plugin/pull/787)|[NSE-774] Fallback broadcast exchange for DPP to reuse|
+|[#763](https://github.com/oap-project/gazelle_plugin/pull/763)|[NSE-762] Add complex types support for ColumnarSortExec|
+|[#783](https://github.com/oap-project/gazelle_plugin/pull/783)|[NSE-782] prepare 1.3.1 release|
+|[#777](https://github.com/oap-project/gazelle_plugin/pull/777)|[NSE-732]Adding new config to enable/disable complex data type support |
+|[#776](https://github.com/oap-project/gazelle_plugin/pull/776)|[NSE-770] [NSE-774] Fix runtime issues on spark 3.2|
+|[#765](https://github.com/oap-project/gazelle_plugin/pull/765)|[NSE-764] declare java.version for maven|
+|[#767](https://github.com/oap-project/gazelle_plugin/pull/767)|[NSE-610] fix unit tests on SHJ|
+|[#760](https://github.com/oap-project/gazelle_plugin/pull/760)|[NSE-759] Add spark 3.1.2 & 3.1.3 as supported versions for 3.1.1 shim layer|
+|[#757](https://github.com/oap-project/gazelle_plugin/pull/757)|[NSE-746]Fix memory allocation in row to columnar|
+|[#724](https://github.com/oap-project/gazelle_plugin/pull/724)|[NSE-725] change the code style for ExecutorManger|
+|[#751](https://github.com/oap-project/gazelle_plugin/pull/751)|[NSE-745] Improve codegen check for expression|
+|[#742](https://github.com/oap-project/gazelle_plugin/pull/742)|[NSE-359] [NSE-273] Introduce shim layer to fix compatibility issues for gazelle on spark 3.1 & 3.2|
+|[#754](https://github.com/oap-project/gazelle_plugin/pull/754)|[NSE-755] Quick fix for ConverterUtils.getAttrFromExpr for TPCDS queries|
+|[#749](https://github.com/oap-project/gazelle_plugin/pull/749)|[NSE-732] Support Map complex type in Shuffle|
+|[#738](https://github.com/oap-project/gazelle_plugin/pull/738)|[NSE-610] hashjoin opt1|
+|[#733](https://github.com/oap-project/gazelle_plugin/pull/733)|[NSE-732] Support Struct complex type in Shuffle|
+|[#744](https://github.com/oap-project/gazelle_plugin/pull/744)|[NSE-740] fix codegen with out_of_range check|
+|[#743](https://github.com/oap-project/gazelle_plugin/pull/743)|[NSE-740] Catch out_of_range exception in casting string to numeric types in wscg|
+|[#735](https://github.com/oap-project/gazelle_plugin/pull/735)|[NSE-610] hashagg opt#2|
+|[#707](https://github.com/oap-project/gazelle_plugin/pull/707)|[NSE-710] Add rand expression support|
+|[#734](https://github.com/oap-project/gazelle_plugin/pull/734)|[NSE-727] Create table failed with TPCH partiton dataset, patch 2|
+|[#715](https://github.com/oap-project/gazelle_plugin/pull/715)|[NSE-610] hashagg opt#1|
+|[#731](https://github.com/oap-project/gazelle_plugin/pull/731)|[NSE-727] Create table failed with TPCH partiton dataset|
+|[#713](https://github.com/oap-project/gazelle_plugin/pull/713)|[NSE-712]  Optimize Array split and support nested Array|
+|[#721](https://github.com/oap-project/gazelle_plugin/pull/721)|[NSE-719][backport]fix null check in SMJ|
+|[#720](https://github.com/oap-project/gazelle_plugin/pull/720)|[NSE-719] fix null check in SMJ|
+|[#718](https://github.com/oap-project/gazelle_plugin/pull/718)|Following NSE-702, fix for AQE enabled case|
+|[#691](https://github.com/oap-project/gazelle_plugin/pull/691)|[NSE-687]Try to upgrade log4j|
+|[#703](https://github.com/oap-project/gazelle_plugin/pull/703)|[NSE-702] Print output datatype for columnar shuffle on WebUI|
+|[#706](https://github.com/oap-project/gazelle_plugin/pull/706)|[NSE-705] Fallback R2C on unsupported cases|
+|[#657](https://github.com/oap-project/gazelle_plugin/pull/657)|[NSE-635] Add document to clarify incompatibility issues in expressions|
+|[#623](https://github.com/oap-project/gazelle_plugin/pull/623)|[NSE-602] Fix Array type shuffle split segmentation fault|
+|[#693](https://github.com/oap-project/gazelle_plugin/pull/693)|[NSE-692] JoinBenchmark is broken|
+
+
+### OAP MLlib
+
+#### Features
+|||
+|:---|:---|
+|[#189](https://github.com/oap-project/oap-mllib/issues/189)|Intel-MLlib not support spark-3.2.1 version|
+|[#186](https://github.com/oap-project/oap-mllib/issues/186)|[Core] Support CDH versions|
+|[#187](https://github.com/oap-project/oap-mllib/issues/187)|Intel-MLlib not support spark-3.1.3 version.|
+|[#180](https://github.com/oap-project/oap-mllib/issues/180)|[CI] Refactor CI and add code checks|
+
+#### Bugs Fixed
+|||
+|:---|:---|
+|[#202](https://github.com/oap-project/oap-mllib/issues/202)|[SDLe] Update oneAPI version to solve vulnerabilities|
+|[#171](https://github.com/oap-project/oap-mllib/issues/171)|[Core] detect if spark.dynamicAllocation.enabled is set true and exit gracefully|
+|[#185](https://github.com/oap-project/oap-mllib/issues/185)|[Naive Bayes]Big dataset will out of memory errors.|
+|[#184](https://github.com/oap-project/oap-mllib/issues/184)|[Core] Fix code style issues|
+|[#179](https://github.com/oap-project/oap-mllib/issues/179)|[GPU][PCA] use distributed covariance as the first step for PCA|
+|[#178](https://github.com/oap-project/oap-mllib/issues/178)|[ALS] Fix error when converting buffer to CSRNumericTable|
+|[#177](https://github.com/oap-project/oap-mllib/issues/177)|[Native Bayes] Fix error when converting Vector to CSRNumericTable|
+
+#### PRs
+|||
+|:---|:---|
+|[#203](https://github.com/oap-project/oap-mllib/pull/203)|[ML-202] Update oneAPI Base Toolkit version and prepare for OAP 1.3.1 release|
+|[#197](https://github.com/oap-project/oap-mllib/pull/197)|[ML-187]Support spark 3.1.3 and 3.2.0 and support CDH|
+|[#201](https://github.com/oap-project/oap-mllib/pull/201)|[ML-171]When enabled oap mllib, spark.dynamicAllocation.enabled should be set false.|
+|[#196](https://github.com/oap-project/oap-mllib/pull/196)|[ML-185]Select label and features columns and cache data|
+|[#195](https://github.com/oap-project/oap-mllib/pull/195)|[ML-184]Fix code style issues|
+|[#183](https://github.com/oap-project/oap-mllib/pull/183)|[ML-180][CI] Refactor CI and add code checks|
+|[#175](https://github.com/oap-project/oap-mllib/pull/175)|[ML-179][GPU] use distributed covariance as the first step for PCA|
+|[#182](https://github.com/oap-project/oap-mllib/pull/182)|[ML-178]fix als convert buffer to NumericTable|
+|[#176](https://github.com/oap-project/oap-mllib/pull/176)|[ML-177][Native Bayes] Fix error when converting Vector to CSRNumericTable|
 
 ## Release 1.3.0
 
