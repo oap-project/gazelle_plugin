@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <arrow/array/concatenate.h>
+#include <arrow/array.h>
 #include <arrow/buffer.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/path_util.h>
@@ -25,6 +27,8 @@
 #include <arrow/memory_pool.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
+#include <arrow/result.h>
+#include <arrow/type_fwd.h>
 #include <arrow/util/compression.h>
 #include <arrow/util/iterator.h>
 #include <jni.h>
@@ -35,7 +39,6 @@
 #include <string>
 #include <utility>
 
-#include "arrow/array/concatenate.h"
 #include "codegen/code_generator_factory.h"
 #include "codegen/common/hash_relation.h"
 #include "codegen/common/result_iterator.h"
@@ -47,9 +50,6 @@
 #include "shuffle/splitter.h"
 #include "utils/exception.h"
 
-#include "arrow/array.h"
-#include "arrow/result.h"
-#include "arrow/type_fwd.h"
 
 namespace {
 
