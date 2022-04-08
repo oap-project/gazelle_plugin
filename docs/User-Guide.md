@@ -139,13 +139,13 @@ The result should showup on Spark console and you can check the DAG diagram with
 
 ### Amazon EMR
 
-Please refer to [Gazelle_on_EMR](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/emr) to find details about how to use OAP Gazelle on Amazon EMR Cloud.
+Please refer to [Gazelle on EMR](https://github.com/oap-project/oap-tools/tree/master/integrations/oap/emr) to find details about how to use OAP Gazelle on Amazon EMR Cloud.
 
 ###  Google Cloud Dataproc
 
 Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.
 
-Please refer to [Gazelle_on_Dataproc](https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md) to find details about:
+Please refer to [Gazelle on Dataproc](https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md) to find details about:
 
 1. Create a cluster on Dataproc 2.0 with initialization actions. 
 Gazelle Plugin jars compiled with `-Pdataproc-2.0` parameter will installed by Conda in all cluster nodes.
