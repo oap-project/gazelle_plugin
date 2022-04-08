@@ -356,6 +356,12 @@ object ConverterUtils extends Logging {
         getAttrFromExpr(u.child)
       case ss: Substring =>
         getAttrFromExpr(ss.children(0))
+      case and: And =>
+        getAttrFromExpr(and.children(0))
+      case caseWhen: CaseWhen =>
+        getAttrFromExpr(caseWhen.children(0))
+      case greaterThanOrEqual: GreaterThanOrEqual =>
+        getAttrFromExpr(greaterThanOrEqual.children(0))
       case other =>
         throw new UnsupportedOperationException(
           s"makeStructField is unable to parse from $other (${other.getClass}).")
