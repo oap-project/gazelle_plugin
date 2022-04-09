@@ -166,8 +166,10 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
                 val unsafeRow = row.asInstanceOf[UnsafeRow]
                 val sizeInBytes = unsafeRow.getSizeInBytes
                 if ((offset + sizeInBytes) > arrowBuf.capacity()) {
+                  val tmpBuf = allocator.buffer(((offset + sizeInBytes) * 1.5).toLong)
+                  tmpBuf.setBytes(0, arrowBuf, 0, offset)
                   arrowBuf.close()
-                  arrowBuf = allocator.buffer((arrowBuf.capacity() * 1.2).toLong)
+                  arrowBuf = tmpBuf
                 }
                 Platform.copyMemory(unsafeRow.getBaseObject, unsafeRow.getBaseOffset,
                   null, arrowBuf.memoryAddress() + offset, sizeInBytes)
@@ -192,7 +194,7 @@ case class ArrowRowToColumnarExec(child: SparkPlan) extends UnaryExecNode {
               processTime.set(NANOSECONDS.toMillis(elapse))
               last_cb
             } else {
-              logInfo("the buffer allocated failed and will fall back to non arrow optimization")
+              logInfo("not unsaferow, fallback to java based r2c")
               val vectors: Seq[WritableColumnVector] =
                 ArrowWritableColumnVector.allocateColumns(numRows, schema)
               var rowCount = 0
