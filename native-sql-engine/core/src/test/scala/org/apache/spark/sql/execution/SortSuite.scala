@@ -32,6 +32,12 @@ import org.apache.spark.sql.types._
 class SortSuite extends SparkPlanTest with SharedSparkSession {
   import testImplicits.newProductEncoder
   import testImplicits.localSeqToDatasetHolder
+  
+  override protected def sparkConf: SparkConf = {
+    val conf = super.sparkConf
+    conf.set("spark.memory.offHeap.size", String.valueOf("5000m"))
+    .set("spark.sql.inMemoryColumnarStorage.batchSize", "100")
+  }
 
   test("basic sorting using ExternalSort") {
 
