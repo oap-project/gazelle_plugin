@@ -37,6 +37,7 @@ class SortSuite extends SparkPlanTest with SharedSparkSession {
   override protected def sparkConf: SparkConf = {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf("5000m"))
+    .set("spark.sql.inMemoryColumnarStorage.batchSize", "100")
   }
 
   test("basic sorting using ExternalSort") {
