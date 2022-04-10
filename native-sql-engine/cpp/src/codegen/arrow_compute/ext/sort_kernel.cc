@@ -1450,6 +1450,17 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
         }
       }
     }
+#ifdef DEBUG
+    if (indices_null != nulls_total_) {
+      std::cout << "Unexpected Sort PartitionNulls state, indices_null: " << indices_null
+                << ", nulls_total_: " << nulls_total_ << std::endl;
+    }
+    if (indices_i + indices_null != items_total_) {
+      std::cout << "Unexpected Sort PartitionNulls state, indices_i: " << indices_i
+                << ", indices_null: " << indices_null
+                << ", items_total_: " << items_total_ << std::endl;
+    }
+#endif
   }
 
   int64_t PartitionNaNs(ArrayItemIndexS* indices_begin, ArrayItemIndexS* indices_end) {
