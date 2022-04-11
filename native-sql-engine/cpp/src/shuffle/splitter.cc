@@ -379,31 +379,7 @@ arrow::Status Splitter::Init() {
   return arrow::Status::OK();
 }
 
-int64_t batch_nbytes(const arrow::RecordBatch& batch) {
-  int64_t accumulated = 0L;
-  static int printed = 0;
 
-  for (const auto& array : batch.columns()) {
-    if (array == nullptr || array->data() == nullptr) {
-      continue;
-    }
-    for (const auto& buf : array->data()->buffers) {
-      if (buf == nullptr) {
-        continue;
-      }
-      accumulated += buf->size();
-    }
-  }
-  printed++;
-  return accumulated;
-}
-
-int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
-  if (batch == nullptr) {
-    return 0;
-  }
-  return batch_nbytes(*batch);
-}
 
 int64_t Splitter::CompressedSize(const arrow::RecordBatch& rb) {
   auto payload = std::make_shared<arrow::ipc::IpcPayload>();
@@ -481,8 +457,33 @@ arrow::Status Splitter::Stop() {
   EVAL_END("write", options_.thread_id, options_.task_attempt_id)
   return arrow::Status::OK();
 }
+int64_t batch_nbytes(const arrow::RecordBatch& batch) {
+  int64_t accumulated = 0L;
+
+  for (const auto& array : batch.columns()) {
+    if (array == nullptr || array->data() == nullptr) {
+      continue;
+    }
+    for (const auto& buf : array->data()->buffers) {
+      if (buf == nullptr) {
+        continue;
+      }
+      accumulated += buf->size();
+    }
+  }
+  return accumulated;
+}
+
+int64_t batch_nbytes(std::shared_ptr<arrow::RecordBatch> batch) {
+  if (batch == nullptr) {
+    return 0;
+  }
+  return batch_nbytes(*batch);
+}
 
 arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffers) {
+  static int printed=0;
+
   if (partition_buffer_idx_base_[partition_id] > 0) {
     // already filled
     auto fixed_width_idx = 0;
@@ -588,6 +589,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
         }
       }
     }
+
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
     int64_t raw_size = batch_nbytes(batch);
 
@@ -604,6 +606,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                              *batch, options_.ipc_write_options, payload.get()));
     }
 #else
+// for test reason
     TIME_NANO_OR_RAISE(total_compress_time_,
                         arrow::ipc::GetRecordBatchPayload(
                             *batch, tiny_bach_write_options_, payload.get()));
@@ -780,6 +783,7 @@ arrow::Status Splitter::AllocateNew(int32_t partition_id, int32_t new_size) {
   return status;
 }
 
+// call from memory management
 arrow::Status Splitter::SpillFixedSize(int64_t size, int64_t* actual) {
   int64_t current_spilled = 0L;
   int32_t try_count = 0;
@@ -901,7 +905,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
           }
         } else {
           // if prefer_spill is disabled, cache the record batch
-          RETURN_NOT_OK(CacheRecordBatch(pid, true));
+          RETURN_NOT_OK(CacheRecordBatch(pid, /*reset_buffers = */ true));
           // allocate partition buffer with retries
           RETURN_NOT_OK(AllocateNew(pid, new_size));
         }
@@ -929,27 +933,25 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
 arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb) {
   const auto num_rows = rb.num_rows();
   int64_t row;
+  std::vector<int16_t> partition_buffer_idx_offset;
 
   for (auto col = 0; col < fixed_width_array_idx_.size(); ++col) {
-    std::copy(partition_buffer_idx_base_.begin(), partition_buffer_idx_base_.end(),
+    const auto& dst_addrs = partition_fixed_width_value_addrs_[col];
+    std::copy(dst_addrs.begin(), dst_addrs.end(),
           partition_buffer_idx_offset_.begin());
     auto col_idx = fixed_width_array_idx_[col];
     auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[1]->data());
-    const auto& dst_addrs = partition_fixed_width_value_addrs_[col];
+
+    
     
     switch (arrow::bit_width(column_type_id_[col_idx]->id())) {
 #define PROCESS(_CTYPE)                                                               \
       for (row = 0; row < num_rows; ++row) {                                        \
         auto pid = partition_id_[row];                                                \
-        /*auto nextpid = partition_id_[row+1];*/                                          \
-        /*_mm_prefetch(&partition_buffer_idx_offset_[nextpid], _MM_HINT_T0);*/            \
-        /*_mm_prefetch(&dst_addrs[nextpid], _MM_HINT_T0);*/                               \
-        auto dst_offset = partition_buffer_idx_offset_[pid];                          \
-        auto dst_pid_base = reinterpret_cast<_CTYPE*>(dst_addrs[pid]);                \
-        /*_mm_prefetch(&src_addr[row+128], _MM_HINT_T0); */                                \
-        dst_pid_base[dst_offset] = reinterpret_cast<_CTYPE*>(src_addr)[row];          \
-        partition_buffer_idx_offset_[pid]++;                                          \
-        _mm_prefetch(&dst_pid_base[dst_offset + 1], _MM_HINT_T0);                     \
+        auto dst_pid_base = reinterpret_cast<_CTYPE*>(partition_buffer_idx_offset_[pid]);                \
+        *dst_pid_base = reinterpret_cast<_CTYPE*>(src_addr)[row];          \
+        partition_buffer_idx_offset_[pid]+=sizeof(_CTYPE);                                     \
+        _mm_prefetch(&dst_pid_base[1], _MM_HINT_T0);                     \
       }                                                                               \
       break;
     case 8:
@@ -962,29 +964,32 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
       PROCESS(uint64_t)
 #undef PROCESS
     case 128: //arrow::Decimal128Type::type_id
+      std::transform(partition_buffer_idx_offset_.begin(), partition_buffer_idx_offset_.end(), 
+          partition_buffer_idx_base_.begin(), partition_buffer_idx_offset_.begin(),            
+          [](uint8_t* x, int16_t y) { return x+y*16; });                           
       for (auto row = 0; row < num_rows; ++row) {
         auto pid = partition_id_[row];
-        uint32_t dst_offset = partition_buffer_idx_offset_[pid];
-        dst_offset <<= 1;
-        reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset] =
+        reinterpret_cast<uint64_t*>(partition_buffer_idx_offset_[pid])[0] =
             reinterpret_cast<uint64_t*>(src_addr)[row << 1];
-        reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset | 1] =
+        reinterpret_cast<uint64_t*>(partition_buffer_idx_offset_[pid])[1] =
             reinterpret_cast<uint64_t*>(src_addr)[row << 1 | 1];
-        partition_buffer_idx_offset_[pid]++;
-        _mm_prefetch(&reinterpret_cast<uint64_t*>(dst_addrs[pid])[dst_offset + 2],
+        partition_buffer_idx_offset_[pid]+=16;
+        _mm_prefetch(&reinterpret_cast<uint64_t*>(partition_buffer_idx_offset_[pid])[2],
                       _MM_HINT_T0);
       }
       break;
     case 1: //arrow::BooleanType::type_id:
+      partition_buffer_idx_offset.resize(partition_buffer_idx_base_.size());
+      std::copy(partition_buffer_idx_base_.begin(),partition_buffer_idx_base_.end(),
+            partition_buffer_idx_offset.begin());
       for (auto row = 0; row < num_rows; ++row) {
         auto pid = partition_id_[row];
-        auto dst_offset =
-            partition_buffer_idx_base_[pid] + partition_buffer_idx_offset_[pid];
+        uint16_t dst_offset = partition_buffer_idx_offset[pid];
         dst_addrs[pid][dst_offset >> 3] ^=
             (dst_addrs[pid][dst_offset >> 3] >> (dst_offset & 7) ^
               src_addr[row >> 3] >> (row & 7))
             << (dst_offset & 7);
-        partition_buffer_idx_offset_[pid]++;
+        partition_buffer_idx_offset[pid]++;
       }
       break;
     default:
@@ -1164,10 +1169,13 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
 
 arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& rb) {
   const auto num_rows = rb.num_rows();
+  std::vector<int16_t> partition_buffer_idx_offset;
+
   for (auto col = 0; col < fixed_width_array_idx_.size(); ++col) {
     auto col_idx = fixed_width_array_idx_[col];
     auto& dst_addrs = partition_fixed_width_validity_addrs_[col];
     if (rb.column_data(col_idx)->GetNullCount() == 0) {
+      // if the input record batch doesn't have null, set validity to True
       for (auto pid = 0; pid < num_partitions_; ++pid) {
         if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
           arrow::BitUtil::SetBitsTo(dst_addrs[pid], partition_buffer_idx_base_[pid],
@@ -1175,12 +1183,11 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
         }
       }
     } else {
+      // there is Null count
       for (auto pid = 0; pid < num_partitions_; ++pid) {
         if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] == nullptr) {
-          // init bitmap if it's null
-          auto new_size = partition_id_cnt_[pid] > options_.buffer_size
-                              ? partition_id_cnt_[pid]
-                              : options_.buffer_size;
+          // init bitmap if it's null, initialize the buffer as true
+          auto new_size = std::max(partition_id_cnt_[pid], options_.buffer_size);
           ARROW_ASSIGN_OR_RAISE(
               auto validity_buffer,
               arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size),
@@ -1193,17 +1200,18 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
       }
 
       auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[0]->data());
+      partition_buffer_idx_offset.resize(partition_buffer_idx_base_.size());
       std::copy(partition_buffer_idx_base_.begin(),partition_buffer_idx_base_.end(),
-              partition_buffer_idx_offset_.begin());
+              partition_buffer_idx_offset.begin());
       for (auto row = 0; row < num_rows; ++row) {
         auto pid = partition_id_[row];
         auto dst_offset =
-            partition_buffer_idx_offset_[pid];
+            partition_buffer_idx_offset[pid];
         dst_addrs[pid][dst_offset >> 3] ^=
             (dst_addrs[pid][dst_offset >> 3] >> (dst_offset & 7) ^
              src_addr[row >> 3] >> (row & 7))
             << (dst_offset & 7);
-        partition_buffer_idx_offset_[pid]++;
+        partition_buffer_idx_offset[pid]++;
       }
     }
   }
@@ -1339,8 +1347,7 @@ arrow::Status RoundRobinSplitter::ComputeAndCountPartitionId(
   for (auto& pid : partition_id_) {
     pid = pid_selection_;
     partition_id_cnt_[pid_selection_]++;
-    auto nextpid = pid_selection_ + 1;
-    pid_selection_ = nextpid==num_partitions_? 0 : nextpid;
+    pid_selection_ = (pid_selection_ + 1) == num_partitions_ ? 0: (pid_selection_ + 1);
   }
   return arrow::Status::OK();
 }

@@ -176,7 +176,8 @@ class Splitter {
   // partid
   std::vector<uint16_t> partition_buffer_idx_base_;
   // partid
-  std::vector<uint16_t> partition_buffer_idx_offset_;
+  // temp array to hold the destination pointer
+  std::vector<uint8_t*> partition_buffer_idx_offset_;
   // partid
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
   // col partid
