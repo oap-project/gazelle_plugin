@@ -48,7 +48,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
                     </li>
                 </ul>
                 <ul class="current">
@@ -149,7 +149,7 @@ Please make sure you have already installed the software in your system.</p>
 <li>cmake 3.16 or higher version</li>
 <li>Maven 3.6.3 or higher version</li>
 <li>Hadoop 2.7.5 or higher version</li>
-<li>Spark 3.1.1 or higher version</li>
+<li>Spark 3.1.x or Spark 3.2.x</li>
 <li>Intel Optimized Arrow 4.0.0</li>
 </ol>
 <h2 id="gcc-installation">gcc installation</h2>
@@ -171,13 +171,12 @@ https://gcc.gnu.org/install/finalinstall.html</p>
 <pre><code>export PATH=$YOUR_GCC_INSTALLATION_DIR/bin:$PATH
 export LD_LIBRARY_PATH=$YOUR_GCC_INSTALLATION_DIR/lib64:$LD_LIBRARY_PATH
 </code></pre>
-
 <p>Please remember to add and source the setup in your environment files such as /etc/profile or /etc/bashrc</p>
 <p>//Verify if gcc has been installation
 Use <code>gcc -v</code> command to verify if your gcc version is correct.(Must larger than 7.0)</p>
 <h2 id="llvm-70-installation">LLVM 7.0 installation</h2>
 <p>Arrow Gandiva depends on LLVM, and I noticed current version strictly depends on llvm7.0 if you installed any other version rather than 7.0, it will fail.</p>
-<pre><code class="shell">wget http://releases.llvm.org/7.0.1/llvm-7.0.1.src.tar.xz
+<pre><code class="language-shell">wget http://releases.llvm.org/7.0.1/llvm-7.0.1.src.tar.xz
 tar xf llvm-7.0.1.src.tar.xz
 cd llvm-7.0.1.src/
 cd tools
@@ -198,7 +197,6 @@ cmake ..
 make -j
 make install
 </code></pre>
-
 <h2 id="cmake-installation">cmake installation</h2>
 <p>If you are facing some trouble when installing cmake, please follow below steps to install cmake.</p>
 <pre><code>// installing Cmake 3.16.1
@@ -213,7 +211,6 @@ sudo alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 --slav
 // Use alternatives to choose cmake version
 sudo alternatives --config cmake
 </code></pre>
-
 <h2 id="maven-installation">maven installation</h2>
 <p>If you are facing some trouble when installing maven, please follow below steps to install maven</p>
 <p>// installing maven 3.6.3</p>
@@ -225,15 +222,12 @@ tar xzf apache-maven-3.6.3-bin.tar.gz
 mkdir /usr/local/maven
 mv apache-maven-3.6.3/ /usr/local/maven/
 </code></pre>
-
 <p>// Set maven 3.6.3 as an option within alternatives command</p>
 <pre><code>sudo alternatives --install /usr/bin/mvn mvn /usr/local/maven/apache-maven-3.6.3/bin/mvn 1
 </code></pre>
-
 <p>// Use alternatives to choose mvn version</p>
 <pre><code>sudo alternatives --config mvn
 </code></pre>
-
 <h2 id="hadoopspark-installation">HADOOP/SPARK Installation</h2>
 <p>If there is no existing Hadoop/Spark installed, Please follow the guide to install your Hadoop/Spark <a href="../SparkInstallation/">SPARK/HADOOP Installation</a></p>
 <h3 id="hadoop-native-librarydefault">Hadoop Native Library(Default)</h3>
@@ -253,19 +247,16 @@ conda install -c conda-forge libhdfs3
 // check the installed library file
 ll ~/miniconda/envs/$(YOUR_ENV_NAME)/lib/libhdfs3.so
 </code></pre>
-
 <p>We also provide a libhdfs3 binary in cpp/src/resources directory.</p>
 <p>To set up libhdfs3, there are two different ways:
 Option1: Overwrite the soft link for libhdfs.so
 To install libhdfs3.so, you have to create a soft link for libhdfs.so in your Hadoop directory(<code>$HADOOP_HOME/lib/native</code> by default).</p>
 <pre><code>ln -f -s libhdfs3.so libhdfs.so
 </code></pre>
-
 <p>Option2:
 Add env variable to the system</p>
 <pre><code>export ARROW_LIBHDFS3_DIR=&quot;PATH_TO_LIBHDFS3_DIR/&quot;
 </code></pre>
-
 <p>Add following Spark configuration options before running the DataSource to make the library to be recognized:</p>
 <ul>
 <li><code>spark.executorEnv.ARROW_LIBHDFS3_DIR = "PATH_TO_LIBHDFS3_DIR/"</code></li>
@@ -285,7 +276,7 @@ If you wish to build Apache Arrow by yourself, please follow the guide to build 
         <a href="../Installation/" class="btn btn-neutral float-right" title="Installation">Next <span class="icon icon-circle-arrow-right"></span></a>
       
       
-        <a href=".." class="btn btn-neutral" title="User Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../User-Guide/" class="btn btn-neutral" title="User Guide"><span class="icon icon-circle-arrow-left"></span> Previous</a>
       
     </div>
   
@@ -311,7 +302,7 @@ If you wish to build Apache Arrow by yourself, please follow the guide to build 
     <span class="rst-current-version" data-toggle="rst-current-version">
       
       
-        <span><a href=".." style="color: #fcfcfc;">&laquo; Previous</a></span>
+        <span><a href="../User-Guide/" style="color: #fcfcfc;">&laquo; Previous</a></span>
       
       
         <span style="margin-left: 15px"><a href="../Installation/" style="color: #fcfcfc">Next &raquo;</a></span>

@@ -48,7 +48,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
                     </li>
                 </ul>
                 <ul>
@@ -132,16 +132,18 @@
                 <h1 id="gazelle-plugin-installation">Gazelle Plugin Installation</h1>
 <p>For detailed testing scripts, please refer to <a href="https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql">solution guide</a></p>
 <h2 id="install-googletest-and-googlemock">Install Googletest and Googlemock</h2>
-<pre><code class="shell">yum install gtest-devel
+<pre><code class="language-shell">yum install gtest-devel
 yum install gmock
 </code></pre>
-
 <h2 id="build-gazelle-plugin">Build Gazelle Plugin</h2>
-<pre><code class="shell">git clone -b ${version} https://github.com/oap-project/native-sql-engine.git
-cd oap-native-sql
-mvn clean package -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
+<pre><code class="language-shell">git clone -b ${version} https://github.com/oap-project/gazelle_plugin.git
+cd gazelle_plugin
+mvn clean package -Pspark-3.1 -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 </code></pre>
-
+<p>Please note two Spark profiles (<code>spark-3.1</code>, <code>spark-3.2</code>) are provided to build packages with different versions of Spark dependencies.
+Currently, a few unit tests are not compatible with spark 3.2. So if profile <code>spark-3.2</code> is used, <code>-Dmaven.test.skip</code> should be added to skip compiling unit tests.</p>
+<pre><code>mvn clean package -Pspark-3.2 -Dmaven.test.skip -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
+</code></pre>
 <p>Based on the different environment, there are some parameters can be set via -D with mvn.</p>
 <table>
 <thead>
@@ -174,7 +176,7 @@ mvn clean package -DskipTests -Dcpp_tests=OFF -Dbuild_arrow=ON -Dcheckstyle.skip
 </tr>
 </tbody>
 </table>
-<p>When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from <a href="https://github.com/oap-project/arrow/tree/arrow-4.0.0-oap">OAP Arrow</a>
+<p>When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from <a href="https://github.com/oap-project/arrow/tree/arrow-4.0.0-oap-1.3.1">OAP Arrow</a>
 If you wish to change any parameters from Arrow, you can change it from the <code>build_arrow.sh</code> script under <code>native-sql-engine/arrow-data-source/script/</code>.</p>
 <h3 id="additional-notes">Additional Notes</h3>
 <p><a href="../InstallationNotes/">Notes for Installation Issues</a></p>
