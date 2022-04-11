@@ -1283,9 +1283,39 @@ class SortOnekeyKernel : public SortArraysToIndicesKernel::Impl {
       RETURN_NOT_OK(key_projector_->Evaluate(*in_batch, ctx_->memory_pool(), &outputs));
       cached_key_.push_back(std::make_shared<ArrayType_key>(outputs[0]));
       nulls_total_ += outputs[0]->null_count();
+#ifdef DEBUG
+      int debug_nulls_count = 0;
+      for (int i = 0; i < outputs[0]->length(); i++) {
+        if (outputs[0]->IsNull(i)) {
+          debug_nulls_count++;
+        }
+      }
+      int64_t nulls_count = outputs[0]->null_count();
+      if (nulls_count != debug_nulls_count) {
+        std::cout << "Unexpected Sort Evaluate state, nulls_count: " << nulls_count
+                  << ", debug_nulls_count: " << debug_nulls_count << std::endl;
+        std::flush(std::cout);
+        raise(SIGABRT);
+      }
+#endif
       cache_size_total_ += GetArrayVectorSize(outputs);
     } else {
       nulls_total_ += in[key_id_]->null_count();
+#ifdef DEBUG
+      int debug_nulls_count = 0;
+      for (int i = 0; i < in[key_id_]->length(); i++) {
+        if (in[key_id_]->IsNull(i)) {
+          debug_nulls_count++;
+        }
+      }
+      int64_t nulls_count = in[key_id_]->null_count();
+      if (nulls_count != debug_nulls_count) {
+        std::cout << "Unexpected Sort Evaluate state, nulls_count: " << nulls_count
+                  << ", debug_nulls_count: " << debug_nulls_count << std::endl;
+        std::flush(std::cout);
+        raise(SIGABRT);
+      }
+#endif
       cached_key_.push_back(std::make_shared<ArrayType_key>(in[key_id_]));
     }
 
