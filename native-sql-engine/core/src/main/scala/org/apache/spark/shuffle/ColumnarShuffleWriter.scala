@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression.ConverterUtils
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.Spiller
+import com.intel.oap.sql.shims.SparkShimLoader
 import com.intel.oap.vectorized.{ArrowWritableColumnVector, ShuffleSplitterJniWrapper, SplitResult}
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID
 import org.apache.spark._
@@ -94,7 +95,8 @@ class ColumnarShuffleWriter[K, V](
   override def write(records: Iterator[Product2[K, V]]): Unit = {
     if (!records.hasNext) {
       partitionLengths = new Array[Long](dep.partitioner.numPartitions)
-      shuffleBlockResolver.writeIndexFileAndCommit(dep.shuffleId, mapId, partitionLengths, null)
+      SparkShimLoader.getSparkShims.shuffleBlockResolverWriteAndCommit(
+            shuffleBlockResolver, dep.shuffleId, mapId, partitionLengths, null)
       mapStatus = MapStatus(blockManager.shuffleServerId, partitionLengths, mapId)
       return
     }
@@ -197,11 +199,8 @@ class ColumnarShuffleWriter[K, V](
     partitionLengths = splitResult.getPartitionLengths
     rawPartitionLengths = splitResult.getRawPartitionLengths
     try {
-      shuffleBlockResolver.writeIndexFileAndCommit(
-        dep.shuffleId,
-        mapId,
-        partitionLengths,
-        dataTmp)
+      SparkShimLoader.getSparkShims.shuffleBlockResolverWriteAndCommit(
+            shuffleBlockResolver, dep.shuffleId, mapId, partitionLengths, dataTmp)
     } finally {
       if (dataTmp.exists() && !dataTmp.delete()) {
         logError(s"Error while deleting temp file ${dataTmp.getAbsolutePath}")

@@ -149,6 +149,10 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
     .getConfString("spark.shuffle.manager", "sort")
     .equals("org.apache.spark.shuffle.sort.ColumnarShuffleManager") && enableCpu
 
+  // enable experimental complex type support
+  val enableComplexType: Boolean =
+    conf.getConfString("spark.oap.sql.columnar.enableComplexType", "true").toBoolean
+
   // for all perf turnings
   // prefer to use columnar operators if set to true
   val enablePreferColumnar: Boolean =

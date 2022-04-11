@@ -25,7 +25,7 @@
 #include "codegen/arrow_compute/ext/array_item_index.h"
 #include "third_party/row_wise_memory/unsafe_row.h"
 
-#define MAX_HASH_MAP_CAPACITY (1 << 29)  // must be power of 2
+#define MAX_HASH_MAP_CAPACITY (1 << 30)  // must be power of 2
 
 #define HASH_NEW_KEY -1
 #define HASH_FOUND_MATCH -2

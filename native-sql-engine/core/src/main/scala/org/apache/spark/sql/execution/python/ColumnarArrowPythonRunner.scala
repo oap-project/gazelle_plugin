@@ -29,6 +29,7 @@ import org.apache.arrow.vector.ipc.{ArrowStreamReader, ArrowStreamWriter}
 import org.apache.spark.SparkEnv
 import org.apache.spark.TaskContext
 import org.apache.spark.api.python.{BasePythonRunner, ChainedPythonFunctions, PythonRDD, SpecialLengths}
+import org.apache.spark.sql.BasePythonRunnerChild
 //import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.execution.python.PythonUDFRunner
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
@@ -48,7 +49,7 @@ class ColumnarArrowPythonRunner(
     schema: StructType,
     timeZoneId: String,
     conf: Map[String, String])
-  extends BasePythonRunner[ColumnarBatch, ColumnarBatch](funcs, evalType, argOffsets) {
+  extends BasePythonRunnerChild(funcs, evalType, argOffsets) {
 
   override val simplifiedTraceback: Boolean = SQLConf.get.pysparkSimplifiedTraceback
 
@@ -57,73 +58,6 @@ class ColumnarArrowPythonRunner(
     bufferSize >= 4,
     "Pandas execution requires more than 4 bytes. Please set higher buffer. " +
       s"Please change '${SQLConf.PANDAS_UDF_BUFFER_SIZE.key}'.")
-
-  protected def newReaderIterator(
-      stream: DataInputStream,
-      writerThread: WriterThread,
-      startTime: Long,
-      env: SparkEnv,
-      worker: Socket,
-      releasedOrClosed: AtomicBoolean,
-      context: TaskContext): Iterator[ColumnarBatch] = {
-
-    new ReaderIterator(stream, writerThread, startTime, env, worker, releasedOrClosed, context) {
-      private val allocator = SparkMemoryUtils.contextAllocator().newChildAllocator(
-        s"stdin reader for $pythonExec", 0, Long.MaxValue)
-
-      private var reader: ArrowStreamReader = _
-      private var root: VectorSchemaRoot = _
-      private var schema: StructType = _
-      private var vectors: Array[ColumnVector] = _
-
-      context.addTaskCompletionListener[Unit] { _ =>
-        if (reader != null) {
-          reader.close(false)
-        }
-        allocator.close()
-      }
-
-      private var batchLoaded = true
-
-      protected override def read(): ColumnarBatch = {
-        if (writerThread.exception.isDefined) {
-          throw writerThread.exception.get
-        }
-        try {
-          if (reader != null && batchLoaded) {
-            batchLoaded = reader.loadNextBatch()
-            if (batchLoaded) {
-              val batch = new ColumnarBatch(vectors)
-              batch.setNumRows(root.getRowCount)
-              batch
-            } else {
-              reader.close(false)
-              allocator.close()
-              // Reach end of stream. Call `read()` again to read control data.
-              read()
-            }
-          } else {
-            stream.readInt() match {
-              case SpecialLengths.START_ARROW_STREAM =>
-                reader = new ArrowStreamReader(stream, allocator)
-                root = reader.getVectorSchemaRoot()
-                schema = ArrowUtils.fromArrowSchema(root.getSchema())
-                vectors = ArrowWritableColumnVector.loadColumns(root.getRowCount, root.getFieldVectors).toArray[ColumnVector]
-                read()
-              case SpecialLengths.TIMING_DATA =>
-                handleTimingData()
-                read()
-              case SpecialLengths.PYTHON_EXCEPTION_THROWN =>
-                throw handlePythonException()
-              case SpecialLengths.END_OF_DATA_SECTION =>
-                handleEndOfDataSection()
-                null
-            }
-          }
-        } catch handleException
-      }
-    }
-  }
 
   protected override def newWriterThread(
       env: SparkEnv,

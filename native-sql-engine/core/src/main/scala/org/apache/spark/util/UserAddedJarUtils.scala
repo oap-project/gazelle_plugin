@@ -16,6 +16,8 @@
  */
 package org.apache.spark.util
 
+import com.intel.oap.sql.shims.SparkShimLoader
+
 import org.apache.spark.{SparkConf, SparkContext}
 import java.io.File
 import java.nio.file.Files
@@ -33,7 +35,9 @@ object UserAddedJarUtils {
     //TODO: don't fetch when exists
     val targetPath = Paths.get(targetDir + "/" + targetFileName)
     if (Files.notExists(targetPath)) {
-      Utils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf, null, null)
+      SparkShimLoader
+        .getSparkShims
+        .doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf)
     } else {}
   }
 }

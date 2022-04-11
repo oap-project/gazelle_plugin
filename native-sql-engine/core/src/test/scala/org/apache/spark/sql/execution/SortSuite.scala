@@ -20,6 +20,7 @@ package org.apache.spark.sql.execution
 import scala.util.Random
 
 import org.apache.spark.AccumulatorSuite
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.{RandomDataGenerator, Row}
 import org.apache.spark.sql.catalyst.dsl.expressions._
 import org.apache.spark.sql.test.SharedSparkSession
@@ -32,6 +33,12 @@ import org.apache.spark.sql.types._
 class SortSuite extends SparkPlanTest with SharedSparkSession {
   import testImplicits.newProductEncoder
   import testImplicits.localSeqToDatasetHolder
+  
+  override protected def sparkConf: SparkConf = {
+    val conf = super.sparkConf
+    conf.set("spark.memory.offHeap.size", String.valueOf("5000m"))
+    .set("spark.sql.inMemoryColumnarStorage.batchSize", "100")
+  }
 
   test("basic sorting using ExternalSort") {
 

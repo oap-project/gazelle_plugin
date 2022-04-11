@@ -38,15 +38,10 @@ class SparseHashMap<Scalar, std::enable_if_t<!std::is_floating_point<Scalar>::va
   template <typename Func1, typename Func2>
   arrow::Status GetOrInsert(const Scalar& value, Func1&& on_found, Func2&& on_not_found,
                             int32_t* out_memo_index) {
-    if (dense_map_.find(value) == dense_map_.end()) {
-      auto index = size_++;
-      dense_map_[value] = index;
-      *out_memo_index = index;
-      on_not_found(index);
-    } else {
-      auto index = dense_map_[value];
-      *out_memo_index = index;
-      on_found(index);
+    auto it = dense_map_.emplace(value, size_);
+    *out_memo_index = it.first->second;
+    if (it.second) {
+      size_++;
     }
     return arrow::Status::OK();
   }

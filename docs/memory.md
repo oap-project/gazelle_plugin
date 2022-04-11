@@ -1,4 +1,4 @@
-# Memory allocation in Gazelle Plugin
+# Memory Allocation in Gazelle Plugin
 
 ## Java memory allocation
 By default, Arrow columnar vector Java API is using netty [pooledbytebuffer allocator](https://github.com/apache/arrow/blob/master/java/memory/memory-netty/src/main/java/io/netty/buffer/PooledByteBufAllocatorL.java), which will try to hold on the "free memory" by not returning back to System immediately for better performance. This will result big memory footprint on operators relying on this API, e.g., [CoalesceBatches](https://github.com/oap-project/gazelle_plugin/blob/master/native-sql-engine/core/src/main/scala/com/intel/oap/execution/CoalesceBatchesExec.scala). We changed to use unsafe API since 1.2 release, which means the freed memory will be returned to system directly. Performance tests showed the performance of this change is negatable. 

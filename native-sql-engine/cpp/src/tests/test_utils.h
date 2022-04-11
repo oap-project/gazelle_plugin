@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <arrow/array.h>
 #include <arrow/buffer.h>
 #include <arrow/ipc/json_simple.h>

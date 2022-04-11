@@ -16,8 +16,193 @@
 
 package com.intel.oap.sql.shims.spark311
 
-import com.intel.oap.sql.shims.{SparkShims, ShimDescriptor}
+import com.intel.oap.spark.sql.ArrowWriteQueue
+import com.intel.oap.sql.shims.{ShimDescriptor, SparkShims}
+import java.io.File
+import java.time.ZoneId
+
+import org.apache.parquet.hadoop.metadata.FileMetaData
+import org.apache.parquet.schema.MessageType
+import org.apache.spark.SparkConf
+import org.apache.spark.TaskContext
+import org.apache.spark.shuffle.MigratableResolver
+import org.apache.spark.shuffle.ShuffleHandle
+import org.apache.spark.util.ShimUtils
+import org.apache.spark.shuffle.api.ShuffleExecutorComponents
+import org.apache.spark.shuffle.sort.SortShuffleWriter
+import org.apache.spark.sql.SQLContext
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.catalyst.InternalRow
+import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.plans.physical.{BroadcastMode, Partitioning}
+import org.apache.spark.sql.execution.{ShufflePartitionSpec, SparkPlan}
+import org.apache.spark.sql.execution.adaptive.{BroadcastQueryStageExec, CustomShuffleReaderExec, ShuffleQueryStageExec}
+import org.apache.spark.sql.execution.datasources.parquet.{ParquetFilters, ParquetOptions, ParquetReadSupport, VectorizedParquetRecordReader}
+import org.apache.spark.sql.execution.datasources.v2.BatchScanExec
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
+import org.apache.spark.sql.execution.datasources.{DataSourceUtils, OutputWriter}
+import org.apache.spark.sql.execution.exchange.{BroadcastExchangeExec, REPARTITION, ReusedExchangeExec, ShuffleExchangeExec, ShuffleOrigin}
+import org.apache.spark.sql.internal.SQLConf
 
 class Spark311Shims extends SparkShims {
+
   override def getShimDescriptor: ShimDescriptor = SparkShimProvider.DESCRIPTOR
+
+  override def shuffleBlockResolverWriteAndCommit(shuffleBlockResolver: MigratableResolver,
+                                                  shuffleId: Int, mapId: Long, partitionLengths: Array[Long], dataTmp: File): Unit =
+  ShimUtils.shuffleBlockResolverWriteAndCommit(shuffleBlockResolver, shuffleId, mapId, partitionLengths, dataTmp)
+
+  override def getDatetimeRebaseMode(fileMetaData: FileMetaData, parquetOptions: ParquetOptions):
+  SQLConf.LegacyBehaviorPolicy.Value = {
+    DataSourceUtils.datetimeRebaseMode(
+      fileMetaData.getKeyValueMetaData.get,
+      SQLConf.get.getConf(SQLConf.LEGACY_PARQUET_REBASE_MODE_IN_READ))
+  }
+
+  override def newParquetFilters(parquetSchema: MessageType,
+                                 pushDownDate: Boolean,
+                                 pushDownTimestamp: Boolean,
+                                 pushDownDecimal: Boolean,
+                                 pushDownStringStartWith: Boolean,
+                                 pushDownInFilterThreshold: Int,
+                                 isCaseSensitive: Boolean,
+                                 fileMetaData: FileMetaData,
+                                 parquetOptions: ParquetOptions
+                                ): ParquetFilters = {
+    new ParquetFilters(parquetSchema, pushDownDate, pushDownTimestamp,
+      pushDownDecimal, pushDownStringStartWith, pushDownInFilterThreshold, isCaseSensitive)
+  }
+
+  override def newVectorizedParquetRecordReader(convertTz: ZoneId,
+                                                fileMetaData: FileMetaData,
+                                                parquetOptions: ParquetOptions,
+                                                useOffHeap: Boolean,
+                                                capacity: Int): VectorizedParquetRecordReader = {
+    new VectorizedParquetRecordReader(
+      convertTz,
+      getDatetimeRebaseMode(fileMetaData, parquetOptions).toString,
+      "",
+      useOffHeap,
+      capacity)
+  }
+
+  override def newParquetReadSupport(convertTz: Option[ZoneId],
+                            enableVectorizedReader: Boolean,
+                            fileMetaData: FileMetaData,
+                            parquetOptions: ParquetOptions): ParquetReadSupport = {
+    val datetimeRebaseMode = getDatetimeRebaseMode(fileMetaData, parquetOptions)
+    new ParquetReadSupport(
+      convertTz, enableVectorizedReader = false, datetimeRebaseMode, SQLConf.LegacyBehaviorPolicy.LEGACY)
+  }
+
+  /**
+    * The runtimeFilters is just available from spark 3.2.
+    */
+  override def getRuntimeFilters(plan: BatchScanExec): Seq[Expression] = {
+    return null
+  }
+
+  override def getBroadcastHashJoinOutputPartitioningExpandLimit(plan: SparkPlan): Int = {
+    plan.sqlContext.getConf(
+      "spark.sql.execution.broadcastHashJoin.outputPartitioningExpandLimit").trim().toInt
+  }
+
+  override def newSortShuffleWriter(resolver: MigratableResolver, shuffleHandle: ShuffleHandle,
+    mapId: Long, context: TaskContext,
+    shuffleExecutorComponents: ShuffleExecutorComponents): AnyRef = {
+    ShimUtils.newSortShuffleWriter(
+      resolver,
+      shuffleHandle,
+      mapId,
+      context,
+      shuffleExecutorComponents)
+  }
+
+  override def getMaxBroadcastRows(mode: BroadcastMode): Long = {
+    BroadcastExchangeExec.MAX_BROADCAST_TABLE_ROWS
+  }
+
+  override def getSparkSession(plan: SparkPlan): SparkSession = {
+    plan.sqlContext.sparkSession
+  }
+
+  override def doFetchFile(urlString: String, targetDirHandler: File,
+                           targetFileName: String, sparkConf: SparkConf): Unit = {
+    ShimUtils.doFetchFile(urlString, targetDirHandler, targetFileName, sparkConf)
+  }
+
+  override def newBroadcastQueryStageExec(id: Int, plan: BroadcastExchangeExec):
+  BroadcastQueryStageExec = {
+    BroadcastQueryStageExec(id, plan)
+  }
+
+  /**
+    * CustomShuffleReaderExec is renamed to AQEShuffleReadExec from spark 3.2.
+    */
+  override def isCustomShuffleReaderExec(plan: SparkPlan): Boolean = {
+    plan match {
+      case _: CustomShuffleReaderExec => true
+      case _ => false
+    }
+  }
+
+  override def newCustomShuffleReaderExec(child: SparkPlan, partitionSpecs : Seq[ShufflePartitionSpec]): SparkPlan = {
+    CustomShuffleReaderExec(child, partitionSpecs)
+  }
+
+  /**
+    * Only applicable to CustomShuffleReaderExec. Otherwise, an exception will be thrown.
+    */
+  override def getChildOfCustomShuffleReaderExec(plan: SparkPlan): SparkPlan = {
+    plan match {
+      case plan: CustomShuffleReaderExec => plan.child
+      case _ => throw new RuntimeException("CustomShuffleReaderExec is expected!")
+    }
+  }
+
+  /**
+    * Only applicable to CustomShuffleReaderExec. Otherwise, an exception will be thrown.
+    */
+  override def getPartitionSpecsOfCustomShuffleReaderExec(plan: SparkPlan): Seq[ShufflePartitionSpec] = {
+    plan match {
+      case plan: CustomShuffleReaderExec => plan.partitionSpecs
+      case _ => throw new RuntimeException("CustomShuffleReaderExec is expected!")
+    }
+  }
+
+  override def isRepartition(shuffleOrigin: ShuffleOrigin): Boolean = {
+    shuffleOrigin match {
+      case REPARTITION => true
+      case _ => false
+    }
+  }
+
+  /**
+    * CoalescedMapperPartitionSpec is introduced in spark3.2. So always return false for spark3.1.
+    */
+  override def isCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Boolean = {
+    false
+  }
+
+  /**
+    * This method cannot be invoked in spark3.1.
+    */
+  override def getStartMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    throw new RuntimeException("This method should not be invoked in spark 3.1.")
+  }
+
+  /**
+    * This method cannot be invoked in spark3.1.
+    */
+  override def getEndMapIndexOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    throw new RuntimeException("This method should not be invoked in spark 3.1.")
+  }
+
+  /**
+    * This method cannot be invoked in spark3.1.
+    */
+  override def getNumReducersOfCoalescedMapperPartitionSpec(spec: ShufflePartitionSpec): Int = {
+    throw new RuntimeException("This method should not be invoked in spark 3.1.")
+  }
+
 }

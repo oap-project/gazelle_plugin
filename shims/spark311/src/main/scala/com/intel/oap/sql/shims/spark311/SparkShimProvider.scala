@@ -19,8 +19,13 @@ package com.intel.oap.sql.shims.spark311
 import com.intel.oap.sql.shims.{SparkShims, SparkShimDescriptor}
 
 object SparkShimProvider {
-  val DESCRIPTOR = SparkShimDescriptor(3, 1, 1)
-  val DESCRIPTOR_STRINGS = Seq(s"$DESCRIPTOR")
+  // The shim layer for spark 3.1.1 is also workable for 3.1.2 & 3.1.3.
+  val SPARK311_DESCRIPTOR = SparkShimDescriptor(3, 1, 1)
+  val SPARK312_DESCRIPTOR = SparkShimDescriptor(3, 1, 2)
+  val SPARK313_DESCRIPTOR = SparkShimDescriptor(3, 1, 3)
+  val DESCRIPTOR_STRINGS =
+    Seq(s"$SPARK311_DESCRIPTOR", s"$SPARK312_DESCRIPTOR", s"$SPARK313_DESCRIPTOR")
+  val DESCRIPTOR = SPARK311_DESCRIPTOR
 }
 
 class SparkShimProvider extends com.intel.oap.sql.shims.SparkShimProvider {
@@ -30,5 +35,5 @@ class SparkShimProvider extends com.intel.oap.sql.shims.SparkShimProvider {
 
   def matches(version: String): Boolean = {
     SparkShimProvider.DESCRIPTOR_STRINGS.contains(version)
-  }  
+  }
 }

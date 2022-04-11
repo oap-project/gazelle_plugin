@@ -76,8 +76,8 @@ class ColumnarSorter(
       .toArray)
   val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
     val attr = ConverterUtils.getAttrFromExpr(expr, true)
-    Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
-        CodeGeneration.getResultType(attr.dataType))
+    ConverterUtils.createArrowField(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+      attr.dataType)
   })
   val arrowSchema = new Schema(outputFieldList.asJava)
   var sort_iterator: BatchIterator = _
@@ -180,8 +180,8 @@ object ColumnarSorter extends Logging {
   def checkIfKeyFound(sortOrder: Seq[SortOrder], outputAttributes: Seq[Attribute]): Unit = {
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr, true)
-      Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
-        CodeGeneration.getResultType(attr.dataType))
+      ConverterUtils.createArrowField(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+        attr.dataType)
     })
     sortOrder.toList.foreach(sort => {
       val attr = ConverterUtils.getAttrFromExpr(sort.child, true)
@@ -346,8 +346,8 @@ object ColumnarSorter extends Logging {
       _sparkConf: SparkConf): (ExpressionTree, Schema) = {
     val outputFieldList: List[Field] = outputAttributes.toList.map(expr => {
       val attr = ConverterUtils.getAttrFromExpr(expr, true)
-      Field.nullable(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
-          CodeGeneration.getResultType(attr.dataType))
+      ConverterUtils.createArrowField(s"${attr.name.toLowerCase()}#${attr.exprId.id}",
+          attr.dataType)
     })
     val retType = Field.nullable("res", new ArrowType.Int(32, true))
     val sort_node =

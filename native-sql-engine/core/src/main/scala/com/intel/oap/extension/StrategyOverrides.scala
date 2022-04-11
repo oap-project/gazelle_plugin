@@ -100,6 +100,10 @@ case class LocalWindowExec(
     // todo implement this to fall back
     throw new UnsupportedOperationException()
   }
+
+  protected def withNewChildInternal(newChild: SparkPlan):
+  LocalWindowExec =
+    copy(child = newChild)
 }
 
 object LocalWindowApply extends Strategy {

@@ -1,4 +1,4 @@
-# Performance tuning for Gazelle Plugin
+# Performance Tuning for Gazelle Plugin
 
 It is complicated to tune for Spark workloads as each varies a lot. Here are several general tuning options on the most popular TPCH/TPC-DS benchmarking.
 

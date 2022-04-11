@@ -29,7 +29,7 @@ import java.nio.file.Files
 
 class PartitioningSuite extends QueryTest with SharedSparkSession {
 
-  private val MAX_DIRECT_MEMORY = "5000m"
+  private val MAX_DIRECT_MEMORY = "10000m"
   private var runner: TPCRunner = _
 
   private var lPath: String = _
