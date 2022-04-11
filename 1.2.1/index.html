@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="None">
+  
+  
+  <link rel="shortcut icon" href="img/favicon.ico">
+  <title>Gazelle Plugin - 1.2.1</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Gazelle Plugin";
+    var mkdocs_page_input_path = "index.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="js/jquery-2.1.1.min.js" defer></script>
+  <script src="js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href="." class="icon icon-home"> Gazelle Plugin - 1.2.1</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="./search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="User-Guide/">User Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="Prerequisite/">Prerequisite</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="Installation/">Installation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="InstallationNotes/">InstallationNotes</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="Configuration/">Configuration</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="SparkInstallation/">SparkInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="ApacheArrowInstallation/">ApacheArrowInstallation</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="OAP-Installation-Guide/">OAP Installation Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="OAP-Developer-Guide/">OAP Developer Guide</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="" href="../">Version Selector</a>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href=".">Gazelle Plugin - 1.2.1</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".">Docs</a> &raquo;</li>
+    
+      
+    
+    <li>Gazelle Plugin</li>
+    <li class="wy-breadcrumbs-aside">
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <h1 id="gazelle-plugin">Gazelle Plugin</h1>
+<p>A Native Engine for Spark SQL with vectorized SIMD optimizations</p>
+<h2 id="introduction">Introduction</h2>
+<p><img alt="Overview" src="image/nativesql_arch.png" /></p>
+<p>Spark SQL works very well with structured row-based data. It used WholeStageCodeGen to improve the performance by Java JIT code. However Java JIT is usually not working very well on utilizing latest SIMD instructions, especially under complicated queries. <a href="https://arrow.apache.org/">Apache Arrow</a> provided CPU-cache friendly columnar in-memory layout, its SIMD-optimized kernels and LLVM-based SQL engine Gandiva are also very efficient.</p>
+<p>Gazelle Plugin reimplements Spark SQL execution layer with SIMD-friendly columnar data processing based on Apache Arrow, 
+and leverages Arrow's CPU-cache friendly columnar in-memory layout, SIMD-optimized kernels and LLVM-based expression engine to bring better performance to Spark SQL.</p>
+<h2 id="key-features">Key Features</h2>
+<h3 id="apache-arrow-formatted-intermediate-data-among-spark-operator">Apache Arrow formatted intermediate data among Spark operator</h3>
+<p><img alt="Overview" src="image/columnar.png" /></p>
+<p>With <a href="https://issues.apache.org/jira/browse/SPARK-27396">Spark 27396</a> its possible to pass a RDD of Columnarbatch to operators. We implemented this API with Arrow columnar format.</p>
+<h3 id="apache-arrow-based-native-readers-for-parquet-and-other-formats">Apache Arrow based Native Readers for Parquet and other formats</h3>
+<p><img alt="Overview" src="image/dataset.png" /></p>
+<p>A native parquet reader was developed to speed up the data loading. it's based on Apache Arrow Dataset. For details please check <a href="https://github.com/oap-project/native-sql-engine/tree/master/arrow-data-source">Arrow Data Source</a></p>
+<h3 id="apache-arrow-computegandiva-based-operators">Apache Arrow Compute/Gandiva based operators</h3>
+<p><img alt="Overview" src="image/kernel.png" /></p>
+<p>We implemented common operators based on Apache Arrow Compute and Gandiva. The SQL expression was compiled to one expression tree with protobuf and passed to native kernels. The native kernels will then evaluate the these expressions based on the input columnar batch.</p>
+<h3 id="native-columnar-shuffle-operator-with-efficient-compression-support">Native Columnar Shuffle Operator with efficient compression support</h3>
+<p><img alt="Overview" src="image/shuffle.png" /></p>
+<p>We implemented columnar shuffle to improve the shuffle performance. With the columnar layout we could do very efficient data compression for different data format.</p>
+<p>Please check the operator supporting details <a href="operators/">here</a></p>
+<h2 id="how-to-use-oap-gazelle-plugin">How to use OAP: Gazelle Plugin</h2>
+<p>There are three ways to use OAP: Gazelle Plugin,
+1. Use precompiled jars
+2. Building by Conda Environment
+3. Building by Yourself</p>
+<h3 id="use-precompiled-jars">Use precompiled jars</h3>
+<p>Please go to <a href="https://repo1.maven.org/maven2/com/intel/oap/">OAP's Maven Central Repository</a> to find Gazelle Plugin jars.
+For usage, you will require below two jar files:
+1. spark-arrow-datasource-standard-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-arrow-datasource-standard/<version>/
+2. spark-columnar-core-<version>-jar-with-dependencies.jar is located in com/intel/oap/spark-columnar-core/<version>/
+Please notice the files are fat jars shipped with our custom Arrow library and pre-compiled from our server(using GCC 9.3.0 and LLVM 7.0.1), which means you will require to pre-install GCC 9.3.0 and LLVM 7.0.1 in your system for normal usage. </p>
+<h3 id="building-by-conda">Building by Conda</h3>
+<p>If you already have a working Hadoop Spark Cluster, we provide a Conda package which will automatically install dependencies needed by OAP, you can refer to <a href="OAP-Installation-Guide/">OAP-Installation-Guide</a> for more information. Once finished <a href="OAP-Installation-Guide/">OAP-Installation-Guide</a>, you can find built <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> under <code>$HOME/miniconda2/envs/oapenv/oap_jars</code>.
+Then you can just skip below steps and jump to <a href="#get-started">Get Started</a>.</p>
+<h3 id="building-by-yourself">Building by yourself</h3>
+<p>If you prefer to build from the source code on your hand, please follow below steps to set up your environment.</p>
+<h4 id="prerequisite">Prerequisite</h4>
+<p>There are some requirements before you build the project.
+Please check the document <a href="Prerequisite/">Prerequisite</a> and make sure you have already installed the software in your system.
+If you are running a SPARK Cluster, please make sure all the software are installed in every single node.</p>
+<h4 id="installation">Installation</h4>
+<p>Please check the document <a href="Installation/">Installation Guide</a> </p>
+<h2 id="get-started">Get started</h2>
+<p>To enable Gazelle Plugin, the previous built jar <code>spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar</code> should be added to Spark configuration. We also recommend to use <code>spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar</code>. We will demonstrate an example by using both jar files.
+SPARK related options are:</p>
+<ul>
+<li><code>spark.driver.extraClassPath</code> : Set to load jar file to driver.</li>
+<li><code>spark.executor.extraClassPath</code> : Set to load jar file to executor.</li>
+<li><code>jars</code> : Set to copy jar file to the executors when using yarn cluster mode.</li>
+<li><code>spark.executorEnv.ARROW_LIBHDFS3_DIR</code> : Optional if you are using a custom libhdfs3.so.</li>
+<li><code>spark.executorEnv.LD_LIBRARY_PATH</code> : Optional if you are using a custom libhdfs3.so.</li>
+</ul>
+<p>For Spark Standalone Mode, please set the above value as relative path to the jar file.
+For Spark Yarn Cluster Mode, please set the above value as absolute path to the jar file.</p>
+<p>More Configuration, please check the document <a href="Configuration/">Configuration Guide</a></p>
+<p>Example to run Spark Shell with ArrowDataSource jar file</p>
+<pre><code>${SPARK_HOME}/bin/spark-shell \
+        --verbose \
+        --master yarn \
+        --driver-memory 10G \
+        --conf spark.driver.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
+        --conf spark.executor.extraClassPath=$PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar:$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar \
+        --conf spark.driver.cores=1 \
+        --conf spark.executor.instances=12 \
+        --conf spark.executor.cores=6 \
+        --conf spark.executor.memory=20G \
+        --conf spark.memory.offHeap.size=80G \
+        --conf spark.task.cpus=1 \
+        --conf spark.locality.wait=0s \
+        --conf spark.sql.shuffle.partitions=72 \
+        --conf spark.executorEnv.ARROW_LIBHDFS3_DIR=&quot;$PATH_TO_LIBHDFS3_DIR/&quot; \
+        --conf spark.executorEnv.LD_LIBRARY_PATH=&quot;$PATH_TO_LIBHDFS3_DEPENDENCIES_DIR&quot;
+        --jars $PATH_TO_JAR/spark-arrow-datasource-standard-&lt;version&gt;-jar-with-dependencies.jar,$PATH_TO_JAR/spark-columnar-core-&lt;version&gt;-jar-with-dependencies.jar
+</code></pre>
+<p>Here is one example to verify if Gazelle Plugin works, make sure you have TPC-H dataset.  We could do a simple projection on one parquet table. For detailed testing scripts, please refer to <a href="https://github.com/Intel-bigdata/Solution_navigator/tree/master/nativesql">Solution Guide</a>.</p>
+<pre><code>val orders = spark.read.format(&quot;arrow&quot;).load(&quot;hdfs:////user/root/date_tpch_10/orders&quot;)
+orders.createOrReplaceTempView(&quot;orders&quot;)
+spark.sql(&quot;select * from orders where o_orderdate &gt; date '1998-07-26'&quot;).show(20000, false)
+</code></pre>
+<p>The result should showup on Spark console and you can check the DAG diagram with some Columnar Processing stage. Gazelle Plugin still lacks some features, please check out the <a href="limitations/">limitations</a>.</p>
+<h2 id="couldk8s-integration">Could/K8s Integration</h2>
+<h3 id="google-cloud-dataproc">Google Cloud Dataproc</h3>
+<p>Gazelle Plugin now supports to run on Dataproc 2.0, we provide a guide to help quickly install Gazelle Plugin and run TPC-DS with notebooks or scripts.</p>
+<p>Please refer to <a href="https://github.com/oap-project/oap-tools/blob/master/docs/Gazelle_on_Dataproc.md">Gazelle_on_Dataproc</a> to find details about:</p>
+<ol>
+<li>
+<p>Create a cluster on Dataproc 2.0 with initialization actions. 
+Gazelle Plugin jars compiled with <code>-Pdataproc-2.0</code> parameter will installed by Conda in all cluster nodes.</p>
+</li>
+<li>
+<p>Config for enabling Gazelle Plugin.</p>
+</li>
+<li>
+<p>Run TPC-DS with notebooks or scripts.</p>
+</li>
+</ol>
+<h2 id="performance-data">Performance data</h2>
+<p>For advanced performance testing, below charts show the results by using two benchmarks: 1. Decision Support Benchmark1 and 2. Decision Support Benchmark2.
+All the testing environment for Decision Support Benchmark1&amp;2 are using 1 master + 3 workers and Intel(r) Xeon(r) Gold 6252 CPU|384GB memory|NVMe SSD x3 per single node with 1.5TB dataset.
+* Decision Support Benchmark1 is a query set modified from <a href="http://tpc.org/tpch/default5.asp">TPC-H benchmark</a>. We change Decimal to Double since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
+Overall, the result shows a 1.49X performance speed up from OAP v1.0-Gazelle Plugin comparing to Vanilla SPARK 3.0.0.
+We also put the detail result by queries, most of queries in Decision Support Benchmark1 can take the advantages from Gazelle Plugin. The performance boost ratio may depend on the individual query.</p>
+<p><img alt="Performance" src="image/decision_support_bench1_result_in_total.png" /></p>
+<p><img alt="Performance" src="image/decision_support_bench1_result_by_query.png" /></p>
+<ul>
+<li>Decision Support Benchmark2 is a query set modified from <a href="http://tpc.org/tpcds/default5.asp">TPC-DS benchmark</a>. We change Decimal to Doubel since Decimal hasn't been supported in OAP v1.0-Gazelle Plugin.
+We pick up 10 queries which can be fully supported in OAP v1.0-Gazelle Plugin and the result shows a 1.26X performance speed up comparing to Vanilla SPARK 3.0.0.</li>
+</ul>
+<p><img alt="Performance" src="image/decision_support_bench2_result_in_total.png" /></p>
+<p><img alt="Performance" src="image/decision_support_bench2_result_by_query.png" /></p>
+<p>Please notes the performance data is not an official from TPC-H and TPC-DS. The actual performance result may vary by individual workloads. Please try your workloads with Gazelle Plugin first and check the DAG or log file to see if all the operators can be supported in OAP-Gazelle Plugin.</p>
+<h2 id="memory-allocation">Memory allocation</h2>
+<p>The memory usage in Gazelle Plugin is high. The allocations goes to two parts: 1) Java based allocation which is widely used in Arrow Java API. 2) Native side memory allocation used in each native kernel. We investigated the memory allocation behavior and made more turnings <a href="memory/">here</a>, the memroy footprint is stable during a TPC-DS power run.
+<img alt="Memory" src="image/rssmem.png" /></p>
+<h2 id="coding-style">Coding Style</h2>
+<ul>
+<li>For Java code, we used <a href="https://github.com/google/google-java-format">google-java-format</a></li>
+<li>For Scala code, we used <a href="https://github.com/apache/spark/blob/master/dev/.scalafmt.conf">Spark Scala Format</a>, please use <a href="https://github.com/scalameta/scalafmt">scalafmt</a> or run ./scalafmt for scala codes format</li>
+<li>For Cpp codes, we used Clang-Format, check on this link <a href="https://github.com/google/vim-codefmt">google-vim-codefmt</a> for details.</li>
+</ul>
+<h2 id="contact">Contact</h2>
+<p>chendi.xue@intel.com
+binwei.yang@intel.com</p>
+              
+            </div>
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+      
+      
+    </span>
+</div>
+    <script>var base_url = '.';</script>
+    <script src="js/theme.js" defer></script>
+      <script src="search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>
+
+<!--
+MkDocs version : 1.1
+Build Date UTC : 2022-04-11 04:32:23
+-->

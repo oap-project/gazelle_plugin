@@ -48,7 +48,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
                     </li>
                 </ul>
                 <ul>
@@ -121,16 +121,16 @@
           <div role="main">
             <div class="section">
               
-                <h3 id="download-spark-311">Download Spark 3.1.1</h3>
-<p>Currently Gazelle Plugin works on the Spark 3.1.1 version.</p>
+                <h3 id="download-spark-binary">Download Spark binary</h3>
+<p>Currently Gazelle Plugin can work on Spark 3.1.x &amp; 3.2.x. Take Spark 3.1.1 as example.</p>
 <pre><code>wget http://archive.apache.org/dist/spark/spark-3.1.1/spark-3.1.1-bin-hadoop3.2.tgz
 sudo mkdir -p /opt/spark &amp;&amp; sudo mv spark-3.1.1-bin-hadoop3.2.tgz /opt/spark
 sudo cd /opt/spark &amp;&amp; sudo tar -xf spark-3.1.1-bin-hadoop3.2.tgz
 export SPARK_HOME=/opt/spark/spark-3.1.1-bin-hadoop3.2/
 </code></pre>
-
-<h3 id="or-building-spark-from-source"><a href="https://spark.apache.org/docs/latest/building-spark.html">Or building Spark from source</a></h3>
-<pre><code class="shell">git clone https://github.com/intel-bigdata/spark.git
+<h3 id="build-spark-from-source">Build Spark from source</h3>
+<p>Ref. <a href="https://spark.apache.org/docs/latest/building-spark.html">link</a>.</p>
+<pre><code class="language-shell">git clone https://github.com/intel-bigdata/spark.git
 cd spark &amp;&amp; git checkout native-sql-engine-clean
 # check spark supported hadoop version
 grep \&lt;hadoop\.version\&gt; -r pom.xml
@@ -139,13 +139,11 @@ grep \&lt;hadoop\.version\&gt; -r pom.xml
 # so we should build spark specifying hadoop version as 3.2
 ./build/mvn -Pyarn -Phadoop-3.2 -Dhadoop.version=3.2.0 -DskipTests clean install
 </code></pre>
-
 <p>Specify SPARK_HOME to spark path</p>
-<pre><code class="shell">export SPARK_HOME=${HADOOP_PATH}
+<pre><code class="language-shell">export SPARK_HOME=${HADOOP_PATH}
 </code></pre>
-
-<h3 id="hadoop-building-from-source">Hadoop building from source</h3>
-<pre><code class="shell">git clone https://github.com/apache/hadoop.git
+<h3 id="build-hadoop-from-source">Build Hadoop from source</h3>
+<pre><code class="language-shell">git clone https://github.com/apache/hadoop.git
 cd hadoop
 git checkout rel/release-3.2.0
 # only build binary for hadoop
@@ -153,8 +151,7 @@ mvn clean install -Pdist -DskipTests -Dtar
 # build binary and native library such as libhdfs.so for hadoop
 # mvn clean install -Pdist,native -DskipTests -Dtar
 </code></pre>
-
-<pre><code class="shell">export HADOOP_HOME=${HADOOP_PATH}/hadoop-dist/target/hadoop-3.2.0/
+<pre><code class="language-shell">export HADOOP_HOME=${HADOOP_PATH}/hadoop-dist/target/hadoop-3.2.0/
 </code></pre>
               
             </div>

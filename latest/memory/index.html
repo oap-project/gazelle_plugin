@@ -9,7 +9,7 @@
   
   
   <link rel="shortcut icon" href="../img/favicon.ico">
-  <title>Memory allocation in Gazelle Plugin - Gazelle Plugin - latest</title>
+  <title>Memory Allocation in Gazelle Plugin - Gazelle Plugin - latest</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
   <link rel="stylesheet" href="../css/theme.css" />
@@ -18,7 +18,7 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "Memory allocation in Gazelle Plugin";
+    var mkdocs_page_name = "Memory Allocation in Gazelle Plugin";
     var mkdocs_page_input_path = "memory.md";
     var mkdocs_page_url = null;
   </script>
@@ -48,7 +48,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
                     </li>
                 </ul>
                 <ul>
@@ -108,7 +108,7 @@
     
       
     
-    <li>Memory allocation in Gazelle Plugin</li>
+    <li>Memory Allocation in Gazelle Plugin</li>
     <li class="wy-breadcrumbs-aside">
       
     </li>
@@ -119,7 +119,7 @@
           <div role="main">
             <div class="section">
               
-                <h1 id="memory-allocation-in-gazelle-plugin">Memory allocation in Gazelle Plugin</h1>
+                <h1 id="memory-allocation-in-gazelle-plugin">Memory Allocation in Gazelle Plugin</h1>
 <h2 id="java-memory-allocation">Java memory allocation</h2>
 <p>By default, Arrow columnar vector Java API is using netty <a href="https://github.com/apache/arrow/blob/master/java/memory/memory-netty/src/main/java/io/netty/buffer/PooledByteBufAllocatorL.java">pooledbytebuffer allocator</a>, which will try to hold on the "free memory" by not returning back to System immediately for better performance. This will result big memory footprint on operators relying on this API, e.g., <a href="https://github.com/oap-project/gazelle_plugin/blob/master/native-sql-engine/core/src/main/scala/com/intel/oap/execution/CoalesceBatchesExec.scala">CoalesceBatches</a>. We changed to use unsafe API since 1.2 release, which means the freed memory will be returned to system directly. Performance tests showed the performance of this change is negatable. </p>
 <h2 id="native-memory-allocation">Native memory allocation</h2>
@@ -131,25 +131,21 @@
 </ul>
 <pre><code>-DARROW_USEJEMALLOC=True
 </code></pre>
-
 <ul>
 <li>Build Gazelle Plugin with arrow-unsafe profile</li>
 </ul>
 <pre><code>mvn clean pacakge -DskipTests -Parrow-unsafe
 </code></pre>
-
 <ul>
 <li>LD_PRELOAD jemalloc in each Spark executor</li>
 </ul>
 <pre><code>--conf spark.executorEnv.LD_PRELOAD=/path/to/libjemalloc.so
 </code></pre>
-
 <ul>
 <li>Reduce number memory pools in jemalloc</li>
 </ul>
 <pre><code>--conf spark.executorEnv.MALLOC_CONF=narenas:2
 </code></pre>
-
 <ul>
 <li>Reduce number memory pools in glibc</li>
 </ul>

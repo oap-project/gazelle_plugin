@@ -48,7 +48,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
                     </li>
                 </ul>
                 <ul>
@@ -361,7 +361,6 @@ You can add these configuration into spark-defaults.conf to enable or disable th
 --conf spark.oap.sql.columnar.shuffle.customizedCompression.codec=lz4
 --conf spark.yarn.appMasterEnv.LD_PRELOAD=/home/sparkuser/miniconda3/envs/arrow-new/lib/libjemalloc.so&quot;
 </code></pre>
-
 <p>Below is an example for spark-default.conf, if you are using conda to install OAP project.</p>
 <h2 id="example-spark-defaultsconf">Example spark-defaults.conf</h2>
 <pre><code>spark.sql.sources.useV1SourceList avro
@@ -377,17 +376,14 @@ spark.executorEnv.LIBARROW_DIR      $HOME/miniconda2/envs/oapenv
 spark.executorEnv.CC                $HOME/miniconda2/envs/oapenv/bin/gcc
 ######
 </code></pre>
-
 <p>Before you start spark, you must use below command to add some environment variables.</p>
 <pre><code>export CC=$HOME/miniconda2/envs/oapenv/bin/gcc
 export LIBARROW_DIR=$HOME/miniconda2/envs/oapenv/
 </code></pre>
-
 <h2 id="notes-on-driver">Notes on driver</h2>
 <p>In gazelle spark driver is used to C++ code generation for different operators. This means driver takes more tasks than vanilla Spark, so it's better to consider allocate more resource to driver. By default, driver will compile C++ codes with best optimizations targeting for local CPU architecture:</p>
 <pre><code>-O3 -march=native
 </code></pre>
-
 <p>This could be override by a local environment variable before starting driver:</p>
 <pre><code>export CODEGEN_OPTION=&quot; -O1 -mavx2 -fno-semantic-interposition &quot;
 </code></pre>

@@ -9,7 +9,7 @@
   
   
   <link rel="shortcut icon" href="../img/favicon.ico">
-  <title>Performance tuning for Gazelle Plugin - Gazelle Plugin - latest</title>
+  <title>Performance Tuning for Gazelle Plugin - Gazelle Plugin - latest</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
 
   <link rel="stylesheet" href="../css/theme.css" />
@@ -18,7 +18,7 @@
   
   <script>
     // Current page data
-    var mkdocs_page_name = "Performance tuning for Gazelle Plugin";
+    var mkdocs_page_name = "Performance Tuning for Gazelle Plugin";
     var mkdocs_page_input_path = "performance.md";
     var mkdocs_page_url = null;
   </script>
@@ -48,7 +48,7 @@
 
       <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
                 <ul>
-                    <li class="toctree-l1"><a class="reference internal" href="..">User Guide</a>
+                    <li class="toctree-l1"><a class="reference internal" href="../User-Guide/">User Guide</a>
                     </li>
                 </ul>
                 <ul>
@@ -108,7 +108,7 @@
     
       
     
-    <li>Performance tuning for Gazelle Plugin</li>
+    <li>Performance Tuning for Gazelle Plugin</li>
     <li class="wy-breadcrumbs-aside">
       
     </li>
@@ -119,7 +119,7 @@
           <div role="main">
             <div class="section">
               
-                <h1 id="performance-tuning-for-gazelle-plugin">Performance tuning for Gazelle Plugin</h1>
+                <h1 id="performance-tuning-for-gazelle-plugin">Performance Tuning for Gazelle Plugin</h1>
 <p>It is complicated to tune for Spark workloads as each varies a lot. Here are several general tuning options on the most popular TPCH/TPC-DS benchmarking.</p>
 <h2 id="columnar-batch-size">Columnar Batch size</h2>
 <p>Spark have several options to control the batch size at different operators. We suggest to use bigger value as this will bring better cache efficiency especially for columnar processing.</p>
@@ -127,7 +127,6 @@
 --conf spark.sql.execution.arrow.maxRecordsPerBatch=20480
 --conf spark.sql.parquet.columnarReaderBatchSize=20480
 </code></pre>
-
 <h2 id="shuffle-partitions">Shuffle Partitions</h2>
 <p>As Gazelle currently only supports hash based shuffle, it's recommended to use 1 or 2 times shuffle partitions of the total HT cores in the cluster. e.g., there are 384 cores in the cluster, it's better to use spark.sql.shuffle.partitions = 384 or 768. It this way it's most efficient for Gazelle. </p>
 <h2 id="on-heapoff-heap-memory-size">On-heap/Off-heap Memory Size</h2>
@@ -138,7 +137,6 @@
 --conf spark.memory.offHeap.enabled=true // enable off-heap thus Spark can control the memory
 --conf spark.memory.offHeap.size=15g // a big off-heap is required
 </code></pre>
-
 <h2 id="data-generating">Data Generating</h2>
 <p>On non-partiton tables, it's better to set the number of files to times of total HT cores in your cluster, e.g., there are 384 cores in your cluster, we'd better to set the file numbers to 2x384 or 3x384 to ensure. In this way Spark would only issue one task for each file(together with spark.sql.files.maxPartitionBytes option).</p>
 <p>Note the spark.sql.files.maxRecordsPerFile will also split the files in to smaller ones. We may just disable this feature to -1.</p>
