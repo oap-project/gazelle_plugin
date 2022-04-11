@@ -890,6 +890,35 @@ class ColumnarRand(child: Expression)
   }
 }
 
+class ColumnarLength(child: Expression) extends Length(child: Expression)
+  with ColumnarExpression with Logging {
+
+  buildCheck()
+
+  def buildCheck(): Unit = {
+    val supportedType = List(StringType, BinaryType)
+    if (supportedType.indexOf(child.dataType) == -1) {
+      throw new RuntimeException("Fix me. Either StringType or BinaryType is expected!")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
+    val (child_node, _): (TreeNode, ArrowType) =
+      child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Int(32, false)
+    child.dataType match {
+      case StringType =>
+        (TreeBuilder.makeFunction("char_length", Lists.newArrayList(child_node),
+          resultType), resultType)
+      case BinaryType =>
+        (TreeBuilder.makeFunction("length", Lists.newArrayList(child_node),
+          resultType), resultType)
+      case _ =>
+        throw new RuntimeException("Fix me. Either StringType or BinaryType is allowed!")
+    }
+  }
+}
+
 object ColumnarUnaryOperator {
 
   def create(child: Expression, original: Expression): Expression = original match {
@@ -957,6 +986,8 @@ object ColumnarUnaryOperator {
       new ColumnarMicrosToTimestamp(child)
     case r: Rand =>
       new ColumnarRand(child)
+    case len: Length =>
+      new ColumnarLength(child)
     case other =>
       child.dataType match {
         case _: DateType => other match {

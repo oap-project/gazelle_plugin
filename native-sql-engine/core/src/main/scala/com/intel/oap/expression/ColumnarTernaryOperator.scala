@@ -112,7 +112,8 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
 
 class ColumnarStringTranslate(src: Expression, matchingExpr: Expression,
                               replaceExpr: Expression, original: Expression)
-    extends StringTranslate(src, matchingExpr, replaceExpr) with ColumnarExpression{
+    extends StringTranslate(src, matchingExpr, replaceExpr) with ColumnarExpression {
+
   buildCheck
 
   def buildCheck: Unit = {
@@ -136,6 +137,32 @@ class ColumnarStringTranslate(src: Expression, matchingExpr: Expression,
   }
 }
 
+class ColumnarStringLocate(substr: Expression, str: Expression,
+                              position: Expression, original: Expression)
+  extends StringLocate(substr, str, position) with ColumnarExpression {
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(str.dataType) == -1) {
+      throw new RuntimeException(s"${str.dataType}" +
+        s" is not supported in ColumnarStringLocate!")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object) : (TreeNode, ArrowType) = {
+    val (substr_node, _): (TreeNode, ArrowType) =
+      substr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (str_node, _): (TreeNode, ArrowType) =
+      str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (position_node, _): (TreeNode, ArrowType) =
+      position.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Int(32, false)
+    (TreeBuilder.makeFunction("locate",
+      Lists.newArrayList(substr_node, str_node, position_node), resultType), resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
@@ -147,6 +174,8 @@ object ColumnarTernaryOperator {
 //      new ColumnarStringSplit(str, a.regex, a.limit, a)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
+    case sl: StringLocate =>
+      new ColumnarStringLocate(src, arg1, arg2, sl)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
