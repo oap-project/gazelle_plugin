@@ -2156,13 +2156,13 @@ class raw_hash_map : public raw_hash_set<Policy, Hash, Eq, Alloc> {
   // incomplete types as values, as in unordered_map<K, IncompleteType>.
   // MappedReference<> may be a non-reference type.
   template <class P>
-  using MappedReference = decltype(
-      P::value(std::addressof(std::declval<typename raw_hash_map::reference>())));
+  using MappedReference = decltype(P::value(
+      std::addressof(std::declval<typename raw_hash_map::reference>())));
 
   // MappedConstReference<> may be a non-reference type.
   template <class P>
-  using MappedConstReference = decltype(
-      P::value(std::addressof(std::declval<typename raw_hash_map::const_reference>())));
+  using MappedConstReference = decltype(P::value(
+      std::addressof(std::declval<typename raw_hash_map::const_reference>())));
 
   using KeyArgImpl = KeyArg<IsTransparent<Eq>::value && IsTransparent<Hash>::value>;
 
@@ -3409,8 +3409,8 @@ class parallel_hash_map
   // incomplete types as values, as in unordered_map<K, IncompleteType>.
   // MappedReference<> may be a non-reference type.
   template <class P>
-  using MappedReference = decltype(
-      P::value(std::addressof(std::declval<typename parallel_hash_map::reference>())));
+  using MappedReference = decltype(P::value(
+      std::addressof(std::declval<typename parallel_hash_map::reference>())));
 
   // MappedConstReference<> may be a non-reference type.
   template <class P>
