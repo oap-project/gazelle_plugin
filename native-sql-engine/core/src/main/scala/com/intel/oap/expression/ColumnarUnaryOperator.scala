@@ -905,7 +905,7 @@ class ColumnarLength(child: Expression) extends Length(child: Expression)
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, _): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    val resultType = new ArrowType.Int(32, false)
+    val resultType = new ArrowType.Int(32, true)
     child.dataType match {
       case StringType =>
         (TreeBuilder.makeFunction("char_length", Lists.newArrayList(child_node),

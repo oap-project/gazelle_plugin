@@ -157,7 +157,7 @@ class ColumnarStringLocate(substr: Expression, str: Expression,
       str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
     val (position_node, _): (TreeNode, ArrowType) =
       position.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
-    val resultType = new ArrowType.Int(32, false)
+    val resultType = new ArrowType.Int(32, true)
     (TreeBuilder.makeFunction("locate",
       Lists.newArrayList(substr_node, str_node, position_node), resultType), resultType)
   }
