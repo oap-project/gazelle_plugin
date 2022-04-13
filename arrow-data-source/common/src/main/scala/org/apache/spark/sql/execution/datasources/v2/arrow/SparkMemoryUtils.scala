@@ -109,24 +109,23 @@ object SparkMemoryUtils extends Logging {
         .newChildAllocator("CHILD-ALLOC-BUFFER-IMPORT", allocListenerForBufferImport, 0L,
           Long.MaxValue)
 
-//    val defaultMemoryPool: NativeMemoryPoolWrapper = {
-//      val rl = new SparkManagedReservationListener(
-//        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
-//        sharedMetrics)
-//      val pool = NativeMemoryPoolWrapper(NativeMemoryPool.createListenable(rl), rl,
-//        collectStackForDebug)
-//      memoryPools.add(pool)
-//      pool
-//    }
+    val defaultMemoryPool: NativeMemoryPoolWrapper = {
+      val rl = new SparkManagedReservationListener(
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), Spiller.NO_OP),
+        sharedMetrics)
+      val pool = NativeMemoryPoolWrapper(NativeMemoryPool.createListenable(rl), rl,
+        collectStackForDebug)
+      memoryPools.add(pool)
+      pool
+    }
 
     def createSpillableMemoryPool(spiller: Spiller): NativeMemoryPool = {
-      return NativeMemoryPool.getDefault
-//      val rl = new SparkManagedReservationListener(
-//        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
-//        sharedMetrics)
-//      val pool = NativeMemoryPool.createListenable(rl)
-//      memoryPools.add(NativeMemoryPoolWrapper(pool, rl, collectStackForDebug))
-//      pool
+      val rl = new SparkManagedReservationListener(
+        new NativeSQLMemoryConsumer(getTaskMemoryManager(), spiller),
+        sharedMetrics)
+      val pool = NativeMemoryPool.createListenable(rl)
+      memoryPools.add(NativeMemoryPoolWrapper(pool, rl, collectStackForDebug))
+      pool
     }
 
     def createSpillableAllocator(spiller: Spiller): BufferAllocator = {
@@ -302,11 +301,10 @@ object SparkMemoryUtils extends Logging {
   }
 
   def contextMemoryPool(): NativeMemoryPool = {
+    if (!inSparkTask()) {
       return globalMemoryPool()
-//    if (!inSparkTask()) {
-//      return globalMemoryPool()
-//    }
-//    getTaskMemoryResources().defaultMemoryPool.pool
+    }
+    getTaskMemoryResources().defaultMemoryPool.pool
   }
 
   def getLeakedAllocators(): List[BufferAllocator] = {
