@@ -84,11 +84,11 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
         } else {
           bool value = *(bool*)(memory_address_ + offsets[position] + fieldOffset);
-          arrow::BitUtil::SetBitTo(array_data, position, value);
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(array_data, position, value);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -117,12 +117,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::Int8Type>::CType{};
         } else {
           auto value = *(int8_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -151,12 +151,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::Int16Type>::CType{};
         } else {
           auto value = *(int16_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -185,12 +185,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::Int16Type>::CType{};
         } else {
           auto value = *(int32_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -218,12 +218,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::Int64Type>::CType{};
         } else {
           auto value = *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -251,12 +251,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::FloatType>::CType{};
         } else {
           auto value = *(float*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -284,12 +284,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::DoubleType>::CType{};
         } else {
           auto value = *(double*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -371,10 +371,10 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::Decimal128{};
         } else {
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
           if (precision <= 18) {
             int64_t low_value;
             memcpy(&low_value, memory_address_ + offsets[position] + fieldOffset, 8);
@@ -429,12 +429,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::Date32Type>::CType{};
         } else {
           auto value = *(int32_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }
@@ -462,12 +462,12 @@ arrow::Status CreateArrayData(std::shared_ptr<arrow::Schema> schema, int64_t num
         bool is_null = IsNull(memory_address_ + offsets[position], columnar_id);
         if (is_null) {
           null_count++;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, false);
+          arrow::bit_util::SetBitTo(out_is_valid, position, false);
           array_data[position] = arrow::TypeTraits<arrow::TimestampType>::CType{};
         } else {
           auto value = *(int64_t*)(memory_address_ + offsets[position] + fieldOffset);
           array_data[position] = value;
-          arrow::BitUtil::SetBitTo(out_is_valid, position, true);
+          arrow::bit_util::SetBitTo(out_is_valid, position, true);
         }
         position++;
       }

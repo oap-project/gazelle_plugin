@@ -17,7 +17,7 @@ set(ARROW_ROOT "/usr/local" CACHE PATH "Arrow Root dir")
 set(ARROW_BFS_INSTALL_DIR "/usr/local" CACHE PATH "Arrow Build from Source dir")
 set(ARROW_LIB_NAME arrow)
 set(GANDIVA_LIB_NAME gandiva)
-set(ARROW_SHARED_LIBRARY_SUFFIX ".so.400")
+set(ARROW_SHARED_LIBRARY_SUFFIX ".so.700")
 
 option(BUILD_ARROW "Build Arrow from Source" ON)
 option(STATIC_ARROW "Build Arrow with Static Libraries" OFF)
@@ -140,7 +140,7 @@ macro(build_arrow STATIC_ARROW)
   ExternalProject_Add(arrow_ep
                       GIT_REPOSITORY https://github.com/oap-project/arrow.git
                       SOURCE_DIR ${ARROW_SOURCE_DIR}
-                      GIT_TAG arrow-4.0.0-oap
+                      GIT_TAG arrow-7.0.0-oap
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${ARROW_PREFIX}
                       INSTALL_COMMAND make install
@@ -222,14 +222,14 @@ macro(build_arrow STATIC_ARROW)
 
     ExternalProject_Add_Step(arrow_ep copy_arrow_binary_400_0_0
                       COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${ARROW_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
-                      COMMENT "Copy libarrow.so.400.0.0 to releases/"
+                      COMMENT "Copy libarrow.so.700.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )
 
     ExternalProject_Add_Step(arrow_ep copy_gandiva_binary_400_0_0
                       COMMAND cp -a ${ARROW_PREFIX}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}${GANDIVA_LIB_NAME}${ARROW_SHARED_LIBRARY_SUFFIX} ${root_directory}/releases/
-                      COMMENT "Copy libgandiva.so.400.0.0 to releases/"
+                      COMMENT "Copy libgandiva.so.700.0.0 to releases/"
                       DEPENDEES mkdir download update patch configure build install java_install
                       WORKING_DIRECTORY "${ARROW_PREFIX}/"
     )

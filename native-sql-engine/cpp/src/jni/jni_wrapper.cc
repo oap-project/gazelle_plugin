@@ -1464,8 +1464,7 @@ Java_com_intel_oap_vectorized_ArrowCoalesceBatchesJniWrapper_nativeCoalesceBatch
     for (const auto& batch : batches) {
       arrvec.push_back(batch->column(i));
     }
-    std::shared_ptr<arrow::Array> bigArr;
-    Concatenate(arrvec, pool, &bigArr);
+    std::shared_ptr<arrow::Array> bigArr = JniGetOrThrow(Concatenate(arrvec, pool));
     // ARROW_ASSIGN_OR_RAISE(auto bigArr, Concatenate(arrvec, pool));
     arrayColumns.push_back(bigArr);
   }
