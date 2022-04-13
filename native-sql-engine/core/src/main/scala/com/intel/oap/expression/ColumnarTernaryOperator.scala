@@ -163,6 +163,32 @@ class ColumnarStringLocate(substr: Expression, str: Expression,
   }
 }
 
+class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expression,
+                            original: Expression) extends RegExpExtract(subject: Expression,
+  regexp: Expression, idx: Expression) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedType = List(StringType)
+    if (supportedType.indexOf(subject.dataType) == -1) {
+      throw new RuntimeException("Only string type is expected!")
+    }
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (subject_node, _): (TreeNode, ArrowType) =
+      subject.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (regexp_node, _): (TreeNode, ArrowType) =
+      regexp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (idx_node, _): (TreeNode, ArrowType) =
+      idx.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("regexp_extract",
+      Lists.newArrayList(subject_node, regexp_node, idx_node), resultType), resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
@@ -176,6 +202,8 @@ object ColumnarTernaryOperator {
       new ColumnarStringTranslate(src, arg1, arg2, st)
     case sl: StringLocate =>
       new ColumnarStringLocate(src, arg1, arg2, sl)
+    case re: RegExpExtract =>
+      new ColumnarRegExpExtract(src, arg1, arg2, re)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
