@@ -114,8 +114,8 @@ TEST_F(JniUtilsTest, TestRecordBatchConcatenate) {
   batches.push_back(batch1);
   batches.push_back(batch2);
 
-  for (int i = 0; i < 100; i++) {
-    for (int i = 0; i < 10000; i++) {
+  for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 10; i++) {
       int total_num_rows = batch1->num_rows() + batch2->num_rows();
 
       // int num_columns = batches.at(0)->num_columns();
@@ -127,16 +127,11 @@ TEST_F(JniUtilsTest, TestRecordBatchConcatenate) {
           arrvec.push_back(batch->column(i));
         }
         std::shared_ptr<arrow::Array> bigArr;
-        Concatenate(arrvec, default_memory_pool(), &bigArr);
-        // ARROW_ASSIGN_OR_RAISE(auto bigArr, Concatenate(arrvec, pool));
+        ARROW_ASSIGN_OR_THROW(bigArr, Concatenate(arrvec, default_memory_pool()));
         arrayColumns.push_back(bigArr);
       }
       auto out_batch = arrow::RecordBatch::Make(schema, total_num_rows, arrayColumns);
-
-      std::cout << "out_batch->num_rows():" << out_batch->num_rows() << std::endl;
     }
-
-    sleep(3);
   }
 }
 
