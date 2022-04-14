@@ -902,6 +902,10 @@ class ColumnarLength(child: Expression) extends Length(child: Expression)
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (child_node, _): (TreeNode, ArrowType) =
       child.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)

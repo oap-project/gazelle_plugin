@@ -150,6 +150,10 @@ class ColumnarStringLocate(substr: Expression, str: Expression,
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object) : (TreeNode, ArrowType) = {
     val (substr_node, _): (TreeNode, ArrowType) =
       substr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -174,6 +178,10 @@ class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expres
     if (supportedType.indexOf(subject.dataType) == -1) {
       throw new RuntimeException("Only string type is expected!")
     }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
   }
 
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
