@@ -23,6 +23,7 @@
 #include <arrow/ipc/util.h>
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
+#include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
 #include <jni.h>
 
@@ -127,7 +128,7 @@ TEST_F(JniUtilsTest, TestRecordBatchConcatenate) {
           arrvec.push_back(batch->column(i));
         }
         std::shared_ptr<arrow::Array> bigArr;
-        Concatenate(arrvec, default_memory_pool(), &bigArr);
+        ASSERT_OK_AND_ASSIGN(bigArr, Concatenate(arrvec, default_memory_pool()))
         // ARROW_ASSIGN_OR_RAISE(auto bigArr, Concatenate(arrvec, pool));
         arrayColumns.push_back(bigArr);
       }

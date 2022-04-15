@@ -19,13 +19,21 @@ package org.apache.spark.shuffle
 
 import java.nio.file.Files
 
-import com.intel.oap.execution.{ArrowCoalesceBatchesExec}
+import com.intel.oap.execution.ArrowCoalesceBatchesExec
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowUtils.makeArrowDiscovery
 import com.intel.oap.tpc.util.TPCRunner
-import org.apache.log4j.{Level, LogManager}
+import org.apache.arrow.dataset.file.FileSystemDatasetFactory
+import org.apache.log4j.Level
+import org.apache.log4j.LogManager
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.functions.{col, expr}
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.expr
 import org.apache.spark.sql.test.SharedSparkSession
+import org.apache.spark.sql.types.StructType
 
 class ArrowCoalesceBatchesSuite extends QueryTest with SharedSparkSession {
 
@@ -53,20 +61,28 @@ class ArrowCoalesceBatchesSuite extends QueryTest with SharedSparkSession {
     val lfile = Files.createTempFile("", ".parquet").toFile
     lfile.deleteOnExit()
     lPath = lfile.getAbsolutePath
-    spark.range(2).select(col("id"), expr("1").as("kind"),
-        expr("array(1, 2)").as("arr_field"),
-      expr("array(\"hello\", \"world\")").as("arr_str_field"),
-        expr("array(array(1, 2), array(3, 4))").as("arr_arr_field"),
-        expr("array(struct(1, 2), struct(1, 2))").as("arr_struct_field"),
-        expr("array(map(1, 2), map(3,4))").as("arr_map_field"),
-        expr("struct(1, 2)").as("struct_field"),
-        expr("struct(1, struct(1, 2))").as("struct_struct_field"),
-        expr("struct(1, array(1, 2))").as("struct_array_field"),
-        expr("map(1, 2)").as("map_field"),
-        expr("map(1, map(3,4))").as("map_map_field"),
-        expr("map(1, array(1, 2))").as("map_arr_field"),
-        expr("map(struct(1, 2), 2)").as("map_struct_field"))
-        .coalesce(1)
+    val dfl = spark
+        .range(2)
+        .select(
+          col("id"),
+          expr("1").as("kind"),
+          expr("array(1, 2)").as("arr_field"),
+          expr("array(\"hello\", \"world\")").as("arr_str_field"),
+          expr("array(array(1, 2), array(3, 4))").as("arr_arr_field"),
+          expr("array(struct(1, 2), struct(1, 2))").as("arr_struct_field"),
+          expr("array(map(1, 2), map(3,4))").as("arr_map_field"),
+          expr("struct(1, 2)").as("struct_field"),
+          expr("struct(1, struct(1, 2))").as("struct_struct_field"),
+          expr("struct(1, array(1, 2))").as("struct_array_field"),
+          expr("map(1, 2)").as("map_field"),
+          expr("map(1, map(3,4))").as("map_map_field"),
+          expr("map(1, array(1, 2))").as("map_arr_field"),
+          expr("map(struct(1, 2), 2)").as("map_struct_field"))
+
+    // Arrow scan doesn't support converting from non-null nested type to nullable as of now
+    val dflNullable = dfl.sqlContext.createDataFrame(dfl.rdd, dfl.schema.asNullable)
+
+    dflNullable.coalesce(1)
         .write
         .format("parquet")
         .mode("overwrite")
@@ -75,10 +91,18 @@ class ArrowCoalesceBatchesSuite extends QueryTest with SharedSparkSession {
     val rfile = Files.createTempFile("", ".parquet").toFile
     rfile.deleteOnExit()
     rPath = rfile.getAbsolutePath
-    spark.range(2).select(col("id"), expr("id % 2").as("kind"),
-      expr("array(1, 2)").as("arr_field"),
-      expr("struct(1, 2)").as("struct_field"))
-        .coalesce(1)
+
+    val dfr = spark.range(2)
+        .select(
+          col("id"),
+          expr("id % 2").as("kind"),
+          expr("array(1, 2)").as("arr_field"),
+          expr("struct(1, 2)").as("struct_field"))
+
+    // Arrow scan doesn't support converting from non-null nested type to nullable as of now
+    val dfrNullable = dfr.sqlContext.createDataFrame(dfr.rdd, dfr.schema.asNullable)
+
+    dfrNullable.coalesce(1)
         .write
         .format("parquet")
         .mode("overwrite")
@@ -86,6 +110,17 @@ class ArrowCoalesceBatchesSuite extends QueryTest with SharedSparkSession {
 
     spark.catalog.createTable("ltab", lPath, "arrow")
     spark.catalog.createTable("rtab", rPath, "arrow")
+  }
+
+  def readSchema(path: String): Option[StructType] = {
+    val factory: FileSystemDatasetFactory =
+      makeArrowDiscovery(path, -1L, -1L, new ArrowOptions(Map[String, String]()))
+    val schema = factory.inspect()
+    try {
+      Option(SparkSchemaUtils.fromArrowSchema(schema))
+    } finally {
+      factory.close()
+    }
   }
 
   test("Test Array in CoalesceBatches") {

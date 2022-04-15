@@ -73,20 +73,28 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val lfile = Files.createTempFile("", ".parquet").toFile
     lfile.deleteOnExit()
     lPath = lfile.getAbsolutePath
-    spark.range(2).select(col("id"), expr("1").as("kind"),
-        expr("array(1, 2)").as("arr_field"),
-        expr("array(\"hello\", \"world\")").as("arr_str_field"),
-        expr("array(array(1, 2), array(3, 4))").as("arr_arr_field"),
-        expr("array(struct(1, 2), struct(1, 2))").as("arr_struct_field"),
-        expr("array(map(1, 2), map(3,4))").as("arr_map_field"),
-        expr("struct(1, 2)").as("struct_field"),
-        expr("struct(1, struct(1, 2))").as("struct_struct_field"),
-        expr("struct(1, array(1, 2))").as("struct_array_field"),
-        expr("map(1, 2)").as("map_field"),
-        expr("map(1, map(3,4))").as("map_map_field"),
-        expr("map(1, array(1, 2))").as("map_arr_field"),
-        expr("map(struct(1, 2), 2)").as("map_struct_field"))
-        .coalesce(1)
+    val dfl = spark
+        .range(2)
+        .select(
+          col("id"),
+          expr("1").as("kind"),
+          expr("array(1, 2)").as("arr_field"),
+          expr("array(\"hello\", \"world\")").as("arr_str_field"),
+          expr("array(array(1, 2), array(3, 4))").as("arr_arr_field"),
+          expr("array(struct(1, 2), struct(1, 2))").as("arr_struct_field"),
+          expr("array(map(1, 2), map(3,4))").as("arr_map_field"),
+          expr("struct(1, 2)").as("struct_field"),
+          expr("struct(1, struct(1, 2))").as("struct_struct_field"),
+          expr("struct(1, array(1, 2))").as("struct_array_field"),
+          expr("map(1, 2)").as("map_field"),
+          expr("map(1, map(3,4))").as("map_map_field"),
+          expr("map(1, array(1, 2))").as("map_arr_field"),
+          expr("map(struct(1, 2), 2)").as("map_struct_field"))
+
+    // Arrow scan doesn't support converting from non-null nested type to nullable as of now
+    val dflNullable = dfl.sqlContext.createDataFrame(dfl.rdd, dfl.schema.asNullable)
+
+    dflNullable.coalesce(1)
         .write
         .format("parquet")
         .mode("overwrite")
@@ -95,10 +103,18 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val rfile = Files.createTempFile("", ".parquet").toFile
     rfile.deleteOnExit()
     rPath = rfile.getAbsolutePath
-    spark.range(2).select(col("id"), expr("id % 2").as("kind"),
-      expr("array(1, 2)").as("arr_field"),
-      expr("struct(1, 2)").as("struct_field"))
-        .coalesce(1)
+
+    val dfr = spark.range(2)
+        .select(
+          col("id"),
+          expr("id % 2").as("kind"),
+          expr("array(1, 2)").as("arr_field"),
+          expr("struct(1, 2)").as("struct_field"))
+
+    // Arrow scan doesn't support converting from non-null nested type to nullable as of now
+    val dfrNullable = dfr.sqlContext.createDataFrame(dfr.rdd, dfr.schema.asNullable)
+
+    dfrNullable.coalesce(1)
         .write
         .format("parquet")
         .mode("overwrite")
