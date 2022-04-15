@@ -333,7 +333,6 @@ case class ColumnarCollapseCodegenStages(
     if (columnarWholeStageEnabled) {
       insertWholeStageCodegen(plan)
     } else {
-      logWarning("columnarWholeStageEnabled is disabled, not calling insertWholeStageCodegen")
       plan
     }
   }

@@ -274,11 +274,11 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
           if (columnarConf.shuffleThresholdEnabled && metrics.contains("dataSize"))
           {
             val dataSize = metrics("dataSize").value
-            logWarning(s"shuffle size ${dataSize} threshold ${columnarConf.shuffleThreshold}")
+            logDebug(s"shuffle size ${dataSize} threshold ${columnarConf.shuffleThreshold}")
 
             if (dataSize > 0 && dataSize < columnarConf.shuffleThreshold)
             {
-                logWarning(s"Setting spark.oap.sql.columnar.codegendisableforsmallshuffles to true")
+                logDebug(s"Setting spark.oap.sql.columnar.codegendisableforsmallshuffles to true")
                 session.sqlContext.setConf("spark.oap.sql.columnar.codegendisableforsmallshuffles", "true")
             }
           }
@@ -300,11 +300,11 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
               if (columnarConf.shuffleThresholdEnabled && metrics.contains("dataSize"))
               {
                 val dataSize = metrics("dataSize").value
-                logWarning(s"shuffle size ${dataSize} threshold ${columnarConf.shuffleThreshold}")
+                logDebug(s"shuffle size ${dataSize} threshold ${columnarConf.shuffleThreshold}")
 
                 if (dataSize > 0 && dataSize < columnarConf.shuffleThreshold)
                 {
-                    logWarning(s"Setting spark.oap.sql.columnar.codegendisableforsmallshuffles to true")
+                    logDebug(s"Setting spark.oap.sql.columnar.codegendisableforsmallshuffles to true")
                     session.sqlContext.setConf("spark.oap.sql.columnar.codegendisableforsmallshuffles", "true")
                 }
               }
@@ -321,11 +321,11 @@ case class ColumnarPreOverrides(session: SparkSession) extends Rule[SparkPlan] {
               if (columnarConf.shuffleThresholdEnabled && metrics.contains("dataSize"))
               {
                 val dataSize = metrics("dataSize").value
-                logWarning(s"shuffle size ${dataSize} threshold ${columnarConf.shuffleThreshold}")
+                logDebug(s"shuffle size ${dataSize} threshold ${columnarConf.shuffleThreshold}")
 
                 if (dataSize > 0 && dataSize < columnarConf.shuffleThreshold)
                 {
-                    logWarning(s"Setting spark.oap.sql.columnar.codegendisableforsmallshuffles to true")
+                    logDebug(s"Setting spark.oap.sql.columnar.codegendisableforsmallshuffles to true")
                     session.sqlContext.setConf("spark.oap.sql.columnar.codegendisableforsmallshuffles", "true")
                 }
               }
@@ -562,7 +562,7 @@ case class ColumnarOverrideRules(session: SparkSession) extends ColumnarRule wit
       val ret = collapseOverrides(tmpPlan)
       if (codegendisable)
       {
-        logWarning("postColumnarTransitions: resetting spark.oap.sql.columnar.codegendisableforsmallshuffles To false")
+        logDebug("postColumnarTransitions: resetting spark.oap.sql.columnar.codegendisableforsmallshuffles To false")
         session.sqlContext.setConf("spark.oap.sql.columnar.codegendisableforsmallshuffles", "false")
       }
       ret
