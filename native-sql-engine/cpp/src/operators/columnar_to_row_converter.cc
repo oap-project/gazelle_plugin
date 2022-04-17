@@ -27,10 +27,12 @@ int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
 }
 
 int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
-  int8_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
-  int64_t alignBytes = numBytes + (8 - remainder);
-  if (remainder == 0) alignBytes = numBytes;
-  return alignBytes;
+  int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
+  if (remainder == 0) {
+    return numBytes;
+  } else {
+    return numBytes + (8 - remainder);
+  }
 }
 
 int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema,
@@ -378,6 +380,90 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       }
       break;
     }
+    case arrow::Int8Type::type_id: {
+      // Byte type
+      auto int8_array = std::static_pointer_cast<arrow::Int8Array>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = int8_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int8_t));
+        }
+      }
+      break;
+    }
+    case arrow::Int16Type::type_id: {
+      // Short type
+      auto int16_array = std::static_pointer_cast<arrow::Int16Array>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = int16_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int16_t));
+        }
+      }
+      break;
+    }
+    case arrow::Int32Type::type_id: {
+      // Integer type
+      auto int32_array = std::static_pointer_cast<arrow::Int32Array>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = int32_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int32_t));
+        }
+      }
+      break;
+    }
+    case arrow::Int64Type::type_id: {
+      // Long type
+      auto int64_array = std::static_pointer_cast<arrow::Int64Array>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = int64_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int64_t));
+        }
+      }
+      break;
+    }
+    case arrow::FloatType::type_id: {
+      // Float type
+      auto float_array = std::static_pointer_cast<arrow::FloatArray>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = float_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(float));
+        }
+      }
+      break;
+    }
+    case arrow::DoubleType::type_id: {
+      // Double type
+      auto double_array = std::static_pointer_cast<arrow::DoubleArray>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = double_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(double));
+        }
+      }
+      break;
+    }
     case arrow::BinaryType::type_id: {
       // Binary type
       auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
@@ -463,6 +549,32 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
           // Update the cursor of the buffer.
           int64_t new_cursor = buffer_cursor[i] + 16;
           buffer_cursor[i] = new_cursor;
+        }
+      }
+      break;
+    }
+    case arrow::Date32Type::type_id: {
+      auto date32_array = std::static_pointer_cast<arrow::Date32Array>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = date32_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int32_t));
+        }
+      }
+      break;
+    }
+    case arrow::TimestampType::type_id: {
+      auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(array);
+      for (auto i = 0; i < num_rows; i++) {
+        bool is_null = array->IsNull(i);
+        if (is_null) {
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+        } else {
+          auto value = timestamp_array->Value(i);
+          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int64_t));
         }
       }
       break;
@@ -711,35 +823,8 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       }
       break;
     }
-    default: {
-      switch (arrow::bit_width(array->type_id())) {
-#define PROCESS(ARRAYTYPE, BYTES) {                                                     \
-      /* default Numeric type */                                                              \
-      auto numeric_array = std::static_pointer_cast<arrow::ARRAYTYPE>(array);               \
-      for (auto i = 0; i < num_rows; i++) {                          \
-        bool is_null = array->IsNull(i);                                  \
-        if (is_null) {                                                      \
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);                \
-        } else {                                                                          \
-          auto value = numeric_array->Value(i);                                      \
-          memcpy(buffer_address + offsets[i] + field_offset, &value, BYTES);           \
-        }                                                                           \
-      }                                                                      \
-      break;                                                                  \
-    }
-      case 8:
-        PROCESS(Int8Array, 1)
-      case 16:
-        PROCESS(Int16Array, 2)
-      case 32:
-        PROCESS(Int32Array, 4)
-      case 64:
-        PROCESS(Int64Array, 8)
-#undef PROCESS
-      default:
-        return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
-    }
-   }
+    default:
+      return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
   }
   return arrow::Status::OK();
 }
