@@ -184,17 +184,6 @@ arrow::Status ColumnarToRowConverter::Init() {
   // memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
 
   buffer_address_ = buffer_->mutable_data();
-
-  // vector for typeid => bytes
-  type_bytes_.resize(50);
-  type_bytes_.at(arrow::Int8Type::type_id) = 1;
-  type_bytes_.at(arrow::Int16Type::type_id) = 2;
-  type_bytes_.at(arrow::Int32Type::type_id) = 4;
-  type_bytes_.at(arrow::Int64Type::type_id) = 8;
-  type_bytes_.at(arrow::FloatType::type_id) = 4;
-  type_bytes_.at(arrow::DoubleType::type_id) = 8;
-  type_bytes_.at(arrow::Date32Type::type_id) = 4;
-  type_bytes_.at(arrow::TimestampType::type_id) = 8;
   return arrow::Status::OK();
 }
 
@@ -371,9 +360,8 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
 }
 
 arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
-                         const std::shared_ptr<arrow::Array>& array, int32_t col_index,
+                         std::shared_ptr<arrow::Array> array, int32_t col_index,
                          int64_t num_rows, std::vector<int64_t>& offsets,
-                         std::vector<int16_t>& type_bytes,
                          std::vector<int64_t>& buffer_cursor) {
   switch (array->type_id()) {
     case arrow::BooleanType::type_id: {
@@ -724,20 +712,34 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       break;
     }
     default: {
-      // default Numeric type
-      auto numeric_array = std::static_pointer_cast<arrow::Int8Array>(array);
-      auto value_ptr = numeric_array->raw_values();
-      auto numeric_bytes = type_bytes.at(array->type_id());
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          memcpy(buffer_address + offsets[i] + field_offset, value_ptr + i*numeric_bytes, numeric_bytes);
-        }
-      }
-      break;
+      switch (arrow::bit_width(array->type_id())) {
+#define PROCESS(ARRAYTYPE, BYTES) {                                                     \
+      /* default Numeric type */                                                              \
+      auto numeric_array = std::static_pointer_cast<arrow::ARRAYTYPE>(array);               \
+      for (auto i = 0; i < num_rows; i++) {                          \
+        bool is_null = array->IsNull(i);                                  \
+        if (is_null) {                                                      \
+          SetNullAt(buffer_address, offsets[i], field_offset, col_index);                \
+        } else {                                                                          \
+          auto value = numeric_array->Value(i);                                      \
+          memcpy(buffer_address + offsets[i] + field_offset, &value, BYTES);           \
+        }                                                                           \
+      }                                                                      \
+      break;                                                                  \
     }
+      case 8:
+        PROCESS(Int8Array, 1)
+      case 16:
+        PROCESS(Int16Array, 2)
+      case 32:
+        PROCESS(Int32Array, 4)
+      case 64:
+        PROCESS(Int64Array, 8)
+#undef PROCESS
+      default:
+        return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
+    }
+   }
   }
   return arrow::Status::OK();
 }
@@ -746,7 +748,7 @@ arrow::Status ColumnarToRowConverter::Write() {
   for (auto i = 0; i < num_cols_; i++) {
     auto array = rb_->column(i);
     int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);
-    WriteValue(buffer_address_, field_offset, array, i, num_rows_, offsets_, type_bytes_,
+    WriteValue(buffer_address_, field_offset, array, i, num_rows_, offsets_,
                buffer_cursor_);
   }
   return arrow::Status::OK();
