@@ -27,12 +27,10 @@ int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
 }
 
 int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
-  int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
-  if (remainder == 0) {
-    return numBytes;
-  } else {
-    return numBytes + (8 - remainder);
-  }
+  int8_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
+  int64_t alignBytes = numBytes + (8 - remainder);
+  if (remainder == 0) alignBytes = numBytes;
+  return alignBytes;
 }
 
 int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema,
