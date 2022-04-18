@@ -62,7 +62,7 @@ echo "ARROW_SOURCE_DIR=${ARROW_SOURCE_DIR}"
 echo "ARROW_INSTALL_DIR=${ARROW_INSTALL_DIR}"
 mkdir -p $ARROW_SOURCE_DIR
 mkdir -p $ARROW_INSTALL_DIR
-git clone https://github.com/zhouyuan/arrow.git  --branch wip_parquet_write_compression $ARROW_SOURCE_DIR
+git clone https://github.com/jackylee-ch/arrow.git  --branch divide_1_and_0_return_null $ARROW_SOURCE_DIR
 pushd $ARROW_SOURCE_DIR
 
 cmake ./cpp \
