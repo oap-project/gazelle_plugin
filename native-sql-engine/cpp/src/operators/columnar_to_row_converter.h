@@ -54,8 +54,6 @@ class ColumnarToRowConverter {
   uint8_t* buffer_address_;
   std::vector<int64_t> offsets_;
   std::vector<int64_t> lengths_;
-
-  std::vector<int16_t> type_bytes_;
 };
 
 }  // namespace columnartorow

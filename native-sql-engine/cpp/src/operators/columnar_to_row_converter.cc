@@ -23,7 +23,7 @@ namespace sparkcolumnarplugin {
 namespace columnartorow {
 
 int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
-  return ((numFields + 63) / 64) * 8;
+  return ((numFields + 63) >> 6) << 3;
 }
 
 int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
@@ -104,10 +104,13 @@ arrow::Status ColumnarToRowConverter::Init() {
   int64_t fixed_size_per_row = CalculatedFixeSizePerRow(rb_->schema(), num_cols_);
 
   // Initialize the offsets_ , lengths_, buffer_cursor_
+  lengths_.resize(num_rows_);
+  offsets_.resize(num_rows_);
+  buffer_cursor_.resize(num_rows_);
   for (auto i = 0; i < num_rows_; i++) {
-    lengths_.push_back(fixed_size_per_row);
-    offsets_.push_back(0);
-    buffer_cursor_.push_back(nullBitsetWidthInBytes_ + 8 * num_cols_);
+    lengths_[i] = fixed_size_per_row;
+    offsets_[i] = 0;
+    buffer_cursor_[i] = nullBitsetWidthInBytes_ + 8 * num_cols_;
   }
   // Calculated the lengths_
   for (auto i = 0; i < num_cols_; i++) {
