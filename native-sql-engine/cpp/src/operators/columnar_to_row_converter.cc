@@ -27,10 +27,12 @@ int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
 }
 
 int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
-  int8_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
-  int64_t alignBytes = numBytes + (8 - remainder);
-  if (remainder == 0) alignBytes = numBytes;
-  return alignBytes;
+  int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
+  if (remainder == 0) {
+    return numBytes;
+  } else {
+    return numBytes + (8 - remainder);
+  }
 }
 
 int64_t CalculatedFixeSizePerRow(std::shared_ptr<arrow::Schema> schema,
@@ -381,6 +383,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       }
       break;
     }
+    case arrow::StringType::type_id:
     case arrow::BinaryType::type_id: {
       // Binary type
       auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
@@ -393,29 +396,6 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         } else {
           offset_type length;
           auto value = binary_array->GetValue(i, &length);
-          // write the variable value
-          memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
-          // write the offset and size
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | length;
-          memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
-                 sizeof(int64_t));
-          buffer_cursor[i] += length;
-        }
-      }
-      break;
-    }
-    case arrow::StringType::type_id: {
-      // String type
-      auto string_array = std::static_pointer_cast<arrow::StringArray>(array);
-      using offset_type = typename arrow::StringType::offset_type;
-      offset_type length;
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          offset_type length;
-          auto value = string_array->GetValue(i, &length);
           // write the variable value
           memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
           // write the offset and size
