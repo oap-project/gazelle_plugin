@@ -178,6 +178,11 @@ class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expres
     if (supportedType.indexOf(subject.dataType) == -1) {
       throw new RuntimeException("Only string type is expected!")
     }
+
+    if (!regexp.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpExtract by now!")
+    }
   }
 
   override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
