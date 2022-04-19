@@ -152,20 +152,31 @@ class UniqueAction : public ActionBase {
     row_id_ = 0;
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id_);
-      if (cache_validity_[dest_group_id] == false) {
-        if (!is_null) {
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id_);
+        if (cache_validity_[dest_group_id] == false) {
+          if (!is_null) {
+            cache_validity_[dest_group_id] = true;
+            cache_[dest_group_id] = (CType)in_->GetView(row_id_);
+          } else {
+            cache_validity_[dest_group_id] = true;
+            null_flag_[dest_group_id] = true;
+          }
+        }
+        row_id_++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
+        if (cache_validity_[dest_group_id] == false) {
           cache_validity_[dest_group_id] = true;
           cache_[dest_group_id] = (CType)in_->GetView(row_id_);
-        } else {
-          cache_validity_[dest_group_id] = true;
-          null_flag_[dest_group_id] = true;
         }
-      }
-      row_id_++;
-      return arrow::Status::OK();
-    };
+        row_id_++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id_++;
@@ -1802,15 +1813,25 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    if (!in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
         cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += data_[row_id];
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] += data_[row_id];
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
@@ -1953,15 +1974,24 @@ class SumAction<DataType, CType, ResDataType, ResCType,
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] += in_->GetView(row_id);
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
         cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += in_->GetView(row_id);
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
@@ -2109,18 +2139,29 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
     in_ = in_list[0];
     in_null_count_ = in_->null_count();
-    // prepare evaluate lambda
+
     data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    // prepare evaluate lambda
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] += data_[row_id];
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
         cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += data_[row_id];
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
@@ -2265,17 +2306,28 @@ class SumActionPartial<DataType, CType, ResDataType, ResCType,
 
     in_ = std::make_shared<ArrayType>(in_list[0]);
     in_null_count_ = in_->null_count();
-    // prepare evaluate lambda
+
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    // prepare evaluate lambda
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_validity_[dest_group_id] = true;
+          cache_[dest_group_id] += in_->GetView(row_id);
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
         cache_validity_[dest_group_id] = true;
         cache_[dest_group_id] += in_->GetView(row_id);
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
@@ -2789,16 +2841,26 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    if (!in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
         cache_sum_[dest_group_id] += data_[row_id];
         cache_count_[dest_group_id] += 1;
         cache_validity_[dest_group_id] = true;
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_sum_[dest_group_id] += data_[row_id];
+          cache_count_[dest_group_id] += 1;
+          cache_validity_[dest_group_id] = true;
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;
@@ -2968,16 +3030,27 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
     row_id = 0;
-    *on_valid = [this](int dest_group_id) {
-      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
-      if (!is_null) {
+    if (in_null_count_) {
+      *on_valid = [this](int dest_group_id) {
+        const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+        if (!is_null) {
+          cache_sum_[dest_group_id] += in_->GetView(row_id);
+          cache_count_[dest_group_id] += 1;
+          cache_validity_[dest_group_id] = true;
+        }
+        row_id++;
+        return arrow::Status::OK();
+      };
+    } else {
+      *on_valid = [this](int dest_group_id) {
         cache_sum_[dest_group_id] += in_->GetView(row_id);
         cache_count_[dest_group_id] += 1;
         cache_validity_[dest_group_id] = true;
-      }
-      row_id++;
-      return arrow::Status::OK();
-    };
+
+        row_id++;
+        return arrow::Status::OK();
+      };
+    }
 
     *on_null = [this]() {
       row_id++;

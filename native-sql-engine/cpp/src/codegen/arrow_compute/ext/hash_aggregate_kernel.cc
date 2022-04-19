@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+#include <arrow/compute/exec.h>
+#include <arrow/compute/api_aggregate.h>
 #include <arrow/type.h>
 #include <arrow/type_fwd.h>
 #include <arrow/type_traits.h>
@@ -871,6 +873,7 @@ class HashAggregateKernel::Impl {
           post_process_projector_(post_process_projector),
           action_impl_list_(action_impl_list) {
       aggr_hash_table_ = std::make_shared<StringHashMap>(ctx->memory_pool());
+      
 #ifdef DEBUG
       std::cout << "using string hashagg res" << std::endl;
 #endif
@@ -898,57 +901,24 @@ class HashAggregateKernel::Impl {
       if (aggr_key_unsafe_row) {
         for (int idx = 0; idx < key_index_list_.size(); idx++) {
           auto arr = in[key_index_list_[idx]];
-          std::shared_ptr<UnsafeArray> payload;
-          MakeUnsafeArray(arr->type(), idx, arr, &payload);
-          payloads.push_back(payload);
+          keys.push_back(arr);
         }
       } else {
-        typed_key_in =
-            std::dynamic_pointer_cast<arrow::StringArray>(in[key_index_list_[0]]);
+        keys.push_back(in[key_index_list_[0]]);
       }
 
-      // 3. Get each row's group by key
-      auto length = in[0]->length();
-      std::vector<int> indices;
-      indices.resize(length, -1);
-
-      arrow::util::string_view aggr_key;
-      if (aggr_key_unsafe_row) {
-        for (int i = 0; i < length; i++) {
-          aggr_key_unsafe_row->reset();
-
-          for (auto payload_arr : payloads) {
-            payload_arr->Append(i, &aggr_key_unsafe_row);
-          }
-          aggr_key = arrow::util::string_view(aggr_key_unsafe_row->data,
-                                              aggr_key_unsafe_row->cursor);
-          // FIXME(): all keys are null?
-          aggr_hash_table_->GetOrInsert(
-              aggr_key, [](int) {}, [](int) {}, &(indices[i]));
-        }
-      } else {
-        for (int i = 0; i < length; i++) {
-          if (typed_key_in->null_count() > 0) {
-            aggr_key = typed_key_in->GetView(i);
-            auto aggr_key_validity =
-                typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
-
-            if (!aggr_key_validity) {
-              indices[i] = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
-            } else {
-              aggr_hash_table_->GetOrInsert(
-                  aggr_key, [](int) {}, [](int) {}, &(indices[i]));
-            }
-          } else {
-            aggr_key = typed_key_in->GetView(i);
-
-            aggr_hash_table_->GetOrInsert(
-                aggr_key, [](int) {}, [](int) {}, &(indices[i]));
-          }
-        }
+      ARROW_ASSIGN_OR_RAISE(key_batch, arrow::compute::ExecBatch::Make(std::move(keys)));
+      if (!grouper_init) {
+      ARROW_ASSIGN_OR_RAISE(grouper,
+                            arrow::compute::internal::Grouper::Make(key_batch.GetDescriptors()));
+          grouper_init = true;
       }
 
-      max_group_id_ = aggr_hash_table_->Size() - 1;
+      ARROW_ASSIGN_OR_RAISE(arrow::Datum id_batch, grouper->Consume(key_batch));
+
+      auto ids = id_batch.array_as<arrow::UInt32Array>();
+
+      max_group_id_ = grouper->num_groups() - 1;
       total_out_length_ = max_group_id_ + 1;
       // 4. prepare action func and evaluate
       std::vector<std::function<arrow::Status(int)>> eval_func_list;
@@ -968,8 +938,8 @@ class HashAggregateKernel::Impl {
       }
 
       for (auto eval_func : eval_func_list) {
-        for (auto memo_index : indices) {
-          RETURN_NOT_OK(eval_func(memo_index));
+        for (auto idx = 0; idx < ids->length() ; idx++) {
+          RETURN_NOT_OK(eval_func(ids->GetView(idx)));
         }
       }
       return arrow::Status::OK();
@@ -1015,6 +985,10 @@ class HashAggregateKernel::Impl {
     int offset_ = 0;
     int total_out_length_ = 0;
     int batch_size_;
+    std::vector<arrow::Datum> keys;
+    bool grouper_init = false;
+    arrow::compute::ExecBatch key_batch;
+    std::shared_ptr<arrow::compute::internal::Grouper> grouper;
   };
 
   template <typename DataType>
