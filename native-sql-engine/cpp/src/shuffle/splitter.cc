@@ -320,14 +320,15 @@ arrow::Status Splitter::Init() {
 
   auto num_fixed_width = fixed_width_array_idx_.size();
   partition_fixed_width_validity_addrs_.resize(num_fixed_width);
+  column_has_null_.resize(num_fixed_width, false);
   partition_fixed_width_value_addrs_.resize(num_fixed_width);
   partition_fixed_width_buffers_.resize(num_fixed_width);
   binary_array_empirical_size_.resize(binary_array_idx_.size());
   large_binary_array_empirical_size_.resize(large_binary_array_idx_.size());
   input_fixed_width_has_null_.resize(num_fixed_width, false);
   for (auto i = 0; i < num_fixed_width; ++i) {
-    partition_fixed_width_validity_addrs_[i].resize(num_partitions_);
-    partition_fixed_width_value_addrs_[i].resize(num_partitions_);
+    partition_fixed_width_validity_addrs_[i].resize(num_partitions_, nullptr);
+    partition_fixed_width_value_addrs_[i].resize(num_partitions_, nullptr);
     partition_fixed_width_buffers_[i].resize(num_partitions_);
   }
   partition_binary_builders_.resize(binary_array_idx_.size());
@@ -858,7 +859,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     if (partition_id_cnt_[pid] > 0) {
       // make sure the size to be allocated is larger than the size to be filled
-      auto new_size = std::max((int32_t)prealloc_row_cnt, partition_id_cnt_[pid]);
+      auto new_size = std::max((uint16_t)prealloc_row_cnt, partition_id_cnt_[pid]);
       if (partition_buffer_size_[pid] == 0) {
         // allocate buffer if it's not yet allocated
         RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
@@ -921,14 +922,18 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
     auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[1]->data());
 
     switch (arrow::bit_width(column_type_id_[col_idx]->id())) {
-#define PROCESS(_CTYPE)                                                               \
-  for (row = 0; row < num_rows; ++row) {                                              \
-    auto pid = partition_id_[row];                                                    \
-    auto dst_pid_base = reinterpret_cast<_CTYPE*>(partition_buffer_idx_offset_[pid]); \
-    *dst_pid_base = reinterpret_cast<_CTYPE*>(src_addr)[row];                         \
-    partition_buffer_idx_offset_[pid] += sizeof(_CTYPE);                              \
-    _mm_prefetch(&dst_pid_base[1], _MM_HINT_T0);                                      \
-  }                                                                                   \
+#define PROCESS(_CTYPE)                                                                  \
+  std::transform(partition_buffer_idx_offset_.begin(),                                   \
+                 partition_buffer_idx_offset_.end(), partition_buffer_idx_base_.begin(), \
+                 partition_buffer_idx_offset_.begin(),                                   \
+                 [](uint8_t* x, int16_t y) { return x + y * sizeof(_CTYPE); });          \
+  for (row = 0; row < num_rows; ++row) {                                                 \
+    auto pid = partition_id_[row];                                                       \
+    auto dst_pid_base = reinterpret_cast<_CTYPE*>(partition_buffer_idx_offset_[pid]);    \
+    *dst_pid_base = reinterpret_cast<_CTYPE*>(src_addr)[row];                            \
+    partition_buffer_idx_offset_[pid] += sizeof(_CTYPE);                                 \
+    _mm_prefetch(&dst_pid_base[1], _MM_HINT_T0);                                         \
+  }                                                                                      \
   break;
       case 8:
         PROCESS(uint8_t)
@@ -1151,7 +1156,8 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
   for (auto col = 0; col < fixed_width_array_idx_.size(); ++col) {
     auto col_idx = fixed_width_array_idx_[col];
     auto& dst_addrs = partition_fixed_width_validity_addrs_[col];
-    if (rb.column_data(col_idx)->GetNullCount() == 0) {
+    if (rb.column_data(col_idx)->GetNullCount() == 0 &&
+        column_has_null_[col_idx] == true) {
       // if the input record batch doesn't have null, set validity to True
       for (auto pid = 0; pid < num_partitions_; ++pid) {
         if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
@@ -1159,12 +1165,14 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
                                     partition_id_cnt_[pid], true);
         }
       }
-    } else {
+    } else if (rb.column_data(col_idx)->GetNullCount() > 0) {
       // there is Null count
+      column_has_null_[col_idx] = true;
       for (auto pid = 0; pid < num_partitions_; ++pid) {
         if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] == nullptr) {
           // init bitmap if it's null, initialize the buffer as true
-          auto new_size = std::max(partition_id_cnt_[pid], options_.buffer_size);
+          auto new_size =
+              std::max(partition_id_cnt_[pid], (uint16_t)options_.buffer_size);
           ARROW_ASSIGN_OR_RAISE(
               auto validity_buffer,
               arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size),
