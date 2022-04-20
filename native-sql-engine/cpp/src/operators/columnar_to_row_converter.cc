@@ -363,105 +363,19 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
 
 arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
                          std::shared_ptr<arrow::Array> array, int32_t col_index,
-                         int64_t num_rows, std::vector<int64_t>& offsets,
+                         int64_t row_index, std::vector<int64_t>& offsets,
                          std::vector<int64_t>& buffer_cursor) {
   switch (array->type_id()) {
     case arrow::BooleanType::type_id: {
       // Boolean type
       auto bool_array = std::static_pointer_cast<arrow::BooleanArray>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
+        bool is_null = array->IsNull(row_index);
         if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+          SetNullAt(buffer_address, offsets[row_index], field_offset, col_index);
         } else {
-          auto value = bool_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
+          auto value = bool_array->Value(row_index);
+          memcpy(buffer_address + offsets[row_index] + field_offset, &value, sizeof(bool));
         }
-      }
-      break;
-    }
-    case arrow::Int8Type::type_id: {
-      // Byte type
-      auto int8_array = std::static_pointer_cast<arrow::Int8Array>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = int8_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int8_t));
-        }
-      }
-      break;
-    }
-    case arrow::Int16Type::type_id: {
-      // Short type
-      auto int16_array = std::static_pointer_cast<arrow::Int16Array>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = int16_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int16_t));
-        }
-      }
-      break;
-    }
-    case arrow::Int32Type::type_id: {
-      // Integer type
-      auto int32_array = std::static_pointer_cast<arrow::Int32Array>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = int32_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int32_t));
-        }
-      }
-      break;
-    }
-    case arrow::Int64Type::type_id: {
-      // Long type
-      auto int64_array = std::static_pointer_cast<arrow::Int64Array>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = int64_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int64_t));
-        }
-      }
-      break;
-    }
-    case arrow::FloatType::type_id: {
-      // Float type
-      auto float_array = std::static_pointer_cast<arrow::FloatArray>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = float_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(float));
-        }
-      }
-      break;
-    }
-    case arrow::DoubleType::type_id: {
-      // Double type
-      auto double_array = std::static_pointer_cast<arrow::DoubleArray>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = double_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(double));
-        }
-      }
       break;
     }
     case arrow::BinaryType::type_id: {
@@ -469,22 +383,20 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
       using offset_type = typename arrow::BinaryType::offset_type;
 
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
+        bool is_null = array->IsNull(row_index);
         if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+          SetNullAt(buffer_address, offsets[row_index], field_offset, col_index);
         } else {
           offset_type length;
-          auto value = binary_array->GetValue(i, &length);
+          auto value = binary_array->GetValue(row_index, &length);
           // write the variable value
-          memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
+          memcpy(buffer_address + offsets[row_index] + buffer_cursor[row_index], value, length);
           // write the offset and size
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | length;
-          memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
+          int64_t offsetAndSize = (buffer_cursor[row_index] << 32) | length;
+          memcpy(buffer_address + offsets[row_index] + field_offset, &offsetAndSize,
                  sizeof(int64_t));
-          buffer_cursor[i] += length;
+          buffer_cursor[row_index] += length;
         }
-      }
       break;
     }
     case arrow::StringType::type_id: {
@@ -492,22 +404,20 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       auto string_array = std::static_pointer_cast<arrow::StringArray>(array);
       using offset_type = typename arrow::StringType::offset_type;
       offset_type length;
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
+        bool is_null = array->IsNull(row_index);
         if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+          SetNullAt(buffer_address, offsets[row_index], field_offset, col_index);
         } else {
           offset_type length;
-          auto value = string_array->GetValue(i, &length);
+          auto value = string_array->GetValue(row_index, &length);
           // write the variable value
-          memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
+          memcpy(buffer_address + offsets[row_index] + buffer_cursor[row_index], value, length);
           // write the offset and size
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | length;
-          memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
+          int64_t offsetAndSize = (buffer_cursor[row_index] << 32) | length;
+          memcpy(buffer_address + offsets[row_index] + field_offset, &offsetAndSize,
                  sizeof(int64_t));
-          buffer_cursor[i] += length;
+          buffer_cursor[row_index] += length;
         }
-      }
       break;
     }
     case arrow::Decimal128Type::type_id: {
@@ -517,325 +427,94 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
       int32_t precision = dtype->precision();
       int32_t scale = dtype->scale();
 
-      for (auto i = 0; i < num_rows; i++) {
-        const arrow::Decimal128 out_value(out_array->GetValue(i));
-        bool flag = out_array->IsNull(i);
+        const arrow::Decimal128 out_value(out_array->GetValue(row_index));
+        bool flag = out_array->IsNull(row_index);
 
         if (precision <= 18) {
           if (!flag) {
             // Get the long value and write the long value
             // Refer to the int64_t() method of Decimal128
             int64_t long_value = static_cast<int64_t>(out_value.low_bits());
-            memcpy(buffer_address + offsets[i] + field_offset, &long_value, sizeof(long));
+            memcpy(buffer_address + offsets[row_index] + field_offset, &long_value, sizeof(long));
           } else {
-            SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+            SetNullAt(buffer_address, offsets[row_index], field_offset, col_index);
           }
         } else {
           if (flag) {
-            SetNullAt(buffer_address, offsets[i], field_offset, col_index);
+            SetNullAt(buffer_address, offsets[row_index], field_offset, col_index);
           } else {
             int32_t size;
             auto out = ToByteArray(out_value, &size);
             assert(size <= 16);
 
             // write the variable value
-            memcpy(buffer_address + buffer_cursor[i] + offsets[i], &out[0], size);
+            memcpy(buffer_address + buffer_cursor[row_index] + offsets[row_index], &out[0], size);
             // write the offset and size
-            int64_t offsetAndSize = (buffer_cursor[i] << 32) | size;
-            memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
+            int64_t offsetAndSize = (buffer_cursor[row_index] << 32) | size;
+            memcpy(buffer_address + offsets[row_index] + field_offset, &offsetAndSize,
                    sizeof(int64_t));
           }
 
           // Update the cursor of the buffer.
-          int64_t new_cursor = buffer_cursor[i] + 16;
-          buffer_cursor[i] = new_cursor;
+          int64_t new_cursor = buffer_cursor[row_index] + 16;
+          buffer_cursor[row_index] = new_cursor;
         }
-      }
       break;
     }
-    case arrow::Date32Type::type_id: {
-      auto date32_array = std::static_pointer_cast<arrow::Date32Array>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = date32_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int32_t));
-        }
-      }
-      break;
+    default: {
+      switch (arrow::bit_width(array->type_id())) {
+#define PROCESS(ARRAYTYPE, BYTES) {                                                     \
+      /* default Numeric type */                                                              \
+      auto numeric_array = std::static_pointer_cast<arrow::ARRAYTYPE>(array);               \
+        bool is_null = array->IsNull(row_index);                                  \
+        if (is_null) {                                                      \
+          SetNullAt(buffer_address, offsets[row_index], field_offset, col_index);                \
+        } else {                                                                          \
+          auto value = numeric_array->Value(row_index);                                      \
+          memcpy(buffer_address + offsets[row_index] + field_offset, &value, BYTES);           \
+        }                                                                           \
+      break;                                                                  \
     }
-    case arrow::TimestampType::type_id: {
-      auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          auto value = timestamp_array->Value(i);
-          memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(int64_t));
-        }
-      }
-      break;
+      case 8:
+        PROCESS(Int8Array, 1)
+      case 16:
+        PROCESS(Int16Array, 2)
+      case 32:
+        PROCESS(Int32Array, 4)
+      case 64:
+        PROCESS(Int64Array, 8)
+#undef PROCESS
+      default:
+        return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
     }
-    case arrow::ListType::type_id: {
-      auto list_array = std::static_pointer_cast<arrow::ListArray>(array);
-      for (auto i = 0; i < num_rows; i++) {
-        bool is_null = array->IsNull(i);
-        if (is_null) {
-          SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-        } else {
-          // Write the variable value:
-          // [numElements][null bits][values or offset&length][variable length portion]
-          auto row_array = list_array->value_slice(i);
-          int64_t num_elements = row_array->length();
-          int64_t header_in_bytes = CalculateHeaderPortionInBytes(num_elements);
-          auto type_id = row_array->type_id();
-
-          // 1. Write the [numElements] long
-          memcpy(buffer_address + buffer_cursor[i] + offsets[i], &num_elements,
-                 sizeof(int64_t));
-
-          int64_t total_size = header_in_bytes;
-          // 2. Write [null bits][values or offset&length][variable length portion]
-          if (type_id == arrow::BooleanType::type_id) {
-            auto bool_row_array =
-                std::static_pointer_cast<arrow::BooleanArray>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (bool_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = bool_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(bool),
-                       &value, sizeof(bool));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(bool));
-          } else if (type_id == arrow::Int8Type::type_id) {
-            auto int8_row_array = std::static_pointer_cast<arrow::Int8Array>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (int8_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = int8_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(int8_t),
-                       &value, sizeof(int8_t));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int8_t));
-          } else if (type_id == arrow::Int16Type::type_id) {
-            auto int16_row_array = std::static_pointer_cast<arrow::Int16Array>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (int16_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = int16_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(int16_t),
-                       &value, sizeof(int16_t));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int16_t));
-          } else if (type_id == arrow::Int32Type::type_id) {
-            auto int32_row_array = std::static_pointer_cast<arrow::Int32Array>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (int32_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = int32_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(int32_t),
-                       &value, sizeof(int32_t));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int32_t));
-          } else if (type_id == arrow::Int64Type::type_id) {
-            auto int64_row_array = std::static_pointer_cast<arrow::Int64Array>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (int64_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = int64_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(int64_t),
-                       &value, sizeof(int64_t));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
-          } else if (type_id == arrow::FloatType::type_id) {
-            auto float_row_array = std::static_pointer_cast<arrow::FloatArray>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (float_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = float_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(float),
-                       &value, sizeof(float));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(float));
-          } else if (type_id == arrow::DoubleType::type_id) {
-            auto double_row_array =
-                std::static_pointer_cast<arrow::DoubleArray>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (double_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = double_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(double),
-                       &value, sizeof(double));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(double));
-          } else if (type_id == arrow::Date32Type::type_id) {
-            auto date32_row_array =
-                std::static_pointer_cast<arrow::Date32Array>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (date32_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = date32_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(int32_t),
-                       &value, sizeof(int32_t));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int32_t));
-          } else if (type_id == arrow::TimestampType::type_id) {
-            auto timestamp_row_array =
-                std::static_pointer_cast<arrow::TimestampArray>(row_array);
-            for (auto j = 0; j < num_elements; j++) {
-              if (timestamp_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                auto value = timestamp_row_array->Value(j);
-                memcpy(buffer_address + buffer_cursor[i] + offsets[i] + header_in_bytes +
-                           j * sizeof(int64_t),
-                       &value, sizeof(int64_t));
-              }
-            }
-            total_size += RoundNumberOfBytesToNearestWord(num_elements * sizeof(int64_t));
-          } else if (arrow::is_binary_like(type_id)) {
-            auto binary_row_array =
-                std::static_pointer_cast<arrow::BinaryArray>(row_array);
-            using offset_type = typename arrow::BinaryType::offset_type;
-
-            offset_type length = 0;
-            offset_type cur_variable_offset = 0;
-            int64_t variable_size = 0;
-            for (auto j = 0; j < num_elements; j++) {
-              if (binary_row_array->IsNull(j)) {
-                BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                       j);
-              } else {
-                cur_variable_offset += RoundNumberOfBytesToNearestWord(length);
-                auto value = binary_row_array->GetValue(j, &length);
-                // write the variable value
-                memcpy(buffer_address + offsets[i] + buffer_cursor[i] + header_in_bytes +
-                           num_elements * 8 + cur_variable_offset,
-                       value, length);
-
-                // write the offset (in UnsafeArrayData) and size
-                int64_t offsetAndSize =
-                    ((header_in_bytes + num_elements * 8 + cur_variable_offset) << 32) |
-                    length;
-                memcpy(buffer_address + offsets[i] + buffer_cursor[i] + header_in_bytes +
-                           j * 8,
-                       &offsetAndSize, sizeof(int64_t));
-
-                variable_size += RoundNumberOfBytesToNearestWord(length);
-              }
-            }
-
-            total_size += (num_elements * 8 + variable_size);
-          } else if (type_id == arrow::Decimal128Type::type_id) {
-            auto out_array = dynamic_cast<arrow::Decimal128Array*>(row_array.get());
-            auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
-
-            int32_t precision = dtype->precision();
-            int32_t scale = dtype->scale();
-            int32_t size = 0;
-            int32_t cur_cursor = 0;
-            for (auto j = 0; j < num_elements; j++) {
-              const arrow::Decimal128 out_value(out_array->GetValue(j));
-              bool flag = out_array->IsNull(j);
-
-              if (precision <= 18) {
-                if (!flag) {
-                  // Get the long value and write the long value
-                  // Refer to the int64_t() method of Decimal128
-                  int64_t long_value = static_cast<int64_t>(out_value.low_bits());
-                  memcpy(buffer_address + offsets[i] + buffer_cursor[i] +
-                             header_in_bytes + j * sizeof(int64_t),
-                         &long_value, sizeof(long));
-                } else {
-                  BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                         j);
-                }
-              } else {
-                if (flag) {
-                  BitSet(buffer_address + buffer_cursor[i] + offsets[i] + sizeof(int64_t),
-                         j);
-                } else {
-                  cur_cursor += RoundNumberOfBytesToNearestWord(size);
-                  auto out = ToByteArray(out_value, &size);
-                  assert(size <= 16);
-
-                  // write the variable value
-                  memcpy(buffer_address + buffer_cursor[i] + offsets[i] +
-                             header_in_bytes + num_elements * sizeof(int64_t) +
-                             cur_cursor,
-                         &out[0], size);
-                  // write the offset and size
-                  int64_t offsetAndSize =
-                      ((header_in_bytes + num_elements * sizeof(int64_t) + cur_cursor)
-                       << 32) |
-                      size;
-                  memcpy(buffer_address + offsets[i] + buffer_cursor[i] +
-                             header_in_bytes + j * sizeof(int64_t),
-                         &offsetAndSize, sizeof(int64_t));
-                  total_size += RoundNumberOfBytesToNearestWord(size);
-                }
-              }
-            }
-            total_size += num_elements * 8;
-          }
-          // write the offset and size for per row
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | total_size;
-          memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
-                 sizeof(int64_t));
-          buffer_cursor[i] += total_size;
-        }
-      }
-      break;
-    }
-    default:
-      return arrow::Status::Invalid("Unsupported data type: " + array->type_id());
+   }
   }
   return arrow::Status::OK();
 }
 
 arrow::Status ColumnarToRowConverter::Write() {
+  // for (auto i = 0; i < num_cols_; i++) {
+  //   auto array = rb_->column(i);
+  //   int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);
+  //   WriteValue(buffer_address_, field_offset, array, i, num_rows_, offsets_,
+  //              buffer_cursor_);
+  // }
+
+
+  std::vector<int64_t> field_offset_vec;
   for (auto i = 0; i < num_cols_; i++) {
-    auto array = rb_->column(i);
-    int64_t field_offset = GetFieldOffset(nullBitsetWidthInBytes_, i);
-    WriteValue(buffer_address_, field_offset, array, i, num_rows_, offsets_,
-               buffer_cursor_);
+    field_offset_vec.push_back(GetFieldOffset(nullBitsetWidthInBytes_, i));
   }
+
+  for (auto i = 0; i < num_rows_; i++) {
+    for (auto j = 0; j < num_cols_; j++) {
+      auto array = rb_->column(j);
+      WriteValue(buffer_address_, field_offset_vec[j], array, j, i, offsets_,
+               buffer_cursor_);
+    }
+  }
+
+
   return arrow::Status::OK();
 }
 
