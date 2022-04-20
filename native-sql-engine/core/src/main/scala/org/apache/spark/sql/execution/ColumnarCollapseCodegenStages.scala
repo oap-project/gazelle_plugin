@@ -231,6 +231,11 @@ case class ColumnarCollapseCodegenStages(
         && p.joinType == LeftOuter
         && !p.right.isInstanceOf[ColumnarSortExec] =>
         true
+    /**
+    * To filter LeftOuter SMJ and its left child is LocalLimit.
+    */
+      case p: ColumnarSortMergeJoinExec if p.left.isInstanceOf[ColumnarLocalLimitExec] =>
+        true
       case _ =>
         false
     }
