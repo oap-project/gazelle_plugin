@@ -90,7 +90,7 @@ class TypedUnsafeArray<DataType, enable_if_string_like<DataType>> : public Unsaf
       setNullAt((*unsafe_row).get(), idx_);
     } else {
       auto v = typed_array_->GetView(i);
-      switch(v.size()) {
+      switch (v.size()) {
         case 1:
           appendToUnsafeRow((*unsafe_row).get(), idx_, *(int8_t*)(v.data()));
           break;

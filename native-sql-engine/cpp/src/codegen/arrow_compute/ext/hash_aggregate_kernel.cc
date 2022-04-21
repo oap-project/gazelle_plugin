@@ -975,7 +975,7 @@ class HashAggregateKernel::Impl {
         for (int i = 0; i < length; i++) {
           aggr_key_unsafe_row->reset();
 
-          for (auto payload_arr : payloads) {
+          for (const auto& payload_arr : payloads) {
             payload_arr->Append(i, &aggr_key_unsafe_row);
           }
           aggr_key = arrow::util::string_view(aggr_key_unsafe_row->data,
