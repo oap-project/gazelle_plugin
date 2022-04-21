@@ -27,7 +27,6 @@
 namespace sparkcolumnarplugin {
 namespace precompile {
 
-
 #define TYPED_ARROW_HASH_MAP_IMPL(HASHMAPNAME, TYPENAME, TYPE, MEMOTABLETYPE)          \
   using MEMOTABLETYPE =                                                                \
       typename arrow::internal::HashTraits<arrow::TYPENAME>::MemoTableType;            \

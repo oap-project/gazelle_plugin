@@ -7,7 +7,7 @@ include(FindPkgConfig)
 include(GNUInstallDirs)
 include(CheckCXXCompilerFlag)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -520,7 +520,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         precompile/builder.cc
         precompile/array.cc
         precompile/type.cc
-        precompile/sort.cc
         precompile/hash_arrays_kernel.cc
         precompile/unsafe_array.cc
         precompile/gandiva_projector.cc
