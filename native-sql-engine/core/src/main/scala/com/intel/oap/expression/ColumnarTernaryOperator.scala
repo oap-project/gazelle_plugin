@@ -235,7 +235,7 @@ object ColumnarTernaryOperator {
     case re: RegExpExtract =>
       new ColumnarRegExpExtract(src, arg1, arg2, re)
     case substrIndex: SubstringIndex =>
-      new ColumnarSubstringIndex(src, arg1, arg2, re)
+      new ColumnarSubstringIndex(src, arg1, arg2, substrIndex)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
