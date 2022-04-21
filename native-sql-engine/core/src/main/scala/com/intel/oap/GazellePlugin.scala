@@ -61,7 +61,7 @@ private[oap] class GazelleDriverPlugin extends DriverPlugin {
           "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
     }
     conf.set(SPARK_SESSION_EXTS_KEY,
-      String.format("%s,%S", GAZELLE_SESSION_EXTENSION_NAME, GAZELLE_WRITE_SESSION_EXTENSION_NAME))
+      String.format("%s,%s", GAZELLE_SESSION_EXTENSION_NAME, GAZELLE_WRITE_SESSION_EXTENSION_NAME))
   }
 }
 
