@@ -24,6 +24,7 @@ import java.util.Objects
 import scala.language.implicitConversions
 
 import com.intel.oap.GazellePlugin.GAZELLE_SESSION_EXTENSION_NAME
+import com.intel.oap.GazellePlugin.GAZELLE_WRITE_SESSION_EXTENSION_NAME
 import com.intel.oap.GazellePlugin.SPARK_SESSION_EXTS_KEY
 import com.intel.oap.extension.ColumnarOverrides
 import com.intel.oap.extension.{OptimizerOverrides, StrategyOverrides}
@@ -60,6 +61,7 @@ private[oap] class GazelleDriverPlugin extends DriverPlugin {
           "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
     }
     conf.set(SPARK_SESSION_EXTS_KEY, GAZELLE_SESSION_EXTENSION_NAME)
+    conf.set(SPARK_SESSION_EXTS_KEY, GAZELLE_WRITE_SESSION_EXTENSION_NAME)
   }
 }
 
@@ -100,6 +102,8 @@ private[oap] object GazellePlugin {
   val SPARK_SESSION_EXTS_KEY: String = StaticSQLConf.SPARK_SESSION_EXTENSIONS.key
   val GAZELLE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
     classOf[GazelleSessionExtensions].getCanonicalName)
+  val GAZELLE_WRITE_SESSION_EXTENSION_NAME: String = Objects.requireNonNull(
+    "com.intel.oap.spark.sql.ArrowWriteExtension")
   /**
    * Specify all injectors that Gazelle is using in following list.
    */
