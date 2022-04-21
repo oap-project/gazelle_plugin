@@ -125,7 +125,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
             options.asJava).asScala.toMap))
 
       // todo predicate validation / pushdown
-      val dataset = factory.finish();
+      val dataset = factory.finish(ArrowUtils.toArrowSchema(requiredSchema));
 
       val filter = if (enableFilterPushDown) {
         // disable filter pushdown by arrow 7.0.0
