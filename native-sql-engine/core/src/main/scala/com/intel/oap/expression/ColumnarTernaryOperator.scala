@@ -112,7 +112,8 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
 
 class ColumnarStringTranslate(src: Expression, matchingExpr: Expression,
                               replaceExpr: Expression, original: Expression)
-    extends StringTranslate(src, matchingExpr, replaceExpr) with ColumnarExpression{
+    extends StringTranslate(src, matchingExpr, replaceExpr) with ColumnarExpression {
+
   buildCheck
 
   def buildCheck: Unit = {
@@ -136,6 +137,71 @@ class ColumnarStringTranslate(src: Expression, matchingExpr: Expression,
   }
 }
 
+class ColumnarStringLocate(substr: Expression, str: Expression,
+                              position: Expression, original: Expression)
+  extends StringLocate(substr, str, position) with ColumnarExpression {
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedTypes = List(StringType)
+    if (supportedTypes.indexOf(str.dataType) == -1) {
+      throw new RuntimeException(s"${str.dataType}" +
+        s" is not supported in ColumnarStringLocate!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object) : (TreeNode, ArrowType) = {
+    val (substr_node, _): (TreeNode, ArrowType) =
+      substr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (str_node, _): (TreeNode, ArrowType) =
+      str.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (position_node, _): (TreeNode, ArrowType) =
+      position.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Int(32, true)
+    (TreeBuilder.makeFunction("locate",
+      Lists.newArrayList(substr_node, str_node, position_node), resultType), resultType)
+  }
+}
+
+class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expression,
+                            original: Expression) extends RegExpExtract(subject: Expression,
+  regexp: Expression, idx: Expression) with ColumnarExpression {
+
+  buildCheck
+
+  def buildCheck: Unit = {
+    val supportedType = List(StringType)
+    if (supportedType.indexOf(subject.dataType) == -1) {
+      throw new RuntimeException("Only string type is expected!")
+    }
+
+    if (!regexp.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpExtract by now!")
+    }
+  }
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (subject_node, _): (TreeNode, ArrowType) =
+      subject.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (regexp_node, _): (TreeNode, ArrowType) =
+      regexp.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (idx_node, _): (TreeNode, ArrowType) =
+      idx.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("regexp_extract",
+      Lists.newArrayList(subject_node, regexp_node, idx_node), resultType), resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
@@ -147,6 +213,10 @@ object ColumnarTernaryOperator {
 //      new ColumnarStringSplit(str, a.regex, a.limit, a)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
+    case sl: StringLocate =>
+      new ColumnarStringLocate(src, arg1, arg2, sl)
+    case re: RegExpExtract =>
+      new ColumnarRegExpExtract(src, arg1, arg2, re)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }

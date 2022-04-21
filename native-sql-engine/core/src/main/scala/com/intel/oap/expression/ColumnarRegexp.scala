@@ -35,7 +35,8 @@ import org.apache.spark.sql.types._
 
 import scala.collection.mutable.ListBuffer
 
-class ColumnarRegExpReplace(subject: Expression, regexp: Expression, rep: Expression, pos: Expression)
+class ColumnarRegExpReplace(subject: Expression, regexp: Expression,
+                            rep: Expression, pos: Expression)
   extends RegExpReplace(subject: Expression, regexp: Expression, rep: Expression, pos: Expression)
     with ColumnarExpression
     with Logging {
@@ -51,8 +52,11 @@ class ColumnarRegExpReplace(subject: Expression, regexp: Expression, rep: Expres
       throw new UnsupportedOperationException(
         s"${subject.dataType} is not supported in ColumnarRegexpReplace")
     }
+    if (!regexp.isInstanceOf[Literal]) {
+      throw new UnsupportedOperationException("Only literal regexp" +
+        " is supported in ColumnarRegExpReplace by now!")
+    }
   }
-
 
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     val (subject_node, subjectType): (TreeNode, ArrowType) =
