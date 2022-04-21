@@ -60,8 +60,8 @@ private[oap] class GazelleDriverPlugin extends DriverPlugin {
       throw new IllegalArgumentException("Spark extensions are already specified before " +
           "enabling Gazelle plugin: " + conf.get(GazellePlugin.SPARK_SESSION_EXTS_KEY))
     }
-    conf.set(SPARK_SESSION_EXTS_KEY, GAZELLE_SESSION_EXTENSION_NAME)
-    conf.set(SPARK_SESSION_EXTS_KEY, GAZELLE_WRITE_SESSION_EXTENSION_NAME)
+    conf.set(SPARK_SESSION_EXTS_KEY,
+      String.format("%s,%S", GAZELLE_SESSION_EXTENSION_NAME, GAZELLE_WRITE_SESSION_EXTENSION_NAME))
   }
 }
 
