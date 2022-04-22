@@ -26,7 +26,7 @@ int64_t CalculateBitSetWidthInBytes(int32_t numFields) {
   return ((numFields + 63) >> 6) << 3;
 }
 
-int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
+inline int64_t RoundNumberOfBytesToNearestWord(int64_t numBytes) {
   int64_t remainder = numBytes & 0x07;  // This is equivalent to `numBytes % 8`
   if (remainder == 0) {
     return numBytes;
@@ -186,7 +186,8 @@ arrow::Status ColumnarToRowConverter::Init() {
 
   ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size, memory_pool_));
 
-  memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
+  // memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
+  memset(buffer_->mutable_data(), 0, nullBitsetWidthInBytes_);
 
   buffer_address_ = buffer_->mutable_data();
   return arrow::Status::OK();
@@ -398,6 +399,10 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
           auto value = binary_array->GetValue(i, &length);
           // write the variable value
           memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
+          int64_t alignLength = RoundNumberOfBytesToNearestWord(length);
+          if (length < alignLength) {
+            memset(buffer_address + offsets[i] + buffer_cursor[i] + length, 0, alignLength-length);
+          }
           // write the offset and size
           int64_t offsetAndSize = (buffer_cursor[i] << 32) | length;
           memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
@@ -437,6 +442,9 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
 
             // write the variable value
             memcpy(buffer_address + buffer_cursor[i] + offsets[i], &out[0], size);
+            if (size < 16) {
+              memset(buffer_address + buffer_cursor[i] + offsets[i] +size, 0, 16-size);
+            }
             // write the offset and size
             int64_t offsetAndSize = (buffer_cursor[i] << 32) | size;
             memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
