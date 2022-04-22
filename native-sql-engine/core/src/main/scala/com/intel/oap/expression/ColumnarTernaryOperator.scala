@@ -206,6 +206,10 @@ class ColumnarSubstringIndex(strExpr: Expression, delimExpr: Expression,
                              countExpr: Expression, original: Expression)
   extends SubstringIndex(strExpr, delimExpr, countExpr) with ColumnarExpression {
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (str_node, _): (TreeNode, ArrowType) =
       strExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
