@@ -380,6 +380,8 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         } else {
           auto value = bool_array->Value(i);
           memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
+          int64_t alignPadding = 8 - sizeof(bool);
+          memset(buffer_address + offsets[i] + field_offset + sizeof(bool), 0, alignPadding);
         }
       }
       break;
@@ -714,6 +716,9 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
         } else {                                                                          \
           auto value = numeric_array->Value(i);                                      \
           memcpy(buffer_address + offsets[i] + field_offset, &value, BYTES);           \
+          if (BYTES < 8) {   \
+            memset(buffer_address + offsets[i] + field_offset, 0, 8 - BYTES); \
+          }        \
         }                                                                           \
       }                                                                      \
       break;                                                                  \

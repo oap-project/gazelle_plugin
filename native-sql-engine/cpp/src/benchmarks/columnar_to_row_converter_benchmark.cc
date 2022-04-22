@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 #include <parquet/arrow/reader.h>
 #include <parquet/file_reader.h>
-#include <shuffle/splitter.h>
+#include <benchmark/benchmark.h>
 
 #include <chrono>
 
@@ -37,21 +37,31 @@
 namespace sparkcolumnarplugin {
 namespace columnartorow {
 
-std::vector<std::string> input_files;
-const int num_partitions = 336;
-const int buffer_size = 20480;
+const int batch_buffer_size = 32768;
 
-class BenchmarkColumnarToRow : public ::testing::Test {
+class GoogleBenchmarkColumnarToRow : public ::benchmark::Fixture {
  public:
+ GoogleBenchmarkColumnarToRow()
+  {
+    file_name = "/mnt/DP_disk1/lineitem/part-00025-356249a2-c285-42b9-8a18-5b10be61e0c4-c000.snappy.parquet";
+    GetRecordBatchReader(file_name);
+  }
+
+
   void GetRecordBatchReader(const std::string& input_file) {
+
+    std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
+    std::shared_ptr<RecordBatchReader> record_batch_reader;
+
     std::shared_ptr<arrow::fs::FileSystem> fs;
     std::string file_name;
     ARROW_ASSIGN_OR_THROW(fs, arrow::fs::FileSystemFromUriOrPath(input_file, &file_name))
 
     ARROW_ASSIGN_OR_THROW(file, fs->OpenInputFile(file_name));
 
-    parquet::ArrowReaderProperties properties(true);
-    properties.set_batch_size(buffer_size);
+    properties.set_batch_size(batch_buffer_size);
+    properties.set_pre_buffer(false);
+    properties.set_use_threads(false);
 
     ASSERT_NOT_OK(::parquet::arrow::FileReader::Make(
         arrow::default_memory_pool(), ::parquet::ParquetFileReader::Open(file),
@@ -60,83 +70,153 @@ class BenchmarkColumnarToRow : public ::testing::Test {
     ASSERT_NOT_OK(parquet_reader->GetSchema(&schema));
 
     auto num_rowgroups = parquet_reader->num_row_groups();
-    std::vector<int> row_group_indices;
+    
     for (int i = 0; i < num_rowgroups; ++i) {
       row_group_indices.push_back(i);
     }
 
     auto num_columns = schema->num_fields();
-    std::vector<int> column_indices;
     for (int i = 0; i < num_columns; ++i) {
       column_indices.push_back(i);
     }
-
-    ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
-                                                       &record_batch_reader));
-  }
-  void SetUp() override {
-    // read input from parquet file
-    if (input_files.empty()) {
-      std::cout << "No input file." << std::endl;
-      std::exit(0);
-    }
-    std::cout << "Input file: " << std::endl;
-    for (const auto& file_name : input_files) {
-      std::cout << file_name << std::endl;
-    }
-    GetRecordBatchReader(input_files[0]);
-    std::cout << schema->ToString() << std::endl;
-
-    const auto& fields = schema->fields();
-    for (const auto& field : fields) {
-      if (field->name() == "l_partkey") {
-        auto node = gandiva::TreeExprBuilder::MakeField(field);
-        expr_vector.push_back(gandiva::TreeExprBuilder::MakeExpression(
-            std::move(node), arrow::field("res_" + field->name(), field->type())));
-      }
-    }
   }
 
-  void TearDown() override {}
+  void SetUp(const ::benchmark::State& state) {
+  }
+
+  void TearDown(const ::benchmark::State& state) {
+  }
 
  protected:
+  long SetCPU(uint32_t cpuindex){
+    cpu_set_t cs;
+    CPU_ZERO (&cs);
+    CPU_SET (cpuindex, &cs);
+    return sched_setaffinity (0, sizeof(cs), &cs);
+  }
+
+ protected:
+  std::string file_name;
   std::shared_ptr<arrow::io::RandomAccessFile> file;
-  std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
-  std::shared_ptr<RecordBatchReader> record_batch_reader;
+  std::vector<int> row_group_indices;
+  std::vector<int> column_indices;
   std::shared_ptr<arrow::Schema> schema;
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector;
+  parquet::ArrowReaderProperties properties;
+
 };
-TEST_F(BenchmarkColumnarToRow, test) {
-  int64_t elapse_read = 0;
-  int64_t elapse_init = 0;
-  int64_t elapse_write = 0;
-  std::shared_ptr<arrow::RecordBatch> record_batch;
-  TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
 
-  if (record_batch) {
-    std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-        std::make_shared<ColumnarToRowConverter>(record_batch,
-                                                 arrow::default_memory_pool());
+BENCHMARK_DEFINE_F(GoogleBenchmarkColumnarToRow, CacheScan)(benchmark::State& state){
 
-    TIME_NANO_OR_THROW(elapse_init, unsafe_row_writer_reader->Init());
-    TIME_NANO_OR_THROW(elapse_write, unsafe_row_writer_reader->Write());
+  SetCPU(state.thread_index());
 
-    std::cout << "Took " << TIME_NANO_TO_STRING(elapse_read) << " to read data"
-              << std::endl
-              << "Took " << TIME_NANO_TO_STRING(elapse_init) << " to init" << std::endl
-              << "Took " << TIME_NANO_TO_STRING(elapse_write) << " to write" << std::endl;
-  }
+   arrow::Compression::type compression_type = (arrow::Compression::type) state.range(1);
+
+    std::shared_ptr<arrow::RecordBatch> record_batch;
+    int64_t elapse_read = 0;
+    int64_t num_batches = 0;
+    int64_t num_rows = 0;
+    int64_t init_time = 0;
+    int64_t write_time = 0;
+
+    std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
+    std::shared_ptr<RecordBatchReader> record_batch_reader;
+    ASSERT_NOT_OK(::parquet::arrow::FileReader::Make(
+        arrow::default_memory_pool(), ::parquet::ParquetFileReader::Open(file),
+        properties, &parquet_reader));
+
+    std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
+    ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
+                                                  &record_batch_reader));
+    do{
+      TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      
+      if (record_batch) {
+        batches.push_back(record_batch);
+        num_batches += 1;
+        num_rows += record_batch->num_rows();
+      }
+    } while (record_batch);
+    
+
+    
+    for(auto _: state)
+    {
+      for (const auto& batch : batches) {
+        std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter = 
+          std::make_shared<ColumnarToRowConverter>(batch, arrow::default_memory_pool());
+        TIME_NANO_OR_THROW(init_time, columnarToRowConverter->Init());
+        TIME_NANO_OR_THROW(write_time, columnarToRowConverter->Write());
+      }
+    }
+
+
+    state.counters["rowgroups"] = benchmark::Counter(row_group_indices.size(), benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["columns"] = benchmark::Counter(column_indices.size(), benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["batches"] = benchmark::Counter(num_batches, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["num_rows"] = benchmark::Counter(num_rows, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["batch_buffer_size"] = benchmark::Counter(batch_buffer_size, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1024);
+   
+    state.counters["parquet_parse"] = benchmark::Counter(elapse_read, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["init_time"] = benchmark::Counter(init_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["write_time"] = benchmark::Counter(write_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+
 }
+
+BENCHMARK_DEFINE_F(GoogleBenchmarkColumnarToRow, IterateScan)(benchmark::State& state) {
+
+  SetCPU(state.thread_index());
+
+    int64_t elapse_read = 0;
+    int64_t num_batches = 0;
+    int64_t num_rows = 0;
+    int64_t init_time = 0;
+    int64_t write_time = 0;
+
+    std::shared_ptr<arrow::RecordBatch> record_batch;
+
+    std::unique_ptr<::parquet::arrow::FileReader> parquet_reader;
+    std::shared_ptr<RecordBatchReader> record_batch_reader;
+    ASSERT_NOT_OK(::parquet::arrow::FileReader::Make(
+        arrow::default_memory_pool(), ::parquet::ParquetFileReader::Open(file),
+        properties, &parquet_reader));
+
+    for(auto _: state)
+    {
+      ASSERT_NOT_OK(parquet_reader->GetRecordBatchReader(row_group_indices, column_indices,
+                                                  &record_batch_reader));
+      TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      while (record_batch) {
+        num_batches += 1;
+        num_rows += record_batch->num_rows();
+        std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter = 
+          std::make_shared<ColumnarToRowConverter>(record_batch, arrow::default_memory_pool());
+        TIME_NANO_OR_THROW(init_time, columnarToRowConverter->Init());
+        TIME_NANO_OR_THROW(write_time, columnarToRowConverter->Write());
+        TIME_NANO_OR_THROW(elapse_read, record_batch_reader->ReadNext(&record_batch));
+      }
+    }  
+
+    state.counters["rowgroups"] = benchmark::Counter(row_group_indices.size(), benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["columns"] = benchmark::Counter(column_indices.size(), benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["batches"] = benchmark::Counter(num_batches, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["num_rows"] = benchmark::Counter(num_rows, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["batch_buffer_size"] = benchmark::Counter(batch_buffer_size, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1024);
+
+    state.counters["parquet_parse"] = benchmark::Counter(elapse_read, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["init_time"] = benchmark::Counter(init_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+    state.counters["write_time"] = benchmark::Counter(write_time, benchmark::Counter::kAvgThreads, benchmark::Counter::OneK::kIs1000);
+
+}
+
+BENCHMARK_REGISTER_F(GoogleBenchmarkColumnarToRow, CacheScan)->Iterations(10)
+      ->Args({96*16, arrow::Compression::FASTPFOR})
+      ->Threads(1)
+      ->ReportAggregatesOnly(false)
+      ->MeasureProcessCPUTime()
+      ->Unit(benchmark::kSecond);
 
 }  // namespace columnartorow
 }  // namespace sparkcolumnarplugin
 
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  if (argc > 1) {
-    for (int i = 1; i < argc; ++i) {
-      sparkcolumnarplugin::columnartorow::input_files.emplace_back(argv[i]);
-    }
-  }
-  return RUN_ALL_TESTS();
-}
+BENCHMARK_MAIN();
