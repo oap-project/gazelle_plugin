@@ -51,6 +51,35 @@ namespace precompile {
   int32_t HASHMAPNAME::Get(const TYPE& value) { return impl_->Get(value); }            \
   int32_t HASHMAPNAME::GetNull() { return impl_->GetNull(); }
 
+#define TYPED_ARROW_HASH_MAP_BINARY_IMPL(HASHMAPNAME, TYPENAME, TYPE, MEMOTABLETYPE)          \
+  using MEMOTABLETYPE =                                                                \
+      typename arrow::internal::HashTraits<arrow::TYPENAME>::MemoTableType;            \
+  class HASHMAPNAME::Impl : public MEMOTABLETYPE {                                     \
+   public:                                                                             \
+    Impl(arrow::MemoryPool* pool) : MEMOTABLETYPE(pool, 128) {}                        \
+  };                                                                                   \
+                                                                                       \
+  HASHMAPNAME::HASHMAPNAME(arrow::MemoryPool* pool) {                                  \
+    impl_ = std::make_shared<Impl>(pool);                                              \
+  }                                                                                    \
+  arrow::Status HASHMAPNAME::GetOrInsert(const TYPE& value, void (*on_found)(int32_t), \
+                                         void (*on_not_found)(int32_t),                \
+                                         int32_t* out_memo_index) {                    \
+    return impl_->GetOrInsert(value, on_found, on_not_found, out_memo_index);          \
+  }                                                                                    \
+  arrow::Status HASHMAPNAME::GetOrInsert(const void* value, int len, void (*on_found)(int32_t), \
+                                         void (*on_not_found)(int32_t),                \
+                                         int32_t* out_memo_index) {                    \
+    return impl_->GetOrInsert(value, len, on_found, on_not_found, out_memo_index);          \
+  }                                                                                    \
+  int32_t HASHMAPNAME::GetOrInsertNull(void (*on_found)(int32_t),                      \
+                                       void (*on_not_found)(int32_t)) {                \
+    return impl_->GetOrInsertNull(on_found, on_not_found);                             \
+  }                                                                                    \
+  int32_t HASHMAPNAME::Size() { return impl_->size(); }                                \
+  int32_t HASHMAPNAME::Get(const TYPE& value) { return impl_->Get(value); }            \
+  int32_t HASHMAPNAME::GetNull() { return impl_->GetNull(); }
+
 #define TYPED_ARROW_HASH_MAP_DECIMAL_IMPL(HASHMAPNAME, TYPENAME, TYPE, MEMOTABLETYPE)  \
   using MEMOTABLETYPE =                                                                \
       typename arrow::internal::HashTraits<arrow::TYPENAME>::MemoTableType;            \
@@ -82,7 +111,7 @@ TYPED_ARROW_HASH_MAP_IMPL(FloatHashMap, FloatType, float, FloatMemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(DoubleHashMap, DoubleType, double, DoubleMemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(Date32HashMap, Date32Type, int32_t, Date32MemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(Date64HashMap, Date64Type, int64_t, Date64MemoTableType)
-TYPED_ARROW_HASH_MAP_IMPL(StringHashMap, StringType, arrow::util::string_view,
+TYPED_ARROW_HASH_MAP_BINARY_IMPL(StringHashMap, StringType, arrow::util::string_view,
                           StringMemoTableType)
 TYPED_ARROW_HASH_MAP_DECIMAL_IMPL(Decimal128HashMap, Decimal128Type, arrow::Decimal128,
                                   DecimalMemoTableType)
