@@ -988,10 +988,8 @@ class HashAggregateKernel::Impl {
         for (int i = 0; i < length; i++) {
           if (typed_key_in->null_count() > 0) {
             aggr_key = typed_key_in->GetView(i);
-            auto aggr_key_validity =
-                typed_key_in->null_count() == 0 ? true : !typed_key_in->IsNull(i);
 
-            if (!aggr_key_validity) {
+            if (typed_key_in->IsNull(i)) {
               indices[i] = aggr_hash_table_->GetOrInsertNull([](int) {}, [](int) {});
             } else {
               aggr_hash_table_->GetOrInsert(

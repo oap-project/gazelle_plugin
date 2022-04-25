@@ -51,7 +51,7 @@ namespace precompile {
   int32_t HASHMAPNAME::Get(const TYPE& value) { return impl_->Get(value); }            \
   int32_t HASHMAPNAME::GetNull() { return impl_->GetNull(); }
 
-#define TYPED_ARROW_HASH_MAP_BINARY_IMPL(HASHMAPNAME, TYPENAME, TYPE, MEMOTABLETYPE)          \
+#define TYPED_ARROW_HASH_MAP_BINARY_IMPL(HASHMAPNAME, TYPENAME, TYPE, MEMOTABLETYPE)   \
   using MEMOTABLETYPE =                                                                \
       typename arrow::internal::HashTraits<arrow::TYPENAME>::MemoTableType;            \
   class HASHMAPNAME::Impl : public MEMOTABLETYPE {                                     \
@@ -67,10 +67,10 @@ namespace precompile {
                                          int32_t* out_memo_index) {                    \
     return impl_->GetOrInsert(value, on_found, on_not_found, out_memo_index);          \
   }                                                                                    \
-  arrow::Status HASHMAPNAME::GetOrInsert(const void* value, int len, void (*on_found)(int32_t), \
-                                         void (*on_not_found)(int32_t),                \
-                                         int32_t* out_memo_index) {                    \
-    return impl_->GetOrInsert(value, len, on_found, on_not_found, out_memo_index);          \
+  arrow::Status HASHMAPNAME::GetOrInsert(                                              \
+      const void* value, int len, void (*on_found)(int32_t),                           \
+      void (*on_not_found)(int32_t), int32_t* out_memo_index) {                        \
+    return impl_->GetOrInsert(value, len, on_found, on_not_found, out_memo_index);     \
   }                                                                                    \
   int32_t HASHMAPNAME::GetOrInsertNull(void (*on_found)(int32_t),                      \
                                        void (*on_not_found)(int32_t)) {                \
@@ -112,7 +112,7 @@ TYPED_ARROW_HASH_MAP_IMPL(DoubleHashMap, DoubleType, double, DoubleMemoTableType
 TYPED_ARROW_HASH_MAP_IMPL(Date32HashMap, Date32Type, int32_t, Date32MemoTableType)
 TYPED_ARROW_HASH_MAP_IMPL(Date64HashMap, Date64Type, int64_t, Date64MemoTableType)
 TYPED_ARROW_HASH_MAP_BINARY_IMPL(StringHashMap, StringType, arrow::util::string_view,
-                          StringMemoTableType)
+                                 StringMemoTableType)
 TYPED_ARROW_HASH_MAP_DECIMAL_IMPL(Decimal128HashMap, Decimal128Type, arrow::Decimal128,
                                   DecimalMemoTableType)
 #undef TYPED_ARROW_HASH_MAP_IMPL
