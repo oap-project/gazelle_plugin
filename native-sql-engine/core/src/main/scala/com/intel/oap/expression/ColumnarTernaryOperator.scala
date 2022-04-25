@@ -223,6 +223,42 @@ class ColumnarSubstringIndex(strExpr: Expression, delimExpr: Expression,
   }
 }
 
+class ColumnarStringReplace(
+    srcExpr: Expression,
+    searchExpr: Expression,
+    replaceExpr: Expression)
+  extends StringReplace(srcExpr, searchExpr, replaceExpr) with ColumnarExpression {
+
+  buildCheck()
+  def buildCheck(): Unit = {
+    val unsupportedDataType =
+      Seq(srcExpr.dataType, searchExpr.dataType, replaceExpr.dataType)
+        .filterNot(_ == StringType)
+    if (unsupportedDataType.nonEmpty) {
+      throw new UnsupportedOperationException(
+        s"${unsupportedDataType.mkString(",")} is not supported in ColumnarStringReplace.")
+    }
+  }
+
+  override def doColumnarCodeGen(args: java.lang.Object)
+  : (TreeNode, ArrowType) = {
+    val (srcNode, _): (TreeNode, ArrowType) =
+      srcExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (searchNode, _): (TreeNode, ArrowType) =
+      searchExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (replaceNode, _): (TreeNode, ArrowType) =
+      replaceExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+
+    val resultType = new ArrowType.Utf8()
+    val funcNode =
+      TreeBuilder.makeFunction(
+        "replace",
+        Lists.newArrayList(srcNode, searchNode, replaceNode),
+        resultType)
+    (funcNode, resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
@@ -240,6 +276,8 @@ object ColumnarTernaryOperator {
       new ColumnarRegExpExtract(src, arg1, arg2, re)
     case substrIndex: SubstringIndex =>
       new ColumnarSubstringIndex(src, arg1, arg2, substrIndex)
+    case _: StringReplace =>
+      new ColumnarStringReplace(src, arg1, arg2)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
