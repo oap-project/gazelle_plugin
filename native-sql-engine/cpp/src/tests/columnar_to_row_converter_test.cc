@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include "tests/test_utils.h"
+#include "operators/row_to_columnar_converter.h"
 
 namespace sparkcolumnarplugin {
 namespace columnartorow {
@@ -96,10 +97,10 @@ class UnsaferowTest : public ::testing::Test {
     auto f_arr_string = field("f_arr_string", arrow::list(arrow::utf8()));
     auto f_arr_decimal = field("f_arr_decimal128", arrow::list(arrow::decimal(19, 2)));
 
-    schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
+    basic_schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
                              f_binary, f_decimal});
 
-    MakeInputBatch(input_data_, schema_, &input_batch_);
+    MakeInputBatch(input_data_, basic_schema_, &input_batch_);
 
     schema_ =
         arrow::schema({f_arr_bool, f_arr_int8, f_arr_int16, f_arr_int32, f_arr_int64,
@@ -112,6 +113,7 @@ class UnsaferowTest : public ::testing::Test {
   static const std::vector<std::string> input_data_list_array_;
   static const std::vector<std::string> input_data_;
 
+  std::shared_ptr<arrow::Schema> basic_schema_;
   std::shared_ptr<arrow::Schema> schema_;
 
   std::shared_ptr<arrow::RecordBatch> input_batch_;
@@ -156,6 +158,33 @@ TEST_F(UnsaferowTest, TestColumnarToRowConverter) {
 
   unsafe_row_writer_reader->Init();
   unsafe_row_writer_reader->Write();
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResult) {
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(input_batch_,
+                                               arrow::default_memory_pool());
+
+  columnarToRowConverter->Init();
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch_->num_rows();
+  int64_t num_cols = input_batch_->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+  auto length_vec = columnarToRowConverter->GetLengths();
+  long *lengthPtr = new long[length_vec.size()];
+  if (!length_vec.empty())
+  {
+    memcpy(lengthPtr, &length_vec[0], length_vec.size()*sizeof(long));
+  }
+  std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(basic_schema_,
+      num_cols, num_rows,
+      lengthPtr, address, arrow::default_memory_pool());
+  std::shared_ptr<arrow::RecordBatch> rb;
+  row_to_columnar_converter->Init(&rb);
+  std::cout << "From rowbuffer to Column, rb->ToString():\n" << rb->ToString() << std::endl;
+  ASSERT_TRUE(rb->Equals(*input_batch_));
 }
 
 TEST_F(UnsaferowTest, TestListArrayType) {
