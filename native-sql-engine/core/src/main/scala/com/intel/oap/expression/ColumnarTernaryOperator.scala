@@ -240,6 +240,11 @@ class ColumnarStringReplace(
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): (Boolean) = {
+    // TODO: support WSCG in expression_codegen
+    false
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object)
   : (TreeNode, ArrowType) = {
     val (srcNode, _): (TreeNode, ArrowType) =
