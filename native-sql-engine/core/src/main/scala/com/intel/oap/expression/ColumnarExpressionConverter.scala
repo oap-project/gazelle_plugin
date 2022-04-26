@@ -422,6 +422,8 @@ object ColumnarExpressionConverter extends Logging {
       case regexp: RegExpReplace =>
         containsSubquery(regexp.subject) || containsSubquery(
           regexp.regexp) || containsSubquery(regexp.rep) || containsSubquery(regexp.pos)
+      case substrIndex: ColumnarSubstringIndex =>
+        substrIndex.children.map(containsSubquery).exists(_ == true)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")

@@ -202,6 +202,27 @@ class ColumnarRegExpExtract(subject: Expression, regexp: Expression, idx: Expres
   }
 }
 
+class ColumnarSubstringIndex(strExpr: Expression, delimExpr: Expression,
+                             countExpr: Expression, original: Expression)
+  extends SubstringIndex(strExpr, delimExpr, countExpr) with ColumnarExpression {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
+  override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
+    val (str_node, _): (TreeNode, ArrowType) =
+      strExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (delim_node, _): (TreeNode, ArrowType) =
+      delimExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val (count_node, _): (TreeNode, ArrowType) =
+      countExpr.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
+    val resultType = new ArrowType.Utf8()
+    (TreeBuilder.makeFunction("substr_index",
+      Lists.newArrayList(str_node, delim_node, count_node), resultType), resultType)
+  }
+}
+
 object ColumnarTernaryOperator {
 
   def create(src: Expression, arg1: Expression, arg2: Expression,
@@ -217,6 +238,8 @@ object ColumnarTernaryOperator {
       new ColumnarStringLocate(src, arg1, arg2, sl)
     case re: RegExpExtract =>
       new ColumnarRegExpExtract(src, arg1, arg2, re)
+    case substrIndex: SubstringIndex =>
+      new ColumnarSubstringIndex(src, arg1, arg2, substrIndex)
     case other =>
       throw new UnsupportedOperationException(s"not currently supported: $other.")
   }
