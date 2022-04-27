@@ -23,7 +23,7 @@ import scala.collection.JavaConverters._
 
 import com.intel.oap.spark.sql.ArrowWriteExtension.FakeRow
 import com.intel.oap.spark.sql.ArrowWriteQueue
-import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowOptions, ArrowUtils}
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.{ArrowFilters, ArrowOptions, ArrowUtils}
 import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowSQLConf._
 import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.dataset.scanner.ScanOptions
@@ -128,8 +128,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
       val dataset = factory.finish(ArrowUtils.toArrowSchema(requiredSchema));
 
       val filter = if (enableFilterPushDown) {
-        // disable filter pushdown by arrow 7.0.0
-        org.apache.arrow.dataset.filter.Filter.EMPTY
+        ArrowFilters.translateFilters(filters)
       } else {
         org.apache.arrow.dataset.filter.Filter.EMPTY
       }

@@ -203,7 +203,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     assert(rows.length === 3)
   }
 
-  ignore("simple parquet write") {
+  test("simple parquet write") {
     val path = ArrowDataSourceTest.locateResourcePath(parquetFile3)
     val frame = spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "parquet")
@@ -339,7 +339,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     df.show()
   }
 
-  ignore("orc reader on data type: struct, array, map") {
+  test("orc reader on data type: struct, array, map") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile1)
     val frame = spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")
@@ -363,7 +363,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
   }
 
   private val orcFile = "people.orc"
-  ignore("read orc file") {
+  test("read orc file") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     verifyFrame(
       spark.read
@@ -372,7 +372,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
           .load(path), 2, 3)
   }
 
-  ignore("read orc file - programmatic API ") {
+  test("read orc file - programmatic API ") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     verifyFrame(
       spark.read
@@ -380,7 +380,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
           .arrow(path), 2, 3)
   }
 
-  ignore("create catalog table for orc") {
+  test("create catalog table for orc") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     //    spark.catalog.createTable("people", path, "arrow")
     spark.catalog.createTable("people", "arrow", Map("path" -> path, "originalFormat" -> "orc"))
@@ -389,7 +389,7 @@ class ArrowDataSourceTest extends QueryTest with SharedSparkSession {
     verifyFrame(spark.sql(sql), 2, 3)
   }
 
-  ignore("simple SQL query on orc file ") {
+  test("simple SQL query on orc file ") {
     val path = ArrowDataSourceTest.locateResourcePath(orcFile)
     val frame = spark.read
         .option(ArrowOptions.KEY_ORIGINAL_FORMAT, "orc")

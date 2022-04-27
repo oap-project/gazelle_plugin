@@ -30,6 +30,7 @@
 #include <arrow/type_traits.h>
 #include <arrow/util/bit_util.h>
 #include <arrow/util/checked_cast.h>
+#include <arrow/visitor_inline.h>
 #include <dlfcn.h>
 #include <gandiva/configuration.h>
 #include <gandiva/node.h>
@@ -542,11 +543,12 @@ class ConcatArrayListKernel::Impl {
       }
       arrow::ArrayVector concatenated_array_list;
       for (auto arr_list : cached_) {
+        std::shared_ptr<arrow::Array> concatenated_array;
         arrow::ArrayVector to_be_concat_arr(arr_list.begin() + cur_batch_idx_,
                                             arr_list.begin() + end_arr_idx);
 
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> concatenated_array,
-                              arrow::Concatenate(to_be_concat_arr, ctx_->memory_pool()));
+        RETURN_NOT_OK(arrow::Concatenate(to_be_concat_arr, ctx_->memory_pool(),
+                                         &concatenated_array));
         concatenated_array_list.push_back(concatenated_array);
       }
       int length = concatenated_array_list[0]->length();

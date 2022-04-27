@@ -61,8 +61,7 @@ case class ArrowPartitionReaderFactory(
       partitionedFile.start, partitionedFile.length, options)
     val dataset = factory.finish(ArrowUtils.toArrowSchema(readDataSchema))
     val filter = if (enableFilterPushDown) {
-      // disable filter pushdown by arrow 7.0.0
-      org.apache.arrow.dataset.filter.Filter.EMPTY
+      ArrowFilters.translateFilters(ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema))
     } else {
       org.apache.arrow.dataset.filter.Filter.EMPTY
     }

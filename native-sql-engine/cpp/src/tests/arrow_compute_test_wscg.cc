@@ -4299,14 +4299,9 @@ TEST(TestArrowComputeWSCG, WSCGTestAggregate) {
 
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
-  std::vector<std::string> expected_result_string = {"[221]",
-                                                     "[39]",
-                                                     "[221]",
-                                                     "[39]",
-                                                     "[4.3097345132743365]",
-                                                     "[17.299580526332743]",
-                                                     R"(["AU"])",
-                                                     R"(["wH"])"};
+  std::vector<std::string> expected_result_string = {
+      "[221]",     "[39]",      "[221]",     "[39]",
+      "[4.30973]", "[17.2996]", R"(["AU"])", R"(["wH"])"};
   MakeInputBatch(expected_result_string, arrow::schema(ret_types), &expected_result);
   if (aggr_result_iterator->HasNext()) {
     ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
@@ -4506,13 +4501,11 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyHashAggregateTwoKeys) {
       "[5, 3, 2, 4, 5, 1, 5, 3, 2, 4, 6]",
       "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
       "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
-      "[16.4, 6.5, 5, 5.875, 5.48, 0.4, 6.1, 6.619047619047619, 3.0625, "
-      "2.638888888888889, "
-      "2.066666666666667]",
-      "[8.492553019565051, 6.931367805067252, 7.648904962570575, 13.570764059328763, "
-      "17.466813592401582, 1.4142135623730951, 8.527788283128372, 6.236331106499947, "
-      "5.589028976303414, "
-      "12.535039355587863, 24.354402067771613]"};
+      "[16.4, 6.5, 5, 5.875, 5.48, 0.4, 6.1, 6.61905, 3.0625, 2.63889, "
+      "2.06667]",
+      "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 1.41421, 8.52779, 6.23633, "
+      "5.58903, "
+      "12.535, 24.3544]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
@@ -4636,13 +4629,11 @@ TEST(TestArrowComputeWSCG, WSCGTestGroupbyHashAggregate) {
       "[1, 2, 3, 4, 5, null, 6, 7, 8, 9, 10]",
       "[25, 18, 12, 64, 125, 5, 150, 63, 32, 144, 360]",
       "[1, 2, 3, 4, 5, 5, 6, 7, 8, 9, 10]",
-      "[16.4, 6.5, 5, 5.875, 5.48, 0.4, 6.1, 6.619047619047619, 3.0625, "
-      "2.638888888888889, "
-      "2.066666666666667]",
-      "[8.492553019565051, 6.931367805067252, 7.648904962570575, 13.570764059328763, "
-      "17.466813592401582, 1.4142135623730951, 8.527788283128372, 6.236331106499947, "
-      "5.589028976303414, "
-      "12.535039355587863, 24.354402067771613]"};
+      "[16.4, 6.5, 5, 5.875, 5.48, 0.4, 6.1, 6.61905, 3.0625, 2.63889, "
+      "2.06667]",
+      "[8.49255, 6.93137, 7.6489, 13.5708, 17.4668, 1.41421, 8.52779, 6.23633, "
+      "5.58903, "
+      "12.535, 24.3544]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

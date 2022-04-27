@@ -144,8 +144,8 @@ TEST(TestArrowCompute, AggregateTest) {
                                                      "[785]",
                                                      R"(["0.439825"])",
                                                      R"([39])",
-                                                     R"([8.852881974358972])",
-                                                     R"([11113.292918619738])"};
+                                                     R"([8.85288])",
+                                                     R"([11113.3])"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
