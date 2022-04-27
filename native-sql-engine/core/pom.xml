@@ -22,7 +22,7 @@
   </parent>
 
   <groupId>com.intel.oap</groupId>
-  <artifactId>spark-columnar-core</artifactId>
+  <artifactId>spark-columnar-core-spark${spark.version}</artifactId>
   <packaging>jar</packaging>
   <name>OAP Project Spark Columnar Plugin</name>
 
@@ -54,7 +54,7 @@
       <dependencies>
         <dependency>
           <groupId>com.intel.oap</groupId>
-          <artifactId>spark-sql-columnar-shims-spark311</artifactId>
+          <artifactId>spark-sql-columnar-shims-spark${spark.version}</artifactId>
           <version>${project.version}</version>
         </dependency>
       </dependencies>
@@ -64,7 +64,7 @@
       <dependencies>
         <dependency>
           <groupId>com.intel.oap</groupId>
-          <artifactId>spark-sql-columnar-shims-spark321</artifactId>
+          <artifactId>spark-sql-columnar-shims-spark${spark.version}</artifactId>
           <version>${project.version}</version>
         </dependency>
       </dependencies>
@@ -157,7 +157,7 @@
       <!--scope>provided</scope-->
     </dependency>
     <dependency>
-      <artifactId>spark-arrow-datasource-common</artifactId>
+      <artifactId>spark-arrow-datasource-common-spark${spark.version}</artifactId>
       <groupId>com.intel.oap</groupId>
       <version>${project.version}</version>
       <scope>provided</scope>
@@ -282,7 +282,7 @@
     </dependency>
     <dependency>
       <groupId>com.intel.oap</groupId>
-      <artifactId>spark-arrow-datasource-standard</artifactId>
+      <artifactId>spark-arrow-datasource-standard-spark${spark.version}</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
@@ -324,7 +324,7 @@
     </dependency>
     <dependency>
       <groupId>com.intel.oap</groupId>
-      <artifactId>spark-sql-columnar-shims-common</artifactId>
+      <artifactId>spark-sql-columnar-shims-common-spark${spark.version}</artifactId>
       <version>${project.version}</version>
       <scope>provided</scope>
     </dependency>
@@ -360,36 +360,55 @@
     <testOutputDirectory>target/scala-${scala.binary.version}/test-classes</testOutputDirectory>
     <plugins>
       <plugin>
-          <artifactId>exec-maven-plugin</artifactId>
-          <groupId>org.codehaus.mojo</groupId>
-          <version>1.6.0</version>
-          <executions>
-              <execution>
-                  <id>Build cpp</id>
-                  <phase>generate-resources</phase>
-                  <goals>
-                      <goal>exec</goal>
-                  </goals>
-                  <configuration>
-                      <executable>bash</executable>
-                      <arguments>
-                          <argument>${cpp.dir}/compile.sh</argument>
-                          <argument>${nativesql.cpp_tests}</argument>
-                          <argument>${nativesql.build_arrow}</argument>
-                          <argument>${nativesql.static_arrow}</argument>
-                          <argument>${nativesql.build_protobuf}</argument>
-                          <argument>${nativesql.arrow_root}</argument>
-                          <argument>${nativesql.arrow.bfs.install.dir}</argument>
-                          <argument>${nativesql.build_jemalloc}</argument>
-                      </arguments>
-                  </configuration>
-              </execution>
-          </executions>
+        <artifactId>exec-maven-plugin</artifactId>
+        <groupId>org.codehaus.mojo</groupId>
+        <version>1.6.0</version>
+        <executions>
+          <execution>
+            <id>Build cpp</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>bash</executable>
+              <arguments>
+                <argument>${cpp.dir}/compile.sh</argument>
+                <argument>${nativesql.cpp_tests}</argument>
+                <argument>${nativesql.build_arrow}</argument>
+                <argument>${nativesql.static_arrow}</argument>
+                <argument>${nativesql.build_protobuf}</argument>
+                <argument>${nativesql.arrow_root}</argument>
+                <argument>${nativesql.arrow.bfs.install.dir}</argument>
+                <argument>${nativesql.build_jemalloc}</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.0.1</version>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.0.1</version>
+      </plugin>
+      <plugin>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <encoding>UTF-8</encoding>
+          <charset>UTF-8</charset>
+          <additionalOptions>
+            <additionalOption>-Xdoclint:none</additionalOption>
+          </additionalOptions>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>net.alchim31.maven</groupId>
@@ -405,6 +424,19 @@
             <goals>
               <goal>add-source</goal>
               <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-javadocs</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>doc-jar</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>add-source</goal>
             </goals>
           </execution>
           <execution>
@@ -526,4 +558,15 @@
       </plugin>
     </plugins>
   </build>
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.scala-tools</groupId>
+        <artifactId>maven-scala-plugin</artifactId>
+        <configuration>
+          <scalaVersion>${scala.version}</scalaVersion>
+        </configuration>
+      </plugin>
+    </plugins>
+  </reporting>
 </project>
