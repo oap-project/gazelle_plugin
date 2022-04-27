@@ -306,6 +306,21 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr
         )
+      case sr: StringReplace =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(
+            sr.srcExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            sr.searchExpr,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            sr.replaceExpr,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr)
       case u: UnaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         if (!u.isInstanceOf[CheckOverflow] || !u.child.isInstanceOf[Divide]) {
@@ -424,6 +439,10 @@ object ColumnarExpressionConverter extends Logging {
           regexp.regexp) || containsSubquery(regexp.rep) || containsSubquery(regexp.pos)
       case substrIndex: ColumnarSubstringIndex =>
         substrIndex.children.map(containsSubquery).exists(_ == true)
+      case sr: StringReplace =>
+        containsSubquery(sr.srcExpr) ||
+          containsSubquery(sr.searchExpr) ||
+          containsSubquery(sr.replaceExpr)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
