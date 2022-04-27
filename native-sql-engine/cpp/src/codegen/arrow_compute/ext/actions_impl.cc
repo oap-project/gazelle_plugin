@@ -2829,7 +2829,7 @@ class SumCountAction<DataType, CType, ResDataType, ResCType,
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);    
+    arrow::compute::CountOptions option(arrow::compute::CountOptions::COUNT_NON_NULL);
     maybe_output = arrow::compute::Count(*in[0].get(), option, ctx_);
     output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
@@ -3179,12 +3179,12 @@ class SumCountMergeAction<DataType, CType, ResDataType, ResCType,
       length_ = 1;
     }
     arrow::Datum output;
-    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);    
+    auto maybe_output = arrow::compute::Sum(*in[0].get(), ctx_);
     output = *std::move(maybe_output);
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);    
+    maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);
     output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;
@@ -3534,7 +3534,7 @@ class AvgByCountAction<DataType, CType, ResDataType, ResCType,
     auto typed_scalar = std::dynamic_pointer_cast<ScalarType>(output.scalar());
     cache_sum_[0] += typed_scalar->value;
 
-    maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);    
+    maybe_output = arrow::compute::Sum(*in[1].get(), ctx_);
     output = *std::move(maybe_output);
     auto count_typed_scalar = std::dynamic_pointer_cast<CountScalarType>(output.scalar());
     cache_count_[0] += count_typed_scalar->value;

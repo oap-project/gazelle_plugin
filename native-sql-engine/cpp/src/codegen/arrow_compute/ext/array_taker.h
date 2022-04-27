@@ -214,7 +214,7 @@ class ArrayTaker<DataType, CType, arrow::enable_if_boolean<DataType>> : public T
           arrow::BitUtil::SetBitTo(out_is_valid, position, false);
         } else {
           arrow::BitUtil::SetBitTo(array_data, position,
-                                    cached_arr_[array_id]->GetView(item->id));
+                                   cached_arr_[array_id]->GetView(item->id));
           arrow::BitUtil::SetBitTo(out_is_valid, position, true);
         }
         position++;
