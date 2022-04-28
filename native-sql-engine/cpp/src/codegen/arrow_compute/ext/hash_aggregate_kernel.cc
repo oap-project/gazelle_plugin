@@ -365,10 +365,7 @@ class HashAggregateKernel::Impl {
         project_output_list[i].first.second = "";
       }
       if (idx_v.size() > 0) {
-        if (action_name_str_list[action_idx] != "\"action_count\"") {
-          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
-                          << "_validity) {" << std::endl;
-        } else {
+        if (action_name_str_list[action_idx] == "\"action_count\"") {
           // For action_count with mutiple-col input, will check the validity
           // of all the input cols.
           action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
@@ -380,21 +377,46 @@ class HashAggregateKernel::Impl {
           action_codes_ss << " && "
                           << project_output_list[idx_v[idx_v.size() - 1]].first.first
                           << "_validity) {" << std::endl;
+        } else if (action_name_str_list[action_idx] == "\"action_first_final\"") {
+          // Just check the second para validity, since the first para validity can be null.
+          action_codes_ss << "if (" << project_output_list[idx_v[1]].first.first
+                          << "_validity) {" << std::endl;
+        } else {
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity) {" << std::endl;
         }
       }
       std::vector<std::string> parameter_list;
-      if (action_name_str_list[action_idx] != "\"action_count\"") {
-        for (auto i : idx_v) {
-          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
-        }
-      } else {
+      std::vector<std::string> parameter_list_of_first_final;
+      if (action_name_str_list[action_idx] == "\"action_count\"") {
         // For action_count, only the first col will be used as input to Evaluate
         // function, in which it will not be used.
         parameter_list.push_back("(void*)&" + project_output_list[idx_v[0]].first.first);
+      } else if (action_name_str_list[action_idx] == "\"action_first_final\"") {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
+        // Let the second as the input if first col is null, but the second is not.
+        parameter_list_of_first_final.push_back(
+          "(void*)&" + project_output_list[idx_v[1]].first.first);
+      } else {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
       }
+
       action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
                       << "]->Evaluate(memo_index" << GetParameterList(parameter_list)
                       << "));" << std::endl;
+      // Tackle first_final action with first col is null, but the second is not, which
+      // means the first value is null, but value_set is not.
+      if (action_name_str_list[action_idx] == "\"action_first_final\"") {
+        action_codes_ss << "} else if (" << project_output_list[idx_v[1]].first.first
+                          << "_validity) {" << std::endl;
+        action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
+                      << "]->Evaluate(memo_index" << GetParameterList(parameter_list_of_first_final)
+                      << "));" << std::endl;
+      }
       if (idx_v.size() > 0) {
         action_codes_ss << "} else {" << std::endl;
         action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
@@ -687,6 +709,18 @@ class HashAggregateKernel::Impl {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list,
+                                                null_on_divide_by_zero, &action));
+      } else if (action_name.compare(0, , "action_first_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id],
+                              result_field_list[result_id + 1]};
+        bool ignore_nulls; // TODO: how to pass ignore_nulls paramters.
+        result_id += 2;
+        RETURN_NOT_OK(MakeFirstPartialAction(ctx_, action_input_type, res_type_list,
+                                                null_on_divide_by_zero, &action));
+      } else if (action_name.compare(0, , "action_first_final") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(MakeFirstFinalAction(ctx_, action_input_type, res_type_list,
                                                 null_on_divide_by_zero, &action));
       } else {
         return arrow::Status::NotImplemented(action_name, " is not implementetd.");

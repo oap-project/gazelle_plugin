@@ -220,6 +220,25 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
+        case First(_, _) =>
+          // TODO: it seems
+          mode match {
+            case Partial =>
+              val childrenColumnarFuncNodeList =
+                aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
+              TreeBuilder
+                .makeFunction("action_first", childrenColumnarFuncNodeList.asJava, resultType)
+            case PartialMerge =>
+              throw new UnsupportedOperationException("PartialMerge is NOT supported!")
+            case Final =>
+              val childrenColumnarFuncNodeList =
+                List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
+                  getColumnarFuncNode(attr))
+              TreeBuilder.makeFunction(
+                "action_first_final",
+                childrenColumnarFuncNodeList.asJava,
+                resultType)
+          }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }

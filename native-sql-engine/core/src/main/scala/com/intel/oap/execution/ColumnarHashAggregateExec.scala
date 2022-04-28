@@ -602,6 +602,16 @@ case class ColumnarHashAggregateExec(
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar StddevSamp")
           }
+        case first: First =>
+          val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
+            FloatType, DoubleType, DateType, BooleanType)
+          val aggBufferAttr = first.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          if (supportedTypes.indexOf(attr.dataType) == -1 &&
+            !attr.dataType.isInstanceOf[DecimalType]) {
+            throw new UnsupportedOperationException(s"${attr.dataType} is NOT" +
+              s" supported in Columnar First!")
+          }
         case other =>
           throw new UnsupportedOperationException(
             s"${other} is not supported in ColumnarAggregation")
