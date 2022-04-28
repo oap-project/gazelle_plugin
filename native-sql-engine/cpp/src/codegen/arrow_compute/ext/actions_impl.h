@@ -130,6 +130,16 @@ arrow::Status MakeStddevSampFinalAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     bool null_on_divide_by_zero, std::shared_ptr<ActionBase>* out);
 
+arrow::Status MakeFirstPartialAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
+
+arrow::Status MakeFirstFinalAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out);
+
 /* Aggregate Action Names */
 const std::string ACTION_MIN = "action_min";
 const std::string ACTION_MAX = "action_max";
