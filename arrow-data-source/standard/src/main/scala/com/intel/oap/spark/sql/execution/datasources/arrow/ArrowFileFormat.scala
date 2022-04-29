@@ -81,8 +81,9 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 
       override def newInstance(path: String, dataSchema: StructType,
           context: TaskAttemptContext): OutputWriter = {
+        val originPath = path
         val writeQueue = new ArrowWriteQueue(ArrowUtils.toArrowSchema(dataSchema),
-          ArrowUtils.getFormat(arrowOptions), path)
+          ArrowUtils.getFormat(arrowOptions), originPath)
 
         new OutputWriter {
           override def write(row: InternalRow): Unit = {
@@ -97,7 +98,7 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
 
           // Do NOT add override keyword for compatibility on spark 3.1.
           def path(): String = {
-            path
+            originPath
           }
         }
       }
