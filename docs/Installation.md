@@ -31,8 +31,8 @@ Based on the different environment, there are some parameters can be set via -D 
 | arrow_root | When build_arrow set to False, arrow_root will be enabled to find the location of your existing arrow library. | /usr/local |
 | build_protobuf | Build Protobuf from Source. If set to False, default library path will be used to find protobuf library. | True |
 
-When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from [OAP Arrow](https://github.com/oap-project/arrow/tree/arrow-7.0.0-oap)
-If you wish to change any parameters from Arrow, you can change it from the `build_arrow.sh` script under `native-sql-engine/arrow-data-source/script/`.
+When build_arrow set to True, the build_arrow.sh will be launched and compile a custom arrow library from [OAP Arrow](https://github.com/oap-project/arrow/tree/arrow-4.0.0-oap)
+If you wish to change any parameters from Arrow, you can change it from the `build_arrow.sh` script under `gazelle_plugin/arrow-data-source/script/`.
 
 ### Additional Notes
 [Notes for Installation Issues](./InstallationNotes.md)

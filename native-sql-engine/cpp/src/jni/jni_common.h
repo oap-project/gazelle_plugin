@@ -180,7 +180,7 @@ arrow::Status FIXOffsetBuffer(std::shared_ptr<arrow::Buffer>* in_buf, int fix_ro
                 static_cast<size_t>((*in_buf)->size()));
     (*in_buf) = std::move(valid_copy);
   }
-  arrow::bit_util::SetBitsTo(const_cast<uint8_t*>((*in_buf)->data()), fix_row, 1, true);
+  arrow::BitUtil::SetBitsTo(const_cast<uint8_t*>((*in_buf)->data()), fix_row, 1, true);
   return arrow::Status::OK();
 }
 
@@ -473,7 +473,7 @@ Status DecompressBuffer(const arrow::Buffer& buffer, arrow::util::Codec* codec,
   const uint8_t* data = buffer.data();
   int64_t compressed_size = buffer.size() - sizeof(int64_t);
   int64_t uncompressed_size =
-      arrow::bit_util::FromLittleEndian(arrow::util::SafeLoadAs<int64_t>(data));
+      arrow::BitUtil::FromLittleEndian(arrow::util::SafeLoadAs<int64_t>(data));
   ARROW_ASSIGN_OR_RAISE(auto uncompressed, AllocateBuffer(uncompressed_size, pool));
 
   int64_t actual_decompressed;
@@ -513,7 +513,7 @@ Status DecompressBuffersByType(
         continue;
       }
       // if the buffer has been rebuilt to uncompressed on java side, return
-      if (arrow::bit_util::GetBit(buf_mask, buffer_idx + i)) {
+      if (arrow::BitUtil::GetBit(buf_mask, buffer_idx + i)) {
         continue;
       }
       if (buffer->size() < 8) {
@@ -570,7 +570,7 @@ arrow::Status DecompressBuffers(
       return arrow::Status::OK();
     }
     // if the buffer has been rebuilt to uncompressed on java side, return
-    if (arrow::bit_util::GetBit(buf_mask, i)) {
+    if (arrow::BitUtil::GetBit(buf_mask, i)) {
       ARROW_ASSIGN_OR_RAISE(auto valid_copy,
                             buffers[i]->CopySlice(0, buffers[i]->size()));
       buffers[i] = valid_copy;

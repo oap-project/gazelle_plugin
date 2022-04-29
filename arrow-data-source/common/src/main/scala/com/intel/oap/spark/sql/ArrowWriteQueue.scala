@@ -27,6 +27,7 @@ import java.util.regex.Pattern
 
 import com.intel.oap.spark.sql.ArrowWriteQueue.EOS_BATCH
 import com.intel.oap.spark.sql.ArrowWriteQueue.ScannerImpl
+import org.apache.arrow.dataset.file.DatasetFileWriter
 import org.apache.arrow.dataset.file.format.FileFormat
 import org.apache.arrow.dataset.scanner.Scanner
 import org.apache.arrow.dataset.scanner.ScanTask
@@ -46,15 +47,12 @@ class ArrowWriteQueue(schema: Schema, fileFormat: FileFormat, outputFileURI: Str
     val dirURI = matcher.group(1)
     val fileName = matcher.group(2)
 
-//    disable write by arrow 7.0.0
-//    DatasetFileWriter.write(scanner, fileFormat, dirURI, Array(), 1, fileName)
+    DatasetFileWriter.write(scanner, fileFormat, dirURI, Array(), 1, fileName)
   }, "ArrowWriteQueue - " + UUID.randomUUID().toString)
 
   writeThread.start()
 
   def enqueue(batch: ArrowRecordBatch): Unit = {
-    //    disable write by arrow 7.0.0
-    throw new UnsupportedOperationException("write is disabled by arrow 7.0.0 rebase")
     scanner.enqueue(batch)
   }
 
