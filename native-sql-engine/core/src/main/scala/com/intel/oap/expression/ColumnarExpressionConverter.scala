@@ -286,6 +286,41 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr
         )
+      case sl: StringLocate =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(sl.substr, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(sl.str, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(sl.start, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
+      case re: RegExpExtract =>
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(re.subject, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(re.regexp, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(re.idx, attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr
+        )
+      case sr: StringReplace =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(
+            sr.srcExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            sr.searchExpr,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            sr.replaceExpr,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr)
       case u: UnaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         if (!u.isInstanceOf[CheckOverflow] || !u.child.isInstanceOf[Divide]) {
@@ -395,9 +430,19 @@ object ColumnarExpressionConverter extends Logging {
         s.children.map(containsSubquery).exists(_ == true)
       case st: StringTranslate =>
         st.children.map(containsSubquery).exists(_ == true)
+      case sl: StringLocate =>
+        sl.children.map(containsSubquery).exists(_ == true)
+      case re: RegExpExtract =>
+        re.children.map(containsSubquery).exists(_ == true)
       case regexp: RegExpReplace =>
         containsSubquery(regexp.subject) || containsSubquery(
           regexp.regexp) || containsSubquery(regexp.rep) || containsSubquery(regexp.pos)
+      case substrIndex: ColumnarSubstringIndex =>
+        substrIndex.children.map(containsSubquery).exists(_ == true)
+      case sr: StringReplace =>
+        containsSubquery(sr.srcExpr) ||
+          containsSubquery(sr.searchExpr) ||
+          containsSubquery(sr.replaceExpr)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")

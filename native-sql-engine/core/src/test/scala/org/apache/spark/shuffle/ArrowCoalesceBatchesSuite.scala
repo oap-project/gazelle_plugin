@@ -19,16 +19,23 @@ package org.apache.spark.shuffle
 
 import java.nio.file.Files
 
+import com.intel.oap.execution.ArrowCoalesceBatchesExec
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowOptions
+import com.intel.oap.spark.sql.execution.datasources.v2.arrow.ArrowUtils.makeArrowDiscovery
 import com.intel.oap.tpc.util.TPCRunner
-import org.apache.log4j.{Level, LogManager}
+import org.apache.arrow.dataset.file.FileSystemDatasetFactory
+import org.apache.log4j.Level
+import org.apache.log4j.LogManager
+
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.execution.ColumnarShuffleExchangeExec
-import org.apache.spark.sql.execution.exchange.ShuffleExchangeExec
-import org.apache.spark.sql.functions.{col, expr}
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkSchemaUtils
+import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.expr
 import org.apache.spark.sql.test.SharedSparkSession
+import org.apache.spark.sql.types.StructType
 
-class ComplexTypeSuite extends QueryTest with SharedSparkSession {
+class ArrowCoalesceBatchesSuite extends QueryTest with SharedSparkSession {
 
   private val MAX_DIRECT_MEMORY = "5000m"
   private var runner: TPCRunner = _
@@ -41,28 +48,9 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     val conf = super.sparkConf
     conf.set("spark.memory.offHeap.size", String.valueOf(MAX_DIRECT_MEMORY))
         .set("spark.plugins", "com.intel.oap.GazellePlugin")
-        .set("spark.sql.codegen.wholeStage", "true")
-        .set("spark.sql.sources.useV1SourceList", "")
-        .set("spark.oap.sql.columnar.tmp_dir", "/tmp/")
-        .set("spark.sql.columnar.sort.broadcastJoin", "true")
-        .set("spark.storage.blockManagerSlaveTimeoutMs", "3600000")
-        .set("spark.executor.heartbeatInterval", "3600000")
-        .set("spark.network.timeout", "3601s")
-        .set("spark.oap.sql.columnar.preferColumnar", "true")
-        .set("spark.oap.sql.columnar.sortmergejoin", "true")
-        .set("spark.sql.columnar.codegen.hashAggregate", "false")
-        .set("spark.sql.columnar.sort", "true")
-        .set("spark.sql.columnar.window", "true")
         .set("spark.shuffle.manager", "org.apache.spark.shuffle.sort.ColumnarShuffleManager")
-        .set("spark.unsafe.exceptionOnMemoryLeak", "false")
-        .set("spark.network.io.preferDirectBufs", "false")
-        .set("spark.sql.sources.useV1SourceList", "arrow,parquet")
         .set("spark.sql.autoBroadcastJoinThreshold", "-1")
-        .set("spark.oap.sql.columnar.sortmergejoin.lazyread", "true")
-        .set("spark.oap.sql.columnar.autorelease", "false")
-        .set("spark.sql.shuffle.partitions", "50")
-        .set("spark.sql.adaptive.coalescePartitions.initialPartitionNum", "5")
-        .set("spark.oap.sql.columnar.shuffledhashjoin.buildsizelimit", "200m")
+        .set("spark.oap.sql.columnar.forceshuffledhashjoin", "true")
     return conf
   }
 
@@ -124,110 +112,114 @@ class ComplexTypeSuite extends QueryTest with SharedSparkSession {
     spark.catalog.createTable("rtab", rPath, "arrow")
   }
 
-  test("Test Array in Shuffle split") {
+  def readSchema(path: String): Option[StructType] = {
+    val factory: FileSystemDatasetFactory =
+      makeArrowDiscovery(path, -1L, -1L, new ArrowOptions(Map[String, String]()))
+    val schema = factory.inspect()
+    try {
+      Option(SparkSchemaUtils.fromArrowSchema(schema))
+    } finally {
+      factory.close()
+    }
+  }
+
+  test("Test Array in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count == 2)
   }
 
-  test("Test Nest Array in Shuffle split") {
+  test("Test Nest Array in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.arr_arr_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count == 2)
   }
 
-  test("Test Array_Struct in Shuffle split") {
+  test("Test Array_Struct in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.arr_struct_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count == 2)
   }
 
-  test("Test Array_Map in Shuffle split") {
+  test("Test Array_Map in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.arr_map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count == 2)
   }
 
-  test("Test Struct in Shuffle stage") {
+  test("Test Struct in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Nest Struct in Shuffle stage") {
+  test("Test Nest Struct in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.struct_struct_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Struct_Array in Shuffle stage") {
+  test("Test Struct_Array in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.struct_array_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Map in Shuffle stage") {
+  test("Test Map in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Nest Map in Shuffle stage") {
+  test("Test Nest Map in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.map_map_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Map_Array in Shuffle stage") {
+  test("Test Map_Array in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.map_arr_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Map_Struct in Shuffle stage") {
+  test("Test Map_Struct in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.map_struct_field FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count() == 2)
   }
 
-  test("Test Fall back with complex type in Partitioning keys") {
-    val df = spark.sql("SELECT ltab.arr_field  FROM ltab, rtab WHERE ltab.arr_field = rtab.arr_field")
-    df.explain(true)
-    df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ShuffleExchangeExec]).isDefined)
-  }
-
-  test("Test Array String in Shuffle split") {
+  test("Test Array String in CoalesceBatches") {
     val df = spark.sql("SELECT ltab.arr_str_field  FROM ltab, rtab WHERE ltab.kind = rtab.kind")
     df.printSchema()
     df.explain(true)
     df.show()
-    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ColumnarShuffleExchangeExec]).isDefined)
+    assert(df.queryExecution.executedPlan.find(_.isInstanceOf[ArrowCoalesceBatchesExec]).isDefined)
     assert(df.count == 2)
   }
-
+  
   override def afterAll(): Unit = {
     super.afterAll()
   }

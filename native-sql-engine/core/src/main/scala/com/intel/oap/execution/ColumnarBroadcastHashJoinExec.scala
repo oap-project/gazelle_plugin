@@ -90,6 +90,7 @@ case class ColumnarBroadcastHashJoinExec(
       case BuildRight => (rkeys, lkeys)
     }
   }
+
   buildCheck()
 
   // A method in ShuffledJoin of spark3.2.
@@ -106,7 +107,15 @@ case class ColumnarBroadcastHashJoinExec(
     // build check for condition
     val conditionExpr: Expression = condition.orNull
     if (conditionExpr != null) {
-      ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+      val columnarConditionExpr =
+        ColumnarExpressionConverter.replaceWithColumnarExpression(conditionExpr)
+      val supportCodegen =
+        columnarConditionExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(null)
+      // Columnar BHJ with condition only has codegen version of implementation.
+      if (!supportCodegen) {
+        throw new UnsupportedOperationException(
+          "Condition expression is not fully supporting codegen!")
+      }
     }
     // build check types
     for (attr <- streamedPlan.output) {

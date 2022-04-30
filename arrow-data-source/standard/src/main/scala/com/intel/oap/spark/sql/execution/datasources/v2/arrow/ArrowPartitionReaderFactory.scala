@@ -59,7 +59,7 @@ case class ArrowPartitionReaderFactory(
     val path = partitionedFile.filePath
     val factory = ArrowUtils.makeArrowDiscovery(URLDecoder.decode(path, "UTF-8"),
       partitionedFile.start, partitionedFile.length, options)
-    val dataset = factory.finish()
+    val dataset = factory.finish(ArrowUtils.toArrowSchema(readDataSchema))
     val filter = if (enableFilterPushDown) {
       ArrowFilters.translateFilters(ArrowFilters.pruneWithSchema(pushedFilters, readDataSchema))
     } else {
