@@ -431,7 +431,7 @@ TEST_F(SplitterTest, TestSpillFailWithOutOfMemory) {
 }
 
 TEST_F(SplitterTest, TestSpillLargestPartition) {
-  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000000);
+  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(9*1024*1024);
   //  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
 
   int32_t num_partitions = 2;

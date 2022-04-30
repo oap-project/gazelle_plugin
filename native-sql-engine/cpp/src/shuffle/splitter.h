@@ -138,6 +138,8 @@ class Splitter {
 
   arrow::Status SplitListArray(const arrow::RecordBatch& rb);
 
+  arrow::Status AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& buffer, uint32_t size);
+
   template <typename T, typename ArrayType = typename arrow::TypeTraits<T>::ArrayType,
             typename BuilderType = typename arrow::TypeTraits<T>::BuilderType>
   arrow::Status AppendBinary(
@@ -188,7 +190,7 @@ class Splitter {
   // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
   // col partid
-  std::vector<std::vector<std::vector<std::shared_ptr<arrow::ResizableBuffer>>>>
+  std::vector<std::vector<std::vector<std::shared_ptr<arrow::Buffer>>>>
       partition_fixed_width_buffers_;
   // col partid
   std::vector<std::vector<std::shared_ptr<arrow::BinaryBuilder>>>
@@ -198,6 +200,10 @@ class Splitter {
       partition_large_binary_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
   // col partid
+
+  //slice the buffer for each reducer's column, in this way we can combine into large page
+  std::shared_ptr<arrow::ResizableBuffer> combine_buffer_; 
+
   // partid
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
       partition_cached_recordbatch_;
