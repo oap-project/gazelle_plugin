@@ -25,16 +25,16 @@
 #include <gandiva/node.h>
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
+#include <immintrin.h>
 
-#include <memory>
-#include <utility>
-#include <string>
 #include <cstring>
+#include <memory>
 #include <sstream>
+#include <string>
+#include <utility>
 
 #include "shuffle/utils.h"
 #include "utils/macros.h"
-#include <immintrin.h>
 
 /*#if defined(COLUMNAR_PLUGIN_USE_AVX512)
 #include <immintrin.h>
@@ -47,24 +47,23 @@ namespace sparkcolumnarplugin {
 namespace shuffle {
 using arrow::internal::checked_cast;
 
-
-
-
 template <typename T>
 std::string __m128i_toString(const __m128i var) {
-    std::stringstream sstr;
-    T values[16/sizeof(T)];
-    std::memcpy(values,&var,sizeof(values)); //See discussion below
-    if (sizeof(T) == 1) {
-        for (unsigned int i = 0; i < sizeof(__m128i); i++) { //C++11: Range for also possible
-            sstr << std::hex << (int) values[i] << " " << std::dec;
-        }
-    } else {
-        for (unsigned int i = 0; i < sizeof(__m128i) / sizeof(T); i++) { //C++11: Range for also possible
-            sstr << std::hex << values[i] << " " << std::dec;
-        }
+  std::stringstream sstr;
+  T values[16 / sizeof(T)];
+  std::memcpy(values, &var, sizeof(values));  // See discussion below
+  if (sizeof(T) == 1) {
+    for (unsigned int i = 0; i < sizeof(__m128i); i++) {  // C++11: Range for also
+                                                          // possible
+      sstr << std::hex << (int)values[i] << " " << std::dec;
     }
-    return sstr.str();
+  } else {
+    for (unsigned int i = 0; i < sizeof(__m128i) / sizeof(T);
+         i++) {  // C++11: Range for also possible
+      sstr << std::hex << values[i] << " " << std::dec;
+    }
+  }
+  return sstr.str();
 }
 
 SplitOptions SplitOptions::Defaults() { return SplitOptions(); }
@@ -1011,22 +1010,22 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
         PROCESS(uint32_t)
       case 64:
 #ifdef PROCESSAVX
-      std::transform(partition_buffer_idx_offset_.begin(), partition_buffer_idx_offset_.end(), 
-          partition_buffer_idx_base_.begin(), partition_buffer_idx_offset_.begin(),            
-          [](uint8_t* x, int16_t y) { return x+y*sizeof(uint64_t); });                           
-        for (auto pid = 0; pid < num_partitions_; pid++)                                       
-        {                                                                                      
-          auto dst_pid_base = reinterpret_cast<uint64_t*>(partition_buffer_idx_offset_[pid]); /*32k*/  
-          auto r = reducer_offset_offset_[pid];                                        /*8k*/  
-          auto size = reducer_offset_offset_[pid+1];                                           
+        std::transform(
+            partition_buffer_idx_offset_.begin(), partition_buffer_idx_offset_.end(),
+            partition_buffer_idx_base_.begin(), partition_buffer_idx_offset_.begin(),
+            [](uint8_t* x, int16_t y) { return x + y * sizeof(uint64_t); });
+        for (auto pid = 0; pid < num_partitions_; pid++) {
+          auto dst_pid_base =
+              reinterpret_cast<uint64_t*>(partition_buffer_idx_offset_[pid]); /*32k*/
+          auto r = reducer_offset_offset_[pid];                               /*8k*/
+          auto size = reducer_offset_offset_[pid + 1];
 #if 1
-          for (r; r<size && (((uint64_t)dst_pid_base & 0x1f) > 0); r++)                          
-          {                                                                                    
-            auto src_offset = reducer_offsets_[r];                                 /*16k*/     
-            *dst_pid_base = reinterpret_cast<uint64_t*>(src_addr)[src_offset];       /*64k*/     
-            _mm_prefetch(&(src_addr)[src_offset*sizeof(uint64_t)+64], _MM_HINT_T2);              
-            dst_pid_base+=1;                                                                   
-          }                                                                                    
+          for (r; r < size && (((uint64_t)dst_pid_base & 0x1f) > 0); r++) {
+            auto src_offset = reducer_offsets_[r];                             /*16k*/
+            *dst_pid_base = reinterpret_cast<uint64_t*>(src_addr)[src_offset]; /*64k*/
+            _mm_prefetch(&(src_addr)[src_offset * sizeof(uint64_t) + 64], _MM_HINT_T2);
+            dst_pid_base += 1;
+          }
 #if 0
           for (r; r+4<size; r+=4)                              
           {                                                                                    
@@ -1043,30 +1042,34 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
             _mm_prefetch(&(src_addr)[(uint32_t)reducer_offsets_[r+2]*sizeof(uint64_t)+64], _MM_HINT_T2);              
             _mm_prefetch(&(src_addr)[(uint32_t)reducer_offsets_[r+3]*sizeof(uint64_t)+64], _MM_HINT_T2);              
             dst_pid_base+=4;                                                                   
-          }    
+          }
 #endif
-          for (r; r+2<size; r+=2)                              
-          {                                                                                    
-            __m128i src_offset_2x = _mm_cvtsi32_si128(*((int32_t*)(reducer_offsets_.data()+r)));
-            src_offset_2x = _mm_shufflelo_epi16(src_offset_2x,0x98);
+          for (r; r + 2 < size; r += 2) {
+            __m128i src_offset_2x =
+                _mm_cvtsi32_si128(*((int32_t*)(reducer_offsets_.data() + r)));
+            src_offset_2x = _mm_shufflelo_epi16(src_offset_2x, 0x98);
 
-            __m128i src_2x = _mm_i32gather_epi64((const long long int*)src_addr,src_offset_2x,8);
-            _mm_store_si128((__m128i*)dst_pid_base,src_2x); 
-            //_mm_stream_si128((__m128i*)dst_pid_base,src_2x); 
-                                                         
-            _mm_prefetch(&(src_addr)[(uint32_t)reducer_offsets_[r]*sizeof(uint64_t)+64], _MM_HINT_T2);              
-            _mm_prefetch(&(src_addr)[(uint32_t)reducer_offsets_[r+1]*sizeof(uint64_t)+64], _MM_HINT_T2);              
-            dst_pid_base+=2;                                                                   
-          }    
-#endif                                                                                
-          for (r; r<size; r++)                                                                 
-          {                                                                                    
-            auto src_offset = reducer_offsets_[r];                                 /*16k*/     
-            *dst_pid_base = reinterpret_cast<uint64_t*>(src_addr)[src_offset];       /*64k*/     
-            _mm_prefetch(&(src_addr)[src_offset*sizeof(uint64_t)+64], _MM_HINT_T2);              
-            dst_pid_base+=1;                                                                   
-          }                                                                                    
-        }                                                                                      
+            __m128i src_2x =
+                _mm_i32gather_epi64((const long long int*)src_addr, src_offset_2x, 8);
+            _mm_store_si128((__m128i*)dst_pid_base, src_2x);
+            //_mm_stream_si128((__m128i*)dst_pid_base,src_2x);
+
+            _mm_prefetch(
+                &(src_addr)[(uint32_t)reducer_offsets_[r] * sizeof(uint64_t) + 64],
+                _MM_HINT_T2);
+            _mm_prefetch(
+                &(src_addr)[(uint32_t)reducer_offsets_[r + 1] * sizeof(uint64_t) + 64],
+                _MM_HINT_T2);
+            dst_pid_base += 2;
+          }
+#endif
+          for (r; r < size; r++) {
+            auto src_offset = reducer_offsets_[r];                             /*16k*/
+            *dst_pid_base = reinterpret_cast<uint64_t*>(src_addr)[src_offset]; /*64k*/
+            _mm_prefetch(&(src_addr)[src_offset * sizeof(uint64_t) + 64], _MM_HINT_T2);
+            dst_pid_base += 1;
+          }
+        }
         break;
 #else
         PROCESS(uint64_t)
@@ -1075,7 +1078,7 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
 #undef PROCESS
       case 128:  // arrow::Decimal128Type::type_id
 #ifdef PROCESSROW
-        // assume batch size = 32k; reducer# = 4K; row/reducer = 8
+                 // assume batch size = 32k; reducer# = 4K; row/reducer = 8
         std::transform(
             partition_buffer_idx_offset_.begin(), partition_buffer_idx_offset_.end(),
             partition_buffer_idx_base_.begin(), partition_buffer_idx_offset_.begin(),
@@ -1312,7 +1315,8 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
     if (rb.column_data(col_idx)->GetNullCount() == 0 &&
         column_has_null_[col_idx] == true) {
       // if the input record batch doesn't have null, set validity to True
-      // column_has_null_ is used to skip the partition_id_cnt_[pid] and dst_addrs[pid] access
+      // column_has_null_ is used to skip the partition_id_cnt_[pid] and dst_addrs[pid]
+      // access
       for (auto pid = 0; pid < num_partitions_; ++pid) {
         if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
           arrow::BitUtil::SetBitsTo(dst_addrs[pid], partition_buffer_idx_base_[pid],
@@ -1560,14 +1564,13 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
   for (auto i = 0; i < num_rows; ++i) {
     // positive mod
     auto pid = pid_arr->Value(i) % num_partitions_;
-    //force to generate ASM
-    __asm__ (
+    // force to generate ASM
+    __asm__(
         "lea (%[num_partitions],%[pid],1),%[tmp]\n"
         "test %[pid],%[pid]\n"
         "cmovs %[tmp],%[pid]\n"
         : [pid] "+r"(pid)
-        : [num_partitions]"r"(num_partitions_),[tmp]"r"(0)
-    );
+        : [num_partitions] "r"(num_partitions_), [tmp] "r"(0));
     partition_id_[i] = pid;
     partition_id_cnt_[pid]++;
   }
