@@ -826,8 +826,8 @@ struct Invoker {
 
 // The result type of Invoke<F, Args...>.
 template <typename F, typename... Args>
-using InvokeT = decltype(Invoker<F, Args...>::type::Invoke(std::declval<F>(),
-                                                           std::declval<Args>()...));
+using InvokeT = decltype(
+    Invoker<F, Args...>::type::Invoke(std::declval<F>(), std::declval<Args>()...));
 
 // Invoke(f, args...) is an implementation of INVOKE(f, args...) from section
 // [func.require] of the C++ standard.
@@ -1002,10 +1002,9 @@ constexpr T&& forward(
 namespace utility_internal {
 // Helper method for expanding tuple into a called method.
 template <typename Functor, typename Tuple, std::size_t... Indexes>
-auto apply_helper(Functor&& functor, Tuple&& t, index_sequence<Indexes...>)
-    -> decltype(phmap::base_internal::Invoke(
-        phmap::forward<Functor>(functor),
-        std::get<Indexes>(phmap::forward<Tuple>(t))...)) {
+auto apply_helper(Functor&& functor, Tuple&& t, index_sequence<Indexes...>) -> decltype(
+    phmap::base_internal::Invoke(phmap::forward<Functor>(functor),
+                                 std::get<Indexes>(phmap::forward<Tuple>(t))...)) {
   return phmap::base_internal::Invoke(phmap::forward<Functor>(functor),
                                       std::get<Indexes>(phmap::forward<Tuple>(t))...);
 }
@@ -1888,18 +1887,19 @@ class optional_assign_base<copy_traits::non_movable> {
 
 template <typename T>
 constexpr copy_traits get_ctor_copy_traits() {
-  return std::is_copy_constructible<T>::value   ? copy_traits::copyable
-         : std::is_move_constructible<T>::value ? copy_traits::movable
-                                                : copy_traits::non_movable;
+  return std::is_copy_constructible<T>::value
+             ? copy_traits::copyable
+             : std::is_move_constructible<T>::value ? copy_traits::movable
+                                                    : copy_traits::non_movable;
 }
 
 template <typename T>
 constexpr copy_traits get_assign_copy_traits() {
   return phmap::is_copy_assignable<T>::value && std::is_copy_constructible<T>::value
              ? copy_traits::copyable
-         : phmap::is_move_assignable<T>::value && std::is_move_constructible<T>::value
-             ? copy_traits::movable
-             : copy_traits::non_movable;
+             : phmap::is_move_assignable<T>::value && std::is_move_constructible<T>::value
+                   ? copy_traits::movable
+                   : copy_traits::non_movable;
 }
 
 // Whether T is constructible or convertible from optional<U>.
@@ -2421,9 +2421,9 @@ constexpr optional<T> make_optional(std::initializer_list<U> il, Args&&... args)
 template <typename T, typename U>
 constexpr auto operator==(const optional<T>& x, const optional<U>& y)
     -> decltype(optional_internal::convertible_to_bool(*x == *y)) {
-  return static_cast<bool>(x) != static_cast<bool>(y) ? false
-         : static_cast<bool>(x) == false              ? true
-                                                      : static_cast<bool>(*x == *y);
+  return static_cast<bool>(x) != static_cast<bool>(y)
+             ? false
+             : static_cast<bool>(x) == false ? true : static_cast<bool>(*x == *y);
 }
 
 // Returns: If bool(x) != bool(y), true; otherwise, if bool(x) == false, false;
@@ -2431,9 +2431,9 @@ constexpr auto operator==(const optional<T>& x, const optional<U>& y)
 template <typename T, typename U>
 constexpr auto operator!=(const optional<T>& x, const optional<U>& y)
     -> decltype(optional_internal::convertible_to_bool(*x != *y)) {
-  return static_cast<bool>(x) != static_cast<bool>(y) ? true
-         : static_cast<bool>(x) == false              ? false
-                                                      : static_cast<bool>(*x != *y);
+  return static_cast<bool>(x) != static_cast<bool>(y)
+             ? true
+             : static_cast<bool>(x) == false ? false : static_cast<bool>(*x != *y);
 }
 // Returns: If !y, false; otherwise, if !x, true; otherwise *x < *y.
 template <typename T, typename U>
