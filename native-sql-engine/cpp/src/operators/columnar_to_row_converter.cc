@@ -511,13 +511,13 @@ for (i; i + BATCH_ROW_NUM < num_rows_; i+=BATCH_ROW_NUM) {
         // Binary type
         auto binary_array = (arrow::BinaryArray*)(array.get());
         using offset_type = typename arrow::BinaryType::offset_type;
-        offset_type* offsets = (offset_type*)(dataptrs[col_index][1]);
+        offset_type* BinaryOffsets = (offset_type*)(dataptrs[col_index][1]);
         for(auto j=i;j<i+BATCH_ROW_NUM;j++)
         {
           if (nullvec[col_index] || (!array->IsNull(j)))
           {
-            offset_type length = offsets[j+1]-offsets[j];
-            auto value = &dataptrs[col_index][2][offsets[j]];
+            offset_type length = BinaryOffsets[j+1]-BinaryOffsets[j];
+            auto value = &dataptrs[col_index][2][BinaryOffsets[j]];
             // write the variable value
             offset_type k;
             for(k=0;k+32<length;k+=32)
@@ -893,11 +893,11 @@ for (i; i < num_rows_; i++) {
         // Binary type
         auto binary_array = (arrow::BinaryArray*)(array.get());
         using offset_type = typename arrow::BinaryType::offset_type;
-        offset_type* offsets = (offset_type*)(dataptrs[col_index][1]);
+        offset_type* BinaryOffsets = (offset_type*)(dataptrs[col_index][1]);
         if (nullvec[col_index] || (!array->IsNull(i)))
         {
-          offset_type length = offsets[i+1]-offsets[i];
-          auto value = &dataptrs[col_index][2][offsets[i+1]];
+          offset_type length = BinaryOffsets[i+1]-BinaryOffsets[i];
+          auto value = &dataptrs[col_index][2][BinaryOffsets[i]];
           // write the variable value
           offset_type k;
           auto j=i;
