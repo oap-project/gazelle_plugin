@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include "tests/test_utils.h"
+#include "operators/row_to_columnar_converter.h"
 
 namespace sparkcolumnarplugin {
 namespace columnartorow {
@@ -75,6 +76,152 @@ class MyMemoryPool : public arrow::MemoryPool {
 class UnsaferowTest : public ::testing::Test {
  protected:
   void SetUp() {
+    // auto f_int8 = field("f_int8_a", arrow::int8());
+    // auto f_int16 = field("f_int16", arrow::int16());
+    // auto f_int32 = field("f_int32", arrow::int32());
+    // auto f_int64 = field("f_int64", arrow::int64());
+    // auto f_double = field("f_double", arrow::float64());
+    // auto f_float = field("f_float", arrow::float32());
+    // auto f_bool = field("f_bool", arrow::boolean());
+    // auto f_string = field("f_string", arrow::utf8());
+    // auto f_binary = field("f_binary", arrow::binary());
+    // auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
+
+    // auto f_arr_bool = field("f_arr_bool", arrow::list(arrow::boolean()));
+    // auto f_arr_int8 = field("f_arr_int8", arrow::list(arrow::int8()));
+    // auto f_arr_int16 = field("f_arr_int16", arrow::list(arrow::int16()));
+    // auto f_arr_int32 = field("f_arr_int32", arrow::list(arrow::int32()));
+    // auto f_arr_int64 = field("f_arr_int64", arrow::list(arrow::int64()));
+    // auto f_arr_double = field("f_arr_double", arrow::list(arrow::float64()));
+    // auto f_arr_float = field("f_arr_float", arrow::list(arrow::float32()));
+    // auto f_arr_string = field("f_arr_string", arrow::list(arrow::utf8()));
+    // auto f_arr_decimal = field("f_arr_decimal128", arrow::list(arrow::decimal(19, 2)));
+
+    // basic_schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
+    //                          f_binary, f_decimal});
+
+    // MakeInputBatch(input_data_, basic_schema_, &input_batch_);
+
+    // schema_ =
+    //     arrow::schema({f_arr_bool, f_arr_int8, f_arr_int16, f_arr_int32, f_arr_int64,
+    //                    f_arr_double, f_arr_float, f_arr_string, f_arr_decimal});
+
+    // MakeInputBatch(input_data_list_array_, schema_, &input_batch_list_array_);
+    // ConstructNullInputBatch(&nullable_input_batch_);
+  }
+
+  // static const std::vector<std::string> input_data_list_array_;
+  // static const std::vector<std::string> input_data_;
+
+  std::shared_ptr<arrow::Schema> basic_schema_;
+  std::shared_ptr<arrow::Schema> schema_;
+
+  std::shared_ptr<arrow::RecordBatch> input_batch_;
+  std::shared_ptr<arrow::RecordBatch> input_batch_list_array_;
+  std::shared_ptr<arrow::RecordBatch> nullable_input_batch_;
+};
+
+// const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
+//                                                              "[1, 1]",
+//                                                              "[1, 1]",
+//                                                              "[1, 1]",
+//                                                              "[1, 1]",
+//                                                              "[3.5, 3.5]",
+//                                                              "[1, 1]",
+//                                                              R"(["abc", "abc"])",
+//                                                              R"(["100.00", "100.00"])"};
+
+// const std::vector<std::string> UnsaferowTest::input_data_list_array_ = {
+//     R"([[false, true]])",
+//     R"([[3, 3]])",
+//     R"([[1, 1]])",
+//     R"([[1, 1]])",
+//     R"([[1, 1]])",
+//     R"([[1, 1]])",
+//     R"([[3.5, 3.5]])",
+//     R"([["abc", "abc", "abc"]])",
+//     R"([["100.00", "100.00", "100.00"]])"};
+
+
+
+
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultForInt_64) {
+
+  const std::vector<std::string> input_data = {
+                                                             "[1, 2, 3]"};
+                                                            // "[null, null, null]"};
+                                                            // "[1]"};
+
+  auto f_int64 = field("f_int64", arrow::int64());                                                          
+  auto schema = arrow::schema({f_int64});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                               arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+  std::cout << "uint8_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(address+" << i << ")" << *(address+i) << std::endl;
+  }
+
+  std::cout << "uint16_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(address+" << i << ")" << (uint16_t)*(address+i) << std::endl;
+  }
+
+
+  uint8_t a[16] = {0,0,0,0,0,0,0,0,
+                   1,0,0,0,0,0,0,0
+                  };
+  std::cout << "a[16] uint8_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(a+" << i << ")" << *(a+i) << std::endl;
+    std::cout << "address equal a:" << (*(address+i) == *(a+i)) << std::endl;
+  }
+
+  std::cout << "a[16] uint16_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(a+" << i << ")" << (uint16_t)*(a+i) << std::endl;
+  }
+
+
+  auto length_vec = columnarToRowConverter->GetLengths();
+  for(int i=0; i< length_vec.size(); i++)
+  {
+	std::cout << "length_vec[" << i << "]:" << length_vec[i] << std::endl;
+  }
+  // long *lengthPtr = new long[length_vec.size()];
+  // if (!length_vec.empty())
+  // {
+  //   memcpy(lengthPtr, &length_vec[0], length_vec.size()*sizeof(long));
+  // }
+
+  long arr[length_vec.size()];
+  for(int i=0; i<length_vec.size(); i++){
+    arr[i] = length_vec[i];
+  }
+  long *lengthPtr = arr;
+
+  std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(schema,
+      num_cols, num_rows,
+      lengthPtr, address, arrow::default_memory_pool());
+  std::shared_ptr<arrow::RecordBatch> rb;
+  row_to_columnar_converter->Init(&rb);
+  std::cout << "From rowbuffer to Column, rb->ToString():\n" << rb->ToString() << std::endl;
+  ASSERT_TRUE(rb->Equals(*input_batch));
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResult) {
     auto f_int8 = field("f_int8_a", arrow::int8());
     auto f_int16 = field("f_int16", arrow::int16());
     auto f_int32 = field("f_int32", arrow::int32());
@@ -86,40 +233,468 @@ class UnsaferowTest : public ::testing::Test {
     auto f_binary = field("f_binary", arrow::binary());
     auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
 
-    auto f_arr_bool = field("f_arr_bool", arrow::list(arrow::boolean()));
-    auto f_arr_int8 = field("f_arr_int8", arrow::list(arrow::int8()));
-    auto f_arr_int16 = field("f_arr_int16", arrow::list(arrow::int16()));
-    auto f_arr_int32 = field("f_arr_int32", arrow::list(arrow::int32()));
-    auto f_arr_int64 = field("f_arr_int64", arrow::list(arrow::int64()));
-    auto f_arr_double = field("f_arr_double", arrow::list(arrow::float64()));
-    auto f_arr_float = field("f_arr_float", arrow::list(arrow::float32()));
-    auto f_arr_string = field("f_arr_string", arrow::list(arrow::utf8()));
-    auto f_arr_decimal = field("f_arr_decimal128", arrow::list(arrow::decimal(19, 2)));
+	  auto schema = arrow::schema({f_int8, f_int16, f_int32, f_int64, f_float, f_double,
+                             f_binary});
+	
+	
+	  const std::vector<std::string> input_data = {
+                                                             "[1, 1]",
+                                                             "[1, 1]",
+                                                             "[1, 1]",
+                                                             "[1, 1]",
+                                                             "[3.5, 3.5]",
+                                                             "[1, 1]",
+                                                             R"(["abc", "abc"])"};
 
-    schema_ = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
-                             f_binary, f_decimal});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
 
-    MakeInputBatch(input_data_, schema_, &input_batch_);
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                               arrow::default_memory_pool());
 
-    schema_ =
-        arrow::schema({f_arr_bool, f_arr_int8, f_arr_int16, f_arr_int32, f_arr_int64,
-                       f_arr_double, f_arr_float, f_arr_string, f_arr_decimal});
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
 
-    MakeInputBatch(input_data_list_array_, schema_, &input_batch_list_array_);
-    ConstructNullInputBatch(&nullable_input_batch_);
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+  auto length_vec = columnarToRowConverter->GetLengths();
+  for(int i=0; i< length_vec.size(); i++)
+  {
+	std::cout << "length_vec[" << i << "]:" << length_vec[i] << std::endl;
   }
 
-  static const std::vector<std::string> input_data_list_array_;
-  static const std::vector<std::string> input_data_;
+  long arr[length_vec.size()];
+  for(int i=0; i<length_vec.size(); i++){
+    arr[i] = length_vec[i];
+  }
+  long *lengthPtr = arr;
 
-  std::shared_ptr<arrow::Schema> schema_;
+  std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(schema,
+      num_cols, num_rows,
+      lengthPtr, address, arrow::default_memory_pool());
+  std::shared_ptr<arrow::RecordBatch> rb;
+  row_to_columnar_converter->Init(&rb);
+  std::cout << "input_batch->ToString():\n" << input_batch->ToString() << std::endl;
+  std::cout << "From rowbuffer to Column, rb->ToString():\n" << rb->ToString() << std::endl;
+  ASSERT_TRUE(rb->Equals(*input_batch));
+}
 
-  std::shared_ptr<arrow::RecordBatch> input_batch_;
-  std::shared_ptr<arrow::RecordBatch> input_batch_list_array_;
-  std::shared_ptr<arrow::RecordBatch> nullable_input_batch_;
-};
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultForInt_64_twoColumn) {
 
-const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
+  const std::vector<std::string> input_data = {
+                                                             "[1, 2]",
+                                                             "[1, 2]",
+                                                             };
+                                                            // "[null, null, null]"};
+                                                            // "[1]"};
+
+  auto f_int64_col0 = field("f_int64", arrow::int64());
+  auto f_int64_col1 = field("f_int64", arrow::int64());                                                            
+  auto schema = arrow::schema({f_int64_col0, f_int64_col1});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                               arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+  std::cout << "uint8_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(address+" << i << ")" << *(address+i) << std::endl;
+  }
+
+  std::cout << "uint16_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(address+" << i << ")" << (uint16_t)*(address+i) << std::endl;
+  }
+
+
+  uint8_t a[16] = {0,0,0,0,0,0,0,0,
+                   1,0,0,0,0,0,0,0
+                  };
+  std::cout << "a[16] uint8_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(a+" << i << ")" << *(a+i) << std::endl;
+    std::cout << "address equal a:" << (*(address+i) == *(a+i)) << std::endl;
+  }
+
+  std::cout << "a[16] uint16_t: \n";
+  for(int i=0; i< 16; i++) {
+    std::cout << "*(a+" << i << ")" << (uint16_t)*(a+i) << std::endl;
+  }
+
+
+  auto length_vec = columnarToRowConverter->GetLengths();
+  for(int i=0; i< length_vec.size(); i++)
+  {
+	std::cout << "length_vec[" << i << "]:" << length_vec[i] << std::endl;
+  }
+  // long *lengthPtr = new long[length_vec.size()];
+  // if (!length_vec.empty())
+  // {
+  //   memcpy(lengthPtr, &length_vec[0], length_vec.size()*sizeof(long));
+  // }
+
+  long arr[length_vec.size()];
+  for(int i=0; i<length_vec.size(); i++){
+    arr[i] = length_vec[i];
+  }
+  long *lengthPtr = arr;
+
+  std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(schema,
+      num_cols, num_rows,
+      lengthPtr, address, arrow::default_memory_pool());
+  std::shared_ptr<arrow::RecordBatch> rb;
+  row_to_columnar_converter->Init(&rb);
+  std::cout << "From rowbuffer to Column, rb->ToString():\n" << rb->ToString() << std::endl;
+  ASSERT_TRUE(rb->Equals(*input_batch));
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_int8_int16) {
+  auto f_int8 = field("f_int8_a", arrow::int8());
+  auto f_int16 = field("f_int16", arrow::int16());
+
+  std::cout << "---------verify f_int8, f_int16---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                "[1, 2]",
+                                                "[1, 2]",
+                                                };
+                                                                                                                
+  auto schema = arrow::schema({f_int8, f_int16});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {0,0,0,0,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          2,0,0,0,0,0,0,0,
+                          2,0,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_int32_int64) {
+  auto f_int32 = field("f_int32", arrow::int32());
+  auto f_int64 = field("f_int64", arrow::int64());
+
+   
+  std::cout << "---------verify f_int32, f_int64---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                "[1, 2]",
+                                                "[1, 2]",
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_int32, f_int64});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {0,0,0,0,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          2,0,0,0,0,0,0,0,
+                          2,0,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_float_double) {
+  auto f_float = field("f_float", arrow::float32());
+  auto f_double = field("f_double", arrow::float64());
+
+  std::cout << "---------verify f_float, f_double---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                "[1.0, 2.0]",
+                                                "[1.0, 2.0]",
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_float, f_double});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {0,0,0,0,0,0,0,0,
+                          0,0,128,63,0,0,0,0,
+                          0,0,0,0,0,0,240,63,
+                          0,0,0,0,0,0,0,0,
+                          0,0,0,64,0,0,0,0,
+                          0,0,0,0,0,0,0,64
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+  
+
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_bool_binary) {
+  auto f_bool = field("f_bool", arrow::boolean());
+  auto f_binary = field("f_binary", arrow::binary());
+  
+  std::cout << "---------verify f_bool, f_binary---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                "[false, true]",
+                                                R"(["aa", "bb"])",
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_bool, f_binary});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {0,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          2,0,0,0,24,0,0,0,
+                          97,97,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          2,0,0,0,24,0,0,0,
+                          98,98,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_decimal_string) {
+  auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
+  auto f_string = field("f_string", arrow::utf8());
+  
+  std::cout << "---------verify f_decimal, f_string---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                R"(["1.00", "2.00"])",
+                                                R"(["aa", "bb"])"
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_decimal, f_string});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {0,0,0,0,0,0,0,0,
+                          100,0,0,0,0,0,0,0,
+                          2,0,0,0,24,0,0,0,
+                          97,97,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          200,0,0,0,0,0,0,0,
+                          2,0,0,0,24,0,0,0,
+                          98,98,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_int64_int64_with_null) {
+  auto f_int64 = field("f_int64", arrow::int64());
+
+  std::cout << "---------verify f_int64, f_int64 with null ---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                "[null,2]",
+                                                "[null,2]",
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_int64, f_int64});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {3,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          2,0,0,0,0,0,0,0,
+                          2,0,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_string) {
+  auto f_binary = field("f_binary", arrow::binary());
+  auto f_string = field("f_string", arrow::utf8());
+  
+  std::cout << "---------verify f_string---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                R"(["aa", "bb"])"
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_string});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {
+                          0,0,0,0,0,0,0,0,
+                          2,0,0,0,16,0,0,0,
+                          97,97,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          2,0,0,0,16,0,0,0,
+                          98,98,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResultBuffer_bool) {
+  auto f_bool = field("f_bool", arrow::boolean());
+  auto f_binary = field("f_binary", arrow::binary());
+  
+  std::cout << "---------verify f_bool---------" << std::endl;
+  const std::vector<std::string> input_data = {
+                                                "[false, true]",
+                                               
+                                                };
+                                                                                                              
+  auto schema = arrow::schema({f_bool});
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
+                                              arrow::default_memory_pool());
+
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+
+  uint8_t expect_arr[] = {0,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          0,0,0,0,0,0,0,0,
+                          1,0,0,0,0,0,0,0,
+                          };
+  for(int i=0; i< sizeof(expect_arr); i++) {
+    std::cout << "*(address+" << i << "): " << (uint16_t)*(address+i) << std::endl;
+    std::cout << "*(expect_arr+" << i << "): " << (uint16_t)*(expect_arr+i) << std::endl;
+    ASSERT_EQ(*(address+i), *(expect_arr+i));
+  }
+
+}
+
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResult_allTypes) {
+    auto f_int8 = field("f_int8_a", arrow::int8());
+    auto f_int16 = field("f_int16", arrow::int16());
+    auto f_int32 = field("f_int32", arrow::int32());
+    auto f_int64 = field("f_int64", arrow::int64());
+    auto f_double = field("f_double", arrow::float64());
+    auto f_float = field("f_float", arrow::float32());
+    auto f_bool = field("f_bool", arrow::boolean());
+    auto f_string = field("f_string", arrow::utf8());
+    auto f_binary = field("f_binary", arrow::binary());
+    auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
+
+	  auto schema = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
+                             f_binary, f_decimal});
+	
+	
+	  const std::vector<std::string> input_data = {"[true, true]",
                                                              "[1, 1]",
                                                              "[1, 1]",
                                                              "[1, 1]",
@@ -129,41 +704,104 @@ const std::vector<std::string> UnsaferowTest::input_data_ = {"[true, true]",
                                                              R"(["abc", "abc"])",
                                                              R"(["100.00", "100.00"])"};
 
-const std::vector<std::string> UnsaferowTest::input_data_list_array_ = {
-    R"([[false, true]])",
-    R"([[3, 3]])",
-    R"([[1, 1]])",
-    R"([[1, 1]])",
-    R"([[1, 1]])",
-    R"([[1, 1]])",
-    R"([[3.5, 3.5]])",
-    R"([["abc", "abc", "abc"]])",
-    R"([["100.00", "100.00", "100.00"]])"};
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
 
-TEST_F(UnsaferowTest, TestNullTypeCheck) {
-  std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(nullable_input_batch_,
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
                                                arrow::default_memory_pool());
 
-  unsafe_row_writer_reader->Init();
-  unsafe_row_writer_reader->Write();
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+  auto length_vec = columnarToRowConverter->GetLengths();
+  for(int i=0; i< length_vec.size(); i++)
+  {
+	std::cout << "length_vec[" << i << "]:" << length_vec[i] << std::endl;
+  }
+
+  long arr[length_vec.size()];
+  for(int i=0; i<length_vec.size(); i++){
+    arr[i] = length_vec[i];
+  }
+  long *lengthPtr = arr;
+
+  std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(schema,
+      num_cols, num_rows,
+      lengthPtr, address, arrow::default_memory_pool());
+  std::shared_ptr<arrow::RecordBatch> rb;
+  row_to_columnar_converter->Init(&rb);
+  std::cout << "input_batch->ToString():\n" << input_batch->ToString() << std::endl;
+  std::cout << "From rowbuffer to Column, rb->ToString():\n" << rb->ToString() << std::endl;
+  ASSERT_TRUE(rb->Equals(*input_batch));
 }
 
-TEST_F(UnsaferowTest, TestColumnarToRowConverter) {
-  std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(input_batch_,
+TEST_F(UnsaferowTest, TestColumnarToRowConverterResult_allTypes_18rows) {
+    auto f_int8 = field("f_int8_a", arrow::int8());
+    auto f_int16 = field("f_int16", arrow::int16());
+    auto f_int32 = field("f_int32", arrow::int32());
+    auto f_int64 = field("f_int64", arrow::int64());
+    auto f_double = field("f_double", arrow::float64());
+    auto f_float = field("f_float", arrow::float32());
+    auto f_bool = field("f_bool", arrow::boolean());
+    auto f_string = field("f_string", arrow::utf8());
+    auto f_binary = field("f_binary", arrow::binary());
+    auto f_decimal = field("f_decimal128", arrow::decimal(10, 2));
+
+	  auto schema = arrow::schema({f_bool, f_int8, f_int16, f_int32, f_int64, f_float, f_double,
+                             f_binary, f_decimal});
+	
+	
+	  const std::vector<std::string> input_data = {
+    "[true, true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true,true]",
+    "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",
+    "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",
+    "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",
+    "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",
+    "[3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5, 3.5]",
+    "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]",
+    R"(["abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc", "abc"])",
+    R"(["100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00", "100.00"])"};
+
+  std::shared_ptr<arrow::RecordBatch> input_batch;
+  MakeInputBatch(input_data, schema, &input_batch);
+
+  std::shared_ptr<ColumnarToRowConverter> columnarToRowConverter =
+      std::make_shared<ColumnarToRowConverter>(
                                                arrow::default_memory_pool());
 
-  unsafe_row_writer_reader->Init();
-  unsafe_row_writer_reader->Write();
+  columnarToRowConverter->Init(input_batch);
+  columnarToRowConverter->Write();
+
+  int64_t num_rows = input_batch->num_rows();
+  int64_t num_cols = input_batch->num_columns();
+  uint8_t* address = columnarToRowConverter->GetBufferAddress();
+  auto length_vec = columnarToRowConverter->GetLengths();
+  for(int i=0; i< length_vec.size(); i++)
+  {
+	std::cout << "length_vec[" << i << "]:" << length_vec[i] << std::endl;
+  }
+
+  long arr[length_vec.size()];
+  for(int i=0; i<length_vec.size(); i++){
+    arr[i] = length_vec[i];
+  }
+  long *lengthPtr = arr;
+
+  std::shared_ptr<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter> row_to_columnar_converter =
+      std::make_shared<sparkcolumnarplugin::rowtocolumnar::RowToColumnarConverter>(schema,
+      num_cols, num_rows,
+      lengthPtr, address, arrow::default_memory_pool());
+  std::shared_ptr<arrow::RecordBatch> rb;
+  row_to_columnar_converter->Init(&rb);
+  std::cout << "input_batch->ToString():\n" << input_batch->ToString() << std::endl;
+  std::cout << "From rowbuffer to Column, rb->ToString():\n" << rb->ToString() << std::endl;
+  ASSERT_TRUE(rb->Equals(*input_batch));
 }
 
-TEST_F(UnsaferowTest, TestListArrayType) {
-  std::shared_ptr<ColumnarToRowConverter> unsafe_row_writer_reader =
-      std::make_shared<ColumnarToRowConverter>(input_batch_list_array_,
-                                               arrow::default_memory_pool());
-  unsafe_row_writer_reader->Init();
-  unsafe_row_writer_reader->Write();
-}
 }  // namespace columnartorow
 }  // namespace sparkcolumnarplugin
