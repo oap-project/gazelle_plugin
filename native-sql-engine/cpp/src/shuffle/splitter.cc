@@ -47,6 +47,11 @@ namespace sparkcolumnarplugin {
 namespace shuffle {
 using arrow::internal::checked_cast;
 
+#ifndef SPLIT_BUFFER_SIZE
+//by default, allocate 8M block, 2M page size
+#define SPLIT_BUFFER_SIZE 8*1024*1024
+#endif
+
 template <typename T>
 std::string __m128i_toString(const __m128i var) {
   std::stringstream sstr;
@@ -401,6 +406,37 @@ arrow::Status Splitter::Init() {
       tiny_bach_write_options_.codec,
       arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
 
+  //Allocate first buffer for split reducer
+  ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
+                                        SPLIT_BUFFER_SIZE,
+                                        options_.memory_pool));
+  combine_buffer_->Resize(0, /*shrink_to_fit =*/false);
+
+  return arrow::Status::OK();
+}
+arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& buffer, uint32_t size)
+{
+  // if size is already larger than buffer pool size, allocate it directly
+  //make size 64byte aligned
+  auto reminder = size & 0x3f;
+  size+=(64-reminder) & ((reminder==0)-1);
+
+  if (size > SPLIT_BUFFER_SIZE )
+  {
+    ARROW_ASSIGN_OR_RAISE(buffer, arrow::AllocateResizableBuffer(
+                                        size, options_.memory_pool));
+    return arrow::Status::OK();
+  }else if (combine_buffer_->capacity() - combine_buffer_->size() < size)
+  {
+    //memory pool is not enough
+    ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
+                                        SPLIT_BUFFER_SIZE,
+                                        options_.memory_pool));
+    combine_buffer_->Resize(0, /*shrink_to_fit = */ false);
+  }
+  buffer = arrow::SliceMutableBuffer(combine_buffer_, combine_buffer_->size(),size);
+  
+  combine_buffer_->Resize(combine_buffer_->size() + size, /*shrink_to_fit = */ false);
   return arrow::Status::OK();
 }
 
@@ -454,6 +490,7 @@ arrow::Status Splitter::Stop() {
     data_file_os_ = fout;
   }
 
+  std::cout << " cache record batch " << std::endl;
   // stop PartitionWriter and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     RETURN_NOT_OK(CacheRecordBatch(pid, true));
@@ -473,11 +510,15 @@ arrow::Status Splitter::Stop() {
       partition_lengths_[pid] = 0;
     }
   }
+  this->combine_buffer_.reset();
 
   // close data file output Stream
   RETURN_NOT_OK(data_file_os_->Close());
 
   EVAL_END("write", options_.thread_id, options_.task_attempt_id)
+
+  
+
   return arrow::Status::OK();
 }
 int64_t batch_nbytes(const arrow::RecordBatch& batch) {
@@ -492,6 +533,7 @@ int64_t batch_nbytes(const arrow::RecordBatch& batch) {
         continue;
       }
       accumulated += buf->size();
+      std::cout << " buffer addr = 0x" << std::hex << buf->address() << std::dec << std::endl;
     }
   }
   return accumulated;
@@ -576,15 +618,13 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
         default: {
           auto& buffers = partition_fixed_width_buffers_[fixed_width_idx][partition_id];
           if (buffers[0] != nullptr) {
-            buffers[0]->Resize((num_rows >> 3) + 1, /*shrink_to_fit =*/false);
+            buffers[0]=arrow::SliceBuffer(buffers[0],0,(num_rows >> 3) + 1);
           }
           if (buffers[1] != nullptr) {
             if (column_type_id_[i]->id() == arrow::BooleanType::type_id)
-              buffers[1]->Resize((num_rows >> 3) + 1, /*shrink_to_fit =*/false);
+              buffers[1]=arrow::SliceBuffer(buffers[1],0,(num_rows >> 3) + 1);
             else
-              buffers[1]->Resize(
-                  num_rows * (arrow::bit_width(column_type_id_[i]->id()) >> 3),
-                  /*shrink_to_fit =*/false);
+              buffers[1]=arrow::SliceBuffer(buffers[1],0,num_rows * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
           }
 
           if (reset_buffers) {
@@ -604,7 +644,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
         }
       }
     }
-
+    std::cout << " cache record " << std::endl;
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
     int64_t raw_size = batch_nbytes(batch);
 
@@ -642,12 +682,14 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
   auto binary_idx = 0;
   auto large_binary_idx = 0;
   auto list_idx = 0;
+  auto total_size = 0;
 
   std::vector<std::shared_ptr<arrow::BinaryBuilder>> new_binary_builders;
   std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>> new_large_binary_builders;
   std::vector<std::shared_ptr<arrow::ArrayBuilder>> new_list_builders;
-  std::vector<std::shared_ptr<arrow::ResizableBuffer>> new_value_buffers;
-  std::vector<std::shared_ptr<arrow::ResizableBuffer>> new_validity_buffers;
+  std::vector<std::shared_ptr<arrow::Buffer>> new_value_buffers;
+  std::vector<std::shared_ptr<arrow::Buffer>> new_validity_buffers;
+
   for (auto i = 0; i < num_fields; ++i) {
     switch (column_type_id_[i]->id()) {
       case arrow::BinaryType::type_id:
@@ -688,30 +730,30 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
       case arrow::NullType::type_id:
         break;
       default: {
-        std::shared_ptr<arrow::ResizableBuffer> value_buffer;
+          try{
+        std::shared_ptr<arrow::Buffer> value_buffer;
         if (column_type_id_[i]->id() == arrow::BooleanType::type_id) {
-          ARROW_ASSIGN_OR_RAISE(value_buffer, arrow::AllocateResizableBuffer(
-                                                  arrow::BitUtil::BytesForBits(new_size),
-                                                  options_.memory_pool));
+          auto status = AllocateBufferFromPool(value_buffer, arrow::BitUtil::BytesForBits(new_size));
+          ARROW_RETURN_NOT_OK( status );
         } else {
-          ARROW_ASSIGN_OR_RAISE(
-              value_buffer,
-              arrow::AllocateResizableBuffer(
-                  new_size * (arrow::bit_width(column_type_id_[i]->id()) / 8),
-                  options_.memory_pool));
+            auto status = AllocateBufferFromPool(value_buffer, new_size * (arrow::bit_width(column_type_id_[i]->id()) >>3));
+            ARROW_RETURN_NOT_OK( status );
+
         }
         new_value_buffers.push_back(std::move(value_buffer));
         if (input_fixed_width_has_null_[fixed_width_idx]) {
-          std::shared_ptr<arrow::ResizableBuffer> validity_buffer;
-          ARROW_ASSIGN_OR_RAISE(
-              validity_buffer,
-              arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size),
-                                             options_.memory_pool));
+          std::shared_ptr<arrow::Buffer> validity_buffer;
+          auto status = AllocateBufferFromPool(validity_buffer, arrow::BitUtil::BytesForBits(new_size));
+          ARROW_RETURN_NOT_OK( status );
           new_validity_buffers.push_back(std::move(validity_buffer));
         } else {
           new_validity_buffers.push_back(nullptr);
         }
         fixed_width_idx++;
+          }catch(const std::exception& e)
+          {
+            std::cout << "exception captured " << e.what() << std::endl;
+          }
         break;
       }
     }
@@ -746,10 +788,10 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
         break;
       default:
         partition_fixed_width_value_addrs_[fixed_width_idx][partition_id] =
-            const_cast<uint8_t*>(new_value_buffers[fixed_width_idx]->data());
+            new_value_buffers[fixed_width_idx]->mutable_data();
         if (input_fixed_width_has_null_[fixed_width_idx]) {
           partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] =
-              const_cast<uint8_t*>(new_validity_buffers[fixed_width_idx]->data());
+              new_validity_buffers[fixed_width_idx]->mutable_data();
         } else {
           partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] = nullptr;
         }
@@ -1569,8 +1611,8 @@ arrow::Status HashSplitter::ComputeAndCountPartitionId(const arrow::RecordBatch&
         "lea (%[num_partitions],%[pid],1),%[tmp]\n"
         "test %[pid],%[pid]\n"
         "cmovs %[tmp],%[pid]\n"
-        : [ pid ] "+r"(pid)
-        : [ num_partitions ] "r"(num_partitions_), [ tmp ] "r"(0));
+        : [pid] "+r"(pid)
+        : [num_partitions] "r"(num_partitions_), [tmp] "r"(0));
     partition_id_[i] = pid;
     partition_id_cnt_[pid]++;
   }
