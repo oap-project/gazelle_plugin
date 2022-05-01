@@ -827,7 +827,7 @@ for (i; i + BATCH_ROW_NUM < num_rows_; i+=BATCH_ROW_NUM) {
         break;
       }
       default: {
-        if (typewidth[col_index]>1)
+        if (typewidth[col_index]>0)
         {
           auto dataptr = dataptrs[col_index][1];
           auto mask=(1L << (typewidth[col_index]))-1;
@@ -1206,7 +1206,7 @@ for (i; i < num_rows_; i++) {
         break;
       }
       default: {
-        if (typewidth[col_index]>1)
+        if (typewidth[col_index]>0)
         {
           auto dataptr = dataptrs[col_index][1];
           auto mask=(1L << (typewidth[col_index]))-1;
