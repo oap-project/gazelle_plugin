@@ -432,10 +432,11 @@ arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& b
     ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
                                         SPLIT_BUFFER_SIZE,
                                         options_.memory_pool));
+    combine_buffer_->Resize(0, /*shrink_to_fit = */ false);
   }
   buffer = arrow::SliceMutableBuffer(combine_buffer_, combine_buffer_->size(),size);
   
-  combine_buffer_->Resize(combine_buffer_->size() + size);
+  combine_buffer_->Resize(combine_buffer_->size() + size, /*shrink_to_fit = */ false);
   return arrow::Status::OK();
 }
 
@@ -489,6 +490,7 @@ arrow::Status Splitter::Stop() {
     data_file_os_ = fout;
   }
 
+  std::cout << " cache record batch " << std::endl;
   // stop PartitionWriter and collect metrics
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     RETURN_NOT_OK(CacheRecordBatch(pid, true));
@@ -508,11 +510,15 @@ arrow::Status Splitter::Stop() {
       partition_lengths_[pid] = 0;
     }
   }
+  this->combine_buffer_.reset();
 
   // close data file output Stream
   RETURN_NOT_OK(data_file_os_->Close());
 
   EVAL_END("write", options_.thread_id, options_.task_attempt_id)
+
+  
+
   return arrow::Status::OK();
 }
 int64_t batch_nbytes(const arrow::RecordBatch& batch) {
@@ -527,6 +533,7 @@ int64_t batch_nbytes(const arrow::RecordBatch& batch) {
         continue;
       }
       accumulated += buf->size();
+      std::cout << " buffer addr = 0x" << std::hex << buf->address() << std::dec << std::endl;
     }
   }
   return accumulated;
@@ -637,7 +644,7 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
         }
       }
     }
-
+    std::cout << " cache record " << std::endl;
     auto batch = arrow::RecordBatch::Make(schema_, num_rows, std::move(arrays));
     int64_t raw_size = batch_nbytes(batch);
 

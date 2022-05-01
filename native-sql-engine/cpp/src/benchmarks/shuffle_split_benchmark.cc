@@ -41,6 +41,50 @@ namespace shuffle {
 const int batch_buffer_size = 32768;
 const int split_buffer_size = 8192;
 
+
+class MyLoggingMemoryPool : public MemoryPool {
+ public:
+  explicit MyLoggingMemoryPool(MemoryPool* pool): pool_(pool) {}
+  ~MyLoggingMemoryPool() override = default;
+
+  Status Allocate(int64_t size, uint8_t** out) override {
+    Status s = pool_->Allocate(size, out);
+    std::cout << "Allocate: size = " << size << std::endl;
+    return s;    
+  }
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override
+  {
+    Status s = pool_->Reallocate(old_size, new_size, ptr);
+    std::cout << "Reallocate: old_size = " << old_size << " - new_size = " << new_size
+            << std::endl;
+    return s;
+  }
+
+  void Free(uint8_t* buffer, int64_t size) override{
+    pool_->Free(buffer, size);
+    std::cout << "Free: size = " << size << std::endl;
+  }
+
+  int64_t bytes_allocated() const override{
+    int64_t nb_bytes = pool_->bytes_allocated();
+    std::cout << "bytes_allocated: " << nb_bytes << std::endl;
+    return nb_bytes;
+  }
+
+  int64_t max_memory() const override{
+    int64_t mem = pool_->max_memory();
+    std::cout << "max_memory: " << mem << std::endl;
+    return mem;
+  }
+
+  std::string backend_name() const override{
+    return pool_->backend_name(); 
+  }
+
+ private:
+  MemoryPool* pool_;
+};
+
 class BenchmarkShuffleSplit {
  public:
   BenchmarkShuffleSplit(std::string file_name) { GetRecordBatchReader(file_name); }
@@ -188,6 +232,7 @@ class BenchmarkShuffleSplit {
   std::shared_ptr<arrow::Schema> schema;
   std::vector<std::shared_ptr<::gandiva::Expression>> expr_vector;
   parquet::ArrowReaderProperties properties;
+
 };
 
 class BenchmarkShuffleSplit_CacheScan_Benchmark : public BenchmarkShuffleSplit {
