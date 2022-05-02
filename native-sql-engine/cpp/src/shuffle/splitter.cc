@@ -48,8 +48,8 @@ namespace shuffle {
 using arrow::internal::checked_cast;
 
 #ifndef SPLIT_BUFFER_SIZE
-//by default, allocate 8M block, 2M page size
-#define SPLIT_BUFFER_SIZE 8*1024*1024
+// by default, allocate 8M block, 2M page size
+#define SPLIT_BUFFER_SIZE 8 * 1024 * 1024
 #endif
 
 template <typename T>
@@ -406,36 +406,31 @@ arrow::Status Splitter::Init() {
       tiny_bach_write_options_.codec,
       arrow::util::Codec::CreateInt32(arrow::Compression::UNCOMPRESSED));
 
-  //Allocate first buffer for split reducer
+  // Allocate first buffer for split reducer
   ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
-                                        SPLIT_BUFFER_SIZE,
-                                        options_.memory_pool));
+                                             SPLIT_BUFFER_SIZE, options_.memory_pool));
   combine_buffer_->Resize(0, /*shrink_to_fit =*/false);
 
   return arrow::Status::OK();
 }
-arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& buffer, uint32_t size)
-{
+arrow::Status Splitter::AllocateBufferFromPool(std::shared_ptr<arrow::Buffer>& buffer,
+                                               uint32_t size) {
   // if size is already larger than buffer pool size, allocate it directly
-  //make size 64byte aligned
+  // make size 64byte aligned
   auto reminder = size & 0x3f;
-  size+=(64-reminder) & ((reminder==0)-1);
-
-  if (size > SPLIT_BUFFER_SIZE )
-  {
-    ARROW_ASSIGN_OR_RAISE(buffer, arrow::AllocateResizableBuffer(
-                                        size, options_.memory_pool));
+  size += (64 - reminder) & ((reminder == 0) - 1);
+  if (size > SPLIT_BUFFER_SIZE) {
+    ARROW_ASSIGN_OR_RAISE(buffer,
+                          arrow::AllocateResizableBuffer(size, options_.memory_pool));
     return arrow::Status::OK();
-  }else if (combine_buffer_->capacity() - combine_buffer_->size() < size)
-  {
-    //memory pool is not enough
+  } else if (combine_buffer_->capacity() - combine_buffer_->size() < size) {
+    // memory pool is not enough
     ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
-                                        SPLIT_BUFFER_SIZE,
-                                        options_.memory_pool));
+                                               SPLIT_BUFFER_SIZE, options_.memory_pool));
     combine_buffer_->Resize(0, /*shrink_to_fit = */ false);
   }
-  buffer = arrow::SliceMutableBuffer(combine_buffer_, combine_buffer_->size(),size);
-  
+  buffer = arrow::SliceMutableBuffer(combine_buffer_, combine_buffer_->size(), size);
+
   combine_buffer_->Resize(combine_buffer_->size() + size, /*shrink_to_fit = */ false);
   return arrow::Status::OK();
 }
@@ -516,8 +511,6 @@ arrow::Status Splitter::Stop() {
   RETURN_NOT_OK(data_file_os_->Close());
 
   EVAL_END("write", options_.thread_id, options_.task_attempt_id)
-
-  
 
   return arrow::Status::OK();
 }
@@ -617,13 +610,15 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
         default: {
           auto& buffers = partition_fixed_width_buffers_[fixed_width_idx][partition_id];
           if (buffers[0] != nullptr) {
-            buffers[0]=arrow::SliceBuffer(buffers[0],0,(num_rows >> 3) + 1);
+            buffers[0] = arrow::SliceBuffer(buffers[0], 0, (num_rows >> 3) + 1);
           }
           if (buffers[1] != nullptr) {
             if (column_type_id_[i]->id() == arrow::BooleanType::type_id)
-              buffers[1]=arrow::SliceBuffer(buffers[1],0,(num_rows >> 3) + 1);
+              buffers[1] = arrow::SliceBuffer(buffers[1], 0, (num_rows >> 3) + 1);
             else
-              buffers[1]=arrow::SliceBuffer(buffers[1],0,num_rows * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
+              buffers[1] = arrow::SliceBuffer(
+                  buffers[1], 0,
+                  num_rows * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
           }
 
           if (reset_buffers) {
@@ -728,30 +723,32 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
       case arrow::NullType::type_id:
         break;
       default: {
-          try{
-        std::shared_ptr<arrow::Buffer> value_buffer;
-        if (column_type_id_[i]->id() == arrow::BooleanType::type_id) {
-          auto status = AllocateBufferFromPool(value_buffer, arrow::BitUtil::BytesForBits(new_size));
-          ARROW_RETURN_NOT_OK( status );
-        } else {
-            auto status = AllocateBufferFromPool(value_buffer, new_size * (arrow::bit_width(column_type_id_[i]->id()) >>3));
-            ARROW_RETURN_NOT_OK( status );
-
-        }
-        new_value_buffers.push_back(std::move(value_buffer));
-        if (input_fixed_width_has_null_[fixed_width_idx]) {
-          std::shared_ptr<arrow::Buffer> validity_buffer;
-          auto status = AllocateBufferFromPool(validity_buffer, arrow::BitUtil::BytesForBits(new_size));
-          ARROW_RETURN_NOT_OK( status );
-          new_validity_buffers.push_back(std::move(validity_buffer));
-        } else {
-          new_validity_buffers.push_back(nullptr);
-        }
-        fixed_width_idx++;
-          }catch(const std::exception& e)
-          {
-            std::cout << "exception captured " << e.what() << std::endl;
+        try {
+          std::shared_ptr<arrow::Buffer> value_buffer;
+          if (column_type_id_[i]->id() == arrow::BooleanType::type_id) {
+            auto status = AllocateBufferFromPool(value_buffer,
+                                                 arrow::BitUtil::BytesForBits(new_size));
+            ARROW_RETURN_NOT_OK(status);
+          } else {
+            auto status = AllocateBufferFromPool(
+                value_buffer,
+                new_size * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
+            ARROW_RETURN_NOT_OK(status);
           }
+          new_value_buffers.push_back(std::move(value_buffer));
+          if (input_fixed_width_has_null_[fixed_width_idx]) {
+            std::shared_ptr<arrow::Buffer> validity_buffer;
+            auto status = AllocateBufferFromPool(validity_buffer,
+                                                 arrow::BitUtil::BytesForBits(new_size));
+            ARROW_RETURN_NOT_OK(status);
+            new_validity_buffers.push_back(std::move(validity_buffer));
+          } else {
+            new_validity_buffers.push_back(nullptr);
+          }
+          fixed_width_idx++;
+        } catch (const std::exception& e) {
+          std::cout << "exception captured " << e.what() << std::endl;
+        }
         break;
       }
     }
