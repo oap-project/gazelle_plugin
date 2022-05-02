@@ -96,7 +96,7 @@ class MyMemoryPool : public arrow::MemoryPool {
   arrow::internal::MemoryPoolStats stats_;
 };
 
-#define ENABLELARGEPAGE
+//#define ENABLELARGEPAGE
 
 class LargePageMemoryPool : public MemoryPool {
  public:
@@ -136,11 +136,15 @@ class LargePageMemoryPool : public MemoryPool {
   }
 
   void Free(uint8_t* buffer, int64_t size) override {
+#ifdef ENABLELARGEPAGE
     if (size < 2 * 1024 * 1024) {
       pool_->Free(buffer, size);
     } else {
       pool_->Free(buffer, size, ALIGNMENT);
     }
+#else
+      pool_->Free(buffer, size);
+#endif
   }
 
   int64_t bytes_allocated() const override { return pool_->bytes_allocated(); }
