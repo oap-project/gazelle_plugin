@@ -186,8 +186,7 @@ class Splitter {
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
   // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_validity_addrs_;
-  // cache if the column has null so far for any reducer. To bypass the reducer check
-  std::vector<bool> column_has_null_;
+
   // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
   // col partid
@@ -255,6 +254,8 @@ class Splitter {
   int64_t total_compress_time_ = 0;
   int64_t total_compute_pid_time_ = 0;
   int64_t peak_memory_allocated_ = 0;
+  int64_t src_null_cnt = 0;
+  int64_t dst_null_cnt = 0;
 
   std::vector<int64_t> partition_lengths_;
   std::vector<int64_t> raw_partition_lengths_;
