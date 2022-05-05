@@ -407,7 +407,7 @@ arrow::Status Splitter::Init() {
 
   // Allocate first buffer for split reducer
   ARROW_ASSIGN_OR_RAISE(combine_buffer_, arrow::AllocateResizableBuffer(
-                                             SPLIT_BUFFER_SIZE, options_.memory_pool));
+                                             0, options_.memory_pool));
   combine_buffer_->Resize(0, /*shrink_to_fit =*/false);
 
   return arrow::Status::OK();
@@ -505,8 +505,7 @@ arrow::Status Splitter::Stop() {
   }
   this->combine_buffer_.reset();
   this->schema_payload_.reset();
-
-  std::cout << "src null count " << src_null_cnt << " dst null cnt = " << dst_null_cnt << std::endl;
+  partition_fixed_width_buffers_.clear();
 
   // close data file output Stream
   RETURN_NOT_OK(data_file_os_->Close());
@@ -731,34 +730,30 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
       case arrow::NullType::type_id:
         break;
       default: {
-        try {
-          std::shared_ptr<arrow::Buffer> value_buffer;
-          if (column_type_id_[i]->id() == arrow::BooleanType::type_id) {
-            auto status = AllocateBufferFromPool(value_buffer,
-                                                 arrow::BitUtil::BytesForBits(new_size));
-            ARROW_RETURN_NOT_OK(status);
-          } else {
-            auto status = AllocateBufferFromPool(
-                value_buffer,
-                new_size * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
-            ARROW_RETURN_NOT_OK(status);
-          }
-          new_value_buffers.push_back(std::move(value_buffer));
-          if (input_fixed_width_has_null_[fixed_width_idx]) {
-            std::shared_ptr<arrow::Buffer> validity_buffer;
-            auto status = AllocateBufferFromPool(validity_buffer,
-                                                 arrow::BitUtil::BytesForBits(new_size));
-            ARROW_RETURN_NOT_OK(status);
-            //initialize all true once allocated
-            memset(validity_buffer->mutable_data(), 0xff, validity_buffer->capacity());
-            new_validity_buffers.push_back(std::move(validity_buffer));
-          } else {
-            new_validity_buffers.push_back(nullptr);
-          }
-          fixed_width_idx++;
-        } catch (const std::exception& e) {
-          std::cout << "exception captured " << e.what() << std::endl;
+        std::shared_ptr<arrow::Buffer> value_buffer;
+        if (column_type_id_[i]->id() == arrow::BooleanType::type_id) {
+          auto status = AllocateBufferFromPool(value_buffer,
+                                                arrow::BitUtil::BytesForBits(new_size));
+          ARROW_RETURN_NOT_OK(status);
+        } else {
+          auto status = AllocateBufferFromPool(
+              value_buffer,
+              new_size * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
+          ARROW_RETURN_NOT_OK(status);
         }
+        new_value_buffers.push_back(std::move(value_buffer));
+        if (input_fixed_width_has_null_[fixed_width_idx]) {
+          std::shared_ptr<arrow::Buffer> validity_buffer;
+          auto status = AllocateBufferFromPool(validity_buffer,
+                                                arrow::BitUtil::BytesForBits(new_size));
+          ARROW_RETURN_NOT_OK(status);
+          //initialize all true once allocated
+          memset(validity_buffer->mutable_data(), 0xff, validity_buffer->capacity());
+          new_validity_buffers.push_back(std::move(validity_buffer));
+        } else {
+          new_validity_buffers.push_back(nullptr);
+        }
+        fixed_width_idx++;
         break;
       }
     }
@@ -821,7 +816,7 @@ arrow::Status Splitter::AllocateNew(int32_t partition_id, int32_t new_size) {
               << std::to_string(partition_id) << std::endl;
     int64_t spilled_size;
     ARROW_ASSIGN_OR_RAISE(auto partition_to_spill, SpillLargestPartition(&spilled_size));
-    if (partition_to_spill == -1) {
+    if (partition_to_spill == -1) { 
       std::cout << "Failed to allocate new buffer for partition "
                 << std::to_string(partition_id) << ". No partition buffer to spill."
                 << std::endl;
@@ -1014,7 +1009,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     partition_buffer_idx_base_[pid] += partition_id_cnt_[pid];
   }
-  
+
   return arrow::Status::OK();
 }
 
