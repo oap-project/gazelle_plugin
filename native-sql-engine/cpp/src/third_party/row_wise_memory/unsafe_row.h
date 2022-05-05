@@ -47,14 +47,11 @@ struct UnsafeRow {
   UnsafeRow(int numFields) : numFields(numFields) {
     auto validity_size = (numFields / 8) + 1;
     cursor = validity_size;
-    data = (char*)nativeMalloc(TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
+    char stack_memory[TEMP_UNSAFEROW_BUFFER_SIZE];
+    data = (char*)&stack_memory;
     memset(data, 0, validity_size);
   }
-  ~UnsafeRow() {
-    if (data) {
-      nativeFree(data);
-    }
-  }
+  ~UnsafeRow() {}
   int sizeInBytes() { return cursor; }
   void reset() {
     memset(data, 0, cursor);
