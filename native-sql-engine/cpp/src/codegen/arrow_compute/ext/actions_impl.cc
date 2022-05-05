@@ -4833,7 +4833,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     auto input_array = std::make_shared<ArrayType>(in[0]);
     for (int id = 0; id < input_array->length(); id++) {
-      if (input_array.IsNull(id)) {
+      if (input_array->IsNull(id)) {
         if (ignore_nulls_) {
           continue;
         } else {
@@ -4843,8 +4843,8 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
           break;
         }
       } else {
-        data_ = input_array->GetView(id);
-        cache_first_[0] = data_[0];
+        auto first_value = input_array->GetView(id);
+        cache_first_[0] = first_value;
         cache_value_set_[0] = true;
         cache_validity_[0] = true;
         break;
@@ -5009,8 +5009,8 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     }
 
     // The input for first value.
-    in_ = std::make_shared<ArrayType>(in_list[0]);
-    auto value_set_array = std::make_shared<ArrayType>(in_list[1]);
+    in_ = in_list[0];
+    auto value_set_array = in_list[1];
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
     // Get the data array from the 1 index.
@@ -5077,7 +5077,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       return arrow::Status::OK();
     }
 
-    auto first_array = std::make_shared<ArrayType>(in[0]);
+    auto first_array = in[0];
     auto value_set_array = std::make_shared<ArrayType>(in[1]);
     for (int id = 0; id < first_array->length(); id++) {
       auto value_set = value_set_array->GetView(id);
@@ -5085,7 +5085,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
         continue;
       }
       // value is already set.
-      if (first_array.IsNull(id)) {
+      if (first_array->IsNull(id)) {
         cache_null_flag_[0] = true;
         cache_value_set_[0] = true;
         cache_validity_[0] = true;
@@ -5750,14 +5750,15 @@ arrow::Status MakeFirstPartialAction(
             ctx, type, res_type, ignore_nulls);                                     \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                       \
   } break;
-    PROCESS_SUPPORTED_TYPES(PROCESS)
-    case arrow::Decimal128Type::type_id: {
-      auto action_ptr =
-          std::make_shared<FirstPartialAction<arrow::Decimal128Type, arrow::Decimal128,
-              arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0], ignore_nulls);
-      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
-    } break;
+    // TODO: uncomment the below code after decimal is supported.
+    // PROCESS_SUPPORTED_TYPES(PROCESS)
+    // case arrow::Decimal128Type::type_id: {
+    //   auto action_ptr =
+    //       std::make_shared<FirstPartialAction<arrow::Decimal128Type, arrow::Decimal128,
+    //           arrow::Decimal128Type, arrow::Decimal128>>(
+    //           ctx, type, res_type_list[0], ignore_nulls);
+    //   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    // } break;
     case arrow::Date32Type::type_id: {
       auto res_type = arrow::TypeTraits<arrow::Date64Type>::type_singleton();
       auto action_ptr = std::make_shared<
@@ -5795,14 +5796,15 @@ arrow::Status MakeFirstFinalAction(
             ctx, type, res_type);                                                   \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                       \
   } break;
-    PROCESS_SUPPORTED_TYPES(PROCESS)
-    case arrow::Decimal128Type::type_id: {
-      auto action_ptr =
-          std::make_shared<FirstFinalAction<arrow::Decimal128Type, arrow::Decimal128,
-              arrow::Decimal128Type, arrow::Decimal128>>(
-              ctx, type, res_type_list[0]);
-      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
-    } break;
+    // TODO: uncomment the below code after decimal is supported.
+    // PROCESS_SUPPORTED_TYPES(PROCESS)
+    // case arrow::Decimal128Type::type_id: {
+    //   auto action_ptr =
+    //       std::make_shared<FirstFinalAction<arrow::Decimal128Type, arrow::Decimal128,
+    //           arrow::Decimal128Type, arrow::Decimal128>>(
+    //           ctx, type, res_type_list[0]);
+    //   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    // } break;
     case arrow::Date32Type::type_id: {
       auto res_type = arrow::TypeTraits<arrow::Date64Type>::type_singleton();
       auto action_ptr = std::make_shared<
