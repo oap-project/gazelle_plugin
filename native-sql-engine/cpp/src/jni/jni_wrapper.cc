@@ -1364,8 +1364,8 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
   }
 
   std::shared_ptr<ColumnarToRowConverter> columnar_to_row_converter =
-      std::make_shared<ColumnarToRowConverter>(rb, pool);
-  JniAssertOkOrThrow(columnar_to_row_converter->Init(),
+      std::make_shared<ColumnarToRowConverter>(pool);
+  JniAssertOkOrThrow(columnar_to_row_converter->Init(rb),
                      "Native convert columnar to row: Init "
                      "ColumnarToRowConverter failed");
   JniAssertOkOrThrow(
