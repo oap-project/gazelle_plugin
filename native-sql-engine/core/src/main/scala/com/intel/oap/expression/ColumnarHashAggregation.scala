@@ -227,9 +227,10 @@ class ColumnarHashAggregation(
               val childrenColumnarFuncNodeList =
                 aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
               TreeBuilder
-                .makeFunction("action_first", childrenColumnarFuncNodeList.asJava, resultType)
+                .makeFunction("action_first_partial", childrenColumnarFuncNodeList.asJava, resultType)
             case PartialMerge =>
-              throw new UnsupportedOperationException("PartialMerge is NOT supported!")
+              throw new UnsupportedOperationException("PartialMerge is NOT supported" +
+                " for First agg func.!")
             case Final =>
               val childrenColumnarFuncNodeList =
                 List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>

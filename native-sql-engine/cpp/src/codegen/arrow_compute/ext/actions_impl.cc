@@ -4832,7 +4832,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       return arrow::Status::OK();
     }
     auto input_array = std::make_shared<ArrayType>(in[0]);
-    // It is supposed there will be only one loop.
     for (int id = 0; id < input_array->length(); id++) {
       if (input_array.IsNull(id)) {
         if (ignore_nulls_) {
@@ -5081,7 +5080,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
     auto first_array = std::make_shared<ArrayType>(in[0]);
     auto value_set_array = std::make_shared<ArrayType>(in[1]);
-    // It is supposed that there is only one loop.
     for (int id = 0; id < first_array->length(); id++) {
       auto value_set = value_set_array->GetView(id);
       if (!value_set) {
