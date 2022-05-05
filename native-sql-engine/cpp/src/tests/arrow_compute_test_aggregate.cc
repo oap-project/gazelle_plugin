@@ -61,7 +61,7 @@ TEST(TestArrowCompute, AggregateTest) {
   auto n_min_str = TreeExprBuilder::MakeFunction("action_min", {arg_5}, utf8());
   auto n_max_str = TreeExprBuilder::MakeFunction("action_max", {arg_5}, utf8());
 
-  auto ignore_nulls_node = std::make_shared<LiteralNode>(arrow::boolean(), LiteralHolder(true), false);
+  auto ignore_nulls_node = std::make_shared<::gandiva::LiteralNode>(arrow::boolean(), ::gandiva::LiteralHolder(true), false);
   // The specified return type (utf8, here) doesn't take effect. Actually, the return types are utf8, boolean.
   auto n_first_partial = TreeExprBuilder::MakeFunction("action_first_partial", {arg_6, ignore_nulls_node}, utf8());
   auto n_first_final = TreeExprBuilder::MakeFunction("action_first_final", {arg_6, arg_7}, utf8());
@@ -79,7 +79,7 @@ TEST(TestArrowCompute, AggregateTest) {
   // first_partial has two output, one for first value and the other for value set.
   auto f_first_partial_1 = field("first_partial_1", utf8());
   auto f_first_partial_2 = field("first_partial_2", boolean());
-  auto f_first_final = field("first_final", utf8();
+  auto f_first_final = field("first_final", utf8());
   auto f_res = field("res", int32());
 
   auto n_proj = TreeExprBuilder::MakeFunction(
@@ -145,8 +145,8 @@ TEST(TestArrowCompute, AggregateTest) {
           "Bj", "LA", "HZ", "LA", "WH", "NY", "WH", "WH"])",
       R"(["ZZ", "SH", "SZ", "NY", "WH", "WH", "AU", "BJ", "SH", "DL", "cD", "CD", 
           "Bj", "LA", "HZ", "LA", "WH", "NY", "WH", "WH"])",
-      "[true, false, true, false, false, true, false, true, false, false, true,
-       false, true, false, false, true, false, true, false, false]"};
+      "[true, false, true, false, false, true, false, true, false, false, true, "
+       "false, true, false, false, true, false, true, false, false]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
   std::vector<std::string> input_data_2_string = {
@@ -162,8 +162,8 @@ TEST(TestArrowCompute, AggregateTest) {
           "Bj", "LA", "HZ", "LA", "WH", "NY", "WHZ", "wH"])",
       R"(["BJ", "SHL", "SZ", "NY", "WH", "WH", "au", "BJ", "SH", "DL", "cD", "CD", 
           "Bj", "LA", "HZ", "LA", "WH", "NY", "WHZ", "wH"])",
-      "[true, false, true, false, false, true, false, true, false, false, true,
-      false, true, false, false, true, false, true, false, false]"};
+      "[true, false, true, false, false, true, false, true, false, false, true, "
+      "false, true, false, false, true, false, true, false, false]"};
   MakeInputBatch(input_data_2_string, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
 

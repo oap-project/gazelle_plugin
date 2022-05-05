@@ -79,8 +79,8 @@ class HashAggregateKernel::Impl {
       }
       if (func_name.compare(0, 20, "action_first_partial") == 0) {
         // Get the second child node (ingoreNulls).
-        auto func_option_node = dynamic_cast<gandiva::LiteralNode*>(func_node.children().at(1).get());
-        action_option_map_.insert(std::make_pair(func_name, func_option_node);
+        auto func_option_node = dynamic_cast<gandiva::LiteralNode*>(func_node->children().at(1).get());
+        action_option_map_.insert(std::make_pair(func_name, func_option_node));
       }
       if (func_name.compare(0, 7, "action_") == 0) {
         action_name_list_.push_back(std::make_pair(func_name, type));
@@ -735,17 +735,17 @@ class HashAggregateKernel::Impl {
                               result_field_list[result_id + 1]};
         result_id += 2;
         bool ignore_nulls = true;
-        if (action_option_map[action_name] != action_option_map.end()) {
+        if (action_option_map.find(action_name) != action_option_map.end()) {
           auto option_node = action_option_map[action_name];
           ignore_nulls = arrow::util::get<bool>(option_node->holder());
         }
         RETURN_NOT_OK(MakeFirstPartialAction(ctx_, action_input_type, res_type_list,
-                                             &action));
+                                             &action, ignore_nulls));
       } else if (action_name.compare(0, 18, "action_first_final") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeFirstFinalAction(ctx_, action_input_type, res_type_list,
-                                                null_on_divide_by_zero, &action));
+                                            &action));
       } else {
         return arrow::Status::NotImplemented(action_name, " is not implementetd.");
       }
