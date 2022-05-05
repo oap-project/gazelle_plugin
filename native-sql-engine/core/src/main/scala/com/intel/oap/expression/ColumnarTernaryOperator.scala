@@ -73,7 +73,7 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
 }
 
 // StringSplit, not functionality ready, need array type support.
-class ColumnarStringSplit(child: Expression, regex: Expression,
+class ColumnarStringSplitPart(child: Expression, regex: Expression,
                           limit: Expression, original: Expression)
     extends StringSplit(child: Expression,
       regex: Expression, limit: Expression)
@@ -101,7 +101,7 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
     val (limit_node, limitType): (TreeNode, ArrowType) =
       limit.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val resultType = new ArrowType.Bool()
+    val resultType = new ArrowType.Utf8()
     val funcNode =
       TreeBuilder.makeFunction(
         "split_part", Lists.newArrayList(child_node, regex_node,
@@ -271,8 +271,8 @@ object ColumnarTernaryOperator {
     case ss: Substring =>
       new ColumnarSubString(src, arg1, arg2, ss)
       // Currently not supported.
-//    case a: StringSplit =>
-//      new ColumnarStringSplit(str, a.regex, a.limit, a)
+   case ssp: StringSplitPart =>
+     new ColumnarStringSplitPart(ssp.str, ssp.regex, ssp.limit, ssp)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
     case sl: StringLocate =>
