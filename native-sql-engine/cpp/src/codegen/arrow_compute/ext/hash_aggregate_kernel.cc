@@ -79,7 +79,7 @@ class HashAggregateKernel::Impl {
       }
       if (func_name.compare(0, 20, "action_first_partial") == 0) {
         // Get the second child node (ingoreNulls).
-        auto func_option_node = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+        auto func_option_node = dynamic_cast<gandiva::LiteralNode*>(func_node.children().at(1).get());
         action_option_map_.insert(std::make_pair(func_name, func_option_node);
       }
       if (func_name.compare(0, 7, "action_") == 0) {
@@ -649,7 +649,7 @@ class HashAggregateKernel::Impl {
       std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
       std::vector<gandiva::DataTypePtr> result_field_list,
       std::vector<std::shared_ptr<ActionBase>>* action_list,
-      std::vector<std::pair<std::string, gandiva::LiteralNode*>> action_option_map) {
+      std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map) {
     int result_id = 0;
     for (int action_id = 0; action_id < action_name_list.size(); action_id++) {
       std::shared_ptr<ActionBase> action;
@@ -733,7 +733,6 @@ class HashAggregateKernel::Impl {
       } else if (action_name.compare(0, 20 , "action_first_partial") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};
-        bool ignore_nulls;
         result_id += 2;
         bool ignore_nulls = true;
         if (action_option_map[action_name] != action_option_map.end()) {
@@ -741,7 +740,7 @@ class HashAggregateKernel::Impl {
           ignore_nulls = arrow::util::get<bool>(option_node->holder());
         }
         RETURN_NOT_OK(MakeFirstPartialAction(ctx_, action_input_type, res_type_list,
-                                                null_on_divide_by_zero, &action, ignore_nulls));
+                                             &action));
       } else if (action_name.compare(0, 18, "action_first_final") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
