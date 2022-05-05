@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <unordered_map>
 #include <vector>
 
 #include "codegen/arrow_compute/ext/actions_impl.h"
@@ -75,6 +76,11 @@ class HashAggregateKernel::Impl {
         }
       } else {
         type = func_node->return_type();
+      }
+      if (func_name.compare(0, 20, "action_first_partial") == 0) {
+        // Get the second child node (ingoreNulls).
+        auto func_option_node = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+        action_option_map_.insert(std::make_pair(func_name, func_option_node);
       }
       if (func_name.compare(0, 7, "action_") == 0) {
         action_name_list_.push_back(std::make_pair(func_name, type));
@@ -149,7 +155,8 @@ class HashAggregateKernel::Impl {
     for (auto field : result_field_list_) {
       res_type_list.push_back(field->type());
     }
-    RETURN_NOT_OK(PrepareActionList(action_name_list_, res_type_list, &action_impl_list));
+    RETURN_NOT_OK(PrepareActionList(action_name_list_, res_type_list, &action_impl_list,
+    action_option_map_));
 
     // 3. create post project
     std::shared_ptr<GandivaProjector> post_process_projector;
@@ -613,6 +620,8 @@ class HashAggregateKernel::Impl {
   std::vector<int> key_index_list_;
 
   std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list_;
+  // Keep the action name and the action option node.
+  std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map_; 
   std::vector<std::vector<int>> action_prepare_index_list_;
 
   bool getActionOption(std::string action_name, std::string action_name_prefix) {
@@ -626,10 +635,21 @@ class HashAggregateKernel::Impl {
     return option;
   }
 
+ // action_option_map is not supported in code gen.
   arrow::Status PrepareActionList(
       std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
       std::vector<gandiva::DataTypePtr> result_field_list,
       std::vector<std::shared_ptr<ActionBase>>* action_list) {
+    std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map;
+    // Just pass an empty map.
+    PrepareActionList(action_name_list, result_field_list, action_list, action_option_map);
+  }
+
+  arrow::Status PrepareActionList(
+      std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
+      std::vector<gandiva::DataTypePtr> result_field_list,
+      std::vector<std::shared_ptr<ActionBase>>* action_list,
+      std::vector<std::pair<std::string, gandiva::LiteralNode*>> action_option_map) {
     int result_id = 0;
     for (int action_id = 0; action_id < action_name_list.size(); action_id++) {
       std::shared_ptr<ActionBase> action;
@@ -710,14 +730,19 @@ class HashAggregateKernel::Impl {
         result_id += 1;
         RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list,
                                                 null_on_divide_by_zero, &action));
-      } else if (action_name.compare(0, , "action_first_partial") == 0) {
+      } else if (action_name.compare(0, 20 , "action_first_partial") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};
-        bool ignore_nulls; // TODO: how to pass ignore_nulls paramters.
+        bool ignore_nulls;
         result_id += 2;
+        bool ignore_nulls = true;
+        if (action_option_map[action_name] != action_option_map.end()) {
+          auto option_node = action_option_map[action_name];
+          ignore_nulls = arrow::util::get<bool>(option_node->holder());
+        }
         RETURN_NOT_OK(MakeFirstPartialAction(ctx_, action_input_type, res_type_list,
-                                                null_on_divide_by_zero, &action));
-      } else if (action_name.compare(0, , "action_first_final") == 0) {
+                                                null_on_divide_by_zero, &action, ignore_nulls));
+      } else if (action_name.compare(0, 18, "action_first_final") == 0) {
         auto res_type_list = {result_field_list[result_id]};
         result_id += 1;
         RETURN_NOT_OK(MakeFirstFinalAction(ctx_, action_input_type, res_type_list,
