@@ -25,6 +25,7 @@
 #include <gandiva/gandiva_aliases.h>
 #include <gandiva/projector.h>
 
+#include <numeric>
 #include <random>
 #include <utility>
 
@@ -102,6 +103,11 @@ class Splitter {
     return raw_partition_lengths_;
   }
 
+  int64_t RawPartitionBytes() const {
+    return std::accumulate(raw_partition_lengths_.begin(), raw_partition_lengths_.end(),
+                           0LL);
+  }
+
   // for testing
   const std::string& DataFile() const { return options_.data_file; }
 
@@ -166,38 +172,66 @@ class Splitter {
 
   class PartitionWriter;
 
+  // partid
   std::vector<int32_t> partition_buffer_size_;
-  std::vector<int32_t> partition_buffer_idx_base_;
-  std::vector<int32_t> partition_buffer_idx_offset_;
-
+  // partid
+  std::vector<uint16_t> partition_buffer_idx_base_;
+  // partid
+  // temp array to hold the destination pointer
+  std::vector<uint8_t*> partition_buffer_idx_offset_;
+  // partid
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
+  // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_validity_addrs_;
+  // cache if the column has null so far for any reducer. To bypass the reducer check
+  std::vector<bool> column_has_null_;
+  // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
+  // col partid
   std::vector<std::vector<std::vector<std::shared_ptr<arrow::ResizableBuffer>>>>
       partition_fixed_width_buffers_;
+  // col partid
   std::vector<std::vector<std::shared_ptr<arrow::BinaryBuilder>>>
       partition_binary_builders_;
+  // col partid
   std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
       partition_large_binary_builders_;
   std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
+  // col partid
+  // partid
   std::vector<std::vector<std::shared_ptr<arrow::ipc::IpcPayload>>>
       partition_cached_recordbatch_;
+  // partid
   std::vector<int64_t> partition_cached_recordbatch_size_;  // in bytes
 
+  // col
   std::vector<int32_t> fixed_width_array_idx_;
+  // col
   std::vector<int32_t> binary_array_idx_;
+  // col
   std::vector<int32_t> large_binary_array_idx_;
+  // col
   std::vector<int32_t> list_array_idx_;
+  // col
 
   bool empirical_size_calculated_ = false;
+  // col
   std::vector<int32_t> binary_array_empirical_size_;
+  // col
   std::vector<int32_t> large_binary_array_empirical_size_;
 
+  // col
   std::vector<bool> input_fixed_width_has_null_;
 
   // updated for each input record batch
-  std::vector<int32_t> partition_id_;
-  std::vector<int32_t> partition_id_cnt_;
+  // col
+  std::vector<uint16_t> partition_id_;
+  // [num_rows]
+  std::vector<uint16_t> reducer_offsets_;
+  // [num_partitions]
+  std::vector<uint16_t> reducer_offset_offset_;
+  // col
+  std::vector<uint16_t> partition_id_cnt_;
 
   int32_t num_partitions_;
   std::shared_ptr<arrow::Schema> schema_;

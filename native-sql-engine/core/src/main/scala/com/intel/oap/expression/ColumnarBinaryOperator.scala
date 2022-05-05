@@ -258,6 +258,12 @@ class ColumnarLessThan(left: Expression, right: Expression, original: Expression
     extends LessThan(left: Expression, right: Expression)
     with ColumnarExpression
     with Logging {
+
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    true && left.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args) &&
+    right.asInstanceOf[ColumnarExpression].supportColumnarCodegen(args)
+  }
+
   override def doColumnarCodeGen(args: java.lang.Object): (TreeNode, ArrowType) = {
     var (left_node, left_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
