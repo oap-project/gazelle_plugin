@@ -23,25 +23,24 @@ import com.intel.oap.spark.sql.ArrowWriteExtension.SimpleColumnarRule
 import com.intel.oap.spark.sql.ArrowWriteExtension.SimpleStrategy
 import com.intel.oap.spark.sql.execution.datasources.arrow.ArrowFileFormat
 import com.intel.oap.sql.execution.RowToArrowColumnarExec
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SparkSession, SparkSessionExtensions, Strategy}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.Attribute
-import org.apache.spark.sql.catalyst.expressions.codegen.CodegenContext
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan
 import org.apache.spark.sql.catalyst.plans.logical.OrderPreservingUnaryNode
-
 import org.apache.spark.sql.catalyst.rules.Rule
 import org.apache.spark.sql.catalyst.util.ArrayData
 import org.apache.spark.sql.catalyst.util.MapData
-import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec
-import org.apache.spark.sql.execution.CodegenSupport
 import org.apache.spark.sql.execution.ColumnarRule
 import org.apache.spark.sql.execution.ColumnarToRowExec
 import org.apache.spark.sql.execution.ColumnarToRowTransition
 import org.apache.spark.sql.execution.SparkPlan
+import org.apache.spark.sql.execution.adaptive.AdaptiveSparkPlanExec
 import org.apache.spark.sql.execution.command.DataWritingCommandExec
 import org.apache.spark.sql.execution.datasources.InsertIntoHadoopFsRelationCommand
+import org.apache.spark.sql.execution.datasources.parquet.ParquetFileFormat
 import org.apache.spark.sql.types.DataType
 import org.apache.spark.sql.types.Decimal
 import org.apache.spark.sql.vectorized.ColumnarBatch
@@ -71,8 +70,9 @@ object ArrowWriteExtension {
       case rc @ DataWritingCommandExec(cmd, ColumnarToRowExec(child)) =>
         cmd match {
           case command: InsertIntoHadoopFsRelationCommand =>
-            if (command.fileFormat
-                  .isInstanceOf[ArrowFileFormat]) {
+            // TODO: support writing parquet fileformat
+            if (command.fileFormat.isInstanceOf[ArrowFileFormat] &&
+                !command.fileFormat.isInstanceOf[ParquetFileFormat]) {
               rc.withNewChildren(Array(ColumnarToFakeRowAdaptor(child)))
             } else {
               plan.withNewChildren(plan.children.map(apply))
@@ -82,8 +82,9 @@ object ArrowWriteExtension {
       case rc @ DataWritingCommandExec(cmd, child) =>
         cmd match {
           case command: InsertIntoHadoopFsRelationCommand =>
-            if (command.fileFormat
-                  .isInstanceOf[ArrowFileFormat]) {
+            // TODO: support writing parquet fileformat
+            if (command.fileFormat.isInstanceOf[ArrowFileFormat] &&
+              !command.fileFormat.isInstanceOf[ParquetFileFormat]) {
               child match {
                 case c: AdaptiveSparkPlanExec =>
                   rc.withNewChildren(
