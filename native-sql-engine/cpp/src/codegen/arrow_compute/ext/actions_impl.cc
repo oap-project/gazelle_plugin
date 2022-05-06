@@ -4723,13 +4723,12 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// FirstPartialAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
-class FirstPartialAction {};
+// template <typename DataType, typename CType, typename ResDataType, typename ResCType,
+//           typename Enable = void>
+// class FirstPartialAction {};
 
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
-class FirstPartialAction<DataType, CType, ResDataType, ResCType,
-                     precompile::enable_if_number<DataType>> : public ActionBase {
+class FirstPartialAction : public ActionBase {
  public:
   FirstPartialAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
                  std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
@@ -4759,7 +4758,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_first_.size() <= max_group_id) {
-      cache_first_.resize(max_group_id + 1, 0);
+      cache_first_.resize(max_group_id + 1);
       cache_value_set_.resize(max_group_id + 1, false);
       cache_validity_.resize(max_group_id + 1, false);
       cache_null_flag_.resize(max_group_id + 1, false);
@@ -4810,7 +4809,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     } else {
       max_group_id = cache_first_.size() * 2;
     }
-    cache_first_.resize(max_group_id, 0);
+    cache_first_.resize(max_group_id);
     cache_value_set_.resize(max_group_id, false);
     cache_validity_.resize(max_group_id, false);
     cache_null_flag_.resize(max_group_id, false);
@@ -4821,7 +4820,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Evaluate(const arrow::ArrayVector& in) {
     if (cache_first_.empty()) {
       // To check the defaule value for the extended space.
-      cache_first_.resize(1, 0);
+      cache_first_.resize(1);
       cache_value_set_.resize(1, false);
       cache_validity_.resize(1, false);
       cache_null_flag_.resize(1, false);
@@ -4831,7 +4830,8 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     if (cache_value_set_[0]) {
       return arrow::Status::OK();
     }
-    auto input_array = std::make_shared<ArrayType>(in[0]);
+    // auto input_array = std::make_shared<ArrayType>(in[0]);
+    auto input_array = in[0];
     for (int id = 0; id < input_array->length(); id++) {
       if (input_array->IsNull(id)) {
         if (ignore_nulls_) {
@@ -4843,8 +4843,9 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
           break;
         }
       } else {
-        auto first_value = input_array->GetView(id);
-        cache_first_[0] = first_value;
+        // auto first_value = input_array->GetView(id);
+        auto first_value = const_cast<CType*>(input_array->data()->GetValues<CType>(id));
+        cache_first_[0] = *first_value;
         cache_value_set_[0] = true;
         cache_validity_[0] = true;
         break;
@@ -4898,6 +4899,8 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(ArrayList* out) override {
     // It is supposed that length is 1 if there is no group by.
+    first_builder_->Reset();
+    value_set_builder_->Reset();
     auto length = GetResultLength();
     for (uint64_t i = 0; i < length; i++) {
       if (cache_value_set_[i] && !cache_null_flag_[i]) {
@@ -4922,28 +4925,29 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  // arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
-  //   first_builder_->Reset();
-  //   value_set_builder_->Reset();
-  //   auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-  //   for (uint64_t i = 0; i < res_length; i++) {
-  //     if (cache_validity_[offset + i]) {
-  //       RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
-  //       RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
-  //     } else {
-  //       RETURN_NOT_OK(sum_builder_->AppendNull());
-  //       RETURN_NOT_OK(count_builder_->AppendNull());
-  //     }
-  //   }
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    first_builder_->Reset();
+    value_set_builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      if (cache_value_set_[offset + i] && !cache_null_flag_[offset + i]) {
+        RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset+ i]));
+      } else {
+        // first is not set or should be set to null.
+        RETURN_NOT_OK(first_builder_->AppendNull());
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
+      }
+    }
 
-  //   std::shared_ptr<arrow::Array> sum_array;
-  //   std::shared_ptr<arrow::Array> count_array;
-  //   RETURN_NOT_OK(sum_builder_->Finish(&sum_array));
-  //   RETURN_NOT_OK(count_builder_->Finish(&count_array));
-  //   out->push_back(sum_array);
-  //   out->push_back(count_array);
-  //   return arrow::Status::OK();
-  // }
+    std::shared_ptr<arrow::Array> first_array;
+    std::shared_ptr<arrow::Array> value_set_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    RETURN_NOT_OK(value_set_builder_->Finish(&value_set_array));
+    out->push_back(first_array);
+    out->push_back(value_set_array);
+    return arrow::Status::OK();
+  }
 
  private:
   using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
@@ -4970,13 +4974,12 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
 };
 
 //////////////// FirstFinalAction ///////////////
-template <typename DataType, typename CType, typename ResDataType, typename ResCType,
-          typename Enable = void>
-class FirstFinalAction {};
+// template <typename DataType, typename CType, typename ResDataType, typename ResCType,
+//           typename Enable = void>
+// class FirstFinalAction {};
 
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
-class FirstFinalAction<DataType, CType, ResDataType, ResCType,
-                     precompile::enable_if_number<DataType>> : public ActionBase {
+class FirstFinalAction: public ActionBase {
  public:
   FirstFinalAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
                  std::shared_ptr<arrow::DataType> res_type)
@@ -5001,7 +5004,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
                        std::function<arrow::Status()>* on_null) override {
     // resize result data
     if (cache_first_.size() <= max_group_id) {
-      cache_first_.resize(max_group_id + 1, 0);
+      cache_first_.resize(max_group_id + 1);
       cache_value_set_.resize(max_group_id + 1, false);
       cache_validity_.resize(max_group_id + 1, false);
       cache_null_flag_.resize(max_group_id + 1, false);
@@ -5055,7 +5058,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     } else {
       max_group_id = cache_first_.size() * 2;
     }
-    cache_first_.resize(max_group_id, 0);
+    cache_first_.resize(max_group_id);
     cache_value_set_.resize(max_group_id, false);
     cache_validity_.resize(max_group_id, false);
     cache_null_flag_.resize(max_group_id, false);
@@ -5066,7 +5069,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   arrow::Status Evaluate(const arrow::ArrayVector& in) {
     if (cache_first_.empty()) {
       // To check the defaule value for the extended space.
-      cache_first_.resize(1, 0);
+      cache_first_.resize(1);
       cache_value_set_.resize(1, false);
       cache_validity_.resize(1, true);  // TODO: cache_validity can be removed?
       cache_null_flag_.resize(1, false);
@@ -5078,10 +5081,12 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     }
 
     auto first_array = in[0];
-    auto value_set_array = std::make_shared<ArrayType>(in[1]);
+    // auto value_set_array = std::make_shared<ArrayType>(in[1]);
+    auto value_set_array = in[1];
     for (int id = 0; id < first_array->length(); id++) {
-      auto value_set = value_set_array->GetView(id);
-      if (!value_set) {
+      // auto value_set = value_set_array->GetView(id);
+      auto value_set = const_cast<bool*>(value_set_array->data()->GetValues<bool>(id));
+      if (!(*value_set)) {
         continue;
       }
       // value is already set.
@@ -5175,6 +5180,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
   arrow::Status Finish(ArrayList* out) override {
     // It is supposed that length is 1 if there is no group by.
+    first_builder_->Reset();
     auto length = GetResultLength();
     for (uint64_t i = 0; i < length; i++) {
       if (cache_value_set_[i]) {
@@ -5196,28 +5202,24 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
   uint64_t GetResultLength() { return length_; }
 
-  // arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
-  //   first_builder_->Reset();
-  //   value_set_builder_->Reset();
-  //   auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
-  //   for (uint64_t i = 0; i < res_length; i++) {
-  //     if (cache_validity_[offset + i]) {
-  //       RETURN_NOT_OK(sum_builder_->Append(cache_sum_[offset + i]));
-  //       RETURN_NOT_OK(count_builder_->Append(cache_count_[offset + i]));
-  //     } else {
-  //       RETURN_NOT_OK(sum_builder_->AppendNull());
-  //       RETURN_NOT_OK(count_builder_->AppendNull());
-  //     }
-  //   }
-
-  //   std::shared_ptr<arrow::Array> sum_array;
-  //   std::shared_ptr<arrow::Array> count_array;
-  //   RETURN_NOT_OK(sum_builder_->Finish(&sum_array));
-  //   RETURN_NOT_OK(count_builder_->Finish(&count_array));
-  //   out->push_back(sum_array);
-  //   out->push_back(count_array);
-  //   return arrow::Status::OK();
-  // }
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    first_builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      if (cache_value_set_[offset + i]) {
+        if (!cache_null_flag_[offset + i]) {
+          RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
+        } else {
+          // first is not set or should be set to null.
+          RETURN_NOT_OK(first_builder_->AppendNull());
+        }
+      }
+    }
+    std::shared_ptr<arrow::Array> first_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    out->push_back(first_array);
+    return arrow::Status::OK();
+  }
 
  private:
   using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
@@ -5766,6 +5768,12 @@ arrow::Status MakeFirstPartialAction(
           ctx, type, res_type, ignore_nulls);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
+    case arrow::StringType::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::StringType>::type_singleton();
+      auto action_ptr = std::make_shared<FirstPartialAction<arrow::StringType,
+                            std::string, arrow::StringType, std::string>>(ctx, type, res_type, ignore_nulls);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
     case arrow::BooleanType::type_id: {
       auto res_type = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
       auto action_ptr = std::make_shared<
@@ -5810,6 +5818,12 @@ arrow::Status MakeFirstFinalAction(
       auto action_ptr = std::make_shared<
           FirstFinalAction<arrow::Date32Type, int32_t, arrow::Date64Type, int64_t>>(
           ctx, type, res_type);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
+     case arrow::StringType::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::StringType>::type_singleton();
+      auto action_ptr = std::make_shared<FirstFinalAction<arrow::StringType,
+                            std::string, arrow::StringType, std::string>>(ctx, type, res_type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::BooleanType::type_id: {
