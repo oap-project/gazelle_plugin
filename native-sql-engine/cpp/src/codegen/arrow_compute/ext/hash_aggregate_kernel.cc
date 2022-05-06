@@ -642,7 +642,7 @@ class HashAggregateKernel::Impl {
       std::vector<std::shared_ptr<ActionBase>>* action_list) {
     std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map;
     // Just pass an empty map.
-    PrepareActionList(action_name_list, result_field_list, action_list, action_option_map);
+    return PrepareActionList(action_name_list, result_field_list, action_list, action_option_map);
   }
 
   arrow::Status PrepareActionList(
