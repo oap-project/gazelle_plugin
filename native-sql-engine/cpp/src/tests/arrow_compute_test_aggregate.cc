@@ -130,7 +130,7 @@ TEST(TestArrowCompute, AggregateTest) {
   ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
   aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
       aggr_result_iterator_base);
-
+    
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::string> input_data_string = {
       "[1, 2, 3, 4, 5, null, 4, 1, 2, 2, 1, 1, 1, 4, 4, 3, 5, 5, 5, 5]",
@@ -166,16 +166,16 @@ TEST(TestArrowCompute, AggregateTest) {
       "false, true, false, false, true, false, true, false, false]"};
   MakeInputBatch(input_data_2_string, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
-
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::vector<std::string> expected_result_string = {
       "[221]", "[39]",      "[221]", "[39]",      "[4.40724]", "[1]",
-      "[10]",  "[17.2996]", "[40]",  R"(["AU"])", R"(["wH"])", R"(["ZZ"])", "true", R"(["ZZ"])"};
+      "[10]",  "[17.2996]", "[40]",  R"(["AU"])", R"(["wH"])", R"(["ZZ"])", "[true]", R"(["ZZ"])"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {
     ASSERT_NOT_OK(aggr_result_iterator->Next(&result_batch));
+    // auto status = arrow::PrettyPrint(*result_batch.get(), 2, &std::cout);
     ASSERT_NOT_OK(Equals(*expected_result.get(), *result_batch.get()));
   }
 }
