@@ -19,6 +19,8 @@ package com.intel.oap.execution
 
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.vectorized._
+import org.apache.commons.lang3.exception.ExceptionUtils
+
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util._
@@ -94,7 +96,7 @@ class ColumnarDataSourceRDD(
             scanTime += (System.nanoTime() - beforeScan) / (1000 * 1000)
           } catch {
             case e: Throwable =>
-              val errmsg = e.getStackTrace.mkString("\n")
+              val errmsg = ExceptionUtils.getStackTrace(e)
               logError(s"hasNext got exception: $errmsg")
               valuePrepared = false
           }
