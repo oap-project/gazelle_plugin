@@ -1383,8 +1383,6 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
       partition_buffer_idx_offset.resize(partition_buffer_idx_base_.size());
       std::copy(partition_buffer_idx_base_.begin(), partition_buffer_idx_base_.end(),
                 partition_buffer_idx_offset.begin());
-      std::vector<uint16_t> nullcnt;
-      nullcnt.resize(num_partitions_,0);
       for (auto row = 0; row < num_rows; ++row) {
         auto pid = partition_id_[row];
         auto dst_offset = partition_buffer_idx_offset[pid];
