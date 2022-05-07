@@ -621,16 +621,14 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
                   num_rows * (arrow::bit_width(column_type_id_[i]->id()) >> 3));
           }
 
+          if ()
+          arrays[i] = arrow::MakeArray(
+              arrow::ArrayData::Make(schema_->field(i)->type(), num_rows,
+                                      {buffers[0],buffers[1]}));
           if (reset_buffers) {
-            arrays[i] = arrow::MakeArray(
-                arrow::ArrayData::Make(schema_->field(i)->type(), num_rows,
-                                       {buffers[0],buffers[1]}));
             partition_fixed_width_validity_addrs_[fixed_width_idx][partition_id] =
                 nullptr;
             partition_fixed_width_value_addrs_[fixed_width_idx][partition_id] = nullptr;
-          } else {
-            arrays[i] = arrow::MakeArray(arrow::ArrayData::Make(
-                schema_->field(i)->type(), num_rows, {buffers[0], buffers[1]}));
           }
           fixed_width_idx++;
           break;
@@ -937,6 +935,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
     auto col_idx = fixed_width_array_idx_[col];
     size_per_row += arrow::bit_width(column_type_id_[col_idx]->id()) / 8;
     //check input_fixed_width_has_null_[col] is cheaper than GetNullCount()
+    // once input_fixed_width_has_null_ is set to true, we didn't reset it after spill
     if (input_fixed_width_has_null_[col]==false && rb.column_data(col_idx)->GetNullCount() != 0) {
       input_fixed_width_has_null_[col] = true;
     }
@@ -1368,10 +1367,11 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
           // init bitmap if it's null, initialize the buffer as true
           auto new_size =
               std::max(partition_id_cnt_[pid], (uint16_t)options_.buffer_size);
-          ARROW_ASSIGN_OR_RAISE(
-              auto validity_buffer,
-              arrow::AllocateResizableBuffer(arrow::BitUtil::BytesForBits(new_size),
-                                             options_.memory_pool));
+
+          std::shared_ptr<arrow::Buffer> validity_buffer;
+          auto status = AllocateBufferFromPool(validity_buffer,
+                                                arrow::BitUtil::BytesForBits(new_size));
+          ARROW_RETURN_NOT_OK(status);
           dst_addrs[pid] = const_cast<uint8_t*>(validity_buffer->data());
           arrow::BitUtil::SetBitsTo(dst_addrs[pid], 0, partition_buffer_idx_base_[pid],
                                     true);
