@@ -54,8 +54,8 @@ class MyMemoryPool : public arrow::MemoryPool {
     }
     RETURN_NOT_OK(pool_->Allocate(size, out));
     stats_.UpdateAllocatedBytes(size);
-     //std::cout << "Allocate: size = " << size << " addr = " << std::hex <<
-     //(uint64_t)*out << std::dec << std::endl;
+    // std::cout << "Allocate: size = " << size << " addr = " << std::hex <<
+    //(uint64_t)*out << std::dec << std::endl;
     // print_trace();
     return arrow::Status::OK();
   }
@@ -67,19 +67,19 @@ class MyMemoryPool : public arrow::MemoryPool {
     auto old_ptr = *ptr;
     RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
     stats_.UpdateAllocatedBytes(new_size - old_size);
-     //std::cout << "Reallocate: old_size = " << old_size << " old_ptr = " << std::hex <<
-     //(uint64_t)old_ptr << std::dec << " new_size = " << new_size << " addr = " <<
-     //std::hex << (uint64_t)*ptr << std::dec << std::endl;
-    //print_trace();
+    // std::cout << "Reallocate: old_size = " << old_size << " old_ptr = " << std::hex <<
+    //(uint64_t)old_ptr << std::dec << " new_size = " << new_size << " addr = " <<
+    // std::hex << (uint64_t)*ptr << std::dec << std::endl;
+    // print_trace();
     return arrow::Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size) override {
     pool_->Free(buffer, size);
     stats_.UpdateAllocatedBytes(-size);
-     //std::cout << "Free: size = " << size << " addr = " << std::hex << (uint64_t)buffer
-     //<< std::dec << std::endl;
-    //print_trace();
+    // std::cout << "Free: size = " << size << " addr = " << std::hex << (uint64_t)buffer
+    //<< std::dec << std::endl;
+    // print_trace();
   }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
