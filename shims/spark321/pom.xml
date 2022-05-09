@@ -24,9 +24,42 @@
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>spark-sql-columnar-shims-spark321</artifactId>
+  <artifactId>spark-sql-columnar-shims-spark${spark.version}</artifactId>
   <name>${project.name.prefix} Shims for Spark 3.2.1</name>
   <packaging>jar</packaging>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>${project.prefix}-shims-common-spark${spark.version}</artifactId>
+      <version>${project.version}</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+      <version>${spark321.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.intel.oap</groupId>
+      <artifactId>spark-arrow-datasource-common-spark${spark.version}</artifactId>
+      <version>${project.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>11.0.2</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-common</artifactId>
+      <version>${hadoop.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 
   <build>
     <plugins>
@@ -44,6 +77,18 @@
             <phase>process-resources</phase>
             <goals>
               <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>doc-jar</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>add-source</goal>
             </goals>
           </execution>
           <execution>
@@ -71,44 +116,10 @@
         </configuration>
       </plugin>
     </plugins>
-
     <resources>
       <resource>
         <directory>src/main/resources</directory>
       </resource>
     </resources>
   </build>
-
-  <dependencies>
-    <dependency>
-      <groupId>com.intel.oap</groupId>
-      <artifactId>${project.prefix}-shims-common</artifactId>
-      <version>${project.version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_${scala.binary.version}</artifactId>
-      <version>${spark321.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.intel.oap</groupId>
-      <artifactId>spark-arrow-datasource-common</artifactId>
-      <version>${project.version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>com.google.guava</groupId>
-      <artifactId>guava</artifactId>
-      <version>11.0.2</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.hadoop</groupId>
-      <artifactId>hadoop-common</artifactId>
-      <version>${hadoop.version}</version>
-      <scope>provided</scope>
-    </dependency>
-  </dependencies>
 </project>

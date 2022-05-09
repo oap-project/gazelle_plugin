@@ -1135,7 +1135,6 @@ class HashAggregateKernel::Impl {
       if (post_process_projector_) {
         RETURN_NOT_OK(post_process_projector_->Evaluate(&outputs));
       }
-
       *out = arrow::RecordBatch::Make(result_schema_, out_length, outputs);
       return arrow::Status::OK();
     }

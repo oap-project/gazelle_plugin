@@ -2,15 +2,15 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>spark-arrow-datasource</artifactId>
-        <groupId>com.intel.oap</groupId>
-        <version>1.4.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
+  <parent>
+    <artifactId>spark-arrow-datasource</artifactId>
+    <groupId>com.intel.oap</groupId>
+    <version>1.4.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
 
   <modelVersion>4.0.0</modelVersion>
-  <artifactId>spark-arrow-datasource-common</artifactId>
+  <artifactId>spark-arrow-datasource-common-spark${spark.version}</artifactId>
 
   <dependencies>
     <dependency>
@@ -23,6 +23,7 @@
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-dataset</artifactId>
       <version>${arrow.version}</version>
+      <scope>compile</scope>
       <exclusions>
         <exclusion>
           <groupId>io.netty</groupId>
@@ -41,13 +42,39 @@
           <artifactId>jackson-annotations</artifactId>
         </exclusion>
       </exclusions>
-      <scope>compile</scope>
     </dependency>
   </dependencies>
+
   <build>
     <sourceDirectory>${project.basedir}/src/main/scala</sourceDirectory>
     <testSourceDirectory>${project.basedir}/src/test/scala</testSourceDirectory>
     <plugins>
+      <plugin>
+        <groupId>net.alchim31.maven</groupId>
+        <artifactId>scala-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>process-sources</id>
+            <goals>
+              <goal>compile</goal>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>doc-jar</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>attach-sources</id>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
@@ -94,6 +121,27 @@
             </configuration>
           </execution>
         </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-javadoc-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <phase>deploy</phase>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <encoding>UTF-8</encoding>
+          <charset>UTF-8</charset>
+          <additionalOptions>
+            <additionalOption>-Xdoclint:none</additionalOption>
+          </additionalOptions>
+        </configuration>
       </plugin>
     </plugins>
   </build>

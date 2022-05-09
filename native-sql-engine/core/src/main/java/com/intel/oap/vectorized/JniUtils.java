@@ -42,7 +42,7 @@ public class JniUtils {
   private static final String ARROW_LIBRARY_NAME = "libarrow.so.400.0.0";
   private static final String ARROW_PARENT_LIBRARY_NAME = "libarrow.so.400";
   private static final String GANDIVA_LIBRARY_NAME = "libgandiva.so.400.0.0";
-  private static final String GANDIVA_PARENT_LIBRARY_NAME = "libgandiva.so.400"; 
+  private static final String GANDIVA_PARENT_LIBRARY_NAME = "libgandiva.so.400";
   private static boolean isLoaded = false;
   private static boolean isCodegenDependencyLoaded = false;
   private static List<String> codegenJarsLoadedCache = new ArrayList<>();
