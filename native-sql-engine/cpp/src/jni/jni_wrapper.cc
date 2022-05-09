@@ -303,7 +303,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved) {
   arrow_columnar_to_row_info_class = CreateGlobalClassReference(
       env, "Lcom/intel/oap/vectorized/ArrowColumnarToRowInfo;");
   arrow_columnar_to_row_info_constructor =
-      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>", "(J[J[JJ)V");
+      GetMethodID(env, arrow_columnar_to_row_info_class, "<init>", "(J[I[IJ)V");
 
   return JNI_VERSION;
 }
@@ -1377,12 +1377,12 @@ Java_com_intel_oap_vectorized_ArrowColumnarToRowJniWrapper_nativeConvertColumnar
   int64_t instanceID =
       columnar_to_row_converter_holder_.Insert(columnar_to_row_converter);
 
-  auto offsets_arr = env->NewLongArray(num_rows);
-  auto offsets_src = reinterpret_cast<const jlong*>(offsets.data());
-  env->SetLongArrayRegion(offsets_arr, 0, num_rows, offsets_src);
-  auto lengths_arr = env->NewLongArray(num_rows);
-  auto lengths_src = reinterpret_cast<const jlong*>(lengths.data());
-  env->SetLongArrayRegion(lengths_arr, 0, num_rows, lengths_src);
+  auto offsets_arr = env->NewIntArray(num_rows);
+  auto offsets_src = reinterpret_cast<const jint*>(offsets.data());
+  env->SetIntArrayRegion(offsets_arr, 0, num_rows, offsets_src);
+  auto lengths_arr = env->NewIntArray(num_rows);
+  auto lengths_src = reinterpret_cast<const jint*>(lengths.data());
+  env->SetIntArrayRegion(lengths_arr, 0, num_rows, lengths_src);
   long address = reinterpret_cast<long>(columnar_to_row_converter->GetBufferAddress());
 
   jobject arrow_columnar_to_row_info = env->NewObject(
