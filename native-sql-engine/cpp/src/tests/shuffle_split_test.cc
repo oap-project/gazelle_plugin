@@ -22,9 +22,21 @@
 #include <arrow/pretty_print.h>
 #include <arrow/record_batch.h>
 #include <arrow/util/io_util.h>
+#include <execinfo.h>
 #include <gtest/gtest.h>
 
 #include <iostream>
+void print_trace(void) {
+  char** strings;
+  size_t i, size;
+  enum Constexpr { MAX_SIZE = 1024 };
+  void* array[MAX_SIZE];
+  size = backtrace(array, MAX_SIZE);
+  strings = backtrace_symbols(array, size);
+  for (i = 0; i < size; i++) printf("    %s\n", strings[i]);
+  puts("");
+  free(strings);
+}
 
 #include "shuffle/splitter.h"
 #include "tests/test_utils.h"
@@ -42,6 +54,9 @@ class MyMemoryPool : public arrow::MemoryPool {
     }
     RETURN_NOT_OK(pool_->Allocate(size, out));
     stats_.UpdateAllocatedBytes(size);
+    // std::cout << "Allocate: size = " << size << " addr = " << std::hex <<
+    //(uint64_t)*out << std::dec << std::endl;
+    // print_trace();
     return arrow::Status::OK();
   }
 
@@ -49,14 +64,22 @@ class MyMemoryPool : public arrow::MemoryPool {
     if (new_size > capacity_) {
       return Status::OutOfMemory("malloc of size ", new_size, " failed");
     }
+    auto old_ptr = *ptr;
     RETURN_NOT_OK(pool_->Reallocate(old_size, new_size, ptr));
     stats_.UpdateAllocatedBytes(new_size - old_size);
+    // std::cout << "Reallocate: old_size = " << old_size << " old_ptr = " << std::hex <<
+    //(uint64_t)old_ptr << std::dec << " new_size = " << new_size << " addr = " <<
+    // std::hex << (uint64_t)*ptr << std::dec << std::endl;
+    // print_trace();
     return arrow::Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size) override {
     pool_->Free(buffer, size);
     stats_.UpdateAllocatedBytes(-size);
+    // std::cout << "Free: size = " << size << " addr = " << std::hex << (uint64_t)buffer
+    //<< std::dec << std::endl;
+    // print_trace();
   }
 
   int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
@@ -287,6 +310,31 @@ TEST_F(SplitterTest, TestRoundRobinSplitter) {
   }
 }
 
+TEST_F(SplitterTest, TestSplitterMemoryLeak) {
+  std::shared_ptr<arrow::MemoryPool> pool =
+      std::make_shared<MyMemoryPool>(9 * 1024 * 1024);
+
+  int32_t num_partitions = 2;
+  split_options_.buffer_size = 4;
+  split_options_.memory_pool = pool.get();
+  split_options_.write_schema = false;
+
+  ARROW_ASSIGN_OR_THROW(splitter_,
+                        Splitter::Make("rr", schema_, num_partitions, split_options_));
+
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_2_));
+  ASSERT_NOT_OK(splitter_->Split(*input_batch_1_));
+
+  ASSERT_NOT_OK(splitter_->Stop());
+
+  ASSERT_TRUE(pool->bytes_allocated() == 0);
+  splitter_.reset();
+  ASSERT_TRUE(pool->bytes_allocated() == 0);
+
+  split_options_.memory_pool = arrow::default_memory_pool();
+}
+
 TEST_F(SplitterTest, TestHashSplitter) {
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
@@ -431,12 +479,13 @@ TEST_F(SplitterTest, TestSpillFailWithOutOfMemory) {
 }
 
 TEST_F(SplitterTest, TestSpillLargestPartition) {
-  std::shared_ptr<arrow::MemoryPool> pool = std::make_shared<MyMemoryPool>(4000000);
+  std::shared_ptr<arrow::MemoryPool> pool =
+      std::make_shared<MyMemoryPool>(9 * 1024 * 1024);
   //  pool = std::make_shared<arrow::LoggingMemoryPool>(pool.get());
 
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
-  split_options_.memory_pool = pool.get();
+  // split_options_.memory_pool = pool.get();
   split_options_.compression_type = arrow::Compression::UNCOMPRESSED;
   ARROW_ASSIGN_OR_THROW(splitter_,
                         Splitter::Make("rr", schema_, num_partitions, split_options_));
