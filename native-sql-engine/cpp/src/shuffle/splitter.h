@@ -48,6 +48,8 @@ class Splitter {
 
   virtual const std::shared_ptr<arrow::Schema>& input_schema() const { return schema_; }
 
+  typedef uint32_t row_offset_type;
+
   /**
    * Split input record batch into partition buffers according to the computed
    * partition id. The largest partition buffer will be spilled if memory
@@ -177,8 +179,8 @@ class Splitter {
 
   // partid
   std::vector<int32_t> partition_buffer_size_;
-  // partid
-  std::vector<uint16_t> partition_buffer_idx_base_;
+  // partid, value is reducer batch's offset, output rb rownum < 64k
+  std::vector<row_offset_type> partition_buffer_idx_base_;
   // partid
   // temp array to hold the destination pointer
   std::vector<uint8_t*> partition_buffer_idx_offset_;
@@ -231,14 +233,14 @@ class Splitter {
   std::vector<bool> input_fixed_width_has_null_;
 
   // updated for each input record batch
-  // col
+  // col; value is partition number, part_num < 64k
   std::vector<uint16_t> partition_id_;
-  // [num_rows]
-  std::vector<uint16_t> reducer_offsets_;
-  // [num_partitions]
-  std::vector<uint16_t> reducer_offset_offset_;
-  // col
-  std::vector<uint16_t> partition_id_cnt_;
+  // [num_rows] ; value is offset in input record batch; input rb rownum < 64k
+  std::vector<row_offset_type> reducer_offsets_;
+  // [num_partitions]; value is offset of row in record batch; input rb rownum < 64k
+  std::vector<row_offset_type> reducer_offset_offset_;
+  // col  ; value is reducer's row number for each input record batch; output rb rownum < 64k
+  std::vector<row_offset_type> partition_id_cnt_;
 
   int32_t num_partitions_;
   std::shared_ptr<arrow::Schema> schema_;
