@@ -183,7 +183,10 @@ class Splitter {
   std::vector<row_offset_type> partition_buffer_idx_base_;
   // partid
   // temp array to hold the destination pointer
-  std::vector<uint8_t*> partition_buffer_idx_offset_;
+  std::vector<uint8_t*> partition_buffer_dst_addr_;
+  // partid
+  // temp array to hold the destination offset
+  std::vector<row_offset_type> partition_buffer_dst_offset_;
   // partid
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
   // col partid
