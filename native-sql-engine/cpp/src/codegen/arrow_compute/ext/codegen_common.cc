@@ -622,6 +622,12 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
   }
   std::string env_gcc = std::string(env_gcc_);
 
+  const char* env_jar_ = std::getenv("JAR");
+  if (env_jar_ == nullptr) {
+    env_jar_ = "jar";
+  }
+  std::string env_jar = std::string(env_jar_);
+
   std::string env_codegen_option = " -O3 -march=native ";
   char* env_codegen_option_ = std::getenv("CODEGEN_OPTION");
 
@@ -664,9 +670,9 @@ arrow::Status CompileCodes(std::string codes, std::string signature) {
          " -lspark_columnar_jni -shared && ";
 
   // package
-  cmd += "cd " + outpath + " && jar -cf spark-columnar-plugin-codegen-precompile-" +
-         signature + ".jar spark-columnar-plugin-codegen-" + signature + ".so 2>" +
-         logfile;
+  cmd += "cd " + outpath + " && " + env_jar +
+         " -cf spark-columnar-plugin-codegen-precompile-" + signature +
+         ".jar spark-columnar-plugin-codegen-" + signature + ".so 2>" + logfile;
 
 #ifdef DEBUG
   std::cout << cmd << std::endl;
