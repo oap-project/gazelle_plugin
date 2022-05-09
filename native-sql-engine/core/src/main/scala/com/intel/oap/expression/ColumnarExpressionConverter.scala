@@ -161,6 +161,23 @@ object ColumnarExpressionConverter extends Logging {
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case ssi: SubstringIndex =>
+        check_if_no_calculation = false
+        logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
+        ColumnarTernaryOperator.create(
+          replaceWithColumnarExpression(
+            ssi.strExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            ssi.delimExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          replaceWithColumnarExpression(
+            ssi.countExpr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+          expr)
       case sr: StringRegexExpression =>
         check_if_no_calculation = false
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
@@ -437,7 +454,7 @@ object ColumnarExpressionConverter extends Logging {
       case regexp: RegExpReplace =>
         containsSubquery(regexp.subject) || containsSubquery(
           regexp.regexp) || containsSubquery(regexp.rep) || containsSubquery(regexp.pos)
-      case substrIndex: ColumnarSubstringIndex =>
+      case substrIndex: SubstringIndex =>
         substrIndex.children.map(containsSubquery).exists(_ == true)
       case sr: StringReplace =>
         containsSubquery(sr.srcExpr) ||
