@@ -384,6 +384,23 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
+        case First(_, _) =>
+          mode match {
+            case Partial =>
+              val first = aggregateFunc.asInstanceOf[First]
+              val aggBufferAttr = first.inputAggBufferAttributes
+              for (index <- 0 until aggBufferAttr.size) {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+                aggregateAttr += attr
+              }
+              res_index += 2
+            case PartialMerge =>
+              throw new UnsupportedOperationException("PartialMerge is NOT supported" +
+                " for First agg func.!")
+            case Final =>
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
+          }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }

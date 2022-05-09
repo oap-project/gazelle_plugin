@@ -184,6 +184,7 @@ class TypedActionCodeGenImpl {
       *action_codegen = std::make_shared<StddevSampFinalActionCodeGen>(
           name, child_list_, input_list_, input_fields_list_, named_projector_);
     } else {
+      //TODO: add first agg func support.
       std::cout << "action_name " << action_name_ << " is unrecognized" << std::endl;
       return arrow::Status::Invalid("Invalid action_name ", action_name_);
     }
