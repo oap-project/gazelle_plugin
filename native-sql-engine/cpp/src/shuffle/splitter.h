@@ -239,7 +239,8 @@ class Splitter {
   std::vector<row_offset_type> reducer_offsets_;
   // [num_partitions]; value is offset of row in record batch; input rb rownum < 64k
   std::vector<row_offset_type> reducer_offset_offset_;
-  // col  ; value is reducer's row number for each input record batch; output rb rownum < 64k
+  // col  ; value is reducer's row number for each input record batch; output rb rownum <
+  // 64k
   std::vector<row_offset_type> partition_id_cnt_;
 
   int32_t num_partitions_;
