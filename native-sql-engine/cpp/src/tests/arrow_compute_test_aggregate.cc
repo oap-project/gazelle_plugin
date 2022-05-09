@@ -63,8 +63,11 @@ TEST(TestArrowCompute, AggregateTest) {
 
   auto ignore_nulls_node = std::make_shared<::gandiva::LiteralNode>(arrow::boolean(), ::gandiva::LiteralHolder(true), false);
   // The specified return type (utf8, here) doesn't take effect. Actually, the return types are utf8, boolean.
-  auto n_first_partial = TreeExprBuilder::MakeFunction("action_first_partial", {arg_6, ignore_nulls_node}, utf8());
-  auto n_first_final = TreeExprBuilder::MakeFunction("action_first_final", {arg_6, arg_7}, utf8());
+  auto n_utf8_first_partial = TreeExprBuilder::MakeFunction("action_first_partial", {arg_6, ignore_nulls_node}, int32());
+  auto n_utf8_first_final = TreeExprBuilder::MakeFunction("action_first_final", {arg_6, arg_7}, utf8());
+  // For int32 input type test.
+  auto n_int32_first_partial = TreeExprBuilder::MakeFunction("action_first_partial", {arg_0, ignore_nulls_node}, int32());
+  auto n_int32_first_final = TreeExprBuilder::MakeFunction("action_first_final", {arg_0, arg_7}, int32());
 
   auto f_sum = field("sum", int64());
   auto f_count = field("count", int64());
@@ -77,9 +80,13 @@ TEST(TestArrowCompute, AggregateTest) {
   auto f_min_str = field("min_str", utf8());
   auto f_max_str = field("max_str", utf8());
   // first_partial has two output, one for first value and the other for value set.
-  auto f_first_partial_1 = field("first_partial_1", utf8());
+  auto f_utf8_first_partial_1 = field("utf8_first_partial_1", utf8());
   auto f_first_partial_2 = field("first_partial_2", boolean());
-  auto f_first_final = field("first_final", utf8());
+  auto f_utf8_first_final = field("utf8_first_final", utf8());
+  // For int32 input to test first agg func.
+  auto f_int32_first_partial_1 = field("int32_first_partial_1", int32());
+  auto f_int32_first_final = field("int32_first_final", int32());
+
   auto f_res = field("res", int32());
 
   auto n_proj = TreeExprBuilder::MakeFunction(
@@ -87,7 +94,8 @@ TEST(TestArrowCompute, AggregateTest) {
   auto n_action =
       TreeExprBuilder::MakeFunction("aggregateActions",
                                     {n_sum, n_count, n_sum_count, n_avg, n_min, n_max,
-                                     n_stddev, n_count_literal, n_min_str, n_max_str, n_first_partial, n_first_final},
+                                     n_stddev, n_count_literal, n_min_str, n_max_str, n_utf8_first_partial, n_utf8_first_final,
+                                     n_int32_first_partial, n_int32_first_final},
                                     uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
@@ -96,8 +104,10 @@ TEST(TestArrowCompute, AggregateTest) {
        TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_min),
        TreeExprBuilder::MakeField(f_max), TreeExprBuilder::MakeField(f_stddev),
        TreeExprBuilder::MakeField(f_count_literal), TreeExprBuilder::MakeField(f_min_str),
-       TreeExprBuilder::MakeField(f_max_str), TreeExprBuilder::MakeField(f_first_partial_1),
-       TreeExprBuilder::MakeField(f_first_partial_2), TreeExprBuilder::MakeField(f_first_final)},
+       TreeExprBuilder::MakeField(f_max_str), TreeExprBuilder::MakeField(f_utf8_first_partial_1),
+       TreeExprBuilder::MakeField(f_first_partial_2), TreeExprBuilder::MakeField(f_utf8_first_final),
+       TreeExprBuilder::MakeField(f_int32_first_partial_1), TreeExprBuilder::MakeField(f_first_partial_2),
+       TreeExprBuilder::MakeField(f_int32_first_final)},
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
       "resultExpressions",
@@ -106,8 +116,10 @@ TEST(TestArrowCompute, AggregateTest) {
        TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_min),
        TreeExprBuilder::MakeField(f_max), TreeExprBuilder::MakeField(f_stddev),
        TreeExprBuilder::MakeField(f_count_literal), TreeExprBuilder::MakeField(f_min_str),
-       TreeExprBuilder::MakeField(f_max_str), TreeExprBuilder::MakeField(f_first_partial_1),
-       TreeExprBuilder::MakeField(f_first_partial_2), TreeExprBuilder::MakeField(f_first_final)},
+       TreeExprBuilder::MakeField(f_max_str), TreeExprBuilder::MakeField(f_utf8_first_partial_1),
+       TreeExprBuilder::MakeField(f_first_partial_2), TreeExprBuilder::MakeField(f_utf8_first_final),
+       TreeExprBuilder::MakeField(f_int32_first_partial_1), TreeExprBuilder::MakeField(f_first_partial_2),
+       TreeExprBuilder::MakeField(f_int32_first_final)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
       "hashAggregateArrays", {n_proj, n_action, n_result, n_result_expr}, uint32());
@@ -117,8 +129,9 @@ TEST(TestArrowCompute, AggregateTest) {
   auto sch = arrow::schema({f0, f1, f2, f3, f4, f5, f6, f7});
   std::vector<std::shared_ptr<Field>> ret_types = {
       f_sum, f_count,  f_sum,           f_count,   f_avg,    f_min,
-      f_max, f_stddev, f_count_literal, f_min_str, f_max_str, f_first_partial_1,
-      f_first_partial_2, f_first_final};
+      f_max, f_stddev, f_count_literal, f_min_str, f_max_str, f_utf8_first_partial_1,
+      f_first_partial_2, f_utf8_first_final, f_int32_first_partial_1, f_first_partial_2,
+      f_int32_first_final};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
@@ -170,7 +183,8 @@ TEST(TestArrowCompute, AggregateTest) {
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::vector<std::string> expected_result_string = {
       "[221]", "[39]",      "[221]", "[39]",      "[4.40724]", "[1]",
-      "[10]",  "[17.2996]", "[40]",  R"(["AU"])", R"(["wH"])", R"(["ZZ"])", "[true]", R"(["ZZ"])"};
+      "[10]",  "[17.2996]", "[40]",  R"(["AU"])", R"(["wH"])", R"(["ZZ"])", "[true]",
+      R"(["ZZ"])", "[1]", "[true]", "[1]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

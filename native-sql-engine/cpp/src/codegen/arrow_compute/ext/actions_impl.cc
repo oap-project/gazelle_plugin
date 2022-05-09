@@ -4831,8 +4831,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     if (cache_value_set_[0]) {
       return arrow::Status::OK();
     }
-    // auto input_array = std::make_shared<ArrayType>(in[0]);
-    auto input_array = in[0];
+    auto input_array = std::make_shared<ArrayType>(in[0]);
     for (int id = 0; id < input_array->length(); id++) {
       if (input_array->IsNull(id)) {
         if (ignore_nulls_) {
@@ -4844,9 +4843,8 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
           break;
         }
       } else {
-        // auto first_value = input_array->GetView(id);
-        auto first_value = const_cast<CType*>(input_array->data()->GetValues<CType>(id));
-        cache_first_[0] = *first_value;
+        CType first_value = (CType)(input_array->GetView(id));
+        cache_first_[0] = first_value;
         cache_value_set_[0] = true;
         cache_validity_[0] = true;
         break;
@@ -5265,7 +5263,8 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     // prepare evaluate lambda
     // Get the data array from the 1 index.
     first_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
-    value_set_ = const_cast<bool*>(value_set_array->data()->GetValues<bool>(1));
+    value_set_ = std::make_shared<precompile::BooleanArray>(value_set_array);
+
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
       // If already set, no need to tackle.
@@ -5280,7 +5279,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
         cache_validity_[dest_group_id] = true;
       } else {
         // value is set for null case (implies not ignroe nulls).
-        if (value_set_[row_id]) {
+        if (value_set_->GetView(row_id)) {
           cache_null_flag_[dest_group_id] = true;
           cache_value_set_[dest_group_id] = true;
           cache_validity_[dest_group_id] = true;
@@ -5326,14 +5325,15 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (cache_value_set_[0]) {
       return arrow::Status::OK();
     }
-
-    auto first_array = in[0];
-    // auto value_set_array = std::make_shared<ArrayType>(in[1]);
-    auto value_set_array = in[1];
+    // The below code with GetValues can also be used to access id-th row data.
+    // But due to the incompatibility of bool type between arrow and C/C++, we
+    // cannot use it for accessing bool type data. Instead, GetView is used.
+    // *(const_cast<CType*>(in[0]->data()->GetValues<CType>(1, id)))
+    auto first_array = std::make_shared<ArrayType>(in[0]);
+    auto value_set_array = std::make_shared<precompile::BooleanArray>(in[1]);
     for (int id = 0; id < first_array->length(); id++) {
-      // auto value_set = value_set_array->GetView(id);
-      auto value_set = const_cast<bool*>(value_set_array->data()->GetValues<bool>(id));
-      if (!(*value_set)) {
+      auto value_set = value_set_array->GetView(id);
+      if (!value_set) {
         continue;
       }
       // value is already set.
@@ -5343,8 +5343,8 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
         cache_validity_[0] = true;
         break;
       } else {
-        auto first_value = const_cast<CType*>(first_array->data()->GetValues<CType>(id));
-        cache_first_[0] = *first_value;
+        auto first_value = first_array->GetView(id);
+        cache_first_[0] = first_value;
         cache_value_set_[0] = true;
         cache_validity_[0] = true;
         break;
@@ -5478,7 +5478,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   // input
   arrow::compute::ExecContext* ctx_;
   CType* first_;
-  bool* value_set_;
+  std::shared_ptr<precompile::BooleanArray> value_set_;
   std::shared_ptr<arrow::Array> in_;
   int row_id;
   int in_null_count_ = 0;
@@ -5530,8 +5530,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     auto value_set_array = in_list[1];
     in_null_count_ = in_->null_count();
     // prepare evaluate lambda
-    // Get the data array from the 1 index.
-    value_set_ = const_cast<bool*>(value_set_array->data()->GetValues<bool>(1));
+    value_set_ = std::make_shared<precompile::BooleanArray>(value_set_array);
     row_id = 0;
     *on_valid = [this](int dest_group_id) {
       // If already set, no need to tackle.
@@ -5546,7 +5545,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
         cache_validity_[dest_group_id] = true;
       } else {
         // value is set for null case (implies not ignroe nulls).
-        if (value_set_[row_id]) {
+        if (value_set_->GetView(row_id)) {
           cache_null_flag_[dest_group_id] = true;
           cache_value_set_[dest_group_id] = true;
           cache_validity_[dest_group_id] = true;
@@ -5594,12 +5593,10 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     }
 
     auto first_array = std::make_shared<ArrayType>(in[0]);
-    // auto value_set_array = std::make_shared<ArrayType>(in[1]);
-    auto value_set_array = in[1];
+    auto value_set_array = std::make_shared<precompile::BooleanArray>(in[1]);
     for (int id = 0; id < first_array->length(); id++) {
-      // auto value_set = value_set_array->GetView(id);
-      auto value_set = const_cast<bool*>(value_set_array->data()->GetValues<bool>(id));
-      if (!(*value_set)) {
+      auto value_set = value_set_array->GetView(id);
+      if (!value_set) {
         continue;
       }
       // value is already set.
@@ -5744,7 +5741,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   // input
   arrow::compute::ExecContext* ctx_;
   CType* first_;
-  bool* value_set_;
+  std::shared_ptr<precompile::BooleanArray> value_set_;
   std::shared_ptr<ArrayType> in_;
   int row_id;
   int in_null_count_ = 0;
@@ -6265,8 +6262,8 @@ arrow::Status MakeFirstPartialAction(
             ctx, type, res_type, ignore_nulls);                                     \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                       \
   } break;
+    PROCESS_SUPPORTED_TYPES(PROCESS)
     // TODO: uncomment the below code after decimal is supported.
-    // PROCESS_SUPPORTED_TYPES(PROCESS)
     // case arrow::Decimal128Type::type_id: {
     //   auto action_ptr =
     //       std::make_shared<FirstPartialAction<arrow::Decimal128Type, arrow::Decimal128,
@@ -6317,8 +6314,8 @@ arrow::Status MakeFirstFinalAction(
             ctx, type, res_type);                                                   \
     *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                       \
   } break;
+    PROCESS_SUPPORTED_TYPES(PROCESS)
     // TODO: uncomment the below code after decimal is supported.
-    // PROCESS_SUPPORTED_TYPES(PROCESS)
     // case arrow::Decimal128Type::type_id: {
     //   auto action_ptr =
     //       std::make_shared<FirstFinalAction<arrow::Decimal128Type, arrow::Decimal128,
