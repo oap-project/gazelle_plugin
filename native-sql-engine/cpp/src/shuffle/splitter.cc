@@ -1424,7 +1424,7 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
           partition_buffer_dst_offset_[pid]++;
         }
         // set the last byte
-        for (auto pid = 0; pid < num_partitions_; pid++) {
+        if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
           auto lastoffset = partition_buffer_dst_offset_[pid];
           uint8_t dst = dst_addrs[pid][lastoffset >> 3];
           uint8_t msk = 0x1 << (lastoffset & 0x7);
