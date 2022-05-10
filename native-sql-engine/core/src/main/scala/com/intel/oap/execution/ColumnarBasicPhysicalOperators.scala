@@ -20,6 +20,7 @@ package com.intel.oap.execution
 import com.intel.oap.GazellePluginConfig
 import com.intel.oap.expression._
 import com.intel.oap.vectorized._
+
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen._
@@ -37,7 +38,9 @@ import org.apache.arrow.gandiva.expression._
 import org.apache.arrow.vector.types.pojo.ArrowType
 import com.google.common.collect.Lists
 import com.intel.oap.GazellePluginConfig
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils;
+
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils;
 
 case class ColumnarConditionProjectExec(
     condition: Expression,
@@ -385,7 +388,7 @@ case class ColumnarLocalLimitExec(limit: Int, child: SparkPlan) extends LimitExe
               rowCount += delta.numRows
               if (rowCount > limit) {
                 val newSize = limit - preRowCount
-                delta.setNumRows(newSize)
+                SparkVectorUtils.setNumRows(delta, newSize)
               }
               delta
             } else {
@@ -461,7 +464,7 @@ case class ColumnarGlobalLimitExec(limit: Int, child: SparkPlan) extends LimitEx
               rowCount += delta.numRows
               if (rowCount > limit) {
                 val newSize = limit - preRowCount
-                delta.setNumRows(newSize)
+                SparkVectorUtils.setNumRows(delta, newSize)
               }
               delta
             } else {
