@@ -1424,13 +1424,15 @@ arrow::Status Splitter::SplitFixedWidthValidityBuffer(const arrow::RecordBatch& 
           partition_buffer_dst_offset_[pid]++;
         }
         // set the last byte
-        auto lastoffset = partition_buffer_dst_offset_[pid];
-        uint8_t dst = dst_addrs[pid][lastoffset >> 3];
-        uint8_t msk = 0x1 << (lastoffset & 0x7);
-        msk = ~(msk - 1);
-        msk &= ((lastoffset & 7) == 0) - 1;
-        dst |= msk;
-        dst_addrs[pid][lastoffset >> 3] = dst;
+        if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
+          auto lastoffset = partition_buffer_dst_offset_[pid];
+          uint8_t dst = dst_addrs[pid][lastoffset >> 3];
+          uint8_t msk = 0x1 << (lastoffset & 0x7);
+          msk = ~(msk - 1);
+          msk &= ((lastoffset & 7) == 0) - 1;
+          dst |= msk;
+          dst_addrs[pid][lastoffset >> 3] = dst;
+        }
       }
 #else
       for (auto row = 0; row < num_rows; ++row) {
