@@ -604,7 +604,7 @@ case class ColumnarHashAggregateExec(
           }
         case first: First =>
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
-            FloatType, DoubleType, DateType, BooleanType)
+            FloatType, DoubleType, DateType, BooleanType, StringType)
           val aggBufferAttr = first.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
           if (supportedTypes.indexOf(attr.dataType) == -1 &&
