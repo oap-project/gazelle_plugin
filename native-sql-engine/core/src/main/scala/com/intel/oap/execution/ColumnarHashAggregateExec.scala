@@ -632,8 +632,8 @@ case class ColumnarHashAggregateExec(
             FloatType, DoubleType, DateType, BooleanType, StringType)
           val aggBufferAttr = first.inputAggBufferAttributes
           val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
-          if (supportedTypes.indexOf(attr.dataType) == -1 &&
-            !attr.dataType.isInstanceOf[DecimalType]) {
+          // Currently, decimal is not supported.
+          if (supportedTypes.indexOf(attr.dataType) == -1) {
             throw new UnsupportedOperationException(s"${attr.dataType} is NOT" +
               s" supported in Columnar First!")
           }

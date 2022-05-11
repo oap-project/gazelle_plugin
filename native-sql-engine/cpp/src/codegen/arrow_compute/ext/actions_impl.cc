@@ -4761,7 +4761,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     if (cache_first_.size() <= max_group_id) {
       cache_first_.resize(max_group_id + 1);
       cache_value_set_.resize(max_group_id + 1, false);
-      cache_validity_.resize(max_group_id + 1, false);
       cache_null_flag_.resize(max_group_id + 1, false);
       length_ = cache_first_.size();
     }
@@ -4782,13 +4781,11 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       if (!is_null) {
         cache_first_[dest_group_id] = data_[row_id];
         cache_value_set_[dest_group_id] = true;
-        cache_validity_[dest_group_id] = true;
       } else {
         // Handle null case.
         if (!ignore_nulls_) {
           cache_value_set_[dest_group_id] = true;
           cache_null_flag_[dest_group_id] = true;
-          cache_validity_[dest_group_id] = true;
         }
       }
       row_id++;
@@ -4812,7 +4809,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     cache_first_.resize(max_group_id);
     cache_value_set_.resize(max_group_id, false);
-    cache_validity_.resize(max_group_id, false);
     cache_null_flag_.resize(max_group_id, false);
     return arrow::Status::OK();
   }
@@ -4823,7 +4819,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       // To check the defaule value for the extended space.
       cache_first_.resize(1);
       cache_value_set_.resize(1, false);
-      cache_validity_.resize(1, false);
       cache_null_flag_.resize(1, false);
       length_ = 1;
     }
@@ -4839,14 +4834,12 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
         } else {
           cache_null_flag_[0] = true;
           cache_value_set_[0] = true;
-          cache_validity_[0] = true;
           break;
         }
       } else {
         CType first_value = (CType)(input_array->GetView(id));
         cache_first_[0] = first_value;
         cache_value_set_[0] = true;
-        cache_validity_[0] = true;
         break;
       }
     }
@@ -4868,7 +4861,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     cache_first_[dest_group_id] = *(CType*)data;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
     return arrow::Status::OK();
   }
 
@@ -4892,7 +4884,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     cache_null_flag_[dest_group_id] = true;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
     return arrow::Status::OK();
   }
 
@@ -4967,7 +4958,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   // result
   std::vector<CType> cache_first_;
   std::vector<bool> cache_value_set_;
-  std::vector<bool> cache_validity_;
   std::vector<bool> cache_null_flag_;
   uint64_t length_ = 0;
 };
@@ -5007,7 +4997,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     if (cache_first_.size() <= max_group_id) {
       cache_first_.resize(max_group_id + 1);
       cache_value_set_.resize(max_group_id + 1, false);
-      cache_validity_.resize(max_group_id + 1, false);
       cache_null_flag_.resize(max_group_id + 1, false);
       length_ = cache_first_.size();
     }
@@ -5027,13 +5016,11 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       if (!is_null) {
         cache_first_[dest_group_id] = in_->GetString(row_id);
         cache_value_set_[dest_group_id] = true;
-        cache_validity_[dest_group_id] = true;
       } else {
         // Handle null case.
         if (!ignore_nulls_) {
           cache_value_set_[dest_group_id] = true;
           cache_null_flag_[dest_group_id] = true;
-          cache_validity_[dest_group_id] = true;
         }
       }
       row_id++;
@@ -5057,7 +5044,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     cache_first_.resize(max_group_id);
     cache_value_set_.resize(max_group_id, false);
-    cache_validity_.resize(max_group_id, false);
     cache_null_flag_.resize(max_group_id, false);
     return arrow::Status::OK();
   }
@@ -5068,7 +5054,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
       // To check the defaule value for the extended space.
       cache_first_.resize(1);
       cache_value_set_.resize(1, false);
-      cache_validity_.resize(1, false);
       cache_null_flag_.resize(1, false);
       length_ = 1;
     }
@@ -5084,14 +5069,12 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
         } else {
           cache_null_flag_[0] = true;
           cache_value_set_[0] = true;
-          cache_validity_[0] = true;
           break;
         }
       } else {
         auto first_value = input_array->GetString(id);
         cache_first_[0] = first_value;
         cache_value_set_[0] = true;
-        cache_validity_[0] = true;
         break;
       }
     }
@@ -5113,7 +5096,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     cache_first_[dest_group_id] = *(CType*)data;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
     return arrow::Status::OK();
   }
 
@@ -5137,7 +5119,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     }
     cache_null_flag_[dest_group_id] = true;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
     return arrow::Status::OK();
   }
 
@@ -5212,7 +5193,6 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
   // result
   std::vector<CType> cache_first_;
   std::vector<bool> cache_value_set_;
-  std::vector<bool> cache_validity_;
   std::vector<bool> cache_null_flag_;
   uint64_t length_ = 0;
 };
@@ -5251,7 +5231,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (cache_first_.size() <= max_group_id) {
       cache_first_.resize(max_group_id + 1);
       cache_value_set_.resize(max_group_id + 1, false);
-      cache_validity_.resize(max_group_id + 1, false);
       cache_null_flag_.resize(max_group_id + 1, false);
       length_ = cache_first_.size();
     }
@@ -5276,13 +5255,11 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       if (!is_null) {
         cache_first_[dest_group_id] = first_[row_id];
         cache_value_set_[dest_group_id] = true;
-        cache_validity_[dest_group_id] = true;
       } else {
         // value is set for null case (implies not ignroe nulls).
         if (value_set_->GetView(row_id)) {
           cache_null_flag_[dest_group_id] = true;
           cache_value_set_[dest_group_id] = true;
-          cache_validity_[dest_group_id] = true;
         }
       }
       row_id++;
@@ -5306,7 +5283,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     }
     cache_first_.resize(max_group_id);
     cache_value_set_.resize(max_group_id, false);
-    cache_validity_.resize(max_group_id, false);
     cache_null_flag_.resize(max_group_id, false);
     return arrow::Status::OK();
   }
@@ -5317,7 +5293,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       // To check the defaule value for the extended space.
       cache_first_.resize(1);
       cache_value_set_.resize(1, false);
-      cache_validity_.resize(1, true);  // TODO: cache_validity can be removed?
       cache_null_flag_.resize(1, false);
       length_ = 1;
     }
@@ -5340,13 +5315,11 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       if (first_array->IsNull(id)) {
         cache_null_flag_[0] = true;
         cache_value_set_[0] = true;
-        cache_validity_[0] = true;
         break;
       } else {
         auto first_value = first_array->GetView(id);
         cache_first_[0] = first_value;
         cache_value_set_[0] = true;
-        cache_validity_[0] = true;
         break;
       }
     }
@@ -5378,7 +5351,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
     cache_first_[dest_group_id] = *(CType*)data1;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
 
     return arrow::Status::OK();
   }
@@ -5408,7 +5380,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
     cache_null_flag_[dest_group_id] = true;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
 
     return arrow::Status::OK();
   }
@@ -5485,7 +5456,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   // result
   std::vector<CType> cache_first_;
   std::vector<bool> cache_value_set_;
-  std::vector<bool> cache_validity_;
   std::vector<bool> cache_null_flag_;
   uint64_t length_ = 0;
 };
@@ -5520,7 +5490,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (cache_first_.size() <= max_group_id) {
       cache_first_.resize(max_group_id + 1);
       cache_value_set_.resize(max_group_id + 1, false);
-      cache_validity_.resize(max_group_id + 1, false);
       cache_null_flag_.resize(max_group_id + 1, false);
       length_ = cache_first_.size();
     }
@@ -5542,13 +5511,11 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       if (!is_null) {
         cache_first_[dest_group_id] = in_->GetString(row_id);
         cache_value_set_[dest_group_id] = true;
-        cache_validity_[dest_group_id] = true;
       } else {
         // value is set for null case (implies not ignroe nulls).
         if (value_set_->GetView(row_id)) {
           cache_null_flag_[dest_group_id] = true;
           cache_value_set_[dest_group_id] = true;
-          cache_validity_[dest_group_id] = true;
         }
       }
       row_id++;
@@ -5572,7 +5539,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     }
     cache_first_.resize(max_group_id);
     cache_value_set_.resize(max_group_id, false);
-    cache_validity_.resize(max_group_id, false);
     cache_null_flag_.resize(max_group_id, false);
     return arrow::Status::OK();
   }
@@ -5583,7 +5549,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       // To check the defaule value for the extended space.
       cache_first_.resize(1);
       cache_value_set_.resize(1, false);
-      cache_validity_.resize(1, true);  // TODO: cache_validity can be removed?
       cache_null_flag_.resize(1, false);
       length_ = 1;
     }
@@ -5603,13 +5568,11 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
       if (first_array->IsNull(id)) {
         cache_null_flag_[0] = true;
         cache_value_set_[0] = true;
-        cache_validity_[0] = true;
         break;
       } else {
         auto first_value = first_array->GetString(id);
         cache_first_[0] = first_value;
         cache_value_set_[0] = true;
-        cache_validity_[0] = true;
         break;
       }
     }
@@ -5641,7 +5604,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
     cache_first_[dest_group_id] = *(CType*)data1;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
 
     return arrow::Status::OK();
   }
@@ -5671,7 +5633,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 
     cache_null_flag_[dest_group_id] = true;
     cache_value_set_[dest_group_id] = true;
-    cache_validity_[dest_group_id] = true;
 
     return arrow::Status::OK();
   }
@@ -5748,7 +5709,6 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
   // result
   std::vector<CType> cache_first_;
   std::vector<bool> cache_value_set_;
-  std::vector<bool> cache_validity_;
   std::vector<bool> cache_null_flag_;
   uint64_t length_ = 0;
 };
