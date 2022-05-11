@@ -677,14 +677,20 @@ case class ColumnarHashAggregateExec(
 
   override def supportColumnarCodegen: Boolean = {
     for (expr <- aggregateExpressions) {
+      // TODO: close the gap in supporting code gen.
+      expr.aggregateFunction match {
+        case _: First =>
+          return false
+        case _ =>
+      }
       val internalExpressionList = expr.aggregateFunction.children
       for (expr <- internalExpressionList) {
         val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
+          Lists.newArrayList())) {
           return false
         }
       }
-
     }
     return true
   }
