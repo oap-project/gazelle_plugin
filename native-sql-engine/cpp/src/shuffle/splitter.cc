@@ -1175,24 +1175,7 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
 #endif
       case 1:  // arrow::BooleanType::type_id:
 #ifdef PROCESSROW
-        // assume batch size = 32k; reducer# = 4K; row/reducer = 8
-        for (auto pid = 0; pid < num_partitions_; pid++) {
-          auto dst_pid_base =
-              reinterpret_cast<uint8_t*>(partition_buffer_dst_addr_[pid]); /*32k*/
-          auto r = reducer_offset_offset_[pid];                            /*8k*/
-          auto size = reducer_offset_offset_[pid + 1];
-          row_offset_type dst_offset = partition_buffer_idx_base_[pid];
-          for (r; r < size; r++) {
-            auto src_offset = reducer_offsets_[r]; /*16k*/
-            uint8_t dst = dst_addrs[pid][dst_offset >> 3];
-            dst ^=
-                (dst >> (dst_offset & 7) ^ src_addr[src_offset >> 3] >> (src_offset & 7))
-                << (dst_offset & 7);
-            dst_addrs[pid][dst_offset >> 3] = dst;
-            _mm_prefetch(&(src_addr)[src_offset + 64], _MM_HINT_T0);
-            dst_offset++;
-          }
-        }
+        RETURN_NOT_OK(SplitBoolType(src_addr, dst_addrs));
 #else
         std::copy(partition_buffer_idx_base_.begin(), partition_buffer_idx_base_.end(),
                   partition_buffer_dst_offset_.begin());
@@ -1381,7 +1364,7 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
   return arrow::Status::OK();
 }
 #endif
-arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr, std::vector<uint8_t*>& dst_addrs)
+arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr, const std::vector<uint8_t*>& dst_addrs)
 {
   // assume batch size = 32k; reducer# = 4K; row/reducer = 8
   for (auto pid = 0; pid < num_partitions_; pid++) {
@@ -1408,6 +1391,7 @@ arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr, std::vector<uint8
         uint8_t src=0;
         auto src_offset = reducer_offsets_[r]; /*16k*/
         src = src_addr[src_offset >> 3];
+        _mm_prefetch(&(src_addr)[(src_offset>>3) + 64], _MM_HINT_T0);
         dst = src >> (src_offset & 7) | 0xfe; // get the bit in bit 0, other bits set to 1
 
         src_offset = reducer_offsets_[r+1]; /*16k*/
@@ -1441,7 +1425,8 @@ arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr, std::vector<uint8
         dst_addrs[pid][dst_offset >> 3] = dst;
         dst_offset+=8;
       }
-      dst = dst_addrs[pid][dst_offset >> 3];
+      //last byte, set it to 0xff is ok
+      dst = 0xff;
       dst_idx_byte=0;
       for (r; r < size; r++,dst_idx_byte++) {
         auto src_offset = reducer_offsets_[r]; /*16k*/
