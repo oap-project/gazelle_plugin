@@ -26,9 +26,11 @@ import com.intel.oap.vectorized.ArrowWritableColumnVector
 import org.apache.arrow.vector.VectorSchemaRoot
 import org.apache.arrow.vector.ipc.ArrowStreamReader
 import org.apache.arrow.vector.types.pojo.{ArrowType, Field, Schema}
+
 import org.apache.spark.{SparkEnv, TaskContext}
 import org.apache.spark.api.python.{BasePythonRunner, ChainedPythonFunctions, SpecialLengths}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils
+import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.util.ArrowUtils
 import org.apache.spark.sql.vectorized.{ColumnVector, ColumnarBatch}
@@ -85,7 +87,7 @@ abstract class BasePythonRunnerChild(funcs: Seq[ChainedPythonFunctions],
             batchLoaded = reader.loadNextBatch()
             if (batchLoaded) {
               val batch = new ColumnarBatch(vectors)
-              batch.setNumRows(root.getRowCount)
+              SparkVectorUtils.setNumRows(batch, root.getRowCount)
               batch
             } else {
               reader.close(false)

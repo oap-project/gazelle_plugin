@@ -81,6 +81,18 @@ object SparkVectorUtils {
     }
   }
 
+  def setNumRows(batch: ColumnarBatch, numRows: Int): Unit = {
+    batch.setNumRows(numRows)
+    for (i <- 0 until batch.numCols()) {
+      val vector = batch.column(i)
+      vector match {
+        case av: ArrowWritableColumnVector =>
+          av.setValueCount(numRows)
+        case _ =>
+      }
+    }
+  }
+
   def appendNodes(
       vector: FieldVector,
       nodes: java.util.List[ArrowFieldNode],
