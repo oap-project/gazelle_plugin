@@ -26,13 +26,13 @@
 #include <gandiva/projector.h>
 #include <gandiva/tree_expr_builder.h>
 #include <immintrin.h>
+#include <x86intrin.h>
 
 #include <cstring>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <utility>
-#include <x86intrin.h>
 
 #include "shuffle/utils.h"
 #include "utils/macros.h"
@@ -946,7 +946,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
     // check input_fixed_width_has_null_[col] is cheaper than GetNullCount()
     //  once input_fixed_width_has_null_ is set to true, we didn't reset it after spill
     if (input_fixed_width_has_null_[col] == false &&
-        rb.column_data(col_idx)->GetNullCount() != 0) {
+        rb.column_data(col_idx)->GetNullCount() > 0) {
       input_fixed_width_has_null_[col] = true;
     }
   }
@@ -1364,78 +1364,92 @@ arrow::Status Splitter::SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& 
   return arrow::Status::OK();
 }
 #endif
-arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr, const std::vector<uint8_t*>& dst_addrs)
-{
+arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr,
+                                      const std::vector<uint8_t*>& dst_addrs) {
   // assume batch size = 32k; reducer# = 4K; row/reducer = 8
   for (auto pid = 0; pid < num_partitions_; pid++) {
     // set the last byte
-    if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
-
-      auto r = reducer_offset_offset_[pid];                            /*8k*/
+    auto dstaddr = dst_addrs[pid];
+    if (partition_id_cnt_[pid] > 0 && dstaddr != nullptr) {
+      auto r = reducer_offset_offset_[pid]; /*8k*/
       auto size = reducer_offset_offset_[pid + 1];
       row_offset_type dst_offset = partition_buffer_idx_base_[pid];
       row_offset_type dst_offset_in_byte = (8 - (dst_offset & 0x7)) & 0x7;
       row_offset_type dst_idx_byte = dst_offset_in_byte;
-      uint8_t dst = dst_addrs[pid][dst_offset >> 3];
-      for (r; r < size && dst_idx_byte>0; r++, dst_idx_byte--) {
+      uint8_t dst = dstaddr[dst_offset >> 3];
+      if (pid + 1 < num_partitions_) {
+        _mm_prefetch(&dstaddr[partition_buffer_idx_base_[pid + 1] >> 3], _MM_HINT_T1);
+      }
+      for (r; r < size && dst_idx_byte > 0; r++, dst_idx_byte--) {
         auto src_offset = reducer_offsets_[r]; /*16k*/
         uint8_t src = src_addr[src_offset >> 3];
-        src = src >> (src_offset & 7) | 0xfe; // get the bit in bit 0, other bits set to 1
-        src = __rolb(src, 8-dst_idx_byte);
-        dst = dst & src; // only take the useful bit.
+        src =
+            src >> (src_offset & 7) | 0xfe;  // get the bit in bit 0, other bits set to 1
+        src = __rolb(src, 8 - dst_idx_byte);
+        dst = dst & src;  // only take the useful bit.
       }
-      dst_addrs[pid][dst_offset >> 3] = dst;
+      dstaddr[dst_offset >> 3] = dst;
       dst_offset += dst_offset_in_byte;
-      //now dst_offset is 8 aligned
-      for (r; r + 8 < size ; r+=8) {
-        uint8_t src=0;
+      // now dst_offset is 8 aligned
+      for (r; r + 8 < size; r += 8) {
+        uint8_t src = 0;
         auto src_offset = reducer_offsets_[r]; /*16k*/
         src = src_addr[src_offset >> 3];
-        _mm_prefetch(&(src_addr)[(src_offset>>3) + 64], _MM_HINT_T0);
-        dst = src >> (src_offset & 7) | 0xfe; // get the bit in bit 0, other bits set to 1
+        _mm_prefetch(&(src_addr)[(src_offset >> 3) + 64], _MM_HINT_T0);
+        dst =
+            src >> (src_offset & 7) | 0xfe;  // get the bit in bit 0, other bits set to 1
 
-        src_offset = reducer_offsets_[r+1]; /*16k*/
+        src_offset = reducer_offsets_[r + 1]; /*16k*/
         src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 1 | 0xfd; // get the bit in bit 0, other bits set to 1
+        dst &= src >> (src_offset & 7) << 1 |
+               0xfd;  // get the bit in bit 0, other bits set to 1
 
-        src_offset = reducer_offsets_[r+2]; /*16k*/
+        src_offset = reducer_offsets_[r + 2]; /*16k*/
         src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 2 | 0xfb; // get the bit in bit 0, other bits set to 1
+        dst &= src >> (src_offset & 7) << 2 |
+               0xfb;  // get the bit in bit 0, other bits set to 1
 
-        src_offset = reducer_offsets_[r+3]; /*16k*/
+        src_offset = reducer_offsets_[r + 3]; /*16k*/
         src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 3 | 0xf7; // get the bit in bit 0, other bits set to 1
+        dst &= src >> (src_offset & 7) << 3 |
+               0xf7;  // get the bit in bit 0, other bits set to 1
 
-        src_offset = reducer_offsets_[r+4]; /*16k*/
+        src_offset = reducer_offsets_[r + 4]; /*16k*/
         src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 4 | 0xef; // get the bit in bit 0, other bits set to 1
-        
-        src_offset = reducer_offsets_[r+5]; /*16k*/
-        src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 5 | 0xdf; // get the bit in bit 0, other bits set to 1
-        
-        src_offset = reducer_offsets_[r+6]; /*16k*/
-        src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 6 | 0xbf; // get the bit in bit 0, other bits set to 1
-        
-        src_offset = reducer_offsets_[r+7]; /*16k*/
-        src = src_addr[src_offset >> 3];
-        dst &= src >> (src_offset & 7) << 7 | 0x7f; // get the bit in bit 0, other bits set to 1
+        dst &= src >> (src_offset & 7) << 4 |
+               0xef;  // get the bit in bit 0, other bits set to 1
 
-        dst_addrs[pid][dst_offset >> 3] = dst;
-        dst_offset+=8;
+        src_offset = reducer_offsets_[r + 5]; /*16k*/
+        src = src_addr[src_offset >> 3];
+        dst &= src >> (src_offset & 7) << 5 |
+               0xdf;  // get the bit in bit 0, other bits set to 1
+
+        src_offset = reducer_offsets_[r + 6]; /*16k*/
+        src = src_addr[src_offset >> 3];
+        dst &= src >> (src_offset & 7) << 6 |
+               0xbf;  // get the bit in bit 0, other bits set to 1
+
+        src_offset = reducer_offsets_[r + 7]; /*16k*/
+        src = src_addr[src_offset >> 3];
+        dst &= src >> (src_offset & 7) << 7 |
+               0x7f;  // get the bit in bit 0, other bits set to 1
+
+        dstaddr[dst_offset >> 3] = dst;
+        dst_offset += 8;
+        //_mm_prefetch(dstaddr + (dst_offset >> 3) + 64, _MM_HINT_T0);
       }
-      //last byte, set it to 0xff is ok
+      // last byte, set it to 0xff is ok
       dst = 0xff;
-      dst_idx_byte=0;
-      for (r; r < size; r++,dst_idx_byte++) {
+      dst_idx_byte = 0;
+      for (r; r < size; r++, dst_idx_byte++) {
         auto src_offset = reducer_offsets_[r]; /*16k*/
         uint8_t src = src_addr[src_offset >> 3];
-        src = src >> (src_offset & 7) | 0xfe; // get the bit in bit 0, other bits set to 1
+        src =
+            src >> (src_offset & 7) | 0xfe;  // get the bit in bit 0, other bits set to 1
         src = __rolb(src, dst_idx_byte);
-        dst = dst & src; // only take the useful bit.
+        dst = dst & src;  // only take the useful bit.
       }
-      dst_addrs[pid][dst_offset >> 3] = dst;
+      dstaddr[dst_offset >> 3] = dst;
     }
   }
   return arrow::Status::OK();
