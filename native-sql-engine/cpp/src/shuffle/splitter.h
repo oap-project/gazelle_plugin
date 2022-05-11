@@ -131,7 +131,8 @@ class Splitter {
 #if defined(COLUMNAR_PLUGIN_USE_AVX512)
   arrow::Status SplitFixedWidthValueBufferAVX(const arrow::RecordBatch& rb);
 #endif
-
+  arrow::Status SplitBoolType(const uint8_t* src_addr, std::vector<uint8_t*>& dst_addrs);
+  
   arrow::Status SplitFixedWidthValidityBuffer(const arrow::RecordBatch& rb);
 
   arrow::Status SplitBinaryArray(const arrow::RecordBatch& rb);
