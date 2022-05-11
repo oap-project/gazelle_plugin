@@ -355,6 +355,22 @@ case class ColumnarHashAggregateExec(
                     }
                     idx += 1
                 }
+              case First(_, _) =>
+                mode match {
+                  case Partial =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                    // For value set.
+                    if (out_res == null && aggregateFunc.asInstanceOf[First].ignoreNulls) {
+                      putDataIntoVector(resultColumnVectors, false, idx)
+                    } else {
+                      putDataIntoVector(resultColumnVectors, true, idx)
+                    }
+                    idx += 1
+                  case Final =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                }
             }
           }
           count_num_row = 0
@@ -404,6 +420,13 @@ case class ColumnarHashAggregateExec(
                   case Final =>
                     val out_res = 0
                     putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                  case _ =>
+                }
+              case First(_, _) =>
+                expr.mode match {
+                  case Final =>
+                    resultColumnVectors(idx).putNull(0)
                     idx += 1
                   case _ =>
                 }
@@ -602,7 +625,9 @@ case class ColumnarHashAggregateExec(
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar StddevSamp")
           }
-        case first: First =>
+        case first @ First(_, _) =>
+          // Spark will use sort agg fir string type input, see AggUtils.scala.
+          // So it will fallback to row-based operator for such case.
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType, StringType)
           val aggBufferAttr = first.inputAggBufferAttributes

@@ -79,8 +79,10 @@ class HashAggregateKernel::Impl {
       }
       if (func_name.compare(0, 20, "action_first_partial") == 0) {
         // Get the second child node (ingoreNulls).
-        auto func_option_node = dynamic_cast<gandiva::LiteralNode*>(func_node->children().at(1).get());
-        action_option_map_.insert(std::make_pair(func_name, func_option_node));
+        if (func_node->children().size() > 1) {
+          auto func_option_node = dynamic_cast<gandiva::LiteralNode*>(func_node->children().at(1).get());
+          action_option_map_.insert(std::make_pair(func_name, func_option_node));
+        }
       }
       if (func_name.compare(0, 7, "action_") == 0) {
         action_name_list_.push_back(std::make_pair(func_name, type));
