@@ -83,6 +83,5 @@ class LimitSuite extends QueryTest with SharedSparkSession {
     frame.explain()
     frame.show()
     spark.sql("SELECT COUNT(*) FROM test1").show()
-    Thread.sleep(3600000L)
   }
 }
