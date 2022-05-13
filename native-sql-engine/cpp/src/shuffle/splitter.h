@@ -36,6 +36,23 @@ namespace sparkcolumnarplugin {
 namespace shuffle {
 
 class Splitter {
+
+ protected:
+ struct BinaryBuff{
+   BinaryBuff(uint8_t* v, uint8_t* o, uint64_t c)
+        :valueptr(v),
+        offsetptr(o),
+        value_capacity(c){}
+   BinaryBuff()
+        :valueptr(nullptr),
+        offsetptr(nullptr),
+        value_capacity(0){}
+
+   uint8_t* valueptr;
+   uint8_t* offsetptr;
+   uint64_t value_capacity;
+ };
+
  public:
   static arrow::Result<std::shared_ptr<Splitter>> Make(
       const std::string& short_name, std::shared_ptr<arrow::Schema> schema,
@@ -126,6 +143,10 @@ class Splitter {
 
   arrow::Status DoSplit(const arrow::RecordBatch& rb);
 
+  template <typename T>
+  arrow::Status SplitFixedType(const uint8_t* src_addr,
+                              const std::vector<uint8_t*>& dst_addrs);
+
   arrow::Status SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb);
 
 #if defined(COLUMNAR_PLUGIN_USE_AVX512)
@@ -138,7 +159,9 @@ class Splitter {
 
   arrow::Status SplitBinaryArray(const arrow::RecordBatch& rb);
 
-  arrow::Status SplitLargeBinaryArray(const arrow::RecordBatch& rb);
+  template <typename T>
+  arrow::Status SplitBinaryType(const uint8_t* src_addr, const T* src_offset_addr,
+                              const std::vector<BinaryBuff>& dst_addrs);
 
   arrow::Status SplitListArray(const arrow::RecordBatch& rb);
 
@@ -185,26 +208,22 @@ class Splitter {
   std::vector<row_offset_type> partition_buffer_idx_base_;
   // partid
   // temp array to hold the destination pointer
-  std::vector<uint8_t*> partition_buffer_dst_addr_;
-  // partid
-  // temp array to hold the destination offset
-  std::vector<row_offset_type> partition_buffer_dst_offset_;
+  std::vector<uint8_t*> partition_buffer_idx_offset_;
   // partid
   std::vector<std::shared_ptr<PartitionWriter>> partition_writer_;
   // col partid
-  std::vector<std::vector<uint8_t*>> partition_fixed_width_validity_addrs_;
+  std::vector<std::vector<uint8_t*>> partition_validity_addrs_;
 
   // col partid
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
+  // col partid, 24 bytes each
+  std::vector<std::vector<BinaryBuff>> partition_binary_addrs_;
+  // temp array to hold the destination pointer
+  std::vector<BinaryBuff> partition_binary_buffer_idx_offset_;
+
   // col partid
   std::vector<std::vector<std::vector<std::shared_ptr<arrow::Buffer>>>>
-      partition_fixed_width_buffers_;
-  // col partid
-  std::vector<std::vector<std::shared_ptr<arrow::BinaryBuilder>>>
-      partition_binary_builders_;
-  // col partid
-  std::vector<std::vector<std::shared_ptr<arrow::LargeBinaryBuilder>>>
-      partition_large_binary_builders_;
+      partition_buffers_;
   std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
   // col partid
 
@@ -218,24 +237,20 @@ class Splitter {
   // partid
   std::vector<int64_t> partition_cached_recordbatch_size_;  // in bytes
 
-  // col
-  std::vector<int32_t> fixed_width_array_idx_;
-  // col
-  std::vector<int32_t> binary_array_idx_;
-  // col
-  std::vector<int32_t> large_binary_array_idx_;
+  // col fixed + binary
+  std::vector<int32_t> array_idx_;
+  uint16_t fixed_width_col_cnt_;
+
   // col
   std::vector<int32_t> list_array_idx_;
   // col
 
   bool empirical_size_calculated_ = false;
   // col
-  std::vector<int32_t> binary_array_empirical_size_;
-  // col
-  std::vector<int32_t> large_binary_array_empirical_size_;
+  std::vector<uint64_t> binary_array_empirical_size_;
 
   // col
-  std::vector<bool> input_fixed_width_has_null_;
+  std::vector<bool> input_has_null_;
 
   // updated for each input record batch
   // col; value is partition number, part_num < 64k
