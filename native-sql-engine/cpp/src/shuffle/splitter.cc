@@ -822,6 +822,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   auto num_rows = rb.num_rows();
   for (int i = fixed_width_col_cnt_; i < array_idx_.size(); ++i) {
     auto arr = rb.column_data(array_idx_[i]);
+    auto cid = rb.column(array_idx_[i])->type_id();
     ARROW_CHECK_EQ(arr->buffers.size(),3);
     //offset array_data
     if(ARROW_PREDICT_TRUE(arr->buffers[1]!=nullptr))
@@ -1164,33 +1165,8 @@ arrow::Status Splitter::SplitValidityBuffer(const arrow::RecordBatch& rb) {
         }
       }
       auto src_addr = const_cast<uint8_t*>(rb.column_data(col_idx)->buffers[0]->data());
-#ifdef PROCESSROW
+    
       RETURN_NOT_OK(SplitBoolType(src_addr, dst_addrs));
-#else
-      std::copy(partition_buffer_idx_base_.begin(), partition_buffer_idx_base_.end(),
-                partition_buffer_idx_offset.begin());
-      for (auto row = 0; row < num_rows; ++row) {
-        auto pid = partition_id_[row];
-        auto dst_offset = partition_buffer_idx_offset[pid];
-        dst_addrs[pid][dst_offset >> 3] ^=
-            (dst_addrs[pid][dst_offset >> 3] >> (dst_offset & 7) ^
-             src_addr[row >> 3] >> (row & 7))
-            << (dst_offset & 7);
-        partition_buffer_idx_offset[pid]++;
-      }
-      // the last row may update the following bits to 0, reinitialize it as 1
-      for (auto pid = 0; pid < num_partitions_; pid++) {
-        if (partition_id_cnt_[pid] > 0 && dst_addrs[pid] != nullptr) {
-          auto lastoffset = partition_buffer_idx_base_[pid] + partition_id_cnt_[pid];
-          uint8_t dst = dst_addrs[pid][lastoffset >> 3];
-          uint8_t msk = 0x1 << (lastoffset & 0x7);
-          msk = ~(msk - 1);
-          msk &= ((lastoffset & 7) == 0) - 1;
-          dst |= msk;
-          dst_addrs[pid][lastoffset >> 3] = dst;
-        }
-      }
-#endif
     }
   }
   return arrow::Status::OK();
