@@ -155,7 +155,7 @@ class Splitter {
   arrow::Status SplitBoolType(const uint8_t* src_addr,
                               const std::vector<uint8_t*>& dst_addrs);
 
-  arrow::Status SplitFixedWidthValidityBuffer(const arrow::RecordBatch& rb);
+  arrow::Status SplitValidityBuffer(const arrow::RecordBatch& rb);
 
   arrow::Status SplitBinaryArray(const arrow::RecordBatch& rb);
 
