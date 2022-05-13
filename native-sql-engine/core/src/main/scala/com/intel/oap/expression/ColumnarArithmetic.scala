@@ -422,6 +422,10 @@ class ColumnarPmod(left: Expression, right: Expression, original: Expression)
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (left_node, input_type): (TreeNode, ArrowType) =
       left.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
