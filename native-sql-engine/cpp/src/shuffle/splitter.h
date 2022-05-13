@@ -36,22 +36,16 @@ namespace sparkcolumnarplugin {
 namespace shuffle {
 
 class Splitter {
-
  protected:
- struct BinaryBuff{
-   BinaryBuff(uint8_t* v, uint8_t* o, uint64_t c)
-        :valueptr(v),
-        offsetptr(o),
-        value_capacity(c){}
-   BinaryBuff()
-        :valueptr(nullptr),
-        offsetptr(nullptr),
-        value_capacity(0){}
+  struct BinaryBuff {
+    BinaryBuff(uint8_t* v, uint8_t* o, uint64_t c)
+        : valueptr(v), offsetptr(o), value_capacity(c) {}
+    BinaryBuff() : valueptr(nullptr), offsetptr(nullptr), value_capacity(0) {}
 
-   uint8_t* valueptr;
-   uint8_t* offsetptr;
-   uint64_t value_capacity;
- };
+    uint8_t* valueptr;
+    uint8_t* offsetptr;
+    uint64_t value_capacity;
+  };
 
  public:
   static arrow::Result<std::shared_ptr<Splitter>> Make(
@@ -145,7 +139,7 @@ class Splitter {
 
   template <typename T>
   arrow::Status SplitFixedType(const uint8_t* src_addr,
-                              const std::vector<uint8_t*>& dst_addrs);
+                               const std::vector<uint8_t*>& dst_addrs);
 
   arrow::Status SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb);
 
@@ -161,7 +155,7 @@ class Splitter {
 
   template <typename T>
   arrow::Status SplitBinaryType(const uint8_t* src_addr, const T* src_offset_addr,
-                              const std::vector<BinaryBuff>& dst_addrs);
+                                const std::vector<BinaryBuff>& dst_addrs);
 
   arrow::Status SplitListArray(const arrow::RecordBatch& rb);
 
