@@ -196,11 +196,16 @@ const std::vector<std::string> SplitterTest::input_data_1 = {
     R"(["-1.01", "2.01", "-3.01", null, "0.11", "3.14", "2.27", null, "-3.14", null])"};
 
 const std::vector<std::string> SplitterTest::input_data_2 = {
-    "[null, null]",    "[null, null]",
-    "[1, -1]",         "[100, null]",
-    "[1, 1]",          R"([0.142857, -0.142857])",
-    "[true, false]",   R"(["bob", "alicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealice"])",
-    R"([null, null])", R"([null, null])"};
+    "[null, null]",
+    "[null, null]",
+    "[1, -1]",
+    "[100, null]",
+    "[1, 1]",
+    R"([0.142857, -0.142857])",
+    "[true, false]",
+    R"(["bob", "alicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealice"])",
+    R"([null, null])",
+    R"([null, null])"};
 
 TEST_F(SplitterTest, TestSingleSplitter) {
   split_options_.buffer_size = 10;
