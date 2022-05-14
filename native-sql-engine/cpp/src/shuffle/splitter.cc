@@ -622,7 +622,7 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
 
         std::shared_ptr<arrow::Buffer> offset_buffer;
         std::shared_ptr<arrow::Buffer> validity_buffer = nullptr;
-        auto value_buf_size = binary_array_empirical_size_[binary_idx] * new_size + 1024;
+        auto value_buf_size = binary_array_empirical_size_[binary_idx] * new_size;
         ARROW_ASSIGN_OR_RAISE(
             std::shared_ptr<arrow::Buffer> value_buffer,
             arrow::AllocateResizableBuffer(value_buf_size, options_.memory_pool));
@@ -836,13 +836,9 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
           break;
       }
       // check every record batch, hope the length is more and more accurate
-      if (ARROW_PREDICT_TRUE(binary_array_empirical_size_[i - fixed_width_col_cnt_] !=
+      if (ARROW_PREDICT_FALSE(binary_array_empirical_size_[i - fixed_width_col_cnt_] ==
                              0)) {
-        binary_array_empirical_size_[i - fixed_width_col_cnt_] =
-            (binary_array_empirical_size_[i - fixed_width_col_cnt_] + length / num_rows) /
-            2;
-      } else {
-        binary_array_empirical_size_[i - fixed_width_col_cnt_] = length / num_rows;
+        binary_array_empirical_size_[i - fixed_width_col_cnt_] = length % num_rows == 0 ? length / num_rows:length / num_rows+1;
       }
     }
   }
@@ -1164,7 +1160,7 @@ arrow::Status Splitter::SplitValidityBuffer(const arrow::RecordBatch& rb) {
 
 template <typename T>
 arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_offset_addr,
-                                        const std::vector<BinaryBuff>& dst_addrs) {
+                                        std::vector<BinaryBuff>& dst_addrs, const int binary_idx) {
   std::transform(dst_addrs.begin(), dst_addrs.end(), partition_buffer_idx_base_.begin(),
                  partition_binary_buffer_idx_offset_.begin(),
                  [](const BinaryBuff& x, const row_offset_type y) {
@@ -1176,16 +1172,47 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
     auto dst_offset_base =
         reinterpret_cast<T*>(partition_binary_buffer_idx_offset_[pid].offsetptr);
     auto dst_value_base =
-        partition_binary_buffer_idx_offset_[pid].valueptr + *dst_offset_base;
+        partition_binary_buffer_idx_offset_[pid].valueptr + dst_offset_base[0];
+    //_mm_prefetch(&partition_binary_buffer_idx_offset_[pid+1], _MM_HINT_T0);
     auto r = reducer_offset_offset_[pid]; /*8k*/
     auto size = reducer_offset_offset_[pid + 1];
     for (r; r < size; r++) {
       auto src_offset = reducer_offsets_[r]; /*16k*/
       auto strlength = src_offset_addr[src_offset + 1] - src_offset_addr[src_offset];
       dst_offset_base[1] = dst_offset_base[0] + strlength;
-      memcpy(dst_value_base, src_addr + src_offset_addr[src_offset], strlength);
+      if(ARROW_PREDICT_FALSE(dst_offset_base[1] >= partition_binary_buffer_idx_offset_[pid].value_capacity))
+      {
+        //allocate value buffer again
+        auto oldsize = partition_binary_buffer_idx_offset_[pid].value_capacity;
+        //enlarge the buffer by 1.5x
+        auto value_buf_size = partition_binary_buffer_idx_offset_[pid].value_capacity +
+            std::max((partition_binary_buffer_idx_offset_[pid].value_capacity >> 1),(uint64_t)strlength);
+        
+        auto value_buffer = std::static_pointer_cast<arrow::ResizableBuffer>(partition_buffers_[fixed_width_col_cnt_ + binary_idx][pid][2]);
+        value_buffer->Reserve(value_buf_size);
+
+        partition_binary_buffer_idx_offset_[pid].valueptr = dst_addrs[pid].valueptr = value_buffer->mutable_data();
+        partition_binary_buffer_idx_offset_[pid].value_capacity = dst_addrs[pid].value_capacity = value_buf_size;
+        dst_value_base= partition_binary_buffer_idx_offset_[pid].valueptr + dst_offset_base[0];
+      }
+      
+      // write the variable value
+      T k;
+      auto value_src_ptr = src_addr + src_offset_addr[src_offset];
+      for(k=0;k+32<strlength;k+=32)
+      {
+        __m256i v = _mm256_loadu_si256((const __m256i*)(value_src_ptr+k));
+        _mm256_storeu_si256((__m256i*)(dst_value_base +k),v);
+      }
+      auto mask=(1L << (strlength-k))-1;
+      __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
+      _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
+
+      //memcpy(dst_value_base, src_addr + src_offset_addr[src_offset], strlength);
       dst_offset_base++;
       dst_value_base += strlength;
+      _mm_prefetch(src_addr + src_offset_addr[src_offset]+64, _MM_HINT_T1);
+      _mm_prefetch(src_offset_addr + src_offset + 64/sizeof(T), _MM_HINT_T1);
     }
   }
   return arrow::Status::OK();
@@ -1195,7 +1222,7 @@ arrow::Status Splitter::SplitBinaryArray(const arrow::RecordBatch& rb) {
   const auto num_rows = rb.num_rows();
   int64_t row;
   for (auto col = fixed_width_col_cnt_; col < array_idx_.size(); ++col) {
-    const auto& dst_addrs = partition_binary_addrs_[col - fixed_width_col_cnt_];
+    auto& dst_addrs = partition_binary_addrs_[col - fixed_width_col_cnt_];
     auto col_idx = array_idx_[col];
     auto arr_data = rb.column_data(col_idx);
     auto src_value_addr = arr_data->GetValuesSafe<uint8_t>(2);
@@ -1204,12 +1231,12 @@ arrow::Status Splitter::SplitBinaryArray(const arrow::RecordBatch& rb) {
     if (typeids == arrow::BinaryType::type_id || typeids == arrow::StringType::type_id) {
       auto src_offset_addr = arr_data->GetValuesSafe<arrow::BinaryType::offset_type>(1);
       SplitBinaryType<arrow::BinaryType::offset_type>(src_value_addr, src_offset_addr,
-                                                      dst_addrs);
+                                                      dst_addrs, col - fixed_width_col_cnt_);
     } else {
       auto src_offset_addr =
           arr_data->GetValuesSafe<arrow::LargeBinaryType::offset_type>(1);
       SplitBinaryType<arrow::LargeBinaryType::offset_type>(src_value_addr,
-                                                           src_offset_addr, dst_addrs);
+                                                           src_offset_addr, dst_addrs, col - fixed_width_col_cnt_);
     }
   }
 

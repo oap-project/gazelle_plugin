@@ -155,7 +155,7 @@ class Splitter {
 
   template <typename T>
   arrow::Status SplitBinaryType(const uint8_t* src_addr, const T* src_offset_addr,
-                                const std::vector<BinaryBuff>& dst_addrs);
+                                std::vector<BinaryBuff>& dst_addrs, const int binary_idx);
 
   arrow::Status SplitListArray(const arrow::RecordBatch& rb);
 

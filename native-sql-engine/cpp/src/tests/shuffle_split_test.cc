@@ -199,7 +199,7 @@ const std::vector<std::string> SplitterTest::input_data_2 = {
     "[null, null]",    "[null, null]",
     "[1, -1]",         "[100, null]",
     "[1, 1]",          R"([0.142857, -0.142857])",
-    "[true, false]",   R"(["bob", "alice"])",
+    "[true, false]",   R"(["bob", "alicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealice"])",
     R"([null, null])", R"([null, null])"};
 
 TEST_F(SplitterTest, TestSingleSplitter) {
