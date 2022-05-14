@@ -594,7 +594,6 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
     partition_cached_recordbatch_[partition_id].push_back(std::move(payload));
     partition_buffer_idx_base_[partition_id] = 0;
   }
-
   return arrow::Status::OK();
 }
 
@@ -622,14 +621,15 @@ arrow::Status Splitter::AllocatePartitionBuffers(int32_t partition_id, int32_t n
 
         std::shared_ptr<arrow::Buffer> offset_buffer;
         std::shared_ptr<arrow::Buffer> validity_buffer = nullptr;
-        auto value_buf_size = binary_array_empirical_size_[binary_idx] * new_size;
+        auto value_buf_size = binary_array_empirical_size_[binary_idx] * new_size+1024;
         ARROW_ASSIGN_OR_RAISE(
             std::shared_ptr<arrow::Buffer> value_buffer,
             arrow::AllocateResizableBuffer(value_buf_size, options_.memory_pool));
         ARROW_RETURN_NOT_OK(
-            AllocateBufferFromPool(offset_buffer, new_size * sizeof_binary_offset));
+            AllocateBufferFromPool(offset_buffer, new_size * sizeof_binary_offset+1));
         // set the first offset to 0
-        memset(offset_buffer->mutable_data(), 0, 8);
+        uint8_t* offsetaddr = offset_buffer->mutable_data();
+        memset(offsetaddr, 0, 8);
 
         partition_binary_addrs_[binary_idx][partition_id] = BinaryBuff(
             value_buffer->mutable_data(), offset_buffer->mutable_data(), value_buf_size);
@@ -839,6 +839,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
       if (ARROW_PREDICT_FALSE(binary_array_empirical_size_[i - fixed_width_col_cnt_] ==
                              0)) {
         binary_array_empirical_size_[i - fixed_width_col_cnt_] = length % num_rows == 0 ? length / num_rows:length / num_rows+1;
+        //std::cout << "avg str length col = " << i - fixed_width_col_cnt_ << " len = " << binary_array_empirical_size_[i - fixed_width_col_cnt_] << std::endl;
       }
     }
   }
@@ -1174,19 +1175,19 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
     auto dst_value_base =
         partition_binary_buffer_idx_offset_[pid].valueptr + dst_offset_base[0];
     //_mm_prefetch(&partition_binary_buffer_idx_offset_[pid+1], _MM_HINT_T0);
-    auto r = reducer_offset_offset_[pid]; /*8k*/
+    auto r = reducer_offset_offset_[pid]; /*128k*/
     auto size = reducer_offset_offset_[pid + 1];
+    auto capacity = partition_binary_buffer_idx_offset_[pid].value_capacity;
     for (r; r < size; r++) {
-      auto src_offset = reducer_offsets_[r]; /*16k*/
+      auto src_offset = reducer_offsets_[r]; /*128k*/
       auto strlength = src_offset_addr[src_offset + 1] - src_offset_addr[src_offset];
       dst_offset_base[1] = dst_offset_base[0] + strlength;
-      if(ARROW_PREDICT_FALSE(dst_offset_base[1] >= partition_binary_buffer_idx_offset_[pid].value_capacity))
+      if(ARROW_PREDICT_FALSE(dst_offset_base[1] >= capacity))
       {
         //allocate value buffer again
-        auto oldsize = partition_binary_buffer_idx_offset_[pid].value_capacity;
         //enlarge the buffer by 1.5x
         auto value_buf_size = partition_binary_buffer_idx_offset_[pid].value_capacity +
-            std::max((partition_binary_buffer_idx_offset_[pid].value_capacity >> 1),(uint64_t)strlength);
+            std::max((capacity >> 1),(uint64_t)strlength);
         
         auto value_buffer = std::static_pointer_cast<arrow::ResizableBuffer>(partition_buffers_[fixed_width_col_cnt_ + binary_idx][pid][2]);
         value_buffer->Reserve(value_buf_size);
@@ -1194,6 +1195,7 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
         partition_binary_buffer_idx_offset_[pid].valueptr = dst_addrs[pid].valueptr = value_buffer->mutable_data();
         partition_binary_buffer_idx_offset_[pid].value_capacity = dst_addrs[pid].value_capacity = value_buf_size;
         dst_value_base= partition_binary_buffer_idx_offset_[pid].valueptr + dst_offset_base[0];
+        std::cout << " value buffer resized colid = " << binary_idx << " dst_start " << dst_offset_base[0] << " dst_end " << dst_offset_base[1] << " old size = " << capacity << " new size = "  << value_buf_size << " row = " << partition_buffer_idx_base_[pid] << " strlen = " << strlength << std::endl;
       }
       
       // write the variable value
@@ -1208,7 +1210,7 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
       __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
       _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
 
-      //memcpy(dst_value_base, src_addr + src_offset_addr[src_offset], strlength);
+//      memcpy(dst_value_base, src_addr + src_offset_addr[src_offset], strlength);
       dst_offset_base++;
       dst_value_base += strlength;
       _mm_prefetch(src_addr + src_offset_addr[src_offset]+64, _MM_HINT_T1);
