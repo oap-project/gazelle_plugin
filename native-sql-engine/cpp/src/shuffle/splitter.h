@@ -225,8 +225,6 @@ class Splitter {
       partition_buffers_;
   std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
   // col partid
-   // temp array to hold the destination pointer
-  std::vector<BinaryBuff> partition_binary_buffer_idx_offset_;
   
   // slice the buffer for each reducer's column, in this way we can combine into large
   // page

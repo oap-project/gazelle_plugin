@@ -51,7 +51,7 @@ void print_trace(void) {
 namespace sparkcolumnarplugin {
 namespace shuffle {
 
-#define ALIGNMENT 64
+#define ALIGNMENT 2*1024*1024
 
 const int batch_buffer_size = 32768;
 const int split_buffer_size = 8192;
