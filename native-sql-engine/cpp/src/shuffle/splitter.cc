@@ -821,7 +821,7 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
     if (ARROW_PREDICT_TRUE(arr->buffers[1] != nullptr)) {
       auto offsetbuf = arr->buffers[1]->data();
       uint64_t length;
-      switch (column_type_id_[i]->id()) {
+      switch (column_type_id_[array_idx_[i]]->id()) {
         case arrow::BinaryType::type_id:
         case arrow::StringType::type_id:
           length = reinterpret_cast<const arrow::StringType::offset_type*>(
