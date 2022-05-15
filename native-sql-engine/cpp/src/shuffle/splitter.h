@@ -38,13 +38,19 @@ namespace shuffle {
 class Splitter {
  protected:
   struct BinaryBuff {
+    BinaryBuff(uint8_t* v, uint8_t* o, uint64_t c, uint64_t f)
+        : valueptr(v), offsetptr(o), value_capacity(c),
+        value_offset(f) {}
     BinaryBuff(uint8_t* v, uint8_t* o, uint64_t c)
-        : valueptr(v), offsetptr(o), value_capacity(c) {}
-    BinaryBuff() : valueptr(nullptr), offsetptr(nullptr), value_capacity(0) {}
+        : valueptr(v), offsetptr(o), value_capacity(c),
+        value_offset(0) {}
+    BinaryBuff() : valueptr(nullptr), offsetptr(nullptr), value_capacity(0),
+        value_offset(0) {}
 
     uint8_t* valueptr;
     uint8_t* offsetptr;
     uint64_t value_capacity;
+    uint64_t value_offset;
   };
 
  public:
@@ -212,15 +218,16 @@ class Splitter {
   std::vector<std::vector<uint8_t*>> partition_fixed_width_value_addrs_;
   // col partid, 24 bytes each
   std::vector<std::vector<BinaryBuff>> partition_binary_addrs_;
-  // temp array to hold the destination pointer
-  std::vector<BinaryBuff> partition_binary_buffer_idx_offset_;
+
 
   // col partid
   std::vector<std::vector<std::vector<std::shared_ptr<arrow::Buffer>>>>
       partition_buffers_;
   std::vector<std::vector<std::shared_ptr<arrow::ArrayBuilder>>> partition_list_builders_;
   // col partid
-
+   // temp array to hold the destination pointer
+  std::vector<BinaryBuff> partition_binary_buffer_idx_offset_;
+  
   // slice the buffer for each reducer's column, in this way we can combine into large
   // page
   std::shared_ptr<arrow::ResizableBuffer> combine_buffer_;
