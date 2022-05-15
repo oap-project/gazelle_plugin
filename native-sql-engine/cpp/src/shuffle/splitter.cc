@@ -513,8 +513,8 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
             partition_binary_addrs_[binary_idx][partition_id] = BinaryBuff();
             partition_buffers_[fixed_width_col_cnt_ + binary_idx][partition_id].clear();
           } else {
-            //reset the offset
-            partition_binary_addrs_[binary_idx][partition_id].value_offset = 0;            
+            // reset the offset
+            partition_binary_addrs_[binary_idx][partition_id].value_offset = 0;
           }
           binary_idx++;
           break;
@@ -1165,27 +1165,27 @@ template <typename T>
 arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_offset_addr,
                                         std::vector<BinaryBuff>& dst_addrs,
                                         const int binary_idx) {
-
   for (auto pid = 0; pid < num_partitions_; pid++) {
     auto dst_offset_base =
         reinterpret_cast<T*>(dst_addrs[pid].offsetptr) + partition_buffer_idx_base_[pid];
-    if(pid+1<num_partitions_)
-    {
-      _mm_prefetch(reinterpret_cast<T*>(dst_addrs[pid+1].offsetptr) + partition_buffer_idx_base_[pid+1], _MM_HINT_T1);
-      _mm_prefetch(dst_addrs[pid+1].valueptr + dst_addrs[pid+1].value_offset, _MM_HINT_T1);
+    if (pid + 1 < num_partitions_) {
+      _mm_prefetch(reinterpret_cast<T*>(dst_addrs[pid + 1].offsetptr) +
+                       partition_buffer_idx_base_[pid + 1],
+                   _MM_HINT_T1);
+      _mm_prefetch(dst_addrs[pid + 1].valueptr + dst_addrs[pid + 1].value_offset,
+                   _MM_HINT_T1);
     }
     auto value_offset = dst_addrs[pid].value_offset;
-    auto dst_value_base =
-        dst_addrs[pid].valueptr + value_offset;
+    auto dst_value_base = dst_addrs[pid].valueptr + value_offset;
     auto capacity = dst_addrs[pid].value_capacity;
 
     auto r = reducer_offset_offset_[pid]; /*128k*/
     auto size = reducer_offset_offset_[pid + 1] - r;
-    
-    for (register uint32_t x=0;x < size; x++) {
-      auto src_offset = reducer_offsets_[x+r]; /*128k*/
+
+    for (register uint32_t x = 0; x < size; x++) {
+      auto src_offset = reducer_offsets_[x + r]; /*128k*/
       auto strlength = src_offset_addr[src_offset + 1] - src_offset_addr[src_offset];
-      value_offset = dst_offset_base[x+1] = value_offset + strlength;
+      value_offset = dst_offset_base[x + 1] = value_offset + strlength;
       if (ARROW_PREDICT_FALSE(value_offset >= capacity)) {
         // allocate value buffer again
         // enlarge the buffer by 1.5x
@@ -1199,7 +1199,7 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
         dst_addrs[pid].value_capacity = capacity;
         dst_value_base = dst_addrs[pid].valueptr + value_offset - strlength;
         std::cout << " value buffer resized colid = " << binary_idx << " dst_start "
-                  << dst_offset_base[x] << " dst_end " << dst_offset_base[x+1]
+                  << dst_offset_base[x] << " dst_end " << dst_offset_base[x + 1]
                   << " old size = " << capacity << " new size = " << capacity
                   << " row = " << partition_buffer_idx_base_[pid]
                   << " strlen = " << strlength << std::endl;
@@ -1216,7 +1216,9 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
       __m256i v = _mm256_maskz_loadu_epi8(mask, value_src_ptr + k);
       _mm256_mask_storeu_epi8(dst_value_base + k, mask, v);
 #else
-      //std::cout << " x = " << x << " src_offset_offset = " << src_offset << " src offset = " << src_offset_addr[src_offset] << " strlength = " << strlength << " dst_offset = " << value_offset << std::endl;
+      // std::cout << " x = " << x << " src_offset_offset = " << src_offset << " src
+      // offset = " << src_offset_addr[src_offset] << " strlength = " << strlength << "
+      // dst_offset = " << value_offset << std::endl;
       memcpy(dst_value_base, value_src_ptr, strlength);
 #endif
       dst_value_base += strlength;
