@@ -319,7 +319,7 @@ TEST_F(SplitterTest, TestRoundRobinSplitter) {
 
 TEST_F(SplitterTest, TestSplitterMemoryLeak) {
   std::shared_ptr<arrow::MemoryPool> pool =
-      std::make_shared<MyMemoryPool>(9 * 1024 * 1024);
+      std::make_shared<MyMemoryPool>(17 * 1024 * 1024);
 
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
