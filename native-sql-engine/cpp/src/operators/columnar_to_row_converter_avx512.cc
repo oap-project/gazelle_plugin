@@ -132,54 +132,54 @@ arrow::Status ColumnarToRowConverter::Init(const std::shared_ptr<arrow::RecordBa
   // Calculated the lengths_
   for (auto i = 0; i < num_cols_; i++) {
     auto array = rb_->column(i);
-//    if (arrow::is_binary_like(array->type_id())) {
-//      auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
-//      using offset_type = typename arrow::BinaryType::offset_type;
-//      offset_type length;
-//      const offset_type* offsetarray = binary_array->raw_value_offsets();
-//      __m256i x7_8x = _mm256_load_si256((__m256i*)x_7);
-//      __m256i x8_8x = _mm256_load_si256((__m256i*)x_8);
-//      int32_t j=0;
-//      int32_t* length_data = lengths_.data();
-//
-//      __m256i offsetarray_1_8x;
-//      if (j + 16 < num_rows_)
-//      {
-//        offsetarray_1_8x = _mm256_load_si256((__m256i*)&offsetarray[j]);
-//      }
-//      for (j; j + 16 < num_rows_; j += 8) {
-//        __m256i offsetarray_8x = offsetarray_1_8x;
-//        offsetarray_1_8x = _mm256_load_si256((__m256i*)&offsetarray[j+8]);
-//
-//        __m256i length_8x = _mm256_alignr_epi32(offsetarray_8x,offsetarray_1_8x,0x1);
-//        length_8x = _mm256_sub_epi32(length_8x, offsetarray_8x);
-//
-//        __m256i reminder_8x = _mm256_and_si256(length_8x, x7_8x);
-//        reminder_8x = _mm256_sub_epi32(x8_8x,reminder_8x);
-//        reminder_8x = _mm256_and_si256(reminder_8x,x7_8x);
-//        __m256i dst_length_8x = _mm256_loadu_si256((__m256i*)length_data);
-//        dst_length_8x = _mm256_add_epi32(dst_length_8x, reminder_8x);
-//        _mm256_storeu_si256((__m256i*)length_data,dst_length_8x);
-//        length_data+=8;
-//        _mm_prefetch(&offsetarray[j+(128+128)/sizeof(offset_type)],_MM_HINT_T0);
-//      }
-//      for (j; j < num_rows_; j++) {
-//
-//        offset_type length = offsetarray[j+1] - offsetarray[j];
-//        *length_data += RoundNumberOfBytesToNearestWord(length);
-//        length_data++;
-//      }
-//    }
+    if (arrow::is_binary_like(array->type_id())) {
+      auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
+      using offset_type = typename arrow::BinaryType::offset_type;
+      offset_type length;
+      const offset_type* offsetarray = binary_array->raw_value_offsets();
+      __m256i x7_8x = _mm256_load_si256((__m256i*)x_7);
+      __m256i x8_8x = _mm256_load_si256((__m256i*)x_8);
+      int32_t j=0;
+      int32_t* length_data = lengths_.data();
 
-        if (arrow::is_binary_like(array->type_id())) {
-              auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
-              using offset_type = typename arrow::BinaryType::offset_type;
-              offset_type length;
-              for (auto j = 0; j < num_rows_; j++) {
-                auto value = binary_array->GetValue(j, &length);
-                lengths_[j] += RoundNumberOfBytesToNearestWord(length);
-              }
-         }
+      __m256i offsetarray_1_8x;
+      if (j + 16 < num_rows_)
+      {
+        offsetarray_1_8x = _mm256_load_si256((__m256i*)&offsetarray[j]);
+      }
+      for (j; j + 16 < num_rows_; j += 8) {
+        __m256i offsetarray_8x = offsetarray_1_8x;
+        offsetarray_1_8x = _mm256_load_si256((__m256i*)&offsetarray[j+8]);
+
+        __m256i length_8x = _mm256_alignr_epi32(offsetarray_8x,offsetarray_1_8x,0x1);
+        length_8x = _mm256_sub_epi32(length_8x, offsetarray_8x);
+
+        __m256i reminder_8x = _mm256_and_si256(length_8x, x7_8x);
+        reminder_8x = _mm256_sub_epi32(x8_8x,reminder_8x);
+        reminder_8x = _mm256_and_si256(reminder_8x,x7_8x);
+        __m256i dst_length_8x = _mm256_loadu_si256((__m256i*)length_data);
+        dst_length_8x = _mm256_add_epi32(dst_length_8x, reminder_8x);
+        _mm256_storeu_si256((__m256i*)length_data,dst_length_8x);
+        length_data+=8;
+        _mm_prefetch(&offsetarray[j+(128+128)/sizeof(offset_type)],_MM_HINT_T0);
+      }
+      for (j; j < num_rows_; j++) {
+
+        offset_type length = offsetarray[j+1] - offsetarray[j];
+        *length_data += RoundNumberOfBytesToNearestWord(length);
+        length_data++;
+      }
+    }
+
+//        if (arrow::is_binary_like(array->type_id())) {
+//              auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
+//              using offset_type = typename arrow::BinaryType::offset_type;
+//              offset_type length;
+//              for (auto j = 0; j < num_rows_; j++) {
+//                auto value = binary_array->GetValue(j, &length);
+//                lengths_[j] += RoundNumberOfBytesToNearestWord(length);
+//              }
+//         }
 
 
 
@@ -195,13 +195,13 @@ arrow::Status ColumnarToRowConverter::Init(const std::shared_ptr<arrow::RecordBa
 
   
   // allocate one more cache line to ease avx operations
-//  if(buffer_==nullptr || buffer_->capacity() < total_memory_size+64){
-//    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size+64, memory_pool_));
-//    memset(buffer_->mutable_data()+total_memory_size,0,buffer_->capacity()-total_memory_size);
-//  }
+  if(buffer_==nullptr || buffer_->capacity() < total_memory_size+64){
+    ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size+64, memory_pool_));
+    memset(buffer_->mutable_data()+total_memory_size,0,buffer_->capacity()-total_memory_size);
+  }
 
-  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size, memory_pool_));
-  memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
+//  ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size, memory_pool_));
+//  memset(buffer_->mutable_data(), 0, sizeof(int8_t) * total_memory_size);
 
 //  std::cout << std::hex << "buffer addr = " << buffer_->address() << std::dec  << " size = " << total_memory_size << std::endl;
 
@@ -485,35 +485,35 @@ for (i; i + BATCH_ROW_NUM < num_rows_; i+=BATCH_ROW_NUM) {
         {
           if (nullvec[col_index] || (!array->IsNull(j)))
           {
-//            offset_type length = BinaryOffsets[j+1]-BinaryOffsets[j];
-//            auto value = &dataptrs[col_index][2][BinaryOffsets[j]];
-//            // write the variable value
-//            offset_type k;
-//            for(k=0;k+32<length;k+=32)
-//            {
-//              __m256i v = _mm256_loadu_si256((const __m256i*)value+k);
-//              _mm256_storeu_si256((__m256i*)(buffer_address + offsets[j] + buffer_cursor[j]+k),v);
-//            }
-//            // create some bits of "1", num equals length
-//            auto mask=(1L << (length-k))-1;
-//            __m256i v = _mm256_maskz_loadu_epi8(mask, value+k);
-//             _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j]+k, mask, v);
-//
-//          // write the offset and size
-//          int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | length;
-//          *(int64_t*)(buffer_address + offsets[j] + field_offset) = offsetAndSize;
-//          buffer_cursor[i] += (length);
-
-
-            offset_type length;
-            auto value = binary_array->GetValue(j, &length);
+            offset_type length = BinaryOffsets[j+1]-BinaryOffsets[j];
+            auto value = &dataptrs[col_index][2][BinaryOffsets[j]];
             // write the variable value
-            memcpy(buffer_address + offsets[j] + buffer_cursor[j], value, length);
-            // write the offset and size
-            int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | length;
-            memcpy(buffer_address + offsets[j] + field_offset, &offsetAndSize,
-                   sizeof(int64_t));
-            buffer_cursor[j] += RoundNumberOfBytesToNearestWord(length);
+            offset_type k;
+            for(k=0;k+32<length;k+=32)
+            {
+              __m256i v = _mm256_loadu_si256((const __m256i*)(value+k));
+              _mm256_storeu_si256((__m256i*)(buffer_address + offsets[j] + buffer_cursor[j]+k),v);
+            }
+            // create some bits of "1", num equals length
+            auto mask=(1L << (length-k))-1;
+            __m256i v = _mm256_maskz_loadu_epi8(mask, value+k);
+             _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j]+k, mask, v);
+
+          // write the offset and size
+          int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | length;
+          *(int64_t*)(buffer_address + offsets[j] + field_offset) = offsetAndSize;
+          buffer_cursor[j] += (length);
+
+
+//            offset_type length;
+//            auto value = binary_array->GetValue(j, &length);
+//            // write the variable value
+//            memcpy(buffer_address + offsets[j] + buffer_cursor[j], value, length);
+//            // write the offset and size
+//            int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | length;
+//            memcpy(buffer_address + offsets[j] + field_offset, &offsetAndSize,
+//                   sizeof(int64_t));
+//            buffer_cursor[j] += RoundNumberOfBytesToNearestWord(length);
 
 
           }else{
@@ -626,40 +626,40 @@ for (i; i < num_rows_; i++) {
         offset_type* BinaryOffsets = (offset_type*)(dataptrs[col_index][1]);
         if (nullvec[col_index] || (!array->IsNull(i)))
         {
-//          offset_type length = BinaryOffsets[i+1]-BinaryOffsets[i];
-//          auto value = &dataptrs[col_index][2][BinaryOffsets[i]];
-//          // write the variable value
-//          offset_type k;
-//          auto j=i;
-//            for(k=0;k+32<length;k+=32)
-//            {
-//              __m256i v = _mm256_loadu_si256((const __m256i*)value+k);
-//              _mm256_storeu_si256((__m256i*)(buffer_address + offsets[j] + buffer_cursor[j]+k),v);
-//            }
-//            auto mask=(1L << (length-k))-1;
-//            __m256i v = _mm256_maskz_loadu_epi8(mask, value+k);
-//
-//          _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j]+k, mask, v);
-//          // write the offset and size
-//          int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | length;
-//          *(int64_t*)(buffer_address + offsets[i] + field_offset) = offsetAndSize;
-//
-//          auto bufferAddr = buffer_address + offsets[i] + field_offset;
-//
-//
-//
-//          buffer_cursor[i] += (length);
-
-
-          offset_type length;
-          auto value = binary_array->GetValue(i, &length);
+          offset_type length = BinaryOffsets[i+1]-BinaryOffsets[i];
+          auto value = &dataptrs[col_index][2][BinaryOffsets[i]];
           // write the variable value
-          memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
+          offset_type k;
+          auto j=i;
+            for(k=0;k+32<length;k+=32)
+            {
+              __m256i v = _mm256_loadu_si256((const __m256i*)(value+k));
+              _mm256_storeu_si256((__m256i*)(buffer_address + offsets[j] + buffer_cursor[j]+k),v);
+            }
+            auto mask=(1L << (length-k))-1;
+            __m256i v = _mm256_maskz_loadu_epi8(mask, value+k);
+
+          _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j]+k, mask, v);
           // write the offset and size
           int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | length;
-          memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
-                 sizeof(int64_t));
-          buffer_cursor[i] += RoundNumberOfBytesToNearestWord(length);
+          *(int64_t*)(buffer_address + offsets[i] + field_offset) = offsetAndSize;
+
+          auto bufferAddr = buffer_address + offsets[i] + field_offset;
+
+
+
+          buffer_cursor[i] += (length);
+
+
+//          offset_type length;
+//          auto value = binary_array->GetValue(i, &length);
+//          // write the variable value
+//          memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
+//          // write the offset and size
+//          int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | length;
+//          memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
+//                 sizeof(int64_t));
+//          buffer_cursor[i] += RoundNumberOfBytesToNearestWord(length);
 
 
         }else{
