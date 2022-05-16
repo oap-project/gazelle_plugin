@@ -23,6 +23,7 @@ option(BUILD_ARROW "Build Arrow from Source" ON)
 option(STATIC_ARROW "Build Arrow with Static Libraries" OFF)
 option(BUILD_PROTOBUF "Build Protobuf from Source" ON)
 option(USE_AVX512 "Build with AVX-512 optimizations" OFF)
+option(NATIVE_AVX512 "Build with AVX-512 optimizations" ON)
 option(TESTS "Build the tests" OFF)
 option(BENCHMARKS "Build the benchmarks" OFF)
 option(BUILD_JEMALLOC "Build Jemalloc from Source" OFF)
@@ -520,7 +521,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/sort_kernel.cc
         codegen/arrow_compute/ext/kernels_ext.cc
         shuffle/splitter.cc
-        operators/columnar_to_row_converter.cc
         operators/row_to_columnar_converter.cc
         precompile/hash_map.cc
         precompile/sparse_hash_map.cc
@@ -534,6 +534,12 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         third_party/gandiva/decimal_ops.cc
         third_party/gandiva/time.cc
         )
+
+if(NATIVE_AVX512)
+  list(APPEND SPARK_COLUMNAR_PLUGIN_SRCS operators/columnar_to_row_converter_avx512.cc)
+else()
+  list(APPEND SPARK_COLUMNAR_PLUGIN_SRCS operators/columnar_to_row_converter.cc)
+endif()
 
 add_subdirectory(third_party/gandiva)
 message(STATUS "thirdparty is ${THIRDPARTY_GANDIVA_SRCS}")
