@@ -1034,7 +1034,29 @@ arrow::Status Splitter::SplitFixedWidthValueBuffer(const arrow::RecordBatch& rb)
 #endif
         break;
       case 128:  // arrow::Decimal128Type::type_id
-        SplitFixedType<__m128i>(src_addr, dst_addrs);
+        // too bad gcc generates movdqa even we use __m128i_u data type.
+        // SplitFixedType<__m128i_u>(src_addr, dst_addrs);
+        {
+          std::transform(
+              dst_addrs.begin(), dst_addrs.end(), partition_buffer_idx_base_.begin(),
+              partition_buffer_idx_offset_.begin(),
+              [](uint8_t* x, row_offset_type y) { return x + y * sizeof(__m128i_u); });
+          // assume batch size = 32k; reducer# = 4K; row/reducer = 8
+          for (auto pid = 0; pid < num_partitions_; pid++) {
+            auto dst_pid_base =
+                reinterpret_cast<__m128i_u*>(partition_buffer_idx_offset_[pid]); /*32k*/
+            auto r = reducer_offset_offset_[pid];                                /*8k*/
+            auto size = reducer_offset_offset_[pid + 1];
+            for (r; r < size; r++) {
+              auto src_offset = reducer_offsets_[r]; /*16k*/
+              __m128i value = _mm_loadu_si128(
+                  reinterpret_cast<const __m128i_u*>(src_addr) + src_offset);
+              _mm_storeu_si128(dst_pid_base, value);
+              _mm_prefetch(src_addr + src_offset * sizeof(__m128i_u) + 64, _MM_HINT_T2);
+              dst_pid_base += 1;
+            }
+          }
+        }
         break;
       case 1:  // arrow::BooleanType::type_id:
         RETURN_NOT_OK(SplitBoolType(src_addr, dst_addrs));
