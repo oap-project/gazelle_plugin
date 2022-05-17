@@ -43,6 +43,7 @@
     <nativesql.arrow_root>${arrow_root}</nativesql.arrow_root>
     <nativesql.build_protobuf>${build_protobuf}</nativesql.build_protobuf>
     <nativesql.build_jemalloc>${build_jemalloc}</nativesql.build_jemalloc>
+    <nativesql.native_avx512>${native_avx512}</nativesql.native_avx512>
   </properties>
 
   <profiles>
@@ -381,6 +382,7 @@
                           <argument>${nativesql.arrow_root}</argument>
                           <argument>${nativesql.arrow.bfs.install.dir}</argument>
                           <argument>${nativesql.build_jemalloc}</argument>
+                          <argument>${nativesql.native_avx512}</argument>
                       </arguments>
                   </configuration>
               </execution>

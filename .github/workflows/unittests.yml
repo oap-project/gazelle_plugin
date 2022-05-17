@@ -41,6 +41,15 @@ jobs:
           sudo cmake CMakeLists.txt -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local
           sudo make
           sudo apt-get install google-mock
+          cd /tmp
+          wget https://github.com/google/benchmark/archive/refs/tags/v1.6.0.tar.gz
+          tar -zxvf  v1.6.0.tar.gz
+          cd benchmark-1.6.0
+          mkdir build
+          cd build
+          sudo cmake -DBENCHMARK_DOWNLOAD_DEPENDENCIES=OFF -DBENCHMARK_ENABLE_GTEST_TESTS=OFF -DBENCHMARK_ENABLE_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../
+          sudo make -j$(nproc)
+          sudo make install     -j$(nproc)
       - name: Install OAP optimized Arrow (C++ libs)
         run: |
           cd /tmp
