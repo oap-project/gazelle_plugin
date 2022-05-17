@@ -23,7 +23,7 @@ import java.time.ZoneId
 
 import scala.collection.JavaConverters._
 
-import com.intel.oap.vectorized.ArrowWritableColumnVector
+import com.intel.oap.vectorized.{ArrowColumnVectorUtils, ArrowWritableColumnVector}
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch
 import org.apache.arrow.vector.types.pojo.Schema
@@ -100,7 +100,7 @@ object ArrowUtils {
     }
     val partitionColumns = ArrowWritableColumnVector.allocateColumns(rowCount, partitionSchema)
     (0 until partitionColumns.length).foreach(i => {
-      ColumnVectorUtils.populate(partitionColumns(i), partitionValues, i)
+      ArrowColumnVectorUtils.populate(partitionColumns(i), partitionValues, i)
       partitionColumns(i).setValueCount(rowCount)
       partitionColumns(i).setIsConstant()
     })
