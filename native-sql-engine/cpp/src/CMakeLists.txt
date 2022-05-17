@@ -423,7 +423,6 @@ set(PROTO_HDRS "${PROTO_OUTPUT_DIR}/Exprs.pb.h")
 
 if(TESTS)
   find_package(GTest)
-  find_package(benchmark REQUIRED)
 macro(package_add_test TESTNAME)
   add_executable(${TESTNAME} ${ARGN})
   target_link_libraries(${TESTNAME} gtest gtest_main spark_columnar_jni dl ${CMAKE_THREAD_LIBS_INIT})

@@ -27,7 +27,6 @@
 
 #include <boost/align.hpp>
 
-
 #include "gandiva/decimal_type_util.h"
 
 namespace sparkcolumnarplugin {
@@ -36,14 +35,17 @@ namespace columnartorow {
 class ColumnarToRowConverter {
  public:
   ColumnarToRowConverter(arrow::MemoryPool* memory_pool)
-      : memory_pool_(memory_pool),buffer_(nullptr) {}
+      : memory_pool_(memory_pool), buffer_(nullptr) {}
 
   arrow::Status Init(const std::shared_ptr<arrow::RecordBatch>& rb);
   arrow::Status Write();
 
   uint8_t* GetBufferAddress() { return buffer_address_; }
   const std::vector<int32_t>& GetOffsets() { return offsets_; }
-  const std::vector<int32_t, boost::alignment::aligned_allocator<int32_t, 32>>& GetLengths() { return lengths_; }
+  const std::vector<int32_t, boost::alignment::aligned_allocator<int32_t, 32>>&
+  GetLengths() {
+    return lengths_;
+  }
 
  protected:
   std::vector<int32_t> buffer_cursor_;

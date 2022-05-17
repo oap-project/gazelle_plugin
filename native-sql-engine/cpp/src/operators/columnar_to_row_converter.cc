@@ -97,7 +97,8 @@ arrow::Status CalculatedElementSize(arrow::Type::type type_id, int32_t* length) 
   return arrow::Status::OK();
 }
 
-arrow::Status ColumnarToRowConverter::Init(const std::shared_ptr<arrow::RecordBatch>& rb) {
+arrow::Status ColumnarToRowConverter::Init(
+    const std::shared_ptr<arrow::RecordBatch>& rb) {
   rb_ = rb;
   num_rows_ = rb_->num_rows();
   num_cols_ = rb_->num_columns();
