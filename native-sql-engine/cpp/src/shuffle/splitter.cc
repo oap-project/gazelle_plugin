@@ -515,6 +515,13 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           } else {
             // reset the offset
             partition_binary_addrs_[binary_idx][partition_id].value_offset = 0;
+            uint64_t dst_offset0 =
+                sizeof_binary_offset == 4
+                    ? reinterpret_cast<const arrow::BinaryType::offset_type*>(
+                          buffers[1]->data())[0]
+                    : reinterpret_cast<const arrow::LargeBinaryType::offset_type*>(
+                          buffers[1]->data())[0];
+            ARROW_CHECK_EQ(dst_offset0, 0);
           }
           binary_idx++;
           break;
@@ -830,9 +837,10 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
           break;
         case arrow::LargeBinaryType::type_id:
         case arrow::LargeStringType::type_id:
-          length = reinterpret_cast<const arrow::StringType::offset_type*>(
-                       offsetbuf)[num_rows] -
-                   reinterpret_cast<const arrow::StringType::offset_type*>(offsetbuf)[0];
+          length =
+              reinterpret_cast<const arrow::LargeStringType::offset_type*>(
+                  offsetbuf)[num_rows] -
+              reinterpret_cast<const arrow::LargeStringType::offset_type*>(offsetbuf)[0];
           break;
       }
       // check every record batch, hope the length is more and more accurate
