@@ -537,6 +537,8 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
 
 if(NATIVE_AVX512)
   list(APPEND SPARK_COLUMNAR_PLUGIN_SRCS operators/columnar_to_row_converter_avx512.cc)
+  set(NATIVE_AVX512_FLAG "-march=native")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${NATIVE_AVX512_FLAG}")
 else()
   list(APPEND SPARK_COLUMNAR_PLUGIN_SRCS operators/columnar_to_row_converter.cc)
 endif()
