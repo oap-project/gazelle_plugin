@@ -43,9 +43,10 @@ struct UnsafeRow {
   int numFields;
   char* data = nullptr;
   int cursor;
+  int validity_size;
   UnsafeRow() {}
   UnsafeRow(int numFields) : numFields(numFields) {
-    auto validity_size = (numFields / 8) + 1;
+    validity_size = (numFields / 8) + 1;
     cursor = validity_size;
     data = (char*)nativeMalloc(TEMP_UNSAFEROW_BUFFER_SIZE, MEMTYPE_ROW);
     memset(data, 0, validity_size);
@@ -58,7 +59,6 @@ struct UnsafeRow {
   int sizeInBytes() { return cursor; }
   void reset() {
     memset(data, 0, cursor);
-    auto validity_size = (numFields / 8) + 1;
     cursor = validity_size;
   }
   bool isNullExists() {
@@ -109,25 +109,13 @@ static inline void appendToUnsafeRow(UnsafeRow* row, const int& index, const T& 
 
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      const std::string& str) {
-  int numBytes = str.size();
-  // int roundedSize = roundNumberOfBytesToNearestWord(numBytes);
-
-  // zeroOutPaddingBytes(row, numBytes);
-  memcpy(row->data + row->cursor, str.c_str(), numBytes);
-
-  // move the cursor forward.
-  row->cursor += numBytes;
+  memcpy(row->data + row->cursor, str.data(), str.size());
+  row->cursor += str.size();
 }
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      arrow::util::string_view str) {
-  int numBytes = str.size();
-  // int roundedSize = roundNumberOfBytesToNearestWord(numBytes);
-
-  // zeroOutPaddingBytes(row, numBytes);
-  memcpy(row->data + row->cursor, str.data(), numBytes);
-
-  // move the cursor forward.
-  row->cursor += numBytes;
+  memcpy(row->data + row->cursor, str.data(), str.size());
+  row->cursor += str.size();
 }
 static inline void appendToUnsafeRow(UnsafeRow* row, const int& index,
                                      const arrow::Decimal128& dcm) {
