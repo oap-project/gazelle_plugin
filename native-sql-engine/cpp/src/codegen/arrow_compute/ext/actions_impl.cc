@@ -4722,6 +4722,1002 @@ class StddevSampFinalAction<DataType, CType, ResDataType, ResCType,
   uint64_t length_ = 0;
 };
 
+//////////////// FirstPartialAction ///////////////
+template <typename DataType, typename CType, typename ResDataType, typename ResCType,
+          typename Enable = void>
+class FirstPartialAction {};
+
+template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+class FirstPartialAction<DataType, CType, ResDataType, ResCType,
+                         precompile::enable_if_number<DataType>> : public ActionBase {
+ public:
+  FirstPartialAction(arrow::compute::ExecContext* ctx,
+                     std::shared_ptr<arrow::DataType> type,
+                     std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
+      : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> first_builder;
+    std::unique_ptr<arrow::ArrayBuilder> value_set_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), type, &first_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::boolean(), &value_set_builder);
+    first_builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(first_builder.release()));
+    value_set_builder_.reset(arrow::internal::checked_cast<arrow::BooleanBuilder*>(
+        value_set_builder.release()));
+    ignore_nulls_ = ignore_nulls;
+
+#ifdef DEBUG
+    std::cout << "Construct FirstPartialAction" << std::endl;
+#endif
+  }
+  ~FirstPartialAction() {
+#ifdef DEBUG
+    std::cout << "Destruct FirstPartialAction" << std::endl;
+#endif
+  }
+
+  arrow::Status Submit(ArrayList in_list, int max_group_id,
+                       std::function<arrow::Status(int)>* on_valid,
+                       std::function<arrow::Status()>* on_null) override {
+    // resize result data
+    if (cache_first_.size() <= max_group_id) {
+      cache_first_.resize(max_group_id + 1);
+      cache_value_set_.resize(max_group_id + 1, false);
+      cache_null_flag_.resize(max_group_id + 1, false);
+      length_ = cache_first_.size();
+    }
+
+    in_ = in_list[0];
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    data_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
+    row_id = 0;
+    *on_valid = [this](int dest_group_id) {
+      // Directly return if first value is already set.
+      if (cache_value_set_[dest_group_id]) {
+        row_id++;  // Looks row_id will not be used after first value is set.
+        return arrow::Status::OK();
+      }
+
+      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+      if (!is_null) {
+        cache_first_[dest_group_id] = data_[row_id];
+        cache_value_set_[dest_group_id] = true;
+      } else {
+        // Handle null case.
+        if (!ignore_nulls_) {
+          cache_value_set_[dest_group_id] = true;
+          cache_null_flag_[dest_group_id] = true;
+        }
+      }
+      row_id++;
+      return arrow::Status::OK();
+    };
+
+    // Not actually called. Null case is coverred in on_valid.
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+    return arrow::Status::OK();
+  }
+
+  arrow::Status GrowByFactor(int dest_group_id) {
+    int max_group_id;
+    if (cache_first_.size() < 128) {
+      max_group_id = 128;
+    } else {
+      max_group_id = cache_first_.size() * 2;
+    }
+    cache_first_.resize(max_group_id);
+    cache_value_set_.resize(max_group_id, false);
+    cache_null_flag_.resize(max_group_id, false);
+    return arrow::Status::OK();
+  }
+
+  // Handle the case of no group by.
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_first_.empty()) {
+      // To check the defaule value for the extended space.
+      cache_first_.resize(1);
+      cache_value_set_.resize(1, false);
+      cache_null_flag_.resize(1, false);
+      length_ = 1;
+    }
+    // If first value is already set, no need to go through the below code.
+    if (cache_value_set_[0]) {
+      return arrow::Status::OK();
+    }
+    auto input_array = std::make_shared<ArrayType>(in[0]);
+    for (int id = 0; id < input_array->length(); id++) {
+      if (input_array->IsNull(id)) {
+        if (ignore_nulls_) {
+          continue;
+        } else {
+          cache_null_flag_[0] = true;
+          cache_value_set_[0] = true;
+          break;
+        }
+      } else {
+        CType first_value = (CType)(input_array->GetView(id));
+        cache_first_[0] = first_value;
+        cache_value_set_[0] = true;
+        break;
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  // For codegen.
+  arrow::Status Evaluate(int dest_group_id, void* data) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+    // Already set first value, no need to further handle.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    cache_first_[dest_group_id] = *(CType*)data;
+    cache_value_set_[dest_group_id] = true;
+    return arrow::Status::OK();
+  }
+
+  // For codegen.
+  arrow::Status EvaluateNull(int dest_group_id) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+
+    // Directly return if ignore nulls.
+    if (ignore_nulls_) {
+      return arrow::Status::OK();
+    }
+    // Already set first value, no need to further handle.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    cache_null_flag_[dest_group_id] = true;
+    cache_value_set_[dest_group_id] = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish(ArrayList* out) override {
+    // It is supposed that length is 1 if there is no group by.
+    first_builder_->Reset();
+    value_set_builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+      if (cache_value_set_[i] && !cache_null_flag_[i]) {
+        // Two cols are output (the num must be consistent with spark).
+        RETURN_NOT_OK(first_builder_->Append(cache_first_[i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[i]));
+      } else {
+        // first is not set or should be set to null.
+        RETURN_NOT_OK(first_builder_->AppendNull());
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[i]));
+      }
+    }
+
+    std::shared_ptr<arrow::Array> first_array;
+    std::shared_ptr<arrow::Array> value_set_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    RETURN_NOT_OK(value_set_builder_->Finish(&value_set_array));
+    out->push_back(first_array);
+    out->push_back(value_set_array);
+    return arrow::Status::OK();
+  }
+
+  uint64_t GetResultLength() { return length_; }
+
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    first_builder_->Reset();
+    value_set_builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      if (cache_value_set_[offset + i] && !cache_null_flag_[offset + i]) {
+        RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
+      } else {
+        // first is not set or should be set to null.
+        RETURN_NOT_OK(first_builder_->AppendNull());
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
+      }
+    }
+
+    std::shared_ptr<arrow::Array> first_array;
+    std::shared_ptr<arrow::Array> value_set_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    RETURN_NOT_OK(value_set_builder_->Finish(&value_set_array));
+    out->push_back(first_array);
+    out->push_back(value_set_array);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
+  using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
+  using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+
+  std::unique_ptr<BuilderType> first_builder_;
+  std::unique_ptr<arrow::BooleanBuilder> value_set_builder_;
+  // input
+  arrow::compute::ExecContext* ctx_;
+  CType* data_;
+  std::shared_ptr<arrow::Array> in_;
+  int row_id;
+  int in_null_count_ = 0;
+  // option for first func.
+  bool ignore_nulls_ = true;
+  // result
+  std::vector<CType> cache_first_;
+  std::vector<bool> cache_value_set_;
+  std::vector<bool> cache_null_flag_;
+  uint64_t length_ = 0;
+};
+
+//////////////// FirstPartialAction for string like type ///////////////
+template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+class FirstPartialAction<DataType, CType, ResDataType, ResCType,
+                         precompile::enable_if_string_like<DataType>>
+    : public ActionBase {
+ public:
+  FirstPartialAction(arrow::compute::ExecContext* ctx,
+                     std::shared_ptr<arrow::DataType> type,
+                     std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
+      : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> first_builder;
+    std::unique_ptr<arrow::ArrayBuilder> value_set_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), type, &first_builder);
+    arrow::MakeBuilder(ctx_->memory_pool(), arrow::boolean(), &value_set_builder);
+    first_builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(first_builder.release()));
+    value_set_builder_.reset(arrow::internal::checked_cast<arrow::BooleanBuilder*>(
+        value_set_builder.release()));
+    ignore_nulls_ = ignore_nulls;
+
+#ifdef DEBUG
+    std::cout << "Construct FirstPartialAction" << std::endl;
+#endif
+  }
+  ~FirstPartialAction() {
+#ifdef DEBUG
+    std::cout << "Destruct FirstPartialAction" << std::endl;
+#endif
+  }
+
+  arrow::Status Submit(ArrayList in_list, int max_group_id,
+                       std::function<arrow::Status(int)>* on_valid,
+                       std::function<arrow::Status()>* on_null) override {
+    // resize result data
+    if (cache_first_.size() <= max_group_id) {
+      cache_first_.resize(max_group_id + 1);
+      cache_value_set_.resize(max_group_id + 1, false);
+      cache_null_flag_.resize(max_group_id + 1, false);
+      length_ = cache_first_.size();
+    }
+
+    in_ = std::make_shared<ArrayType>(in_list[0]);
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    row_id = 0;
+    *on_valid = [this](int dest_group_id) {
+      // Directly return if first value is already set.
+      if (cache_value_set_[dest_group_id]) {
+        row_id++;  // Looks row_id will not be used after first value is set.
+        return arrow::Status::OK();
+      }
+
+      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+      if (!is_null) {
+        cache_first_[dest_group_id] = in_->GetString(row_id);
+        cache_value_set_[dest_group_id] = true;
+      } else {
+        // Handle null case.
+        if (!ignore_nulls_) {
+          cache_value_set_[dest_group_id] = true;
+          cache_null_flag_[dest_group_id] = true;
+        }
+      }
+      row_id++;
+      return arrow::Status::OK();
+    };
+
+    // Not actually called. Null case is coverred in on_valid.
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+    return arrow::Status::OK();
+  }
+
+  arrow::Status GrowByFactor(int dest_group_id) {
+    int max_group_id;
+    if (cache_first_.size() < 128) {
+      max_group_id = 128;
+    } else {
+      max_group_id = cache_first_.size() * 2;
+    }
+    cache_first_.resize(max_group_id);
+    cache_value_set_.resize(max_group_id, false);
+    cache_null_flag_.resize(max_group_id, false);
+    return arrow::Status::OK();
+  }
+
+  // Handle the case of no group by.
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_first_.empty()) {
+      // To check the defaule value for the extended space.
+      cache_first_.resize(1);
+      cache_value_set_.resize(1, false);
+      cache_null_flag_.resize(1, false);
+      length_ = 1;
+    }
+    // If first value is already set, no need to go through the below code.
+    if (cache_value_set_[0]) {
+      return arrow::Status::OK();
+    }
+    auto input_array = std::make_shared<ArrayType>(in[0]);
+    for (int id = 0; id < input_array->length(); id++) {
+      if (input_array->IsNull(id)) {
+        if (ignore_nulls_) {
+          continue;
+        } else {
+          cache_null_flag_[0] = true;
+          cache_value_set_[0] = true;
+          break;
+        }
+      } else {
+        auto first_value = input_array->GetString(id);
+        cache_first_[0] = first_value;
+        cache_value_set_[0] = true;
+        break;
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  // For codegen.
+  arrow::Status Evaluate(int dest_group_id, void* data) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+    // Already set first value, no need to further handle.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    cache_first_[dest_group_id] = *(CType*)data;
+    cache_value_set_[dest_group_id] = true;
+    return arrow::Status::OK();
+  }
+
+  // For codegen.
+  arrow::Status EvaluateNull(int dest_group_id) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+
+    // Directly return if ignore nulls.
+    if (ignore_nulls_) {
+      return arrow::Status::OK();
+    }
+    // Already set first value, no need to further handle.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+    cache_null_flag_[dest_group_id] = true;
+    cache_value_set_[dest_group_id] = true;
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish(ArrayList* out) override {
+    // It is supposed that length is 1 if there is no group by.
+    first_builder_->Reset();
+    value_set_builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+      if (cache_value_set_[i] && !cache_null_flag_[i]) {
+        // Two cols are output (the num must be consistent with spark).
+        RETURN_NOT_OK(first_builder_->Append(cache_first_[i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[i]));
+      } else {
+        // first is not set or should be set to null.
+        RETURN_NOT_OK(first_builder_->AppendNull());
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[i]));
+      }
+    }
+
+    std::shared_ptr<arrow::Array> first_array;
+    std::shared_ptr<arrow::Array> value_set_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    RETURN_NOT_OK(value_set_builder_->Finish(&value_set_array));
+    out->push_back(first_array);
+    out->push_back(value_set_array);
+    return arrow::Status::OK();
+  }
+
+  uint64_t GetResultLength() { return length_; }
+
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    first_builder_->Reset();
+    value_set_builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      if (cache_value_set_[offset + i] && !cache_null_flag_[offset + i]) {
+        RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
+      } else {
+        // first is not set or should be set to null.
+        RETURN_NOT_OK(first_builder_->AppendNull());
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
+      }
+    }
+
+    std::shared_ptr<arrow::Array> first_array;
+    std::shared_ptr<arrow::Array> value_set_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    RETURN_NOT_OK(value_set_builder_->Finish(&value_set_array));
+    out->push_back(first_array);
+    out->push_back(value_set_array);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
+  using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
+  using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+
+  std::unique_ptr<BuilderType> first_builder_;
+  std::unique_ptr<arrow::BooleanBuilder> value_set_builder_;
+  // input
+  arrow::compute::ExecContext* ctx_;
+  CType* data_;
+  std::shared_ptr<ArrayType> in_;
+  int row_id;
+  int in_null_count_ = 0;
+  // option for first func.
+  bool ignore_nulls_ = true;
+  // result
+  std::vector<CType> cache_first_;
+  std::vector<bool> cache_value_set_;
+  std::vector<bool> cache_null_flag_;
+  uint64_t length_ = 0;
+};
+
+//////////////// FirstFinalAction ///////////////
+template <typename DataType, typename CType, typename ResDataType, typename ResCType,
+          typename Enable = void>
+class FirstFinalAction {};
+
+template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+class FirstFinalAction<DataType, CType, ResDataType, ResCType,
+                       precompile::enable_if_number<DataType>> : public ActionBase {
+ public:
+  FirstFinalAction(arrow::compute::ExecContext* ctx,
+                   std::shared_ptr<arrow::DataType> type,
+                   std::shared_ptr<arrow::DataType> res_type)
+      : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> first_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), res_type, &first_builder);
+    first_builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(first_builder.release()));
+
+#ifdef DEBUG
+    std::cout << "Construct FirstFinalAction" << std::endl;
+#endif
+  }
+  ~FirstFinalAction() {
+#ifdef DEBUG
+    std::cout << "Destruct FirstFinalAction" << std::endl;
+#endif
+  }
+
+  arrow::Status Submit(ArrayList in_list, int max_group_id,
+                       std::function<arrow::Status(int)>* on_valid,
+                       std::function<arrow::Status()>* on_null) override {
+    // resize result data
+    if (cache_first_.size() <= max_group_id) {
+      cache_first_.resize(max_group_id + 1);
+      cache_value_set_.resize(max_group_id + 1, false);
+      cache_null_flag_.resize(max_group_id + 1, false);
+      length_ = cache_first_.size();
+    }
+
+    // The input for first value.
+    in_ = in_list[0];
+    auto value_set_array = in_list[1];
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    // Get the data array from the 1 index.
+    first_ = const_cast<CType*>(in_->data()->GetValues<CType>(1));
+    value_set_ = std::make_shared<precompile::BooleanArray>(value_set_array);
+
+    row_id = 0;
+    *on_valid = [this](int dest_group_id) {
+      // If already set, no need to tackle.
+      if (cache_value_set_[dest_group_id]) {
+        row_id++;  // No need?
+        return arrow::Status::OK();
+      }
+      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+      if (!is_null) {
+        cache_first_[dest_group_id] = first_[row_id];
+        cache_value_set_[dest_group_id] = true;
+      } else {
+        // value is set for null case (implies not ignroe nulls).
+        if (value_set_->GetView(row_id)) {
+          cache_null_flag_[dest_group_id] = true;
+          cache_value_set_[dest_group_id] = true;
+        }
+      }
+      row_id++;
+      return arrow::Status::OK();
+    };
+
+    // Not acutally called.
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+    return arrow::Status::OK();
+  }
+
+  arrow::Status GrowByFactor(int dest_group_id) {
+    int max_group_id;
+    if (cache_first_.size() < 128) {
+      max_group_id = 128;
+    } else {
+      max_group_id = cache_first_.size() * 2;
+    }
+    cache_first_.resize(max_group_id);
+    cache_value_set_.resize(max_group_id, false);
+    cache_null_flag_.resize(max_group_id, false);
+    return arrow::Status::OK();
+  }
+
+  // Handle no group by case.
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_first_.empty()) {
+      // To check the defaule value for the extended space.
+      cache_first_.resize(1);
+      cache_value_set_.resize(1, false);
+      cache_null_flag_.resize(1, false);
+      length_ = 1;
+    }
+    // If first value is already set, no need to go through the below code.
+    if (cache_value_set_[0]) {
+      return arrow::Status::OK();
+    }
+    // The below code with GetValues can also be used to access id-th row data.
+    // But due to the incompatibility of bool type between arrow and C/C++, we
+    // cannot use it for accessing bool type data. Instead, GetView is used.
+    // *(const_cast<CType*>(in[0]->data()->GetValues<CType>(1, id)))
+    auto first_array = std::make_shared<ArrayType>(in[0]);
+    auto value_set_array = std::make_shared<precompile::BooleanArray>(in[1]);
+    for (int id = 0; id < first_array->length(); id++) {
+      auto value_set = value_set_array->GetView(id);
+      if (!value_set) {
+        continue;
+      }
+      // value is already set.
+      if (first_array->IsNull(id)) {
+        cache_null_flag_[0] = true;
+        cache_value_set_[0] = true;
+        break;
+      } else {
+        auto first_value = first_array->GetView(id);
+        cache_first_[0] = first_value;
+        cache_value_set_[0] = true;
+        break;
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  // Just for codegen.
+  // Assume this func is also called if both data1 & data2 are not null.
+  // data1 is first value, data2 is value_set.
+  arrow::Status Evaluate(int dest_group_id, void* data1, void* data2) {
+    auto target_group_size = dest_group_id + 1;
+    // cache_first_ size should be always as same as others (cache_value_set_, etc).
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+
+    // No need to handle if already set.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+
+    // If not set, directly return.
+    if (!*(bool*)data2) {
+      return arrow::Status::OK();
+    }
+
+    cache_first_[dest_group_id] = *(CType*)data1;
+    cache_value_set_[dest_group_id] = true;
+
+    return arrow::Status::OK();
+  }
+
+  // Just for codegen.
+  // Assume this func is also called if first is null, but value_set is not.
+  // The input data is value_set.
+  arrow::Status Evaluate(int dest_group_id, void* data) {
+    auto target_group_size = dest_group_id + 1;
+    // cache_first_ size should be always as same as others, like cache_value_set_, etc.
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+
+    // No need to handle if already set.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+
+    // If not set, directly return.
+    if (!*(bool*)data) {
+      return arrow::Status::OK();
+    }
+
+    cache_null_flag_[dest_group_id] = true;
+    cache_value_set_[dest_group_id] = true;
+
+    return arrow::Status::OK();
+  }
+
+  // Just for codegen.
+  arrow::Status EvaluateNull(int dest_group_id) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish(ArrayList* out) override {
+    // It is supposed that length is 1 if there is no group by.
+    first_builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+      if (cache_value_set_[i]) {
+        if (!cache_null_flag_[i]) {
+          RETURN_NOT_OK(first_builder_->Append(cache_first_[i]));
+        } else {
+          // first is not set or should be set to null.
+          RETURN_NOT_OK(first_builder_->AppendNull());
+        }
+      }
+      // TODO: tackle cache_value_set_ = false?
+    }
+    // The first value is the output.
+    std::shared_ptr<arrow::Array> first_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    out->push_back(first_array);
+    return arrow::Status::OK();
+  }
+
+  uint64_t GetResultLength() { return length_; }
+
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    first_builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      if (cache_value_set_[offset + i]) {
+        if (!cache_null_flag_[offset + i]) {
+          RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
+        } else {
+          // first is not set or should be set to null.
+          RETURN_NOT_OK(first_builder_->AppendNull());
+        }
+      }
+    }
+    std::shared_ptr<arrow::Array> first_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    out->push_back(first_array);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
+  using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
+  using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+
+  std::unique_ptr<BuilderType> first_builder_;
+  // input
+  arrow::compute::ExecContext* ctx_;
+  CType* first_;
+  std::shared_ptr<precompile::BooleanArray> value_set_;
+  std::shared_ptr<arrow::Array> in_;
+  int row_id;
+  int in_null_count_ = 0;
+  // result
+  std::vector<CType> cache_first_;
+  std::vector<bool> cache_value_set_;
+  std::vector<bool> cache_null_flag_;
+  uint64_t length_ = 0;
+};
+
+//////////////// FirstFinalAction for string like type ///////////////
+template <typename DataType, typename CType, typename ResDataType, typename ResCType>
+class FirstFinalAction<DataType, CType, ResDataType, ResCType,
+                       precompile::enable_if_string_like<DataType>> : public ActionBase {
+ public:
+  FirstFinalAction(arrow::compute::ExecContext* ctx,
+                   std::shared_ptr<arrow::DataType> type,
+                   std::shared_ptr<arrow::DataType> res_type)
+      : ctx_(ctx) {
+    std::unique_ptr<arrow::ArrayBuilder> first_builder;
+    arrow::MakeBuilder(ctx_->memory_pool(), res_type, &first_builder);
+    first_builder_.reset(
+        arrow::internal::checked_cast<BuilderType*>(first_builder.release()));
+
+#ifdef DEBUG
+    std::cout << "Construct FirstFinalAction" << std::endl;
+#endif
+  }
+  ~FirstFinalAction() {
+#ifdef DEBUG
+    std::cout << "Destruct FirstFinalAction" << std::endl;
+#endif
+  }
+
+  arrow::Status Submit(ArrayList in_list, int max_group_id,
+                       std::function<arrow::Status(int)>* on_valid,
+                       std::function<arrow::Status()>* on_null) override {
+    // resize result data
+    if (cache_first_.size() <= max_group_id) {
+      cache_first_.resize(max_group_id + 1);
+      cache_value_set_.resize(max_group_id + 1, false);
+      cache_null_flag_.resize(max_group_id + 1, false);
+      length_ = cache_first_.size();
+    }
+
+    // The input for first value.
+    in_ = std::make_shared<ArrayType>(in_list[0]);
+    auto value_set_array = in_list[1];
+    in_null_count_ = in_->null_count();
+    // prepare evaluate lambda
+    value_set_ = std::make_shared<precompile::BooleanArray>(value_set_array);
+    row_id = 0;
+    *on_valid = [this](int dest_group_id) {
+      // If already set, no need to tackle.
+      if (cache_value_set_[dest_group_id]) {
+        row_id++;  // No need?
+        return arrow::Status::OK();
+      }
+      const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
+      if (!is_null) {
+        cache_first_[dest_group_id] = in_->GetString(row_id);
+        cache_value_set_[dest_group_id] = true;
+      } else {
+        // value is set for null case (implies not ignroe nulls).
+        if (value_set_->GetView(row_id)) {
+          cache_null_flag_[dest_group_id] = true;
+          cache_value_set_[dest_group_id] = true;
+        }
+      }
+      row_id++;
+      return arrow::Status::OK();
+    };
+
+    // Not acutally called.
+    *on_null = [this]() {
+      row_id++;
+      return arrow::Status::OK();
+    };
+    return arrow::Status::OK();
+  }
+
+  arrow::Status GrowByFactor(int dest_group_id) {
+    int max_group_id;
+    if (cache_first_.size() < 128) {
+      max_group_id = 128;
+    } else {
+      max_group_id = cache_first_.size() * 2;
+    }
+    cache_first_.resize(max_group_id);
+    cache_value_set_.resize(max_group_id, false);
+    cache_null_flag_.resize(max_group_id, false);
+    return arrow::Status::OK();
+  }
+
+  // Handle no group by case.
+  arrow::Status Evaluate(const arrow::ArrayVector& in) {
+    if (cache_first_.empty()) {
+      // To check the defaule value for the extended space.
+      cache_first_.resize(1);
+      cache_value_set_.resize(1, false);
+      cache_null_flag_.resize(1, false);
+      length_ = 1;
+    }
+    // If first value is already set, no need to go through the below code.
+    if (cache_value_set_[0]) {
+      return arrow::Status::OK();
+    }
+
+    auto first_array = std::make_shared<ArrayType>(in[0]);
+    auto value_set_array = std::make_shared<precompile::BooleanArray>(in[1]);
+    for (int id = 0; id < first_array->length(); id++) {
+      auto value_set = value_set_array->GetView(id);
+      if (!value_set) {
+        continue;
+      }
+      // value is already set.
+      if (first_array->IsNull(id)) {
+        cache_null_flag_[0] = true;
+        cache_value_set_[0] = true;
+        break;
+      } else {
+        auto first_value = first_array->GetString(id);
+        cache_first_[0] = first_value;
+        cache_value_set_[0] = true;
+        break;
+      }
+    }
+    return arrow::Status::OK();
+  }
+
+  // Just for codegen.
+  // Assume this func is also called if both data1 & data2 are not null.
+  // data1 is first value, data2 is value_set.
+  arrow::Status Evaluate(int dest_group_id, void* data1, void* data2) {
+    auto target_group_size = dest_group_id + 1;
+    // cache_first_ size should be always as same as others (cache_value_set_, etc).
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+
+    // No need to handle if already set.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+
+    // If not set, directly return.
+    if (!*(bool*)data2) {
+      return arrow::Status::OK();
+    }
+
+    cache_first_[dest_group_id] = *(CType*)data1;
+    cache_value_set_[dest_group_id] = true;
+
+    return arrow::Status::OK();
+  }
+
+  // Just for codegen.
+  // Assume this func is also called if first is null, but value_set is not.
+  // The input data is value_set.
+  arrow::Status Evaluate(int dest_group_id, void* data) {
+    auto target_group_size = dest_group_id + 1;
+    // cache_first_ size should be always as same as others, like cache_value_set_, etc.
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+
+    // No need to handle if already set.
+    if (cache_value_set_[dest_group_id]) {
+      return arrow::Status::OK();
+    }
+
+    // If not set, directly return.
+    if (!*(bool*)data) {
+      return arrow::Status::OK();
+    }
+
+    cache_null_flag_[dest_group_id] = true;
+    cache_value_set_[dest_group_id] = true;
+
+    return arrow::Status::OK();
+  }
+
+  // Just for codegen.
+  arrow::Status EvaluateNull(int dest_group_id) {
+    auto target_group_size = dest_group_id + 1;
+    if (cache_first_.size() <= target_group_size) {
+      GrowByFactor(target_group_size);
+    }
+    if (length_ < target_group_size) {
+      length_ = target_group_size;
+    }
+    return arrow::Status::OK();
+  }
+
+  arrow::Status Finish(ArrayList* out) override {
+    // It is supposed that length is 1 if there is no group by.
+    first_builder_->Reset();
+    auto length = GetResultLength();
+    for (uint64_t i = 0; i < length; i++) {
+      if (cache_value_set_[i]) {
+        if (!cache_null_flag_[i]) {
+          RETURN_NOT_OK(first_builder_->Append(cache_first_[i]));
+        } else {
+          // first is not set or should be set to null.
+          RETURN_NOT_OK(first_builder_->AppendNull());
+        }
+      }
+      // TODO: tackle cache_value_set_ = false?
+    }
+    // The first value is the output.
+    std::shared_ptr<arrow::Array> first_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    out->push_back(first_array);
+    return arrow::Status::OK();
+  }
+
+  uint64_t GetResultLength() { return length_; }
+
+  arrow::Status Finish(uint64_t offset, uint64_t length, ArrayList* out) override {
+    first_builder_->Reset();
+    auto res_length = (offset + length) > length_ ? (length_ - offset) : length;
+    for (uint64_t i = 0; i < res_length; i++) {
+      if (cache_value_set_[offset + i]) {
+        if (!cache_null_flag_[offset + i]) {
+          RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
+        } else {
+          // first is not set or should be set to null.
+          RETURN_NOT_OK(first_builder_->AppendNull());
+        }
+      }
+    }
+    std::shared_ptr<arrow::Array> first_array;
+    RETURN_NOT_OK(first_builder_->Finish(&first_array));
+    out->push_back(first_array);
+    return arrow::Status::OK();
+  }
+
+ private:
+  using ScalarType = typename arrow::TypeTraits<ResDataType>::ScalarType;
+  using ArrayType = typename precompile::TypeTraits<DataType>::ArrayType;
+  using ResBuilderType = typename arrow::TypeTraits<ResDataType>::BuilderType;
+  using BuilderType = typename arrow::TypeTraits<DataType>::BuilderType;
+
+  std::unique_ptr<BuilderType> first_builder_;
+  // input
+  arrow::compute::ExecContext* ctx_;
+  CType* first_;
+  std::shared_ptr<precompile::BooleanArray> value_set_;
+  std::shared_ptr<ArrayType> in_;
+  int row_id;
+  int in_null_count_ = 0;
+  // result
+  std::vector<CType> cache_first_;
+  std::vector<bool> cache_value_set_;
+  std::vector<bool> cache_null_flag_;
+  uint64_t length_ = 0;
+};
+
 ///////////////////// Public Functions //////////////////
 #define PROCESS_SUPPORTED_TYPES(PROCESS) \
   PROCESS(arrow::UInt8Type)              \
@@ -5208,6 +6204,114 @@ arrow::Status MakeStddevSampFinalAction(
                                 arrow::Decimal128Type, arrow::Decimal128>>(ctx,
     type, type); *out = std::dynamic_pointer_cast<ActionBase>(action_ptr); }
     break;*/
+#undef PROCESS
+    default:
+      break;
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status MakeFirstPartialAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out, bool ignore_nulls) {
+  switch (type->id()) {
+#define PROCESS(InType)                                                             \
+  case InType::type_id: {                                                           \
+    using CType = typename arrow::TypeTraits<InType>::CType;                        \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;                 \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();               \
+    auto action_ptr =                                                               \
+        std::make_shared<FirstPartialAction<InType, CType, ResDataType, ResCType>>( \
+            ctx, type, res_type, ignore_nulls);                                     \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                       \
+  } break;
+    PROCESS_SUPPORTED_TYPES(PROCESS)
+    // TODO: uncomment the below code after decimal is supported.
+    // case arrow::Decimal128Type::type_id: {
+    //   auto action_ptr =
+    //       std::make_shared<FirstPartialAction<arrow::Decimal128Type, arrow::Decimal128,
+    //           arrow::Decimal128Type, arrow::Decimal128>>(
+    //           ctx, type, res_type_list[0], ignore_nulls);
+    //   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    // } break;
+    case arrow::Date32Type::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::Date64Type>::type_singleton();
+      auto action_ptr = std::make_shared<
+          FirstPartialAction<arrow::Date32Type, int32_t, arrow::Date64Type, int64_t>>(
+          ctx, type, res_type, ignore_nulls);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
+    case arrow::StringType::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::StringType>::type_singleton();
+      auto action_ptr =
+          std::make_shared<FirstPartialAction<arrow::StringType, std::string,
+                                              arrow::StringType, std::string>>(
+              ctx, type, res_type, ignore_nulls);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
+    case arrow::BooleanType::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
+      auto action_ptr = std::make_shared<
+          FirstPartialAction<arrow::BooleanType, bool, arrow::Int32Type, int32_t>>(
+          ctx, type, res_type, ignore_nulls);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
+#undef PROCESS
+    default:
+      break;
+  }
+  return arrow::Status::OK();
+}
+
+arrow::Status MakeFirstFinalAction(
+    arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
+    std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
+    std::shared_ptr<ActionBase>* out) {
+  switch (type->id()) {
+#define PROCESS(InType)                                                           \
+  case InType::type_id: {                                                         \
+    using CType = typename arrow::TypeTraits<InType>::CType;                      \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;               \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;              \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();             \
+    auto action_ptr =                                                             \
+        std::make_shared<FirstFinalAction<InType, CType, ResDataType, ResCType>>( \
+            ctx, type, res_type);                                                 \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                     \
+  } break;
+    PROCESS_SUPPORTED_TYPES(PROCESS)
+    // TODO: uncomment the below code after decimal is supported.
+    // case arrow::Decimal128Type::type_id: {
+    //   auto action_ptr =
+    //       std::make_shared<FirstFinalAction<arrow::Decimal128Type, arrow::Decimal128,
+    //           arrow::Decimal128Type, arrow::Decimal128>>(
+    //           ctx, type, res_type_list[0]);
+    //   *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    // } break;
+    case arrow::Date32Type::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::Date64Type>::type_singleton();
+      auto action_ptr = std::make_shared<
+          FirstFinalAction<arrow::Date32Type, int32_t, arrow::Date64Type, int64_t>>(
+          ctx, type, res_type);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
+    case arrow::StringType::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::StringType>::type_singleton();
+      auto action_ptr =
+          std::make_shared<FirstFinalAction<arrow::StringType, std::string,
+                                            arrow::StringType, std::string>>(ctx, type,
+                                                                             res_type);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
+    case arrow::BooleanType::type_id: {
+      auto res_type = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
+      auto action_ptr = std::make_shared<
+          FirstFinalAction<arrow::BooleanType, bool, arrow::Int32Type, int32_t>>(
+          ctx, type, res_type);
+      *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
+    } break;
 #undef PROCESS
     default:
       break;

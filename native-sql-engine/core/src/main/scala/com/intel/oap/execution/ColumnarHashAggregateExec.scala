@@ -355,6 +355,22 @@ case class ColumnarHashAggregateExec(
                     }
                     idx += 1
                 }
+              case First(_, _) =>
+                mode match {
+                  case Partial =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                    // For value set.
+                    if (out_res == null && aggregateFunc.asInstanceOf[First].ignoreNulls) {
+                      putDataIntoVector(resultColumnVectors, false, idx)
+                    } else {
+                      putDataIntoVector(resultColumnVectors, true, idx)
+                    }
+                    idx += 1
+                  case Final =>
+                    putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                }
             }
           }
           count_num_row = 0
@@ -404,6 +420,13 @@ case class ColumnarHashAggregateExec(
                   case Final =>
                     val out_res = 0
                     putDataIntoVector(resultColumnVectors, out_res, idx)
+                    idx += 1
+                  case _ =>
+                }
+              case First(_, _) =>
+                expr.mode match {
+                  case Final =>
+                    resultColumnVectors(idx).putNull(0)
                     idx += 1
                   case _ =>
                 }
@@ -602,6 +625,18 @@ case class ColumnarHashAggregateExec(
               throw new UnsupportedOperationException(
                 s"${other} is not supported in Columnar StddevSamp")
           }
+        case first @ First(_, _) =>
+          // Spark will use sort agg for string type input, see AggUtils.scala.
+          // So it will fallback to row-based operator for such case.
+          val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
+            FloatType, DoubleType, DateType, BooleanType, StringType)
+          val aggBufferAttr = first.inputAggBufferAttributes
+          val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr.head)
+          // Currently, decimal is not supported.
+          if (supportedTypes.indexOf(attr.dataType) == -1) {
+            throw new UnsupportedOperationException(s"${attr.dataType} is NOT" +
+              s" supported in Columnar First!")
+          }
         case other =>
           throw new UnsupportedOperationException(
             s"${other} is not supported in ColumnarAggregation")
@@ -642,14 +677,20 @@ case class ColumnarHashAggregateExec(
 
   override def supportColumnarCodegen: Boolean = {
     for (expr <- aggregateExpressions) {
+      // TODO: close the gap in supporting code gen.
+      expr.aggregateFunction match {
+        case _: First =>
+          return false
+        case _ =>
+      }
       val internalExpressionList = expr.aggregateFunction.children
       for (expr <- internalExpressionList) {
         val colExpr = ColumnarExpressionConverter.replaceWithColumnarExpression(expr)
-        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(Lists.newArrayList())) {
+        if (!colExpr.asInstanceOf[ColumnarExpression].supportColumnarCodegen(
+          Lists.newArrayList())) {
           return false
         }
       }
-
     }
     return true
   }

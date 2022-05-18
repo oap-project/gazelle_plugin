@@ -220,6 +220,27 @@ class ColumnarHashAggregation(
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
           }
+        case First(_, ignoreNulls) =>
+          mode match {
+            case Partial =>
+              val childrenColumnarFuncNodeList =
+                aggregateFunc.children.toList.map(expr => getColumnarFuncNode(expr))
+              val optionNode = TreeBuilder.makeLiteral(ignoreNulls)
+              val funcNodeList = childrenColumnarFuncNodeList ::: List(optionNode) ::: Nil
+              TreeBuilder.makeFunction(
+                "action_first_partial", funcNodeList.asJava, resultType)
+            case PartialMerge =>
+              throw new UnsupportedOperationException("PartialMerge is NOT supported" +
+                " for First agg func.!")
+            case Final =>
+              val childrenColumnarFuncNodeList =
+                List(inputAttrQueue.dequeue, inputAttrQueue.dequeue).map(attr =>
+                  getColumnarFuncNode(attr))
+              TreeBuilder.makeFunction(
+                "action_first_final",
+                childrenColumnarFuncNodeList.asJava,
+                resultType)
+          }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")
       }
@@ -363,6 +384,23 @@ class ColumnarHashAggregation(
             }
             case other =>
               throw new UnsupportedOperationException(s"not currently supported: $other.")
+          }
+        case First(_, _) =>
+          mode match {
+            case Partial =>
+              val first = aggregateFunc.asInstanceOf[First]
+              val aggBufferAttr = first.inputAggBufferAttributes
+              for (index <- 0 until aggBufferAttr.size) {
+                val attr = ConverterUtils.getAttrFromExpr(aggBufferAttr(index))
+                aggregateAttr += attr
+              }
+              res_index += 2
+            case PartialMerge =>
+              throw new UnsupportedOperationException("PartialMerge is NOT supported" +
+                " for First agg func.!")
+            case Final =>
+              aggregateAttr += aggregateAttributeList(res_index)
+              res_index += 1
           }
         case other =>
           throw new UnsupportedOperationException(s"not currently supported: $other.")

@@ -1111,6 +1111,13 @@ class NativeDataFrameAggregateSuite extends QueryTest
     checkAnswer(sql(queryTemplate("LAST")), Row(3))
   }
 
+  test("Test FIRST in hash aggregate with group by") {
+    val queryTemplate = (agg: String) =>
+      s"SELECT $agg(id) FROM (VALUES (1, 'a'), (2, 'a'), (10, 'b')," +
+        s" (100, 'c'), (101, 'c')) as (id, name) group by name"
+    checkAnswer(sql(queryTemplate("FIRST")), Row(1) :: Row(10) :: Row(100) :: Nil)
+  }
+
   test("SPARK-32906: struct field names should not change after normalizing floats") {
     val df = Seq(Tuple1(Tuple2(-0.0d, Double.NaN)), Tuple1(Tuple2(0.0d, Double.NaN))).toDF("k")
     val aggs = df.distinct().queryExecution.sparkPlan.collect { case a: HashAggregateExec => a }

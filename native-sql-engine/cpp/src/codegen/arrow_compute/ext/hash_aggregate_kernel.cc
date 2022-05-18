@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <unordered_map>
 #include <vector>
 
 #include "codegen/arrow_compute/ext/actions_impl.h"
@@ -75,6 +76,14 @@ class HashAggregateKernel::Impl {
         }
       } else {
         type = func_node->return_type();
+      }
+      if (func_name.compare(0, 20, "action_first_partial") == 0) {
+        // Get the second child node (ingoreNulls).
+        if (func_node->children().size() > 1) {
+          auto func_option_node =
+              dynamic_cast<gandiva::LiteralNode*>(func_node->children().at(1).get());
+          action_option_map_.insert(std::make_pair(func_name, func_option_node));
+        }
       }
       if (func_name.compare(0, 7, "action_") == 0) {
         action_name_list_.push_back(std::make_pair(func_name, type));
@@ -149,7 +158,8 @@ class HashAggregateKernel::Impl {
     for (auto field : result_field_list_) {
       res_type_list.push_back(field->type());
     }
-    RETURN_NOT_OK(PrepareActionList(action_name_list_, res_type_list, &action_impl_list));
+    RETURN_NOT_OK(PrepareActionList(action_name_list_, res_type_list, &action_impl_list,
+                                    action_option_map_));
 
     // 3. create post project
     std::shared_ptr<GandivaProjector> post_process_projector;
@@ -365,10 +375,7 @@ class HashAggregateKernel::Impl {
         project_output_list[i].first.second = "";
       }
       if (idx_v.size() > 0) {
-        if (action_name_str_list[action_idx] != "\"action_count\"") {
-          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
-                          << "_validity) {" << std::endl;
-        } else {
+        if (action_name_str_list[action_idx] == "\"action_count\"") {
           // For action_count with mutiple-col input, will check the validity
           // of all the input cols.
           action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
@@ -380,21 +387,48 @@ class HashAggregateKernel::Impl {
           action_codes_ss << " && "
                           << project_output_list[idx_v[idx_v.size() - 1]].first.first
                           << "_validity) {" << std::endl;
+        } else if (action_name_str_list[action_idx] == "\"action_first_final\"") {
+          // Just check the second para validity, since the first para validity can be
+          // null.
+          action_codes_ss << "if (" << project_output_list[idx_v[1]].first.first
+                          << "_validity) {" << std::endl;
+        } else {
+          action_codes_ss << "if (" << project_output_list[idx_v[0]].first.first
+                          << "_validity) {" << std::endl;
         }
       }
       std::vector<std::string> parameter_list;
-      if (action_name_str_list[action_idx] != "\"action_count\"") {
-        for (auto i : idx_v) {
-          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
-        }
-      } else {
+      std::vector<std::string> parameter_list_of_first_final;
+      if (action_name_str_list[action_idx] == "\"action_count\"") {
         // For action_count, only the first col will be used as input to Evaluate
         // function, in which it will not be used.
         parameter_list.push_back("(void*)&" + project_output_list[idx_v[0]].first.first);
+      } else if (action_name_str_list[action_idx] == "\"action_first_final\"") {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
+        // Let the second as the input if first col is null, but the second is not.
+        parameter_list_of_first_final.push_back(
+            "(void*)&" + project_output_list[idx_v[1]].first.first);
+      } else {
+        for (auto i : idx_v) {
+          parameter_list.push_back("(void*)&" + project_output_list[i].first.first);
+        }
       }
+
       action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
                       << "]->Evaluate(memo_index" << GetParameterList(parameter_list)
                       << "));" << std::endl;
+      // Tackle first_final action with first col is null, but the second is not, which
+      // means the first value is null, but value_set is not.
+      if (action_name_str_list[action_idx] == "\"action_first_final\"") {
+        action_codes_ss << "} else if (" << project_output_list[idx_v[1]].first.first
+                        << "_validity) {" << std::endl;
+        action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
+                        << "]->Evaluate(memo_index"
+                        << GetParameterList(parameter_list_of_first_final) << "));"
+                        << std::endl;
+      }
       if (idx_v.size() > 0) {
         action_codes_ss << "} else {" << std::endl;
         action_codes_ss << "RETURN_NOT_OK(aggr_action_list_" << level << "[" << action_idx
@@ -591,6 +625,8 @@ class HashAggregateKernel::Impl {
   std::vector<int> key_index_list_;
 
   std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list_;
+  // Keep the action name and the action option node.
+  std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map_;
   std::vector<std::vector<int>> action_prepare_index_list_;
 
   bool getActionOption(std::string action_name, std::string action_name_prefix) {
@@ -604,10 +640,22 @@ class HashAggregateKernel::Impl {
     return option;
   }
 
+  // action_option_map is not supported in code gen.
   arrow::Status PrepareActionList(
       std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
       std::vector<gandiva::DataTypePtr> result_field_list,
       std::vector<std::shared_ptr<ActionBase>>* action_list) {
+    std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map;
+    // Just pass an empty map.
+    return PrepareActionList(action_name_list, result_field_list, action_list,
+                             action_option_map);
+  }
+
+  arrow::Status PrepareActionList(
+      std::vector<std::pair<std::string, gandiva::DataTypePtr>> action_name_list,
+      std::vector<gandiva::DataTypePtr> result_field_list,
+      std::vector<std::shared_ptr<ActionBase>>* action_list,
+      std::unordered_map<std::string, gandiva::LiteralNode*> action_option_map) {
     int result_id = 0;
     for (int action_id = 0; action_id < action_name_list.size(); action_id++) {
       std::shared_ptr<ActionBase> action;
@@ -688,6 +736,22 @@ class HashAggregateKernel::Impl {
         result_id += 1;
         RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list,
                                                 null_on_divide_by_zero, &action));
+      } else if (action_name.compare(0, 20, "action_first_partial") == 0) {
+        auto res_type_list = {result_field_list[result_id],
+                              result_field_list[result_id + 1]};
+        result_id += 2;
+        bool ignore_nulls = true;
+        if (action_option_map.find(action_name) != action_option_map.end()) {
+          auto option_node = action_option_map[action_name];
+          ignore_nulls = arrow::util::get<bool>(option_node->holder());
+        }
+        RETURN_NOT_OK(MakeFirstPartialAction(ctx_, action_input_type, res_type_list,
+                                             &action, ignore_nulls));
+      } else if (action_name.compare(0, 18, "action_first_final") == 0) {
+        auto res_type_list = {result_field_list[result_id]};
+        result_id += 1;
+        RETURN_NOT_OK(
+            MakeFirstFinalAction(ctx_, action_input_type, res_type_list, &action));
       } else {
         return arrow::Status::NotImplemented(action_name, " is not implementetd.");
       }
