@@ -61,13 +61,19 @@ TEST(TestArrowCompute, AggregateTest) {
   auto n_min_str = TreeExprBuilder::MakeFunction("action_min", {arg_5}, utf8());
   auto n_max_str = TreeExprBuilder::MakeFunction("action_max", {arg_5}, utf8());
 
-  auto ignore_nulls_node = std::make_shared<::gandiva::LiteralNode>(arrow::boolean(), ::gandiva::LiteralHolder(true), false);
-  // The specified return type (utf8, here) doesn't take effect. Actually, the return types are utf8, boolean.
-  auto n_utf8_first_partial = TreeExprBuilder::MakeFunction("action_first_partial", {arg_6, ignore_nulls_node}, int32());
-  auto n_utf8_first_final = TreeExprBuilder::MakeFunction("action_first_final", {arg_6, arg_7}, utf8());
+  auto ignore_nulls_node = std::make_shared<::gandiva::LiteralNode>(
+      arrow::boolean(), ::gandiva::LiteralHolder(true), false);
+  // The specified return type (utf8, here) doesn't take effect. Actually, the return
+  // types are utf8, boolean.
+  auto n_utf8_first_partial = TreeExprBuilder::MakeFunction(
+      "action_first_partial", {arg_6, ignore_nulls_node}, int32());
+  auto n_utf8_first_final =
+      TreeExprBuilder::MakeFunction("action_first_final", {arg_6, arg_7}, utf8());
   // For int32 input type test.
-  auto n_int32_first_partial = TreeExprBuilder::MakeFunction("action_first_partial", {arg_0, ignore_nulls_node}, int32());
-  auto n_int32_first_final = TreeExprBuilder::MakeFunction("action_first_final", {arg_0, arg_7}, int32());
+  auto n_int32_first_partial = TreeExprBuilder::MakeFunction(
+      "action_first_partial", {arg_0, ignore_nulls_node}, int32());
+  auto n_int32_first_final =
+      TreeExprBuilder::MakeFunction("action_first_final", {arg_0, arg_7}, int32());
 
   auto f_sum = field("sum", int64());
   auto f_count = field("count", int64());
@@ -90,13 +96,14 @@ TEST(TestArrowCompute, AggregateTest) {
   auto f_res = field("res", int32());
 
   auto n_proj = TreeExprBuilder::MakeFunction(
-      "aggregateExpressions", {arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7}, uint32());
-  auto n_action =
-      TreeExprBuilder::MakeFunction("aggregateActions",
-                                    {n_sum, n_count, n_sum_count, n_avg, n_min, n_max,
-                                     n_stddev, n_count_literal, n_min_str, n_max_str, n_utf8_first_partial, n_utf8_first_final,
-                                     n_int32_first_partial, n_int32_first_final},
-                                    uint32());
+      "aggregateExpressions", {arg_0, arg_1, arg_2, arg_3, arg_4, arg_5, arg_6, arg_7},
+      uint32());
+  auto n_action = TreeExprBuilder::MakeFunction(
+      "aggregateActions",
+      {n_sum, n_count, n_sum_count, n_avg, n_min, n_max, n_stddev, n_count_literal,
+       n_min_str, n_max_str, n_utf8_first_partial, n_utf8_first_final,
+       n_int32_first_partial, n_int32_first_final},
+      uint32());
   auto n_result = TreeExprBuilder::MakeFunction(
       "resultSchema",
       {TreeExprBuilder::MakeField(f_sum), TreeExprBuilder::MakeField(f_count),
@@ -104,9 +111,12 @@ TEST(TestArrowCompute, AggregateTest) {
        TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_min),
        TreeExprBuilder::MakeField(f_max), TreeExprBuilder::MakeField(f_stddev),
        TreeExprBuilder::MakeField(f_count_literal), TreeExprBuilder::MakeField(f_min_str),
-       TreeExprBuilder::MakeField(f_max_str), TreeExprBuilder::MakeField(f_utf8_first_partial_1),
-       TreeExprBuilder::MakeField(f_first_partial_2), TreeExprBuilder::MakeField(f_utf8_first_final),
-       TreeExprBuilder::MakeField(f_int32_first_partial_1), TreeExprBuilder::MakeField(f_first_partial_2),
+       TreeExprBuilder::MakeField(f_max_str),
+       TreeExprBuilder::MakeField(f_utf8_first_partial_1),
+       TreeExprBuilder::MakeField(f_first_partial_2),
+       TreeExprBuilder::MakeField(f_utf8_first_final),
+       TreeExprBuilder::MakeField(f_int32_first_partial_1),
+       TreeExprBuilder::MakeField(f_first_partial_2),
        TreeExprBuilder::MakeField(f_int32_first_final)},
       uint32());
   auto n_result_expr = TreeExprBuilder::MakeFunction(
@@ -116,9 +126,12 @@ TEST(TestArrowCompute, AggregateTest) {
        TreeExprBuilder::MakeField(f_avg), TreeExprBuilder::MakeField(f_min),
        TreeExprBuilder::MakeField(f_max), TreeExprBuilder::MakeField(f_stddev),
        TreeExprBuilder::MakeField(f_count_literal), TreeExprBuilder::MakeField(f_min_str),
-       TreeExprBuilder::MakeField(f_max_str), TreeExprBuilder::MakeField(f_utf8_first_partial_1),
-       TreeExprBuilder::MakeField(f_first_partial_2), TreeExprBuilder::MakeField(f_utf8_first_final),
-       TreeExprBuilder::MakeField(f_int32_first_partial_1), TreeExprBuilder::MakeField(f_first_partial_2),
+       TreeExprBuilder::MakeField(f_max_str),
+       TreeExprBuilder::MakeField(f_utf8_first_partial_1),
+       TreeExprBuilder::MakeField(f_first_partial_2),
+       TreeExprBuilder::MakeField(f_utf8_first_final),
+       TreeExprBuilder::MakeField(f_int32_first_partial_1),
+       TreeExprBuilder::MakeField(f_first_partial_2),
        TreeExprBuilder::MakeField(f_int32_first_final)},
       uint32());
   auto n_aggr = TreeExprBuilder::MakeFunction(
@@ -127,11 +140,23 @@ TEST(TestArrowCompute, AggregateTest) {
   auto aggr_expr = TreeExprBuilder::MakeExpression(n_child, f_res);
 
   auto sch = arrow::schema({f0, f1, f2, f3, f4, f5, f6, f7});
-  std::vector<std::shared_ptr<Field>> ret_types = {
-      f_sum, f_count,  f_sum,           f_count,   f_avg,    f_min,
-      f_max, f_stddev, f_count_literal, f_min_str, f_max_str, f_utf8_first_partial_1,
-      f_first_partial_2, f_utf8_first_final, f_int32_first_partial_1, f_first_partial_2,
-      f_int32_first_final};
+  std::vector<std::shared_ptr<Field>> ret_types = {f_sum,
+                                                   f_count,
+                                                   f_sum,
+                                                   f_count,
+                                                   f_avg,
+                                                   f_min,
+                                                   f_max,
+                                                   f_stddev,
+                                                   f_count_literal,
+                                                   f_min_str,
+                                                   f_max_str,
+                                                   f_utf8_first_partial_1,
+                                                   f_first_partial_2,
+                                                   f_utf8_first_final,
+                                                   f_int32_first_partial_1,
+                                                   f_first_partial_2,
+                                                   f_int32_first_final};
   ///////////////////// Calculation //////////////////
   std::shared_ptr<CodeGenerator> expr;
   arrow::compute::ExecContext ctx;
@@ -143,7 +168,7 @@ TEST(TestArrowCompute, AggregateTest) {
   ASSERT_NOT_OK(expr->finish(&aggr_result_iterator_base));
   aggr_result_iterator = std::dynamic_pointer_cast<ResultIterator<arrow::RecordBatch>>(
       aggr_result_iterator_base);
-    
+
   std::shared_ptr<arrow::RecordBatch> input_batch;
   std::vector<std::string> input_data_string = {
       "[1, 2, 3, 4, 5, null, 4, 1, 2, 2, 1, 1, 1, 4, 4, 3, 5, 5, 5, 5]",
@@ -159,7 +184,7 @@ TEST(TestArrowCompute, AggregateTest) {
       R"(["ZZ", "SH", "SZ", "NY", "WH", "WH", "AU", "BJ", "SH", "DL", "cD", "CD", 
           "Bj", "LA", "HZ", "LA", "WH", "NY", "WH", "WH"])",
       "[true, false, true, false, false, true, false, true, false, false, true, "
-       "false, true, false, false, true, false, true, false, false]"};
+      "false, true, false, false, true, false, true, false, false]"};
   MakeInputBatch(input_data_string, sch, &input_batch);
   ASSERT_NOT_OK(aggr_result_iterator->ProcessAndCacheOne(input_batch->columns()));
   std::vector<std::string> input_data_2_string = {
@@ -182,9 +207,9 @@ TEST(TestArrowCompute, AggregateTest) {
   std::shared_ptr<arrow::RecordBatch> expected_result;
   std::shared_ptr<arrow::RecordBatch> result_batch;
   std::vector<std::string> expected_result_string = {
-      "[221]", "[39]",      "[221]", "[39]",      "[4.40724]", "[1]",
-      "[10]",  "[17.2996]", "[40]",  R"(["AU"])", R"(["wH"])", R"(["ZZ"])", "[true]",
-      R"(["ZZ"])", "[1]", "[true]", "[1]"};
+      "[221]",  "[39]",      "[221]", "[39]",      "[4.40724]", "[1]",
+      "[10]",   "[17.2996]", "[40]",  R"(["AU"])", R"(["wH"])", R"(["ZZ"])",
+      "[true]", R"(["ZZ"])", "[1]",   "[true]",    "[1]"};
   auto res_sch = arrow::schema(ret_types);
   MakeInputBatch(expected_result_string, res_sch, &expected_result);
   if (aggr_result_iterator->HasNext()) {

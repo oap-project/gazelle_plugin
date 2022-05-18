@@ -4729,10 +4729,11 @@ class FirstPartialAction {};
 
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
 class FirstPartialAction<DataType, CType, ResDataType, ResCType,
-                         precompile::enable_if_number<DataType>>: public ActionBase {
+                         precompile::enable_if_number<DataType>> : public ActionBase {
  public:
-  FirstPartialAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
+  FirstPartialAction(arrow::compute::ExecContext* ctx,
+                     std::shared_ptr<arrow::DataType> type,
+                     std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> first_builder;
     std::unique_ptr<arrow::ArrayBuilder> value_set_builder;
@@ -4740,8 +4741,8 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::boolean(), &value_set_builder);
     first_builder_.reset(
         arrow::internal::checked_cast<BuilderType*>(first_builder.release()));
-    value_set_builder_.reset(
-        arrow::internal::checked_cast<arrow::BooleanBuilder*>(value_set_builder.release()));
+    value_set_builder_.reset(arrow::internal::checked_cast<arrow::BooleanBuilder*>(
+        value_set_builder.release()));
     ignore_nulls_ = ignore_nulls;
 
 #ifdef DEBUG
@@ -4773,7 +4774,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     *on_valid = [this](int dest_group_id) {
       // Directly return if first value is already set.
       if (cache_value_set_[dest_group_id]) {
-        row_id++;   // Looks row_id will not be used after first value is set.
+        row_id++;  // Looks row_id will not be used after first value is set.
         return arrow::Status::OK();
       }
 
@@ -4922,7 +4923,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < res_length; i++) {
       if (cache_value_set_[offset + i] && !cache_null_flag_[offset + i]) {
         RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
-        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset+ i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
       } else {
         // first is not set or should be set to null.
         RETURN_NOT_OK(first_builder_->AppendNull());
@@ -4965,10 +4966,12 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
 //////////////// FirstPartialAction for string like type ///////////////
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
 class FirstPartialAction<DataType, CType, ResDataType, ResCType,
-                      precompile::enable_if_string_like<DataType>>: public ActionBase {
+                         precompile::enable_if_string_like<DataType>>
+    : public ActionBase {
  public:
-  FirstPartialAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
+  FirstPartialAction(arrow::compute::ExecContext* ctx,
+                     std::shared_ptr<arrow::DataType> type,
+                     std::shared_ptr<arrow::DataType> res_type, bool ignore_nulls)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> first_builder;
     std::unique_ptr<arrow::ArrayBuilder> value_set_builder;
@@ -4976,8 +4979,8 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     arrow::MakeBuilder(ctx_->memory_pool(), arrow::boolean(), &value_set_builder);
     first_builder_.reset(
         arrow::internal::checked_cast<BuilderType*>(first_builder.release()));
-    value_set_builder_.reset(
-        arrow::internal::checked_cast<arrow::BooleanBuilder*>(value_set_builder.release()));
+    value_set_builder_.reset(arrow::internal::checked_cast<arrow::BooleanBuilder*>(
+        value_set_builder.release()));
     ignore_nulls_ = ignore_nulls;
 
 #ifdef DEBUG
@@ -5008,7 +5011,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     *on_valid = [this](int dest_group_id) {
       // Directly return if first value is already set.
       if (cache_value_set_[dest_group_id]) {
-        row_id++;   // Looks row_id will not be used after first value is set.
+        row_id++;  // Looks row_id will not be used after first value is set.
         return arrow::Status::OK();
       }
 
@@ -5157,7 +5160,7 @@ class FirstPartialAction<DataType, CType, ResDataType, ResCType,
     for (uint64_t i = 0; i < res_length; i++) {
       if (cache_value_set_[offset + i] && !cache_null_flag_[offset + i]) {
         RETURN_NOT_OK(first_builder_->Append(cache_first_[offset + i]));
-        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset+ i]));
+        RETURN_NOT_OK(value_set_builder_->Append(cache_value_set_[offset + i]));
       } else {
         // first is not set or should be set to null.
         RETURN_NOT_OK(first_builder_->AppendNull());
@@ -5204,10 +5207,11 @@ class FirstFinalAction {};
 
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
 class FirstFinalAction<DataType, CType, ResDataType, ResCType,
-                         precompile::enable_if_number<DataType>>: public ActionBase {
+                       precompile::enable_if_number<DataType>> : public ActionBase {
  public:
-  FirstFinalAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type)
+  FirstFinalAction(arrow::compute::ExecContext* ctx,
+                   std::shared_ptr<arrow::DataType> type,
+                   std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> first_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &first_builder);
@@ -5248,7 +5252,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     *on_valid = [this](int dest_group_id) {
       // If already set, no need to tackle.
       if (cache_value_set_[dest_group_id]) {
-        row_id++;   // No need?
+        row_id++;  // No need?
         return arrow::Status::OK();
       }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
@@ -5338,7 +5342,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (length_ < target_group_size) {
       length_ = target_group_size;
     }
-    
+
     // No need to handle if already set.
     if (cache_value_set_[dest_group_id]) {
       return arrow::Status::OK();
@@ -5367,7 +5371,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (length_ < target_group_size) {
       length_ = target_group_size;
     }
-    
+
     // No need to handle if already set.
     if (cache_value_set_[dest_group_id]) {
       return arrow::Status::OK();
@@ -5384,7 +5388,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     return arrow::Status::OK();
   }
 
-  // Just for codegen. 
+  // Just for codegen.
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
     if (cache_first_.size() <= target_group_size) {
@@ -5409,7 +5413,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
           RETURN_NOT_OK(first_builder_->AppendNull());
         }
       }
-      //TODO: tackle cache_value_set_ = false?
+      // TODO: tackle cache_value_set_ = false?
     }
     // The first value is the output.
     std::shared_ptr<arrow::Array> first_array;
@@ -5463,10 +5467,11 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
 //////////////// FirstFinalAction for string like type ///////////////
 template <typename DataType, typename CType, typename ResDataType, typename ResCType>
 class FirstFinalAction<DataType, CType, ResDataType, ResCType,
-           precompile::enable_if_string_like<DataType>>: public ActionBase {
+                       precompile::enable_if_string_like<DataType>> : public ActionBase {
  public:
-  FirstFinalAction(arrow::compute::ExecContext* ctx, std::shared_ptr<arrow::DataType> type,
-                 std::shared_ptr<arrow::DataType> res_type)
+  FirstFinalAction(arrow::compute::ExecContext* ctx,
+                   std::shared_ptr<arrow::DataType> type,
+                   std::shared_ptr<arrow::DataType> res_type)
       : ctx_(ctx) {
     std::unique_ptr<arrow::ArrayBuilder> first_builder;
     arrow::MakeBuilder(ctx_->memory_pool(), res_type, &first_builder);
@@ -5504,7 +5509,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     *on_valid = [this](int dest_group_id) {
       // If already set, no need to tackle.
       if (cache_value_set_[dest_group_id]) {
-        row_id++;   // No need?
+        row_id++;  // No need?
         return arrow::Status::OK();
       }
       const bool is_null = in_null_count_ > 0 && in_->IsNull(row_id);
@@ -5591,7 +5596,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (length_ < target_group_size) {
       length_ = target_group_size;
     }
-    
+
     // No need to handle if already set.
     if (cache_value_set_[dest_group_id]) {
       return arrow::Status::OK();
@@ -5620,7 +5625,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     if (length_ < target_group_size) {
       length_ = target_group_size;
     }
-    
+
     // No need to handle if already set.
     if (cache_value_set_[dest_group_id]) {
       return arrow::Status::OK();
@@ -5637,7 +5642,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
     return arrow::Status::OK();
   }
 
-  // Just for codegen. 
+  // Just for codegen.
   arrow::Status EvaluateNull(int dest_group_id) {
     auto target_group_size = dest_group_id + 1;
     if (cache_first_.size() <= target_group_size) {
@@ -5662,7 +5667,7 @@ class FirstFinalAction<DataType, CType, ResDataType, ResCType,
           RETURN_NOT_OK(first_builder_->AppendNull());
         }
       }
-      //TODO: tackle cache_value_set_ = false?
+      // TODO: tackle cache_value_set_ = false?
     }
     // The first value is the output.
     std::shared_ptr<arrow::Array> first_array;
@@ -6240,15 +6245,17 @@ arrow::Status MakeFirstPartialAction(
     } break;
     case arrow::StringType::type_id: {
       auto res_type = arrow::TypeTraits<arrow::StringType>::type_singleton();
-      auto action_ptr = std::make_shared<FirstPartialAction<arrow::StringType,
-                            std::string, arrow::StringType, std::string>>(ctx, type, res_type, ignore_nulls);
+      auto action_ptr =
+          std::make_shared<FirstPartialAction<arrow::StringType, std::string,
+                                              arrow::StringType, std::string>>(
+              ctx, type, res_type, ignore_nulls);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::BooleanType::type_id: {
       auto res_type = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
       auto action_ptr = std::make_shared<
-          FirstPartialAction<arrow::BooleanType, bool, arrow::Int32Type, int32_t>>(ctx, type,
-                                                                               res_type, ignore_nulls);
+          FirstPartialAction<arrow::BooleanType, bool, arrow::Int32Type, int32_t>>(
+          ctx, type, res_type, ignore_nulls);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
@@ -6263,16 +6270,16 @@ arrow::Status MakeFirstFinalAction(
     std::vector<std::shared_ptr<arrow::DataType>> res_type_list,
     std::shared_ptr<ActionBase>* out) {
   switch (type->id()) {
-#define PROCESS(InType)                                                             \
-  case InType::type_id: {                                                           \
-    using CType = typename arrow::TypeTraits<InType>::CType;                        \
-    using ResDataType = typename FindAccumulatorType<InType>::Type;                 \
-    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;                \
-    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();               \
-    auto action_ptr =                                                               \
-        std::make_shared<FirstFinalAction<InType, CType, ResDataType, ResCType>>(   \
-            ctx, type, res_type);                                                   \
-    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                       \
+#define PROCESS(InType)                                                           \
+  case InType::type_id: {                                                         \
+    using CType = typename arrow::TypeTraits<InType>::CType;                      \
+    using ResDataType = typename FindAccumulatorType<InType>::Type;               \
+    using ResCType = typename arrow::TypeTraits<ResDataType>::CType;              \
+    auto res_type = arrow::TypeTraits<ResDataType>::type_singleton();             \
+    auto action_ptr =                                                             \
+        std::make_shared<FirstFinalAction<InType, CType, ResDataType, ResCType>>( \
+            ctx, type, res_type);                                                 \
+    *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);                     \
   } break;
     PROCESS_SUPPORTED_TYPES(PROCESS)
     // TODO: uncomment the below code after decimal is supported.
@@ -6290,17 +6297,19 @@ arrow::Status MakeFirstFinalAction(
           ctx, type, res_type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
-     case arrow::StringType::type_id: {
+    case arrow::StringType::type_id: {
       auto res_type = arrow::TypeTraits<arrow::StringType>::type_singleton();
-      auto action_ptr = std::make_shared<FirstFinalAction<arrow::StringType,
-                            std::string, arrow::StringType, std::string>>(ctx, type, res_type);
+      auto action_ptr =
+          std::make_shared<FirstFinalAction<arrow::StringType, std::string,
+                                            arrow::StringType, std::string>>(ctx, type,
+                                                                             res_type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
     case arrow::BooleanType::type_id: {
       auto res_type = arrow::TypeTraits<arrow::Int32Type>::type_singleton();
       auto action_ptr = std::make_shared<
-          FirstFinalAction<arrow::BooleanType, bool, arrow::Int32Type, int32_t>>(ctx, type,
-                                                                               res_type);
+          FirstFinalAction<arrow::BooleanType, bool, arrow::Int32Type, int32_t>>(
+          ctx, type, res_type);
       *out = std::dynamic_pointer_cast<ActionBase>(action_ptr);
     } break;
 #undef PROCESS
