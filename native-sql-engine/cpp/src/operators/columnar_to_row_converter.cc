@@ -97,7 +97,9 @@ arrow::Status CalculatedElementSize(arrow::Type::type type_id, int32_t* length) 
   return arrow::Status::OK();
 }
 
-arrow::Status ColumnarToRowConverter::Init() {
+arrow::Status ColumnarToRowConverter::Init(
+    const std::shared_ptr<arrow::RecordBatch>& rb) {
+  rb_ = rb;
   num_rows_ = rb_->num_rows();
   num_cols_ = rb_->num_columns();
   // Calculate the initial size
@@ -363,8 +365,8 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
 
 arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
                          std::shared_ptr<arrow::Array> array, int32_t col_index,
-                         int64_t num_rows, std::vector<int64_t>& offsets,
-                         std::vector<int64_t>& buffer_cursor) {
+                         int64_t num_rows, std::vector<int32_t>& offsets,
+                         std::vector<int32_t>& buffer_cursor) {
   switch (array->type_id()) {
     case arrow::BooleanType::type_id: {
       // Boolean type
@@ -479,7 +481,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
           // write the variable value
           memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
           // write the offset and size
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | length;
+          int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | length;
           memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
                  sizeof(int64_t));
           buffer_cursor[i] += length;
@@ -502,7 +504,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
           // write the variable value
           memcpy(buffer_address + offsets[i] + buffer_cursor[i], value, length);
           // write the offset and size
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | length;
+          int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | length;
           memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
                  sizeof(int64_t));
           buffer_cursor[i] += length;
@@ -541,7 +543,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
             // write the variable value
             memcpy(buffer_address + buffer_cursor[i] + offsets[i], &out[0], size);
             // write the offset and size
-            int64_t offsetAndSize = (buffer_cursor[i] << 32) | size;
+            int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | size;
             memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
                    sizeof(int64_t));
           }
@@ -815,7 +817,7 @@ arrow::Status WriteValue(uint8_t* buffer_address, int64_t field_offset,
             total_size += num_elements * 8;
           }
           // write the offset and size for per row
-          int64_t offsetAndSize = (buffer_cursor[i] << 32) | total_size;
+          int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | total_size;
           memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
                  sizeof(int64_t));
           buffer_cursor[i] += total_size;
