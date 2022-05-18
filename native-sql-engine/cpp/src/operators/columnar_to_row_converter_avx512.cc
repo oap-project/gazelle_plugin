@@ -528,14 +528,21 @@ arrow::Status ColumnarToRowConverter::Write() {
 
           for (auto j = i; j < i + BATCH_ROW_NUM; j++) {
             const arrow::Decimal128 out_value(out_array->GetValue(j));
+            bool flag = out_array->IsNull(j);
 
-            if (nullvec[col_index] || (!array->IsNull(j))) {
-              if (precision <= 18) {
+            if (precision <= 18) {
+              if (!flag) {
                 // Get the long value and write the long value
                 // Refer to the int64_t() method of Decimal128
                 int64_t long_value = static_cast<int64_t>(out_value.low_bits());
                 memcpy(buffer_address + offsets[j] + field_offset, &long_value,
                        sizeof(long));
+              } else {
+                SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+              }
+            } else {
+              if (flag) {
+                SetNullAt(buffer_address, offsets[j], field_offset, col_index);
               } else {
                 int32_t size;
                 auto out = ToByteArray(out_value, &size);
@@ -548,8 +555,10 @@ arrow::Status ColumnarToRowConverter::Write() {
                 memcpy(buffer_address + offsets[j] + field_offset, &offsetAndSize,
                        sizeof(int64_t));
               }
-            } else {
-              SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+
+              // Update the cursor of the buffer.
+              int64_t new_cursor = buffer_cursor[j] + 16;
+              buffer_cursor[j] = new_cursor;
             }
           }
           break;
@@ -666,7 +675,6 @@ arrow::Status ColumnarToRowConverter::Write() {
           //        for (auto i = 0; i < num_rows; i++) {
           const arrow::Decimal128 out_value(out_array->GetValue(i));
           bool flag = out_array->IsNull(i);
-
           if (precision <= 18) {
             if (!flag) {
               // Get the long value and write the long value
@@ -684,7 +692,6 @@ arrow::Status ColumnarToRowConverter::Write() {
               int32_t size;
               auto out = ToByteArray(out_value, &size);
               assert(size <= 16);
-
               // write the variable value
               memcpy(buffer_address + buffer_cursor[i] + offsets[i], &out[0], size);
               // write the offset and size
@@ -692,7 +699,6 @@ arrow::Status ColumnarToRowConverter::Write() {
               memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
                      sizeof(int64_t));
             }
-
             // Update the cursor of the buffer.
             int64_t new_cursor = buffer_cursor[i] + 16;
             buffer_cursor[i] = new_cursor;
