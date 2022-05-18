@@ -732,7 +732,7 @@ class HashAggregateKernel::Impl {
         result_id += 1;
         RETURN_NOT_OK(MakeStddevSampFinalAction(ctx_, action_input_type, res_type_list,
                                                 null_on_divide_by_zero, &action));
-      } else if (action_name.compare(0, 20 , "action_first_partial") == 0) {
+      } else if (action_name.compare(0, 20, "action_first_partial") == 0) {
         auto res_type_list = {result_field_list[result_id],
                               result_field_list[result_id + 1]};
         result_id += 2;

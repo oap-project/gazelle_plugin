@@ -626,7 +626,7 @@ case class ColumnarHashAggregateExec(
                 s"${other} is not supported in Columnar StddevSamp")
           }
         case first @ First(_, _) =>
-          // Spark will use sort agg fir string type input, see AggUtils.scala.
+          // Spark will use sort agg for string type input, see AggUtils.scala.
           // So it will fallback to row-based operator for such case.
           val supportedTypes = List(ByteType, ShortType, IntegerType, LongType,
             FloatType, DoubleType, DateType, BooleanType, StringType)
