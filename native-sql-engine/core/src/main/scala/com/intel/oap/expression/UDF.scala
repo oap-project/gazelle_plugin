@@ -20,11 +20,12 @@ package com.intel.oap.expression
 import com.google.common.collect.Lists
 import org.apache.arrow.gandiva.expression.{TreeBuilder, TreeNode}
 import org.apache.arrow.vector.types.pojo.ArrowType
+
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions._
 import org.apache.spark.sql.catalyst.expressions.codegen.{CodegenContext, ExprCode}
-import org.apache.spark.sql.types.StringType
 import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.types.StringType
 
 
 case class ColumnarURLDecoder(input: Expression) extends Expression with ColumnarExpression {
@@ -41,6 +42,7 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
   }
 
   def eval(input: InternalRow): Any = {
+    throw new UnsupportedOperationException("Should not trigger eval!")
   }
 
   def child: Expression = {
@@ -48,7 +50,7 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
   }
 
   override def doGenCode(ctx: CodegenContext, ev: ExprCode): ExprCode = {
-    throw new UnsupportedOperationException("Should not trigger code gen")
+    throw new UnsupportedOperationException("Should not trigger code gen!")
   }
 
   protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): ColumnarURLDecoder = {
@@ -60,7 +62,7 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
   def buildCheck: Unit = {
     val supportedTypes = List(StringType)
     if (!supportedTypes.contains(input.dataType)) {
-      throw new UnsupportedOperationException("Only StringType input is supported!");
+      throw new UnsupportedOperationException("Only StringType input is supported!")
     }
   }
 
@@ -82,7 +84,10 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
 }
 
 object UDF {
-  val supportList = {"testUDF"}
+  // Keep the supported UDF name. The name is specified in registering the
+  // row based function in spark, e.g.,
+  // CREATE TEMPORARY FUNCTION UrlDecoder AS 'com.intel.test.URLDecoderNew';
+  val supportList = {"UrlDecoder"}
 
   def isSupportedUDF(name: String): Boolean = {
     return supportList.contains(name)
@@ -90,7 +95,7 @@ object UDF {
 
   def create(children: Seq[Expression], original: Expression): Expression = {
     original.prettyName match {
-      case "testUDF" =>
+      case "UrlDecoder" =>
         ColumnarURLDecoder(children.head)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
