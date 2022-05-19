@@ -138,34 +138,32 @@ arrow::Status ColumnarToRowConverter::Init(
       auto binary_array = std::static_pointer_cast<arrow::BinaryArray>(array);
       using offset_type = typename arrow::BinaryType::offset_type;
       const offset_type* offsetarray = binary_array->raw_value_offsets();
-            __m256i x7_8x = _mm256_load_si256((__m256i*)x_7);
-            __m256i x8_8x = _mm256_load_si256((__m256i*)x_8);
+      __m256i x7_8x = _mm256_load_si256((__m256i*)x_7);
+      __m256i x8_8x = _mm256_load_si256((__m256i*)x_8);
       int32_t j = 0;
       int32_t* length_data = lengths_.data();
 
-            __m256i offsetarray_1_8x;
-            if (j + 16 < num_rows_)
-            {
-              offsetarray_1_8x = _mm256_loadu_si256((__m256i*)&offsetarray[j]);
-            }
-            for (j; j + 16 < num_rows_; j += 8) {
-              __m256i offsetarray_8x = offsetarray_1_8x;
-              offsetarray_1_8x = _mm256_loadu_si256((__m256i*)&offsetarray[j+8]);
+      __m256i offsetarray_1_8x;
+      if (j + 16 < num_rows_) {
+        offsetarray_1_8x = _mm256_loadu_si256((__m256i*)&offsetarray[j]);
+      }
+      for (j; j + 16 < num_rows_; j += 8) {
+        __m256i offsetarray_8x = offsetarray_1_8x;
+        offsetarray_1_8x = _mm256_loadu_si256((__m256i*)&offsetarray[j + 8]);
 
-              __m256i length_8x =
-              _mm256_alignr_epi32(offsetarray_1_8x, offsetarray_8x, 0x1); length_8x =
-              _mm256_sub_epi32(length_8x, offsetarray_8x);
+        __m256i length_8x = _mm256_alignr_epi32(offsetarray_1_8x, offsetarray_8x, 0x1);
+        length_8x = _mm256_sub_epi32(length_8x, offsetarray_8x);
 
-              __m256i reminder_8x = _mm256_and_si256(length_8x, x7_8x);
-              reminder_8x = _mm256_sub_epi32(x8_8x,reminder_8x);
-              reminder_8x = _mm256_and_si256(reminder_8x,x7_8x);
-              reminder_8x = _mm256_add_epi32(reminder_8x, length_8x);
-              __m256i dst_length_8x = _mm256_loadu_si256((__m256i*)length_data);
-              dst_length_8x = _mm256_add_epi32(dst_length_8x, reminder_8x);
-              _mm256_storeu_si256((__m256i*)length_data,dst_length_8x);
-              length_data+=8;
-              _mm_prefetch(&offsetarray[j+(128+128)/sizeof(offset_type)],_MM_HINT_T0);
-            }
+        __m256i reminder_8x = _mm256_and_si256(length_8x, x7_8x);
+        reminder_8x = _mm256_sub_epi32(x8_8x, reminder_8x);
+        reminder_8x = _mm256_and_si256(reminder_8x, x7_8x);
+        reminder_8x = _mm256_add_epi32(reminder_8x, length_8x);
+        __m256i dst_length_8x = _mm256_loadu_si256((__m256i*)length_data);
+        dst_length_8x = _mm256_add_epi32(dst_length_8x, reminder_8x);
+        _mm256_storeu_si256((__m256i*)length_data, dst_length_8x);
+        length_data += 8;
+        _mm_prefetch(&offsetarray[j + (128 + 128) / sizeof(offset_type)], _MM_HINT_T0);
+      }
 
       for (j; j < num_rows_; j++) {
         offset_type length = offsetarray[j + 1] - offsetarray[j];
