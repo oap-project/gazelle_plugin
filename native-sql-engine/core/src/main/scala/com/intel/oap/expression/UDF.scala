@@ -51,6 +51,10 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
     throw new UnsupportedOperationException("Should not trigger code gen")
   }
 
+  protected def withNewChildrenInternal(newChildren: IndexedSeq[Expression]): ColumnarURLDecoder = {
+    copy(input = newChildren.head)
+  }
+
   buildCheck
 
   def buildCheck: Unit = {
@@ -74,7 +78,7 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
 }
 
 object UDF {
-  val supportList = {"TestUDF"}
+  val supportList = {"testUDF"}
 
   def isSupportedUDF(name: String): Boolean = {
     return supportList.contains(name)
@@ -82,8 +86,8 @@ object UDF {
 
   def create(children: Seq[Expression], original: Expression): Expression = {
     original.prettyName match {
-      case "TestUDF" =>
-        new ColumnarURLDecoder(original.children.head)
+      case "testUDF" =>
+        new ColumnarURLDecoder(children.head)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }

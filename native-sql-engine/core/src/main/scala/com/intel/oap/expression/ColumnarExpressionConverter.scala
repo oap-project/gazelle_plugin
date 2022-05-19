@@ -468,6 +468,8 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(sr.srcExpr) ||
           containsSubquery(sr.searchExpr) ||
           containsSubquery(sr.replaceExpr)
+      case expr if (UDF.isSupportedUDF(expr.prettyName)) =>
+        expr.children.map(containsSubquery).exists(_ == true)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
