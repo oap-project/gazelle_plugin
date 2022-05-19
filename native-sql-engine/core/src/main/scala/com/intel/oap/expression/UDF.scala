@@ -64,6 +64,10 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
     }
   }
 
+  override def supportColumnarCodegen(args: java.lang.Object): Boolean = {
+    false
+  }
+
   override def doColumnarCodeGen(args: Object): (TreeNode, ArrowType) = {
     val (inputNode, _): (TreeNode, ArrowType) =
       input.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
@@ -87,7 +91,7 @@ object UDF {
   def create(children: Seq[Expression], original: Expression): Expression = {
     original.prettyName match {
       case "testUDF" =>
-        new ColumnarURLDecoder(children.head)
+        ColumnarURLDecoder(children.head)
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
