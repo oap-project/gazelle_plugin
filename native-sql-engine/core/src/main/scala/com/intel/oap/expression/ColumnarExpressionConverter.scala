@@ -399,14 +399,24 @@ object ColumnarExpressionConverter extends Logging {
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
-      case expr if (UDF.isSupportedUDF(expr.prettyName)) =>
+      // Scala UDF.
+      case expr: ScalaUDF if ColumnarUDF.isSupportedUDF(expr.udfName.get) =>
         val children = expr.children.map { expr =>
           replaceWithColumnarExpression(
             expr,
             attributeSeq,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef)
         }
-        UDF.create(children, expr)
+        ColumnarUDF.create(children, expr)
+      // Hive UDF.
+      case expr if (ColumnarUDF.isSupportedUDF(expr.prettyName)) =>
+        val children = expr.children.map { expr =>
+          replaceWithColumnarExpression(
+            expr,
+            attributeSeq,
+            convertBoundRefToAttrRef = convertBoundRefToAttrRef)
+        }
+        ColumnarUDF.create(children, expr)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
@@ -468,7 +478,9 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(sr.srcExpr) ||
           containsSubquery(sr.searchExpr) ||
           containsSubquery(sr.replaceExpr)
-      case expr if (UDF.isSupportedUDF(expr.prettyName)) =>
+      case expr: ScalaUDF if ColumnarUDF.isSupportedUDF(expr.udfName.get) =>
+        expr.children.map(containsSubquery).exists(_ == true)
+      case expr if (ColumnarUDF.isSupportedUDF(expr.prettyName)) =>
         expr.children.map(containsSubquery).exists(_ == true)
       case expr =>
         throw new UnsupportedOperationException(

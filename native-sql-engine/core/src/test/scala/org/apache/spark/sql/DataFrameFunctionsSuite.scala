@@ -3629,6 +3629,16 @@ class DataFrameFunctionsSuite extends QueryTest with SharedSparkSession {
       df.select(map(map_entries($"m"), lit(1))),
       Row(Map(Seq(Row(1, "a")) -> 1)))
   }
+
+  test("Columnar UDF") {
+    // Register a scala UDF. The scala UDF code will not be acutally used. It
+    // will be replaced by columnar UDF at runtime.
+    spark.udf.register("UrlDecoder", (s : String) => s)
+    checkAnswer(
+      sql("select UrlDecoder('AaBb%23'), UrlDecoder(null)"),
+      Seq(Row("AaBb#", null))
+    )
+  }
 }
 
 object DataFrameFunctionsSuite {

@@ -83,20 +83,32 @@ case class ColumnarURLDecoder(input: Expression) extends Expression with Columna
   }
 }
 
-object UDF {
+object ColumnarUDF {
   // Keep the supported UDF name. The name is specified in registering the
   // row based function in spark, e.g.,
   // CREATE TEMPORARY FUNCTION UrlDecoder AS 'com.intel.test.URLDecoderNew';
   val supportList = {"UrlDecoder"}
 
   def isSupportedUDF(name: String): Boolean = {
+    if (name == null) {
+      return false;
+    }
     return supportList.contains(name)
   }
 
   def create(children: Seq[Expression], original: Expression): Expression = {
     original.prettyName match {
+      // Hive UDF.
       case "UrlDecoder" =>
         ColumnarURLDecoder(children.head)
+      // Scala UDF.
+      case "scalaudf" =>
+        original.asInstanceOf[ScalaUDF].udfName.get match {
+          case "UrlDecoder" =>
+            ColumnarURLDecoder(children.head)
+          case other =>
+            throw new UnsupportedOperationException(s"not currently supported: $other.")
+        }
       case other =>
         throw new UnsupportedOperationException(s"not currently supported: $other.")
     }
