@@ -796,6 +796,60 @@ arrow::Result<int32_t> Splitter::SpillLargestPartition(int64_t* size) {
   }
   return partition_to_spill;
 }
+Splitter::row_offset_type Splitter::CalculateSplitBatchSize(
+    const arrow::RecordBatch& rb) {
+  uint32_t size_per_row = 0;
+  auto num_rows = rb.num_rows();
+  for (int i = fixed_width_col_cnt_; i < array_idx_.size(); ++i) {
+    if (ARROW_PREDICT_FALSE(binary_array_empirical_size_[i - fixed_width_col_cnt_] ==
+                            0)) {
+      auto arr = rb.column_data(array_idx_[i]);
+      auto cid = rb.column(array_idx_[i])->type_id();
+      ARROW_CHECK_EQ(arr->buffers.size(), 3);
+      // offset array_data
+      if (ARROW_PREDICT_TRUE(arr->buffers[1] != nullptr)) {
+        auto offsetbuf = arr->buffers[1]->data();
+        uint64_t length;
+        switch (column_type_id_[array_idx_[i]]->id()) {
+          case arrow::BinaryType::type_id:
+          case arrow::StringType::type_id:
+            length =
+                reinterpret_cast<const arrow::StringType::offset_type*>(
+                    offsetbuf)[num_rows] -
+                reinterpret_cast<const arrow::StringType::offset_type*>(offsetbuf)[0];
+            break;
+          case arrow::LargeBinaryType::type_id:
+          case arrow::LargeStringType::type_id:
+            length = reinterpret_cast<const arrow::LargeStringType::offset_type*>(
+                         offsetbuf)[num_rows] -
+                     reinterpret_cast<const arrow::LargeStringType::offset_type*>(
+                         offsetbuf)[0];
+            break;
+        }
+        binary_array_empirical_size_[i - fixed_width_col_cnt_] =
+            length % num_rows == 0 ? length / num_rows : length / num_rows + 1;
+        // std::cout << "avg str length col = " << i - fixed_width_col_cnt_ << " len = "
+        // << binary_array_empirical_size_[i - fixed_width_col_cnt_] << std::endl;
+      }
+    }
+  }
+  size_per_row = std::accumulate(binary_array_empirical_size_.begin(),
+                                 binary_array_empirical_size_.end(), 0);
+
+  for (auto col = 0; col < array_idx_.size(); ++col) {
+    auto col_idx = array_idx_[col];
+    if (col_idx < fixed_width_col_cnt_)
+      size_per_row += arrow::bit_width(column_type_id_[col_idx]->id()) >> 3;
+  }
+
+  int64_t prealloc_row_cnt =
+      options_.offheap_per_task > 0 && size_per_row > 0
+          ? options_.offheap_per_task / size_per_row / num_partitions_ >> 2
+          : options_.buffer_size;
+  prealloc_row_cnt = std::min(prealloc_row_cnt, (int64_t)options_.buffer_size);
+
+  return (row_offset_type)prealloc_row_cnt;
+}
 
 arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // buffer is allocated less than 64K
@@ -820,72 +874,27 @@ arrow::Status Splitter::DoSplit(const arrow::RecordBatch& rb) {
   // for the first input record batch, scan binary arrays and large binary
   // arrays to get their empirical sizes
 
-  uint32_t size_per_row = 0;
-  auto num_rows = rb.num_rows();
-  for (int i = fixed_width_col_cnt_; i < array_idx_.size(); ++i) {
-    auto arr = rb.column_data(array_idx_[i]);
-    auto cid = rb.column(array_idx_[i])->type_id();
-    ARROW_CHECK_EQ(arr->buffers.size(), 3);
-    // offset array_data
-    if (ARROW_PREDICT_TRUE(arr->buffers[1] != nullptr)) {
-      auto offsetbuf = arr->buffers[1]->data();
-      uint64_t length;
-      switch (column_type_id_[array_idx_[i]]->id()) {
-        case arrow::BinaryType::type_id:
-        case arrow::StringType::type_id:
-          length = reinterpret_cast<const arrow::StringType::offset_type*>(
-                       offsetbuf)[num_rows] -
-                   reinterpret_cast<const arrow::StringType::offset_type*>(offsetbuf)[0];
-          break;
-        case arrow::LargeBinaryType::type_id:
-        case arrow::LargeStringType::type_id:
-          length =
-              reinterpret_cast<const arrow::LargeStringType::offset_type*>(
-                  offsetbuf)[num_rows] -
-              reinterpret_cast<const arrow::LargeStringType::offset_type*>(offsetbuf)[0];
-          break;
-      }
-      // check every record batch, hope the length is more and more accurate
-      if (ARROW_PREDICT_FALSE(binary_array_empirical_size_[i - fixed_width_col_cnt_] ==
-                              0)) {
-        binary_array_empirical_size_[i - fixed_width_col_cnt_] =
-            length % num_rows == 0 ? length / num_rows : length / num_rows + 1;
-        // std::cout << "avg str length col = " << i - fixed_width_col_cnt_ << " len = "
-        // << binary_array_empirical_size_[i - fixed_width_col_cnt_] << std::endl;
-      }
-    }
-  }
-  size_per_row = std::accumulate(binary_array_empirical_size_.begin(),
-                                 binary_array_empirical_size_.end(), 0);
-
   for (auto col = 0; col < array_idx_.size(); ++col) {
     auto col_idx = array_idx_[col];
     if (col_idx < fixed_width_col_cnt_)
-      size_per_row += arrow::bit_width(column_type_id_[col_idx]->id()) >> 3;
-
-    // check input_has_null_[col] is cheaper than GetNullCount()
-    //  once input_has_null_ is set to true, we didn't reset it after spill
-    if (input_has_null_[col] == false && rb.column_data(col_idx)->GetNullCount() != 0) {
-      input_has_null_[col] = true;
-    }
+      // check input_has_null_[col] is cheaper than GetNullCount()
+      //  once input_has_null_ is set to true, we didn't reset it after spill
+      if (input_has_null_[col] == false && rb.column_data(col_idx)->GetNullCount() != 0) {
+        input_has_null_[col] = true;
+      }
   }
-
-  int64_t prealloc_row_cnt =
-      options_.offheap_per_task > 0 && size_per_row > 0
-          ? options_.offheap_per_task / size_per_row / num_partitions_ >> 2
-          : options_.buffer_size;
-  prealloc_row_cnt = std::min(prealloc_row_cnt, (int64_t)options_.buffer_size);
 
   // prepare partition buffers and spill if necessary
   for (auto pid = 0; pid < num_partitions_; ++pid) {
     if (partition_id_cnt_[pid] > 0) {
       // make sure the size to be allocated is larger than the size to be filled
-      auto new_size = std::max((row_offset_type)prealloc_row_cnt, partition_id_cnt_[pid]);
       if (partition_buffer_size_[pid] == 0) {
         // allocate buffer if it's not yet allocated
+        auto new_size = std::max(CalculateSplitBatchSize(rb), partition_id_cnt_[pid]);
         RETURN_NOT_OK(AllocatePartitionBuffers(pid, new_size));
       } else if (partition_buffer_idx_base_[pid] + partition_id_cnt_[pid] >
                  partition_buffer_size_[pid]) {
+        auto new_size = std::max(CalculateSplitBatchSize(rb), partition_id_cnt_[pid]);
         // if the size to be filled + allready filled > the buffer size, need to allocate
         // new buffer
         if (options_.prefer_spill) {

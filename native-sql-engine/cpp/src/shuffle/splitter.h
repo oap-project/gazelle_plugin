@@ -141,6 +141,8 @@ class Splitter {
 
   arrow::Status DoSplit(const arrow::RecordBatch& rb);
 
+  row_offset_type CalculateSplitBatchSize(const arrow::RecordBatch& rb);
+
   template <typename T>
   arrow::Status SplitFixedType(const uint8_t* src_addr,
                                const std::vector<uint8_t*>& dst_addrs);
