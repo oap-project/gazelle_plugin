@@ -402,6 +402,29 @@ object ColumnarExpressionConverter extends Logging {
             r.scale,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
+      case getArrayItem: GetArrayItem =>
+        getArrayItem.child match {
+          case strSplit: StringSplit =>
+            ColumnarTernaryOperator.create(
+              replaceWithColumnarExpression(
+                strSplit.str,
+                attributeSeq,
+                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+              replaceWithColumnarExpression(
+                strSplit.regex,
+                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+//              replaceWithColumnarExpression(
+//                strSplit.limit,
+//                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+              replaceWithColumnarExpression(
+                getArrayItem.ordinal,
+                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
+              new ColumnarStringSplitPart(strSplit.str, strSplit.regex, getArrayItem.ordinal, null))
+          case other =>
+            throw new UnsupportedOperationException(
+              s" --> ${other.getClass} | ${other} is not currently" +
+                s" supported as child of GetArrayItem.")
+        }
       case b: BinaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         ColumnarBinaryExpression.create(
