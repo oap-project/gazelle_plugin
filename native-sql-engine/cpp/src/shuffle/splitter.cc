@@ -507,6 +507,15 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
 
           arrays[i] = arrow::MakeArray(arrow::ArrayData::Make(
               schema_->field(i)->type(), num_rows, {buffers[0], buffers[1], buffers[2]}));
+
+          uint64_t dst_offset0 =
+              sizeof_binary_offset == 4
+                  ? reinterpret_cast<const arrow::BinaryType::offset_type*>(
+                        buffers[1]->data())[0]
+                  : reinterpret_cast<const arrow::LargeBinaryType::offset_type*>(
+                        buffers[1]->data())[0];
+          ARROW_CHECK_EQ(dst_offset0, 0);
+
           if (reset_buffers) {
             partition_validity_addrs_[fixed_width_col_cnt_ + binary_idx][partition_id] =
                 nullptr;
@@ -515,13 +524,6 @@ arrow::Status Splitter::CacheRecordBatch(int32_t partition_id, bool reset_buffer
           } else {
             // reset the offset
             partition_binary_addrs_[binary_idx][partition_id].value_offset = 0;
-            uint64_t dst_offset0 =
-                sizeof_binary_offset == 4
-                    ? reinterpret_cast<const arrow::BinaryType::offset_type*>(
-                          buffers[1]->data())[0]
-                    : reinterpret_cast<const arrow::LargeBinaryType::offset_type*>(
-                          buffers[1]->data())[0];
-            ARROW_CHECK_EQ(dst_offset0, 0);
           }
           binary_idx++;
           break;
@@ -1095,6 +1097,9 @@ arrow::Status Splitter::SplitBoolType(const uint8_t* src_addr,
         dst = dst & src;  // only take the useful bit.
       }
       dstaddr[dst_offset >> 3] = dst;
+      if (r == size) {
+        continue;
+      }
       dst_offset += dst_offset_in_byte;
       // now dst_offset is 8 aligned
       for (r; r + 8 < size; r += 8) {
