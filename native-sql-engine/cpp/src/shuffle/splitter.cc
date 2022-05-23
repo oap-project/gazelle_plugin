@@ -1249,7 +1249,7 @@ arrow::Status Splitter::SplitBinaryType(const uint8_t* src_addr, const T* src_of
                   << " strlen = " << strlength << std::endl;
       }
       auto value_src_ptr = src_addr + src_offset_addr[src_offset];
-#ifdef AVX512SUPPORT
+#if NATIVE_AVX512 == ON
       // write the variable value
       T k;
       for (k = 0; k + 32 < strlength; k += 32) {
