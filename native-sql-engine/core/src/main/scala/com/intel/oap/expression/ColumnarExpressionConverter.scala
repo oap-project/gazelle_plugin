@@ -400,7 +400,12 @@ object ColumnarExpressionConverter extends Logging {
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
       // Scala UDF.
-      case expr: ScalaUDF if ColumnarUDF.isSupportedUDF(expr.udfName.get) =>
+      case expr: ScalaUDF if (expr.udfName match {
+        case Some(name) =>
+          ColumnarUDF.isSupportedUDF(name)
+        case None =>
+          false
+      }) =>
         val children = expr.children.map { expr =>
           replaceWithColumnarExpression(
             expr,
@@ -478,7 +483,12 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(sr.srcExpr) ||
           containsSubquery(sr.searchExpr) ||
           containsSubquery(sr.replaceExpr)
-      case expr: ScalaUDF if ColumnarUDF.isSupportedUDF(expr.udfName.get) =>
+      case expr: ScalaUDF if (expr.udfName match {
+        case Some(name) =>
+          ColumnarUDF.isSupportedUDF(name)
+        case None =>
+          false
+      }) =>
         expr.children.map(containsSubquery).exists(_ == true)
       case expr if (ColumnarUDF.isSupportedUDF(expr.prettyName)) =>
         expr.children.map(containsSubquery).exists(_ == true)

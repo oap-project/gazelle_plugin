@@ -603,6 +603,16 @@ class DataFrameSuite extends QueryTest
     )
   }
 
+  test("Columnar UDF") {
+    // Register a scala UDF. The scala UDF code will not be acutally used. It
+    // will be replaced by columnar UDF at runtime.
+    spark.udf.register("UrlDecoder", (s : String) => s)
+    checkAnswer(
+      sql("select UrlDecoder('AaBb%23'), UrlDecoder(null)"),
+      Seq(Row("AaBb#", null))
+    )
+  }
+
   test("callUDF without Hive Support") {
     val df = Seq(("id1", 1), ("id2", 4), ("id3", 5)).toDF("id", "value")
     df.sparkSession.udf.register("simpleUDF", (v: Int) => v * v)
