@@ -87,24 +87,24 @@ object ColumnarUDF {
   // Keep the supported UDF name. The name is specified in registering the
   // row based function in spark, e.g.,
   // CREATE TEMPORARY FUNCTION UrlDecoder AS 'com.intel.test.URLDecoderNew';
-  val supportList = {"UrlDecoder"}
+  val supportList = List("urldecoder")
 
   def isSupportedUDF(name: String): Boolean = {
     if (name == null) {
-      return false;
+      return false
     }
-    return supportList.contains(name)
+    return supportList.map(s => s.equalsIgnoreCase(name)).exists(_ == true)
   }
 
   def create(children: Seq[Expression], original: Expression): Expression = {
-    original.prettyName match {
+    original.prettyName.toLowerCase() match {
       // Hive UDF.
-      case "UrlDecoder" =>
+      case "urldecoder" =>
         ColumnarURLDecoder(children.head)
       // Scala UDF.
       case "scalaudf" =>
-        original.asInstanceOf[ScalaUDF].udfName.get match {
-          case "UrlDecoder" =>
+        original.asInstanceOf[ScalaUDF].udfName.get.toLowerCase() match {
+          case "urldecoder" =>
             ColumnarURLDecoder(children.head)
           case other =>
             throw new UnsupportedOperationException(s"not currently supported: $other.")
