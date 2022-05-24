@@ -419,7 +419,7 @@ object ColumnarExpressionConverter extends Logging {
               replaceWithColumnarExpression(
                 getArrayItem.ordinal,
                 convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-              new ColumnarStringSplitPart(strSplit.str, strSplit.regex, getArrayItem.ordinal, null))
+              new StringSplitPart(strSplit.str, strSplit.regex, getArrayItem.ordinal, null))
           case other =>
             throw new UnsupportedOperationException(
               s" --> ${other.getClass} | ${other} is not currently" +
@@ -479,6 +479,15 @@ object ColumnarExpressionConverter extends Logging {
         return true
       case c: Concat =>
         c.children.map(containsSubquery).exists(_ == true)
+      case getArrayItem: GetArrayItem =>
+        getArrayItem.child match {
+          case strSplit: StringSplit =>
+            strSplit.children.map(containsSubquery).exists(_ == true)
+          case other =>
+            throw new UnsupportedOperationException(
+              s" --> ${other.getClass} | ${other} is not currently" +
+                s" supported as child of GetArrayItem.")
+        }
       case b: BinaryExpression =>
         containsSubquery(b.left) || containsSubquery(b.right)
       case s: String2TrimExpression =>

@@ -272,7 +272,7 @@ object ColumnarTernaryOperator {
       new ColumnarSubString(src, arg1, arg2, ss)
       // Currently not supported.
    case ssp: StringSplitPart =>
-     new ColumnarStringSplitPart(ssp.str, ssp.regex, ssp.limit, ssp)
+     new ColumnarStringSplitPart(src, arg1, arg2, ssp)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
     case sl: StringLocate =>
