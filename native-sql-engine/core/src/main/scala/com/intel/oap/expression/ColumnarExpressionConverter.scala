@@ -338,21 +338,6 @@ object ColumnarExpressionConverter extends Logging {
             sr.replaceExpr,
             convertBoundRefToAttrRef = convertBoundRefToAttrRef),
           expr)
-      case sr: StringSplitPart =>
-        check_if_no_calculation = false
-        logWarning(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
-        ColumnarTernaryOperator.create(
-          replaceWithColumnarExpression(
-            sr.str,
-            attributeSeq,
-            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-          replaceWithColumnarExpression(
-            sr.regex,
-            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-          replaceWithColumnarExpression(
-            sr.limit,
-            convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-          expr)
       case u: UnaryExpression =>
         logInfo(s"${expr.getClass} ${expr} is supported, no_cal is $check_if_no_calculation.")
         if (!u.isInstanceOf[CheckOverflow] || !u.child.isInstanceOf[Divide]) {
@@ -413,13 +398,10 @@ object ColumnarExpressionConverter extends Logging {
               replaceWithColumnarExpression(
                 strSplit.regex,
                 convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-//              replaceWithColumnarExpression(
-//                strSplit.limit,
-//                convertBoundRefToAttrRef = convertBoundRefToAttrRef),
               replaceWithColumnarExpression(
                 getArrayItem.ordinal,
                 convertBoundRefToAttrRef = convertBoundRefToAttrRef),
-              new StringSplitPart(strSplit.str, strSplit.regex, getArrayItem.ordinal, null))
+              new StringSplit(strSplit.str, strSplit.regex, getArrayItem.ordinal))
           case other =>
             throw new UnsupportedOperationException(
               s" --> ${other.getClass} | ${other} is not currently" +
@@ -507,10 +489,6 @@ object ColumnarExpressionConverter extends Logging {
         containsSubquery(sr.srcExpr) ||
           containsSubquery(sr.searchExpr) ||
           containsSubquery(sr.replaceExpr)
-      case sr: StringSplitPart =>
-        containsSubquery(sr.str) ||
-          containsSubquery(sr.regex) ||
-          containsSubquery(sr.limit)
       case expr =>
         throw new UnsupportedOperationException(
           s" --> ${expr.getClass} | ${expr} is not currently supported.")
