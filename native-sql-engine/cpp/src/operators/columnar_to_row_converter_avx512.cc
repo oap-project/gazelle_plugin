@@ -381,6 +381,175 @@ std::array<uint8_t, 16> ToByteArray(arrow::Decimal128 value, int32_t* length) {
   return out;
 }
 
+inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
+                                std::vector<std::vector<const uint8_t*>>& dataptrs,
+                                std::vector<uint8_t> nullvec, uint8_t* buffer_address,
+                                std::vector<int32_t>& offsets,
+                                std::vector<int32_t>& buffer_cursor, int32_t& num_cols,
+                                int32_t& num_rows, int32_t& nullBitsetWidthInBytes,
+                                std::vector<arrow::Type::type>& typevec,
+                                std::vector<uint8_t>& typewidth,
+                                std::vector<std::shared_ptr<arrow::Array>>& arrays) {
+  printf("row_start:%d\n", row_start);
+  printf("batch_rows:%d\n", batch_rows);
+  printf("num_rows:%d\n", num_rows);
+  __m256i fill_0_8x;
+  fill_0_8x = _mm256_xor_si256(fill_0_8x, fill_0_8x);
+  //_mm_prefetch(&buffer_address+offsets[row_start],_MM_HINT_T2);
+
+  for (auto j = row_start; j < row_start + batch_rows; j++) {
+    auto rowlength = offsets[j + 1] - offsets[j];
+    for (auto p = 0; p < rowlength + 32; p += 32) {
+      _mm256_storeu_si256((__m256i*)(buffer_address + offsets[j]), fill_0_8x);
+      _mm_prefetch(buffer_address + offsets[j] + 128, _MM_HINT_T0);
+    }
+  }
+  // auto x = row_start + ((row_start==(num_rows-1))-1) & 1;
+  //_mm_prefetch(buffer_address+offsets[x],_MM_HINT_T0);
+  for (auto col_index = 0; col_index < num_cols; col_index++) {
+    auto& array = arrays[col_index];
+    int64_t field_offset = nullBitsetWidthInBytes + (col_index << 3L);
+
+    switch (typevec[col_index]) {
+      case arrow::BooleanType::type_id: {
+        // Boolean type
+        auto bool_array = std::static_pointer_cast<arrow::BooleanArray>(array);
+
+        for (auto j = row_start; j < row_start + batch_rows; j++) {
+          bool is_null = array->IsNull(j);
+          if (nullvec[col_index] || (!array->IsNull(j))) {
+            auto value = bool_array->Value(j);
+            memcpy(buffer_address + offsets[j] + field_offset, &value, sizeof(bool));
+          } else {
+            SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+          }
+        }
+        break;
+      }
+      case arrow::StringType::type_id:
+      case arrow::BinaryType::type_id: {
+        // Binary type
+        auto binary_array = (arrow::BinaryArray*)(array.get());
+        using offset_type = typename arrow::BinaryType::offset_type;
+        offset_type* BinaryOffsets = (offset_type*)(dataptrs[col_index][1]);
+        for (auto j = row_start; j < row_start + batch_rows; j++) {
+          if (nullvec[col_index] || (!array->IsNull(j))) {
+            offset_type length = BinaryOffsets[j + 1] - BinaryOffsets[j];
+            auto value = &dataptrs[col_index][2][BinaryOffsets[j]];
+            // write the variable value
+            offset_type k;
+            for (k = 0; k + 32 < length; k += 32) {
+              __m256i v = _mm256_loadu_si256((const __m256i*)(value + k));
+              _mm256_storeu_si256(
+                  (__m256i*)(buffer_address + offsets[j] + buffer_cursor[j] + k), v);
+            }
+            // create some bits of "1", num equals length
+            auto mask = (1L << (length - k)) - 1;
+            __m256i v = _mm256_maskz_loadu_epi8(mask, value + k);
+            _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j] + k,
+                                    mask, v);
+
+            // write the offset and size
+            int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | length;
+            *(int64_t*)(buffer_address + offsets[j] + field_offset) = offsetAndSize;
+            buffer_cursor[j] += RoundNumberOfBytesToNearestWord(length);
+
+            //            offset_type length;
+            //            auto value = binary_array->GetValue(j, &length);
+            //            // write the variable value
+            //            memcpy(buffer_address + offsets[j] + buffer_cursor[j], value,
+            //            length);
+            //            // write the offset and size
+            //            int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) |
+            //            length; memcpy(buffer_address + offsets[j] + field_offset,
+            //            &offsetAndSize,
+            //                   sizeof(int64_t));
+            //            buffer_cursor[j] += RoundNumberOfBytesToNearestWord(length);
+
+          } else {
+            SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+          }
+        }
+        break;
+      }
+      case arrow::Decimal128Type::type_id: {
+        auto out_array = dynamic_cast<arrow::Decimal128Array*>(array.get());
+        auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
+
+        int32_t precision = dtype->precision();
+        int32_t scale = dtype->scale();
+
+        for (auto j = row_start; j < row_start + batch_rows; j++) {
+          const arrow::Decimal128 out_value(out_array->GetValue(j));
+          bool flag = out_array->IsNull(j);
+
+          if (precision <= 18) {
+            if (!flag) {
+              // Get the long value and write the long value
+              // Refer to the int64_t() method of Decimal128
+              int64_t long_value = static_cast<int64_t>(out_value.low_bits());
+              memcpy(buffer_address + offsets[j] + field_offset, &long_value,
+                     sizeof(long));
+            } else {
+              SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+            }
+          } else {
+            if (flag) {
+              SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+            } else {
+              int32_t size;
+              auto out = ToByteArray(out_value, &size);
+              assert(size <= 16);
+
+              // write the variable value
+              memcpy(buffer_address + buffer_cursor[j] + offsets[j], &out[0], size);
+              // write the offset and size
+              int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | size;
+              memcpy(buffer_address + offsets[j] + field_offset, &offsetAndSize,
+                     sizeof(int64_t));
+            }
+
+            // Update the cursor of the buffer.
+            int64_t new_cursor = buffer_cursor[j] + 16;
+            buffer_cursor[j] = new_cursor;
+          }
+        }
+        break;
+      }
+      default: {
+        if (typewidth[col_index] > 0) {
+          auto dataptr = dataptrs[col_index][1];
+          auto mask = (1L << (typewidth[col_index])) - 1;
+          auto shift = _tzcnt_u32(typewidth[col_index]);
+          auto buffer_address_tmp = buffer_address + field_offset;
+          printf("Enter default\n");
+          for (int i = 0; i < 48; i++) {
+            std::cout << "*(dataptr+" << i << "): " << (uint16_t) * (dataptr + i) << ",";
+            if (i % 8 == 7) std::cout << std::endl;
+          }
+          for (auto j = row_start; j < row_start + batch_rows; j++) {
+            printf("j:%d\n", j);
+            printf("row_start:%d\n", row_start);
+            printf("batch_rows:%d\n", batch_rows);
+            if (nullvec[col_index] || (!array->IsNull(j))) {
+              const uint8_t* srcptr = dataptr + (j << shift);
+              __m256i v = _mm256_maskz_loadu_epi8(mask, srcptr);
+              _mm256_mask_storeu_epi8(buffer_address_tmp + offsets[j], mask, v);
+              _mm_prefetch(srcptr + 64, _MM_HINT_T0);
+            } else {
+              SetNullAt(buffer_address, offsets[j], field_offset, col_index);
+            }
+          }
+          break;
+        } else {
+          return arrow::Status::Invalid("Unsupported data type: " + typevec[col_index]);
+        }
+      }
+    }
+  }
+  return arrow::Status::OK();
+}
+
 arrow::Status ColumnarToRowConverter::Write() {
   auto buffer_address = buffer_address_;
   auto num_rows = num_rows_;
@@ -440,294 +609,14 @@ arrow::Status ColumnarToRowConverter::Write() {
   int32_t i = 0;
 #define BATCH_ROW_NUM 16
   for (i; i + BATCH_ROW_NUM < num_rows_; i += BATCH_ROW_NUM) {
-    __m256i fill_0_8x;
-    fill_0_8x = _mm256_xor_si256(fill_0_8x, fill_0_8x);
-    //_mm_prefetch(&buffer_address+offsets[i],_MM_HINT_T2);
-
-    for (auto j = i; j < i + BATCH_ROW_NUM; j++) {
-      auto rowlength = offsets[j + 1] - offsets[j];
-      for (auto p = 0; p < rowlength + 32; p += 32) {
-        _mm256_storeu_si256((__m256i*)(buffer_address + offsets[j]), fill_0_8x);
-        _mm_prefetch(buffer_address + offsets[j] + 128, _MM_HINT_T0);
-      }
-    }
-    // auto x = i + ((i==(num_rows_-1))-1) & 1;
-    //_mm_prefetch(buffer_address+offsets[x],_MM_HINT_T0);
-    for (auto col_index = 0; col_index < num_cols_; col_index++) {
-      auto& array = arrays[col_index];
-      int64_t field_offset = nullBitsetWidthInBytes_ + (col_index << 3L);
-
-      switch (typevec[col_index]) {
-        case arrow::BooleanType::type_id: {
-          // Boolean type
-          auto bool_array = std::static_pointer_cast<arrow::BooleanArray>(array);
-
-          for (auto j = i; j < i + BATCH_ROW_NUM; j++) {
-            bool is_null = array->IsNull(j);
-            if (nullvec[col_index] || (!array->IsNull(j))) {
-              auto value = bool_array->Value(j);
-              memcpy(buffer_address + offsets[j] + field_offset, &value, sizeof(bool));
-            } else {
-              SetNullAt(buffer_address, offsets[j], field_offset, col_index);
-            }
-          }
-          break;
-        }
-        case arrow::StringType::type_id:
-        case arrow::BinaryType::type_id: {
-          // Binary type
-          auto binary_array = (arrow::BinaryArray*)(array.get());
-          using offset_type = typename arrow::BinaryType::offset_type;
-          offset_type* BinaryOffsets = (offset_type*)(dataptrs[col_index][1]);
-          for (auto j = i; j < i + BATCH_ROW_NUM; j++) {
-            if (nullvec[col_index] || (!array->IsNull(j))) {
-              offset_type length = BinaryOffsets[j + 1] - BinaryOffsets[j];
-              auto value = &dataptrs[col_index][2][BinaryOffsets[j]];
-              // write the variable value
-              offset_type k;
-              for (k = 0; k + 32 < length; k += 32) {
-                __m256i v = _mm256_loadu_si256((const __m256i*)(value + k));
-                _mm256_storeu_si256(
-                    (__m256i*)(buffer_address + offsets[j] + buffer_cursor[j] + k), v);
-              }
-              // create some bits of "1", num equals length
-              auto mask = (1L << (length - k)) - 1;
-              __m256i v = _mm256_maskz_loadu_epi8(mask, value + k);
-              _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j] + k,
-                                      mask, v);
-
-              // write the offset and size
-              int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | length;
-              *(int64_t*)(buffer_address + offsets[j] + field_offset) = offsetAndSize;
-              buffer_cursor[j] += RoundNumberOfBytesToNearestWord(length);
-
-              //            offset_type length;
-              //            auto value = binary_array->GetValue(j, &length);
-              //            // write the variable value
-              //            memcpy(buffer_address + offsets[j] + buffer_cursor[j], value,
-              //            length);
-              //            // write the offset and size
-              //            int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) |
-              //            length; memcpy(buffer_address + offsets[j] + field_offset,
-              //            &offsetAndSize,
-              //                   sizeof(int64_t));
-              //            buffer_cursor[j] += RoundNumberOfBytesToNearestWord(length);
-
-            } else {
-              SetNullAt(buffer_address, offsets[j], field_offset, col_index);
-            }
-          }
-          break;
-        }
-        case arrow::Decimal128Type::type_id: {
-          auto out_array = dynamic_cast<arrow::Decimal128Array*>(array.get());
-          auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
-
-          int32_t precision = dtype->precision();
-          int32_t scale = dtype->scale();
-
-          for (auto j = i; j < i + BATCH_ROW_NUM; j++) {
-            const arrow::Decimal128 out_value(out_array->GetValue(j));
-            bool flag = out_array->IsNull(j);
-
-            if (precision <= 18) {
-              if (!flag) {
-                // Get the long value and write the long value
-                // Refer to the int64_t() method of Decimal128
-                int64_t long_value = static_cast<int64_t>(out_value.low_bits());
-                memcpy(buffer_address + offsets[j] + field_offset, &long_value,
-                       sizeof(long));
-              } else {
-                SetNullAt(buffer_address, offsets[j], field_offset, col_index);
-              }
-            } else {
-              if (flag) {
-                SetNullAt(buffer_address, offsets[j], field_offset, col_index);
-              } else {
-                int32_t size;
-                auto out = ToByteArray(out_value, &size);
-                assert(size <= 16);
-
-                // write the variable value
-                memcpy(buffer_address + buffer_cursor[j] + offsets[j], &out[0], size);
-                // write the offset and size
-                int64_t offsetAndSize = ((int64_t)buffer_cursor[j] << 32) | size;
-                memcpy(buffer_address + offsets[j] + field_offset, &offsetAndSize,
-                       sizeof(int64_t));
-              }
-
-              // Update the cursor of the buffer.
-              int64_t new_cursor = buffer_cursor[j] + 16;
-              buffer_cursor[j] = new_cursor;
-            }
-          }
-          break;
-        }
-        default: {
-          if (typewidth[col_index] > 0) {
-            auto dataptr = dataptrs[col_index][1];
-            auto mask = (1L << (typewidth[col_index])) - 1;
-            auto shift = _tzcnt_u32(typewidth[col_index]);
-            auto buffer_address_tmp = buffer_address + field_offset;
-            for (auto j = i; j < i + BATCH_ROW_NUM; j++) {
-              if (nullvec[col_index] || (!array->IsNull(j))) {
-                const uint8_t* srcptr = dataptr + (j << shift);
-                __m256i v = _mm256_maskz_loadu_epi8(mask, srcptr);
-                _mm256_mask_storeu_epi8(buffer_address_tmp + offsets[j], mask, v);
-                _mm_prefetch(srcptr + 64, _MM_HINT_T0);
-              } else {
-                SetNullAt(buffer_address, offsets[j], field_offset, col_index);
-              }
-            }
-            break;
-          } else {
-            return arrow::Status::Invalid("Unsupported data type: " + typevec[col_index]);
-          }
-        }
-      }
-    }
+    FillBuffer(i, BATCH_ROW_NUM, dataptrs, nullvec, buffer_address_, offsets_,
+               buffer_cursor_, num_cols_, num_rows_, nullBitsetWidthInBytes_, typevec,
+               typewidth, arrays);
   }
 
   for (i; i < num_rows_; i++) {
-    __m256i fill_0_8x;
-    fill_0_8x = _mm256_xor_si256(fill_0_8x, fill_0_8x);
-    auto rowlength = offsets[i + 1] - offsets[i];
-    for (auto p = 0; p < rowlength + 32; p += 32) {
-      _mm256_storeu_si256((__m256i*)(buffer_address + offsets[i]), fill_0_8x);
-    }
-    _mm_prefetch(buffer_address + offsets[i], _MM_HINT_T1);
-    // auto x = i + ((i==(num_rows_-1))-1) & 1;
-    //_mm_prefetch(buffer_address+offsets[x],_MM_HINT_T0);
-    for (auto col_index = 0; col_index < num_cols_; col_index++) {
-      auto& array = arrays[col_index];
-
-      int64_t field_offset = nullBitsetWidthInBytes_ + (col_index << 3L);
-
-      switch (typevec[col_index]) {
-        case arrow::BooleanType::type_id: {
-          // Boolean type
-          auto bool_array = std::static_pointer_cast<arrow::BooleanArray>(array);
-
-          //        for (auto i = 0; i < num_rows_; i++) {
-          bool is_null = array->IsNull(i);
-          if (is_null) {
-            SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-          } else {
-            auto value = bool_array->Value(i);
-            memcpy(buffer_address + offsets[i] + field_offset, &value, sizeof(bool));
-          }
-          //        }
-          break;
-        }
-        case arrow::StringType::type_id:
-        case arrow::BinaryType::type_id: {
-          // Binary type
-          auto binary_array = (arrow::BinaryArray*)(array.get());
-          using offset_type = typename arrow::BinaryType::offset_type;
-          offset_type* BinaryOffsets = (offset_type*)(dataptrs[col_index][1]);
-          if (nullvec[col_index] || (!array->IsNull(i))) {
-            offset_type length = BinaryOffsets[i + 1] - BinaryOffsets[i];
-            auto value = &dataptrs[col_index][2][BinaryOffsets[i]];
-            // write the variable value
-            offset_type k;
-            auto j = i;
-            for (k = 0; k + 32 < length; k += 32) {
-              __m256i v = _mm256_loadu_si256((const __m256i*)(value + k));
-              _mm256_storeu_si256(
-                  (__m256i*)(buffer_address + offsets[j] + buffer_cursor[j] + k), v);
-            }
-            auto mask = (1L << (length - k)) - 1;
-            __m256i v = _mm256_maskz_loadu_epi8(mask, value + k);
-
-            _mm256_mask_storeu_epi8(buffer_address + offsets[j] + buffer_cursor[j] + k,
-                                    mask, v);
-            // write the offset and size
-            int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | length;
-            *(int64_t*)(buffer_address + offsets[i] + field_offset) = offsetAndSize;
-
-            auto bufferAddr = buffer_address + offsets[i] + field_offset;
-            buffer_cursor[i] += RoundNumberOfBytesToNearestWord(length);
-
-            //          offset_type length;
-            //          auto value = binary_array->GetValue(i, &length);
-            //          // write the variable value
-            //          memcpy(buffer_address + offsets[i] + buffer_cursor[i], value,
-            //          length);
-            //          // write the offset and size
-            //          int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) |
-            //          length; memcpy(buffer_address + offsets[i] + field_offset,
-            //          &offsetAndSize,
-            //                 sizeof(int64_t));
-            //          buffer_cursor[i] += RoundNumberOfBytesToNearestWord(length);
-
-          } else {
-            SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-          }
-          break;
-        }
-        case arrow::Decimal128Type::type_id: {
-          auto out_array = dynamic_cast<arrow::Decimal128Array*>(array.get());
-          auto dtype = dynamic_cast<arrow::Decimal128Type*>(out_array->type().get());
-
-          int32_t precision = dtype->precision();
-          int32_t scale = dtype->scale();
-
-          //        for (auto i = 0; i < num_rows; i++) {
-          const arrow::Decimal128 out_value(out_array->GetValue(i));
-          bool flag = out_array->IsNull(i);
-          if (precision <= 18) {
-            if (!flag) {
-              // Get the long value and write the long value
-              // Refer to the int64_t() method of Decimal128
-              int64_t long_value = static_cast<int64_t>(out_value.low_bits());
-              memcpy(buffer_address + offsets[i] + field_offset, &long_value,
-                     sizeof(long));
-            } else {
-              SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-            }
-          } else {
-            if (flag) {
-              SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-            } else {
-              int32_t size;
-              auto out = ToByteArray(out_value, &size);
-              assert(size <= 16);
-              // write the variable value
-              memcpy(buffer_address + buffer_cursor[i] + offsets[i], &out[0], size);
-              // write the offset and size
-              int64_t offsetAndSize = ((int64_t)buffer_cursor[i] << 32) | size;
-              memcpy(buffer_address + offsets[i] + field_offset, &offsetAndSize,
-                     sizeof(int64_t));
-            }
-            // Update the cursor of the buffer.
-            int64_t new_cursor = buffer_cursor[i] + 16;
-            buffer_cursor[i] = new_cursor;
-          }
-          //        }
-          break;
-        }
-        default: {
-          if (typewidth[col_index] > 0) {
-            auto dataptr = dataptrs[col_index][1];
-            auto mask = (1L << (typewidth[col_index])) - 1;
-            auto shift = _tzcnt_u32(typewidth[col_index]);
-
-            if (nullvec[col_index] || (!array->IsNull(i))) {
-              const uint8_t* srcptr = dataptr + (i << shift);
-              __m256i v = _mm256_maskz_loadu_epi8(mask, srcptr);
-              _mm256_mask_storeu_epi8(buffer_address + offsets[i] + field_offset, mask,
-                                      v);
-              _mm_prefetch(srcptr + 64, _MM_HINT_T0);
-            } else {
-              SetNullAt(buffer_address, offsets[i], field_offset, col_index);
-            }
-            break;
-          } else {
-            return arrow::Status::Invalid("Unsupported data type: " + typevec[col_index]);
-          }
-        }
-      }
-    }
+    FillBuffer(i, 1, dataptrs, nullvec, buffer_address_, offsets_, buffer_cursor_,
+               num_cols_, num_rows_, nullBitsetWidthInBytes_, typevec, typewidth, arrays);
   }
 
   return arrow::Status::OK();
