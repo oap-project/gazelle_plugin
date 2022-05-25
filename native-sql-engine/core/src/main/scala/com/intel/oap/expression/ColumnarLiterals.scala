@@ -42,7 +42,7 @@ class ColumnarLiteral(lit: Literal)
 
   def buildCheck(): ArrowType = {
     val supportedTypes =
-      List(StringType, IntegerType, LongType, DoubleType, FloatType, DateType,
+      List(StringType, IntegerType, LongType, DoubleType, DateType,
            BooleanType, CalendarIntervalType, BinaryType, TimestampType)
     if (supportedTypes.indexOf(dataType) == -1 && !dataType.isInstanceOf[DecimalType]) {
       // Decimal is supported in ColumnarLiteral
@@ -110,13 +110,6 @@ class ColumnarLiteral(lit: Literal)
             (TreeBuilder.makeNull(resultType), resultType)
           case _ =>
             (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Double]), resultType)
-        }
-      case t: FloatType =>
-        value match {
-          case null =>
-            (TreeBuilder.makeNull(resultType), resultType)
-          case _ =>
-            (TreeBuilder.makeLiteral(value.asInstanceOf[java.lang.Float]), resultType)
         }
       case d: DecimalType =>
         value match {
