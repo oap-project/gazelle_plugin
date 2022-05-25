@@ -72,6 +72,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   private AtomicLong refCnt = new AtomicLong(0);
   private boolean closed = false;
 
+  public int getCapacity() {
+    return this.capacity;
+  }
+
   /**
    * Allocates columns to store elements of each field of the schema on heap.
    * Capacity is the initial capacity of the vector and it will grow as necessary.
@@ -99,8 +103,8 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
     if (fieldVectors.size() != dictionaryVectors.size()) {
       throw new IllegalArgumentException(
           "Mismatched field vectors and dictionary vectors. "
-          + "Field vector count: " + fieldVectors.size() + ", "
-          + "dictionary vector count: " + dictionaryVectors.size());
+              + "Field vector count: " + fieldVectors.size() + ", "
+              + "dictionary vector count: " + dictionaryVectors.size());
     }
     ArrowWritableColumnVector[] vectors =
         new ArrowWritableColumnVector[fieldVectors.size()];
@@ -127,7 +131,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   }
 
   public static ArrowWritableColumnVector[] loadColumns(int capacity, Schema arrowSchema,
-      ArrowRecordBatch recordBatch, BufferAllocator _allocator) {
+                                                        ArrowRecordBatch recordBatch, BufferAllocator _allocator) {
     if (_allocator == null) {
       _allocator = SparkMemoryUtils.contextAllocator();
     }
@@ -291,7 +295,7 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       final FieldVector keyChild = structVector.getChild(MapVector.KEY_NAME);
       final FieldVector valueChild = structVector.getChild(MapVector.VALUE_NAME);
       return new MapWriter(mapVector, createVectorWriter(keyChild),
-              createVectorWriter(valueChild));
+          createVectorWriter(valueChild));
     } else if (vector instanceof ListVector) {
       ListVector listVector = (ListVector) vector;
       ArrowVectorWriter elementVector = createVectorWriter(listVector.getDataVector());
@@ -773,6 +777,15 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
   @Override
   public int putByteArray(int rowId, byte[] value, int offset, int length) {
     writer.setBytes(rowId, length, value, offset);
+    return length;
+  }
+
+  //
+  // APIs dealing with Byte Arrays
+  //
+
+  public int putByteArrays(int rowId, int count, byte[] value, int offset, int length) {
+    writer.setBytes(rowId, count, value, offset, length);
     return length;
   }
 
@@ -1325,6 +1338,10 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
       throw new UnsupportedOperationException();
     }
 
+    void setBytes(int rowId, int count, byte[] src, int srcIndex, int length) {
+      throw new UnsupportedOperationException();
+    }
+
     void setShort(int rowId, short value) {
       throw new UnsupportedOperationException();
     }
@@ -1445,8 +1462,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1457,8 +1478,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setBooleans(int rowId, int count, boolean value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      int data = value ? 1 : 0;
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value ? 1 : 0);
+        writer.set(rowId + i, data);
       }
     }
   }
@@ -1478,8 +1503,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1490,8 +1519,13 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setBytes(int rowId, int count, byte value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be changed to respective modify validity buffer and data buffer.
+      // TODO: With this way, we can save most time for BitVectorHelper.setBit.
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1518,8 +1552,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1530,8 +1568,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setShorts(int rowId, int count, short value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1565,8 +1606,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1577,8 +1622,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setInts(int rowId, int count, int value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1625,8 +1673,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1637,8 +1689,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setLongs(int rowId, int count, long value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1691,8 +1746,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1703,8 +1762,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setFloats(int rowId, int count, float value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1731,8 +1793,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
@@ -1743,8 +1809,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setDoubles(int rowId, int count, double value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1802,14 +1871,33 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reallocValidityAndOffsetBuffers();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
     @Override
     final void setBytes(int rowId, int count, byte[] src, int srcIndex) {
       writer.setSafe(rowId, src, srcIndex, count);
+    }
+
+    @Override
+    final void setBytes(int rowId, int count, byte[] src, int srcIndex, int length) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reallocValidityAndOffsetBuffers();
+      }
+      int startOffset = writer.getLastSet() < 0 ? 0 : writer.getStartOffset(writer.getLastSet() + 1);
+      while(writer.getDataBuffer().capacity() < (startOffset + (long) length * count)) {
+        writer.reallocDataBuffer();
+      }
+
+      for (int i = 0; i < count; i++) {
+        writer.set(rowId + i, src, srcIndex, length);
+      }
     }
 
     @Override
@@ -1834,14 +1922,33 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reallocValidityAndOffsetBuffers();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
 
     @Override
     final void setBytes(int rowId, int count, byte[] src, int srcIndex) {
       writer.setSafe(rowId, src, srcIndex, count);
+    }
+
+    @Override
+    final void setBytes(int rowId, int count, byte[] src, int srcIndex, int length) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reallocValidityAndOffsetBuffers();
+      }
+      int startOffset = writer.getLastSet() < 0 ? 0 : writer.getStartOffset(writer.getLastSet() + 1);
+      while(writer.getDataBuffer().capacity() < (startOffset + (long) length * count)) {
+        writer.reallocDataBuffer();
+      }
+
+      for (int i = 0; i < count; i++) {
+        writer.set(rowId + i, src, srcIndex, length);
+      }
     }
   }
 
@@ -1860,8 +1967,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     void setInts(int rowId, int count, int value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1872,8 +1982,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
   }
@@ -1888,8 +2002,11 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     void setLongs(int rowId, int count, long value) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
       for (int i = 0; i < count; i++) {
-        writer.setSafe(rowId + i, value);
+        writer.set(rowId + i, value);
       }
     }
 
@@ -1905,8 +2022,12 @@ public final class ArrowWritableColumnVector extends WritableColumnVector {
 
     @Override
     final void setNulls(int rowId, int count) {
+      while(rowId + count - 1 >= writer.getValueCapacity()) {
+        writer.reAlloc();
+      }
+      // TODO: This can be replaced as ArrowBuf.setZero
       for (int i = 0; i < count; i++) {
-        writer.setNull(rowId + i);
+        BitVectorHelper.unsetBit(writer.getValidityBuffer(), rowId + i);
       }
     }
   }

@@ -196,11 +196,16 @@ const std::vector<std::string> SplitterTest::input_data_1 = {
     R"(["-1.01", "2.01", "-3.01", null, "0.11", "3.14", "2.27", null, "-3.14", null])"};
 
 const std::vector<std::string> SplitterTest::input_data_2 = {
-    "[null, null]",    "[null, null]",
-    "[1, -1]",         "[100, null]",
-    "[1, 1]",          R"([0.142857, -0.142857])",
-    "[true, false]",   R"(["bob", "alice"])",
-    R"([null, null])", R"([null, null])"};
+    "[null, null]",
+    "[null, null]",
+    "[1, -1]",
+    "[100, null]",
+    "[1, 1]",
+    R"([0.142857, -0.142857])",
+    "[true, false]",
+    R"(["bob", "alicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealicealice"])",
+    R"([null, null])",
+    R"([null, null])"};
 
 TEST_F(SplitterTest, TestSingleSplitter) {
   split_options_.buffer_size = 10;
@@ -237,6 +242,9 @@ TEST_F(SplitterTest, TestSingleSplitter) {
     ASSERT_EQ(rb->num_columns(), schema_->num_fields());
     for (auto j = 0; j < rb->num_columns(); ++j) {
       ASSERT_EQ(rb->column(j)->length(), rb->num_rows());
+      //      std::cout << " result " << rb->column(j)->ToString() << std::endl;
+      //      std::cout << " expected " << expected[i]->column(j)->ToString() <<
+      //      std::endl;
       ASSERT_TRUE(rb->column(j)->Equals(*expected[i]->column(j),
                                         EqualOptions::Defaults().diff_sink(&std::cout)));
     }
@@ -312,7 +320,7 @@ TEST_F(SplitterTest, TestRoundRobinSplitter) {
 
 TEST_F(SplitterTest, TestSplitterMemoryLeak) {
   std::shared_ptr<arrow::MemoryPool> pool =
-      std::make_shared<MyMemoryPool>(9 * 1024 * 1024);
+      std::make_shared<MyMemoryPool>(17 * 1024 * 1024);
 
   int32_t num_partitions = 2;
   split_options_.buffer_size = 4;
