@@ -117,7 +117,6 @@ object ArrowUtils {
       vectors.map(_.asInstanceOf[ColumnVector]) ++
         partitionVectors
           .map { vector =>
-            vector.setValueCount(rowCount)
             // The vector should call retain() whenever reuse it.
             vector.retain()
             vector.asInstanceOf[ColumnVector]
