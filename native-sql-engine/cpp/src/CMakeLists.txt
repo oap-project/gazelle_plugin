@@ -495,6 +495,8 @@ file(COPY codegen/common/hash_relation_number.h DESTINATION ${root_directory}/re
 
 add_definitions(-DNATIVESQL_SRC_PATH="${root_directory}/releases")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations -Wno-attributes")
+set(NATIVE_AVX512_FLAG "-march=icelake-server")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${NATIVE_AVX512_FLAG}")
 set(SPARK_COLUMNAR_PLUGIN_SRCS
         jni/jni_wrapper.cc
         ${PROTO_SRCS}
@@ -520,6 +522,7 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         codegen/arrow_compute/ext/sort_kernel.cc
         codegen/arrow_compute/ext/kernels_ext.cc
         shuffle/splitter.cc
+        operators/columnar_to_row_converter.cc
         operators/row_to_columnar_converter.cc
         precompile/hash_map.cc
         precompile/sparse_hash_map.cc
@@ -533,15 +536,6 @@ set(SPARK_COLUMNAR_PLUGIN_SRCS
         third_party/gandiva/decimal_ops.cc
         third_party/gandiva/time.cc
         )
-
-if(NATIVE_AVX512)
-  list(APPEND SPARK_COLUMNAR_PLUGIN_SRCS operators/columnar_to_row_converter_avx512.cc)
-  set(NATIVE_AVX512_FLAG "-march=native")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${NATIVE_AVX512_FLAG}")
-  add_definitions(-DNATIVE_AVX512)
-else()
-  list(APPEND SPARK_COLUMNAR_PLUGIN_SRCS operators/columnar_to_row_converter.cc)
-endif()
 
 add_subdirectory(third_party/gandiva)
 message(STATUS "thirdparty is ${THIRDPARTY_GANDIVA_SRCS}")

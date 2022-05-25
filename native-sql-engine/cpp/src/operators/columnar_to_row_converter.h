@@ -48,6 +48,7 @@ class ColumnarToRowConverter {
   }
 
  protected:
+  bool support_avx512_;
   std::vector<int32_t> buffer_cursor_;
   std::shared_ptr<arrow::RecordBatch> rb_;
   std::shared_ptr<arrow::Buffer> buffer_;
