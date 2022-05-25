@@ -86,11 +86,12 @@ class ColumnarStringSplitPart(child: Expression, regex: Expression,
     val supportedTypes = List(
       StringType
     )
-    if (supportedTypes.indexOf(child.dataType) == -1) {
+    if (supportedTypes.indexOf(dataType) == -1) {
       throw new UnsupportedOperationException(
-        s"${child.dataType} is not supported in ColumnarStringSplit.")
+        s"${child} | ${child.dataType} is not supported in ColumnarStringSplitPart.")
     }
   }
+  override def dataType: DataType = StringType
 
   override def doColumnarCodeGen(args: java.lang.Object)
   : (TreeNode, ArrowType) = {
