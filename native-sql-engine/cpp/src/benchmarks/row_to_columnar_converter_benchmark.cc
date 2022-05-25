@@ -148,7 +148,6 @@ class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
         columnarToRowConverter->Write();
         vec_C2RConverter.push_back(columnarToRowConverter);
 
-
         // uint8_t* address = c2rConverter->GetBufferAddress();
         // auto length_vec = columnarToRowConverter->GetLengths();
         // long arr[length_vec.size()];
@@ -194,7 +193,7 @@ class GoogleBenchmarkColumnarToRow_CacheScan_Benchmark
                 arrow::default_memory_pool());
 
         std::shared_ptr<arrow::RecordBatch> rb;
-        TIME_NANO_OR_THROW(init_time,row_to_columnar_converter->Init(&rb));
+        TIME_NANO_OR_THROW(init_time, row_to_columnar_converter->Init(&rb));
         // std::cout << "rb->ToString():\n"
         //     << rb->ToString() << std::endl;
       }
