@@ -73,7 +73,7 @@ class ColumnarSubString(str: Expression, pos: Expression, len: Expression, origi
 }
 
 // StringSplit, not functionality ready, need array type support.
-class ColumnarStringSplit(child: Expression, regex: Expression,
+class ColumnarStringSplitPart(child: Expression, regex: Expression,
                           limit: Expression, original: Expression)
     extends StringSplit(child: Expression,
       regex: Expression, limit: Expression)
@@ -86,11 +86,12 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
     val supportedTypes = List(
       StringType
     )
-    if (supportedTypes.indexOf(child.dataType) == -1) {
+    if (supportedTypes.indexOf(dataType) == -1) {
       throw new UnsupportedOperationException(
-        s"${child.dataType} is not supported in ColumnarStringSplit.")
+        s"${child} | ${child.dataType} is not supported in ColumnarStringSplitPart.")
     }
   }
+  override def dataType: DataType = StringType
 
   override def doColumnarCodeGen(args: java.lang.Object)
   : (TreeNode, ArrowType) = {
@@ -101,7 +102,7 @@ class ColumnarStringSplit(child: Expression, regex: Expression,
     val (limit_node, limitType): (TreeNode, ArrowType) =
       limit.asInstanceOf[ColumnarExpression].doColumnarCodeGen(args)
 
-    val resultType = new ArrowType.Bool()
+    val resultType = new ArrowType.Utf8()
     val funcNode =
       TreeBuilder.makeFunction(
         "split_part", Lists.newArrayList(child_node, regex_node,
@@ -271,8 +272,8 @@ object ColumnarTernaryOperator {
     case ss: Substring =>
       new ColumnarSubString(src, arg1, arg2, ss)
       // Currently not supported.
-//    case a: StringSplit =>
-//      new ColumnarStringSplit(str, a.regex, a.limit, a)
+   case ssp: StringSplit =>
+     new ColumnarStringSplitPart(src, arg1, arg2, ssp)
     case st: StringTranslate =>
       new ColumnarStringTranslate(src, arg1, arg2, st)
     case sl: StringLocate =>
