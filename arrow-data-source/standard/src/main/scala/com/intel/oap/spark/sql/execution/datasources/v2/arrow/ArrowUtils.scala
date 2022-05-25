@@ -36,8 +36,7 @@ import org.apache.spark.sql.execution.vectorized.ColumnVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
-import org.apache.spark.sql.vectorized.ColumnVector
-import org.apache.spark.sql.vectorized.ColumnarBatch
+import org.apache.spark.sql.vectorized.{ColumnarBatch, ColumnVector}
 
 object ArrowUtils {
 
@@ -87,6 +86,44 @@ object ArrowUtils {
   def toArrowSchema(t: StructType): Schema = {
     // fixme this might be platform dependent
     SparkSchemaUtils.toArrowSchema(t, SparkSchemaUtils.getLocalTimezoneID())
+  }
+
+  def loadPartitionColumns(
+      rowCount: Int,
+      partitionSchema: StructType,
+      partitionValues: InternalRow): Array[ArrowWritableColumnVector] = {
+    val partitionColumns = ArrowWritableColumnVector.allocateColumns(rowCount, partitionSchema)
+    (0 until partitionColumns.length).foreach(i => {
+      ArrowColumnVectorUtils.populate(partitionColumns(i), partitionValues, i)
+      partitionColumns(i).setValueCount(rowCount)
+      partitionColumns(i).setIsConstant()
+    })
+    partitionColumns
+  }
+
+  def loadBatch(
+      input: ArrowRecordBatch,
+      dataSchema: StructType,
+      partitionVectors: Array[ArrowWritableColumnVector]): ColumnarBatch = {
+    val rowCount: Int = input.getLength
+
+    val vectors = try {
+      ArrowWritableColumnVector.loadColumns(rowCount, toArrowSchema(dataSchema), input)
+    } finally {
+      input.close()
+    }
+
+    val batch = new ColumnarBatch(
+      vectors.map(_.asInstanceOf[ColumnVector]) ++
+        partitionVectors
+          .map { vector =>
+            vector.setValueCount(rowCount)
+            // The vector should call retain() whenever reuse it.
+            vector.retain()
+            vector.asInstanceOf[ColumnVector]
+          },
+      rowCount)
+    batch
   }
 
   def loadBatch(input: ArrowRecordBatch, partitionValues: InternalRow,

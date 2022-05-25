@@ -38,13 +38,12 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.execution.datasources.{FileFormat, OutputWriterFactory, PartitionedFile}
 import org.apache.spark.sql.execution.datasources.OutputWriter
+import org.apache.spark.sql.execution.datasources.v2.arrow.{SparkMemoryUtils, SparkVectorUtils}
 import org.apache.spark.sql.execution.datasources.v2.arrow.SparkMemoryUtils.UnsafeItr
-import org.apache.spark.sql.execution.datasources.v2.arrow.SparkVectorUtils
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.sources.{DataSourceRegister, Filter}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.util.CaseInsensitiveStringMap
-import org.apache.spark.sql.vectorized.ColumnarBatch;
 
 class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializable {
 
@@ -154,11 +153,17 @@ class ArrowFileFormat extends FileFormat with DataSourceRegister with Serializab
         factory.close()
       }))
 
+      val partitionVectors =
+        ArrowUtils.loadPartitionColumns(batchSize, partitionSchema, file.partitionValues)
+
+      SparkMemoryUtils.addLeakSafeTaskCompletionListener[Unit]((_: TaskContext) => {
+        partitionVectors.foreach(_.close())
+      })
+
       val itr = itrList
         .toIterator
         .flatMap(itr => itr.asScala)
-        .map(batch => ArrowUtils.loadBatch(batch, file.partitionValues, partitionSchema,
-          requiredSchema))
+        .map(batch => ArrowUtils.loadBatch(batch, requiredSchema, partitionVectors))
       new UnsafeItr(itr).asInstanceOf[Iterator[InternalRow]]
     }
   }
