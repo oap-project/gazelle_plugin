@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
+#include "operators/columnar_to_row_converter.h"
+
 #include <immintrin.h>
 
 #include <iostream>
-
-#include "operators/columnar_to_row_converter.h"
 
 namespace sparkcolumnarplugin {
 namespace columnartorow {
@@ -191,15 +191,14 @@ arrow::Status ColumnarToRowConverter::Init(
     ARROW_ASSIGN_OR_RAISE(buffer_, AllocateBuffer(total_memory_size + 64, memory_pool_));
     if (ARROW_PREDICT_TRUE(support_avx512_)) {
       memset(buffer_->mutable_data() + total_memory_size, 0,
-           buffer_->capacity() - total_memory_size);
+             buffer_->capacity() - total_memory_size);
     } else {
       memset(buffer_->mutable_data(), 0, buffer_->capacity());
     }
   }
 
   buffer_address_ = buffer_->mutable_data();
-  
-  
+
   return arrow::Status::OK();
 }
 
@@ -589,7 +588,8 @@ arrow::Status ColumnarToRowConverter::Write() {
 
   for (i; i < num_rows_; i++) {
     FillBuffer(i, 1, dataptrs, nullvec, buffer_address_, offsets_, buffer_cursor_,
-               num_cols_, num_rows_, nullBitsetWidthInBytes_, typevec, typewidth, arrays, support_avx512_);
+               num_cols_, num_rows_, nullBitsetWidthInBytes_, typevec, typewidth, arrays,
+               support_avx512_);
   }
 
   return arrow::Status::OK();

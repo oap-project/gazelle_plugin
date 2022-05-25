@@ -202,7 +202,7 @@ class Splitter {
 
   class PartitionWriter;
 
-  //Check whether support AVX512 instructions
+  // Check whether support AVX512 instructions
   bool support_avx512_;
   // partid
   std::vector<int32_t> partition_buffer_size_;
