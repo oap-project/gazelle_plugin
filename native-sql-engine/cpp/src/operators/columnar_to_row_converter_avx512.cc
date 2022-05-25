@@ -390,9 +390,6 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
                                 std::vector<arrow::Type::type>& typevec,
                                 std::vector<uint8_t>& typewidth,
                                 std::vector<std::shared_ptr<arrow::Array>>& arrays) {
-  printf("row_start:%d\n", row_start);
-  printf("batch_rows:%d\n", batch_rows);
-  printf("num_rows:%d\n", num_rows);
   __m256i fill_0_8x;
   fill_0_8x = _mm256_xor_si256(fill_0_8x, fill_0_8x);
   //_mm_prefetch(&buffer_address+offsets[row_start],_MM_HINT_T2);
@@ -522,15 +519,7 @@ inline arrow::Status FillBuffer(int32_t& row_start, int32_t batch_rows,
           auto mask = (1L << (typewidth[col_index])) - 1;
           auto shift = _tzcnt_u32(typewidth[col_index]);
           auto buffer_address_tmp = buffer_address + field_offset;
-          printf("Enter default\n");
-          for (int i = 0; i < 48; i++) {
-            std::cout << "*(dataptr+" << i << "): " << (uint16_t) * (dataptr + i) << ",";
-            if (i % 8 == 7) std::cout << std::endl;
-          }
           for (auto j = row_start; j < row_start + batch_rows; j++) {
-            printf("j:%d\n", j);
-            printf("row_start:%d\n", row_start);
-            printf("batch_rows:%d\n", batch_rows);
             if (nullvec[col_index] || (!array->IsNull(j))) {
               const uint8_t* srcptr = dataptr + (j << shift);
               __m256i v = _mm256_maskz_loadu_epi8(mask, srcptr);
