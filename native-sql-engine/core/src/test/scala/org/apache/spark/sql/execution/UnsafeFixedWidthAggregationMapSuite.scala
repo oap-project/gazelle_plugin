@@ -19,6 +19,8 @@ package org.apache.spark.sql.execution
 
 import java.util.Properties
 
+import com.intel.oap.GazellePluginConfig
+
 import scala.collection.mutable
 import scala.util.{Random, Try}
 import scala.util.control.NonFatal
@@ -107,7 +109,8 @@ class UnsafeFixedWidthAggregationMapSuite
       StructType(StructField("x", DecimalType.USER_DEFAULT) :: Nil)))
     assert(supportsAggregationBufferSchema(
       StructType(StructField("x", DecimalType.SYSTEM_DEFAULT) :: Nil)))
-    assert(!supportsAggregationBufferSchema(StructType(StructField("x", StringType) :: Nil)))
+    // Force to use hash agg for string type.
+    assert(supportsAggregationBufferSchema(StructType(StructField("x", StringType) :: Nil)))
     assert(
       !supportsAggregationBufferSchema(StructType(StructField("x", ArrayType(IntegerType)) :: Nil)))
   }

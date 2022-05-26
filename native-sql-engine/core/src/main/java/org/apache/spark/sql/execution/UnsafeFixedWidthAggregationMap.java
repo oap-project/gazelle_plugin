@@ -78,8 +78,8 @@ public final class UnsafeFixedWidthAggregationMap {
     GazellePluginConfig columnarConf = GazellePluginConfig.getSessionConf();
     for (StructField field: schema.fields()) {
       if (!UnsafeRow.isMutable(field.dataType())) {
-        // To make StringType be supported. Thus, Gazelle Hash Agg can tackle StringType input.
-        // And vanilla spark hash agg when
+        // To force going into hash agg for StringType input. Because sort agg is not supported
+        // in Gazelle.
         if (columnarConf.enableHashAggForStringType() && field.dataType() == StringType) {
           continue;
         }
