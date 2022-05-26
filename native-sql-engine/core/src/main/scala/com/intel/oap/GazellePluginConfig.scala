@@ -55,6 +55,11 @@ class GazellePluginConfig(conf: SQLConf) extends Logging {
   val enableColumnarHashAgg: Boolean =
     conf.getConfString("spark.oap.sql.columnar.hashagg", "true").toBoolean && enableCpu
 
+  // To control whether hash agg is used for string type input, instead of sort agg.
+  val enableHashAggForStringType: Boolean =
+    conf.getConfString(
+      "spark.oap.sql.columnar.hashagg.support.string", "true").toBoolean && enableCpu
+
   // enable or disable columnar project and filter
   val enableColumnarProjFilter: Boolean =
     conf.getConfString("spark.oap.sql.columnar.projfilter", "true").toBoolean && enableCpu
