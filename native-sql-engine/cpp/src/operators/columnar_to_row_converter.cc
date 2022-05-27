@@ -162,9 +162,9 @@ arrow::Status ColumnarToRowConverter::Init(
           reminder_8x = _mm256_sub_epi32(x8_8x, reminder_8x);
           reminder_8x = _mm256_and_si256(reminder_8x, x7_8x);
           reminder_8x = _mm256_add_epi32(reminder_8x, length_8x);
-          __m256i dst_length_8x = _mm256_loadu_si256((__m256i*)length_data);
+          __m256i dst_length_8x = _mm256_load_si256((__m256i*)length_data);
           dst_length_8x = _mm256_add_epi32(dst_length_8x, reminder_8x);
-          _mm256_storeu_si256((__m256i*)length_data, dst_length_8x);
+          _mm256_store_si256((__m256i*)length_data, dst_length_8x);
           length_data += 8;
           _mm_prefetch(&offsetarray[j + (128 + 128) / sizeof(offset_type)], _MM_HINT_T0);
         }
